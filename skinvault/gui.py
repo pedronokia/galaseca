@@ -212,8 +212,9 @@ class MainWindow(QWidget):
         self._btn.setEnabled(True)
         self._bar.hide()
         msgs = {
-            steam_api.INV_PRIVATE: "Inventario PRIVADO. Steam > Editar Perfil >"
-                                   " Privacidade > Inventario: Publico.",
+            steam_api.INV_PRIVATE: "Inventario nao acessivel (400): privado, vazio "
+                                   "(sem skins CS2), ou Steam limitou. Confere no "
+                                   "navegador, aba CS2.",
             steam_api.INV_RATE_LIMITED: "Steam limitou (rate-limit). Espera ~1 min.",
             steam_api.INV_EMPTY: "Inventario publico, mas sem itens marketaveis.",
             steam_api.INV_ERROR: "Nao consegui ler agora (rede/erro).",

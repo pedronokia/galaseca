@@ -26,7 +26,11 @@ _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
 # Status do fetch de inventario -- nascido de um teste real: perfil publico
 # NAO garante inventario publico, e o Steam sinaliza cada caso diferente.
 INV_OK = "ok"
-INV_PRIVATE = "private"          # 400/403: inventario com privacidade fechada
+# 400/403: nao acessivel. ATENCAO: o Steam e' inconsistente aqui -- pode ser
+# privado, VAZIO (conta sem skins de CS2), ou ate rate-limit disfarcado. Nao da'
+# pra afirmar "privado" so' pelo codigo. (Aprendido num teste real: settings em
+# "Publico" e ainda assim 400.)
+INV_PRIVATE = "private"
 INV_RATE_LIMITED = "rate_limited"  # 429: bater de novo daqui a pouco
 INV_EMPTY = "empty"             # 200 porem sem itens marketaveis de CS2
 INV_ERROR = "error"             # rede/erro inesperado

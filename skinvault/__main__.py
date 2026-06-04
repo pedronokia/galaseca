@@ -23,8 +23,11 @@ def _cli_value(steam_id: str) -> None:
     status, rows, total = prices.value_inventory(steam_id, progress=progress)
 
     if status == steam_api.INV_PRIVATE:
-        print("Inventario PRIVADO (separado da privacidade do perfil!).")
-        print("  Libera em: Steam > Editar Perfil > Privacidade > Inventario: Publico.")
+        print("Inventario nao acessivel (HTTP 400). Pode ser:")
+        print("  - PRIVADO (Steam > Editar Perfil > Privacidade > Inventario: Publico), ou")
+        print("  - VAZIO (a conta nao tem skins de CS2 marketaveis), ou")
+        print("  - rate-limit temporario do Steam (espera ~1 min).")
+        print("  Confere abrindo teu inventario no navegador, aba CS2.")
         return
     if status == steam_api.INV_RATE_LIMITED:
         print("Steam limitou (rate-limit). Espera ~1 min e roda de novo.")
