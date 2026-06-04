@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
+.pytest_cache/
 .venv/
 venv/
 env/
@@ -11,4 +12,7 @@ data/*
 .env
 .vscode/
 *.spec
-_diag.py
+*.log
+*.tmp
+_diag*.py
+COMMIT_MSG.tmp
