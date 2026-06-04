@@ -68,6 +68,18 @@ def _fetch_with_backoff(name: str, retries: int = 3) -> float | None:
     return None
 
 
+def cached_price(name: str, cache: "PriceCache | None" = None) -> float | None:
+    """Preco de UM item usando cache (so' bate na rede em miss). Reuso pro
+    portfolio, que tem poucos itens."""
+    cache = cache or PriceCache()
+    price = cache.get(name)
+    if price is None:
+        price = _fetch_with_backoff(name)
+        if price is not None:
+            cache.put(name, price)
+    return price
+
+
 def value_inventory(
     steam_id: str,
     cache: PriceCache | None = None,

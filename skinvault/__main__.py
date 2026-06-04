@@ -1,8 +1,10 @@
 """SkinVault.
 
-  python -m skinvault                 -> banner + uso
-  python -m skinvault <SteamID64>     -> avalia o inventario inteiro (CLI, com cache)
-  python -m skinvault --ui            -> abre a janela (PyQt6)
+  python -m skinvault                          banner + uso
+  python -m skinvault <SteamID64>              avalia o inventario publico (CLI)
+  python -m skinvault --ui                     abre a janela (PyQt6)
+  python -m skinvault --portfolio              meu portfolio (lucro REAL pos-taxa)
+  python -m skinvault --add "<nome>" <custo> [qtd]   adiciona uma posicao
 
 Le' so' dado publico (SteamID + precos do Market). Nunca pede login.
 """
@@ -10,7 +12,11 @@ from __future__ import annotations
 
 import sys
 
-from skinvault import __version__, history, prices, steam_api
+from skinvault import __version__, history, portfolio, prices, steam_api
+
+
+def _brl(v: float) -> str:
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _cli_value(steam_id: str) -> None:
@@ -21,13 +27,9 @@ def _cli_value(steam_id: str) -> None:
         print(f"  avaliando {i}/{n} ...", end=end, flush=True)
 
     status, rows, total = prices.value_inventory(steam_id, progress=progress)
-
     if status == steam_api.INV_PRIVATE:
-        print("Inventario nao acessivel (HTTP 400). Pode ser:")
-        print("  - PRIVADO (Steam > Editar Perfil > Privacidade > Inventario: Publico), ou")
-        print("  - VAZIO (a conta nao tem skins de CS2 marketaveis), ou")
-        print("  - rate-limit temporario do Steam (espera ~1 min).")
-        print("  Confere abrindo teu inventario no navegador, aba CS2.")
+        print("Inventario nao acessivel (400): privado, vazio (sem skins CS2),")
+        print("  ou rate-limit. Confere no navegador, aba CS2.")
         return
     if status == steam_api.INV_RATE_LIMITED:
         print("Steam limitou (rate-limit). Espera ~1 min e roda de novo.")
@@ -38,15 +40,61 @@ def _cli_value(steam_id: str) -> None:
     if status != steam_api.INV_OK or not rows:
         print("Nao consegui ler agora (rede/erro). Tenta de novo.")
         return
-
     print()
     print(f"{'VALOR':>11}  {'QTD':>3}  ITEM")
     for row in rows[:15]:
-        print(f"R$ {row['total']:>8.2f}  {row['qty']:>3}  {row['name']}")
+        print(f"{_brl(row['total']):>11}  {row['qty']:>3}  {row['name']}")
     print()
-    print(f"TOTAL ({len(rows)} itens): R$ {total:.2f}")
+    print(f"TOTAL ({len(rows)} itens): {_brl(total)}")
     history.record_snapshot(total)
-    print("(snapshot salvo -- a 2a rodada e' quase instantanea via cache)")
+
+
+def _cli_portfolio() -> None:
+    positions = portfolio.load_portfolio()
+    if not positions:
+        print("Portfolio vazio. Adiciona uma posicao com:")
+        print('  python -m skinvault --add "AK-47 | Redline (Field-Tested)" 180 1')
+        return
+    print(f"Avaliando {len(positions)} posicoes (preco ao vivo, com cache)...")
+    cache = prices.PriceCache()
+    result = portfolio.evaluate_portfolio(
+        positions, lambda n: prices.cached_price(n, cache)
+    )
+    print()
+    print(f"{'CUSTO':>10} {'VALE':>10} {'RECEBE':>10} {'LUCRO REAL':>12} "
+          f"{'BREAK-EVEN':>11}  ITEM")
+    for r in result["rows"]:
+        if r.get("pnl") is None:
+            print(f"{_brl(r['cost']):>10} {'--':>10} {'--':>10} {'sem preco':>12} "
+                  f"{'--':>11}  {r['name']}")
+            continue
+        tag = "+" if r["pnl"] >= 0 else ""
+        print(f"{_brl(r['cost_total']):>10} {_brl(r['market']):>10} "
+              f"{_brl(r['net_if_sold']):>10} {tag + _brl(r['pnl']):>12} "
+              f"{_brl(r['break_even']):>11}  {r['name']}")
+    t = result["totals"]
+    print()
+    sign = "+" if t["pnl"] >= 0 else ""
+    print(f"TOTAIS  custo {_brl(t['cost'])}  |  vale {_brl(t['market'])}  |  "
+          f"recebe {_brl(t['net_if_sold'])}  |  LUCRO REAL {sign}{_brl(t['pnl'])} "
+          f"({t['pnl_pct']*100:+.1f}%)")
+    print("(LUCRO REAL = o que voce recebe pos-taxa 15% menos o que pagou. "
+          "'Vale' e' so' aparencia.)")
+
+
+def _cli_add(args: list[str]) -> None:
+    if len(args) < 2:
+        print('Uso: python -m skinvault --add "<nome exato>" <custo> [qtd]')
+        return
+    name = args[0]
+    try:
+        cost = float(args[1].replace(",", "."))
+    except ValueError:
+        print("Custo invalido."); return
+    qty = int(args[2]) if len(args) >= 3 else 1
+    portfolio.add_position(name, cost, qty)
+    print(f"Adicionado: {qty}x {name} @ {_brl(cost)} (break-even "
+          f"{_brl(portfolio.break_even_price(cost))})")
 
 
 def main() -> None:
@@ -59,12 +107,18 @@ def main() -> None:
     if "--ui" in args:
         from skinvault.gui import launch
         raise SystemExit(launch())
-    if args:
+    if "--portfolio" in args:
+        _cli_portfolio()
+    elif "--add" in args:
+        _cli_add(args[args.index("--add") + 1:])
+    elif args and not args[0].startswith("--"):
         _cli_value(args[0])
     else:
         print(f"SkinVault v{__version__}")
-        print("  python -m skinvault <SteamID64>   avalia o inventario")
-        print("  python -m skinvault --ui          abre a janela")
+        print("  python -m skinvault <SteamID64>     avalia o inventario")
+        print("  python -m skinvault --portfolio     lucro REAL pos-taxa")
+        print('  python -m skinvault --add "<nome>" <custo> [qtd]')
+        print("  python -m skinvault --ui            abre a janela")
 
 
 if __name__ == "__main__":
