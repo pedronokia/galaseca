@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+data/*
+!data/.gitkeep
+.env
+.vscode/
+*.spec
+_diag.py
