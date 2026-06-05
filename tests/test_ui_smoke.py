@@ -5,7 +5,7 @@ Nao usa rede; mocka session e tray nos testes que precisam.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 import pytest
@@ -14,6 +14,9 @@ import pytest
 @pytest.fixture(autouse=True)
 def _qapp():
     """Cria/descarta QApplication por teste."""
+    QApplication.setAttribute(
+        Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True
+    )
     app = QApplication.instance()
     if app is None:
         app = QApplication([])

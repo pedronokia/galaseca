@@ -533,14 +533,15 @@ class MainWindow(QMainWindow):
 
         geo = settings.get("window_geometry", {})
         pos = settings.get("window_position", {})
-        w = geo.get("w", 1100)
-        h = geo.get("h", 720)
+        w = geo.get("w", 1200)
+        h = geo.get("h", 800)
         x = pos.get("x")
         y = pos.get("y")
         if x is not None and y is not None:
             self.setGeometry(x, y, w, h)
         else:
             self.resize(w, h)
+            self._center_on_screen()
 
         self._apply_stylesheet()
         ttl = settings.get("cache_ttl_hours", 6) * 3600
@@ -565,6 +566,15 @@ class MainWindow(QMainWindow):
 
         if settings.get("auto_backup", True):
             backup.make_backup()
+
+    def _center_on_screen(self) -> None:
+        screen = self.screen()
+        if screen is None:
+            return
+        center = screen.availableGeometry().center()
+        fg = self.frameGeometry()
+        fg.moveCenter(center)
+        self.move(fg.topLeft())
 
     def _apply_stylesheet(self) -> None:
         self.setStyleSheet(
@@ -787,11 +797,14 @@ class MainWindow(QMainWindow):
 
 
 def launch() -> int:
+    QApplication.setAttribute(
+        Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True
+    )
     app = QApplication([])
     win = MainWindow()
     settings = load_settings()
     if settings.get("start_minimized", False) and win._tray_icon is not None:
         win.hide()
     else:
-        win.show()
+        win.showMaximized()
     return app.exec()

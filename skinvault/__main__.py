@@ -123,6 +123,15 @@ def main() -> None:
 
     args = sys.argv[1:]
     if "--ui" in args:
+        if sys.platform == "win32" and sys.executable.endswith("python.exe"):
+            import subprocess
+            pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+            try:
+                subprocess.Popen([pythonw, "-m", "skinvault", "--ui"],
+                                 shell=False)
+                return
+            except FileNotFoundError:
+                pass
         from skinvault.gui import launch
         raise SystemExit(launch())
     if "--portfolio" in args:
