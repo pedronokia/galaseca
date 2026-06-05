@@ -215,6 +215,27 @@ class _FilterBar(QWidget):
             if key == "all":
                 btn.setChecked(True)
 
+        # Separador
+        sep2 = QLabel("|")
+        sep2.setStyleSheet(
+            f"color: {t.BORDER}; font-size: {t.FS_BODY};"
+            f" padding: 0 6px;"
+        )
+        root.addWidget(sep2)
+
+        self._search = QLineEdit()
+        self._search.setPlaceholderText("Buscar por nome...")
+        self._search.setClearButtonEnabled(True)
+        self._search.setStyleSheet(
+            f"QLineEdit {{ background: {t.SURFACE}; color: {t.TEXT};"
+            f" border: 1px solid {t.BORDER}; border-radius: 6px;"
+            f" padding: 4px 10px; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; min-width: 240px; }}"
+            f"QLineEdit:focus {{ border-color: {t.ACCENT}; }}"
+        )
+        self._search.textChanged.connect(self._on_search_changed)
+        root.addWidget(self._search)
+
         root.addStretch(1)
 
         clear_btn = QPushButton("Limpar")
@@ -248,6 +269,9 @@ class _FilterBar(QWidget):
         self._tipo = key
         self.filters_changed.emit()
 
+    def _on_search_changed(self, _text: str) -> None:
+        self.filters_changed.emit()
+
     def _clear(self) -> None:
         self._periodo = "all"
         self._tipo = "all"
@@ -257,6 +281,7 @@ class _FilterBar(QWidget):
         all_t = self._tipo_btns.get("all")
         if all_t:
             all_t.setChecked(True)
+        self._search.clear()
         self.filters_changed.emit()
 
     def set_tipo_enabled(self, enabled: bool) -> None:
@@ -270,6 +295,10 @@ class _FilterBar(QWidget):
     @property
     def tipo(self) -> str:
         return self._tipo
+
+    @property
+    def search_text(self) -> str:
+        return self._search.text().strip().lower()
 
 
 def _in_period(ts: float, period: str) -> bool:
@@ -471,7 +500,12 @@ class HistoryScreen(QWidget):
     def _load_open(self):
         opens = trade_matcher.load_open_buys()
         periodo = self._filter_panel.periodo
-        visible = [o for o in opens if _in_period(o.buy_ts, periodo)]
+        search = self._filter_panel.search_text
+        visible = [
+            o for o in opens
+            if _in_period(o.buy_ts, periodo)
+            and (not search or search in o.name.lower())
+        ]
         self._open_cache = visible
         rows: list[list[str]] = []
         pnl_vals: list[float | None] = []
