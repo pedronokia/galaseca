@@ -511,7 +511,9 @@ def _format_sync_result(step: str, result: dict) -> str:
     if "error" in result:
         return "erro: " + str(result["error"])[:40]
     if step == "inventory":
-        return f"{result.get('added', 0)} novos itens"
+        added = result.get("added", 0)
+        total = added + result.get("skipped", 0)
+        return f"{added} novos / {total} no inventario"
     if step == "market":
         return f"{result.get('new', 0)} novos / {result.get('total', 0)} total"
     if step == "listings":
