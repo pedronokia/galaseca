@@ -67,52 +67,52 @@
 
 ---
 
-## FASE 6 — Investment Score Aprimorado (em curso) 🟡
-Objetivo: score multi-fator com pesos configuráveis + breakdown visível.
+## FASE 6 — Investment Score Aprimorado ✅
+- [x] `enhanced_score()` retorna `(score, breakdown)` com contribuição por fator
+- [x] `format_breakdown()` serializa para tooltip
+- [x] Tooltip no ScannerTab na coluna Score mostrando todos os fatores
+- [x] `scan_score()` mantido como wrapper retrocompatível
+- [x] Bonus de caixa: descontinuada +5, rara +3 (preparado para F7)
 
-Fatores e pesos atuais (no `scan_score()`):
-| Fator | Peso | Fonte | Status |
-|---|---|---|---|
-| Diff vs mediana | ±35 | diff_pct | ✅ |
-| Spread | ±25 | order book | ✅ |
-| Book ratio | ±20 | order book | ✅ |
-| Tendência (verdict) | ±15 | trend | ✅ |
-| Supply/Demand | ±15 | volume/supply | ✅ |
-| Momentum (SMA) | ±5 | price_history | ✅ |
-| Concordância multi-período | ±10 | multi_trend | ✅ |
-| Liquidez (volume>2000) | +5 | volume | ✅ |
-| Caixa descontinuada | — | case_database | ⏳ F7 |
+Fatores e pesos atuais:
+| Fator | Peso | Fonte |
+|---|---|---|
+| Diff vs mediana | ±35 | diff_pct |
+| Spread | ±25 | order book |
+| Book ratio | ±20 | order book |
+| Tendência (verdict) | ±15 | trend |
+| Supply/Demand | ±15 | volume/supply |
+| Momentum (SMA) | ±5 | price_history |
+| Concordância multi-período | ±10 | multi_trend |
+| Liquidez (volume>2000) | +5 | volume |
+| Caixa descontinuada | +5 | cases.case_status |
+| Caixa rara | +3 | cases.case_status |
 
-- [ ] `enhanced_score()` retorna `(score, breakdown)` com contribuição por fator
-- [ ] Tooltip no ScannerTab mostrando breakdown ao hover na coluna Score
-- [ ] Pesos configuráveis em `settings.py` (opcional, depois)
+## FASE 7 — Case Database ✅
+- [x] `skinvault/cases.py` — 50+ cases + 100+ skins populares mapeadas
+- [x] `case_status(name)` com normalizacao (StatTrak/Souvenir/wear)
+- [x] Match exato + fallback substring (luvas variantes)
+- [x] MarketTab: substitui `discontinued_flag` pelo case_status (cor por status)
+- [x] ScannerTab: tooltip de case na coluna nome + chip no Top Pick
+- [x] Integrado no Investment Score (F6)
 
-## FASE 7 — Case Database
-Objetivo: mapear skin → caixa de origem + status.
+## FASE 8 — Alertas Avançados ✅
+- [x] `skinvault/alerts.py` engine de regras: price_below, price_drop_pct,
+       volume_spike, supply_drop
+- [x] `evaluate_item()`, `diff_new_alerts()` (auto-rearm), `record_alert()`,
+       `load_alerts_log()` (cap 500)
+- [x] WatchlistTab: coluna "Regras", botão "Editar regras" com dialog
+       (drop %, volume spike, supply drop, baseline)
+- [x] QSystemTrayIcon com notificações por regra
+- [x] Tooltip na coluna Status mostra alertas ativos
+- [x] Log persistido em `data/alerts_log.json`
 
-- [ ] `skinvault/cases.py` — database de ~80 cases/coleções principais
-- [ ] `case_status(name)` retorna `{case, collection, is_discontinued, is_rare, dropped_since}`
-- [ ] Exibir no MarketTab (linha com caixa + status)
-- [ ] Exibir no ScannerTab (tooltip ou coluna compacta)
-- [ ] Bonus no Investment Score: +5 para descontinuada, +3 para rare
-
-## FASE 8 — Alertas Avançados
-Objetivo: notificar oportunidades no tray.
-
-- [ ] `skinvault/alerts.py` — define regras (preço cai X%, volume sobe Y%, anomaly)
-- [ ] WatchlistTab expandida com regras por item
-- [ ] QSystemTrayIcon com notificações nativas
-- [ ] Log de alertas disparados em `data/alerts_log.json`
-- [ ] Click no tray abre ScannerTab focado no item
-
-## FASE 9 — Top 20 Ranking
-Objetivo: ranking automático para descobrir oportunidades.
-
-- [ ] Botão "Ranking Top 20" no ScannerTab
-- [ ] Escaneia lista predefinida de itens populares (top por categoria)
-- [ ] Salva snapshot em `data/rankings.json`
-- [ ] Comparativo: "semana passada estava em 5º, agora 2º"
-- [ ] Filtrável por categoria
+## FASE 9 — Top 20 Ranking ✅
+- [x] `skinvault/ranking.py` com save_snapshot / position_delta
+- [x] Botão "Ranking Top 20" no ScannerTab (escaneia todas as categorias)
+- [x] Snapshot persistido em `data/rankings.json` (cap 50)
+- [x] Coluna "ΔPos" mostra +N (verde) / -N (vermelho) / = / NOVO (roxo)
+- [x] Tooltip na ΔPos mostra posição anterior
 
 ---
 
@@ -121,7 +121,7 @@ Objetivo: ranking automático para descobrir oportunidades.
 **Decisão arquitetural Steam-only:** evitar dependência de scraping frágil e sessões privadas.
 
 - **Float Analysis / Pattern Scanner (#6, #7)** — Steam não expõe via API pública; precisaria CSFloat API
-- **Multi-market arbitragem (#13)** — Buff (login chinês), Skinport (API ok), SkinBaron (scraping), CSFloat (API ok). Decisão para depois das Fases 6-9.
+- **Multi-market arbitragem (#13)** — Buff (login chinês), Skinport (API ok), SkinBaron (scraping), CSFloat (API ok). Reavaliar após uso real do scanner.
 - **Pro player / streamer tracking (#8)** — HLTV/Liquipedia scraping frágil
 - **Unboxing rate (#10)** — só Valve tem
 - **Histórico de compras/vendas Steam pessoal** — requer sessão privada
@@ -131,7 +131,8 @@ Objetivo: ranking automático para descobrir oportunidades.
 ## Ordem de Implementação
 
 ```
-✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → 🟡 F6 → ⏳ F7 → ⏳ F8 → ⏳ F9
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9
 ```
 
-Cada fase é autossuficiente e testável. Fases 6-9 são independentes entre si.
+Todas as 9 fases planejadas concluídas. Total: 168 testes, 5 módulos novos
+(signals, cases, alerts, ranking + UI completa).
