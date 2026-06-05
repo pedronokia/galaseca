@@ -801,6 +801,7 @@ class MainWindow(QMainWindow):
 
 
 def launch() -> int:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     QApplication.setAttribute(
         Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True
     )
