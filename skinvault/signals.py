@@ -163,19 +163,25 @@ def find_support_resistance(
 def scan_score(verdict: dict) -> int:
     """Score de 0-100 para classificacao de oportunidade.
     Quanto maior, melhor oportunidade de compra.
-    Pondera: abaixo mediana (+40), spread tight (+25), buyer_dominant (+20), trending up (+15).
-    Penaliza: overpriced (-40), seller_dominant (-15), trending down (-10).
+    Pondera: diferenca da mediana, spread, book ratio, tendencia.
     """
     score = 50  # neutro
+
+    # Diferenca da mediana (peso maior quando abaixo)
+    diff = verdict.get("diff_pct") or 0
+    if diff < 0:
+        # Quanto mais abaixo, melhor (capped em -30% -> +35)
+        bonus = min(abs(diff) * 1.2, 35)
+        score += bonus
+    elif diff > 0:
+        penalty = min(diff * 0.8, 35)
+        score -= penalty
+
     v = verdict.get("verdict", "")
     if v == "below_median":
-        score += 40
-    elif v == "fair":
-        score += 20
-    elif v == "slightly_above":
-        score -= 10
+        score += 5  # bonus extra
     elif v == "overpriced":
-        score -= 40
+        score -= 5
 
     sv = verdict.get("spread_verdict", "")
     if sv == "tight":

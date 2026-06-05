@@ -133,17 +133,17 @@ def test_find_support_resistance_empty():
 
 
 def test_scan_score_below_median():
-    v = {"verdict": "below_median", "spread_verdict": "tight",
+    v = {"verdict": "below_median", "diff_pct": -15, "spread_verdict": "tight",
          "book_verdict": "buyer_dominant", "trend_verdict": "rising"}
     assert signals.scan_score(v) == 100
 
 
 def test_scan_score_overpriced():
-    v = {"verdict": "overpriced", "spread_verdict": "wide",
+    v = {"verdict": "overpriced", "diff_pct": 30, "spread_verdict": "wide",
          "book_verdict": "seller_dominant", "trend_verdict": "falling"}
     assert signals.scan_score(v) == 0
 
 
 def test_scan_score_neutral():
-    v = {"verdict": "fair"}
-    assert signals.scan_score(v) == 70
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v) == 50

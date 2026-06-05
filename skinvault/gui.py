@@ -1854,13 +1854,29 @@ class ScannerTab(QWidget):
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
 
+        # Summary bar (top pick)
+        summary = QHBoxLayout()
+        self._top_pick = QLabel("Nenhum scan realizado ainda")
+        self._top_pick.setStyleSheet(
+            f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
+            f" color: {_MUTED}; font-size: 11pt;"
+        )
+        summary.addWidget(self._top_pick, 1)
+
+        self._summary_counts = QLabel("")
+        self._summary_counts.setStyleSheet(
+            f"color: {_MUTED}; font-size: 10pt; padding: 0 8px;"
+        )
+        summary.addWidget(self._summary_counts)
+        root.addLayout(summary)
+
         # Input area
         input_layout = QHBoxLayout()
         self._items_edit = QTextEdit()
         self._items_edit.setPlaceholderText(
             "Itens para escanear (um por linha)"
         )
-        self._items_edit.setMaximumHeight(100)
+        self._items_edit.setMaximumHeight(80)
         self._items_edit.setStyleSheet(
             f"QTextEdit {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
             " border-radius: 8px; padding: 8px; font-size: 10pt;"
@@ -1900,10 +1916,10 @@ class ScannerTab(QWidget):
 
         # Results table
         self._table = QTableWidget()
-        self._table.setColumnCount(8)
+        self._table.setColumnCount(9)
         self._table.setHorizontalHeaderLabels(
-            ["Item", "Preco", "Mediana", "Veredito", "Spread",
-             "Book", "Tendencia", "Score"]
+            ["Item", "Sinal", "Preco", "Preco Justo", "Veredito",
+             "Spread", "Book", "Tendencia", "Score"]
         )
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setAlternatingRowColors(True)
@@ -1921,12 +1937,35 @@ class ScannerTab(QWidget):
             "QHeaderView::section {"
             f" background: {_BG}; color: {_MUTED}; font-weight: 600;"
             " padding: 6px; border: none; }"
-            f"{{ alternate-background-color: #1A1A22; }}"
         )
         root.addWidget(self._table, 1)
 
     def _load_defaults(self) -> None:
         self._items_edit.setText("\n".join(_SCAN_DEFAULTS))
+
+    def _signal_label(self, r: dict) -> str:
+        score = r["score"]
+        if score >= 70:
+            return "COMPRA"
+        if score >= 45:
+            return "ATENCAO"
+        return "EVITAR"
+
+    def _signal_color(self, r: dict) -> QColor:
+        score = r["score"]
+        if score >= 70:
+            return QColor(_GREEN)
+        if score >= 45:
+            return QColor("#FACC15")
+        return QColor(_RED)
+
+    def _row_bg(self, r: dict) -> QColor:
+        score = r["score"]
+        if score >= 70:
+            return QColor(34, 197, 94, 20)
+        if score <= 30:
+            return QColor(239, 68, 68, 15)
+        return QColor(0, 0, 0, 0)
 
     def _on_scan(self) -> None:
         items = [
@@ -1939,21 +1978,29 @@ class ScannerTab(QWidget):
         self._scan_results = []
         self._table.setRowCount(0)
         self._scan_btn.setEnabled(False)
+        self._top_pick.setText("Escaneando... aguarde")
+        self._top_pick.setStyleSheet(
+            f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
+            f" color: {_MUTED}; font-size: 11pt;"
+        )
+        self._summary_counts.setText("")
         self._status.setText("Escaneando... (respeitando rate limit)")
 
         def work() -> None:
             for i, name in enumerate(self._scan_items):
-                overview = steam_api.get_market_overview(name)
-                page = steam_api.get_market_page_data(name)
-                merged = dict(overview) if overview else {}
-                merged["page_data"] = page
+                try:
+                    overview = steam_api.get_market_overview(name)
+                    page = steam_api.get_market_page_data(name)
+                    merged = dict(overview) if overview else {}
+                    merged["page_data"] = page
+                except Exception:
+                    merged = {}
                 merged["_scan_name"] = name
                 merged["_scan_index"] = i
                 self._bridge.market_done.emit(merged)
                 import time
-                time.sleep(4)  # rate limit ~20/min -> 3s between calls
+                time.sleep(4)
 
-            # Signal done
             self._bridge.market_done.emit({"_scan_done": True})
 
         threading.Thread(target=work, daemon=True).start()
@@ -1961,10 +2008,37 @@ class ScannerTab(QWidget):
     def _on_item_scanned(self, data: dict) -> None:
         if data.get("_scan_done"):
             self._scan_btn.setEnabled(True)
+            if not self._scan_results:
+                self._status.setText("Nenhum resultado obtido.")
+                self._top_pick.setText("Nenhum item pode ser avaliado.")
+                return
+
+            buys = sum(1 for r in self._scan_results if r["score"] >= 70)
+            warns = sum(1 for r in self._scan_results if 45 <= r["score"] < 70)
+            avoids = sum(1 for r in self._scan_results if r["score"] < 45)
+            best = self._scan_results[0]
+
+            self._summary_counts.setText(
+                f"COMPRA: {buys}  |  ATENCAO: {warns}  |  EVITAR: {avoids}"
+            )
+
+            sinal = self._signal_label(best)
+            cor = self._signal_color(best).name()
+            spread_txt = f" | Spread {best['spread'].replace('_', ' ')}" if best.get("spread") else ""
+            self._top_pick.setStyleSheet(
+                f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
+                f" font-size: 11pt; border-left: 4px solid {cor};"
+            )
+            self._top_pick.setText(
+                f"MELHOR OPORTUNIDADE: {best['name']}  |  "
+                f"Preco: {_brl(best['price'])}  |  "
+                f"Score: {best['score']}%  |  "
+                f"Sinal: {sinal}"
+                f"{spread_txt}"
+            )
             self._status.setText(
-                f"Scan concluido. {len(self._scan_results)} itens analisados "
-                f"(melhor score: {self._scan_results[0]['score']}%)"
-                if self._scan_results else "Nenhum resultado."
+                f"Scan concluido. {len(self._scan_results)} itens analisados. "
+                f"Melhor: {best['name']} ({best['score']}%)"
             )
             return
 
@@ -1978,6 +2052,9 @@ class ScannerTab(QWidget):
         page_data = data.get("page_data")
         order_book = (page_data or {}).get("order_book")
 
+        if lowest is None and median is None:
+            return
+
         verdict = steam_api.fair_value_verdict(
             lowest, median,
             spread=(order_book or {}).get("spread"),
@@ -1987,16 +2064,26 @@ class ScannerTab(QWidget):
         )
         score = signals.scan_score(verdict)
 
+        diff_pct = verdict.get("diff_pct")
+        if lowest and median:
+            potencial = f"{abs(diff_pct):.0f}% abaixo" if diff_pct and diff_pct < 0 else (
+                f"{diff_pct:.0f}% acima" if diff_pct and diff_pct > 0 else "no preço"
+            )
+        else:
+            potencial = "N/D"
+
         row_data = {
             "name": name,
             "price": lowest,
             "median": median,
+            "potencial": potencial,
             "verdict": verdict.get("verdict", ""),
             "spread": verdict.get("spread_verdict", ""),
             "book": verdict.get("book_verdict", ""),
             "trend": verdict.get("trend_verdict", ""),
             "score": score,
             "message": verdict.get("message", ""),
+            "diff_pct": diff_pct,
         }
         self._scan_results.append(row_data)
         self._scan_results.sort(key=lambda r: -r["score"])
@@ -2005,31 +2092,46 @@ class ScannerTab(QWidget):
         self._table.setSortingEnabled(False)
         self._table.setRowCount(len(self._scan_results))
         for row, r in enumerate(self._scan_results):
-            score_color = _GREEN if r["score"] >= 60 else (_RED if r["score"] < 30 else "#FACC15")
+            sinal = self._signal_label(r)
+            scolor = self._signal_color(r)
+            row_bg = self._row_bg(r)
 
             items_data = [
                 r["name"],
+                sinal,
                 _brl(r["price"]) if r["price"] else "N/D",
-                _brl(r["median"]) if r["median"] else "N/D",
+                r["potencial"],
                 r["verdict"].replace("_", " "),
                 r["spread"].replace("_", " ") if r["spread"] else "-",
                 r["book"].replace("_", " ") if r["book"] else "-",
                 r["trend"] if r["trend"] else "-",
                 f"{r['score']}%",
             ]
+
+            signal_colors = {
+                0: scolor,
+                1: scolor,
+                8: scolor,
+            }
+
             for col, text in enumerate(items_data):
                 item = QTableWidgetItem(text)
-                if col == 7:
-                    item.setForeground(QColor(score_color))
+                if col in signal_colors:
+                    item.setForeground(signal_colors[col])
+                if col == 1:
                     item.setFont(QFont("", 10, QFont.Weight.Bold))
-                elif col == 4 and r.get("spread"):
+                if col == 8:
+                    item.setFont(QFont("", 10, QFont.Weight.Bold))
+                if col == 5 and r.get("spread"):
                     item.setForeground(
                         QColor(_GREEN if r["spread"] == "tight" else _RED)
                     )
-                elif col == 5 and r.get("book"):
+                elif col == 6 and r.get("book"):
                     item.setForeground(
                         QColor(_GREEN if r["book"] == "buyer_dominant" else _RED)
                     )
+                if row_bg.alpha() > 0:
+                    item.setBackground(row_bg)
                 self._table.setItem(row, col, item)
 
         self._table.setSortingEnabled(True)
