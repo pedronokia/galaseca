@@ -41,7 +41,6 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
-    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -4008,7 +4007,9 @@ def _format_sync_result(step: str, result: dict) -> str:
     return "ok"
 
 
-class MainWindow(QTabWidget):
+class MainWindow(QWidget):
+    """Janela principal usando ScreenRouter (F11) com sidebar hierarquica."""
+
     def __init__(self) -> None:
         super().__init__()
         settings = load_settings()
@@ -4020,7 +4021,7 @@ class MainWindow(QTabWidget):
         if geo.get("w") and geo.get("h"):
             self.resize(geo["w"], geo["h"])
         else:
-            self.resize(720, 640)
+            self.resize(1100, 720)
         self._apply_stylesheet()
         ttl = settings.get("cache_ttl_hours", 6) * 3600
         self._cache = prices.PriceCache(ttl=ttl)
@@ -4028,93 +4029,33 @@ class MainWindow(QTabWidget):
         self._tray_icon: QSystemTrayIcon | None = None
         self._init_tray()
 
-        self.addTab(InventoryTab(self._cache), "Inventario")
-        self.addTab(PortfolioTab(self._cache), "Meu Portfolio")
-        self.addTab(MarketTab(), "Market Browser")
-        self.addTab(WatchlistTab(self._cache, self._tray_icon), "Watchlist")
-        self.addTab(TradeTab(), "Trade Analyzer")
-        self.addTab(SimuladorTab(), "Simulador")
-        self.addTab(ScannerTab(), "Scanner")
-
-        cfg_btn = QPushButton("Config")
-        cfg_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cfg_btn.setToolTip("Configuracoes do SkinVault")
-        cfg_btn.setStyleSheet(
-            "QPushButton { color: #9D9DA8; background: transparent;"
-            " border: 1px solid #3A3A44; border-radius: 6px;"
-            " padding: 6px 14px; font-size: 9pt; }"
-            "QPushButton:hover { color: #E6E6EA; border-color: #5A5A66; }"
+        # ScreenRouter com sidebar no lugar do QTabWidget
+        from skinvault.ui.screen_router import ScreenRouter
+        self._router = ScreenRouter(self._cache, self)
+        self._router.sync_requested.connect(self._on_sync_requested)
+        self._router.set_utility_callbacks(
+            settings=self._open_settings,
+            about=self._open_about,
+            backup=self._open_backups,
         )
-        cfg_btn.clicked.connect(self._open_settings)
 
-        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(self._focus_filter)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(self._router, 1)
+
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
+            self._focus_filter
+        )
         QShortcut(QKeySequence("?"), self).activated.connect(self._show_shortcuts)
-
-        about_btn = QPushButton("Sobre")
-        about_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        about_btn.setToolTip("Sobre o SkinVault")
-        about_btn.setStyleSheet(
-            "QPushButton { color: #9D9DA8; background: transparent;"
-            " border: 1px solid #3A3A44; border-radius: 6px;"
-            " padding: 6px 14px; font-size: 9pt; }"
-            "QPushButton:hover { color: #E6E6EA; border-color: #5A5A66; }"
-        )
-        about_btn.clicked.connect(self._open_about)
-
-        backup_btn = QPushButton("Backups")
-        backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        backup_btn.setToolTip("Gerenciar backups dos dados")
-        backup_btn.setStyleSheet(
-            "QPushButton { color: #9D9DA8; background: transparent;"
-            " border: 1px solid #3A3A44; border-radius: 6px;"
-            " padding: 6px 14px; font-size: 9pt; }"
-            "QPushButton:hover { color: #E6E6EA; border-color: #5A5A66; }"
-        )
-        backup_btn.clicked.connect(self._open_backups)
-
-        self._steam_btn = QPushButton("Conectar Steam")
-        self._steam_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._steam_btn.setToolTip(
-            "Conectar conta Steam para sincronizar inventario,\n"
-            "historico de market, listagens e trades.\n"
-            "Cookies de sessao ficam apenas em data/steam_session.json."
-        )
-        self._steam_btn.setStyleSheet(
-            "QPushButton { color: #DCFFE6; background: rgba(34,197,94,0.16);"
-            f" border: 1px solid {_GREEN}; border-radius: 6px;"
-            " padding: 6px 14px; font-size: 9pt; font-weight: 600; }"
-            "QPushButton:hover { background: rgba(34,197,94,0.26); }"
-        )
-        self._steam_btn.clicked.connect(self._open_steam_menu)
-
-        corner = QWidget()
-        corner_layout = QHBoxLayout(corner)
-        corner_layout.setContentsMargins(0, 0, 0, 0)
-        corner_layout.setSpacing(6)
-        corner_layout.addWidget(self._steam_btn)
-        corner_layout.addWidget(about_btn)
-        corner_layout.addWidget(backup_btn)
-        corner_layout.addWidget(cfg_btn)
-        self.setCornerWidget(corner, Qt.Corner.TopRightCorner)
-
-        self._steam_session: steam_session.SteamSession | None = (
-            steam_session.load()
-        )
-        self._refresh_steam_button()
 
         if settings.get("auto_backup", True):
             backup.make_backup()
 
     def _apply_stylesheet(self) -> None:
         self.setStyleSheet(
-            f"QTabWidget::pane {{ border: none; background: {_BG}; }}"
-            f"QTabBar::tab {{ background: {_SURFACE}; color: {_MUTED};"
-            " padding: 10px 24px; border: none;"
-            " border-bottom: 2px solid transparent;"
-            " font-size: 10pt; font-weight: 600; font-family: 'Segoe UI'; }"
-            f"QTabBar::tab:selected {{ color: {_TEXT};"
-            f" border-bottom: 2px solid {_GREEN}; }}"
-            f"QTabBar::tab:hover {{ color: {_TEXT}; }}"
+            f"background: {_BG}; color: {_TEXT};"
+            "font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui;"
         )
 
     def _init_tray(self) -> None:
@@ -4197,13 +4138,19 @@ class MainWindow(QTabWidget):
         )
 
     def _focus_filter(self) -> None:
-        w = self.currentWidget()
-        for attr in ("_filter_inp", "_search_inp"):
-            inp = getattr(w, attr, None)
-            if inp:
-                inp.setFocus()
-                inp.selectAll()
-                break
+        stack = getattr(self._router, '_stack', None)
+        if stack is not None:
+            w = stack.currentWidget()
+            for attr in ("_filter_inp", "_search_inp"):
+                inp = getattr(w, attr, None)
+                if inp:
+                    inp.setFocus()
+                    inp.selectAll()
+                    break
+
+    def _on_sync_requested(self, session) -> None:
+        dlg = SteamSyncDialog(session, self)
+        dlg.exec()
 
     def _open_settings(self) -> None:
         dlg = SettingsDialog(self)
@@ -4230,114 +4177,7 @@ class MainWindow(QTabWidget):
             "Feito por Pedro S. | 2026",
         )
 
-    # ── Steam Sync (F10) ────────────────────────────────────────
-    def _refresh_steam_button(self) -> None:
-        s = self._steam_session
-        if s and s.is_complete():
-            sid = s.steamid
-            short = f"{sid[:5]}…{sid[-4:]}" if len(sid) > 9 else sid
-            self._steam_btn.setText(f"Steam: {short} ✓")
-        else:
-            self._steam_btn.setText("Conectar Steam")
-
-    def _open_steam_menu(self) -> None:
-        s = self._steam_session
-        if not s or not s.is_complete():
-            self._steam_connect()
-            return
-        menu = QMenu(self)
-        menu.setStyleSheet(
-            f"QMenu {{ background: {_SURFACE}; color: {_TEXT};"
-            " border: 1px solid #3A3A44; padding: 4px; }"
-            "QMenu::item { padding: 6px 20px; }"
-            "QMenu::item:selected { background: #2A2A33; }"
-        )
-        act_sync = menu.addAction("Sincronizar agora")
-        act_status = menu.addAction("Ver status da sessao")
-        menu.addSeparator()
-        act_disc = menu.addAction("Desconectar")
-        chosen = menu.exec(self._steam_btn.mapToGlobal(
-            self._steam_btn.rect().bottomLeft()
-        ))
-        if chosen == act_sync:
-            self._steam_sync()
-        elif chosen == act_status:
-            self._steam_show_status()
-        elif chosen == act_disc:
-            self._steam_disconnect()
-
-    def _steam_connect(self) -> None:
-        from skinvault.steam_login_dialog import build_steam_login_dialog
-        dlg = build_steam_login_dialog(self)
-        if dlg is None:
-            return
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        sess = dlg.session
-        if not sess or not sess.is_complete():
-            QMessageBox.warning(
-                self, "Login incompleto",
-                "Nao foi possivel capturar a sessao. Tente novamente."
-            )
-            return
-        self._steam_session = sess
-        steam_session.persist(sess)
-        self._refresh_steam_button()
-        confirm = QMessageBox.question(
-            self, "Conta conectada",
-            f"Conta {sess.steamid} conectada.\n\nSincronizar dados agora?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm == QMessageBox.StandardButton.Yes:
-            self._steam_sync()
-
-    def _steam_show_status(self) -> None:
-        s = self._steam_session
-        if not s:
-            return
-        ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(s.captured_at))
-        val_ts = (time.strftime("%Y-%m-%d %H:%M",
-                                time.localtime(s.validated_at))
-                  if s.validated_at else "nunca")
-        QMessageBox.information(
-            self, "Status da sessao Steam",
-            f"<b>SteamID:</b> {s.steamid}<br>"
-            f"<b>Capturada em:</b> {ts}<br>"
-            f"<b>Ultima validacao:</b> {val_ts}<br><br>"
-            "<i>Cookies armazenados em data/steam_session.json.<br>"
-            "Nao compartilhe esse arquivo.</i>",
-        )
-
-    def _steam_disconnect(self) -> None:
-        confirm = QMessageBox.question(
-            self, "Desconectar",
-            "Remover a sessao Steam? Voce vai precisar logar de novo.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
-            return
-        steam_session.clear()
-        self._steam_session = None
-        self._refresh_steam_button()
-
-    def _steam_sync(self) -> None:
-        s = self._steam_session
-        if not s or not s.is_complete():
-            QMessageBox.warning(self, "Sem sessao",
-                                "Conecte a conta Steam primeiro.")
-            return
-        SteamSyncDialog(s, self).exec()
-        # refresh tabs que dependem dos dados
-        for i in range(self.count()):
-            tab = self.widget(i)
-            for attr in ("_evaluate", "_refresh"):
-                fn = getattr(tab, attr, None)
-                if callable(fn):
-                    try:
-                        fn()
-                    except Exception:
-                        pass
-                    break
+    # ── Steam Sync (delegado ao ScreenRouter) ───────────────────
 
 
 def launch() -> int:

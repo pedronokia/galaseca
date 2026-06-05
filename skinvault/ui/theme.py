@@ -1,0 +1,144 @@
+"""Paleta + tipografia + helpers de stylesheet (F11).
+
+Substitui as constantes/helpers que viviam em gui.py. Visual: dark
+Windows 11 com accent verde SkinVault e azul Steam pra elementos de
+sync/conta.
+"""
+from __future__ import annotations
+
+
+# ── Paleta ───────────────────────────────────────────────────
+BG          = "#0E0E12"   # fundo principal
+BG_ELEVATED = "#16161C"   # sidebar, cards
+SURFACE     = "#1C1C24"   # surface sobre card (input, hover)
+BORDER      = "#2A2A33"   # bordas finas
+TEXT        = "#E6E6EA"
+TEXT_MUTED  = "#9D9DA8"
+ACCENT      = "#22C55E"   # verde SkinVault
+ACCENT_DIM  = "rgba(34,197,94,0.16)"
+ACCENT_HOV  = "rgba(34,197,94,0.26)"
+STEAM_BLUE  = "#66C0F4"   # azul Steam (conta/sync)
+STEAM_DIM   = "rgba(102,192,244,0.14)"
+STEAM_HOV   = "rgba(102,192,244,0.24)"
+DANGER      = "#EF4444"
+DANGER_DIM  = "rgba(239,68,68,0.16)"
+DANGER_HOV  = "rgba(239,68,68,0.26)"
+WARN        = "#F59E0B"
+
+# Alias backward compat com gui.py legado
+_BG = BG
+_SURFACE = BG_ELEVATED
+_TEXT = TEXT
+_MUTED = TEXT_MUTED
+_GREEN = ACCENT
+_RED = DANGER
+
+
+# ── Tipografia ───────────────────────────────────────────────
+FONT_FAMILY = '"Segoe UI Variable Display", "Segoe UI", system-ui'
+FS_MUTED = "9pt"
+FS_BODY = "10pt"
+FS_INPUT = "11pt"
+FS_TITLE_SM = "13pt"
+FS_STAT = "18pt"
+FS_TITLE = "24pt"
+
+
+# ── Helpers de formato ──────────────────────────────────────
+def brl(v: float | None) -> str:
+    """Formata BRL pt-BR. None vira '—'."""
+    if v is None:
+        return "—"
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+# ── Stylesheet helpers ───────────────────────────────────────
+def input_style() -> str:
+    return (
+        f"QLineEdit {{ background: {SURFACE}; border: 1px solid {BORDER};"
+        f" border-radius: 8px; padding: 10px 12px; font-size: {FS_INPUT};"
+        f" color: {TEXT}; font-family: {FONT_FAMILY}; }}"
+        f"QLineEdit:focus {{ border: 1px solid {ACCENT}; }}"
+    )
+
+
+def btn_primary(padding: str = "10px 22px", fs: str = FS_INPUT,
+                disabled: bool = False) -> str:
+    s = (
+        f"QPushButton {{ color: #DCFFE6; background: {ACCENT_DIM};"
+        f" border: 1px solid {ACCENT}; border-radius: 8px;"
+        f" padding: {padding}; font-size: {fs}; font-weight: 600;"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QPushButton:hover {{ background: {ACCENT_HOV}; }}"
+    )
+    if disabled:
+        s += (
+            "QPushButton:disabled { color: #777; border-color: #333;"
+            " background: #1a1a20; }"
+        )
+    return s
+
+
+def btn_steam(padding: str = "10px 22px", fs: str = FS_INPUT) -> str:
+    return (
+        f"QPushButton {{ color: #DDF4FF; background: {STEAM_DIM};"
+        f" border: 1px solid {STEAM_BLUE}; border-radius: 8px;"
+        f" padding: {padding}; font-size: {fs}; font-weight: 600;"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QPushButton:hover {{ background: {STEAM_HOV}; }}"
+    )
+
+
+def btn_secondary(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
+    return (
+        f"QPushButton {{ color: {TEXT};"
+        " background: rgba(255,255,255,0.06);"
+        f" border: 1px solid #3A3A44; border-radius: 8px;"
+        f" padding: {padding}; font-size: {fs}; font-weight: 600;"
+        f" font-family: {FONT_FAMILY}; }}"
+        "QPushButton:hover { background: rgba(255,255,255,0.12); }"
+    )
+
+
+def btn_danger(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
+    return (
+        f"QPushButton {{ color: #FFE6E6; background: {DANGER_DIM};"
+        f" border: 1px solid {DANGER}; border-radius: 8px;"
+        f" padding: {padding}; font-size: {fs}; font-weight: 600;"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QPushButton:hover {{ background: {DANGER_HOV}; }}"
+    )
+
+
+def btn_ghost(padding: str = "6px 14px", fs: str = FS_MUTED) -> str:
+    """Botao flat sem borda — estilo Win11 toolbar."""
+    return (
+        f"QPushButton {{ color: {TEXT_MUTED}; background: transparent;"
+        f" border: 1px solid transparent; border-radius: 6px;"
+        f" padding: {padding}; font-size: {fs};"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QPushButton:hover {{ color: {TEXT}; background: {SURFACE};"
+        f" border: 1px solid {BORDER}; }}"
+    )
+
+
+def table_style() -> str:
+    return (
+        f"QTableWidget {{ background: {BG_ELEVATED};"
+        f" alternate-background-color: {SURFACE};"
+        f" gridline-color: transparent; border: 1px solid {BORDER};"
+        f" border-radius: 10px; color: {TEXT}; font-size: {FS_BODY};"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QHeaderView::section {{ background: {BG_ELEVATED};"
+        f" color: {TEXT_MUTED}; border: none; padding: 8px 10px;"
+        f" font-weight: 600; font-size: {FS_MUTED}; }}"
+        f"QTableWidget::item:selected {{ background: {ACCENT_DIM};"
+        f" color: {TEXT}; }}"
+    )
+
+
+def card_style(radius: int = 10) -> str:
+    return (
+        f"QWidget#Card {{ background: {BG_ELEVATED};"
+        f" border: 1px solid {BORDER}; border-radius: {radius}px; }}"
+    )
