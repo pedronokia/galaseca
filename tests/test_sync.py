@@ -31,7 +31,7 @@ class TestSyncInventory:
     def test_adds_new_items_with_source_steam(self, tmp_path: Path, monkeypatch):
         portfolio_path = tmp_path / "portfolio.json"
 
-        def mock_fetch(steam_id):
+        def mock_fetch(session):
             return steam_api.INV_OK, [
                 {"name": "AK-47 | Redline (FT)", "quantity": 1,
                  "tradable": True},
@@ -39,7 +39,7 @@ class TestSyncInventory:
                  "tradable": False},
             ]
 
-        monkeypatch.setattr(steam_api, "fetch_inventory", mock_fetch)
+        monkeypatch.setattr(steam_api, "fetch_inventory_authed", mock_fetch)
         result = sync.sync_inventory(_session(), path=portfolio_path)
         assert result["status"] == "ok"
         assert result["added"] == 2
@@ -58,7 +58,7 @@ class TestSyncInventory:
             path=portfolio_path, source="manual",
         )
 
-        def mock_fetch(steam_id):
+        def mock_fetch(session):
             return steam_api.INV_OK, [
                 {"name": "AK-47 | Redline (FT)", "quantity": 1,
                  "tradable": True},
@@ -66,7 +66,7 @@ class TestSyncInventory:
                  "tradable": True},
             ]
 
-        monkeypatch.setattr(steam_api, "fetch_inventory", mock_fetch)
+        monkeypatch.setattr(steam_api, "fetch_inventory_authed", mock_fetch)
         result = sync.sync_inventory(_session(), path=portfolio_path)
         # AK manual ja existe, so AWP entra
         assert result["added"] == 1
@@ -79,11 +79,11 @@ class TestSyncInventory:
     def test_idempotent(self, tmp_path: Path, monkeypatch):
         portfolio_path = tmp_path / "portfolio.json"
 
-        def mock_fetch(steam_id):
+        def mock_fetch(session):
             return steam_api.INV_OK, [
                 {"name": "X", "quantity": 1, "tradable": True},
             ]
-        monkeypatch.setattr(steam_api, "fetch_inventory", mock_fetch)
+        monkeypatch.setattr(steam_api, "fetch_inventory_authed", mock_fetch)
         sync.sync_inventory(_session(), path=portfolio_path)
         result2 = sync.sync_inventory(_session(), path=portfolio_path)
         # Segunda execucao nao deve adicionar nada
@@ -94,9 +94,9 @@ class TestSyncInventory:
     def test_returns_error_status_on_private(self, tmp_path: Path, monkeypatch):
         portfolio_path = tmp_path / "portfolio.json"
 
-        def mock_fetch(steam_id):
+        def mock_fetch(session):
             return steam_api.INV_PRIVATE, []
-        monkeypatch.setattr(steam_api, "fetch_inventory", mock_fetch)
+        monkeypatch.setattr(steam_api, "fetch_inventory_authed", mock_fetch)
         result = sync.sync_inventory(_session(), path=portfolio_path)
         assert result["status"] == "private"
         assert result["added"] == 0
