@@ -600,6 +600,10 @@ class MainWindow(QMainWindow):
             ("account", chr(9676), "Minha Conta"),
             ("history", chr(9672), "Historico"),
             ("scanner", chr(9711), "Scanner"),
+            ("market", chr(9733), "Market"),
+            ("trades", chr(8644), "Trades"),
+            ("simulador", chr(9856), "Simulador"),
+            ("watchlist", chr(9776), "Watchlist"),
         ]:
             sidebar.add_item(key, icon, label)
         sidebar.add_stretch()

@@ -61,9 +61,10 @@ def test_history_screen():
 
 
 def test_scanner_screen():
-    """ScannerScreen (mockup) instancia sem erro."""
+    """ScannerScreen (real) instancia sem erro."""
+    from skinvault.prices import PriceCache
     from skinvault.ui.scanner_screen import ScannerScreen
-    screen = ScannerScreen()
+    screen = ScannerScreen(PriceCache(ttl=3600))
     assert screen is not None
 
 

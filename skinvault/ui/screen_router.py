@@ -25,12 +25,20 @@ from skinvault.ui.account_screen import AccountScreen
 from skinvault.ui.components import Breadcrumb, Footer
 from skinvault.ui.history_screen import HistoryScreen
 from skinvault.ui.login_gate import LoginGate
+from skinvault.ui.market_screen import MarketScreen
 from skinvault.ui.scanner_screen import ScannerScreen
+from skinvault.ui.simulador_screen import SimuladorScreen
+from skinvault.ui.trades_screen import TradesScreen
+from skinvault.ui.watchlist_screen import WatchlistScreen
 
 
 SCREEN_ACCOUNT = "account"
 SCREEN_HISTORY = "history"
 SCREEN_SCANNER = "scanner"
+SCREEN_MARKET = "market"
+SCREEN_TRADES = "trades"
+SCREEN_SIMULADOR = "simulador"
+SCREEN_WATCHLIST = "watchlist"
 
 
 class ScreenRouter(QWidget):
@@ -83,8 +91,20 @@ class ScreenRouter(QWidget):
         self._history_screen = HistoryScreen(self)
         self._stack.addWidget(self._history_screen)
 
-        self._scanner_screen = ScannerScreen(self)
+        self._scanner_screen = ScannerScreen(self._cache, self)
         self._stack.addWidget(self._scanner_screen)
+
+        self._market_screen = MarketScreen(self._cache, self)
+        self._stack.addWidget(self._market_screen)
+
+        self._trades_screen = TradesScreen(self)
+        self._stack.addWidget(self._trades_screen)
+
+        self._simulador_screen = SimuladorScreen(self)
+        self._stack.addWidget(self._simulador_screen)
+
+        self._watchlist_screen = WatchlistScreen(self._cache, self)
+        self._stack.addWidget(self._watchlist_screen)
 
         root.addWidget(self._stack, 1)
 
@@ -121,6 +141,10 @@ class ScreenRouter(QWidget):
             SCREEN_ACCOUNT: (self._account_screen, "Minha Conta"),
             SCREEN_HISTORY: (self._history_screen, "Historico"),
             SCREEN_SCANNER: (self._scanner_screen, "Scanner"),
+            SCREEN_MARKET: (self._market_screen, "Market"),
+            SCREEN_TRADES: (self._trades_screen, "Trades"),
+            SCREEN_SIMULADOR: (self._simulador_screen, "Simulador"),
+            SCREEN_WATCHLIST: (self._watchlist_screen, "Watchlist"),
         }
         widget, label = mapping.get(screen, (None, ""))
         if widget is None:
@@ -132,6 +156,8 @@ class ScreenRouter(QWidget):
             self._history_screen.refresh()
         elif screen == SCREEN_ACCOUNT:
             self._account_screen.refresh()
+        elif screen == SCREEN_WATCHLIST:
+            self._watchlist_screen.refresh()
 
         self.navigated.emit(screen)
 

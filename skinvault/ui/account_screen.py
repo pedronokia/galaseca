@@ -40,6 +40,7 @@ from skinvault.ui.profile_fetcher import (
     load_avatar_bytes,
     load_cached_profile,
 )
+from skinvault.ui.widgets import MiniSparkline
 
 
 class _AccountBridge(QObject):
@@ -158,6 +159,33 @@ class AccountScreen(QWidget):
 
         root.addWidget(header)
 
+        # Portfolio breakdown card
+        breakdown_card = Card(self, padding=(16, 14, 16, 14))
+        bd_lay = QVBoxLayout()
+        bd_lay.setSpacing(8)
+        bd_title = QLabel("Desempenho da carteira")
+        bd_title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
+        )
+        bd_lay.addWidget(bd_title)
+
+        bd_row = QHBoxLayout()
+        bd_row.setSpacing(16)
+        self._bd_invested = StatCard("Total investido", "—")
+        self._bd_profit_count = StatCard("Itens no lucro", "—",
+                                         accent=t.ACCENT)
+        self._bd_loss_count = StatCard("Itens no prejuizo", "—",
+                                       accent=t.DANGER)
+        self._bd_best = StatCard("Melhor P&L", "—")
+        self._bd_worst = StatCard("Pior P&L", "—", accent=t.DANGER)
+        for sc in (self._bd_invested, self._bd_profit_count,
+                   self._bd_loss_count, self._bd_best, self._bd_worst):
+            bd_row.addWidget(sc, 1)
+        bd_lay.addLayout(bd_row)
+        breakdown_card.layout().addLayout(bd_lay)
+        self._breakdown_card = breakdown_card
+        root.addWidget(breakdown_card)
+
         # Filtro
         filt = QLineEdit()
         filt.setPlaceholderText("Filtrar por nome do item…")
@@ -265,6 +293,7 @@ class AccountScreen(QWidget):
     def _on_eval(self, data: dict) -> None:
         rows = data["rows"]
         totals = data["totals"]
+        positions = data.get("positions", [])
         self._progress.setVisible(False)
         # Atualiza stats
         self._stat_gross.set_value(t.brl(totals.get("market") or 0))
@@ -274,6 +303,32 @@ class AccountScreen(QWidget):
         pnl_color = t.ACCENT if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_color)
         self._stat_items.set_value(str(len(rows)))
+
+        # Portfolio breakdown
+        total_cost = sum(
+            r.get("cost_total", 0) or 0 for r in rows
+        )
+        profit_items = sum(1 for r in rows if (r.get("pnl") or 0) > 0)
+        loss_items = sum(1 for r in rows if (r.get("pnl") or 0) < 0)
+        best = max(rows, key=lambda r: r.get("pnl") or 0) if rows else None
+        worst = min(rows, key=lambda r: r.get("pnl") or 0) if rows else None
+        self._bd_invested.set_value(t.brl(total_cost))
+        self._bd_profit_count.set_value(
+            f"{profit_items} ({profit_items/len(rows)*100:.0f}%)" if rows else "0",
+            accent=t.ACCENT
+        )
+        self._bd_loss_count.set_value(
+            f"{loss_items} ({loss_items/len(rows)*100:.0f}%)" if rows else "0",
+            accent=t.DANGER
+        )
+        self._bd_best.set_value(
+            f"{t.brl(best['pnl'])} ({best.get('name','')[:20]})" if best else "—",
+            accent=t.ACCENT
+        )
+        self._bd_worst.set_value(
+            f"{t.brl(worst['pnl'])} ({worst.get('name','')[:20]})" if worst else "—",
+            accent=t.DANGER
+        )
 
         # Atualiza tabela
         self._populate_table(rows, data["positions"])
