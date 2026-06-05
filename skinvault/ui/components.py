@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -36,7 +37,7 @@ class Card(QFrame):
         lay.setContentsMargins(*padding)
         lay.setSpacing(10)
 
-    def set_layout(self, layout) -> None:
+    def set_layout(self, layout: QLayout) -> None:
         # Substitui o layout default
         old = self.layout()
         if old is not None:
@@ -233,7 +234,9 @@ class SegmentedControl(QWidget):
 
     def select(self, key: str) -> None:
         btn = self._items.get(key)
-        if btn is not None and not btn.isChecked():
+        if btn is None:
+            return
+        if not btn.isChecked():
             btn.setChecked(True)
             self.segment_changed.emit(key)
 

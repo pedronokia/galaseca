@@ -11,11 +11,10 @@ Reusa:
 """
 from __future__ import annotations
 
-import threading
 import time
 
-from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor
+from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QDesktopServices
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -23,6 +22,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -33,6 +33,7 @@ from PyQt6.QtWidgets import (
 from skinvault import portfolio as portfolio_mod
 from skinvault import prices, steam_session
 from skinvault.ui import theme as t
+from skinvault.ui._price_worker import PriceWorker
 from skinvault.ui.components import Avatar, Card, StatCard
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
@@ -43,12 +44,18 @@ from skinvault.ui.profile_fetcher import (
 
 class _AccountBridge(QObject):
     profile_ready = pyqtSignal(dict)
-    eval_done = pyqtSignal(dict)
-    sync_requested = pyqtSignal()
 
 
 class AccountScreen(QWidget):
     """Tela 1 -- Minha Conta + Inventario."""
+
+    COL_NAME = 0
+    COL_QTY = 1
+    COL_PRICE = 2
+    COL_SUBTOTAL = 3
+    COL_RECEIVED = 4
+    COL_PNL = 5
+    COL_ORIGIN = 6
 
     request_sync = pyqtSignal()
 
@@ -59,7 +66,8 @@ class AccountScreen(QWidget):
         self._session: steam_session.SteamSession | None = None
         self._bridge = _AccountBridge()
         self._bridge.profile_ready.connect(self._on_profile)
-        self._bridge.eval_done.connect(self._on_eval)
+        self._price_worker = PriceWorker(cache, self)
+        self._price_worker.eval_done.connect(self._on_eval)
         self._build()
 
     def set_session(self, session: steam_session.SteamSession | None) -> None:
@@ -89,20 +97,48 @@ class AccountScreen(QWidget):
             f" font-family: {t.FONT_FAMILY};"
         )
         ident.addWidget(self._name)
+
+        sub_row = QHBoxLayout()
+        sub_row.setSpacing(8)
+
         self._sub = QLabel("Conecte sua conta para sincronizar.")
         self._sub.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
-        ident.addWidget(self._sub)
+        sub_row.addWidget(self._sub)
+
+        self._profile_link = QLabel("")
+        self._profile_link.setStyleSheet(
+            f"color: {t.STEAM_BLUE}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; text-decoration: underline;"
+        )
+        self._profile_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._profile_link.mousePressEvent = lambda _: self._open_steam_profile()
+        sub_row.addWidget(self._profile_link)
+
+        sub_row.addStretch(1)
+        ident.addLayout(sub_row)
         ident.addStretch(1)
         hlay.addLayout(ident, 1)
+
+        btn_col = QVBoxLayout()
+        btn_col.setSpacing(4)
 
         self._sync_btn = QPushButton("Sincronizar com Steam")
         self._sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._sync_btn.setStyleSheet(t.btn_steam())
         self._sync_btn.clicked.connect(self.request_sync.emit)
-        hlay.addWidget(self._sync_btn, 0, Qt.AlignmentFlag.AlignTop)
+        btn_col.addWidget(self._sync_btn, 0, Qt.AlignmentFlag.AlignRight)
+
+        self._last_sync_lbl = QLabel("")
+        self._last_sync_lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        btn_col.addWidget(self._last_sync_lbl, 0, Qt.AlignmentFlag.AlignRight)
+
+        hlay.addLayout(btn_col, 0)
 
         # Substituir layout default do card
         header.layout().addLayout(hlay)
@@ -130,6 +166,19 @@ class AccountScreen(QWidget):
         self._filter_inp = filt
         root.addWidget(filt)
 
+        # Progress bar (indeterminate, hidden by default)
+        self._progress = QProgressBar()
+        self._progress.setRange(0, 0)  # indeterminate
+        self._progress.setVisible(False)
+        self._progress.setFixedHeight(6)
+        self._progress.setStyleSheet(
+            f"QProgressBar {{ background: {t.SURFACE}; border: none;"
+            f" border-radius: 3px; }}"
+            f"QProgressBar::chunk {{ background: {t.ACCENT};"
+            " border-radius: 3px; }}"
+        )
+        root.addWidget(self._progress)
+
         # Tabela
         self._table = QTableWidget(0, 7)
         self._table.setHorizontalHeaderLabels([
@@ -146,10 +195,11 @@ class AccountScreen(QWidget):
         self._table.setAlternatingRowColors(True)
         self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for i in range(1, 7):
-            hh.setSectionResizeMode(i,
-                                    QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
+        for i in range(max(self.COL_QTY, self.COL_ORIGIN + 1)):
+            if i != self.COL_NAME:
+                hh.setSectionResizeMode(
+                    i, QHeaderView.ResizeMode.ResizeToContents)
         root.addWidget(self._table, 1)
 
         # Status
@@ -183,39 +233,39 @@ class AccountScreen(QWidget):
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _open_steam_profile(self) -> None:
+        if self._session and self._session.steamid:
+            url = f"https://steamcommunity.com/profiles/{self._session.steamid}"
+            QDesktopServices.openUrl(QUrl(url))
+
     def _on_profile(self, data: dict) -> None:
+        steamid = data.get("steamid", "")
         self._name.setText(data.get("name") or "—")
-        self._sub.setText(f"SteamID: {data.get('steamid', '')}")
+        self._sub.setText(f"SteamID: {steamid}")
+        if steamid:
+            self._profile_link.setText("Ver perfil na Steam ›")
+            self._profile_link.setVisible(True)
+        else:
+            self._profile_link.setVisible(False)
         path = data.get("avatar_path")
         if path:
             self._avatar.set_image(path)
         else:
-            avbytes = load_avatar_bytes(data.get("steamid", ""))
+            avbytes = load_avatar_bytes(steamid)
             if avbytes:
                 self._avatar.set_image(avbytes)
 
     # ── avaliacao de inventario ──────────────────────────
     def refresh(self) -> None:
         """Avalia portfolio em thread e atualiza tabela + stats."""
-        self._status.setText("Avaliando inventário…")
-        cache = self._cache
-
-        def worker() -> None:
-            positions = portfolio_mod.load_portfolio()
-            result = portfolio_mod.evaluate_portfolio(
-                positions, cache.cached_price
-            )
-            self._bridge.eval_done.emit({
-                "positions": positions,
-                "rows": result["rows"],
-                "totals": result["totals"],
-            })
-
-        threading.Thread(target=worker, daemon=True).start()
+        self._progress.setVisible(True)
+        self._status.setText("Avaliando inventario…")
+        self._price_worker.start()
 
     def _on_eval(self, data: dict) -> None:
         rows = data["rows"]
         totals = data["totals"]
+        self._progress.setVisible(False)
         # Atualiza stats
         self._stat_gross.set_value(t.brl(totals.get("market") or 0))
         self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
@@ -227,9 +277,11 @@ class AccountScreen(QWidget):
 
         # Atualiza tabela
         self._populate_table(rows, data["positions"])
+        now = time.strftime('%H:%M')
         self._status.setText(
-            f"{len(rows)} item(ns) • atualizado {time.strftime('%H:%M')}"
+            f"{len(rows)} item(ns) • atualizado {now}"
         )
+        self._last_sync_lbl.setText(f"Ultima sync: {now}")
 
     def _populate_table(self, rows: list[dict],
                         positions: list[dict]) -> None:
@@ -249,13 +301,13 @@ class AccountScreen(QWidget):
             ]
             for col, val in enumerate(cells):
                 item = QTableWidgetItem(val)
-                if col == 5:  # P&L color
+                if col == self.COL_PNL:
                     pnl = r.get("pnl")
                     if pnl is not None:
                         item.setForeground(
                             QBrush(QColor(t.ACCENT if pnl >= 0 else t.DANGER))
                         )
-                elif col == 6 and origin == "Steam":
+                elif col == self.COL_ORIGIN and origin == "Steam":
                     item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
                 self._table.setItem(i, col, item)
 

@@ -1,13 +1,10 @@
-"""UI do SkinVault (PyQt6). Janela local: avalia o inventario e mostra o valor
-no tempo. Importa PyQt6 -- so' carregada quando 'python -m skinvault --ui'.
+"""UI do SkinVault (PyQt6).
 
-Reaproveita os padroes do Future: tema escuro, valor em fonte tabular, grafico
-custom-painted (estilo _Sparkline), worker em thread + signal pra nao travar a UI.
+F11 redesign: QMainWindow + QDockWidget sidebar + 3 telas.
+Dialogs reutilizaveis aqui. Importada via 'python -m skinvault --ui'.
 """
 from __future__ import annotations
 
-import json
-import os
 import threading
 import time
 
@@ -27,9 +24,10 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
     QComboBox,
-    QCompleter,
     QDialog,
+    QDockWidget,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -37,13 +35,13 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QMainWindow,
     QMenu,
     QMessageBox,
     QProgressBar,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -56,9 +54,10 @@ try:
 except ImportError:
     QSystemTrayIcon = None
 
-from skinvault import alerts, backup, cases, history, portfolio, prices, ranking, signals, steam_api, steam_session, sync as steam_sync, trades, watchlist
+from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
 from skinvault._paths import DATA_DIR
 from skinvault.settings import DEFAULTS, load_settings, save_settings
+from skinvault.ui.components import Sidebar
 
 _BG = "#0E0E12"
 _SURFACE = "#16161C"
@@ -67,12 +66,16 @@ _MUTED = "#9D9DA8"
 _GREEN = "#22C55E"
 _RED = "#EF4444"
 
+THEMES = {
+    "dark": {"bg": "#0E0E12", "surface": "#16161C", "text": "#E6E6EA", "muted": "#9D9DA8"},
+    "light": {"bg": "#F5F5F5", "surface": "#FFFFFF", "text": "#1C1C1C", "muted": "#888888"},
+}
+
 
 def _brl(v: float) -> str:
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-# ── Stylesheet helpers ─────────────────────────────────────────
 def _input_style() -> str:
     return (
         f"QLineEdit {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
@@ -118,1765 +121,32 @@ def _btn_secondary(padding: str = "8px 18px", fs: str = "10pt") -> str:
 
 def _table_style() -> str:
     return (
-        f"QTableWidget {{ background: {_SURFACE}; border: none;"
-        " border-radius: 10px; gridline-color: transparent; }"
-        "QTableWidget::item { padding: 6px 10px;"
-        " border-bottom: 1px solid rgba(255,255,255,0.04); }"
-        "QHeaderView::section { background: transparent; color: #8A8A93;"
-        " border: none; padding: 8px 10px; font-weight: 600; }"
+        f"QTableWidget {{ background: {_SURFACE};"
+        f" alternate-background-color: {_SURFACE};"
+        " gridline-color: transparent; border: 1px solid #2A2A33;"
+        f" border-radius: 10px; color: {_TEXT}; font-size: 10pt; }}"
+        f"QHeaderView::section {{ background: {_SURFACE};"
+        f" color: {_MUTED}; border: none; padding: 8px 10px;"
+        " font-weight: 600; font-size: 9pt; }}"
+        f"QTableWidget::item:selected {{ background: rgba(34,197,94,0.16);"
+        f" color: {_TEXT}; }}"
     )
 
 
-THEMES = {
-    "dark": {
-        "bg": "#0E0E12",
-        "surface": "#16161C",
-        "text": "#E6E6EA",
-        "muted": "#9D9DA8",
-    },
-    "light": {
-        "bg": "#F0F0F4",
-        "surface": "#FFFFFF",
-        "text": "#1A1A1E",
-        "muted": "#6B6B76",
-    },
-}
-
-
 def set_theme(theme: str) -> None:
-    global _BG, _SURFACE, _TEXT, _MUTED
+    global _BG, _SURFACE, _TEXT, _MUTED, _GREEN, _RED
     t = THEMES.get(theme, THEMES["dark"])
     _BG = t["bg"]
     _SURFACE = t["surface"]
     _TEXT = t["text"]
     _MUTED = t["muted"]
-
-
-def _save_column_widths(tab: str, widths: list[int]) -> None:
-    s = load_settings()
-    cw: dict = s.get("column_widths", {})
-    cw[tab] = widths
-    s["column_widths"] = cw
-    save_settings(s)
-
-
-def _load_column_widths(tab: str) -> list[int] | None:
-    s = load_settings()
-    cw: dict = s.get("column_widths", {})
-    return cw.get(tab)
+    from skinvault.ui.theme import _reload_palette
+    _reload_palette(theme)
 
 
 def _steam_market_url(name: str) -> str:
     import urllib.parse
     return f"https://steamcommunity.com/market/listings/730/{urllib.parse.quote(name)}"
-
-
-def _make_context_menu(table: QTableWidget, actions: list[tuple[str, callable]]) -> QMenu:
-    menu = QMenu()
-    for label, cb in actions:
-        a = menu.addAction(label)
-        a.triggered.connect(cb)
-    menu.setStyleSheet(
-        f"QMenu {{ background: {_SURFACE}; color: {_TEXT};"
-        " border: 1px solid #3A3A44; padding: 4px; }"
-        "QMenu::item { padding: 6px 20px; }"
-        "QMenu::item:selected { background: #2A2A33; }"
-    )
-    return menu
-
-
-def _setup_table(table: QTableWidget, tab_key: str,
-                 actions: list[tuple[str, callable]] | None = None
-                 ) -> None:
-    table.setSortingEnabled(True)
-    table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-    table.verticalHeader().setVisible(False)
-    table.setShowGrid(False)
-    table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-    table.setStyleSheet(_table_style())
-
-    def _open_steam(row, _col) -> None:
-        item = table.item(row, 0)
-        if item and item.text():
-            QDesktopServices.openUrl(QUrl(_steam_market_url(item.text())))
-
-    table.cellDoubleClicked.connect(_open_steam)
-
-    if actions:
-        table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        table.customContextMenuRequested.connect(
-            lambda pos: _make_context_menu(table, actions).exec(table.mapToGlobal(pos))
-        )
-
-
-class MonthBarChart(QWidget):
-    """Barras do P&L mensal (custom paint)."""
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self._months: list[dict] = []
-        self.setMinimumHeight(120)
-
-    def set_months(self, months: list[dict]) -> None:
-        self._months = list(months)
-        self.update()
-
-    def paintEvent(self, _evt) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w, h = self.width(), self.height()
-        if not self._months:
-            p.setPen(QColor(_MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Sem dados mensais")
-            p.end()
-            return
-        bar_w = max(8, (w - 20) // len(self._months) - 4)
-        all_pnl = [m["pnl"] for m in self._months]
-        mx = max(abs(v) for v in all_pnl) or 1
-        p.setFont(QFont("Segoe UI", 7))
-        for i, m in enumerate(self._months):
-            pnl = m["pnl"]
-            bar_h = int((abs(pnl) / mx) * (h - 24))
-            x = 10 + i * (bar_w + 4)
-            if pnl >= 0:
-                y = h - 12 - bar_h
-                p.setBrush(QColor(_GREEN))
-            else:
-                y = h - 12
-                p.setBrush(QColor(_RED))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.drawRoundedRect(x, y, bar_w, max(bar_h, 1), 2, 2)
-            p.setPen(QColor(_MUTED))
-            month_short = m["month"][:3]
-            p.drawText(x, h - 1, bar_w, 10, Qt.AlignmentFlag.AlignCenter, month_short)
-        p.end()
-
-
-class ValueChart(QWidget):
-    """Linha do valor do inventario no tempo (custom paint, sem dependencia)."""
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self._values: list[float] = []
-        self.setMinimumHeight(120)
-
-    def set_series(self, totals: list[float]) -> None:
-        self._values = list(totals)
-        self.update()
-
-    def paintEvent(self, _evt) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w, h = self.width(), self.height()
-        if len(self._values) < 2:
-            p.setPen(QColor(_MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Avalie 2x+ pra ver a evolucao do valor")
-            p.end()
-            return
-        vmin, vmax = min(self._values), max(self._values)
-        rng = (vmax - vmin) or 1.0
-        up = self._values[-1] >= self._values[0]
-        pen = QPen(QColor(_GREEN if up else _RED))
-        pen.setWidthF(2.0)
-        p.setPen(pen)
-        n = len(self._values)
-        prev = None
-        for i, v in enumerate(self._values):
-            x = 6 + i * ((w - 12) / (n - 1))
-            y = h - 8 - ((v - vmin) / rng) * (h - 24)
-            if prev is not None:
-                p.drawLine(int(prev[0]), int(prev[1]), int(x), int(y))
-            prev = (x, y)
-        p.end()
-
-
-class MiniSparkline(QWidget):
-    """Pequeno grafico do historico de preco de um item (custom paint).
-    Suporta overlay de SMA e linhas de suporte/resistencia."""
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self._values: list[float] = []
-        self._sma: list[float | None] | None = None
-        self._sr: dict | None = None
-        self.setMinimumHeight(50)
-        self.setMaximumHeight(50)
-
-    def set_series(self, values: list[float]) -> None:
-        self._values = list(values)
-        self._sma = None
-        self._sr = None
-        self.update()
-
-    def set_sma(self, sma_data: list[float | None]) -> None:
-        self._sma = sma_data
-        self.update()
-
-    def set_sr(self, sr_data: dict) -> None:
-        self._sr = sr_data
-        self.update()
-
-    def paintEvent(self, _evt) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w, h = self.width(), self.height()
-        if len(self._values) < 2:
-            p.setPen(QColor(_MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Sem historico")
-            p.end()
-            return
-        vmin, vmax = min(self._values), max(self._values)
-        rng = (vmax - vmin) or 1.0
-
-        def _y(val: float) -> int:
-            return int(h - 4 - ((val - vmin) / rng) * (h - 8))
-
-        def _x(i: int) -> int:
-            n = len(self._values)
-            return int(4 + i * ((w - 8) / (n - 1)))
-
-        # Linhas de suporte/resistencia
-        if self._sr:
-            sr_pen = QPen(QColor("#FACC15"))
-            sr_pen.setStyle(Qt.PenStyle.DashLine)
-            sr_pen.setWidthF(1)
-            p.setPen(sr_pen)
-            for level in self._sr.get("support", []):
-                y = _y(level)
-                p.drawLine(4, y, w - 4, y)
-            res_pen = QPen(QColor(_RED))
-            res_pen.setStyle(Qt.PenStyle.DashLine)
-            res_pen.setWidthF(1)
-            p.setPen(res_pen)
-            for level in self._sr.get("resistance", []):
-                y = _y(level)
-                p.drawLine(4, y, w - 4, y)
-
-        # Linha de precos principal
-        up = self._values[-1] >= self._values[0]
-        pen = QPen(QColor(_GREEN if up else _RED))
-        pen.setWidthF(1.5)
-        p.setPen(pen)
-        n = len(self._values)
-        prev = None
-        for i, v in enumerate(self._values):
-            x = _x(i)
-            y = _y(v)
-            if prev is not None:
-                p.drawLine(int(prev[0]), int(prev[1]), x, y)
-            prev = (x, y)
-
-        # SMA overlay
-        if self._sma:
-            sma_pen = QPen(QColor("#818CF8"))
-            sma_pen.setWidthF(1)
-            p.setPen(sma_pen)
-            prev = None
-            for i, v in enumerate(self._sma):
-                if v is None:
-                    prev = None
-                    continue
-                x = _x(i)
-                y = _y(v)
-                if prev is not None:
-                    p.drawLine(int(prev[0]), int(prev[1]), x, y)
-                prev = (x, y)
-
-        p.end()
-
-
-class DepthChart(QWidget):
-    """Grafico de profundidade do order book (bids vs asks) com QPainter."""
-
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self._bid_points: list[tuple[float, float]] = []  # (cum_qty, price_reais)
-        self._ask_points: list[tuple[float, float]] = []
-        self._best_bid: float | None = None
-        self._best_ask: float | None = None
-        self._spread: float | None = None
-        self.setMinimumHeight(100)
-        self.setMaximumHeight(160)
-
-    def set_data(self, order_book: dict | None) -> None:
-        self._bid_points = []
-        self._ask_points = []
-        self._best_bid = None
-        self._best_ask = None
-        self._spread = None
-
-        if not order_book:
-            self.update()
-            return
-
-        buy_raw = order_book.get("buy_orders") or []
-        sell_raw = order_book.get("sell_orders") or []
-        best_bid = order_book.get("best_bid")
-        best_ask = order_book.get("best_ask")
-        if best_bid is not None:
-            self._best_bid = best_bid / 100.0
-        if best_ask is not None:
-            self._best_ask = best_ask / 100.0
-        spread_raw = order_book.get("spread")
-        if spread_raw is not None:
-            self._spread = spread_raw / 100.0
-
-        # Bids: flat [price_cents, qty, ...], sorted descending price
-        if buy_raw:
-            pairs = [(buy_raw[i] / 100.0, buy_raw[i + 1])
-                     for i in range(0, len(buy_raw), 2)]
-            pairs.sort(key=lambda x: -x[0])  # descending price
-            cum = 0
-            pts = [(0.0, pairs[0][0])]
-            for price, qty in pairs:
-                cum += qty
-                pts.append((float(cum), price))
-            self._bid_points = pts
-
-        # Asks: flat [price_cents, qty, ...], sorted ascending price
-        if sell_raw:
-            pairs = [(sell_raw[i] / 100.0, sell_raw[i + 1])
-                     for i in range(0, len(sell_raw), 2)]
-            pairs.sort(key=lambda x: x[0])  # ascending price
-            cum = 0
-            pts = [(0.0, pairs[0][0])]
-            for price, qty in pairs:
-                cum += qty
-                pts.append((float(cum), price))
-            self._ask_points = pts
-
-        self.update()
-
-    def paintEvent(self, _evt) -> None:  # noqa: N802
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        w, h = self.width(), self.height()
-        margin = 4
-
-        if not self._bid_points and not self._ask_points:
-            p.setPen(QColor(_MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Sem dados do order book")
-            p.end()
-            return
-
-        # Calcular ranges
-        all_prices: list[float] = []
-        all_qty: list[float] = []
-        for cum_qty, price in self._bid_points:
-            all_prices.append(price)
-            all_qty.append(cum_qty)
-        for cum_qty, price in self._ask_points:
-            all_prices.append(price)
-            all_qty.append(cum_qty)
-
-        if not all_prices:
-            p.end()
-            return
-
-        price_min = min(all_prices)
-        price_max = max(all_prices)
-        price_rng = (price_max - price_min) or 1.0
-        max_qty = max(all_qty) or 1.0
-
-        chart_w = w - margin * 2
-        chart_h = h - margin * 2
-        mid_x = margin + chart_w // 2
-
-        def _x_bid(cum_qty: float) -> int:
-            return int(mid_x - (cum_qty / max_qty) * (chart_w / 2))
-
-        def _x_ask(cum_qty: float) -> int:
-            return int(mid_x + (cum_qty / max_qty) * (chart_w / 2))
-
-        def _y(price: float) -> int:
-            return int(margin + chart_h - ((price - price_min) / price_rng) * chart_h)
-
-        # Fundo bids (area verde)
-        if len(self._bid_points) > 1:
-            bid_path = QPainterPath()
-            bid_path.moveTo(mid_x, margin + chart_h)
-            for cum_qty, price in self._bid_points:
-                bid_path.lineTo(_x_bid(cum_qty), _y(price))
-            bid_path.lineTo(mid_x, _y(self._bid_points[-1][1]))
-            bid_path.closeSubpath()
-            p.fillPath(bid_path, QColor(34, 197, 94, 40))  # _GREEN alpha
-
-            bid_pen = QPen(QColor(34, 197, 94))
-            bid_pen.setWidthF(1.5)
-            p.setPen(bid_pen)
-            prev = None
-            for cum_qty, price in self._bid_points:
-                pt = (_x_bid(cum_qty), _y(price))
-                if prev is not None:
-                    p.drawLine(prev[0], prev[1], pt[0], pt[1])
-                prev = pt
-
-        # Fundo asks (area vermelha)
-        if len(self._ask_points) > 1:
-            ask_path = QPainterPath()
-            ask_path.moveTo(mid_x, margin + chart_h)
-            for cum_qty, price in self._ask_points:
-                ask_path.lineTo(_x_ask(cum_qty), _y(price))
-            ask_path.lineTo(mid_x, _y(self._ask_points[-1][1]))
-            ask_path.closeSubpath()
-            p.fillPath(ask_path, QColor(239, 68, 68, 40))  # _RED alpha
-
-            ask_pen = QPen(QColor(239, 68, 68))
-            ask_pen.setWidthF(1.5)
-            p.setPen(ask_pen)
-            prev = None
-            for cum_qty, price in self._ask_points:
-                pt = (_x_ask(cum_qty), _y(price))
-                if prev is not None:
-                    p.drawLine(prev[0], prev[1], pt[0], pt[1])
-                prev = pt
-
-        # Spread gap
-        if self._best_bid is not None and self._best_ask is not None:
-            spread_pen = QPen(QColor("#FACC15"))
-            spread_pen.setStyle(Qt.PenStyle.DashLine)
-            spread_pen.setWidthF(1)
-            p.setPen(spread_pen)
-            y_bid = _y(self._best_bid)
-            y_ask = _y(self._best_ask)
-            p.drawLine(mid_x - 4, y_bid, mid_x + 4, y_bid)
-            p.drawLine(mid_x - 4, y_ask, mid_x + 4, y_ask)
-
-        # Labels
-        p.setPen(QColor(_MUTED))
-        font = p.font()
-        font.setPointSize(7)
-        p.setFont(font)
-        if self._best_bid:
-            p.drawText(margin, margin, mid_x - margin, 14,
-                       Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                       f"Bids {self._best_bid:.2f}")
-        if self._best_ask:
-            p.drawText(mid_x, margin, mid_x - margin, 14,
-                       Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                       f"Asks {self._best_ask:.2f}")
-        if self._spread is not None:
-            spread_text = f"Spread R$ {self._spread:.2f}"
-            text_w = p.fontMetrics().horizontalAdvance(spread_text)
-            p.drawText(mid_x - text_w // 2, h - margin - 14, text_w, 14,
-                       Qt.AlignmentFlag.AlignCenter, spread_text)
-
-        p.end()
-
-
-class _Bridge(QObject):
-    progress = pyqtSignal(int, int, str)
-    done = pyqtSignal(str, list, float)
-    portfolio_done = pyqtSignal(dict)
-    market_done = pyqtSignal(dict)
-    watchlist_done = pyqtSignal(list)
-
-
-class InventoryTab(QWidget):
-    """Aba Inventario: SteamID -> valor total + tabela + grafico."""
-
-    def __init__(self, cache: prices.PriceCache) -> None:
-        super().__init__()
-        self._cache = cache
-        self._build()
-        self._load_saved_steamids()
-        self._refresh_chart()
-
-    # ── SteamID persistence ──────────────────────────────────
-    def _steamids_path(self) -> str:
-        p = DATA_DIR / "steamids.json"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        return str(p)
-
-    def _load_saved_steamids(self) -> None:
-        import json, os
-        path = self._steamids_path()
-        if os.path.exists(path):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    ids: list[str] = json.load(f)
-                for sid in ids:
-                    self._sid.addItem(sid)
-            except Exception:
-                pass
-
-    def _save_steamid(self) -> None:
-        import json, os
-        sid = self._sid.currentText().strip()
-        if not sid:
-            return
-        path = self._steamids_path()
-        ids: list[str] = []
-        if os.path.exists(path):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    ids = json.load(f)
-            except Exception:
-                ids = []
-        if sid in ids:
-            ids.remove(sid)
-        ids.insert(0, sid)
-        ids = ids[:10]
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(ids, f)
-        except Exception:
-            pass
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 18, 20, 18)
-        root.setSpacing(14)
-
-        top = QHBoxLayout()
-        self._sid = QComboBox()
-        self._sid.setEditable(True)
-        self._sid.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self._sid.lineEdit().setPlaceholderText("SteamID64 (17 digitos)")
-        self._sid.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 10px 12px; font-size: 11pt;"
-            f" color: {_TEXT}; }}"
-            "QComboBox::drop-down { border: none; width: 28px; }"
-            "QComboBox::down-arrow { image: none; }"
-            f"QComboBox:focus {{ border: 1px solid {_GREEN}; }}"
-            f"QComboBox QAbstractItemView {{ background: {_SURFACE};"
-            f" color: {_TEXT}; selection-background-color: #2A2A33;"
-            " border: 1px solid #3A3A44; }"
-        )
-        self._sid.lineEdit().returnPressed.connect(self._on_evaluate)
-        self._sid.activated.connect(self._on_evaluate)
-        top.addWidget(self._sid, 1)
-        self._btn = QPushButton("Avaliar")
-        self._btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn.setToolTip("Busca inventario publico na Steam e calcula o valor total")
-        self._btn.setStyleSheet(
-            _btn_primary(disabled=True)
-        )
-        self._btn.clicked.connect(self._on_evaluate)
-        top.addWidget(self._btn)
-        root.addLayout(top)
-
-        self._total = QLabel("R$ --")
-        f = QFont("Segoe UI", 30, QFont.Weight.DemiBold)
-        try:
-            f.setStyleHint(QFont.StyleHint.Monospace)
-            f.setFeatures({"tnum": 1})
-        except Exception:
-            pass
-        self._total.setFont(QFont("Segoe UI", 30, QFont.Weight.DemiBold))
-        self._total.setStyleSheet("color: #FFFFFF;")
-        root.addWidget(self._total)
-
-        cap = QLabel("Valor total do inventario  -  dado publico, sem login")
-        cap.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        root.addWidget(cap)
-
-        self._chart = ValueChart()
-        self._chart.setStyleSheet(f"background: {_SURFACE}; border-radius: 10px;")
-        root.addWidget(self._chart)
-
-        self._bar = QProgressBar()
-        self._bar.setTextVisible(False)
-        self._bar.setFixedHeight(4)
-        self._bar.setStyleSheet(
-            "QProgressBar { background: #20202a; border: none; border-radius: 2px; }"
-            f"QProgressBar::chunk {{ background: {_GREEN}; border-radius: 2px; }}"
-        )
-        self._bar.hide()
-        root.addWidget(self._bar)
-
-        self._status = QLabel("Digite teu SteamID64 e clique em Avaliar.")
-        self._status.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        root.addWidget(self._status)
-
-        self._table = QTableWidget(0, 5)
-        self._table.setHorizontalHeaderLabels(
-            ["Item", "Qtd", "Preco", "Total", "Grafico"]
-        )
-        _setup_table(self._table, "inventory")
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for i in (1, 2, 3):
-            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
-        hh.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        saved = _load_column_widths("inventory")
-        if saved:
-            for i, w in enumerate(saved):
-                if i < self._table.columnCount():
-                    hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
-                    self._table.setColumnWidth(i, w)
-
-        def _save_w() -> None:
-            _save_column_widths("inventory", [
-                self._table.columnWidth(i) for i in range(self._table.columnCount())
-            ])
-        hh.sectionResized.connect(_save_w)
-        root.addWidget(self._table, 1)
-
-        self._dist_label = QLabel("")
-        self._dist_label.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        root.addWidget(self._dist_label)
-
-    def _on_evaluate(self) -> None:
-        sid = self._sid.currentText().strip()
-        if not sid.isdigit() or len(sid) != 17 or not sid.startswith("7656119"):
-            self._status.setText(
-                "SteamID64 invalido -- sao 17 digitos, comeca com 7656119"
-                " (use steamid.io)."
-            )
-            return
-        self._btn.setEnabled(False)
-        self._bar.setRange(0, 0)
-        self._bar.show()
-        self._status.setText("Lendo inventario publico...")
-
-        self._bridge = _Bridge()
-        self._bridge.progress.connect(self._on_progress)
-        self._bridge.done.connect(self._on_done)
-
-        def work() -> None:
-            status, rows, total = prices.value_inventory(
-                sid, self._cache,
-                progress=lambda i, n, name: self._bridge.progress.emit(i, n, name),
-            )
-            self._bridge.done.emit(status, rows, total)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_progress(self, i: int, n: int, name: str) -> None:
-        if self._bar.maximum() == 0:
-            self._bar.setRange(0, n)
-        self._bar.setValue(i)
-        self._status.setText(f"Avaliando {i}/{n}: {name}")
-
-    def _on_done(self, status: str, rows: list, total: float) -> None:
-        self._btn.setEnabled(True)
-        self._bar.hide()
-        msgs = {
-            steam_api.INV_PRIVATE: "Inventario nao acessivel (400): privado, vazio "
-                                   "(sem skins CS2), ou Steam limitou. Confere no "
-                                   "navegador, aba CS2.",
-            steam_api.INV_RATE_LIMITED: "Steam limitou (rate-limit). Espera ~1 min.",
-            steam_api.INV_EMPTY: "Inventario publico, mas sem itens marketaveis.",
-            steam_api.INV_ERROR: "Nao consegui ler agora (rede/erro).",
-        }
-        if status != steam_api.INV_OK:
-            self._status.setText(msgs.get(status, "Falha desconhecida."))
-            return
-
-        self._total.setText(_brl(total))
-        self._status.setText(f"{len(rows)} itens avaliados.")
-        history.record_snapshot(total)
-        self._refresh_chart()
-        self._save_steamid()
-
-        self._table.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            self._table.setItem(r, 0, QTableWidgetItem(row["name"]))
-            self._table.setItem(r, 1, QTableWidgetItem(str(row["qty"])))
-            self._table.setItem(r, 2, QTableWidgetItem(_brl(row["price"])))
-            self._table.setItem(r, 3, QTableWidgetItem(_brl(row["total"])))
-            sp = MiniSparkline()
-            sp.set_series(signals.load_item_history(row["name"]))
-            self._table.setCellWidget(r, 4, sp)
-
-        conds = {"FN": 0, "MW": 0, "FT": 0, "WW": 0, "BS": 0, "Outros": 0}
-        cond_map = [
-            ("Factory New", "FN"), ("Minimal Wear", "MW"),
-            ("Field-Tested", "FT"), ("Well-Worn", "WW"),
-            ("Battle-Scarred", "BS"),
-        ]
-        for row in rows:
-            matched = False
-            for kw, short in cond_map:
-                if kw in row["name"]:
-                    conds[short] += row.get("qty", 1)
-                    matched = True
-                    break
-            if not matched:
-                conds["Outros"] += row.get("qty", 1)
-        dist_text = "  |  ".join(f"{k}: {v}" for k, v in conds.items() if v)
-        self._dist_label.setText(dist_text)
-
-    def _refresh_chart(self) -> None:
-        self._chart.set_series([h["total"] for h in history.load_history()])
-
-
-class PortfolioTab(QWidget):
-    """Aba Meu Portfolio: tabela com lucro real pos-taxa, form p/ adicionar."""
-
-    def __init__(self, cache: prices.PriceCache) -> None:
-        super().__init__()
-        self._cache = cache
-        self._bridge = _Bridge()
-        self._bridge.portfolio_done.connect(self._on_done)
-        self._last_result: dict | None = None
-        self._last_update_ts: float = 0
-        self._build()
-        self._evaluate()
-        self._auto_timer = QTimer(self)
-        self._auto_timer.timeout.connect(self._evaluate)
-        self._auto_timer.start(900000)
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 18, 20, 18)
-        root.setSpacing(14)
-
-        self._table = QTableWidget(0, 7)
-        self._table.setHorizontalHeaderLabels(
-            ["Item", "Unitário", "Custo", "Vale", "Recebe", "Lucro Real", "Break-even"]
-        )
-        actions = [
-            ("Remover", self._on_remove),
-            ("Editar", self._on_edit_position),
-            ("Vender", self._on_sell),
-            ("Duplicar", self._on_duplicate),
-        ]
-        _setup_table(self._table, "portfolio", actions)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for i in range(1, 7):
-            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
-        saved = _load_column_widths("portfolio")
-        if saved:
-            for i, w in enumerate(saved):
-                if i < self._table.columnCount():
-                    hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
-                    self._table.setColumnWidth(i, w)
-
-        def _save_w() -> None:
-            _save_column_widths("portfolio", [
-                self._table.columnWidth(i) for i in range(self._table.columnCount())
-            ])
-        hh.sectionResized.connect(_save_w)
-
-        QShortcut(QKeySequence("Ctrl+O"), self).activated.connect(self._on_import)
-        QShortcut(QKeySequence("Ctrl+E"), self).activated.connect(self._on_export_csv)
-        QShortcut(QKeySequence("Delete"), self).activated.connect(self._on_remove)
-
-        root.addWidget(self._table, 1)
-
-        self._totals = QLabel("")
-        self._totals.setStyleSheet(f"color: {_TEXT}; font-size: 10pt; font-weight: 600;")
-        root.addWidget(self._totals)
-
-        self._status = QLabel("")
-        self._status.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        root.addWidget(self._status)
-
-        self._pf_chart = ValueChart()
-        self._pf_chart.setStyleSheet(f"background: {_SURFACE}; border-radius: 10px;")
-        root.addWidget(self._pf_chart)
-
-        self._filter_inp = QLineEdit()
-        self._filter_inp.setPlaceholderText("Filtrar por nome do item...")
-        self._filter_inp.setStyleSheet(_input_style())
-        self._filter_inp.textChanged.connect(self._apply_filter)
-        root.addWidget(self._filter_inp)
-
-        form = QHBoxLayout()
-        self._name_inp = QLineEdit()
-        self._name_inp.setPlaceholderText(
-            "Nome exato do item (ex.: AK-47 | Redline (Field-Tested))"
-        )
-        self._name_inp.setStyleSheet(
-            _input_style()
-        )
-        self._name_inp.returnPressed.connect(self._on_add)
-        form.addWidget(self._name_inp, 1)
-
-        self._cost_inp = QLineEdit()
-        self._cost_inp.setPlaceholderText("Custo (R$)")
-        self._cost_inp.setFixedWidth(120)
-        self._cost_inp.setStyleSheet(
-            _input_style()
-        )
-        self._cost_inp.returnPressed.connect(self._on_add)
-        form.addWidget(self._cost_inp)
-
-        self._qty_inp = QLineEdit("1")
-        self._qty_inp.setFixedWidth(60)
-        self._qty_inp.setStyleSheet(
-            _input_style()
-        )
-        self._qty_inp.returnPressed.connect(self._on_add)
-        form.addWidget(self._qty_inp)
-
-        add_btn = QPushButton("Adicionar")
-        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_btn.setToolTip("Adiciona item ao portfolio")
-        add_btn.setStyleSheet(
-            _btn_primary()
-        )
-        add_btn.clicked.connect(self._on_add)
-        form.addWidget(add_btn)
-        root.addLayout(form)
-
-        btn_row = QHBoxLayout()
-        rem_btn = QPushButton("Remover selecionado")
-        rem_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        rem_btn.setToolTip("Remove a posicao selecionada do portfolio")
-        rem_btn.setStyleSheet(
-            _btn_danger()
-        )
-        rem_btn.clicked.connect(self._on_remove)
-        btn_row.addWidget(rem_btn)
-
-        edit_btn = QPushButton("Editar")
-        edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        edit_btn.setToolTip("Edita custo ou quantidade da posicao selecionada")
-        edit_btn.setStyleSheet(
-            _btn_secondary("8px 18px", "10pt")
-        )
-        edit_btn.clicked.connect(self._on_edit_position)
-        btn_row.addWidget(edit_btn)
-
-        sell_btn = QPushButton("Vender selecionado")
-        sell_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        sell_btn.setToolTip("Registra venda e calcula lucro real pos-taxa")
-        sell_btn.setStyleSheet(
-            _btn_primary("8px 18px", "10pt")
-        )
-        sell_btn.clicked.connect(self._on_sell)
-        btn_row.addWidget(sell_btn)
-
-        import_btn = QPushButton("Importar CSV")
-        import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        import_btn.setToolTip("Importa posicoes a partir de texto CSV")
-        import_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        import_btn.clicked.connect(self._on_import)
-        btn_row.addWidget(import_btn)
-
-        self._refresh_btn = QPushButton("Atualizar precos")
-        self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._refresh_btn.setToolTip("Reavalia todas as posicoes com precos atuais")
-        self._refresh_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        self._refresh_btn.clicked.connect(self._evaluate)
-        btn_row.addWidget(self._refresh_btn)
-
-        batch_btn = QPushButton("Adicionar lote")
-        batch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        batch_btn.setToolTip("Adiciona varias posicoes de uma vez")
-        batch_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        batch_btn.clicked.connect(self._on_batch_add)
-        btn_row.addWidget(batch_btn)
-
-        export_btn = QPushButton("Exportar CSV")
-        export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        export_btn.setToolTip("Exporta portfolio para arquivo CSV")
-        export_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        export_btn.clicked.connect(self._on_export_csv)
-        btn_row.addWidget(export_btn)
-
-        export_full_btn = QPushButton("Exportar valores")
-        export_full_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        export_full_btn.setToolTip("Exporta portfolio com precos atuais")
-        export_full_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        export_full_btn.clicked.connect(self._on_export_csv_full)
-        btn_row.addWidget(export_full_btn)
-
-        dup_btn = QPushButton("Duplicar")
-        dup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        dup_btn.setToolTip("Duplica a posicao selecionada")
-        dup_btn.setStyleSheet(
-            _btn_secondary("8px 18px", "10pt")
-        )
-        dup_btn.clicked.connect(self._on_duplicate)
-        btn_row.addWidget(dup_btn)
-
-        clear_all_btn = QPushButton("Limpar tudo")
-        clear_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        clear_all_btn.setToolTip("Remove todas as posicoes do portfolio")
-        clear_all_btn.setStyleSheet(
-            _btn_danger()
-        )
-        clear_all_btn.clicked.connect(self._on_clear_portfolio)
-        btn_row.addWidget(clear_all_btn)
-
-        btn_row.addStretch()
-        root.addLayout(btn_row)
-        self.setAcceptDrops(True)
-
-    def dragEnterEvent(self, evt) -> None:  # noqa: N802
-        if evt.mimeData().hasUrls():
-            evt.acceptProposedAction()
-
-    def dropEvent(self, evt) -> None:  # noqa: N802
-        for url in evt.mimeData().urls():
-            path = url.toLocalFile()
-            if path.lower().endswith(".csv"):
-                try:
-                    with open(path, encoding="utf-8") as f:
-                        text = f.read()
-                except Exception:
-                    continue
-                result = portfolio.import_csv(text)
-                if result["imported"]:
-                    self._status.setText(
-                        f"Importado: {result['imported']} posicao(oes)."
-                    )
-                self._evaluate()
-                break
-
-    def _on_add(self) -> None:
-        name = self._name_inp.text().strip()
-        if not name:
-            self._status.setText("Digite o nome do item.")
-            return
-        try:
-            cost = float(self._cost_inp.text().strip().replace(",", "."))
-        except ValueError:
-            self._status.setText("Custo invalido. Use numeros (ex.: 200.50).")
-            return
-        if cost <= 0:
-            self._status.setText("Custo deve ser maior que zero.")
-            return
-        try:
-            qty = int(self._qty_inp.text().strip())
-        except ValueError:
-            qty = 1
-        portfolio.add_position(name, cost, max(qty, 1))
-        self._name_inp.clear()
-        self._cost_inp.clear()
-        self._qty_inp.setText("1")
-        self._evaluate()
-
-    def _on_remove(self) -> None:
-        rows = sorted(set(idx.row() for idx in self._table.selectedIndexes()),
-                      reverse=True)
-        if not rows:
-            self._status.setText("Nenhuma posicao selecionada.")
-            return
-        positions = portfolio.load_portfolio()
-        rows = [r for r in rows if r < len(positions)]
-        if not rows:
-            return
-        confirm = QMessageBox.question(
-            self, "Remover posicao",
-            f"Remover {len(rows)} posicao(oes) do portfolio?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
-            return
-        for r in rows:
-            positions.pop(r)
-        portfolio.save_portfolio(positions)
-        self._status.setText(f"{len(rows)} posicao(oes) removida(s).")
-        self._evaluate()
-
-    def _on_sell(self) -> None:
-        row = self._table.currentRow()
-        if row < 0:
-            return
-        positions = portfolio.load_portfolio()
-        if row >= len(positions):
-            return
-        pos = positions[row]
-        market_price = prices.cached_price(pos["name"], self._cache)
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Registrar venda")
-        dlg.resize(380, 200)
-        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                          " font-family: 'Segoe UI';")
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(12)
-        layout.addWidget(QLabel(
-            f"Vendendo: {pos['name']}\n"
-            f"Comprou: {_brl(pos['cost'])}  x {pos['quantity']}",
-            styleSheet=f"color: {_MUTED}; font-size: 10pt;"
-        ))
-        inp = QLineEdit()
-        if market_price is not None:
-            inp.setText(f"{market_price:.2f}".replace(".", ","))
-            inp.selectAll()
-        inp.setPlaceholderText("Preco de venda (R$) por unidade")
-        inp.setStyleSheet(_input_style())
-        inp.returnPressed.connect(dlg.accept)
-        layout.addWidget(inp)
-        btns = QHBoxLayout()
-        ok_btn = QPushButton("Vender")
-        ok_btn.setStyleSheet(
-            _btn_primary("8px 18px", "10pt")
-        )
-        ok_btn.clicked.connect(dlg.accept)
-        btns.addWidget(ok_btn)
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        cancel_btn.clicked.connect(dlg.reject)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        try:
-            sell_price = float(inp.text().strip().replace(",", "."))
-        except ValueError:
-            return
-        t = trades.record_trade(
-            pos["name"], pos["cost"], sell_price, pos["quantity"],
-            buy_ts=pos.get("added_ts"),
-        )
-        positions.pop(row)
-        portfolio.save_portfolio(positions)
-        sign = "+" if t["pnl"] >= 0 else "-"
-        self._status.setText(
-            f"Vendido: {pos['name']} | Lucro: {sign}{_brl(abs(t['pnl']))}"
-        )
-        self._evaluate()
-
-    def _on_import(self) -> None:
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Importar posicoes (CSV)")
-        dlg.resize(520, 360)
-        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                          " font-family: 'Segoe UI';")
-
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(12)
-
-        hint = QLabel(
-            "Cole uma linha por item:\n"
-            "  Nome, Custo, Qtd (opcional)\n"
-            "  Linhas com # sao ignoradas\n\n"
-            "Exemplo:\n"
-            "  AK-47 | Redline (Field-Tested), 200, 1\n"
-            "  AWP | Asiimov (FT), 650.50"
-        )
-        hint.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        layout.addWidget(hint)
-
-        self._import_text = QTextEdit()
-        self._import_text.setStyleSheet(
-            f"QTextEdit {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 10px; font-size: 10pt;"
-            " color: #E6E6EA; }}"
-        )
-        layout.addWidget(self._import_text, 1)
-
-        btn_import = QPushButton("Importar")
-        btn_import.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_import.setStyleSheet(
-            _btn_primary()
-        )
-        btn_import.clicked.connect(lambda: self._do_import(dlg))
-        layout.addWidget(btn_import)
-
-        dlg.exec()
-
-    def _do_import(self, dlg) -> None:
-        text = self._import_text.toPlainText()
-        if not text.strip():
-            return
-        result = portfolio.import_csv(text)
-        dlg.accept()
-        msg = f"Importado: {result['imported']} posicao(oes)."
-        if result["errors"]:
-            msg += f" Erros: {len(result['errors'])}"
-        self._status.setText(msg)
-        self._evaluate()
-
-    def _on_export_csv(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar Portfolio", "portfolio.csv", "CSV (*.csv)"
-        )
-        if not path:
-            return
-        positions = portfolio.load_portfolio()
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write("Item,Custo,Qtd\n")
-                for p in positions:
-                    name = p["name"].replace(",", " ")
-                    f.write(f'{name},{p["cost"]},{p["quantity"]}\n')
-            self._status.setText(f"Exportado: {len(positions)} posicao(oes) para {path}")
-        except Exception as e:
-            self._status.setText(f"Erro ao exportar: {e}")
-
-    def _on_export_csv_full(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar Portfolio (com valores)", "portfolio_valores.csv", "CSV (*.csv)"
-        )
-        if not path:
-            return
-        result = self._last_result
-        if not result:
-            self._status.setText("Avalie o portfolio primeiro.")
-            return
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write("Item,Custo,Quantidade,Valor Atual,Recebe,Lucro Real\n")
-                for row in result["rows"]:
-                    name = row["name"].replace(",", " ")
-                    cost = row.get("cost_total", 0)
-                    qty = row.get("quantity", 1)
-                    market = row.get("market", 0)
-                    net = row.get("net_if_sold", 0)
-                    pnl = row.get("pnl", 0)
-                    f.write(f'{name},{cost},{qty},{market},{net},{pnl}\n')
-            self._status.setText("Portfolio exportado com valores.")
-        except Exception as e:
-            self._status.setText(f"Erro ao exportar: {e}")
-
-    def _evaluate(self) -> None:
-        positions = portfolio.load_portfolio()
-        if not positions:
-            self._table.setRowCount(0)
-            self._totals.setText("Portfolio vazio. Adicione uma posicao acima.")
-            self._status.setText("")
-            return
-        self._refresh_btn.setEnabled(False)
-        self._status.setText("Consultando precos...")
-
-        def work() -> None:
-            result = portfolio.evaluate_portfolio(
-                positions, lambda n: prices.cached_price(n, self._cache)
-            )
-            self._bridge.portfolio_done.emit(result)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_done(self, result: dict) -> None:
-        self._last_result = result
-        self._last_update_ts = time.time()
-        self._refresh_btn.setEnabled(True)
-        self._status.setText(
-            "Portfolio atualizado em "
-            f"{time.strftime('%H:%M', time.localtime(self._last_update_ts))}."
-        )
-        net = result["totals"].get("net_if_sold")
-        if net is not None:
-            history.record_snapshot(net)
-            self._pf_chart.set_series(
-                [h["total"] for h in history.load_history()]
-            )
-        self._table.setRowCount(len(result["rows"]))
-        for r, row in enumerate(result["rows"]):
-            name_item = QTableWidgetItem(row["name"])
-            name_item.setToolTip(row["name"])
-            self._table.setItem(r, 0, name_item)
-
-            qty = row.get("quantity", 1)
-            unitario = _brl(row["cost"] / qty) if qty > 0 else "--"
-            self._table.setItem(r, 1, QTableWidgetItem(unitario))
-
-            if row.get("pnl") is None:
-                cost_total = row["cost"] * row["quantity"]
-                self._table.setItem(r, 2, QTableWidgetItem(_brl(cost_total)))
-                for c in range(3, 7):
-                    it = QTableWidgetItem("--")
-                    it.setForeground(QColor(_MUTED))
-                    self._table.setItem(r, c, it)
-                continue
-
-            self._table.setItem(r, 2, QTableWidgetItem(_brl(row["cost_total"])))
-            self._table.setItem(r, 3, QTableWidgetItem(_brl(row["market"])))
-            self._table.setItem(r, 4, QTableWidgetItem(_brl(row["net_if_sold"])))
-
-            pnl = row["pnl"]
-            tag = "+" if pnl >= 0 else "-"
-            pnl_item = QTableWidgetItem(tag + _brl(abs(pnl)))
-            pnl_item.setForeground(QColor(_GREEN if pnl >= 0 else _RED))
-            self._table.setItem(r, 5, pnl_item)
-
-            self._table.setItem(r, 6, QTableWidgetItem(_brl(row["break_even"])))
-
-            bg = QColor(_GREEN if pnl >= 0 else _RED)
-            bg.setAlpha(18)
-            for c in range(7):
-                it = self._table.item(r, c)
-                if it:
-                    it.setBackground(bg)
-
-        t = result["totals"]
-        self._apply_filter()
-        sign = "+" if t["pnl"] >= 0 else "-"
-        self._totals.setText(
-            f"Investido {_brl(t['cost'])}  |  Vale {_brl(t['market'])}  |  "
-            f"Recebe {_brl(t['net_if_sold'])}  |  "
-            f"LUCRO REAL {sign}{_brl(abs(t['pnl']))} ({t['pnl_pct']*100:+.1f}%)"
-        )
-
-    def _apply_filter(self) -> None:
-        text = self._filter_inp.text().strip().lower()
-        visible = 0
-        for r in range(self._table.rowCount()):
-            name_item = self._table.item(r, 0)
-            match = not text or (name_item and text in name_item.text().lower())
-            self._table.setRowHidden(r, not match)
-            if match:
-                visible += 1
-        if self._last_result and text:
-            total = len(self._last_result["rows"])
-            self._status.setText(
-                f"Mostrando {visible} de {total} posicoes"
-            )
-
-    def _on_edit_position(self) -> None:
-        row = self._table.currentRow()
-        if row < 0:
-            self._status.setText("Nenhuma posicao selecionada.")
-            return
-        positions = portfolio.load_portfolio()
-        if row >= len(positions):
-            return
-        pos = positions[row]
-        dlg = QDialog(self)
-        dlg.setWindowTitle(f"Editar: {pos['name']}")
-        dlg.resize(360, 200)
-        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                          " font-family: 'Segoe UI';")
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(12)
-
-        layout.addWidget(QLabel(
-            f"Item: {pos['name']}",
-            styleSheet=f"color: {_MUTED}; font-size: 10pt;"
-        ))
-        cost_inp = QLineEdit(str(pos["cost"]))
-        cost_inp.setPlaceholderText("Custo (R$)")
-        cost_inp.setStyleSheet(_input_style())
-        layout.addWidget(QLabel("Custo:"))
-        layout.addWidget(cost_inp)
-
-        qty_inp = QLineEdit(str(pos["quantity"]))
-        qty_inp.setPlaceholderText("Quantidade")
-        qty_inp.setStyleSheet(_input_style())
-        layout.addWidget(QLabel("Quantidade:"))
-        layout.addWidget(qty_inp)
-
-        btns = QHBoxLayout()
-        ok_btn = QPushButton("Salvar")
-        ok_btn.setStyleSheet(_btn_primary("8px 18px", "10pt"))
-        ok_btn.clicked.connect(dlg.accept)
-        btns.addWidget(ok_btn)
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setStyleSheet(_btn_secondary())
-        cancel_btn.clicked.connect(dlg.reject)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        try:
-            new_cost = float(cost_inp.text().strip().replace(",", "."))
-        except ValueError:
-            self._status.setText("Custo invalido.")
-            return
-        try:
-            new_qty = int(qty_inp.text().strip())
-        except ValueError:
-            new_qty = pos["quantity"]
-        if new_cost <= 0:
-            self._status.setText("Custo deve ser > 0.")
-            return
-        positions[row] = {**pos, "cost": new_cost, "quantity": max(new_qty, 1)}
-        portfolio.save_portfolio(positions)
-        self._status.setText(f"Posicao atualizada: {pos['name']}")
-        self._evaluate()
-
-    def _on_clear_portfolio(self) -> None:
-        positions = portfolio.load_portfolio()
-        if not positions:
-            self._status.setText("Portfolio ja esta vazio.")
-            return
-        confirm = QMessageBox.question(
-            self, "Limpar portfolio",
-            f"Remover todas as {len(positions)} posicoes do portfolio?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
-            return
-        portfolio.save_portfolio([])
-        self._status.setText("Portfolio limpo.")
-        self._evaluate()
-
-    def _on_duplicate(self) -> None:
-        rows = sorted(set(idx.row() for idx in self._table.selectedIndexes()), reverse=True)
-        if not rows:
-            self._status.setText("Nenhuma posicao selecionada.")
-            return
-        positions = portfolio.load_portfolio()
-        for r in rows:
-            if r < len(positions):
-                pos = dict(positions[r])
-                positions.insert(r + 1, pos)
-        portfolio.save_portfolio(positions)
-        self._status.setText(f"{len(rows)} posicao(oes) duplicada(s).")
-        self._evaluate()
-
-    def _on_batch_add(self) -> None:
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Adicionar em lote")
-        dlg.resize(480, 320)
-        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                          " font-family: 'Segoe UI';")
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(12)
-        hint = QLabel(
-            "Cole um item por linha:\n"
-            "  Nome, Custo, Qtd (opcional)\n\n"
-            "Exemplo:\n"
-            "  AK-47 | Redline (FT), 200\n"
-            "  AWP | Asiimov (FT), 650.50, 2"
-        )
-        hint.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        layout.addWidget(hint)
-        inp = QTextEdit()
-        inp.setStyleSheet(
-            f"QTextEdit {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 10px; font-size: 10pt;"
-            " color: #E6E6EA; }}"
-        )
-        layout.addWidget(inp, 1)
-        btns = QHBoxLayout()
-        ok_btn = QPushButton("Adicionar")
-        ok_btn.setStyleSheet(_btn_primary())
-        ok_btn.clicked.connect(dlg.accept)
-        btns.addWidget(ok_btn)
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setStyleSheet(_btn_secondary())
-        cancel_btn.clicked.connect(dlg.reject)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        text = inp.toPlainText().strip()
-        if not text:
-            return
-        positions = portfolio.load_portfolio()
-        added = 0
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = [p.strip() for p in line.split(",")]
-            if len(parts) < 2:
-                continue
-            try:
-                cost = float(parts[1].replace(",", "."))
-            except ValueError:
-                continue
-            qty = int(parts[2]) if len(parts) > 2 and parts[2].strip().isdigit() else 1
-            positions.append({"name": parts[0], "cost": cost, "quantity": max(qty, 1)})
-            added += 1
-        if added:
-            portfolio.save_portfolio(positions)
-            self._status.setText(f"{added} posicao(oes) adicionada(s) em lote.")
-        self._evaluate()
-
-
-class MarketTab(QWidget):
-    """Aba Market Browser: consulta lowest + median + volume + veredito."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._bridge = _Bridge()
-        self._bridge.market_done.connect(self._on_done)
-        self._build()
-
-    def _searches_path(self) -> str:
-        p = DATA_DIR / "searches.json"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        return str(p)
-
-    def _save_search(self, text: str) -> None:
-        import json, os
-        path = self._searches_path()
-        searches: list[str] = []
-        if os.path.exists(path):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    searches = json.load(f)
-            except Exception:
-                searches = []
-        if text in searches:
-            searches.remove(text)
-        searches.insert(0, text)
-        searches = searches[:10]
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(searches, f)
-        except Exception:
-            pass
-
-    def _load_searches(self) -> list[str]:
-        import json, os
-        path = self._searches_path()
-        if os.path.exists(path):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return []
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 18, 20, 18)
-        root.setSpacing(14)
-
-        top = QHBoxLayout()
-        self._inp = QComboBox()
-        self._inp.setEditable(True)
-        self._inp.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        self._inp.lineEdit().setPlaceholderText(
-            "Nome exato do item (ex.: AK-47 | Redline (Field-Tested))"
-        )
-        for s in self._load_searches():
-            self._inp.addItem(s)
-        self._inp.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 10px 12px; font-size: 11pt;"
-            f" color: {_TEXT}; }}"
-            "QComboBox::drop-down { border: none; width: 28px; }"
-            f"QComboBox:focus {{ border: 1px solid {_GREEN}; }}"
-            f"QComboBox QAbstractItemView {{ background: {_SURFACE};"
-            f" color: {_TEXT}; selection-background-color: #2A2A33;"
-            " border: 1px solid #3A3A44; }"
-        )
-        self._inp.lineEdit().returnPressed.connect(self._on_search)
-        self._inp.activated.connect(self._on_search)
-
-        self._completer = QCompleter(self._load_searches(), self)
-        self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self._completer.setFilterMode(Qt.MatchFlag.MatchContains)
-        self._inp.setCompleter(self._completer)
-
-        top.addWidget(self._inp, 1)
-
-        self._btn = QPushButton("Consultar")
-        self._btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn.setToolTip("Busca precos de mercado e mostra veredito de valor justo")
-        self._btn.setStyleSheet(
-            _btn_primary(disabled=True)
-        )
-        self._btn.clicked.connect(self._on_search)
-        top.addWidget(self._btn)
-        root.addLayout(top)
-
-        self._status = QLabel("Digite o nome de um item e clique em Consultar.")
-        self._status.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
-        root.addWidget(self._status)
-
-        self._results = QWidget()
-        res = QVBoxLayout(self._results)
-        res.setSpacing(8)
-        res.setContentsMargins(16, 16, 16, 16)
-
-        self._lowest_lbl = QLabel("")
-        self._lowest_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._lowest_lbl)
-
-        self._median_lbl = QLabel("")
-        self._median_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._median_lbl)
-
-        self._volume_lbl = QLabel("")
-        self._volume_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._volume_lbl)
-
-        self._supply_lbl = QLabel("")
-        self._supply_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._supply_lbl)
-
-        self._ratio_lbl = QLabel("")
-        self._ratio_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._ratio_lbl)
-
-        self._anomaly_lbl = QLabel("")
-        self._anomaly_lbl.setStyleSheet(f"color: #FACC15; font-size: 11pt;")
-        self._anomaly_lbl.hide()
-        res.addWidget(self._anomaly_lbl)
-
-        self._verdict_lbl = QLabel("")
-        self._verdict_lbl.setStyleSheet(
-            f"color: {_TEXT}; font-size: 12pt; font-weight: 600;"
-        )
-        res.addWidget(self._verdict_lbl)
-
-        sep = QLabel(
-            "──────────────────────────────────────────────"
-        )
-        sep.setStyleSheet(f"color: #2A2A33; font-size: 9pt;")
-        res.addWidget(sep)
-
-        self._spread_lbl = QLabel("")
-        self._spread_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._spread_lbl)
-
-        self._depth_lbl = QLabel("")
-        self._depth_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._depth_lbl)
-
-        self._trend_lbl = QLabel("")
-        self._trend_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._trend_lbl)
-
-        self._multi_trend_lbl = QLabel("")
-        self._multi_trend_lbl.setStyleSheet(
-            f"color: {_MUTED}; font-size: 10pt;"
-        )
-        self._multi_trend_lbl.hide()
-        res.addWidget(self._multi_trend_lbl)
-
-        self._disc_lbl = QLabel("")
-        self._disc_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._disc_lbl)
-
-        self._liq_lbl = QLabel("")
-        self._liq_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._liq_lbl)
-
-        spark_lbl = QLabel("Historico de precos")
-        spark_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        res.addWidget(spark_lbl)
-
-        self._sparkline = MiniSparkline()
-        self._sparkline.setStyleSheet(
-            f"background: {_BG}; border-radius: 6px;"
-        )
-        res.addWidget(self._sparkline)
-
-        depth_lbl = QLabel("Profundidade do mercado")
-        depth_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        res.addWidget(depth_lbl)
-
-        self._depth_chart = DepthChart()
-        self._depth_chart.setStyleSheet(
-            f"background: {_BG}; border-radius: 6px;"
-        )
-        res.addWidget(self._depth_chart)
-
-        self._results.setStyleSheet(
-            f"background: {_SURFACE}; border-radius: 10px;"
-        )
-        self._results.hide()
-        root.addWidget(self._results)
-
-        root.addStretch()
-
-    def _on_search(self) -> None:
-        name = self._inp.currentText().strip()
-        if not name:
-            return
-        self._save_search(name)
-        self._btn.setEnabled(False)
-        self._status.setText("Consultando...")
-        self._results.hide()
-
-        def work() -> None:
-            try:
-                overview = steam_api.get_market_overview(name)
-                page = steam_api.get_market_page_data(name)
-                overview = dict(overview) if overview else {}
-                overview["page_data"] = page
-                self._bridge.market_done.emit(overview or {})
-            except Exception:
-                self._bridge.market_done.emit({})
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_done(self, data: dict) -> None:
-        self._btn.setEnabled(True)
-        if not data:
-            self._status.setText(
-                "Nao consegui obter dados. Item invalido ou rede falhou."
-            )
-            return
-
-        name = self._inp.currentText().strip()
-        lowest = data.get("lowest")
-        median = data.get("median")
-        volume = data.get("volume")
-
-        page_data = data.get("page_data")
-        order_book = (page_data or {}).get("order_book")
-        price_history = (page_data or {}).get("price_history")
-        spread = (order_book or {}).get("spread")
-        buy_count = (order_book or {}).get("buy_count")
-        sell_count = (order_book or {}).get("sell_count")
-
-        verdict = steam_api.fair_value_verdict(
-            lowest, median,
-            spread=spread, buy_count=buy_count,
-            sell_count=sell_count,
-            price_history=price_history,
-        )
-
-        self._lowest_lbl.setText(
-            f"Menor listagem:  {_brl(lowest) if lowest else 'N/D'}"
-        )
-        self._median_lbl.setText(
-            f"Mediana:         {_brl(median) if median else 'N/D'}"
-        )
-        self._volume_lbl.setText(
-            f"Volume (24h):    {volume if volume else 'N/D'}"
-        )
-        csell = (order_book or {}).get("sell_count")
-        if csell is not None:
-            self._supply_lbl.setText(f"Oferta (vendas): {csell}")
-        else:
-            self._supply_lbl.setText("")
-
-        if volume and isinstance(volume, (int, float)) and csell is not None:
-            sd = signals.supply_demand_ratio(int(volume), csell)
-            self._ratio_lbl.setText(f"Demanda/Oferta:  {sd['label']}")
-        else:
-            self._ratio_lbl.setText("")
-
-        vh = signals.load_item_volume(name) if name else []
-        sh = signals.load_item_supply(name) if name else []
-        anom_parts = []
-        if vh:
-            anom = signals.volume_anomaly(vh)
-            if anom.get("is_anomaly"):
-                anom_parts.append(f"Volume {anom['direction']} {anom['ratio']:.1f}x (media {anom['avg']})")
-        if sh:
-            anom_s = signals.volume_anomaly(sh, factor=2.0)
-            if anom_s.get("is_anomaly"):
-                anom_parts.append(f"Oferta {anom_s['direction']} {anom_s['ratio']:.1f}x (media {anom_s['avg']})")
-        if anom_parts:
-            self._anomaly_lbl.setText(" | ".join(anom_parts))
-            self._anomaly_lbl.show()
-        else:
-            self._anomaly_lbl.hide()
-
-        vcolors = {
-            "below_median": _GREEN,
-            "fair": _GREEN,
-            "slightly_above": "#FACC15",
-            "overpriced": _RED,
-            "unknown": _MUTED,
-        }
-        vcolor = vcolors.get(verdict["verdict"], _MUTED)
-        self._verdict_lbl.setStyleSheet(
-            f"color: {vcolor}; font-size: 12pt; font-weight: 600;"
-        )
-        self._verdict_lbl.setText(f"VEREDITO: {verdict['message']}")
-
-        if verdict.get("details"):
-            d = verdict["details"]
-        else:
-            d = {}
-
-        if "spread_verdict" in verdict:
-            sp = d.get("spread", "")
-            self._spread_lbl.setStyleSheet(
-                f"color: {_TEXT}; font-size: 11pt;"
-            )
-            spread_text = (
-                f"Spread: R$ {spread / 100:.2f} ({sp})" if spread
-                else "Mercado sem ordens ativas"
-            )
-            self._spread_lbl.setText(spread_text)
-        else:
-            self._spread_lbl.setText("")
-
-        if "book_verdict" in verdict:
-            self._depth_lbl.setStyleSheet(
-                f"color: {_TEXT}; font-size: 11pt;"
-            )
-            depth_text = (
-                f"Ordens: {buy_count} compra / {sell_count} venda"
-                if buy_count is not None and sell_count is not None
-                else ""
-            )
-            self._depth_lbl.setText(depth_text)
-        else:
-            self._depth_lbl.setText("")
-
-        if lowest:
-            signals.record_item_price(name, lowest)
-        if volume and isinstance(volume, (int, float)):
-            signals.record_item_volume(name, int(volume))
-        csell = (order_book or {}).get("sell_count")
-        if csell is not None:
-            signals.record_item_supply(name, csell)
-        h = signals.load_item_history(name)
-        t = signals.trend(h)
-        if t:
-            tcolor = _GREEN if t["direction"] == "subiu" else _RED
-            self._trend_lbl.setStyleSheet(
-                f"color: {tcolor}; font-size: 11pt;"
-            )
-            self._trend_lbl.setText(f"Tendencia: {t['label']}")
-        else:
-            self._trend_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 11pt;")
-            self._trend_lbl.setText("Tendencia: historico insuficiente")
-
-        self._sparkline.set_series(h)
-        self._depth_chart.set_data(order_book)
-
-        if len(h) >= 7:
-            prices_only = [e["price"] for e in h]
-            sma7 = signals.sma(prices_only, 7)
-            self._sparkline.set_sma(sma7)
-        else:
-            self._sparkline.set_sma([])
-
-        if price_history and len(price_history) >= 11:
-            sr = signals.find_support_resistance(price_history, window=5)
-            self._sparkline.set_sr(sr)
-
-        cs = cases.case_status(name)
-        if cs["case"]:
-            if cs["is_discontinued"]:
-                color = "#FACC15"  # amarelo: descontinuada = sinal positivo
-            elif cs["status"] == "rare":
-                color = "#A78BFA"  # roxo: rara
-            elif cs["status"] == "active":
-                color = _MUTED  # ativa = neutro
-            else:
-                color = _MUTED
-            self._disc_lbl.setStyleSheet(f"color: {color}; font-size: 11pt;")
-            self._disc_lbl.setText(f"Caixa: {cs['label']}")
-        else:
-            self._disc_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 11pt;")
-            self._disc_lbl.setText("")
-
-        liq = signals.liquidity_flag(volume)
-        if liq["level"] == "low":
-            self._liq_lbl.setStyleSheet(
-                f"color: {_RED}; font-size: 11pt;"
-            )
-            self._liq_lbl.setText(f"Liquidez: {liq['flag']}")
-        else:
-            self._liq_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 11pt;")
-            self._liq_lbl.setText("")
-
-        multi = signals.multi_trend(price_history) if price_history else {}
-        if multi:
-            parts = []
-            for lbl in ["24h", "7d", "30d", "90d"]:
-                if lbl in multi:
-                    cp = multi[lbl]["change_pct"]
-                    c = _GREEN if cp > 0.5 else (_RED if cp < -0.5 else _MUTED)
-                    parts.append(f"{lbl}: {cp:+.1f}%")
-            self._multi_trend_lbl.setText("  |  ".join(parts))
-            self._multi_trend_lbl.show()
-        else:
-            self._multi_trend_lbl.hide()
-
-        item_cat = _classify_item(name)
-        self._status.setText(f"Resultados para: {name}  |  Categoria: {item_cat}")
-        self._results.show()
 
 
 def _make_tray_icon() -> QIcon:
@@ -1891,1763 +161,8 @@ def _make_tray_icon() -> QIcon:
     return QIcon(pix)
 
 
-def _classify_item(name: str) -> str:
-    """Classifica item em categoria."""
-    lower = name.lower()
-    knives = [
-        "knife", "bayonet", "karambit", "butterfly", "flip",
-        "gut", "huntsman", "falchion", "shadow daggers", "navaja",
-        "stiletto", "talon", "ursus", "classic", "paracord",
-        "survival", "nomad", "skeleton",
-    ]
-    if any(k in lower for k in knives):
-        return "Facas"
-    if "gloves" in lower or "luva" in lower or "hand wraps" in lower:
-        return "Luvas"
-    if "souvenir" in lower:
-        return "Souvenir"
-    rifles = ["ak-47", "m4a4", "m4a1-s", "awp", "ssg 08", "sg 553", "aug",
-              "famas", "galil ar", "g3sg1", "scar-20"]
-    if any(r in lower for r in rifles):
-        return "Rifles"
-    pistols = ["desert eagle", "deagle", "usp-s", "glock-18", "p2000",
-               "p250", "five-seveN", "tec-9", "cz75", "r8 revolver", "dual berettas"]
-    if any(p in lower for p in pistols):
-        return "Pistolas"
-    smgs = ["mac-10", "mp5", "mp7", "mp9", "p90", "pp-bizon", "ump-45"]
-    if any(s in lower for s in smgs):
-        return "SMGs"
-    shotguns = ["mag-7", "nova", "sawed-off", "xm1014"]
-    if any(s in lower for s in shotguns):
-        return "Shotguns"
-    machineguns = ["m249", "negev"]
-    if any(m in lower for m in machineguns):
-        return "Metralhadoras"
-    if "case" in lower or "capsule" in lower or "sticker" in lower:
-        return "Caixas/Stickers"
-    if "agent" in lower or "patch" in lower:
-        return "Agentes/Patches"
-    return "Outros"
-
-
-_SCAN_BY_CATEGORY: dict[str, list[str]] = {
-    "Rifles": [
-        "AK-47 | Redline (Field-Tested)",
-        "AK-47 | Fire Serpent (Field-Tested)",
-        "AK-47 | Case Hardened (Field-Tested)",
-        "AK-47 | Vulcan (Field-Tested)",
-        "AK-47 | Bloodsport (Field-Tested)",
-        "AK-47 | Neon Rider (Field-Tested)",
-        "M4A4 | Howl (Field-Tested)",
-        "M4A4 | Asiimov (Field-Tested)",
-        "M4A4 | Neo-Noir (Field-Tested)",
-        "M4A1-S | Knight (Field-Tested)",
-        "M4A1-S | Hyper Beast (Field-Tested)",
-        "M4A1-S | Printstream (Field-Tested)",
-        "AWP | Dragon Lore (Field-Tested)",
-        "AWP | Asiimov (Field-Tested)",
-        "AWP | Gungnir (Field-Tested)",
-        "AWP | Medusa (Field-Tested)",
-        "SSG 08 | Death Strike (Field-Tested)",
-        "SG 553 | Integrale (Field-Tested)",
-        "AUG | Akihabara Accept (Field-Tested)",
-    ],
-    "Pistolas": [
-        "Desert Eagle | Blaze (Factory New)",
-        "Desert Eagle | Printstream (Field-Tested)",
-        "Desert Eagle | Kumicho Dragon (Field-Tested)",
-        "USP-S | Kill Confirmed (Field-Tested)",
-        "USP-S | Printstream (Field-Tested)",
-        "USP-S | The Traitor (Field-Tested)",
-        "Glock-18 | Fade (Factory New)",
-        "Glock-18 | Gamma Doppler (Factory New)",
-        "Glock-18 | Water Elemental (Field-Tested)",
-        "Five-SeveN | Case Hardened (Field-Tested)",
-        "P250 | Whiteout (Field-Tested)",
-        "CZ75-Auto | Printstream (Field-Tested)",
-        "R8 Revolver | Fade (Factory New)",
-    ],
-    "Facas": [
-        "Butterfly Knife | Fade (Factory New)",
-        "Butterfly Knife | Doppler (Factory New)",
-        "Butterfly Knife | Autotronic (Factory New)",
-        "Karambit | Doppler (Factory New)",
-        "Karambit | Fade (Factory New)",
-        "Karambit | Tiger Tooth (Factory New)",
-        "M9 Bayonet | Doppler (Factory New)",
-        "M9 Bayonet | Fade (Factory New)",
-        "Bayonet | Doppler (Factory New)",
-        "Flip Knife | Fade (Factory New)",
-        "Flip Knife | Doppler (Factory New)",
-        "Talon Knife | Fade (Factory New)",
-        "Stiletto Knife | Doppler (Factory New)",
-        "Skeleton Knife | Fade (Factory New)",
-    ],
-    "Luvas": [
-        "Sport Gloves | Pandoras Box (Field-Tested)",
-        "Sport Gloves | Emerald Web (Field-Tested)",
-        "Hand Wraps | Cobalt Skulls (Field-Tested)",
-        "Driver Gloves | Lunar Weave (Field-Tested)",
-        "Driver Gloves | Crimson Weave (Field-Tested)",
-        "Moto Gloves | Spearmint (Field-Tested)",
-        "Specialist Gloves | Fade (Factory New)",
-        "Bloodhound Gloves | Snakebite (Field-Tested)",
-    ],
-    "SMGs": [
-        "MAC-10 | Fade (Battle-Scarred)",
-        "MAC-10 | Stalker (Field-Tested)",
-        "MP9 | Rose Iron (Field-Tested)",
-        "MP7 | Whiteout (Field-Tested)",
-        "P90 | Death by Kitty (Field-Tested)",
-        "UMP-45 | Primal Saber (Field-Tested)",
-    ],
-}
-
-
-class ScannerTab(QWidget):
-    """Aba Scanner: busca oportunidades combinando sinais de mercado."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._bridge = _Bridge()
-        self._bridge.market_done.connect(self._on_item_scanned)
-        self._scan_items: list[str] = []
-        self._scan_results: list[dict] = []
-        self._prev_snapshot: dict | None = None
-        self._build()
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 18, 20, 18)
-        root.setSpacing(14)
-
-        # Summary bar (top pick)
-        summary = QHBoxLayout()
-        self._top_pick = QLabel("Nenhum scan realizado ainda")
-        self._top_pick.setStyleSheet(
-            f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
-            f" color: {_MUTED}; font-size: 11pt;"
-        )
-        summary.addWidget(self._top_pick, 1)
-
-        self._summary_counts = QLabel("")
-        self._summary_counts.setStyleSheet(
-            f"color: {_MUTED}; font-size: 10pt; padding: 0 8px;"
-        )
-        summary.addWidget(self._summary_counts)
-        root.addLayout(summary)
-
-        # Category + input area
-        cat_layout = QHBoxLayout()
-        cat_lbl = QLabel("Categoria:")
-        cat_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
-        cat_layout.addWidget(cat_lbl)
-
-        self._cat_combo = QComboBox()
-        self._cat_combo.addItem("Todas")
-        self._cat_combo.addItems(list(_SCAN_BY_CATEGORY.keys()))
-        self._cat_combo.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 6px; padding: 6px 10px; font-size: 10pt;"
-            f" color: {_TEXT}; min-width: 140px; }}"
-            "QComboBox::drop-down { border: none; width: 24px; }"
-            "QComboBox QAbstractItemView {"
-            f" background: {_SURFACE}; color: {_TEXT};"
-            " selection-background-color: #2A2A33; }"
-        )
-        self._cat_combo.currentIndexChanged.connect(self._load_defaults)
-        cat_layout.addWidget(self._cat_combo)
-
-        self._load_btn = QPushButton("Carregar")
-        self._load_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._load_btn.setStyleSheet(
-            f"QPushButton {{ background: {_SURFACE}; color: {_TEXT};"
-            " border: 1px solid #2A2A33; border-radius: 6px; padding: 6px 14px;"
-            " font-size: 10pt; }}"
-            "QPushButton:hover { background: #2A2A33; }"
-        )
-        self._load_btn.clicked.connect(self._load_defaults)
-        cat_layout.addWidget(self._load_btn)
-
-        self._ranking_btn = QPushButton("Ranking Top 20")
-        self._ranking_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._ranking_btn.setToolTip(
-            "Escaneia todas as categorias e gera ranking comparando"
-            " com snapshot anterior"
-        )
-        self._ranking_btn.setStyleSheet(
-            f"QPushButton {{ background: {_SURFACE}; color: {_TEXT};"
-            " border: 1px solid #2A2A33; border-radius: 6px; padding: 6px 14px;"
-            " font-size: 10pt; }}"
-            "QPushButton:hover { background: #2A2A33; }"
-        )
-        self._ranking_btn.clicked.connect(self._on_ranking_scan)
-        cat_layout.addWidget(self._ranking_btn)
-
-        cat_layout.addStretch()
-        root.addLayout(cat_layout)
-
-        # Input area
-        input_layout = QHBoxLayout()
-        self._items_edit = QTextEdit()
-        self._items_edit.setPlaceholderText(
-            "Itens para escanear (um por linha)"
-        )
-        self._items_edit.setMaximumHeight(80)
-        self._items_edit.setStyleSheet(
-            f"QTextEdit {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 8px; font-size: 10pt;"
-            f" color: {_TEXT}; }}"
-        )
-        input_layout.addWidget(self._items_edit, 1)
-
-        self._scan_btn = QPushButton("Escanear")
-        self._scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._scan_btn.setStyleSheet(
-            f"QPushButton {{ background: {_GREEN}; color: #000; border: none;"
-            " border-radius: 8px; padding: 10px 24px; font-size: 11pt;"
-            " font-weight: 600; }}"
-            "QPushButton:disabled { background: #2A2A33; color: #666; }"
-        )
-        self._scan_btn.clicked.connect(self._on_scan)
-        input_layout.addWidget(self._scan_btn)
-        root.addLayout(input_layout)
-
-        self._status = QLabel("Selecione uma categoria acima e clique em Carregar.")
-        self._status.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
-        root.addWidget(self._status)
-
-        # Filter bar
-        filter_row = QHBoxLayout()
-        filter_lbl = QLabel("Filtrar:")
-        filter_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
-        filter_row.addWidget(filter_lbl)
-
-        self._filter_combo = QComboBox()
-        self._filter_combo.addItem("Todas")
-        self._filter_combo.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 6px; padding: 5px 8px; font-size: 10pt;"
-            f" color: {_TEXT}; min-width: 130px; }}"
-            "QComboBox::drop-down { border: none; width: 22px; }"
-            "QComboBox QAbstractItemView {"
-            f" background: {_SURFACE}; color: {_TEXT};"
-            " selection-background-color: #2A2A33; }"
-        )
-        self._filter_combo.currentIndexChanged.connect(self._apply_filter)
-        filter_row.addWidget(self._filter_combo)
-        filter_row.addStretch()
-        root.addLayout(filter_row)
-
-        # Results table
-        self._table = QTableWidget()
-        self._table.setColumnCount(12)
-        self._table.setHorizontalHeaderLabels(
-            ["Item", "Sinal", "Preco", "Preco Justo", "Veredito",
-             "Spread", "Book", "Tendencia", "Mercado", "S/D", "Score", "ΔPos"]
-        )
-        self._table.setColumnWidth(8, 90)
-        self._table.setColumnWidth(9, 60)
-        self._table.setColumnWidth(10, 60)
-        self._table.setColumnWidth(11, 60)
-        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._table.setAlternatingRowColors(True)
-        self._table.setSortingEnabled(True)
-        self._table.horizontalHeader().setStretchLastSection(False)
-        self._table.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.Stretch
-        )
-        self._table.verticalHeader().hide()
-        self._table.setStyleSheet(
-            f"QTableWidget {{ background: {_SURFACE}; border: none;"
-            " border-radius: 8px; font-size: 10pt; }}"
-            f"QTableWidget::item {{ padding: 6px 10px; color: {_TEXT}; }}"
-            f"QTableWidget::item:selected {{ background: #2A2A33; }}"
-            "QHeaderView::section {"
-            f" background: {_BG}; color: {_MUTED}; font-weight: 600;"
-            " padding: 6px; border: none; }"
-        )
-        root.addWidget(self._table, 1)
-
-    def _load_defaults(self) -> None:
-        cat = self._cat_combo.currentText()
-        if cat == "Todas":
-            items = []
-            for v in _SCAN_BY_CATEGORY.values():
-                items.extend(v)
-        else:
-            items = _SCAN_BY_CATEGORY.get(cat, [])
-        self._items_edit.setText("\n".join(items))
-
-    def _signal_label(self, r: dict) -> str:
-        score = r["score"]
-        if score >= 70:
-            return "COMPRA"
-        if score >= 45:
-            return "ATENCAO"
-        return "EVITAR"
-
-    def _signal_color(self, r: dict) -> QColor:
-        score = r["score"]
-        if score >= 70:
-            return QColor(_GREEN)
-        if score >= 45:
-            return QColor("#FACC15")
-        return QColor(_RED)
-
-    def _row_bg(self, r: dict) -> QColor:
-        if r.get("anomalia_flag"):
-            return QColor(250, 204, 21, 25)
-        score = r["score"]
-        if score >= 70:
-            return QColor(34, 197, 94, 20)
-        if score <= 30:
-            return QColor(239, 68, 68, 15)
-        return QColor(0, 0, 0, 0)
-
-    def _apply_filter(self) -> None:
-        selected = self._filter_combo.currentText()
-        if selected == "Todas":
-            filtered = self._scan_results
-        else:
-            filtered = [r for r in self._scan_results if r.get("category") == selected]
-        self._table.setSortingEnabled(False)
-        self._table.setRowCount(len(filtered))
-        for row, r in enumerate(filtered):
-            self._write_row(row, r)
-        self._table.setSortingEnabled(True)
-
-    def _write_row(self, row: int, r: dict) -> None:
-        sinal = self._signal_label(r)
-        scolor = self._signal_color(r)
-        row_bg = self._row_bg(r)
-
-        trend_text = r.get("trend_display") or r.get("trend", "") or "-"
-        mercado = (
-            f"{r['volume']}/{r['sell_count']}"
-            if r.get("volume") and r.get("sell_count") is not None
-            else "-"
-        )
-        delta_info = r.get("delta_pos") or {}
-        delta_label = delta_info.get("label", "")
-        items_data = [
-            r["name"],
-            sinal,
-            _brl(r["price"]) if r["price"] else "N/D",
-            r["potencial"],
-            r["verdict"].replace("_", " "),
-            r["spread"].replace("_", " ") if r["spread"] else "-",
-            r["book"].replace("_", " ") if r["book"] else "-",
-            trend_text,
-            mercado,
-            r.get("sd_label", "-"),
-            f"{r['score']}%",
-            delta_label or "-",
-        ]
-
-        signal_cols = {0: scolor, 1: scolor, 10: scolor}
-
-        for col, text in enumerate(items_data):
-            item = QTableWidgetItem(text)
-            if col in signal_cols:
-                item.setForeground(signal_cols[col])
-            if col == 1 or col == 10:
-                item.setFont(QFont("", 10, QFont.Weight.Bold))
-            if col == 5 and r.get("spread"):
-                item.setForeground(
-                    QColor(_GREEN if r["spread"] == "tight" else _RED)
-                )
-            elif col == 6 and r.get("book"):
-                item.setForeground(
-                    QColor(_GREEN if r["book"] == "buyer_dominant" else _RED)
-                )
-            if col == 10 and r.get("score_tooltip"):
-                item.setToolTip(r["score_tooltip"])
-            if col == 0 and r.get("case_label"):
-                item.setToolTip(r["case_label"])
-            if col == 11 and delta_info:
-                d = delta_info.get("delta", 0)
-                if delta_label == "NOVO":
-                    item.setForeground(QColor("#A78BFA"))
-                elif d > 0:
-                    item.setForeground(QColor(_GREEN))
-                elif d < 0:
-                    item.setForeground(QColor(_RED))
-                else:
-                    item.setForeground(QColor(_MUTED))
-                if delta_info.get("prev_pos"):
-                    item.setToolTip(
-                        f"Posicao anterior: {delta_info['prev_pos']}"
-                    )
-            if row_bg.alpha() > 0:
-                item.setBackground(row_bg)
-            self._table.setItem(row, col, item)
-
-    def _on_ranking_scan(self) -> None:
-        all_items: list[str] = []
-        for cat_items in _SCAN_BY_CATEGORY.values():
-            all_items.extend(cat_items)
-        self._items_edit.setText("\n".join(all_items))
-        self._cat_combo.setCurrentText("Todas")
-        self._on_scan()
-
-    def _on_scan(self) -> None:
-        items = [
-            line.strip() for line in self._items_edit.toPlainText().splitlines()
-            if line.strip()
-        ]
-        if not items:
-            return
-        self._scan_items = list(items)
-        self._scan_results = []
-        snaps = ranking.load_snapshots()
-        self._prev_snapshot = snaps[-1] if snaps else None
-        self._table.setRowCount(0)
-        self._scan_btn.setEnabled(False)
-        self._ranking_btn.setEnabled(False)
-        self._top_pick.setText("Escaneando... aguarde")
-        self._top_pick.setStyleSheet(
-            f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
-            f" color: {_MUTED}; font-size: 11pt;"
-        )
-        self._summary_counts.setText("")
-        self._status.setText("Escaneando... (respeitando rate limit)")
-
-        def work() -> None:
-            for i, name in enumerate(self._scan_items):
-                try:
-                    overview = steam_api.get_market_overview(name)
-                    page = steam_api.get_market_page_data(name)
-                    merged = dict(overview) if overview else {}
-                    merged["page_data"] = page
-                except Exception:
-                    merged = {}
-                merged["_scan_name"] = name
-                merged["_scan_index"] = i
-                self._bridge.market_done.emit(merged)
-                import time
-                time.sleep(4)
-
-            self._bridge.market_done.emit({"_scan_done": True})
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_item_scanned(self, data: dict) -> None:
-        if data.get("_scan_done"):
-            self._scan_btn.setEnabled(True)
-            self._ranking_btn.setEnabled(True)
-            if not self._scan_results:
-                self._status.setText("Nenhum resultado obtido.")
-                self._top_pick.setText("Nenhum item pode ser avaliado.")
-                return
-
-            # Atribui posicao + delta vs snapshot anterior, salva novo snapshot
-            self._scan_results.sort(key=lambda r: -r["score"])
-            for i, r in enumerate(self._scan_results):
-                r["position"] = i + 1
-                r["delta_pos"] = ranking.position_delta(
-                    r["name"], i + 1, self._prev_snapshot
-                )
-            ranking.save_snapshot(self._scan_results)
-            self._apply_filter()
-
-            buys = sum(1 for r in self._scan_results if r["score"] >= 70)
-            warns = sum(1 for r in self._scan_results if 45 <= r["score"] < 70)
-            avoids = sum(1 for r in self._scan_results if r["score"] < 45)
-            anoms = sum(1 for r in self._scan_results if r.get("anomalia_flag"))
-            best = self._scan_results[0]
-
-            anom_suffix = f"  |  ANOMALIA: {anoms}" if anoms else ""
-            self._summary_counts.setText(
-                f"COMPRA: {buys}  |  ATENCAO: {warns}  |  EVITAR: {avoids}{anom_suffix}"
-            )
-
-            sinal = self._signal_label(best)
-            cor = self._signal_color(best).name()
-            spread_txt = f" | Spread {best['spread'].replace('_', ' ')}" if best.get("spread") else ""
-            sd_txt = f" | S/D {best['sd_label']}" if best.get("sd_label") and best["sd_label"] != "N/D" else ""
-            case_txt = ""
-            if best.get("is_discontinued"):
-                case_txt = f" | {best['case']} (descont.)"
-            elif best.get("case_status") == "active" and best.get("case"):
-                case_txt = f" | {best['case']}"
-            self._top_pick.setStyleSheet(
-                f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
-                f" font-size: 11pt; border-left: 4px solid {cor};"
-            )
-            self._top_pick.setText(
-                f"MELHOR OPORTUNIDADE: {best['name']}  |  "
-                f"Preco: {_brl(best['price'])}  |  "
-                f"Score: {best['score']}%  |  "
-                f"Sinal: {sinal}"
-                f"{spread_txt}{sd_txt}{case_txt}"
-            )
-            self._status.setText(
-                f"Scan concluido. {len(self._scan_results)} itens analisados. "
-                f"Melhor: {best['name']} ({best['score']}%)"
-            )
-            return
-
-        name = data.get("_scan_name", "")
-        if not name:
-            return
-
-        lowest = data.get("lowest")
-        median = data.get("median")
-        volume = data.get("volume")
-        page_data = data.get("page_data")
-        order_book = (page_data or {}).get("order_book")
-
-        if lowest is None and median is None:
-            return
-
-        verdict = steam_api.fair_value_verdict(
-            lowest, median,
-            spread=(order_book or {}).get("spread"),
-            buy_count=(order_book or {}).get("buy_count"),
-            sell_count=(order_book or {}).get("sell_count"),
-            price_history=(page_data or {}).get("price_history"),
-        )
-
-        if lowest:
-            signals.record_item_price(name, lowest)
-        if volume and isinstance(volume, (int, float)):
-            signals.record_item_volume(name, int(volume))
-        csell = (order_book or {}).get("sell_count")
-        if csell is not None:
-            signals.record_item_supply(name, csell)
-
-        diff_pct = verdict.get("diff_pct")
-        if lowest and median:
-            potencial = f"{abs(diff_pct):.0f}% abaixo" if diff_pct and diff_pct < 0 else (
-                f"{diff_pct:.0f}% acima" if diff_pct and diff_pct > 0 else "no preço"
-            )
-        else:
-            potencial = "N/D"
-
-        price_history_data = (page_data or {}).get("price_history")
-        multi = signals.multi_trend(price_history_data) if price_history_data else {}
-        trend_display = ""
-        if multi:
-            parts = []
-            for lbl in ["24h", "7d", "30d", "90d"]:
-                if lbl in multi:
-                    cp = multi[lbl]["change_pct"]
-                    parts.append(f"{lbl}: {cp:+.1f}%")
-            trend_display = " | ".join(parts)
-
-        cs_info = cases.case_status(name)
-        score, breakdown = signals.enhanced_score(
-            verdict,
-            volume=volume if isinstance(volume, (int, float)) else None,
-            supply=csell,
-            multi_trend=multi,
-            price_history=price_history_data,
-            case_status=cs_info,
-        )
-        score_tooltip = signals.format_breakdown(breakdown)
-
-        vol_val = volume if isinstance(volume, (int, float)) else None
-        sd_info = signals.supply_demand_ratio(vol_val, csell)
-        vh = signals.load_item_volume(name)
-        anom_v = signals.volume_anomaly(vh) if vh else {}
-        sh = signals.load_item_supply(name)
-        anom_s = signals.volume_anomaly(sh, factor=2.0) if sh else {}
-        anom_parts = []
-        if anom_v.get("is_anomaly"):
-            anom_parts.append(f"VOL {anom_v['ratio']:.1f}x")
-        if anom_s.get("is_anomaly"):
-            anom_parts.append(f"OFE {anom_s['ratio']:.1f}x")
-
-        category = _classify_item(name)
-        row_data = {
-            "name": name,
-            "price": lowest,
-            "median": median,
-            "potencial": potencial,
-            "verdict": verdict.get("verdict", ""),
-            "spread": verdict.get("spread_verdict", ""),
-            "book": verdict.get("book_verdict", ""),
-            "trend": verdict.get("trend_verdict", ""),
-            "trend_display": trend_display,
-            "multi_trend": multi,
-            "volume": vol_val,
-            "sell_count": csell,
-            "sd_label": sd_info["label"],
-            "anomalia": " | ".join(anom_parts) if anom_parts else "",
-            "anomalia_flag": bool(anom_parts),
-            "score": score,
-            "score_breakdown": breakdown,
-            "score_tooltip": score_tooltip,
-            "case": cs_info.get("case"),
-            "case_status": cs_info.get("status"),
-            "case_label": cs_info.get("label"),
-            "is_discontinued": cs_info.get("is_discontinued", False),
-            "message": verdict.get("message", ""),
-            "diff_pct": diff_pct,
-            "category": category,
-        }
-        self._scan_results.append(row_data)
-        self._scan_results.sort(key=lambda r: -r["score"])
-
-        # Add category to filter if new
-        cats = [self._filter_combo.itemText(i) for i in range(self._filter_combo.count())]
-        if category not in cats:
-            self._filter_combo.addItem(category)
-
-        # Refresh table (respecting filter)
-        self._apply_filter()
-        self._status.setText(
-            f"Escaneando... {len(self._scan_results)}/{len(self._scan_items)} itens"
-        )
-
-
-class WatchlistTab(QWidget):
-    """Aba Watchlist: monitora precos e notifica quando atinge o alvo."""
-
-    _CHECK_INTERVAL_MS = 300000  # 5 min
-
-    def __init__(self, cache: prices.PriceCache,
-                 tray_icon: QSystemTrayIcon | None = None) -> None:
-        super().__init__()
-        self._cache = cache
-        self._bridge = _Bridge()
-        self._tray = tray_icon
-        self._last_items: list[dict] = []
-        self._build()
-        self._init_tray()
-        self._timer = QTimer(self)
-        self._timer.timeout.connect(self._check_all)
-        self._timer.start(self._CHECK_INTERVAL_MS)
-        self._check_all()
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 18, 20, 18)
-        root.setSpacing(14)
-
-        self._table = QTableWidget(0, 5)
-        self._table.setHorizontalHeaderLabels(
-            ["Item", "Alvo (R$)", "Atual (R$)", "Regras", "Status"]
-        )
-        actions = [
-            ("Remover", self._on_remove),
-            ("Editar alvo", self._on_edit_target),
-            ("Editar regras", self._on_edit_rules),
-        ]
-        _setup_table(self._table, "watchlist", actions)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for i in (1, 2, 3, 4):
-            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
-        saved = _load_column_widths("watchlist")
-        if saved:
-            for i, w in enumerate(saved):
-                if i < self._table.columnCount():
-                    hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
-                    self._table.setColumnWidth(i, w)
-
-        def _save_w() -> None:
-            _save_column_widths("watchlist", [
-                self._table.columnWidth(i) for i in range(self._table.columnCount())
-            ])
-        hh.sectionResized.connect(_save_w)
-
-        QShortcut(QKeySequence("Delete"), self).activated.connect(self._on_remove)
-
-        root.addWidget(self._table, 1)
-
-        self._filter_inp = QLineEdit()
-        self._filter_inp.setPlaceholderText("Filtrar por nome do item...")
-        self._filter_inp.setStyleSheet(_input_style())
-        self._filter_inp.textChanged.connect(self._apply_filter)
-        root.addWidget(self._filter_inp)
-
-        self._status = QLabel("")
-        self._status.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        root.addWidget(self._status)
-
-        form = QHBoxLayout()
-        self._name_inp = QLineEdit()
-        self._name_inp.setPlaceholderText(
-            "Nome exato do item (ex.: AK-47 | Redline (Field-Tested))"
-        )
-        self._name_inp.setStyleSheet(
-            _input_style()
-        )
-        self._name_inp.returnPressed.connect(self._on_add)
-        form.addWidget(self._name_inp, 1)
-
-        self._target_inp = QLineEdit()
-        self._target_inp.setPlaceholderText("Alvo (R$)")
-        self._target_inp.setFixedWidth(120)
-        self._target_inp.setStyleSheet(
-            _input_style()
-        )
-        self._target_inp.returnPressed.connect(self._on_add)
-        form.addWidget(self._target_inp)
-
-        add_btn = QPushButton("Adicionar")
-        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        add_btn.setToolTip("Adiciona item a watchlist para monitoramento")
-        add_btn.setStyleSheet(
-            _btn_primary()
-        )
-        add_btn.clicked.connect(self._on_add)
-        form.addWidget(add_btn)
-        root.addLayout(form)
-
-        btn_row = QHBoxLayout()
-        rem_btn = QPushButton("Remover selecionado")
-        rem_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        rem_btn.setToolTip("Remove o item selecionado da watchlist")
-        rem_btn.setStyleSheet(
-            _btn_danger()
-        )
-        rem_btn.clicked.connect(self._on_remove)
-        btn_row.addWidget(rem_btn)
-
-        edit_wl_btn = QPushButton("Editar alvo")
-        edit_wl_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        edit_wl_btn.setToolTip("Altera o preco alvo do item selecionado")
-        edit_wl_btn.setStyleSheet(
-            _btn_secondary("8px 18px", "10pt")
-        )
-        edit_wl_btn.clicked.connect(self._on_edit_target)
-        btn_row.addWidget(edit_wl_btn)
-
-        edit_rules_btn = QPushButton("Editar regras")
-        edit_rules_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        edit_rules_btn.setToolTip(
-            "Configura regras avancadas: queda de preco %, spike de volume,"
-            " queda de oferta"
-        )
-        edit_rules_btn.setStyleSheet(_btn_secondary("8px 18px", "10pt"))
-        edit_rules_btn.clicked.connect(self._on_edit_rules)
-        btn_row.addWidget(edit_rules_btn)
-
-        check_btn = QPushButton("Verificar agora")
-        check_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        check_btn.setToolTip("Verifica precos agora (padrao: a cada 5 min)")
-        check_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        check_btn.clicked.connect(self._check_all)
-        btn_row.addWidget(check_btn)
-
-        clear_all_btn = QPushButton("Limpar tudo")
-        clear_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        clear_all_btn.setToolTip("Remove todos os itens da watchlist")
-        clear_all_btn.setStyleSheet(
-            _btn_danger()
-        )
-        clear_all_btn.clicked.connect(self._on_clear_watchlist)
-        btn_row.addWidget(clear_all_btn)
-
-        btn_row.addStretch()
-        root.addLayout(btn_row)
-
-    def _init_tray(self) -> None:
-        if self._tray is not None:
-            return
-        if QSystemTrayIcon is None:
-            return
-        if not QSystemTrayIcon.isSystemTrayAvailable():
-            return
-        self._tray = QSystemTrayIcon(_make_tray_icon(), self)
-        self._tray.show()
-
-    def _notify(self, name: str, current: float, target: float) -> None:
-        if self._tray is None:
-            return
-        self._tray.showMessage(
-            "SkinVault - Alerta",
-            f"{name}\n"
-            f"Preco atual: {_brl(current)} (alvo: {_brl(target)})",
-            QSystemTrayIcon.MessageIcon.Information,
-            5000,
-        )
-
-    def _notify_alert(self, name: str, alert: dict) -> None:
-        if self._tray is None:
-            return
-        sev = alert.get("severity", "info")
-        icon = (
-            QSystemTrayIcon.MessageIcon.Warning
-            if sev == "warning" else
-            QSystemTrayIcon.MessageIcon.Information
-        )
-        self._tray.showMessage(
-            "SkinVault - Alerta",
-            f"{name}\n{alert.get('label', '')}",
-            icon,
-            5000,
-        )
-
-    def _on_add(self) -> None:
-        name = self._name_inp.text().strip()
-        if not name:
-            return
-        try:
-            target = float(self._target_inp.text().strip().replace(",", "."))
-        except ValueError:
-            return
-        watchlist.add_watch(name, target)
-        self._name_inp.clear()
-        self._target_inp.clear()
-        self._check_all()
-
-    def _on_remove(self) -> None:
-        rows = sorted(set(idx.row() for idx in self._table.selectedIndexes()),
-                      reverse=True)
-        if not rows:
-            self._status.setText("Nenhum item selecionado na watchlist.")
-            return
-        items = watchlist.load_watchlist()
-        rows = [r for r in rows if r < len(items)]
-        if not rows:
-            return
-        confirm = QMessageBox.question(
-            self, "Remover item",
-            f"Remover {len(rows)} item(ns) da watchlist?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
-            return
-        for r in reversed(rows):
-            items.pop(r)
-        watchlist.save_watchlist(items)
-        self._check_all()
-
-    def _on_edit_target(self) -> None:
-        row = self._table.currentRow()
-        if row < 0:
-            self._status.setText("Nenhum item selecionado na watchlist.")
-            return
-        items = watchlist.load_watchlist()
-        if row >= len(items):
-            return
-        it = items[row]
-        dlg = QDialog(self)
-        dlg.setWindowTitle(f"Editar alvo: {it['name']}")
-        dlg.resize(360, 160)
-        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                          " font-family: 'Segoe UI';")
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(12)
-        layout.addWidget(QLabel(
-            f"Item: {it['name']}",
-            styleSheet=f"color: {_MUTED}; font-size: 10pt;"
-        ))
-        inp = QLineEdit(str(it["target"]))
-        inp.setPlaceholderText("Novo preco alvo (R$)")
-        inp.setStyleSheet(_input_style())
-        layout.addWidget(QLabel("Alvo (R$):"))
-        layout.addWidget(inp)
-        btns = QHBoxLayout()
-        ok_btn = QPushButton("Salvar")
-        ok_btn.setStyleSheet(_btn_primary("8px 18px", "10pt"))
-        ok_btn.clicked.connect(dlg.accept)
-        btns.addWidget(ok_btn)
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setStyleSheet(_btn_secondary())
-        cancel_btn.clicked.connect(dlg.reject)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        try:
-            new_target = float(inp.text().strip().replace(",", "."))
-        except ValueError:
-            self._status.setText("Valor invalido.")
-            return
-        watchlist.update_target(it["name"], new_target)
-        self._status.setText(f"Alvo atualizado: {_brl(new_target)}")
-        self._check_all()
-
-    def _on_edit_rules(self) -> None:
-        row = self._table.currentRow()
-        if row < 0:
-            self._status.setText("Nenhum item selecionado na watchlist.")
-            return
-        items = watchlist.load_watchlist()
-        if row >= len(items):
-            return
-        it = items[row]
-        rules = dict(it.get("rules") or {})
-
-        dlg = QDialog(self)
-        dlg.setWindowTitle(f"Regras de alerta: {it['name']}")
-        dlg.resize(420, 340)
-        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                          " font-family: 'Segoe UI';")
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(12)
-        layout.addWidget(QLabel(
-            f"Item: {it['name']}",
-            styleSheet=f"color: {_MUTED}; font-size: 10pt;"
-        ))
-
-        layout.addWidget(QLabel("Queda de preco (%) vs baseline:"))
-        drop_inp = QLineEdit(
-            str(rules.get("price_drop_pct", "")) if rules.get("price_drop_pct") else ""
-        )
-        drop_inp.setPlaceholderText("ex.: 15 (preco caiu 15%)")
-        drop_inp.setStyleSheet(_input_style())
-        layout.addWidget(drop_inp)
-
-        baseline_current = it.get("baseline_price")
-        bl_lbl = QLabel(
-            f"Baseline atual: {_brl(baseline_current) if baseline_current else 'nao definido'}"
-        )
-        bl_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        layout.addWidget(bl_lbl)
-
-        set_bl_btn = QPushButton("Definir baseline = preco atual")
-        set_bl_btn.setStyleSheet(_btn_secondary("6px 12px", "9pt"))
-        cur_price = prices.cached_price(it["name"], self._cache)
-
-        def _set_baseline() -> None:
-            if cur_price is not None:
-                it["baseline_price"] = float(cur_price)
-                bl_lbl.setText(f"Baseline: {_brl(cur_price)} (sera salvo ao OK)")
-        set_bl_btn.clicked.connect(_set_baseline)
-        layout.addWidget(set_bl_btn)
-
-        layout.addWidget(QLabel("Spike de volume (multiplo da media):"))
-        vol_inp = QLineEdit(
-            str(rules.get("volume_spike", "")) if rules.get("volume_spike") else ""
-        )
-        vol_inp.setPlaceholderText("ex.: 3 (volume 3x maior que media)")
-        vol_inp.setStyleSheet(_input_style())
-        layout.addWidget(vol_inp)
-
-        layout.addWidget(QLabel("Queda de oferta (multiplo abaixo da media):"))
-        sup_inp = QLineEdit(
-            str(rules.get("supply_drop", "")) if rules.get("supply_drop") else ""
-        )
-        sup_inp.setPlaceholderText("ex.: 2 (oferta caiu pela metade)")
-        sup_inp.setStyleSheet(_input_style())
-        layout.addWidget(sup_inp)
-
-        btns = QHBoxLayout()
-        ok_btn = QPushButton("Salvar")
-        ok_btn.setStyleSheet(_btn_primary("8px 18px", "10pt"))
-        ok_btn.clicked.connect(dlg.accept)
-        btns.addWidget(ok_btn)
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setStyleSheet(_btn_secondary())
-        cancel_btn.clicked.connect(dlg.reject)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-
-        def _parse(s: str) -> float | None:
-            s = s.strip().replace(",", ".")
-            if not s:
-                return None
-            try:
-                v = float(s)
-                return v if v > 0 else None
-            except ValueError:
-                return None
-
-        new_rules: dict = {}
-        if (v := _parse(drop_inp.text())) is not None:
-            new_rules["price_drop_pct"] = v
-        if (v := _parse(vol_inp.text())) is not None:
-            new_rules["volume_spike"] = v
-        if (v := _parse(sup_inp.text())) is not None:
-            new_rules["supply_drop"] = v
-        it["rules"] = new_rules
-        # Reset triggers ao editar regras
-        it["triggered_rules"] = []
-        watchlist.save_watchlist(items)
-        self._status.setText(
-            f"Regras atualizadas: {alerts.format_rules_summary(new_rules) or 'nenhuma'}"
-        )
-        self._check_all()
-
-    def _on_clear_watchlist(self) -> None:
-        items = watchlist.load_watchlist()
-        if not items:
-            self._status.setText("Watchlist ja esta vazia.")
-            return
-        confirm = QMessageBox.question(
-            self, "Limpar watchlist",
-            f"Remover todos os {len(items)} itens da watchlist?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
-            return
-        watchlist.clear_watchlist()
-        self._status.setText("Watchlist limpa.")
-        self._check_all()
-
-    def _check_all(self) -> None:
-        items = watchlist.load_watchlist()
-        if not items:
-            self._table.setRowCount(0)
-            self._status.setText(
-                "Nenhum item na watchlist. Adicione um item e um preco alvo."
-            )
-            return
-        self._status.setText("Verificando precos...")
-
-        def work() -> None:
-            for it in items:
-                it["_current"] = prices.cached_price(it["name"], self._cache)
-                it["_vol_hist"] = signals.load_item_volume(it["name"])
-                it["_sup_hist"] = signals.load_item_supply(it["name"])
-            self._bridge.watchlist_done.emit(items)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _apply_filter(self) -> None:
-        text = self._filter_inp.text().strip().lower()
-        if not self._last_items:
-            return
-        self._table.setRowCount(len(self._last_items))
-        visible = 0
-        for r, it in enumerate(self._last_items):
-            match = not text or text in it["name"].lower()
-            self._table.setRowHidden(r, not match)
-            if match:
-                visible += 1
-        if text:
-            self._status.setText(
-                f"Mostrando {visible} de {len(self._last_items)} itens"
-            )
-
-    def _on_check_done(self, items: list[dict]) -> None:
-        self._last_items = list(items)
-        n_alerts = 0
-        self._table.setRowCount(len(items))
-        for r, it in enumerate(items):
-            name = it["name"]
-            target = it.get("target")
-            current = it.get("_current")
-            vol_hist = it.pop("_vol_hist", None)
-            sup_hist = it.pop("_sup_hist", None)
-            rules = it.get("rules") or {}
-
-            self._table.setItem(r, 0, QTableWidgetItem(name))
-            self._table.setItem(
-                r, 1, QTableWidgetItem(_brl(target) if target else "-"),
-            )
-
-            if current is None:
-                self._table.setItem(r, 2, QTableWidgetItem("N/D"))
-                rules_cell = QTableWidgetItem(alerts.format_rules_summary(rules) or "-")
-                rules_cell.setForeground(QColor(_MUTED))
-                self._table.setItem(r, 3, rules_cell)
-                st = QTableWidgetItem("N/D")
-                st.setForeground(QColor(_MUTED))
-                self._table.setItem(r, 4, st)
-                continue
-
-            self._table.setItem(r, 2, QTableWidgetItem(_brl(current)))
-
-            fired = alerts.evaluate_item(
-                it,
-                current_price=current,
-                volume_history=vol_hist,
-                supply_history=sup_hist,
-            )
-            new_alerts = alerts.diff_new_alerts(it, fired)
-            for a in new_alerts:
-                self._notify_alert(name, a)
-                alerts.record_alert(name, a)
-                n_alerts += 1
-
-            rules_text = alerts.format_rules_summary(rules) or "-"
-            rules_cell = QTableWidgetItem(rules_text)
-            rules_cell.setForeground(QColor(_MUTED))
-            self._table.setItem(r, 3, rules_cell)
-
-            if fired:
-                labels = [a["label"] for a in fired]
-                st = QTableWidgetItem("ALERTA!")
-                st.setForeground(QColor(_RED))
-                st.setToolTip("\n".join(labels))
-            else:
-                st = QTableWidgetItem("Monitorando")
-                st.setForeground(QColor(_GREEN))
-            self._table.setItem(r, 4, st)
-
-        watchlist.save_watchlist(items)
-        if n_alerts:
-            msg = f"{n_alerts} alerta(s) disparado(s)! Veja a tabela."
-            self._status.setText(msg)
-        elif items:
-            self._status.setText(
-                f"{len(items)} item(ns) monitorado(s)."
-                f" Proxima verificacao em 5 min."
-            )
-
-
-class TradeTab(QWidget):
-    """Aba Trade Analyzer: trades realizados com P&L real pos-taxa."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._filter_kw = ""
-        self._filter_tag = ""
-        self._build()
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 18, 20, 18)
-        root.setSpacing(14)
-
-        self._stats = QLabel("")
-        self._stats.setStyleSheet(f"color: {_TEXT}; font-size: 11pt; font-weight: 600;")
-        root.addWidget(self._stats)
-
-        filter_row = QHBoxLayout()
-        self._search_inp = QLineEdit()
-        self._search_inp.setPlaceholderText("Filtrar por item ou nota...")
-        self._search_inp.setStyleSheet(
-            _input_style()
-        )
-        self._search_inp.textChanged.connect(self._refresh)
-        filter_row.addWidget(self._search_inp, 1)
-
-        self._tag_filter = QComboBox()
-        self._tag_filter.addItem("Todas as tags")
-        self._tag_filter.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 10px 12px; font-size: 11pt;"
-            f" color: {_TEXT}; }}"
-            "QComboBox::drop-down { border: none; width: 28px; }"
-            "QComboBox QAbstractItemView {"
-            f" background: {_SURFACE}; color: {_TEXT};"
-            " selection-background-color: #2A2A33;"
-            " border: 1px solid #3A3A44; }"
-        )
-        self._tag_filter.currentTextChanged.connect(self._refresh)
-        filter_row.addWidget(self._tag_filter)
-
-        self._pnl_filter = QComboBox()
-        self._pnl_filter.addItems(["Todos", "Só lucro", "Só prejuízo"])
-        self._pnl_filter.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 10px 12px; font-size: 11pt;"
-            f" color: {_TEXT}; }}"
-            "QComboBox::drop-down { border: none; width: 28px; }"
-            "QComboBox QAbstractItemView {"
-            f" background: {_SURFACE}; color: {_TEXT};"
-            " selection-background-color: #2A2A33;"
-            " border: 1px solid #3A3A44; }"
-        )
-        self._pnl_filter.currentTextChanged.connect(self._refresh)
-        filter_row.addWidget(self._pnl_filter)
-
-        root.addLayout(filter_row)
-
-        self._table = QTableWidget(0, 7)
-        self._table.setHorizontalHeaderLabels(
-            ["Item", "Compra", "Venda", "Qtd", "Dias", "Lucro Real", "ROI"]
-        )
-        actions = [
-            ("Editar notas/tags", self._on_edit),
-            ("Remover", self._on_remove_trade),
-        ]
-        _setup_table(self._table, "trades", actions)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for i in range(1, 7):
-            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
-        saved = _load_column_widths("trades")
-        if saved:
-            for i, w in enumerate(saved):
-                if i < self._table.columnCount():
-                    hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
-                    self._table.setColumnWidth(i, w)
-
-        def _save_w() -> None:
-            _save_column_widths("trades", [
-                self._table.columnWidth(i) for i in range(self._table.columnCount())
-            ])
-        hh.sectionResized.connect(_save_w)
-
-        QShortcut(QKeySequence("Ctrl+E"), self).activated.connect(self._on_export_csv)
-        QShortcut(QKeySequence("Delete"), self).activated.connect(self._on_remove_trade)
-
-        self._month_chart = MonthBarChart()
-        self._month_chart.setStyleSheet(
-            f"background: {_SURFACE}; border-radius: 10px;"
-        )
-        root.addWidget(self._month_chart)
-
-        root.addWidget(self._table, 1)
-
-        btn_row = QHBoxLayout()
-        refresh_btn = QPushButton("Atualizar")
-        refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        refresh_btn.setToolTip("Recarrega lista de trades")
-        refresh_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        refresh_btn.clicked.connect(self._refresh)
-        btn_row.addWidget(refresh_btn)
-
-        edit_btn = QPushButton("Editar notas/tags")
-        edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        edit_btn.setToolTip("Edita notas e tags do trade selecionado")
-        edit_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        edit_btn.clicked.connect(self._on_edit)
-        btn_row.addWidget(edit_btn)
-
-        rem_btn = QPushButton("Remover selecionado")
-        rem_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        rem_btn.setToolTip("Remove o trade selecionado do historico")
-        rem_btn.setStyleSheet(
-            _btn_danger("8px 18px", "10pt")
-        )
-        rem_btn.clicked.connect(self._on_remove_trade)
-        btn_row.addWidget(rem_btn)
-
-        clear_btn = QPushButton("Limpar historico")
-        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        clear_btn.setToolTip("Apaga todo o historico de trades")
-        clear_btn.setStyleSheet(
-            _btn_danger()
-        )
-        clear_btn.clicked.connect(self._on_clear)
-        btn_row.addWidget(clear_btn)
-
-        export_btn = QPushButton("Exportar CSV")
-        export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        export_btn.setToolTip("Exporta historico de trades para arquivo CSV")
-        export_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        export_btn.clicked.connect(self._on_export_csv)
-        btn_row.addWidget(export_btn)
-
-        export_m_btn = QPushButton("Exportar Mensal")
-        export_m_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        export_m_btn.setToolTip("Exporta breakdown mensal de P&L para CSV")
-        export_m_btn.setStyleSheet(
-            _btn_secondary()
-        )
-        export_m_btn.clicked.connect(self._on_export_monthly)
-        btn_row.addWidget(export_m_btn)
-
-        btn_row.addStretch()
-        root.addLayout(btn_row)
-
-        self._refresh()
-
-    def _refresh(self) -> None:
-        self._filter_kw = self._search_inp.text().strip()
-        self._filter_tag = self._tag_filter.currentText()
-        tag_filter = (
-            [] if self._filter_tag in ("", "Todas as tags")
-            else [self._filter_tag]
-        )
-        pnl_text = self._pnl_filter.currentText()
-        pnl_filter = {"Todos": None, "Só lucro": "profit", "Só prejuízo": "loss"}.get(pnl_text)
-        filtered = trades.filter_trades(
-            keyword=self._filter_kw or None,
-            tags=tag_filter or None,
-            pnl=pnl_filter,
-        )
-        stats = trades.trade_stats(filtered)
-        if not filtered:
-            self._table.setRowCount(0)
-            self._stats.setText("Nenhum trade encontrado.")
-            self._rebuild_tag_list()
-            return
-
-        lines = []
-        sign = "+" if stats["pnl_total"] >= 0 else ""
-        lines.append(
-            f"{stats['total']} trades  |  "
-            f"P&L: {sign}{_brl(abs(stats['pnl_total']))}  |  "
-            f"Taxas: {_brl(stats['fees_total'])}  |  "
-            f"Win rate: {stats['win_rate']}%  "
-            f"({stats['win_count']}W / {stats['loss_count']}L)"
-        )
-        if stats["avg_days"]:
-            lines.append(f"Dias medio: {stats['avg_days']}d")
-        if stats["best"]:
-            b = stats["best"]
-            lines.append(
-                f"Melhor: {b['name']} ({_brl(b['pnl'])})"
-            )
-        if stats["worst"]:
-            w = stats["worst"]
-            lines.append(
-                f"Pior: {w['name']} ({_brl(w['pnl'])})"
-            )
-        for m in stats.get("monthly", []):
-            msign = "+" if m["pnl"] >= 0 else ""
-            lines.append(
-                f"{m['month']}: {m['trades']} trades, "
-                f"{msign}{_brl(abs(m['pnl']))}"
-            )
-        self._stats.setText("  |  ".join(lines))
-        self._month_chart.set_months(stats.get("monthly", []))
-
-        self._table.setRowCount(len(filtered))
-        for r, t in enumerate(reversed(filtered)):
-            days_held = max(0, (t["sell_ts"] - t["buy_ts"]) / 86400)
-            buy_date = time.strftime("%d/%m/%Y", time.localtime(t["buy_ts"]))
-            sell_date = time.strftime("%d/%m/%Y", time.localtime(t["sell_ts"]))
-            tooltip = (
-                f"{t['name']}\n"
-                f"Compra: {buy_date}  |  Venda: {sell_date}"
-            )
-            if days_held >= 1:
-                tooltip += f"  |  {int(days_held)} dia(s)"
-            else:
-                tooltip += "  |  Mesmo dia"
-            if t.get("notes"):
-                tooltip += f"\n\nNotas: {t['notes']}"
-            if t.get("tags"):
-                tooltip += f"\nTags: {', '.join(t['tags'])}"
-            name_item = QTableWidgetItem(t["name"])
-            name_item.setToolTip(tooltip)
-            self._table.setItem(r, 0, name_item)
-            self._table.setItem(r, 1, QTableWidgetItem(_brl(t["cost_total"])))
-            sell_total = t["sell_price"] * t["quantity"]
-            self._table.setItem(r, 2, QTableWidgetItem(_brl(sell_total)))
-            self._table.setItem(r, 3, QTableWidgetItem(str(t["quantity"])))
-            self._table.setItem(r, 4, QTableWidgetItem(
-                f"{int(days_held)}d" if days_held >= 1 else "< 1d"
-            ))
-
-            pnl = t["pnl"]
-            tag = "+" if pnl >= 0 else "-"
-            pnl_item = QTableWidgetItem(tag + _brl(abs(pnl)))
-            pnl_item.setForeground(QColor(_GREEN if pnl >= 0 else _RED))
-            self._table.setItem(r, 5, pnl_item)
-
-            roi_item = QTableWidgetItem(f"{t['pnl_pct']:+.1f}%")
-            roi_item.setForeground(QColor(_GREEN if pnl >= 0 else _RED))
-            self._table.setItem(r, 6, roi_item)
-
-        self._rebuild_tag_list()
-
-    def _rebuild_tag_list(self) -> None:
-        current = self._tag_filter.currentText()
-        all_tags: set[str] = set()
-        for t in trades.load_trades():
-            all_tags.update(t.get("tags", []))
-        self._tag_filter.blockSignals(True)
-        self._tag_filter.clear()
-        self._tag_filter.addItem("Todas as tags")
-        for tag in sorted(all_tags):
-            self._tag_filter.addItem(tag)
-        idx = self._tag_filter.findText(current)
-        if idx >= 0:
-            self._tag_filter.setCurrentIndex(idx)
-        self._tag_filter.blockSignals(False)
-
-    def _on_edit(self) -> None:
-        row = self._table.currentRow()
-        if row < 0:
-            return
-        all_trades = trades.load_trades()
-        if row >= len(all_trades):
-            return
-        idx = len(all_trades) - 1 - row
-        t = all_trades[idx]
-        dlg = QDialog(self)
-        dlg.setWindowTitle("Editar trade")
-        dlg.resize(400, 280)
-        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                          " font-family: 'Segoe UI';")
-        layout = QVBoxLayout(dlg)
-        layout.setSpacing(12)
-
-        layout.addWidget(QLabel(
-            f"Item: {t['name']}",
-            styleSheet=f"color: {_MUTED}; font-size: 10pt;"
-        ))
-        notes_inp = QLineEdit(t.get("notes", ""))
-        notes_inp.setPlaceholderText("Notas sobre este trade...")
-        notes_inp.setStyleSheet(_input_style())
-        layout.addWidget(QLabel("Notas:"))
-        layout.addWidget(notes_inp)
-
-        tags_inp = QLineEdit(", ".join(t.get("tags", [])))
-        tags_inp.setPlaceholderText("Tags separadas por virgula (ex.: skin, profit)")
-        tags_inp.setStyleSheet(_input_style())
-        layout.addWidget(QLabel("Tags:"))
-        layout.addWidget(tags_inp)
-
-        cost_inp = QLineEdit(f"{t['buy_cost']:.2f}".replace(".", ","))
-        cost_inp.setPlaceholderText("Preco de compra por unidade")
-        cost_inp.setStyleSheet(_input_style())
-        layout.addWidget(QLabel("Preço de compra:"))
-        layout.addWidget(cost_inp)
-
-        sell_inp = QLineEdit(f"{t['sell_price']:.2f}".replace(".", ","))
-        sell_inp.setPlaceholderText("Preco de venda por unidade")
-        sell_inp.setStyleSheet(_input_style())
-        layout.addWidget(QLabel("Preço de venda:"))
-        layout.addWidget(sell_inp)
-
-        btns = QHBoxLayout()
-        ok_btn = QPushButton("Salvar")
-        ok_btn.setStyleSheet(_btn_primary("8px 18px", "10pt"))
-        ok_btn.clicked.connect(dlg.accept)
-        btns.addWidget(ok_btn)
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setStyleSheet(_btn_secondary())
-        cancel_btn.clicked.connect(dlg.reject)
-        btns.addWidget(cancel_btn)
-        layout.addLayout(btns)
-
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
-        notes = notes_inp.text().strip()
-        tags = [t.strip() for t in tags_inp.text().split(",") if t.strip()]
-        try:
-            new_cost = float(cost_inp.text().strip().replace(",", "."))
-        except ValueError:
-            new_cost = t["buy_cost"]
-        try:
-            new_sell = float(sell_inp.text().strip().replace(",", "."))
-        except ValueError:
-            new_sell = t["sell_price"]
-        trades.update_trade(idx, notes=notes, tags=tags, cost=new_cost, sell_price=new_sell)
-        self._refresh()
-
-    def _on_remove_trade(self) -> None:
-        rows = sorted(set(idx.row() for idx in self._table.selectedIndexes()),
-                      reverse=True)
-        if not rows:
-            return
-        filtered = trades.filter_trades(
-            keyword=self._filter_kw or None,
-            tags=([self._filter_tag] if self._filter_tag
-                  and self._filter_tag != "Todas as tags" else None),
-        )
-        all_trades = trades.load_trades()
-        rows = [r for r in rows if r < len(filtered)]
-        if not rows:
-            return
-        names = []
-        for r in rows:
-            t = filtered[-(r + 1)]
-            idx = all_trades.index(t)
-            trades.remove_trade(idx)
-            names.append(t["name"])
-        self._refresh()
-        self._stats.setText(
-            f"{len(rows)} trade(s) removido(s): {', '.join(names[:3])}"
-            + ("..." if len(names) > 3 else "")
-        )
-
-    def _on_clear(self) -> None:
-        confirm = QMessageBox.question(
-            self, "Limpar historico",
-            "Apagar todo o historico de trades?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
-            return
-        trades.clear_trades()
-        self._refresh()
-
-    def _on_export_csv(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar Trades", "trades.csv", "CSV (*.csv)"
-        )
-        if not path:
-            return
-        all_trades = trades.load_trades()
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write("Item,Compra,Venda,Qtd,Lucro Real,ROI,Notas,Tags\n")
-                for t in all_trades:
-                    name = t["name"].replace(",", " ")
-                    notes = t.get("notes", "").replace(",", " ").replace("\n", " ")
-                    tags = ";".join(t.get("tags", []))
-                    f.write(
-                        f'{name},{t["cost_total"]},{t["sell_price"]},{t["quantity"]},'
-                        f'{t["pnl"]},{t["pnl_pct"]},{notes},{tags}\n'
-                    )
-            self._stats.setText("Trades exportados para CSV.")
-        except Exception as e:
-            self._stats.setText(f"Erro ao exportar: {e}")
-
-        self._refresh()
-
-    def _on_export_monthly(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Exportar Mensal", "trades_mensal.csv", "CSV (*.csv)"
-        )
-        if not path:
-            return
-        stats = trades.trade_stats(trades.load_trades())
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write("Mes,Trades,P&L\n")
-                for m in stats.get("monthly", []):
-                    f.write(f'{m["month"]},{m["trades"]},{m["pnl"]}\n')
-            self._stats.setText("Mensal exportado para CSV.")
-        except Exception as e:
-            self._stats.setText(f"Erro ao exportar mensal: {e}")
-
-
-class SimuladorTab(QWidget):
-    """Simulador de lucro: custo total vs. recebido pos-taxa."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._build()
-        s = load_settings()
-        last = s.get("last_scenario")
-        if last:
-            self._buy_inp.setText(last.get("buy", ""))
-            self._sell_inp.setText(last.get("sell", ""))
-            self._qty_inp.setText(last.get("qty", "1"))
-            self._calc()
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(20, 18, 20, 18)
-        root.setSpacing(14)
-
-        title = QLabel("Simulador de Lucro")
-        title.setStyleSheet(
-            f"color: {_TEXT}; font-size: 14pt; font-weight: 700;"
-        )
-        root.addWidget(title)
-
-        cap = QLabel(
-            "Veja o quanto voce realmente ganha depois da taxa de 15% da Steam."
-        )
-        cap.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
-        cap.setWordWrap(True)
-        root.addWidget(cap)
-
-        form = QFormLayout()
-        form.setSpacing(10)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-
-        self._buy_inp = QLineEdit()
-        self._buy_inp.setPlaceholderText("Preco de compra por unidade")
-        self._buy_inp.setStyleSheet(_input_style())
-        self._buy_inp.returnPressed.connect(self._calc)
-        form.addRow("Compra (R$):", self._buy_inp)
-
-        self._sell_inp = QLineEdit()
-        self._sell_inp.setPlaceholderText("Preco de venda por unidade")
-        self._sell_inp.setStyleSheet(_input_style())
-        self._sell_inp.returnPressed.connect(self._calc)
-        form.addRow("Venda (R$):", self._sell_inp)
-
-        self._qty_inp = QLineEdit("1")
-        self._qty_inp.setStyleSheet(_input_style())
-        self._qty_inp.returnPressed.connect(self._calc)
-        form.addRow("Qtd:", self._qty_inp)
-
-        root.addLayout(form)
-
-        calc_btn = QPushButton("Calcular")
-        calc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        calc_btn.setToolTip("Calcula lucro real considerando taxa Steam de 15%")
-        calc_btn.setStyleSheet(_btn_primary())
-        calc_btn.clicked.connect(self._calc)
-        root.addWidget(calc_btn)
-
-        scn_row = QHBoxLayout()
-        self._scn_combo = QComboBox()
-        self._scn_combo.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 8px 10px; font-size: 10pt;"
-            f" color: {_TEXT}; }}"
-            "QComboBox::drop-down { border: none; width: 24px; }"
-            f"QComboBox QAbstractItemView {{ background: {_SURFACE};"
-            f" color: {_TEXT}; selection-background-color: #2A2A33; }}"
-        )
-        self._scn_combo.activated.connect(self._load_scenario)
-        scn_row.addWidget(self._scn_combo, 1)
-
-        save_scn_btn = QPushButton("Salvar")
-        save_scn_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_scn_btn.setToolTip("Salva valores atuais como cenario")
-        save_scn_btn.setStyleSheet(_btn_secondary("8px 16px", "9pt"))
-        save_scn_btn.clicked.connect(self._save_scenario)
-        scn_row.addWidget(save_scn_btn)
-
-        root.addLayout(scn_row)
-
-        self._results = QWidget()
-        self._results.setStyleSheet(
-            f"background: {_SURFACE}; border-radius: 10px;"
-        )
-        res = QVBoxLayout(self._results)
-        res.setSpacing(8)
-        res.setContentsMargins(16, 16, 16, 16)
-
-        self._cost_lbl = QLabel("")
-        self._cost_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._cost_lbl)
-
-        self._gross_lbl = QLabel("")
-        self._gross_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._gross_lbl)
-
-        self._fee_lbl = QLabel("")
-        self._fee_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
-        res.addWidget(self._fee_lbl)
-
-        self._net_lbl = QLabel("")
-        self._net_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._net_lbl)
-
-        sep2 = QLabel(
-            "────────────────────────────────────"
-        )
-        sep2.setStyleSheet(f"color: #2A2A33; font-size: 9pt;")
-        res.addWidget(sep2)
-
-        self._pnl_lbl = QLabel("")
-        self._pnl_lbl.setStyleSheet(
-            f"color: {_TEXT}; font-size: 13pt; font-weight: 700;"
-        )
-        res.addWidget(self._pnl_lbl)
-
-        self._roi_lbl = QLabel("")
-        self._roi_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
-        res.addWidget(self._roi_lbl)
-
-        self._warn_lbl = QLabel("")
-        self._warn_lbl.setStyleSheet(
-            f"color: {_RED}; font-size: 10pt; font-weight: 600;"
-        )
-        self._warn_lbl.setWordWrap(True)
-        res.addWidget(self._warn_lbl)
-
-        self._results.hide()
-        root.addWidget(self._results)
-        root.addStretch()
-
-    def _calc(self) -> None:
-        try:
-            buy = float(self._buy_inp.text().strip().replace(",", "."))
-            sell = float(self._sell_inp.text().strip().replace(",", "."))
-            qty = int(self._qty_inp.text().strip() or "1")
-        except ValueError:
-            return
-
-        cost_total = buy * qty
-        gross = sell * qty
-        fee = gross * 0.15
-        net = gross - fee
-        pnl = net - cost_total
-        pnl_pct = (pnl / cost_total * 100) if cost_total else 0.0
-
-        self._cost_lbl.setText(f"Custo total:      {_brl(cost_total)}")
-        self._gross_lbl.setText(f"Venda bruta:      {_brl(gross)}")
-        self._fee_lbl.setText(f"Taxa Steam (15%):  {_brl(fee)}")
-        self._net_lbl.setText(f"Voce recebe:      {_brl(net)}")
-
-        sign = "+" if pnl >= 0 else "-"
-        color = _GREEN if pnl >= 0 else _RED
-        self._pnl_lbl.setStyleSheet(
-            f"color: {color}; font-size: 13pt; font-weight: 700;"
-        )
-        self._pnl_lbl.setText(f"LUCRO REAL: {sign}{_brl(abs(pnl))}")
-        self._roi_lbl.setText(f"ROI: {pnl_pct:+.1f}%")
-        self._roi_lbl.setStyleSheet(f"color: {color}; font-size: 11pt;")
-
-        if buy > net / qty:
-            self._warn_lbl.setText(
-                "Atencao: voce esta vendendo por menos do que pagou "
-                "depois da taxa da Steam."
-            )
-            self._warn_lbl.show()
-        else:
-            self._warn_lbl.hide()
-
-        self._results.show()
-        self._rebuild_scenario_combo()
-        self._auto_save_scenario()
-
-    def _auto_save_scenario(self) -> None:
-        buy = self._buy_inp.text().strip()
-        sell = self._sell_inp.text().strip()
-        if buy and sell:
-            s = load_settings()
-            s["last_scenario"] = {"buy": buy, "sell": sell, "qty": self._qty_inp.text().strip() or "1"}
-            save_settings(s)
-
-    def _scenarios_path(self) -> str:
-        p = DATA_DIR / "scenarios.json"
-        p.parent.mkdir(parents=True, exist_ok=True)
-        return str(p)
-
-    def _load_scenarios(self) -> list[dict]:
-        import json, os
-        path = self._scenarios_path()
-        if os.path.exists(path):
-            try:
-                with open(path, encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return []
-
-    def _save_scenarios(self, scenarios: list[dict]) -> None:
-        import json
-        path = self._scenarios_path()
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(scenarios, f, indent=2)
-        except Exception:
-            pass
-
-    def _rebuild_scenario_combo(self) -> None:
-        scenarios = self._load_scenarios()
-        self._scn_combo.blockSignals(True)
-        self._scn_combo.clear()
-        self._scn_combo.addItem("Carregar cenario...")
-        for s in scenarios:
-            self._scn_combo.addItem(s["name"])
-        self._scn_combo.blockSignals(False)
-
-    def _save_scenario(self) -> None:
-        buy = self._buy_inp.text().strip()
-        sell = self._sell_inp.text().strip()
-        qty = self._qty_inp.text().strip()
-        if not buy or not sell:
-            return
-        scenarios = self._load_scenarios()
-        name = f"{buy}x{sell} (qty {qty or 1})"
-        count = sum(1 for s in scenarios if s["name"] == name)
-        if count:
-            name += f" ({count + 1})"
-        scenarios.append({"name": name, "buy": buy, "sell": sell, "qty": qty or "1"})
-        self._save_scenarios(scenarios)
-        self._rebuild_scenario_combo()
-        self._scn_combo.setCurrentIndex(len(scenarios))  # placeholder + count
-
-    def _load_scenario(self, idx: int) -> None:
-        scenarios = self._load_scenarios()
-        if idx <= 0 or not scenarios:
-            return
-        s = scenarios[idx - 1]
-        self._buy_inp.setText(s["buy"])
-        self._sell_inp.setText(s["sell"])
-        self._qty_inp.setText(s.get("qty", "1"))
-        self._calc()
-
-
+# ── SettingsDialog ──────────────────────────────────────────────
 class SettingsDialog(QDialog):
-    """Dialogo de configuracao do SkinVault."""
-
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self._settings = load_settings()
@@ -3663,9 +178,7 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(20, 18, 20, 18)
 
         title = QLabel("Configuracoes")
-        title.setStyleSheet(
-            f"color: {_TEXT}; font-size: 13pt; font-weight: 700;"
-        )
+        title.setStyleSheet(f"color: {_TEXT}; font-size: 13pt; font-weight: 700;")
         layout.addWidget(title)
 
         form = QFormLayout()
@@ -3682,17 +195,23 @@ class SettingsDialog(QDialog):
         self._fee_rate.setStyleSheet(_input_style())
         form.addRow("Taxa Steam:", self._fee_rate)
 
-        self._auto_backup = QLineEdit(
-            "Sim" if self._settings.get("auto_backup", True) else "Nao"
+        self._auto_backup = QCheckBox("Ativar backup automatico")
+        self._auto_backup.setChecked(self._settings.get("auto_backup", True))
+        self._auto_backup.setStyleSheet(
+            f"QCheckBox {{ color: {_TEXT}; font-size: 10pt; font-family: 'Segoe UI'; }}"
+            f"QCheckBox::indicator {{ width: 18px; height: 18px; }}"
         )
-        self._auto_backup.setPlaceholderText("Sim ou Nao")
-        self._auto_backup.setStyleSheet(_input_style())
         form.addRow("Backup auto:", self._auto_backup)
 
         self._keep_backups = QLineEdit(str(self._settings.get("keep_backups", 10)))
         self._keep_backups.setPlaceholderText("Numero de backups")
         self._keep_backups.setStyleSheet(_input_style())
         form.addRow("Manter backups:", self._keep_backups)
+
+        self._sidebar_width = QLineEdit(str(self._settings.get("sidebar_width", 220)))
+        self._sidebar_width.setPlaceholderText("Largura em px")
+        self._sidebar_width.setStyleSheet(_input_style())
+        form.addRow("Largura sidebar:", self._sidebar_width)
 
         self._theme_combo = QComboBox()
         self._theme_combo.addItems(["Escuro", "Claro"])
@@ -3708,12 +227,13 @@ class SettingsDialog(QDialog):
         )
         form.addRow("Tema:", self._theme_combo)
 
-        self._start_min = QLineEdit(
-            "Sim" if self._settings.get("start_minimized", False) else "Nao"
+        self._start_min = QCheckBox("Iniciar minimizado (na bandeja)")
+        self._start_min.setChecked(self._settings.get("start_minimized", False))
+        self._start_min.setStyleSheet(
+            f"QCheckBox {{ color: {_TEXT}; font-size: 10pt; font-family: 'Segoe UI'; }}"
+            f"QCheckBox::indicator {{ width: 18px; height: 18px; }}"
         )
-        self._start_min.setPlaceholderText("Sim ou Nao")
-        self._start_min.setStyleSheet(_input_style())
-        form.addRow("Iniciar minimizado:", self._start_min)
+        form.addRow("", self._start_min)
 
         layout.addLayout(form)
         layout.addStretch()
@@ -3741,29 +261,35 @@ class SettingsDialog(QDialog):
             fee = float(self._fee_rate.text().strip().replace(",", "."))
         except ValueError:
             fee = 0.15
-        backup_val = self._auto_backup.text().strip().lower()
-        auto_backup = backup_val in ("sim", "s", "yes", "y", "true", "1")
         try:
             keep = int(self._keep_backups.text().strip())
         except ValueError:
             keep = 10
+        try:
+            sw = int(self._sidebar_width.text().strip())
+        except ValueError:
+            sw = 220
         theme = "dark" if self._theme_combo.currentIndex() == 0 else "light"
-        start_min = self._start_min.text().strip().lower() in ("sim", "s", "yes", "y", "true", "1")
-        self._settings = {
+        existing = load_settings()
+        existing.update({
             "cache_ttl_hours": max(1, ttl),
             "fee_rate": max(0, min(1, fee)),
-            "auto_backup": auto_backup,
+            "auto_backup": self._auto_backup.isChecked(),
             "keep_backups": max(0, keep),
+            "sidebar_width": max(160, min(400, sw)),
             "theme": theme,
-            "start_minimized": start_min,
-        }
-        save_settings(self._settings)
+            "start_minimized": self._start_min.isChecked(),
+        })
+        save_settings(existing)
+        # Live theme reload via parent
+        parent = self.parent()
+        if parent and hasattr(parent, '_on_theme_changed'):
+            parent._on_theme_changed()
         self.accept()
 
 
+# ── BackupDialog ────────────────────────────────────────────────
 class BackupDialog(QDialog):
-    """Gerenciador de backups: listar, restaurar, deletar."""
-
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setWindowTitle("Gerenciar Backups")
@@ -3778,9 +304,7 @@ class BackupDialog(QDialog):
         layout.setContentsMargins(20, 18, 20, 18)
 
         title = QLabel("Backups dos dados")
-        title.setStyleSheet(
-            f"color: {_TEXT}; font-size: 13pt; font-weight: 700;"
-        )
+        title.setStyleSheet(f"color: {_TEXT}; font-size: 13pt; font-weight: 700;")
         layout.addWidget(title)
 
         self._list = QListWidget()
@@ -3827,9 +351,7 @@ class BackupDialog(QDialog):
         for b in backup.list_backups():
             dt = time.strftime("%d/%m/%Y %H:%M", time.localtime(b["mtime"]))
             size_kb = b["size"] / 1024
-            self._list.addItem(
-                f"{b['name']}  ({size_kb:.0f} KB)  -  {dt}"
-            )
+            self._list.addItem(f"{b['name']}  ({size_kb:.0f} KB)  -  {dt}")
 
     def _selected_path(self) -> str | None:
         row = self._list.currentRow()
@@ -3846,18 +368,15 @@ class BackupDialog(QDialog):
             return
         confirm = QMessageBox.question(
             self, "Restaurar backup",
-            "Restaurar este backup?\n"
-            "Os dados atuais serao SUBSTITUIDOS.",
+            "Restaurar este backup?\nOs dados atuais serao SUBSTITUIDOS.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if confirm != QMessageBox.StandardButton.Yes:
             return
         count = backup.restore_backup(path)
         if count:
-            QMessageBox.information(
-                self, "Restaurado",
-                f"{count} arquivo(s) restaurados com sucesso."
-            )
+            QMessageBox.information(self, "Restaurado",
+                                    f"{count} arquivo(s) restaurados com sucesso.")
         else:
             QMessageBox.warning(self, "Erro", "Falha ao restaurar backup.")
 
@@ -3878,16 +397,14 @@ class BackupDialog(QDialog):
             QMessageBox.warning(self, "Erro", "Falha ao deletar backup.")
 
 
+# ── Steam Sync (F10) ────────────────────────────────────────────
 class _SyncBridge(QObject):
-    """Sinaliza progresso do sync da thread worker para a UI."""
     step_done = pyqtSignal(str, dict)
     all_done = pyqtSignal(dict)
     failed = pyqtSignal(str)
 
 
 class SteamSyncDialog(QDialog):
-    """Dialog modal com 4 steps de sync. Roda em thread, atualiza labels."""
-
     _STEPS = (
         ("inventory", "Inventario CS2"),
         ("market", "Historico do Steam Market"),
@@ -3928,7 +445,7 @@ class SteamSyncDialog(QDialog):
 
         for key, label in self._STEPS:
             row = QHBoxLayout()
-            tag = QLabel(f"○  {label}")
+            tag = QLabel(f"o  {label}")
             tag.setStyleSheet(f"color: {_TEXT}; font-size: 10pt;")
             row.addWidget(tag, 1)
             status = QLabel("aguardando…")
@@ -3954,17 +471,14 @@ class SteamSyncDialog(QDialog):
         self._close_btn.setEnabled(False)
         self._close_btn.setStyleSheet(_btn_secondary())
         self._close_btn.clicked.connect(self.accept)
-        root.addWidget(self._close_btn, 0,
-                       Qt.AlignmentFlag.AlignRight)
+        root.addWidget(self._close_btn, 0, Qt.AlignmentFlag.AlignRight)
 
     def _start(self) -> None:
         def worker() -> None:
             try:
                 results = steam_sync.sync_all(
                     self._session,
-                    progress_cb=lambda step, r: self._bridge.step_done.emit(
-                        step, r
-                    ),
+                    progress_cb=lambda step, r: self._bridge.step_done.emit(step, r),
                 )
                 self._bridge.all_done.emit(results)
             except Exception as exc:
@@ -4007,9 +521,8 @@ def _format_sync_result(step: str, result: dict) -> str:
     return "ok"
 
 
-class MainWindow(QWidget):
-    """Janela principal usando ScreenRouter (F11) com sidebar hierarquica."""
-
+# ── MainWindow (QMainWindow) ────────────────────────────────────
+class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         settings = load_settings()
@@ -4017,37 +530,38 @@ class MainWindow(QWidget):
         set_theme(theme)
         self._current_theme = theme
         self.setWindowTitle("SkinVault")
+
         geo = settings.get("window_geometry", {})
-        if geo.get("w") and geo.get("h"):
-            self.resize(geo["w"], geo["h"])
+        pos = settings.get("window_position", {})
+        w = geo.get("w", 1100)
+        h = geo.get("h", 720)
+        x = pos.get("x")
+        y = pos.get("y")
+        if x is not None and y is not None:
+            self.setGeometry(x, y, w, h)
         else:
-            self.resize(1100, 720)
+            self.resize(w, h)
+
         self._apply_stylesheet()
         ttl = settings.get("cache_ttl_hours", 6) * 3600
         self._cache = prices.PriceCache(ttl=ttl)
 
         self._tray_icon: QSystemTrayIcon | None = None
+        self._geo_timer = QTimer(self)
         self._init_tray()
 
-        # ScreenRouter com sidebar no lugar do QTabWidget
         from skinvault.ui.screen_router import ScreenRouter
         self._router = ScreenRouter(self._cache, self)
         self._router.sync_requested.connect(self._on_sync_requested)
-        self._router.set_utility_callbacks(
-            settings=self._open_settings,
-            about=self._open_about,
-            backup=self._open_backups,
-        )
+        self.setCentralWidget(self._router)
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-        root.addWidget(self._router, 1)
+        self._create_sidebar_dock(settings)
 
-        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
-            self._focus_filter
-        )
-        QShortcut(QKeySequence("?"), self).activated.connect(self._show_shortcuts)
+        self._router.navigated.connect(self._on_navigated)
+        self._router.sidebar_visibility_changed.connect(self._on_sidebar_visibility)
+        self._router.start()
+
+        self._setup_shortcuts()
 
         if settings.get("auto_backup", True):
             backup.make_backup()
@@ -4058,10 +572,117 @@ class MainWindow(QWidget):
             "font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui;"
         )
 
+    # ── sidebar dock ──────────────────────────────────────────
+    def _create_sidebar_dock(self, settings: dict) -> None:
+        self._sidebar_dock = QDockWidget("Navegacao", self)
+        self._sidebar_dock.setFeatures(
+            QDockWidget.DockWidgetFeature.NoDockWidgetFeatures
+        )
+        title_bar = QWidget()
+        self._sidebar_dock.setTitleBarWidget(title_bar)
+
+        sw = settings.get("sidebar_width", 220)
+        self._sidebar_dock.setMinimumWidth(sw)
+        self._sidebar_dock.setMaximumWidth(sw)
+
+        sidebar = Sidebar(width=sw)
+        for key, icon, label in [
+            ("account", chr(9676), "Minha Conta"),
+            ("history", chr(9672), "Historico"),
+            ("scanner", chr(9711), "Scanner"),
+        ]:
+            sidebar.add_item(key, icon, label)
+        sidebar.add_stretch()
+
+        btn_style = self._ghost_sidebar_style()
+        for text, cb in [
+            ("  " + chr(9881) + "  Configuracoes", self._open_settings),
+            ("  Sobre", self._open_about),
+            ("  Backups", self._open_backups),
+        ]:
+            btn = QPushButton(text)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet(btn_style)
+            btn.clicked.connect(cb)
+            sidebar.add_widget(btn)
+
+        sidebar.item_selected.connect(self._router.navigate)
+        self._sidebar_dock.setWidget(sidebar)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
+                           self._sidebar_dock)
+
+        # estado inicial
+        visible = self._router.sidebar_visible
+        self._sidebar_dock.setVisible(visible)
+
+    def _ghost_sidebar_style(self) -> str:
+        return (
+            f"QPushButton {{ color: {_MUTED}; background: transparent;"
+            f" border: none; text-align: left; padding: 8px 14px;"
+            f" font-size: 9pt; font-weight: 500; }}"
+            f"QPushButton:hover {{ color: {_TEXT}; background: {_SURFACE};"
+            f" border-radius: 6px; }}"
+        )
+
+    def _on_sidebar_visibility(self, visible: bool) -> None:
+        self._sidebar_dock.setVisible(visible)
+
+    def _on_navigated(self, screen: str) -> None:
+        sidebar = self._sidebar_dock.widget()
+        if sidebar and hasattr(sidebar, 'select'):
+            sidebar.select(screen)
+
+    # ── shortcuts ─────────────────────────────────────────────
+    def _setup_shortcuts(self) -> None:
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
+            self._focus_filter)
+        QShortcut(QKeySequence("?"), self).activated.connect(
+            self._show_shortcuts)
+        QShortcut(QKeySequence("F5"), self).activated.connect(
+            self._refresh_current)
+        QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(
+            self._open_settings)
+        QShortcut(QKeySequence("Ctrl+,"), self).activated.connect(
+            self._open_settings)
+
+    def _focus_filter(self) -> None:
+        stack = getattr(self._router, '_stack', None)
+        if stack is not None:
+            w = stack.currentWidget()
+            for attr in ("_filter_inp", "_search_inp"):
+                inp = getattr(w, attr, None)
+                if inp:
+                    inp.setFocus()
+                    inp.selectAll()
+                    break
+
+    def _refresh_current(self) -> None:
+        stack = getattr(self._router, '_stack', None)
+        if stack is not None:
+            w = stack.currentWidget()
+            refresh = getattr(w, 'refresh', None)
+            if refresh:
+                refresh()
+
+    def _show_shortcuts(self) -> None:
+        QMessageBox.information(
+            self, "Atalhos de teclado",
+            "<b>Atalhos:</b><br>"
+            "F5 &nbsp;&nbsp; Recarregar tela atual<br>"
+            "Ctrl+F &nbsp;&nbsp; Foco no filtro<br>"
+            "Ctrl+N &nbsp;&nbsp; Nova posicao (Settings)<br>"
+            "Ctrl+, &nbsp;&nbsp; Configuracoes<br>"
+            "? &nbsp;&nbsp; Mostra esta janela",
+        )
+
+    # ── tray ──────────────────────────────────────────────────
     def _init_tray(self) -> None:
         if QSystemTrayIcon is None:
             return
-        if not QSystemTrayIcon.isSystemTrayAvailable():
+        try:
+            if not QSystemTrayIcon.isSystemTrayAvailable():
+                return
+        except Exception:
             return
         icon = _make_tray_icon()
         self._tray_icon = QSystemTrayIcon(icon, self)
@@ -4092,61 +713,42 @@ class MainWindow(QWidget):
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self._restore_from_tray()
 
+    # ── geometry ──────────────────────────────────────────────
     def _save_geometry(self) -> None:
         s = load_settings()
         s["window_geometry"] = {"w": self.width(), "h": self.height()}
+        s["window_position"] = {"x": self.x(), "y": self.y()}
         save_settings(s)
+
+    def _debounce_save_geometry(self) -> None:
+        try:
+            self._geo_timer.timeout.disconnect()
+        except Exception:
+            pass
+        self._geo_timer.timeout.connect(self._save_geometry)
+        self._geo_timer.setSingleShot(True)
+        self._geo_timer.start(300)
+
+    def moveEvent(self, evt) -> None:  # noqa: N802
+        super().moveEvent(evt)
+        self._debounce_save_geometry()
+
+    def resizeEvent(self, evt) -> None:  # noqa: N802
+        super().resizeEvent(evt)
+        self._debounce_save_geometry()
 
     def closeEvent(self, evt) -> None:  # noqa: N802
         self._save_geometry()
-        has_data = bool(portfolio.load_portfolio()) or bool(trades.load_trades())
-        if has_data:
-            confirm = QMessageBox.question(
-                self, "Sair",
-                "Tem dados nao salvos. Deseja realmente sair?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
-            if confirm != QMessageBox.StandardButton.Yes:
-                evt.ignore()
-                return
         if self._tray_icon is not None:
             self.hide()
             evt.ignore()
-        else:
-            evt.accept()
+            return
+        evt.accept()
 
+    # ── dialogs ───────────────────────────────────────────────
     def _open_backups(self) -> None:
         dlg = BackupDialog(self)
         dlg.exec()
-
-    def _show_shortcuts(self) -> None:
-        QMessageBox.information(
-            self, "Atalhos de teclado",
-            "<b>Atalhos globais:</b><br>"
-            "? &nbsp;&nbsp; Mostra esta janela<br><br>"
-            "<b>Portfolio:</b><br>"
-            "Ctrl+O &nbsp;&nbsp; Importar CSV<br>"
-            "Ctrl+E &nbsp;&nbsp; Exportar CSV<br>"
-            "Del &nbsp;&nbsp;&nbsp; Remover selecionado(s)<br>"
-            "Enter &nbsp;&nbsp; Confirmar formulario<br><br>"
-            "<b>Trades:</b><br>"
-            "Ctrl+E &nbsp;&nbsp; Exportar CSV<br>"
-            "Del &nbsp;&nbsp;&nbsp; Remover trade(s) selecionado(s)<br><br>"
-            "<b>Geral:</b><br>"
-            "Duplo clique no item &nbsp;&nbsp; Abrir Steam Market<br>"
-            "Botao direito &nbsp;&nbsp; Menu de contexto",
-        )
-
-    def _focus_filter(self) -> None:
-        stack = getattr(self._router, '_stack', None)
-        if stack is not None:
-            w = stack.currentWidget()
-            for attr in ("_filter_inp", "_search_inp"):
-                inp = getattr(w, attr, None)
-                if inp:
-                    inp.setFocus()
-                    inp.selectAll()
-                    break
 
     def _on_sync_requested(self, session) -> None:
         dlg = SteamSyncDialog(session, self)
@@ -4154,17 +756,23 @@ class MainWindow(QWidget):
 
     def _open_settings(self) -> None:
         dlg = SettingsDialog(self)
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            return
+        dlg.exec()
+
+    def _on_theme_changed(self) -> None:
         s = load_settings()
         theme = s.get("theme", "dark")
-        if theme != self._current_theme:
-            set_theme(theme)
-            self._apply_stylesheet()
-            QMessageBox.information(
-                self, "Tema alterado",
-                "Reinicie o SkinVault para aplicar o novo tema completamente."
-            )
+        if theme == self._current_theme:
+            return
+        self._current_theme = theme
+        set_theme(theme)
+        self._apply_stylesheet()
+        # Re-aplica sidebar dock style
+        self._sidebar_dock.setStyleSheet(
+            f"QDockWidget {{ background: {_SURFACE}; }}"
+        )
+        self._sidebar_dock.widget().setStyleSheet(
+            f"background: {_SURFACE};"
+        )
 
     def _open_about(self) -> None:
         QMessageBox.about(
@@ -4177,11 +785,8 @@ class MainWindow(QWidget):
             "Feito por Pedro S. | 2026",
         )
 
-    # ── Steam Sync (delegado ao ScreenRouter) ───────────────────
-
 
 def launch() -> int:
-    from PyQt6.QtWidgets import QApplication
     app = QApplication([])
     win = MainWindow()
     settings = load_settings()

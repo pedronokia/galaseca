@@ -34,6 +34,33 @@ _GREEN = ACCENT
 _RED = DANGER
 
 
+def _reload_palette(theme: str) -> None:
+    """Atualiza as constantes deste modulo a partir de THEMES.
+    Chamado por gui.set_theme() para live reload sem restart.
+    NOTA: assume execucao na UI thread; nao usar de threads paralelas."""
+    from skinvault.gui import THEMES as _T
+    pal = _T.get(theme, _T["dark"])
+    global BG, BG_ELEVATED, SURFACE, BORDER, TEXT, TEXT_MUTED
+    global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER
+    global _BG, _SURFACE, _TEXT, _MUTED, _GREEN, _RED
+    BG = pal["bg"]
+    BG_ELEVATED = SURFACE = pal["surface"]
+    TEXT = pal["text"]
+    TEXT_MUTED = pal["muted"]
+    BORDER = "#3A3A44" if theme == "light" else "#2A2A33"
+    ACCENT = "#22C55E"
+    DANGER = "#EF4444"
+    ACCENT_DIM = "rgba(34,197,94,0.16)"
+    ACCENT_HOV = "rgba(34,197,94,0.26)"
+    STEAM_BLUE = "#66C0F4"
+    _BG = BG
+    _SURFACE = BG_ELEVATED
+    _TEXT = TEXT
+    _MUTED = TEXT_MUTED
+    _GREEN = ACCENT
+    _RED = DANGER
+
+
 # ── Tipografia ───────────────────────────────────────────────
 FONT_FAMILY = '"Segoe UI Variable Display", "Segoe UI", system-ui'
 FS_MUTED = "9pt"

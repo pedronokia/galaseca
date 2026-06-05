@@ -17,7 +17,10 @@ DEFAULTS = {
     "start_minimized": False,
     "column_widths": {},
     "window_geometry": {},
+    "window_position": {},
     "last_scenario": {},
+    "sidebar_width": 220,
+    "scanner_unlocked": False,
 }
 
 
