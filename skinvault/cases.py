@@ -98,7 +98,7 @@ _SKIN_TO_CASE: dict[str, str] = {
     "M4A1-S | Bright Water": "Operation Bravo Case",
 
     # Operation Phoenix (2014)
-    "AK-47 | Redline": "Winter Offensive Weapon Case",
+    "AK-47 | Redline": "Operation Phoenix Weapon Case",
     "AWP | Asiimov": "Operation Phoenix Weapon Case",
     "P90 | Trigon": "Operation Phoenix Weapon Case",
 
@@ -111,7 +111,6 @@ _SKIN_TO_CASE: dict[str, str] = {
     # Operation Vanguard (2014)
     "AK-47 | Wasteland Rebel": "Operation Vanguard Weapon Case",
     "M4A1-S | Basilisk": "Operation Vanguard Weapon Case",
-    "AWP | Man-o'-war": "Operation Vanguard Weapon Case",
 
     # Huntsman (2014)
     "AK-47 | Vulcan": "Huntsman Weapon Case",
@@ -230,14 +229,13 @@ _SKIN_TO_CASE: dict[str, str] = {
 
     # Gallery (2024)
     "AWP | The Prince": "Gallery Case",
-    "AK-47 | Cartel": "Gallery Case",
 
     # Fever (2025)
     "AK-47 | Searing Rage": "Fever Case",
 
     # === COLECOES ===
     "AWP | Dragon Lore": "The Cobblestone Collection",
-    "M4A4 | Howl": "The Huntsman Collection",
+    "M4A4 | Howl": "Huntsman Weapon Case",
     "AK-47 | Jet Set": "The Anubis Collection",
 }
 

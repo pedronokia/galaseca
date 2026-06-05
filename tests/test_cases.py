@@ -24,7 +24,7 @@ def test_normalize_strips_souvenir():
 
 def test_case_status_discontinued():
     r = cases.case_status("AK-47 | Redline (Field-Tested)")
-    assert r["case"] == "Winter Offensive Weapon Case"
+    assert r["case"] == "Operation Phoenix Weapon Case"
     assert r["status"] == "discontinued"
     assert r["is_discontinued"] is True
     assert "descontinuada" in r["label"]
@@ -77,3 +77,16 @@ def test_list_cases_by_status_discontinued():
     disc = cases.list_cases_by_status("discontinued")
     assert "Operation Bravo Case" in disc
     assert "Clutch Case" in disc
+
+
+def test_skin_to_case_mappings_reference_existing_cases():
+    """Toda case mencionada em _SKIN_TO_CASE deve existir em _CASES."""
+    known = set(cases._CASES.keys())
+    missing = {v for v in cases._SKIN_TO_CASE.values() if v not in known}
+    assert not missing, f"Cases referenciados mas nao definidos: {missing}"
+
+
+def test_normalize_handles_extra_whitespace():
+    assert cases._normalize_skin_name(
+        "  AK-47 | Redline (Field-Tested)  "
+    ) == "AK-47 | Redline"
