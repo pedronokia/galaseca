@@ -133,12 +133,19 @@ Fatores e pesos atuais:
 **Riscos conhecidos** (documentados na UI):
 - Cookies em texto plano em `data/steam_session.json` — coberto por `.gitignore` da pasta data/
 - Steam pode mudar fluxo de login → re-login manual resolve
-- Pareamento BUY↔SELL em trades fechados ainda não implementado (eventos crus em `steam_market_events.json`)
 
 ---
 
 ## FASE 11 — Redesign UI estilo Athenas ✅
 Sidebar hierárquica (7 telas) substituindo QTabWidget, LoginGate opcional, ScreenRouter com navegação por constantes, PyQt6-WebEngine como dependência fixa, janela maximizada+centralizada sem console (pythonw.exe). Telas implementadas: Account (carteira), History (histórico), Scanner (real com rate-limit), Market (busca + depth chart), Trades (CRUD), Simulador (compra/venda), Watchlist (regras + alertas).
+
+## FASE 12 — Pareamento BUY↔SELL ✅
+- [x] `skinvault/trade_matcher.py` — `parse_steam_date` (ano implícito Steam), `match_events` (FIFO por nome), `load_closed_trades`, `summarize`
+- [x] Novo segmento "Pareados" no HistoryScreen com colunas Vendido em / Item / Compra / Venda / P&L líquido / ROI
+- [x] Status bar com agregados (count, total P&L, W/L, win rate) respeitando filtro de período
+- [x] 15 testes cobrindo parsing, FIFO, isolamento por nome, sell antes de buy, summarize
+
+**Login Steam (post-F10):** após v1.0.0 trocamos `QWebEngineView` por captura via Chrome DevTools Protocol sobre WebSocket (`websocket-client`). Lança `chrome.exe` com `--remote-debugging-port`, faz polling em `/json` até detectar `/profiles/` ou `/id/` na URL, conecta WS e extrai cookies (HTTP-only inclusive) via `Network.getAllCookies`. Fallback manual (colar cookies JSON) permanece.
 
 ---
 
@@ -154,7 +161,7 @@ Sidebar hierárquica (7 telas) substituindo QTabWidget, LoginGate opcional, Scre
 ## Ordem de Implementação
 
 ```
-✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 → ✅ F11
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 → ✅ F11 → ✅ F12
 ```
 
 F10 introduz 3 novos módulos (`steam_session`, `steam_login_dialog`, `sync`)
