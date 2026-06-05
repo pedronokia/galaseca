@@ -11,6 +11,7 @@ Reusa:
 """
 from __future__ import annotations
 
+import threading
 import time
 
 from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal

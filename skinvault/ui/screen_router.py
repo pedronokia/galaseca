@@ -126,6 +126,7 @@ class ScreenRouter(QWidget):
         self._breadcrumb.set_path("Bem-vindo")
         self._footer.set_left("Nao conectado")
         self._footer.set_right("")
+        self.sidebar_visibility_changed.emit(False)
 
     def _on_session(self, session: steam_session.SteamSession) -> None:
         self._session = session
@@ -134,6 +135,7 @@ class ScreenRouter(QWidget):
         self._footer.set_left(
             "Conectado: {}...{}".format(sid[:8], sid[-4:])
         )
+        self.sidebar_visibility_changed.emit(True)
         self.navigate(SCREEN_ACCOUNT)
 
     def navigate(self, screen: str) -> None:
