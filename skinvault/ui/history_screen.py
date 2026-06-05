@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import portfolio, sync, trades, watchlist
+from skinvault import portfolio, sync, trade_matcher, trades, watchlist
 from skinvault.ui import theme as t
 from skinvault.ui.components import Card, SegmentedControl
 
@@ -297,6 +297,7 @@ class HistoryScreen(QWidget):
     SEGMENTS = [
         ("all", "Todos"),
         ("trades", "Trades"),
+        ("matched", "Pareados"),
         ("market", "Steam Market"),
         ("offers", "Trade Offers"),
         ("watchlist", "Watchlist"),
@@ -305,6 +306,7 @@ class HistoryScreen(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._current_segment = "all"
+        self._matched_cache: list[trade_matcher.ClosedTrade] | None = None
         self._build()
         self.refresh()
 
@@ -373,6 +375,8 @@ class HistoryScreen(QWidget):
         seg = self._current_segment
         if seg == "trades":
             headers, rows, count, pnl_col, pnl_vals = self._load_trades()
+        elif seg == "matched":
+            headers, rows, count, pnl_col, pnl_vals = self._load_matched()
         elif seg == "market":
             headers, rows, count, pnl_col, pnl_vals = self._load_market()
         elif seg == "offers":
@@ -382,7 +386,15 @@ class HistoryScreen(QWidget):
         else:
             headers, rows, count, pnl_col, pnl_vals = self._load_all()
         self._populate(headers, rows, pnl_col=pnl_col, pnl_vals=pnl_vals)
-        self._status.setText(f"{count} registro(s)")
+        if seg == "matched":
+            s = trade_matcher.summarize(self._matched_cache or [])
+            self._status.setText(
+                f"{s['count']} pareados • P&L total {t.brl(s['total_pnl'])}"
+                f" • {s['winners']}W / {s['losers']}L"
+                f" ({s['win_rate']*100:.0f}% win rate)"
+            )
+        else:
+            self._status.setText(f"{count} registro(s)")
 
     # ── loaders ──────────────────────────────────────────
     def _load_trades(self):
@@ -409,6 +421,28 @@ class HistoryScreen(QWidget):
         return (
             ["Data", "Item", "Qtd", "Compra", "Venda", "P&L", "Origem"],
             rows, len(rows), 5, pnl_vals,
+        )
+
+    def _load_matched(self):
+        closed = trade_matcher.load_closed_trades()
+        periodo = self._filter_panel.periodo
+        visible = [c for c in closed if _in_period(c.sell_ts, periodo)]
+        self._matched_cache = visible
+        rows: list[list[str]] = []
+        pnl_vals: list[float | None] = []
+        for c in visible:
+            pnl_vals.append(c.pnl)
+            rows.append([
+                c.sell_date or "—",
+                c.name,
+                t.brl(c.buy_price),
+                t.brl(c.sell_price),
+                t.brl(c.pnl),
+                f"{c.pnl_pct*100:+.1f}%",
+            ])
+        return (
+            ["Vendido em", "Item", "Compra", "Venda", "P&L liquido", "ROI"],
+            rows, len(rows), 4, pnl_vals,
         )
 
     def _load_market(self):
