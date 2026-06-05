@@ -57,7 +57,7 @@ try:
 except ImportError:
     QSystemTrayIcon = None
 
-from skinvault import backup, cases, history, portfolio, prices, signals, steam_api, trades, watchlist
+from skinvault import alerts, backup, cases, history, portfolio, prices, signals, steam_api, trades, watchlist
 from skinvault._paths import DATA_DIR
 from skinvault.settings import DEFAULTS, load_settings, save_settings
 
@@ -2470,18 +2470,19 @@ class WatchlistTab(QWidget):
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
 
-        self._table = QTableWidget(0, 4)
+        self._table = QTableWidget(0, 5)
         self._table.setHorizontalHeaderLabels(
-            ["Item", "Alvo (R$)", "Atual (R$)", "Status"]
+            ["Item", "Alvo (R$)", "Atual (R$)", "Regras", "Status"]
         )
         actions = [
             ("Remover", self._on_remove),
             ("Editar alvo", self._on_edit_target),
+            ("Editar regras", self._on_edit_rules),
         ]
         _setup_table(self._table, "watchlist", actions)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        for i in (1, 2, 3):
+        for i in (1, 2, 3, 4):
             hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         saved = _load_column_widths("watchlist")
         if saved:
@@ -2559,6 +2560,16 @@ class WatchlistTab(QWidget):
         edit_wl_btn.clicked.connect(self._on_edit_target)
         btn_row.addWidget(edit_wl_btn)
 
+        edit_rules_btn = QPushButton("Editar regras")
+        edit_rules_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        edit_rules_btn.setToolTip(
+            "Configura regras avancadas: queda de preco %, spike de volume,"
+            " queda de oferta"
+        )
+        edit_rules_btn.setStyleSheet(_btn_secondary("8px 18px", "10pt"))
+        edit_rules_btn.clicked.connect(self._on_edit_rules)
+        btn_row.addWidget(edit_rules_btn)
+
         check_btn = QPushButton("Verificar agora")
         check_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         check_btn.setToolTip("Verifica precos agora (padrao: a cada 5 min)")
@@ -2598,6 +2609,22 @@ class WatchlistTab(QWidget):
             f"{name}\n"
             f"Preco atual: {_brl(current)} (alvo: {_brl(target)})",
             QSystemTrayIcon.MessageIcon.Information,
+            5000,
+        )
+
+    def _notify_alert(self, name: str, alert: dict) -> None:
+        if self._tray is None:
+            return
+        sev = alert.get("severity", "info")
+        icon = (
+            QSystemTrayIcon.MessageIcon.Warning
+            if sev == "warning" else
+            QSystemTrayIcon.MessageIcon.Information
+        )
+        self._tray.showMessage(
+            "SkinVault - Alerta",
+            f"{name}\n{alert.get('label', '')}",
+            icon,
             5000,
         )
 
@@ -2682,6 +2709,111 @@ class WatchlistTab(QWidget):
         self._status.setText(f"Alvo atualizado: {_brl(new_target)}")
         self._check_all()
 
+    def _on_edit_rules(self) -> None:
+        row = self._table.currentRow()
+        if row < 0:
+            self._status.setText("Nenhum item selecionado na watchlist.")
+            return
+        items = watchlist.load_watchlist()
+        if row >= len(items):
+            return
+        it = items[row]
+        rules = dict(it.get("rules") or {})
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"Regras de alerta: {it['name']}")
+        dlg.resize(420, 340)
+        dlg.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
+                          " font-family: 'Segoe UI';")
+        layout = QVBoxLayout(dlg)
+        layout.setSpacing(12)
+        layout.addWidget(QLabel(
+            f"Item: {it['name']}",
+            styleSheet=f"color: {_MUTED}; font-size: 10pt;"
+        ))
+
+        layout.addWidget(QLabel("Queda de preco (%) vs baseline:"))
+        drop_inp = QLineEdit(
+            str(rules.get("price_drop_pct", "")) if rules.get("price_drop_pct") else ""
+        )
+        drop_inp.setPlaceholderText("ex.: 15 (preco caiu 15%)")
+        drop_inp.setStyleSheet(_input_style())
+        layout.addWidget(drop_inp)
+
+        baseline_current = it.get("baseline_price")
+        bl_lbl = QLabel(
+            f"Baseline atual: {_brl(baseline_current) if baseline_current else 'nao definido'}"
+        )
+        bl_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
+        layout.addWidget(bl_lbl)
+
+        set_bl_btn = QPushButton("Definir baseline = preco atual")
+        set_bl_btn.setStyleSheet(_btn_secondary("6px 12px", "9pt"))
+        cur_price = prices.cached_price(it["name"], self._cache)
+
+        def _set_baseline() -> None:
+            if cur_price is not None:
+                it["baseline_price"] = float(cur_price)
+                bl_lbl.setText(f"Baseline: {_brl(cur_price)} (sera salvo ao OK)")
+        set_bl_btn.clicked.connect(_set_baseline)
+        layout.addWidget(set_bl_btn)
+
+        layout.addWidget(QLabel("Spike de volume (multiplo da media):"))
+        vol_inp = QLineEdit(
+            str(rules.get("volume_spike", "")) if rules.get("volume_spike") else ""
+        )
+        vol_inp.setPlaceholderText("ex.: 3 (volume 3x maior que media)")
+        vol_inp.setStyleSheet(_input_style())
+        layout.addWidget(vol_inp)
+
+        layout.addWidget(QLabel("Queda de oferta (multiplo abaixo da media):"))
+        sup_inp = QLineEdit(
+            str(rules.get("supply_drop", "")) if rules.get("supply_drop") else ""
+        )
+        sup_inp.setPlaceholderText("ex.: 2 (oferta caiu pela metade)")
+        sup_inp.setStyleSheet(_input_style())
+        layout.addWidget(sup_inp)
+
+        btns = QHBoxLayout()
+        ok_btn = QPushButton("Salvar")
+        ok_btn.setStyleSheet(_btn_primary("8px 18px", "10pt"))
+        ok_btn.clicked.connect(dlg.accept)
+        btns.addWidget(ok_btn)
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(_btn_secondary())
+        cancel_btn.clicked.connect(dlg.reject)
+        btns.addWidget(cancel_btn)
+        layout.addLayout(btns)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        def _parse(s: str) -> float | None:
+            s = s.strip().replace(",", ".")
+            if not s:
+                return None
+            try:
+                v = float(s)
+                return v if v > 0 else None
+            except ValueError:
+                return None
+
+        new_rules: dict = {}
+        if (v := _parse(drop_inp.text())) is not None:
+            new_rules["price_drop_pct"] = v
+        if (v := _parse(vol_inp.text())) is not None:
+            new_rules["volume_spike"] = v
+        if (v := _parse(sup_inp.text())) is not None:
+            new_rules["supply_drop"] = v
+        it["rules"] = new_rules
+        # Reset triggers ao editar regras
+        it["triggered_rules"] = []
+        watchlist.save_watchlist(items)
+        self._status.setText(
+            f"Regras atualizadas: {alerts.format_rules_summary(new_rules) or 'nenhuma'}"
+        )
+        self._check_all()
+
     def _on_clear_watchlist(self) -> None:
         items = watchlist.load_watchlist()
         if not items:
@@ -2711,6 +2843,8 @@ class WatchlistTab(QWidget):
         def work() -> None:
             for it in items:
                 it["_current"] = prices.cached_price(it["name"], self._cache)
+                it["_vol_hist"] = signals.load_item_volume(it["name"])
+                it["_sup_hist"] = signals.load_item_supply(it["name"])
             self._bridge.watchlist_done.emit(items)
 
         threading.Thread(target=work, daemon=True).start()
@@ -2737,37 +2871,58 @@ class WatchlistTab(QWidget):
         self._table.setRowCount(len(items))
         for r, it in enumerate(items):
             name = it["name"]
-            target = it["target"]
+            target = it.get("target")
             current = it.get("_current")
-            was_triggered = it.get("triggered", False)
+            vol_hist = it.pop("_vol_hist", None)
+            sup_hist = it.pop("_sup_hist", None)
+            rules = it.get("rules") or {}
 
             self._table.setItem(r, 0, QTableWidgetItem(name))
-            self._table.setItem(r, 1, QTableWidgetItem(_brl(target)))
+            self._table.setItem(
+                r, 1, QTableWidgetItem(_brl(target) if target else "-"),
+            )
 
             if current is None:
                 self._table.setItem(r, 2, QTableWidgetItem("N/D"))
+                rules_cell = QTableWidgetItem(alerts.format_rules_summary(rules) or "-")
+                rules_cell.setForeground(QColor(_MUTED))
+                self._table.setItem(r, 3, rules_cell)
                 st = QTableWidgetItem("N/D")
                 st.setForeground(QColor(_MUTED))
-                self._table.setItem(r, 3, st)
+                self._table.setItem(r, 4, st)
                 continue
 
             self._table.setItem(r, 2, QTableWidgetItem(_brl(current)))
 
-            is_triggered = current <= target
-            if is_triggered:
-                if not was_triggered:
-                    self._notify(name, current, target)
-                    it["triggered"] = True
-                    n_alerts += 1
+            fired = alerts.evaluate_item(
+                it,
+                current_price=current,
+                volume_history=vol_hist,
+                supply_history=sup_hist,
+            )
+            new_alerts = alerts.diff_new_alerts(it, fired)
+            for a in new_alerts:
+                self._notify_alert(name, a)
+                alerts.record_alert(name, a)
+                n_alerts += 1
+
+            rules_text = alerts.format_rules_summary(rules) or "-"
+            rules_cell = QTableWidgetItem(rules_text)
+            rules_cell.setForeground(QColor(_MUTED))
+            self._table.setItem(r, 3, rules_cell)
+
+            if fired:
+                labels = [a["label"] for a in fired]
                 st = QTableWidgetItem("ALERTA!")
                 st.setForeground(QColor(_RED))
+                st.setToolTip("\n".join(labels))
             else:
                 st = QTableWidgetItem("Monitorando")
                 st.setForeground(QColor(_GREEN))
-            self._table.setItem(r, 3, st)
+            self._table.setItem(r, 4, st)
 
+        watchlist.save_watchlist(items)
         if n_alerts:
-            watchlist.save_watchlist(items)
             msg = f"{n_alerts} alerta(s) disparado(s)! Veja a tabela."
             self._status.setText(msg)
         elif items:
