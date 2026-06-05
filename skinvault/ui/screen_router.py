@@ -94,9 +94,12 @@ class ScreenRouter(QWidget):
     def _check_session(self) -> None:
         s = steam_session.load()
         if s and s.is_complete():
-            self._on_session(s)
-        else:
-            self._show_login()
+            if steam_session.validate(s):
+                steam_session.persist(s)
+                self._on_session(s)
+                return
+            steam_session.clear()
+        self._show_login()
 
     def _show_login(self) -> None:
         self._stack.setCurrentWidget(self._login_gate)

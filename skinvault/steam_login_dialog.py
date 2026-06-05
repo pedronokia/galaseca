@@ -106,17 +106,29 @@ class SteamLoginDialog(QDialog):
 
         layout.addWidget(footer)
 
+    def _domain(self, cookie) -> str:
+        raw = cookie.domain()
+        if isinstance(raw, str):
+            return raw
+        try:
+            return bytes(raw).decode("utf-8", "replace")
+        except Exception:
+            return ""
+
+    def _to_str(self, raw) -> str:
+        if isinstance(raw, str):
+            return raw
+        try:
+            return bytes(raw).decode("utf-8", "replace")
+        except Exception:
+            return ""
+
     def _on_cookie_added(self, cookie) -> None:
-        try:
-            domain = bytes(cookie.domain()).decode("utf-8", "replace")
-        except Exception:
-            domain = ""
-        if "steamcommunity.com" not in domain:
+        if "steamcommunity.com" not in self._domain(cookie):
             return
-        try:
-            name = bytes(cookie.name()).decode("utf-8", "replace")
-            value = bytes(cookie.value()).decode("utf-8", "replace")
-        except Exception:
+        name = self._to_str(cookie.name())
+        value = self._to_str(cookie.value())
+        if not name:
             return
         if not name:
             return
