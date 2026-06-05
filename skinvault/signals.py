@@ -299,71 +299,85 @@ def find_support_resistance(
     }
 
 
-def scan_score(verdict: dict, volume: int | None = None,
-               supply: int | None = None,
-               multi_trend: dict | None = None,
-               price_history: list[dict] | None = None) -> int:
-    """Score de 0-100 para classificacao de oportunidade.
-    Quanto maior, melhor oportunidade de compra.
-    Pondera: diferenca da mediana, spread, book ratio, tendencia,
-    oferta/demanda, momentum, concordancia multi-periodo.
-    """
-    score = 50  # neutro
+def enhanced_score(verdict: dict, volume: int | None = None,
+                   supply: int | None = None,
+                   multi_trend: dict | None = None,
+                   price_history: list[dict] | None = None,
+                   case_status: dict | None = None) -> tuple[int, list[dict]]:
+    """Score 0-100 + breakdown com contribuicao de cada fator.
 
-    # Diferenca da mediana (peso maior quando abaixo)
+    Retorna (score_final, breakdown) onde breakdown e lista de
+    {factor, delta, label} ordenada por |delta| decrescente.
+    Base = 50, clipado em [0, 100].
+    """
+    score = 50.0
+    breakdown: list[dict] = []
+
+    def _add(factor: str, delta: float, label: str) -> None:
+        nonlocal score
+        if delta == 0:
+            return
+        score += delta
+        breakdown.append({
+            "factor": factor,
+            "delta": round(delta, 1),
+            "label": label,
+        })
+
+    # Diferenca da mediana
     diff = verdict.get("diff_pct") or 0
     if diff < 0:
         bonus = min(abs(diff) * 1.2, 35)
-        score += bonus
+        _add("mediana", bonus, f"Mediana: {diff:.1f}% (+{bonus:.0f})")
     elif diff > 0:
         penalty = min(diff * 0.8, 35)
-        score -= penalty
+        _add("mediana", -penalty, f"Mediana: +{diff:.1f}% (-{penalty:.0f})")
 
     v = verdict.get("verdict", "")
     if v == "below_median":
-        score += 5
+        _add("verdict", 5, "Abaixo da mediana (+5)")
     elif v == "overpriced":
-        score -= 5
+        _add("verdict", -5, "Sobrepreco (-5)")
 
     sv = verdict.get("spread_verdict", "")
     if sv == "tight":
-        score += 25
+        _add("spread", 25, "Spread apertado (+25)")
     elif sv == "wide":
-        score -= 15
+        _add("spread", -15, "Spread largo (-15)")
 
     bv = verdict.get("book_verdict", "")
     if bv == "buyer_dominant":
-        score += 20
+        _add("book", 20, "Book: compradores dominam (+20)")
     elif bv == "seller_dominant":
-        score -= 15
+        _add("book", -15, "Book: vendedores dominam (-15)")
 
     tv = verdict.get("trend_verdict", "")
     if tv == "rising":
-        score += 15
+        _add("trend", 15, "Tendencia: subindo (+15)")
     elif tv == "falling":
-        score -= 10
+        _add("trend", -10, "Tendencia: caindo (-10)")
 
-    # Oferta / Demanda (supply/demand ratio)
+    # Oferta / Demanda
     if volume is not None and supply is not None and supply > 0:
         sd = volume / supply
         if sd >= 5:
-            score += 15
+            _add("supply_demand", 15, f"S/D forte ({sd:.1f}) (+15)")
         elif sd >= 3:
-            score += 10
+            _add("supply_demand", 10, f"S/D bom ({sd:.1f}) (+10)")
         elif sd < 0.5:
-            score -= 10
+            _add("supply_demand", -10, f"S/D fraco ({sd:.2f}) (-10)")
 
-    # Momentum: preco atual vs SMA curta
+    # Momentum: preco vs SMA curta
     if price_history and len(price_history) >= 10:
         prices_m = [e["price_median"] for e in price_history[-15:]]
         sma10 = sum(prices_m) / len(prices_m)
         last_p = prices_m[-1]
         if last_p > sma10 * 1.02:
-            score += 5
+            _add("momentum", 5, "Acima da SMA curta (+5)")
         elif last_p < sma10 * 0.98:
-            score -= 5
+            _add("momentum", -5, "Abaixo da SMA curta (-5)")
 
-    # Concordancia multi-periodo: se 24h, 7d, 30d, 90d concordam
+    # Concordancia multi-periodo
     if multi_trend and len(multi_trend) >= 3:
         dirs = []
         for lbl in ("24h", "7d", "30d", "90d"):
@@ -372,15 +386,55 @@ def scan_score(verdict: dict, volume: int | None = None,
                 dirs.append(cp > 0)
         if len(dirs) >= 3:
             if all(dirs):
-                score += 10  # todos subindo = confianca
+                _add("multi_period", 10, f"{len(dirs)} periodos subindo (+10)")
             elif not any(dirs):
-                score -= 10  # todos caindo = cautela
+                _add("multi_period", -10, f"{len(dirs)} periodos caindo (-10)")
 
-    # Bonus de volume: liquidez extra para items com muito volume
+    # Bonus de volume
     if volume is not None and volume > 2000:
-        score += 5
+        _add("liquidity", 5, f"Volume alto ({int(volume)}) (+5)")
 
-    return max(0, min(100, score))
+    # Caixa descontinuada / rara (F7)
+    if case_status:
+        if case_status.get("is_discontinued"):
+            _add("case", 5, "Caixa descontinuada (+5)")
+        elif case_status.get("is_rare"):
+            _add("case", 3, "Caixa rara (+3)")
+
+    final = max(0, min(100, int(round(score))))
+    breakdown.sort(key=lambda b: abs(b["delta"]), reverse=True)
+    return final, breakdown
+
+
+def scan_score(verdict: dict, volume: int | None = None,
+               supply: int | None = None,
+               multi_trend: dict | None = None,
+               price_history: list[dict] | None = None,
+               case_status: dict | None = None) -> int:
+    """Wrapper retornando apenas o score. Ver enhanced_score para breakdown."""
+    score, _ = enhanced_score(verdict, volume, supply, multi_trend,
+                              price_history, case_status)
+    return score
+
+
+def format_breakdown(breakdown: list[dict]) -> str:
+    """Formata breakdown como texto multi-linha para tooltip."""
+    if not breakdown:
+        return "Sem fatores relevantes (base 50)"
+    lines = []
+    pos = [b for b in breakdown if b["delta"] > 0]
+    neg = [b for b in breakdown if b["delta"] < 0]
+    if pos:
+        lines.append("Positivos:")
+        for b in pos:
+            lines.append(f"  + {b['label']}")
+    if neg:
+        if pos:
+            lines.append("")
+        lines.append("Negativos:")
+        for b in neg:
+            lines.append(f"  - {b['label']}")
+    return "\n".join(lines)
 
 
 def discontinued_flag(name: str) -> dict:

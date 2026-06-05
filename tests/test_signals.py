@@ -295,3 +295,73 @@ def test_scan_score_volume_liquidity_bonus():
     """Volume > 2000 soma 5."""
     v = {"verdict": "fair", "diff_pct": 0}
     assert signals.scan_score(v, volume=3000) == 55
+
+
+def test_enhanced_score_returns_tuple():
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(v)
+    assert score == 50
+    assert breakdown == []
+
+
+def test_enhanced_score_below_median_breakdown():
+    v = {"verdict": "below_median", "diff_pct": -15, "spread_verdict": "tight",
+         "book_verdict": "buyer_dominant", "trend_verdict": "rising"}
+    score, breakdown = signals.enhanced_score(v)
+    assert score == 100
+    factors = {b["factor"] for b in breakdown}
+    assert "mediana" in factors
+    assert "spread" in factors
+    assert "book" in factors
+    assert "trend" in factors
+    assert "verdict" in factors
+
+
+def test_enhanced_score_breakdown_sorted_by_abs_delta():
+    v = {"verdict": "below_median", "diff_pct": -10, "spread_verdict": "tight",
+         "trend_verdict": "rising"}
+    _, breakdown = signals.enhanced_score(v)
+    # Spread tight (+25) deve vir antes de mediana (-10 * 1.2 = +12)
+    assert breakdown[0]["factor"] == "spread"
+    assert breakdown[0]["delta"] == 25
+
+
+def test_enhanced_score_case_status_discontinued():
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v, case_status={"is_discontinued": True}
+    )
+    assert score == 55
+    assert any(b["factor"] == "case" and b["delta"] == 5 for b in breakdown)
+
+
+def test_enhanced_score_case_status_rare():
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v, case_status={"is_rare": True}
+    )
+    assert score == 53
+    assert any(b["factor"] == "case" and b["delta"] == 3 for b in breakdown)
+
+
+def test_format_breakdown_empty():
+    assert "Sem fatores" in signals.format_breakdown([])
+
+
+def test_format_breakdown_groups_positive_negative():
+    breakdown = [
+        {"factor": "spread", "delta": 25, "label": "Spread apertado (+25)"},
+        {"factor": "trend", "delta": -10, "label": "Tendencia: caindo (-10)"},
+    ]
+    text = signals.format_breakdown(breakdown)
+    assert "Positivos:" in text
+    assert "Negativos:" in text
+    assert "Spread apertado" in text
+    assert "Tendencia: caindo" in text
+
+
+def test_scan_score_wrapper_returns_int():
+    """scan_score deve continuar retornando apenas int (backward compat)."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v) == 50
+    assert isinstance(signals.scan_score(v), int)

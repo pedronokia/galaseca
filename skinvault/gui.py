@@ -2235,6 +2235,8 @@ class ScannerTab(QWidget):
                 item.setForeground(
                     QColor(_GREEN if r["book"] == "buyer_dominant" else _RED)
                 )
+            if col == 10 and r.get("score_tooltip"):
+                item.setToolTip(r["score_tooltip"])
             if row_bg.alpha() > 0:
                 item.setBackground(row_bg)
             self._table.setItem(row, col, item)
@@ -2365,11 +2367,14 @@ class ScannerTab(QWidget):
                     parts.append(f"{lbl}: {cp:+.1f}%")
             trend_display = " | ".join(parts)
 
-        score = signals.scan_score(verdict,
-                                   volume=volume if isinstance(volume, (int, float)) else None,
-                                   supply=csell,
-                                   multi_trend=multi,
-                                   price_history=price_history_data)
+        score, breakdown = signals.enhanced_score(
+            verdict,
+            volume=volume if isinstance(volume, (int, float)) else None,
+            supply=csell,
+            multi_trend=multi,
+            price_history=price_history_data,
+        )
+        score_tooltip = signals.format_breakdown(breakdown)
 
         vol_val = volume if isinstance(volume, (int, float)) else None
         sd_info = signals.supply_demand_ratio(vol_val, csell)
@@ -2401,6 +2406,8 @@ class ScannerTab(QWidget):
             "anomalia": " | ".join(anom_parts) if anom_parts else "",
             "anomalia_flag": bool(anom_parts),
             "score": score,
+            "score_breakdown": breakdown,
+            "score_tooltip": score_tooltip,
             "message": verdict.get("message", ""),
             "diff_pct": diff_pct,
             "category": category,
