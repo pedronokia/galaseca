@@ -15,6 +15,7 @@ DEFAULTS = {
     "keep_backups": 10,
     "theme": "dark",
     "start_minimized": False,
+    "minimize_to_tray_on_close": True,
     "column_widths": {},
     "window_geometry": {},
     "window_position": {},

@@ -235,6 +235,15 @@ class SettingsDialog(QDialog):
         )
         form.addRow("", self._start_min)
 
+        self._min_to_tray = QCheckBox(
+            "Minimizar para bandeja ao fechar (X nao encerra o app)"
+        )
+        self._min_to_tray.setChecked(
+            self._settings.get("minimize_to_tray_on_close", True)
+        )
+        self._min_to_tray.setStyleSheet(self._start_min.styleSheet())
+        form.addRow("", self._min_to_tray)
+
         layout.addLayout(form)
         layout.addStretch()
 
@@ -279,6 +288,7 @@ class SettingsDialog(QDialog):
             "sidebar_width": max(160, min(400, sw)),
             "theme": theme,
             "start_minimized": self._start_min.isChecked(),
+            "minimize_to_tray_on_close": self._min_to_tray.isChecked(),
         })
         save_settings(existing)
         # Live theme reload via parent
@@ -755,11 +765,17 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, evt) -> None:  # noqa: N802
         self._save_geometry()
-        if self._tray_icon is not None:
+        s = load_settings()
+        if self._tray_icon is not None and s.get(
+            "minimize_to_tray_on_close", True
+        ):
             self.hide()
             evt.ignore()
             return
+        if self._tray_icon is not None:
+            self._tray_icon.hide()
         evt.accept()
+        QApplication.instance().quit()
 
     # ── dialogs ───────────────────────────────────────────────
     def _open_backups(self) -> None:
