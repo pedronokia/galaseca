@@ -4,10 +4,31 @@
 - **Zero login/sessão/cookie** — tudo com dados públicos da Steam
 - **Dados factuais** — descrevemos, não prevemos
 - **Valor real** — após taxa Steam (15%)
+- **Steam-only** por enquanto — multi-market (Buff/CSFloat/Skinport) é decisão futura
 
 ---
 
-## FASE 1 — Fundação ✅ (concluído)
+## Mapa: os 13 indicadores → as fases
+
+| # | Indicador | Status | Fase |
+|---|---|---|---|
+| 1 | Variação multi-período (24h/7d/30d/90d/1y) | ✅ | F2 |
+| 2 | Volume de negociações + média móvel | ✅ | F3 |
+| 3 | Detecção de volume anormal | ✅ | F4 |
+| 4 | Supply (oferta disponível) | ✅ | F3 |
+| 5 | Relação Oferta x Demanda (S/D ratio) | ✅ | F5 |
+| 6 | Float Analysis | ⚪ fora de escopo | — |
+| 7 | Pattern Scanner | ⚪ fora de escopo | — |
+| 8 | Popularidade pro players | ⚪ fora de escopo | — |
+| 9 | Cases de origem + status | ⏳ | F7 |
+| 10 | Taxa de unboxing | ⚪ fora de escopo | — |
+| 11 | Alertas de oportunidade | ⏳ | F8 |
+| 12 | Score de Investimento (multi-fator) | 🟡 parcial | F6 |
+| 13 | Multi-marketplace (arbitragem) | ⚪ fora de escopo | — |
+
+---
+
+## FASE 1 — Fundação ✅
 - [x] Priceoverview API (lowest, median, volume)
 - [x] SSR page parsing (price history + order book)
 - [x] Fair value verdict (abaixo/justo/acima da mediana)
@@ -17,102 +38,100 @@
 - [x] Scanner com score (0-100)
 - [x] Categorias automáticas (Rifles, Pistolas, Facas, Luvas...)
 
+## FASE 2 — Multi-period Trends ✅
+- [x] `multi_trend(price_history)` em `signals.py`
+- [x] Retorna `{24h, 7d, 30d, 90d, 1y}` com change_pct/direction
+- [x] Exibição no ScannerTab (coluna Tendência)
+- [x] Exibição no MarketTab
+- [x] Usado no `scan_score()` (concordância multi-período)
+
+## FASE 3 — Volume + Supply Tracker ✅
+- [x] `record_item_volume(name, volume)` / `load_item_volume(name)`
+- [x] `record_item_supply(name, cSellOrders)` / `load_item_supply(name)`
+- [x] Cap em 200 entradas (volume e supply)
+- [x] Coleta automática no MarketTab + ScannerTab
+- [x] Persistência em `data/volume_history.json` e `supply_history.json`
+
+## FASE 4 — Anomaly Detection ✅
+- [x] `volume_anomaly(history, factor=2.0)` — desvio vs média móvel
+- [x] Reutilizado para supply anomaly
+- [x] Retorna `{is_anomaly, ratio, current, avg, direction, label}`
+- [x] Flag visual no MarketTab (label amarelo)
+- [x] Flag visual no ScannerTab (background amarelo + contador "ANOMALIA: N")
+
+## FASE 5 — Supply/Demand Score ✅
+- [x] `supply_demand_ratio(volume, supply)` → ratio + label
+- [x] Integrado no `scan_score()` com pesos: ≥5 (+15), ≥3 (+10), <0.5 (-10)
+- [x] Coluna "S/D" no ScannerTab
+- [x] Label no MarketTab e no Top Pick
+
 ---
 
-## FASE 2 — Multi-period Trends (dados já temos)
-Objetivo: extrair tendências de 24h, 7d, 30d, 90d, 1y do `price_history` SSR.
+## FASE 6 — Investment Score Aprimorado (em curso) 🟡
+Objetivo: score multi-fator com pesos configuráveis + breakdown visível.
 
-- [ ] Função `multi_trend(price_history)` em `signals.py`
-  - Retorna `{change_24h, change_7d, change_30d, change_90d, change_1y}`
-- [ ] Exibir no ScannerTab como colunas ou tooltip
-- [ ] Usar nos alertas: "subiu 30% em 7 dias"
-- [ ] Adicionar ao Investment Score
+Fatores e pesos atuais (no `scan_score()`):
+| Fator | Peso | Fonte | Status |
+|---|---|---|---|
+| Diff vs mediana | ±35 | diff_pct | ✅ |
+| Spread | ±25 | order book | ✅ |
+| Book ratio | ±20 | order book | ✅ |
+| Tendência (verdict) | ±15 | trend | ✅ |
+| Supply/Demand | ±15 | volume/supply | ✅ |
+| Momentum (SMA) | ±5 | price_history | ✅ |
+| Concordância multi-período | ±10 | multi_trend | ✅ |
+| Liquidez (volume>2000) | +5 | volume | ✅ |
+| Caixa descontinuada | — | case_database | ⏳ F7 |
 
-## FASE 3 — Volume + Supply Tracker
-Objetivo: persistir volume e supply ao longo do tempo (igual fazemos com preço).
-
-- [ ] `record_item_volume(name, volume)` em `signals.py`
-- [ ] `record_item_supply(name, cSellOrders)` em `signals.py`
-- [ ] `load_item_volume_history(name)` / `load_item_supply_history(name)`
-- [ ] Cap em 100 entradas (igual price history)
-- [ ] Coletar automaticamente no MarketTab + ScannerTab
-- [ ] Sparkline de volume no MarketTab
-
-## FASE 4 — Anomaly Detection
-Objetivo: detectar quando volume ou supply fogem da média.
-
-- [ ] `volume_anomaly(history)` — compara último valor com média móvel
-- [ ] `supply_anomaly(history)` — mesma lógica
-- [ ] Retorna `{is_anomaly, ratio, direction, label}`
-- [ ] Flag no ScannerTab: "Volume 3x maior que a média!"
-- [ ] Flag no ScannerTab: "Supply caiu 20%"
-
-## FASE 5 — Supply/Demand Score
-Objetivo: criar métrica de relação oferta x demanda.
-
-- [ ] `supply_demand_score(volume, supply)` → ratio 0-1
-- [ ] Adicionar ao `scan_score()` com peso 20%
-- [ ] Exibir no ScannerTab como coluna "S/D"
-
-## FASE 6 — Investment Score Aprimorado
-Objetivo: score multi-fator com pesos configuráveis.
-
-Fatores e pesos:
-| Fator | Peso | Fonte |
-|---|---|---|
-| Liquidez (volume) | 20% | volume 24h |
-| Preço vs Mediana | 20% | diff_pct |
-| Spread | 10% | order book |
-| Book ratio (buy/sell) | 10% | order book |
-| Supply/Demand | 15% | volume / cSellOrders |
-| Tendência 30d | 15% | multi_period_trends |
-| Caixa descontinuada | 10% | case_database |
-
-- [ ] `enhanced_score(verdict, volume, supply, trends, case_status)` em `signals.py`
-- [ ] Pesos salvos em `settings.py` (customizáveis)
-- [ ] Exibir breakdown no ScannerTab (score por fator)
-- [ ] Substituir `scan_score()` atual
+- [ ] `enhanced_score()` retorna `(score, breakdown)` com contribuição por fator
+- [ ] Tooltip no ScannerTab mostrando breakdown ao hover na coluna Score
+- [ ] Pesos configuráveis em `settings.py` (opcional, depois)
 
 ## FASE 7 — Case Database
-Objetivo: mapear skin → caixa de origem + status (active/rare/discontinued).
+Objetivo: mapear skin → caixa de origem + status.
 
-- [ ] `skinvault/cases.py` — database de ~50-100 cases e coleções
-- [ ] `case_status(name)` retorna `{case, is_discontinued, is_rare, collection}`
-- [ ] Exibir no MarketTab + ScannerTab
-- [ ] Peso no Investment Score
+- [ ] `skinvault/cases.py` — database de ~80 cases/coleções principais
+- [ ] `case_status(name)` retorna `{case, collection, is_discontinued, is_rare, dropped_since}`
+- [ ] Exibir no MarketTab (linha com caixa + status)
+- [ ] Exibir no ScannerTab (tooltip ou coluna compacta)
+- [ ] Bonus no Investment Score: +5 para descontinuada, +3 para rare
 
 ## FASE 8 — Alertas Avançados
 Objetivo: notificar oportunidades no tray.
 
-- [ ] Configurar limites em Settings: preço cai X%, volume explode Y%, supply cai Z%
+- [ ] `skinvault/alerts.py` — define regras (preço cai X%, volume sobe Y%, anomaly)
 - [ ] WatchlistTab expandida com regras por item
-- [ ] Notificação no QSystemTrayIcon com ação "Abrir Scanner"
-- [ ] Log de alertas disparados
+- [ ] QSystemTrayIcon com notificações nativas
+- [ ] Log de alertas disparados em `data/alerts_log.json`
+- [ ] Click no tray abre ScannerTab focado no item
 
 ## FASE 9 — Top 20 Ranking
-Objetivo: ranking automático diário.
+Objetivo: ranking automático para descobrir oportunidades.
 
 - [ ] Botão "Ranking Top 20" no ScannerTab
-- [ ] Escaneia itens pré-definidos (top por categoria)
-- [ ] Salva snapshot do ranking em `data/rankings.json`
-- [ ] Exibe evolução: "semana passada estava em 5o, agora 2o"
+- [ ] Escaneia lista predefinida de itens populares (top por categoria)
+- [ ] Salva snapshot em `data/rankings.json`
+- [ ] Comparativo: "semana passada estava em 5º, agora 2º"
+- [ ] Filtrável por categoria
 
 ---
 
-## 🔴 Fora do Escopo (requerem sessão Steam)
+## 🔴 Fora do Escopo (requerem fonte externa / autenticação)
 
-- **Float Analysis / Pattern Scanner** — Steam não expõe via API pública
-- **Multi-market (Buff, CSFloat, Skinport)** — cada um tem suas regras
-- **Histórico de compras/vendas Steam + Saldo** — requer autenticação
-- **Unboxing rate** — só Valve tem esses dados
-- **Pro player / streamer tracking** — sem API pública
+**Decisão arquitetural Steam-only:** evitar dependência de scraping frágil e sessões privadas.
+
+- **Float Analysis / Pattern Scanner (#6, #7)** — Steam não expõe via API pública; precisaria CSFloat API
+- **Multi-market arbitragem (#13)** — Buff (login chinês), Skinport (API ok), SkinBaron (scraping), CSFloat (API ok). Decisão para depois das Fases 6-9.
+- **Pro player / streamer tracking (#8)** — HLTV/Liquipedia scraping frágil
+- **Unboxing rate (#10)** — só Valve tem
+- **Histórico de compras/vendas Steam pessoal** — requer sessão privada
 
 ---
 
-## Ordem de Implementação Sugerida
+## Ordem de Implementação
 
 ```
-FASE 2 → FASE 3 → FASE 4 → FASE 5 → FASE 6 → FASE 7 → FASE 8 → FASE 9
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → 🟡 F6 → ⏳ F7 → ⏳ F8 → ⏳ F9
 ```
 
-Cada fase é autossuficiente e testável. Fases 2-3 são pré-requisito para 4-6.
+Cada fase é autossuficiente e testável. Fases 6-9 são independentes entre si.
