@@ -14,6 +14,7 @@ Princípios:
 from __future__ import annotations
 
 import dataclasses
+import html as _html
 import json
 import time
 from pathlib import Path
@@ -55,12 +56,15 @@ def _save_json_list(path: Path, data: list[dict]) -> None:
 # ── chaves de dedupe ──────────────────────────────────────────
 def market_event_key(event: dict) -> str:
     """ID estavel pra evento do market. Usa listing_id quando disponivel,
-    senao composite hash (name|side|date|price)."""
+    senao composite hash (name|side|date|price). Aplica html.unescape no
+    nome pra evitar que parsers em versoes diferentes gerem chaves
+    distintas pro mesmo evento (ex.: "&amp;" vs "&")."""
     lid = event.get("listing_id")
     if lid:
         return f"L:{lid}"
+    name = _html.unescape(event.get("name") or "")
     return "|".join([
-        event.get("name") or "",
+        name,
         event.get("side") or "",
         event.get("date_str") or "",
         str(event.get("price") or ""),
