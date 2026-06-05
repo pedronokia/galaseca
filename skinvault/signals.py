@@ -106,6 +106,61 @@ def liquidity_flag(volume: int | None) -> dict:
     }
 
 
+def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> dict:
+    """Calcula variacao percentual em multiplos periodos a partir do price_history SSR.
+
+    price_history: lista de {time: unix_seconds, price_median: float, purchases: int}
+    periods: lista de janelas em horas (ex: [24, 168, 720, 2160, 8760])
+    Retorna dict com {period_label: {change_pct, age_hours, direction, first_price, last_price}}
+
+    Exemplo de retorno:
+    {"24h": {"change_pct": 1.2, "age_hours": 23, "direction": "subiu", ...},
+     "7d":  {"change_pct": -3.5, "age_hours": 160, "direction": "caiu", ...}}
+    """
+    if periods is None:
+        periods = [24, 168, 720, 2160, 8760]  # 24h, 7d, 30d, 90d, 1y
+    if not price_history or len(price_history) < 2:
+        return {}
+
+    now = time.time()
+    sorted_hist = sorted(price_history, key=lambda x: x["time"])
+    last_price = sorted_hist[-1]["price_median"]
+    last_ts = sorted_hist[-1]["time"]
+
+    result: dict = {}
+    labels = {24: "24h", 168: "7d", 720: "30d", 2160: "90d", 8760: "1y"}
+
+    for period_h in periods:
+        cutoff = last_ts - period_h * 3600
+        # Encontra o entry mais proximo do cutoff
+        candidate = None
+        for entry in sorted_hist:
+            if entry["time"] >= cutoff:
+                candidate = entry
+                break
+        if candidate is None:
+            continue
+
+        first_price = candidate["price_median"]
+        if first_price == 0:
+            continue
+
+        age_h = (now - candidate["time"]) / 3600
+        change = ((last_price - first_price) / first_price) * 100
+        direction = "subiu" if change > 0.5 else ("caiu" if change < -0.5 else "estavel")
+        label = labels.get(period_h, f"{period_h}h")
+
+        result[label] = {
+            "change_pct": round(change, 2),
+            "age_hours": round(age_h, 1),
+            "direction": direction,
+            "first_price": first_price,
+            "last_price": last_price,
+        }
+
+    return result
+
+
 def sma(values: list[float], period: int = 7) -> list[float | None]:
     """Simple Moving Average. Retorna lista do mesmo tamanho com None nos primeiros period-1."""
     if len(values) < period:

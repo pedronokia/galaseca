@@ -101,6 +101,37 @@ def test_discontinued_case_partial_match():
     assert r["is_discontinued"] is True
 
 
+def test_multi_trend_returns_empty_for_short_history():
+    assert signals.multi_trend([]) == {}
+    assert signals.multi_trend([{"time": 100, "price_median": 50.0}]) == {}
+
+
+def test_multi_trend_basic():
+    now = time.time()
+    ph = [
+        {"time": now - 200000, "price_median": 100.0},
+        {"time": now - 100000, "price_median": 110.0},
+        {"time": now - 50000, "price_median": 115.0},
+        {"time": now - 1000, "price_median": 120.0},
+    ]
+    result = signals.multi_trend(ph, periods=[24])
+    assert "24h" in result
+    assert result["24h"]["direction"] == "subiu"
+
+
+def test_multi_trend_period_labels():
+    now = time.time()
+    ph = [
+        {"time": now - 700000, "price_median": 100.0},  # ~194h ago (antes de 7d)
+        {"time": now - 500000, "price_median": 105.0},  # ~138h ago (dentro de 7d)
+        {"time": now - 1000, "price_median": 110.0},    # recente
+    ]
+    result = signals.multi_trend(ph, periods=[24, 168])
+    assert "24h" in result
+    assert "7d" in result
+    assert result["7d"]["direction"] == "subiu"
+
+
 def test_sma_basic():
     result = signals.sma([1, 2, 3, 4, 5, 6, 7], period=3)
     assert result[:2] == [None, None]

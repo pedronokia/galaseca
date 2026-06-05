@@ -1617,6 +1617,13 @@ class MarketTab(QWidget):
         self._trend_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
         res.addWidget(self._trend_lbl)
 
+        self._multi_trend_lbl = QLabel("")
+        self._multi_trend_lbl.setStyleSheet(
+            f"color: {_MUTED}; font-size: 10pt;"
+        )
+        self._multi_trend_lbl.hide()
+        res.addWidget(self._multi_trend_lbl)
+
         self._disc_lbl = QLabel("")
         self._disc_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
         res.addWidget(self._disc_lbl)
@@ -1802,6 +1809,19 @@ class MarketTab(QWidget):
         else:
             self._liq_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 11pt;")
             self._liq_lbl.setText("")
+
+        multi = signals.multi_trend(price_history) if price_history else {}
+        if multi:
+            parts = []
+            for lbl in ["24h", "7d", "30d", "90d"]:
+                if lbl in multi:
+                    cp = multi[lbl]["change_pct"]
+                    c = _GREEN if cp > 0.5 else (_RED if cp < -0.5 else _MUTED)
+                    parts.append(f"{lbl}: {cp:+.1f}%")
+            self._multi_trend_lbl.setText("  |  ".join(parts))
+            self._multi_trend_lbl.show()
+        else:
+            self._multi_trend_lbl.hide()
 
         item_cat = _classify_item(name)
         self._status.setText(f"Resultados para: {name}  |  Categoria: {item_cat}")
@@ -2128,6 +2148,7 @@ class ScannerTab(QWidget):
         scolor = self._signal_color(r)
         row_bg = self._row_bg(r)
 
+        trend_text = r.get("trend_display") or r.get("trend", "") or "-"
         items_data = [
             r["name"],
             sinal,
@@ -2136,7 +2157,7 @@ class ScannerTab(QWidget):
             r["verdict"].replace("_", " "),
             r["spread"].replace("_", " ") if r["spread"] else "-",
             r["book"].replace("_", " ") if r["book"] else "-",
-            r["trend"] if r["trend"] else "-",
+            trend_text,
             f"{r['score']}%",
         ]
 
@@ -2265,6 +2286,17 @@ class ScannerTab(QWidget):
         else:
             potencial = "N/D"
 
+        price_history_data = (page_data or {}).get("price_history")
+        multi = signals.multi_trend(price_history_data) if price_history_data else {}
+        trend_display = ""
+        if multi:
+            parts = []
+            for lbl in ["24h", "7d", "30d", "90d"]:
+                if lbl in multi:
+                    cp = multi[lbl]["change_pct"]
+                    parts.append(f"{lbl}: {cp:+.1f}%")
+            trend_display = " | ".join(parts)
+
         category = _classify_item(name)
         row_data = {
             "name": name,
@@ -2275,6 +2307,8 @@ class ScannerTab(QWidget):
             "spread": verdict.get("spread_verdict", ""),
             "book": verdict.get("book_verdict", ""),
             "trend": verdict.get("trend_verdict", ""),
+            "trend_display": trend_display,
+            "multi_trend": multi,
             "score": score,
             "message": verdict.get("message", ""),
             "diff_pct": diff_pct,
