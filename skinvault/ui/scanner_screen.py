@@ -141,12 +141,20 @@ class ScannerScreen(QWidget):
         self._scan_btn = QPushButton("Escanear")
         self._scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scan_btn.setStyleSheet(t.btn_primary(padding="10px 24px"))
+        self._scan_btn.setToolTip(
+            "Escaneia todos os itens da categoria, calcula score 0-100"
+            " e veredito (COMPRA / ATENCAO / EVITAR)."
+        )
         self._scan_btn.clicked.connect(self._on_scan)
         hdr.addWidget(self._scan_btn)
 
         self._rank_btn = QPushButton("Ranking Top 20")
         self._rank_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._rank_btn.setStyleSheet(t.btn_steam(padding="10px 24px"))
+        self._rank_btn.setToolTip(
+            "Escaneia TODAS as categorias e gera ranking dos 20 melhores"
+            " scores. Demora vários minutos pelo rate-limit do Steam."
+        )
         self._rank_btn.clicked.connect(self._on_ranking)
         hdr.addWidget(self._rank_btn)
         root.addLayout(hdr)
@@ -175,6 +183,7 @@ class ScannerScreen(QWidget):
             QAbstractItemView.SelectionBehavior.SelectRows
         )
         self._table.setAlternatingRowColors(True)
+        self._table.setSortingEnabled(True)
         self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
@@ -290,6 +299,8 @@ class ScannerScreen(QWidget):
         self._populate()
 
     def _populate(self) -> None:
+        was_sorting = self._table.isSortingEnabled()
+        self._table.setSortingEnabled(False)
         self._table.setRowCount(0)
         for i, r in enumerate(self._scan_results):
             self._table.insertRow(i)
@@ -321,6 +332,7 @@ class ScannerScreen(QWidget):
             tip = r.get("score_tooltip", "")
             if tip:
                 self._table.item(i, self.COL_SCORE).setToolTip(tip)
+        self._table.setSortingEnabled(was_sorting)
 
         # Stats
         if self._scan_results:

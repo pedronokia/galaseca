@@ -155,6 +155,10 @@ class WatchlistScreen(QWidget):
         self._add_btn = QPushButton("+ Adicionar item")
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.setStyleSheet(t.btn_primary())
+        self._add_btn.setToolTip(
+            "Adiciona um item para monitoramento e dispara alertas quando"
+            " a regra escolhida for satisfeita."
+        )
         self._add_btn.clicked.connect(self._on_add)
         hdr.addWidget(self._add_btn)
         root.addLayout(hdr)
@@ -172,6 +176,7 @@ class WatchlistScreen(QWidget):
             QAbstractItemView.SelectionBehavior.SelectRows
         )
         self._table.setAlternatingRowColors(True)
+        self._table.setSortingEnabled(True)
         self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
@@ -197,6 +202,8 @@ class WatchlistScreen(QWidget):
         self._populate()
 
     def _populate(self) -> None:
+        was_sorting = self._table.isSortingEnabled()
+        self._table.setSortingEnabled(False)
         self._table.setRowCount(0)
         for i, item in enumerate(self._items):
             self._table.insertRow(i)
@@ -240,6 +247,7 @@ class WatchlistScreen(QWidget):
 
             # Acoes (context menu via botoes na ultima coluna ou botoes inline)
             # Usa botoes simples: Editar e Remover
+        self._table.setSortingEnabled(was_sorting)
         self._status.setText(
             f"{len(self._items)} itens • "
             f"{len([x for x in self._items if x.get('triggered')])} alertas ativos"

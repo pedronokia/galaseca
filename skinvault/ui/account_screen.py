@@ -190,7 +190,11 @@ class AccountScreen(QWidget):
 
         # Filtro
         filt = QLineEdit()
-        filt.setPlaceholderText("Filtrar por nome do item…")
+        filt.setPlaceholderText("Filtrar por nome do item...")
+        filt.setToolTip(
+            "Filtra a tabela por nome (case-insensitive). Ctrl+F foca; Esc limpa."
+        )
+        filt.setClearButtonEnabled(True)
         filt.setStyleSheet(t.input_style())
         filt.textChanged.connect(self._apply_filter)
         self._filter_inp = filt
@@ -223,6 +227,7 @@ class AccountScreen(QWidget):
             QAbstractItemView.SelectionBehavior.SelectRows
         )
         self._table.setAlternatingRowColors(True)
+        self._table.setSortingEnabled(True)
         self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
@@ -231,6 +236,16 @@ class AccountScreen(QWidget):
                 hh.setSectionResizeMode(
                     i, QHeaderView.ResizeMode.ResizeToContents)
         root.addWidget(self._table, 1)
+
+        from PyQt6.QtGui import QKeySequence, QShortcut
+        find_sc = QShortcut(QKeySequence("Ctrl+F"), self)
+        find_sc.activated.connect(self._focus_filter)
+        esc_sc = QShortcut(QKeySequence("Esc"), self)
+        esc_sc.activated.connect(self._filter_inp.clear)
+
+    def _focus_filter(self) -> None:
+        self._filter_inp.setFocus()
+        self._filter_inp.selectAll()
 
         # Status
         self._status = QLabel("")
@@ -345,6 +360,8 @@ class AccountScreen(QWidget):
 
     def _populate_table(self, rows: list[dict],
                         positions: list[dict]) -> None:
+        was_sorting = self._table.isSortingEnabled()
+        self._table.setSortingEnabled(False)
         self._table.setRowCount(0)
         for i, r in enumerate(rows):
             self._table.insertRow(i)
@@ -370,6 +387,7 @@ class AccountScreen(QWidget):
                 elif col == self.COL_ORIGIN and origin == "Steam":
                     item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
                 self._table.setItem(i, col, item)
+        self._table.setSortingEnabled(was_sorting)
 
     def _apply_filter(self, text: str) -> None:
         text = (text or "").strip().lower()
