@@ -1803,7 +1803,8 @@ class MarketTab(QWidget):
             self._liq_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 11pt;")
             self._liq_lbl.setText("")
 
-        self._status.setText(f"Resultados para: {name}")
+        item_cat = _classify_item(name)
+        self._status.setText(f"Resultados para: {name}  |  Categoria: {item_cat}")
         self._results.show()
 
 
@@ -1819,23 +1820,117 @@ def _make_tray_icon() -> QIcon:
     return QIcon(pix)
 
 
-_SCAN_DEFAULTS = [
-    "AK-47 | Redline (Field-Tested)",
-    "M4A4 | Howl (Field-Tested)",
-    "AWP | Dragon Lore (Field-Tested)",
-    "Desert Eagle | Blaze (Factory New)",
-    "AK-47 | Fire Serpent (Field-Tested)",
-    "Glock-18 | Fade (Factory New)",
-    "AWP | Asiimov (Field-Tested)",
-    "Butterfly Knife | Fade (Factory New)",
-    "M4A1-S | Knight (Field-Tested)",
-    "USP-S | Kill Confirmed (Field-Tested)",
-    "Souvenir AWP | Dragon Lore (Minimal Wear)",
-    "Karambit | Doppler (Factory New)",
-    "AK-47 | Case Hardened (Field-Tested)",
-    "M4A1-S | Hyper Beast (Field-Tested)",
-    "SSG 08 | Death Strike (Field-Tested)",
-]
+def _classify_item(name: str) -> str:
+    """Classifica item em categoria."""
+    lower = name.lower()
+    knives = [
+        "knife", "bayonet", "karambit", "butterfly", "flip",
+        "gut", "huntsman", "falchion", "shadow daggers", "navaja",
+        "stiletto", "talon", "ursus", "classic", "paracord",
+        "survival", "nomad", "skeleton",
+    ]
+    if any(k in lower for k in knives):
+        return "Facas"
+    if "gloves" in lower or "luva" in lower or "hand wraps" in lower:
+        return "Luvas"
+    if "souvenir" in lower:
+        return "Souvenir"
+    rifles = ["ak-47", "m4a4", "m4a1-s", "awp", "ssg 08", "sg 553", "aug",
+              "famas", "galil ar", "g3sg1", "scar-20"]
+    if any(r in lower for r in rifles):
+        return "Rifles"
+    pistols = ["desert eagle", "deagle", "usp-s", "glock-18", "p2000",
+               "p250", "five-seveN", "tec-9", "cz75", "r8 revolver", "dual berettas"]
+    if any(p in lower for p in pistols):
+        return "Pistolas"
+    smgs = ["mac-10", "mp5", "mp7", "mp9", "p90", "pp-bizon", "ump-45"]
+    if any(s in lower for s in smgs):
+        return "SMGs"
+    shotguns = ["mag-7", "nova", "sawed-off", "xm1014"]
+    if any(s in lower for s in shotguns):
+        return "Shotguns"
+    machineguns = ["m249", "negev"]
+    if any(m in lower for m in machineguns):
+        return "Metralhadoras"
+    if "case" in lower or "capsule" in lower or "sticker" in lower:
+        return "Caixas/Stickers"
+    if "agent" in lower or "patch" in lower:
+        return "Agentes/Patches"
+    return "Outros"
+
+
+_SCAN_BY_CATEGORY: dict[str, list[str]] = {
+    "Rifles": [
+        "AK-47 | Redline (Field-Tested)",
+        "AK-47 | Fire Serpent (Field-Tested)",
+        "AK-47 | Case Hardened (Field-Tested)",
+        "AK-47 | Vulcan (Field-Tested)",
+        "AK-47 | Bloodsport (Field-Tested)",
+        "AK-47 | Neon Rider (Field-Tested)",
+        "M4A4 | Howl (Field-Tested)",
+        "M4A4 | Asiimov (Field-Tested)",
+        "M4A4 | Neo-Noir (Field-Tested)",
+        "M4A1-S | Knight (Field-Tested)",
+        "M4A1-S | Hyper Beast (Field-Tested)",
+        "M4A1-S | Printstream (Field-Tested)",
+        "AWP | Dragon Lore (Field-Tested)",
+        "AWP | Asiimov (Field-Tested)",
+        "AWP | Gungnir (Field-Tested)",
+        "AWP | Medusa (Field-Tested)",
+        "SSG 08 | Death Strike (Field-Tested)",
+        "SG 553 | Integrale (Field-Tested)",
+        "AUG | Akihabara Accept (Field-Tested)",
+    ],
+    "Pistolas": [
+        "Desert Eagle | Blaze (Factory New)",
+        "Desert Eagle | Printstream (Field-Tested)",
+        "Desert Eagle | Kumicho Dragon (Field-Tested)",
+        "USP-S | Kill Confirmed (Field-Tested)",
+        "USP-S | Printstream (Field-Tested)",
+        "USP-S | The Traitor (Field-Tested)",
+        "Glock-18 | Fade (Factory New)",
+        "Glock-18 | Gamma Doppler (Factory New)",
+        "Glock-18 | Water Elemental (Field-Tested)",
+        "Five-SeveN | Case Hardened (Field-Tested)",
+        "P250 | Whiteout (Field-Tested)",
+        "CZ75-Auto | Printstream (Field-Tested)",
+        "R8 Revolver | Fade (Factory New)",
+    ],
+    "Facas": [
+        "Butterfly Knife | Fade (Factory New)",
+        "Butterfly Knife | Doppler (Factory New)",
+        "Butterfly Knife | Autotronic (Factory New)",
+        "Karambit | Doppler (Factory New)",
+        "Karambit | Fade (Factory New)",
+        "Karambit | Tiger Tooth (Factory New)",
+        "M9 Bayonet | Doppler (Factory New)",
+        "M9 Bayonet | Fade (Factory New)",
+        "Bayonet | Doppler (Factory New)",
+        "Flip Knife | Fade (Factory New)",
+        "Flip Knife | Doppler (Factory New)",
+        "Talon Knife | Fade (Factory New)",
+        "Stiletto Knife | Doppler (Factory New)",
+        "Skeleton Knife | Fade (Factory New)",
+    ],
+    "Luvas": [
+        "Sport Gloves | Pandoras Box (Field-Tested)",
+        "Sport Gloves | Emerald Web (Field-Tested)",
+        "Hand Wraps | Cobalt Skulls (Field-Tested)",
+        "Driver Gloves | Lunar Weave (Field-Tested)",
+        "Driver Gloves | Crimson Weave (Field-Tested)",
+        "Moto Gloves | Spearmint (Field-Tested)",
+        "Specialist Gloves | Fade (Factory New)",
+        "Bloodhound Gloves | Snakebite (Field-Tested)",
+    ],
+    "SMGs": [
+        "MAC-10 | Fade (Battle-Scarred)",
+        "MAC-10 | Stalker (Field-Tested)",
+        "MP9 | Rose Iron (Field-Tested)",
+        "MP7 | Whiteout (Field-Tested)",
+        "P90 | Death by Kitty (Field-Tested)",
+        "UMP-45 | Primal Saber (Field-Tested)",
+    ],
+}
 
 
 class ScannerTab(QWidget):
@@ -1870,6 +1965,40 @@ class ScannerTab(QWidget):
         summary.addWidget(self._summary_counts)
         root.addLayout(summary)
 
+        # Category + input area
+        cat_layout = QHBoxLayout()
+        cat_lbl = QLabel("Categoria:")
+        cat_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
+        cat_layout.addWidget(cat_lbl)
+
+        self._cat_combo = QComboBox()
+        self._cat_combo.addItem("Todas")
+        self._cat_combo.addItems(list(_SCAN_BY_CATEGORY.keys()))
+        self._cat_combo.setStyleSheet(
+            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
+            " border-radius: 6px; padding: 6px 10px; font-size: 10pt;"
+            f" color: {_TEXT}; min-width: 140px; }}"
+            "QComboBox::drop-down { border: none; width: 24px; }"
+            "QComboBox QAbstractItemView {"
+            f" background: {_SURFACE}; color: {_TEXT};"
+            " selection-background-color: #2A2A33; }"
+        )
+        self._cat_combo.currentIndexChanged.connect(self._load_defaults)
+        cat_layout.addWidget(self._cat_combo)
+
+        self._load_btn = QPushButton("Carregar")
+        self._load_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._load_btn.setStyleSheet(
+            f"QPushButton {{ background: {_SURFACE}; color: {_TEXT};"
+            " border: 1px solid #2A2A33; border-radius: 6px; padding: 6px 14px;"
+            " font-size: 10pt; }}"
+            "QPushButton:hover { background: #2A2A33; }"
+        )
+        self._load_btn.clicked.connect(self._load_defaults)
+        cat_layout.addWidget(self._load_btn)
+        cat_layout.addStretch()
+        root.addLayout(cat_layout)
+
         # Input area
         input_layout = QHBoxLayout()
         self._items_edit = QTextEdit()
@@ -1882,10 +2011,8 @@ class ScannerTab(QWidget):
             " border-radius: 8px; padding: 8px; font-size: 10pt;"
             f" color: {_TEXT}; }}"
         )
-        self._items_edit.setText("\n".join(_SCAN_DEFAULTS[:8]))
         input_layout.addWidget(self._items_edit, 1)
 
-        btn_layout = QVBoxLayout()
         self._scan_btn = QPushButton("Escanear")
         self._scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scan_btn.setStyleSheet(
@@ -1895,24 +2022,34 @@ class ScannerTab(QWidget):
             "QPushButton:disabled { background: #2A2A33; color: #666; }"
         )
         self._scan_btn.clicked.connect(self._on_scan)
-        btn_layout.addWidget(self._scan_btn)
-
-        self._load_btn = QPushButton("Carregar defaults")
-        self._load_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._load_btn.setStyleSheet(
-            f"QPushButton {{ background: {_SURFACE}; color: {_TEXT};"
-            " border: 1px solid #2A2A33; border-radius: 8px; padding: 8px 16px;"
-            " font-size: 10pt; }}"
-            "QPushButton:hover { background: #2A2A33; }"
-        )
-        self._load_btn.clicked.connect(self._load_defaults)
-        btn_layout.addWidget(self._load_btn)
-        input_layout.addLayout(btn_layout)
+        input_layout.addWidget(self._scan_btn)
         root.addLayout(input_layout)
 
-        self._status = QLabel("Adicione itens e clique em Escanear.")
+        self._status = QLabel("Selecione uma categoria acima e clique em Carregar.")
         self._status.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
         root.addWidget(self._status)
+
+        # Filter bar
+        filter_row = QHBoxLayout()
+        filter_lbl = QLabel("Filtrar:")
+        filter_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 10pt;")
+        filter_row.addWidget(filter_lbl)
+
+        self._filter_combo = QComboBox()
+        self._filter_combo.addItem("Todas")
+        self._filter_combo.setStyleSheet(
+            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
+            " border-radius: 6px; padding: 5px 8px; font-size: 10pt;"
+            f" color: {_TEXT}; min-width: 130px; }}"
+            "QComboBox::drop-down { border: none; width: 22px; }"
+            "QComboBox QAbstractItemView {"
+            f" background: {_SURFACE}; color: {_TEXT};"
+            " selection-background-color: #2A2A33; }"
+        )
+        self._filter_combo.currentIndexChanged.connect(self._apply_filter)
+        filter_row.addWidget(self._filter_combo)
+        filter_row.addStretch()
+        root.addLayout(filter_row)
 
         # Results table
         self._table = QTableWidget()
@@ -1941,7 +2078,14 @@ class ScannerTab(QWidget):
         root.addWidget(self._table, 1)
 
     def _load_defaults(self) -> None:
-        self._items_edit.setText("\n".join(_SCAN_DEFAULTS))
+        cat = self._cat_combo.currentText()
+        if cat == "Todas":
+            items = []
+            for v in _SCAN_BY_CATEGORY.values():
+                items.extend(v)
+        else:
+            items = _SCAN_BY_CATEGORY.get(cat, [])
+        self._items_edit.setText("\n".join(items))
 
     def _signal_label(self, r: dict) -> str:
         score = r["score"]
@@ -1966,6 +2110,55 @@ class ScannerTab(QWidget):
         if score <= 30:
             return QColor(239, 68, 68, 15)
         return QColor(0, 0, 0, 0)
+
+    def _apply_filter(self) -> None:
+        selected = self._filter_combo.currentText()
+        if selected == "Todas":
+            filtered = self._scan_results
+        else:
+            filtered = [r for r in self._scan_results if r.get("category") == selected]
+        self._table.setSortingEnabled(False)
+        self._table.setRowCount(len(filtered))
+        for row, r in enumerate(filtered):
+            self._write_row(row, r)
+        self._table.setSortingEnabled(True)
+
+    def _write_row(self, row: int, r: dict) -> None:
+        sinal = self._signal_label(r)
+        scolor = self._signal_color(r)
+        row_bg = self._row_bg(r)
+
+        items_data = [
+            r["name"],
+            sinal,
+            _brl(r["price"]) if r["price"] else "N/D",
+            r["potencial"],
+            r["verdict"].replace("_", " "),
+            r["spread"].replace("_", " ") if r["spread"] else "-",
+            r["book"].replace("_", " ") if r["book"] else "-",
+            r["trend"] if r["trend"] else "-",
+            f"{r['score']}%",
+        ]
+
+        signal_cols = {0: scolor, 1: scolor, 8: scolor}
+
+        for col, text in enumerate(items_data):
+            item = QTableWidgetItem(text)
+            if col in signal_cols:
+                item.setForeground(signal_cols[col])
+            if col == 1 or col == 8:
+                item.setFont(QFont("", 10, QFont.Weight.Bold))
+            if col == 5 and r.get("spread"):
+                item.setForeground(
+                    QColor(_GREEN if r["spread"] == "tight" else _RED)
+                )
+            elif col == 6 and r.get("book"):
+                item.setForeground(
+                    QColor(_GREEN if r["book"] == "buyer_dominant" else _RED)
+                )
+            if row_bg.alpha() > 0:
+                item.setBackground(row_bg)
+            self._table.setItem(row, col, item)
 
     def _on_scan(self) -> None:
         items = [
@@ -2072,6 +2265,7 @@ class ScannerTab(QWidget):
         else:
             potencial = "N/D"
 
+        category = _classify_item(name)
         row_data = {
             "name": name,
             "price": lowest,
@@ -2084,57 +2278,18 @@ class ScannerTab(QWidget):
             "score": score,
             "message": verdict.get("message", ""),
             "diff_pct": diff_pct,
+            "category": category,
         }
         self._scan_results.append(row_data)
         self._scan_results.sort(key=lambda r: -r["score"])
 
-        # Refresh table
-        self._table.setSortingEnabled(False)
-        self._table.setRowCount(len(self._scan_results))
-        for row, r in enumerate(self._scan_results):
-            sinal = self._signal_label(r)
-            scolor = self._signal_color(r)
-            row_bg = self._row_bg(r)
+        # Add category to filter if new
+        cats = [self._filter_combo.itemText(i) for i in range(self._filter_combo.count())]
+        if category not in cats:
+            self._filter_combo.addItem(category)
 
-            items_data = [
-                r["name"],
-                sinal,
-                _brl(r["price"]) if r["price"] else "N/D",
-                r["potencial"],
-                r["verdict"].replace("_", " "),
-                r["spread"].replace("_", " ") if r["spread"] else "-",
-                r["book"].replace("_", " ") if r["book"] else "-",
-                r["trend"] if r["trend"] else "-",
-                f"{r['score']}%",
-            ]
-
-            signal_colors = {
-                0: scolor,
-                1: scolor,
-                8: scolor,
-            }
-
-            for col, text in enumerate(items_data):
-                item = QTableWidgetItem(text)
-                if col in signal_colors:
-                    item.setForeground(signal_colors[col])
-                if col == 1:
-                    item.setFont(QFont("", 10, QFont.Weight.Bold))
-                if col == 8:
-                    item.setFont(QFont("", 10, QFont.Weight.Bold))
-                if col == 5 and r.get("spread"):
-                    item.setForeground(
-                        QColor(_GREEN if r["spread"] == "tight" else _RED)
-                    )
-                elif col == 6 and r.get("book"):
-                    item.setForeground(
-                        QColor(_GREEN if r["book"] == "buyer_dominant" else _RED)
-                    )
-                if row_bg.alpha() > 0:
-                    item.setBackground(row_bg)
-                self._table.setItem(row, col, item)
-
-        self._table.setSortingEnabled(True)
+        # Refresh table (respecting filter)
+        self._apply_filter()
         self._status.setText(
             f"Escaneando... {len(self._scan_results)}/{len(self._scan_items)} itens"
         )
