@@ -11,6 +11,7 @@ from typing import Callable
 from PyQt6.QtCore import QObject, pyqtSignal
 
 from skinvault import portfolio as portfolio_mod
+from skinvault import prices as prices_mod
 from skinvault.prices import PriceCache
 
 
@@ -29,7 +30,8 @@ class PriceWorker(QObject):
             try:
                 positions = portfolio_mod.load_portfolio()
                 result = portfolio_mod.evaluate_portfolio(
-                    positions, self._cache.cached_price
+                    positions,
+                    lambda n: prices_mod.cached_price(n, self._cache),
                 )
                 self.eval_done.emit({
                     "positions": positions,
@@ -61,7 +63,7 @@ class SinglePriceWorker(QObject):
     def start(self, name: str) -> None:
         def worker() -> None:
             try:
-                price = self._cache.cached_price(name)
+                price = prices_mod.cached_price(name, self._cache)
                 self.done.emit(name, price)
             except Exception:
                 self.done.emit(name, None)
