@@ -1593,6 +1593,19 @@ class MarketTab(QWidget):
         self._volume_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
         res.addWidget(self._volume_lbl)
 
+        self._supply_lbl = QLabel("")
+        self._supply_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
+        res.addWidget(self._supply_lbl)
+
+        self._ratio_lbl = QLabel("")
+        self._ratio_lbl.setStyleSheet(f"color: {_TEXT}; font-size: 11pt;")
+        res.addWidget(self._ratio_lbl)
+
+        self._anomaly_lbl = QLabel("")
+        self._anomaly_lbl.setStyleSheet(f"color: #FACC15; font-size: 11pt;")
+        self._anomaly_lbl.hide()
+        res.addWidget(self._anomaly_lbl)
+
         self._verdict_lbl = QLabel("")
         self._verdict_lbl.setStyleSheet(
             f"color: {_TEXT}; font-size: 12pt; font-weight: 600;"
@@ -1717,6 +1730,34 @@ class MarketTab(QWidget):
         self._volume_lbl.setText(
             f"Volume (24h):    {volume if volume else 'N/D'}"
         )
+        csell = (order_book or {}).get("sell_count")
+        if csell is not None:
+            self._supply_lbl.setText(f"Oferta (vendas): {csell}")
+        else:
+            self._supply_lbl.setText("")
+
+        if volume and isinstance(volume, (int, float)) and csell is not None:
+            sd = signals.supply_demand_ratio(int(volume), csell)
+            self._ratio_lbl.setText(f"Demanda/Oferta:  {sd['label']}")
+        else:
+            self._ratio_lbl.setText("")
+
+        vh = signals.load_item_volume(name) if name else []
+        sh = signals.load_item_supply(name) if name else []
+        anom_parts = []
+        if vh:
+            anom = signals.volume_anomaly(vh)
+            if anom.get("is_anomaly"):
+                anom_parts.append(f"Volume {anom['direction']} {anom['ratio']:.1f}x (media {anom['avg']})")
+        if sh:
+            anom_s = signals.volume_anomaly(sh, factor=2.0)
+            if anom_s.get("is_anomaly"):
+                anom_parts.append(f"Oferta {anom_s['direction']} {anom_s['ratio']:.1f}x (media {anom_s['avg']})")
+        if anom_parts:
+            self._anomaly_lbl.setText(" | ".join(anom_parts))
+            self._anomaly_lbl.show()
+        else:
+            self._anomaly_lbl.hide()
 
         vcolors = {
             "below_median": _GREEN,
@@ -1764,6 +1805,11 @@ class MarketTab(QWidget):
 
         if lowest:
             signals.record_item_price(name, lowest)
+        if volume and isinstance(volume, (int, float)):
+            signals.record_item_volume(name, int(volume))
+        csell = (order_book or {}).get("sell_count")
+        if csell is not None:
+            signals.record_item_supply(name, csell)
         h = signals.load_item_history(name)
         t = signals.trend(h)
         if t:
@@ -2073,11 +2119,14 @@ class ScannerTab(QWidget):
 
         # Results table
         self._table = QTableWidget()
-        self._table.setColumnCount(9)
+        self._table.setColumnCount(11)
         self._table.setHorizontalHeaderLabels(
             ["Item", "Sinal", "Preco", "Preco Justo", "Veredito",
-             "Spread", "Book", "Tendencia", "Score"]
+             "Spread", "Book", "Tendencia", "Mercado", "S/D", "Score"]
         )
+        self._table.setColumnWidth(8, 90)
+        self._table.setColumnWidth(9, 60)
+        self._table.setColumnWidth(10, 60)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setAlternatingRowColors(True)
         self._table.setSortingEnabled(True)
@@ -2124,6 +2173,8 @@ class ScannerTab(QWidget):
         return QColor(_RED)
 
     def _row_bg(self, r: dict) -> QColor:
+        if r.get("anomalia_flag"):
+            return QColor(250, 204, 21, 25)
         score = r["score"]
         if score >= 70:
             return QColor(34, 197, 94, 20)
@@ -2149,6 +2200,11 @@ class ScannerTab(QWidget):
         row_bg = self._row_bg(r)
 
         trend_text = r.get("trend_display") or r.get("trend", "") or "-"
+        mercado = (
+            f"{r['volume']}/{r['sell_count']}"
+            if r.get("volume") and r.get("sell_count") is not None
+            else "-"
+        )
         items_data = [
             r["name"],
             sinal,
@@ -2158,16 +2214,18 @@ class ScannerTab(QWidget):
             r["spread"].replace("_", " ") if r["spread"] else "-",
             r["book"].replace("_", " ") if r["book"] else "-",
             trend_text,
+            mercado,
+            r.get("sd_label", "-"),
             f"{r['score']}%",
         ]
 
-        signal_cols = {0: scolor, 1: scolor, 8: scolor}
+        signal_cols = {0: scolor, 1: scolor, 10: scolor}
 
         for col, text in enumerate(items_data):
             item = QTableWidgetItem(text)
             if col in signal_cols:
                 item.setForeground(signal_cols[col])
-            if col == 1 or col == 8:
+            if col == 1 or col == 10:
                 item.setFont(QFont("", 10, QFont.Weight.Bold))
             if col == 5 and r.get("spread"):
                 item.setForeground(
@@ -2230,15 +2288,18 @@ class ScannerTab(QWidget):
             buys = sum(1 for r in self._scan_results if r["score"] >= 70)
             warns = sum(1 for r in self._scan_results if 45 <= r["score"] < 70)
             avoids = sum(1 for r in self._scan_results if r["score"] < 45)
+            anoms = sum(1 for r in self._scan_results if r.get("anomalia_flag"))
             best = self._scan_results[0]
 
+            anom_suffix = f"  |  ANOMALIA: {anoms}" if anoms else ""
             self._summary_counts.setText(
-                f"COMPRA: {buys}  |  ATENCAO: {warns}  |  EVITAR: {avoids}"
+                f"COMPRA: {buys}  |  ATENCAO: {warns}  |  EVITAR: {avoids}{anom_suffix}"
             )
 
             sinal = self._signal_label(best)
             cor = self._signal_color(best).name()
             spread_txt = f" | Spread {best['spread'].replace('_', ' ')}" if best.get("spread") else ""
+            sd_txt = f" | S/D {best['sd_label']}" if best.get("sd_label") and best["sd_label"] != "N/D" else ""
             self._top_pick.setStyleSheet(
                 f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
                 f" font-size: 11pt; border-left: 4px solid {cor};"
@@ -2248,7 +2309,7 @@ class ScannerTab(QWidget):
                 f"Preco: {_brl(best['price'])}  |  "
                 f"Score: {best['score']}%  |  "
                 f"Sinal: {sinal}"
-                f"{spread_txt}"
+                f"{spread_txt}{sd_txt}"
             )
             self._status.setText(
                 f"Scan concluido. {len(self._scan_results)} itens analisados. "
@@ -2276,7 +2337,14 @@ class ScannerTab(QWidget):
             sell_count=(order_book or {}).get("sell_count"),
             price_history=(page_data or {}).get("price_history"),
         )
-        score = signals.scan_score(verdict)
+
+        if lowest:
+            signals.record_item_price(name, lowest)
+        if volume and isinstance(volume, (int, float)):
+            signals.record_item_volume(name, int(volume))
+        csell = (order_book or {}).get("sell_count")
+        if csell is not None:
+            signals.record_item_supply(name, csell)
 
         diff_pct = verdict.get("diff_pct")
         if lowest and median:
@@ -2297,6 +2365,24 @@ class ScannerTab(QWidget):
                     parts.append(f"{lbl}: {cp:+.1f}%")
             trend_display = " | ".join(parts)
 
+        score = signals.scan_score(verdict,
+                                   volume=volume if isinstance(volume, (int, float)) else None,
+                                   supply=csell,
+                                   multi_trend=multi,
+                                   price_history=price_history_data)
+
+        vol_val = volume if isinstance(volume, (int, float)) else None
+        sd_info = signals.supply_demand_ratio(vol_val, csell)
+        vh = signals.load_item_volume(name)
+        anom_v = signals.volume_anomaly(vh) if vh else {}
+        sh = signals.load_item_supply(name)
+        anom_s = signals.volume_anomaly(sh, factor=2.0) if sh else {}
+        anom_parts = []
+        if anom_v.get("is_anomaly"):
+            anom_parts.append(f"VOL {anom_v['ratio']:.1f}x")
+        if anom_s.get("is_anomaly"):
+            anom_parts.append(f"OFE {anom_s['ratio']:.1f}x")
+
         category = _classify_item(name)
         row_data = {
             "name": name,
@@ -2309,6 +2395,11 @@ class ScannerTab(QWidget):
             "trend": verdict.get("trend_verdict", ""),
             "trend_display": trend_display,
             "multi_trend": multi,
+            "volume": vol_val,
+            "sell_count": csell,
+            "sd_label": sd_info["label"],
+            "anomalia": " | ".join(anom_parts) if anom_parts else "",
+            "anomalia_flag": bool(anom_parts),
             "score": score,
             "message": verdict.get("message", ""),
             "diff_pct": diff_pct,

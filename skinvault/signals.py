@@ -12,6 +12,8 @@ from pathlib import Path
 from skinvault._paths import DATA_DIR
 
 _DEFAULT_PATH = DATA_DIR / "item_history.json"
+_VOLUME_PATH = DATA_DIR / "volume_history.json"
+_SUPPLY_PATH = DATA_DIR / "supply_history.json"
 
 # Casos/containers notoriamente descontinuados (fonte: csgobackpack, community).
 # NUNCA afirme "vai valorizar" por estar aqui.
@@ -58,6 +60,88 @@ def load_item_history(name: str,
     except Exception:
         data = {}
     return data.get(name, [])
+
+
+def _record_metric(name: str, value: float, path: Path) -> None:
+    """Registra um snapshot de metrica (volume/supply). Cap em 100 entradas."""
+    try:
+        data = json.loads(path.read_text("utf-8")) if path.exists() else {}
+    except Exception:
+        data = {}
+    entry = data.setdefault(name, [])
+    entry.append({"ts": time.time(), "value": value})
+    if len(entry) > 200:
+        entry[:] = entry[-200:]
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(data), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _load_metric_history(name: str, path: Path) -> list[dict]:
+    """Retorna a serie [{ts, value}] de uma metrica."""
+    try:
+        data = json.loads(path.read_text("utf-8")) if path.exists() else {}
+    except Exception:
+        data = {}
+    return data.get(name, [])
+
+
+def record_item_volume(name: str, volume: int) -> None:
+    """Registra snapshot do volume 24h do item."""
+    _record_metric(name, float(volume), _VOLUME_PATH)
+
+
+def load_item_volume(name: str) -> list[dict]:
+    """Retorna historico de volume [{ts, value}]."""
+    return _load_metric_history(name, _VOLUME_PATH)
+
+
+def record_item_supply(name: str, supply: int) -> None:
+    """Registra snapshot da oferta (cSellOrders) do item."""
+    _record_metric(name, float(supply), _SUPPLY_PATH)
+
+
+def load_item_supply(name: str) -> list[dict]:
+    """Retorna historico de oferta [{ts, value}]."""
+    return _load_metric_history(name, _SUPPLY_PATH)
+
+
+def supply_demand_ratio(volume: int | None, supply: int | None) -> dict:
+    """Razao oferta/demanda. Quanto maior, mais demanda por anuncio."""
+    if volume is None or supply is None or supply == 0:
+        return {"ratio": 0, "label": "N/D"}
+    ratio = volume / supply
+    label = f"{ratio:.2f}" if ratio < 10 else f"{ratio:.1f}"
+    return {"ratio": round(ratio, 4), "label": label}
+
+
+def volume_anomaly(history: list[dict], factor: float = 2.0) -> dict:
+    """Detecta se o ultimo volume esta anormal vs a media movel.
+
+    Retorna {is_anomaly, ratio, current, avg, direction, label}.
+    """
+    if len(history) < 4:
+        return {"is_anomaly": False, "ratio": 1.0}
+    values = [e["value"] for e in history]
+    current = values[-1]
+    if len(values) < 3:
+        return {"is_anomaly": False, "ratio": 1.0}
+    avg = sum(values[:-1]) / (len(values) - 1)
+    if avg == 0:
+        return {"is_anomaly": False, "ratio": 1.0}
+    ratio = current / avg
+    is_anom = ratio >= factor or ratio <= (1 / factor)
+    direction = "acima" if ratio >= factor else ("abaixo" if ratio <= (1 / factor) else "normal")
+    return {
+        "is_anomaly": is_anom,
+        "ratio": round(ratio, 2),
+        "current": int(current),
+        "avg": round(avg, 1),
+        "direction": direction,
+        "label": f"Volume {direction} da media: {ratio:.1f}x" if is_anom else "",
+    }
 
 
 def trend(history: list[dict]) -> dict | None:
@@ -215,17 +299,20 @@ def find_support_resistance(
     }
 
 
-def scan_score(verdict: dict) -> int:
+def scan_score(verdict: dict, volume: int | None = None,
+               supply: int | None = None,
+               multi_trend: dict | None = None,
+               price_history: list[dict] | None = None) -> int:
     """Score de 0-100 para classificacao de oportunidade.
     Quanto maior, melhor oportunidade de compra.
-    Pondera: diferenca da mediana, spread, book ratio, tendencia.
+    Pondera: diferenca da mediana, spread, book ratio, tendencia,
+    oferta/demanda, momentum, concordancia multi-periodo.
     """
     score = 50  # neutro
 
     # Diferenca da mediana (peso maior quando abaixo)
     diff = verdict.get("diff_pct") or 0
     if diff < 0:
-        # Quanto mais abaixo, melhor (capped em -30% -> +35)
         bonus = min(abs(diff) * 1.2, 35)
         score += bonus
     elif diff > 0:
@@ -234,7 +321,7 @@ def scan_score(verdict: dict) -> int:
 
     v = verdict.get("verdict", "")
     if v == "below_median":
-        score += 5  # bonus extra
+        score += 5
     elif v == "overpriced":
         score -= 5
 
@@ -255,6 +342,43 @@ def scan_score(verdict: dict) -> int:
         score += 15
     elif tv == "falling":
         score -= 10
+
+    # Oferta / Demanda (supply/demand ratio)
+    if volume is not None and supply is not None and supply > 0:
+        sd = volume / supply
+        if sd >= 5:
+            score += 15
+        elif sd >= 3:
+            score += 10
+        elif sd < 0.5:
+            score -= 10
+
+    # Momentum: preco atual vs SMA curta
+    if price_history and len(price_history) >= 10:
+        prices_m = [e["price_median"] for e in price_history[-15:]]
+        sma10 = sum(prices_m) / len(prices_m)
+        last_p = prices_m[-1]
+        if last_p > sma10 * 1.02:
+            score += 5
+        elif last_p < sma10 * 0.98:
+            score -= 5
+
+    # Concordancia multi-periodo: se 24h, 7d, 30d, 90d concordam
+    if multi_trend and len(multi_trend) >= 3:
+        dirs = []
+        for lbl in ("24h", "7d", "30d", "90d"):
+            if lbl in multi_trend:
+                cp = multi_trend[lbl]["change_pct"]
+                dirs.append(cp > 0)
+        if len(dirs) >= 3:
+            if all(dirs):
+                score += 10  # todos subindo = confianca
+            elif not any(dirs):
+                score -= 10  # todos caindo = cautela
+
+    # Bonus de volume: liquidez extra para items com muito volume
+    if volume is not None and volume > 2000:
+        score += 5
 
     return max(0, min(100, score))
 

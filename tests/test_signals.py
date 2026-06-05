@@ -101,6 +101,56 @@ def test_discontinued_case_partial_match():
     assert r["is_discontinued"] is True
 
 
+def test_record_and_load_volume(tmp_path, monkeypatch):
+    p = tmp_path / "vol_history.json"
+    monkeypatch.setattr(signals, "_VOLUME_PATH", p)
+    signals.record_item_volume("AK-47 | Redline", 500)
+    signals.record_item_volume("AK-47 | Redline", 600)
+    h = signals.load_item_volume("AK-47 | Redline")
+    assert len(h) == 2
+    assert h[0]["value"] == 500.0
+    assert h[1]["value"] == 600.0
+
+
+def test_record_and_load_supply(tmp_path, monkeypatch):
+    p = tmp_path / "sup_history.json"
+    monkeypatch.setattr(signals, "_SUPPLY_PATH", p)
+    signals.record_item_supply("AK-47 | Redline", 100)
+    signals.record_item_supply("AK-47 | Redline", 90)
+    h = signals.load_item_supply("AK-47 | Redline")
+    assert len(h) == 2
+    assert h[0]["value"] == 100
+
+
+def test_supply_demand_ratio():
+    r = signals.supply_demand_ratio(200, 100)
+    assert r["ratio"] == 2.0
+    assert "2.0" in r["label"]
+
+
+def test_supply_demand_none():
+    assert signals.supply_demand_ratio(None, 100)["ratio"] == 0
+    assert signals.supply_demand_ratio(100, 0)["ratio"] == 0
+
+
+def test_volume_anomaly_high():
+    h = [{"value": 100}] * 5 + [{"value": 400}]
+    a = signals.volume_anomaly(h, factor=2.0)
+    assert a["is_anomaly"] is True
+    assert "acima" in a["label"]
+
+
+def test_volume_anomaly_normal():
+    h = [{"value": 100}] * 5 + [{"value": 110}]
+    a = signals.volume_anomaly(h, factor=2.0)
+    assert a["is_anomaly"] is False
+
+
+def test_volume_anomaly_short():
+    assert signals.volume_anomaly([])["is_anomaly"] is False
+    assert signals.volume_anomaly([{"value": 100}])["is_anomaly"] is False
+
+
 def test_multi_trend_returns_empty_for_short_history():
     assert signals.multi_trend([]) == {}
     assert signals.multi_trend([{"time": 100, "price_median": 50.0}]) == {}
@@ -178,3 +228,70 @@ def test_scan_score_overpriced():
 def test_scan_score_neutral():
     v = {"verdict": "fair", "diff_pct": 0}
     assert signals.scan_score(v) == 50
+
+
+def test_scan_score_high_demand():
+    """Alta demanda (>5x) soma 15 pontos."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v, volume=500, supply=50) == 65
+
+
+def test_scan_score_good_demand():
+    """Demanda moderada (>3x) soma 10 pontos."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v, volume=300, supply=80) == 60
+
+
+def test_scan_score_low_demand():
+    """Baixa demanda (<0.5x) penaliza 10 pontos."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v, volume=10, supply=50) == 40
+
+
+def test_scan_score_skip_supply_none():
+    """Sem dados de oferta, mantem score base."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v, volume=500, supply=None) == 50
+    assert signals.scan_score(v, volume=None, supply=50) == 50
+
+
+def test_scan_score_momentum_positive():
+    """Preco acima da SMA curta soma 5."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    ph = [{"price_median": 100.0}] * 14 + [{"price_median": 110.0}]
+    assert signals.scan_score(v, price_history=ph) == 55
+
+
+def test_scan_score_momentum_negative():
+    """Preco abaixo da SMA curta penaliza 5."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    ph = [{"price_median": 100.0}] * 14 + [{"price_median": 90.0}]
+    assert signals.scan_score(v, price_history=ph) == 45
+
+
+def test_scan_score_momentum_insuficiente():
+    """Historico curto ignora momentum."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v, price_history=[{"price_median": 100}]) == 50
+
+
+def test_scan_score_multi_trend_all_rising():
+    """Todos os periodos subindo somam 10."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    mt = {"24h": {"change_pct": 2.0}, "7d": {"change_pct": 5.0},
+          "30d": {"change_pct": 8.0}}
+    assert signals.scan_score(v, multi_trend=mt) == 60
+
+
+def test_scan_score_multi_trend_all_falling():
+    """Todos os periodos caindo penalizam 10."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    mt = {"24h": {"change_pct": -2.0}, "7d": {"change_pct": -5.0},
+          "30d": {"change_pct": -8.0}}
+    assert signals.scan_score(v, multi_trend=mt) == 40
+
+
+def test_scan_score_volume_liquidity_bonus():
+    """Volume > 2000 soma 5."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    assert signals.scan_score(v, volume=3000) == 55
