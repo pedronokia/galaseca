@@ -15,10 +15,14 @@ _DATA_FILES = [
     "portfolio.json",
     "history.json",
     "item_history.json",
+    "volume_history.json",
+    "supply_history.json",
     "watchlist.json",
     "trades.json",
     "steamids.json",
     "settings.json",
+    "alerts_log.json",
+    "rankings.json",
 ]
 
 
