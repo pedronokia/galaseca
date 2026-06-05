@@ -146,9 +146,9 @@ class SimulateTradeDialog(QDialog):
         )
 
 
-# ── Side panel com filtros ────────────────────────────────────
-class _FilterPanel(QWidget):
-    """Painel lateral com chips de filtro (periodo + tipo)."""
+# ── Barra horizontal com filtros ──────────────────────────────
+class _FilterBar(QWidget):
+    """Barra horizontal compacta com chips de filtro (periodo + tipo)."""
 
     filters_changed = pyqtSignal()
 
@@ -158,58 +158,48 @@ class _FilterPanel(QWidget):
         self._tipo: str = "all"
         self._periodo_btns: dict[str, QPushButton] = {}
         self._tipo_btns: dict[str, QPushButton] = {}
-        self.setFixedWidth(190)
-        self.setStyleSheet(f"background: {t.BG_ELEVATED};"
-                           f" border: 1px solid {t.BORDER}; border-radius: 10px;")
         self._build()
 
     def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(14, 14, 14, 14)
-        root.setSpacing(14)
-
-        header = QLabel("Filtros")
-        header.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        root.addWidget(header)
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(10)
 
         # Periodo
-        period_label = QLabel("Periodo")
-        period_label.setStyleSheet(
+        p_label = QLabel("Periodo:")
+        p_label.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED}; font-weight: 600;"
             f" font-family: {t.FONT_FAMILY};"
         )
-        root.addWidget(period_label)
-
-        period_grid = QVBoxLayout()
-        period_grid.setSpacing(4)
-        for key, label in [("7d", "7 dias"), ("30d", "30 dias"),
-                           ("90d", "90 dias"), ("all", "Todas")]:
+        root.addWidget(p_label)
+        for key, label in [("7d", "7d"), ("30d", "30d"),
+                           ("90d", "90d"), ("all", "Tudo")]:
             btn = QPushButton(label)
             btn.setCheckable(True)
             btn.setAutoExclusive(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(self._chip_style())
-            btn.setMinimumHeight(30)
             btn.clicked.connect(lambda _, k=key: self._set_periodo(k))
             self._periodo_btns[key] = btn
-            period_grid.addWidget(btn)
+            root.addWidget(btn)
             if key == "all":
                 btn.setChecked(True)
-        root.addLayout(period_grid)
+
+        # Divisor
+        sep = QLabel("|")
+        sep.setStyleSheet(
+            f"color: {t.BORDER}; font-size: {t.FS_BODY};"
+            f" padding: 0 6px;"
+        )
+        root.addWidget(sep)
 
         # Tipo
-        tipo_label = QLabel("Tipo")
-        tipo_label.setStyleSheet(
+        t_label = QLabel("Tipo:")
+        t_label.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED}; font-weight: 600;"
             f" font-family: {t.FONT_FAMILY};"
         )
-        root.addWidget(tipo_label)
-
-        tipo_grid = QVBoxLayout()
-        tipo_grid.setSpacing(4)
+        root.addWidget(t_label)
         for key, label in [("all", "Todos"), ("buy", "Compra"),
                            ("sell", "Venda")]:
             btn = QPushButton(label)
@@ -217,34 +207,32 @@ class _FilterPanel(QWidget):
             btn.setAutoExclusive(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(self._chip_style())
-            btn.setMinimumHeight(30)
             btn.clicked.connect(lambda _, k=key: self._set_tipo(k))
             self._tipo_btns[key] = btn
-            tipo_grid.addWidget(btn)
+            root.addWidget(btn)
             if key == "all":
                 btn.setChecked(True)
-        root.addLayout(tipo_grid)
 
-        clear_btn = QPushButton("Limpar filtros")
+        root.addStretch(1)
+
+        clear_btn = QPushButton("Limpar")
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_btn.setStyleSheet(
-            f"QPushButton {{ color: {t.DANGER}; background: transparent;"
-            f" border: 1px solid {t.DANGER}; border-radius: 6px;"
-            f" padding: 6px 12px; font-size: {t.FS_MUTED}; font-weight: 500;"
+            f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
+            f" border: 1px solid {t.BORDER}; border-radius: 6px;"
+            f" padding: 4px 12px; font-size: {t.FS_MUTED}; font-weight: 500;"
             f" font-family: {t.FONT_FAMILY}; }}"
-            f"QPushButton:hover {{ background: {t.DANGER_DIM}; }}"
+            f"QPushButton:hover {{ color: {t.TEXT}; border-color: {t.TEXT_MUTED}; }}"
         )
         clear_btn.clicked.connect(self._clear)
         root.addWidget(clear_btn)
-
-        root.addStretch(1)
 
     def _chip_style(self) -> str:
         return (
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: {t.SURFACE};"
             f" border: 1px solid {t.BORDER}; border-radius: 6px;"
-            f" padding: 6px 12px; font-size: {t.FS_MUTED}; font-weight: 500;"
-            f" font-family: {t.FONT_FAMILY}; text-align: left; }}"
+            f" padding: 4px 12px; font-size: {t.FS_MUTED}; font-weight: 500;"
+            f" font-family: {t.FONT_FAMILY}; }}"
             f"QPushButton:hover {{ color: {t.TEXT}; }}"
             f"QPushButton:checked {{ color: {t.ACCENT};"
             f" border: 1px solid {t.ACCENT}; background: {t.ACCENT_DIM}; }}"
@@ -332,16 +320,10 @@ class HistoryScreen(QWidget):
 
         root.addLayout(top)
 
-        # Body: side panel + table
-        body = QHBoxLayout()
-        body.setSpacing(14)
-
-        self._filter_panel = _FilterPanel(self)
+        # Barra horizontal de filtros (acima da tabela)
+        self._filter_panel = _FilterBar(self)
         self._filter_panel.filters_changed.connect(self.refresh)
-        body.addWidget(self._filter_panel)
-
-        right = QVBoxLayout()
-        right.setSpacing(8)
+        root.addWidget(self._filter_panel)
 
         self._table = QTableWidget(0, 0)
         self._table.verticalHeader().setVisible(False)
@@ -353,17 +335,14 @@ class HistoryScreen(QWidget):
         )
         self._table.setAlternatingRowColors(True)
         self._table.setStyleSheet(t.table_style())
-        right.addWidget(self._table, 1)
+        root.addWidget(self._table, 1)
 
         self._status = QLabel("")
         self._status.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
-        right.addWidget(self._status)
-
-        body.addLayout(right, 1)
-        root.addLayout(body, 1)
+        root.addWidget(self._status)
 
     def _open_simulator(self) -> None:
         SimulateTradeDialog(self).exec()
