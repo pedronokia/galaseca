@@ -191,13 +191,23 @@ def _install_webengine(parent: QWidget | None = None) -> bool:
                 "    pip install PyQt6-WebEngine",
             )
             return False
-        QMessageBox.information(
-            parent, "Instalado com sucesso",
-            "PyQt6-WebEngine instalado. Tente conectar novamente.",
-        )
+        # Tenta importar no processo atual
         global _WEBENGINE_OK
-        _WEBENGINE_OK = None  # limpa cache para re-avaliar
-        return _check_webengine()
+        _WEBENGINE_OK = None
+        if _check_webengine():
+            QMessageBox.information(
+                parent, "Instalado com sucesso",
+                "PyQt6-WebEngine instalado. Clique em Conectar novamente.",
+            )
+            return True
+        # Instalou mas o import falhou — precisa reiniciar
+        QMessageBox.warning(
+            parent, "Reinicio necessario",
+            "PyQt6-WebEngine foi instalado, mas o Python precisa reiniciar\n"
+            "para reconhecer a nova biblioteca.\n\n"
+            "Feche e abra o SkinVault novamente.",
+        )
+        return False
     except subprocess.TimeoutExpired:
         install_dlg.close()
         QMessageBox.warning(
@@ -229,6 +239,15 @@ def build_steam_login_dialog(
 
     # Tenta instalar automaticamente
     if _install_webengine(parent):
-        return SteamLoginDialog(parent)
+        try:
+            return SteamLoginDialog(parent)
+        except ImportError:
+            QMessageBox.warning(
+                parent, "Reinicio necessario",
+                "PyQt6-WebEngine foi instalado, mas o Python precisa reiniciar\n"
+                "para reconhecer a nova biblioteca.\n\n"
+                "Feche e abra o SkinVault novamente.",
+            )
+            return None
 
     return None
