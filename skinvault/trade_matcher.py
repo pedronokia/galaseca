@@ -84,16 +84,18 @@ class ClosedTrade:
     pnl_pct: float
 
 
-def match_events(events: list[dict],
-                 now: float | None = None) -> list[ClosedTrade]:
-    """Casa BUY com SELL FIFO por nome. Cada par usa 1 unidade.
+@dataclass
+class OpenBuy:
+    """Compra registrada no Steam Market que ainda nao foi pareada
+    com uma venda subsequente."""
+    name: str
+    buy_date: str
+    buy_price: float
+    buy_ts: float
 
-    Regras:
-      - eventos sem nome, sem preco ou com side != buy/sell sao ignorados;
-      - sells que ocorrem ANTES do buy correspondente (ts conhecidos) sao
-        puladas (pareamento nao faz sentido);
-      - buys ou sells sem contraparte ficam pendentes (nao geram trade).
-    """
+
+def _group_by_name(events: list[dict],
+                   now: float | None = None) -> dict[str, dict[str, list]]:
     by_name: dict[str, dict[str, list]] = {}
     for ev in events:
         name = ev.get("name")
@@ -108,8 +110,15 @@ def match_events(events: list[dict],
             "ts": ts,
             "date_str": ev.get("date_str", ""),
         })
+    return by_name
 
+
+def _pair_and_split(events: list[dict], now: float | None = None,
+                    ) -> tuple[list[ClosedTrade], list[OpenBuy]]:
+    """Roda o pareamento FIFO e devolve trades fechados + buys abertos."""
+    by_name = _group_by_name(events, now=now)
     closed: list[ClosedTrade] = []
+    opens: list[OpenBuy] = []
     for name, sides in by_name.items():
         buys = sorted(sides["buy"], key=lambda e: e["ts"])
         sells = sorted(sides["sell"], key=lambda e: e["ts"])
@@ -117,7 +126,6 @@ def match_events(events: list[dict],
         while bi < len(buys) and si < len(sells):
             b, s = buys[bi], sells[si]
             if b["ts"] and s["ts"] and s["ts"] < b["ts"]:
-                # Sell mais antigo que qualquer buy: descarta esse sell
                 si += 1
                 continue
             d = portfolio.position_pnl(b["price"], s["price"], 1)
@@ -133,14 +141,48 @@ def match_events(events: list[dict],
             ))
             bi += 1
             si += 1
+        for b in buys[bi:]:
+            opens.append(OpenBuy(
+                name=name,
+                buy_date=b["date_str"],
+                buy_price=b["price"],
+                buy_ts=b["ts"],
+            ))
+    return closed, opens
 
+
+def match_events(events: list[dict],
+                 now: float | None = None) -> list[ClosedTrade]:
+    """Casa BUY com SELL FIFO por nome. Cada par usa 1 unidade.
+
+    Regras:
+      - eventos sem nome, sem preco ou com side != buy/sell sao ignorados;
+      - sells que ocorrem ANTES do buy correspondente (ts conhecidos) sao
+        puladas (pareamento nao faz sentido);
+      - buys ou sells sem contraparte ficam pendentes (nao geram trade).
+    """
+    closed = _pair_and_split(events, now=now)[0]
     closed.sort(key=lambda c: c.sell_ts, reverse=True)
     return closed
+
+
+def find_open_buys(events: list[dict],
+                   now: float | None = None) -> list[OpenBuy]:
+    """Devolve as compras que nao foram casadas com nenhuma venda
+    subsequente (posicoes "abertas" no Steam Market)."""
+    opens = _pair_and_split(events, now=now)[1]
+    opens.sort(key=lambda o: o.buy_ts, reverse=True)
+    return opens
 
 
 def load_closed_trades() -> list[ClosedTrade]:
     """Carrega eventos sincronizados e devolve trades pareados."""
     return match_events(sync.load_market_events())
+
+
+def load_open_buys() -> list[OpenBuy]:
+    """Carrega eventos sincronizados e devolve buys ainda nao vendidos."""
+    return find_open_buys(sync.load_market_events())
 
 
 def summarize(closed: list[ClosedTrade]) -> dict:

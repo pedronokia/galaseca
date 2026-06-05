@@ -298,6 +298,7 @@ class HistoryScreen(QWidget):
         ("all", "Todos"),
         ("trades", "Trades"),
         ("matched", "Pareados"),
+        ("open", "Abertas"),
         ("market", "Steam Market"),
         ("offers", "Trade Offers"),
         ("watchlist", "Watchlist"),
@@ -307,6 +308,7 @@ class HistoryScreen(QWidget):
         super().__init__(parent)
         self._current_segment = "all"
         self._matched_cache: list[trade_matcher.ClosedTrade] | None = None
+        self._open_cache: list[trade_matcher.OpenBuy] | None = None
         self._build()
         self.refresh()
 
@@ -377,6 +379,8 @@ class HistoryScreen(QWidget):
             headers, rows, count, pnl_col, pnl_vals = self._load_trades()
         elif seg == "matched":
             headers, rows, count, pnl_col, pnl_vals = self._load_matched()
+        elif seg == "open":
+            headers, rows, count, pnl_col, pnl_vals = self._load_open()
         elif seg == "market":
             headers, rows, count, pnl_col, pnl_vals = self._load_market()
         elif seg == "offers":
@@ -392,6 +396,12 @@ class HistoryScreen(QWidget):
                 f"{s['count']} pareados • P&L total {t.brl(s['total_pnl'])}"
                 f" • {s['winners']}W / {s['losers']}L"
                 f" ({s['win_rate']*100:.0f}% win rate)"
+            )
+        elif seg == "open":
+            opens = self._open_cache or []
+            total = sum(o.buy_price for o in opens)
+            self._status.setText(
+                f"{len(opens)} compras abertas • {t.brl(total)} investido"
             )
         else:
             self._status.setText(f"{count} registro(s)")
@@ -443,6 +453,23 @@ class HistoryScreen(QWidget):
         return (
             ["Vendido em", "Item", "Compra", "Venda", "P&L liquido", "ROI"],
             rows, len(rows), 4, pnl_vals,
+        )
+
+    def _load_open(self):
+        opens = trade_matcher.load_open_buys()
+        periodo = self._filter_panel.periodo
+        visible = [o for o in opens if _in_period(o.buy_ts, periodo)]
+        self._open_cache = visible
+        rows: list[list[str]] = []
+        for o in visible:
+            rows.append([
+                o.buy_date or "—",
+                o.name,
+                t.brl(o.buy_price),
+            ])
+        return (
+            ["Comprado em", "Item", "Preco de compra"],
+            rows, len(rows), None, None,
         )
 
     def _load_market(self):

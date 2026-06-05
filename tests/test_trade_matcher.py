@@ -136,6 +136,42 @@ class TestMatchEvents:
 
 # ── summarize -----------------------------------------------------------
 
+class TestFindOpenBuys:
+    def test_empty_returns_empty(self):
+        assert trade_matcher.find_open_buys([]) == []
+
+    def test_returns_buy_when_no_sell(self):
+        events = [_ev("AK", "buy", 10.0, "1 Jan")]
+        result = trade_matcher.find_open_buys(events)
+        assert len(result) == 1
+        assert result[0].name == "AK"
+        assert result[0].buy_price == 10.0
+
+    def test_returns_only_unpaired_buys_fifo(self):
+        # 3 buys, 1 sell -> 1 par fechado, 2 abertos (os mais novos)
+        now = time.mktime((2026, 6, 15, 0, 0, 0, 0, 0, -1))
+        events = [
+            _ev("AK", "buy", 10.0, "1 Jan"),    # pareado com sell 1 Feb
+            _ev("AK", "buy", 12.0, "5 Jan"),    # aberto
+            _ev("AK", "buy", 14.0, "10 Jan"),   # aberto
+            _ev("AK", "sell", 20.0, "1 Feb"),
+        ]
+        result = trade_matcher.find_open_buys(events, now=now)
+        assert len(result) == 2
+        prices = sorted(o.buy_price for o in result)
+        assert prices == [12.0, 14.0]
+
+    def test_isolates_by_name(self):
+        events = [
+            _ev("AK", "buy", 10.0, "1 Jan"),    # aberto
+            _ev("AWP", "buy", 50.0, "1 Jan"),
+            _ev("AWP", "sell", 60.0, "1 Feb"),  # AWP fechado
+        ]
+        result = trade_matcher.find_open_buys(events)
+        assert len(result) == 1
+        assert result[0].name == "AK"
+
+
 class TestSummarize:
     def test_empty(self):
         s = trade_matcher.summarize([])
