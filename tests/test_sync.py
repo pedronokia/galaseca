@@ -118,7 +118,7 @@ class TestSyncMarketHistory:
 
         calls = [0]
 
-        def mock_fetch(session, start=0, count=100):
+        def mock_fetch(session, start=0, count=100, appid=None):
             calls[0] += 1
             if calls[0] == 1:
                 return {"success": True, "total_count": 2,
@@ -131,7 +131,7 @@ class TestSyncMarketHistory:
         ]
         monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
         monkeypatch.setattr(steam_api, "parse_market_history_response",
-                            lambda r: sample_events)
+                            lambda r, default_appid=None: sample_events)
         # Pular sleep
         monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
 
@@ -152,7 +152,7 @@ class TestSyncMarketHistory:
              "date_str": "15 Mar", "listing_id": "730_1"},
         ]), encoding="utf-8")
 
-        def mock_fetch(session, start=0, count=100):
+        def mock_fetch(session, start=0, count=100, appid=None):
             if start == 0:
                 return {"success": True, "total_count": 2,
                         "results_html": "_dummy_"}
@@ -164,7 +164,7 @@ class TestSyncMarketHistory:
         ]
         monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
         monkeypatch.setattr(steam_api, "parse_market_history_response",
-                            lambda r: sample_events)
+                            lambda r, default_appid=None: sample_events)
         monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
 
         result = sync.sync_market_history(_session(), path=events_path,
@@ -175,7 +175,7 @@ class TestSyncMarketHistory:
     def test_idempotent_consecutive_runs(self, tmp_path: Path, monkeypatch):
         events_path = tmp_path / "events.json"
 
-        def mock_fetch(session, start=0, count=100):
+        def mock_fetch(session, start=0, count=100, appid=None):
             if start == 0:
                 return {"success": True, "total_count": 1,
                         "results_html": "_"}
@@ -184,7 +184,7 @@ class TestSyncMarketHistory:
         sample = [MarketEvent("AK-47", "buy", 25.0, "15 Mar", "730_1")]
         monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
         monkeypatch.setattr(steam_api, "parse_market_history_response",
-                            lambda r: sample)
+                            lambda r, default_appid=None: sample)
         monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
 
         sync.sync_market_history(_session(), path=events_path, max_pages=1)
@@ -196,7 +196,7 @@ class TestSyncMarketHistory:
     def test_no_fetch_returns_empty(self, tmp_path: Path, monkeypatch):
         events_path = tmp_path / "events.json"
 
-        def mock_fetch(session, start=0, count=100):
+        def mock_fetch(session, start=0, count=100, appid=None):
             return None
 
         monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)

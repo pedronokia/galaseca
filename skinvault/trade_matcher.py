@@ -94,14 +94,22 @@ class OpenBuy:
     buy_ts: float
 
 
+CS2_APPID = "730"
+
+
 def _group_by_name(events: list[dict],
-                   now: float | None = None) -> dict[str, dict[str, list]]:
+                   now: float | None = None,
+                   appid: str | None = CS2_APPID,
+                   ) -> dict[str, dict[str, list]]:
     by_name: dict[str, dict[str, list]] = {}
     for ev in events:
         name = ev.get("name")
         side = (ev.get("side") or "").lower()
         price = ev.get("price")
+        ev_appid = ev.get("appid")
         if not name or price is None or side not in ("buy", "sell"):
+            continue
+        if appid is not None and ev_appid is not None and ev_appid != appid:
             continue
         bucket = by_name.setdefault(name, {"buy": [], "sell": []})
         ts = parse_steam_date(ev.get("date_str", ""), now=now) or 0.0
@@ -114,9 +122,10 @@ def _group_by_name(events: list[dict],
 
 
 def _pair_and_split(events: list[dict], now: float | None = None,
+                    appid: str | None = CS2_APPID,
                     ) -> tuple[list[ClosedTrade], list[OpenBuy]]:
     """Roda o pareamento FIFO e devolve trades fechados + buys abertos."""
-    by_name = _group_by_name(events, now=now)
+    by_name = _group_by_name(events, now=now, appid=appid)
     closed: list[ClosedTrade] = []
     opens: list[OpenBuy] = []
     for name, sides in by_name.items():
@@ -152,25 +161,29 @@ def _pair_and_split(events: list[dict], now: float | None = None,
 
 
 def match_events(events: list[dict],
-                 now: float | None = None) -> list[ClosedTrade]:
+                 now: float | None = None,
+                 appid: str | None = CS2_APPID) -> list[ClosedTrade]:
     """Casa BUY com SELL FIFO por nome. Cada par usa 1 unidade.
 
     Regras:
       - eventos sem nome, sem preco ou com side != buy/sell sao ignorados;
+      - eventos cujo appid esta setado e difere do `appid` argumento sao
+        filtrados; passe appid=None para incluir todos os jogos;
       - sells que ocorrem ANTES do buy correspondente (ts conhecidos) sao
         puladas (pareamento nao faz sentido);
       - buys ou sells sem contraparte ficam pendentes (nao geram trade).
     """
-    closed = _pair_and_split(events, now=now)[0]
+    closed = _pair_and_split(events, now=now, appid=appid)[0]
     closed.sort(key=lambda c: c.sell_ts, reverse=True)
     return closed
 
 
 def find_open_buys(events: list[dict],
-                   now: float | None = None) -> list[OpenBuy]:
+                   now: float | None = None,
+                   appid: str | None = CS2_APPID) -> list[OpenBuy]:
     """Devolve as compras que nao foram casadas com nenhuma venda
     subsequente (posicoes "abertas" no Steam Market)."""
-    opens = _pair_and_split(events, now=now)[1]
+    opens = _pair_and_split(events, now=now, appid=appid)[1]
     opens.sort(key=lambda o: o.buy_ts, reverse=True)
     return opens
 

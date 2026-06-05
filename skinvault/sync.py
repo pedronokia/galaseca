@@ -103,9 +103,11 @@ def sync_inventory(session: SteamSession,
 
 def sync_market_history(session: SteamSession,
                         path: Path | str = _EVENTS_PATH,
-                        max_pages: int = _HISTORY_MAX_PAGES) -> dict:
+                        max_pages: int = _HISTORY_MAX_PAGES,
+                        appid: str | None = "730") -> dict:
     """Pagina /market/myhistory/render/ e armazena eventos crus.
-    Dedupe via market_event_key.
+    Dedupe via market_event_key. `appid` default 730 (CS2); passe None
+    para sincronizar todos os jogos.
 
     Retorna {fetched, new, total}.
     """
@@ -118,11 +120,13 @@ def sync_market_history(session: SteamSession,
     for page in range(max_pages):
         resp = steam_api.fetch_market_history(
             session, start=page * _HISTORY_PAGE_SIZE,
-            count=_HISTORY_PAGE_SIZE,
+            count=_HISTORY_PAGE_SIZE, appid=appid,
         )
         if not resp:
             break
-        parsed = steam_api.parse_market_history_response(resp)
+        parsed = steam_api.parse_market_history_response(
+            resp, default_appid=appid,
+        )
         fetched += len(parsed)
         if not parsed:
             break

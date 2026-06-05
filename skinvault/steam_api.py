@@ -476,6 +476,7 @@ class MarketEvent:
     price: float | None        # em BRL ja parseado
     date_str: str              # data crua do HTML (ex.: '15 Mar')
     listing_id: str | None     # id da listagem, quando disponivel
+    appid: str | None = None   # appid do jogo (730 = CS2), None se nao extraido
 
 
 @dataclass
@@ -511,12 +512,19 @@ def _http_get_auth(url: str, session: "SteamSession",
 
 
 def fetch_market_history(session: "SteamSession", start: int = 0,
-                         count: int = 100) -> dict | None:
-    """JSON cru de /market/myhistory/render/. Pagina manual via start/count."""
+                         count: int = 100,
+                         appid: str | None = "730") -> dict | None:
+    """JSON cru de /market/myhistory/render/. Pagina manual via start/count.
+
+    Steam aceita filtro `appid=730` (CS2) na URL; passando None,
+    devolve eventos de todos os jogos negociados no Market.
+    """
     url = (
         "https://steamcommunity.com/market/myhistory/render/"
         f"?query=&start={start}&count={count}"
     )
+    if appid:
+        url += f"&appid={appid}"
     code, body = _http_get_auth(url, session)
     if code != 200 or not body:
         return None
@@ -578,8 +586,14 @@ _DATE_RE = re.compile(
 )
 
 
-def parse_market_history_html(results_html: str) -> list[MarketEvent]:
+def parse_market_history_html(results_html: str,
+                              default_appid: str | None = None,
+                              ) -> list[MarketEvent]:
     """Extrai eventos do results_html devolvido por myhistory/render.
+
+    O HTML nao expoe o appid no `id` do row (so' tem historyid), entao
+    `default_appid` permite ao chamador anotar o jogo de origem quando ja'
+    filtrou a request (ex.: passou ?appid=730 na URL).
 
     Best-effort: o HTML do Steam pode mudar; em caso de regex falhar,
     retorna lista vazia (sync entao reporta zero novos).
@@ -615,15 +629,22 @@ def parse_market_history_html(results_html: str) -> list[MarketEvent]:
             price=parse_brl(price_m.group("price")) if price_m else None,
             date_str=date_m.group("date").strip() if date_m else "",
             listing_id=id_m.group("lid") if id_m else None,
+            appid=default_appid,
         ))
     return events
 
 
-def parse_market_history_response(response: dict) -> list[MarketEvent]:
-    """Wrapper: extrai results_html do JSON e parseia."""
+def parse_market_history_response(response: dict,
+                                  default_appid: str | None = None,
+                                  ) -> list[MarketEvent]:
+    """Wrapper: extrai results_html do JSON e parseia. `default_appid`
+    e' propagado para anotar o jogo de origem (ver `parse_market_history_html`).
+    """
     if not isinstance(response, dict):
         return []
-    return parse_market_history_html(response.get("results_html") or "")
+    return parse_market_history_html(
+        response.get("results_html") or "", default_appid=default_appid,
+    )
 
 
 _TRADE_ANCHOR_RE = re.compile(r'<div class="tradehistoryrow"[^>]*>')
