@@ -88,7 +88,7 @@ class ScreenRouter(QWidget):
         self._account_screen.request_sync.connect(self._request_sync)
         self._stack.addWidget(self._account_screen)
 
-        self._history_screen = HistoryScreen(self)
+        self._history_screen = HistoryScreen(self._cache, self)
         self._stack.addWidget(self._history_screen)
 
         self._scanner_screen = ScannerScreen(self._cache, self)

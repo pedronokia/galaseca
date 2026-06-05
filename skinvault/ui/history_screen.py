@@ -31,7 +31,9 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import portfolio, sync, trade_matcher, trades, watchlist
+from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
+from skinvault.ui._price_worker import BatchPriceWorker
 from skinvault.ui.components import Card, SegmentedControl
 
 
@@ -292,11 +294,15 @@ class HistoryScreen(QWidget):
         ("watchlist", "Watchlist"),
     ]
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, cache: PriceCache | None = None,
+                 parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._current_segment = "all"
         self._matched_cache: list[trade_matcher.ClosedTrade] | None = None
         self._open_cache: list[trade_matcher.OpenBuy] | None = None
+        self._price_cache = cache or PriceCache()
+        self._price_worker = BatchPriceWorker(self._price_cache, self)
+        self._price_worker.batch_done.connect(self._on_prices_updated)
         self._build()
         self.refresh()
 
@@ -311,6 +317,13 @@ class HistoryScreen(QWidget):
             self._seg.add(key, label)
         self._seg.segment_changed.connect(self._on_segment)
         top.addWidget(self._seg, 1)
+
+        self._update_prices_btn = QPushButton("Atualizar precos")
+        self._update_prices_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._update_prices_btn.setStyleSheet(t.btn_secondary())
+        self._update_prices_btn.clicked.connect(self._on_update_prices)
+        self._update_prices_btn.setVisible(False)
+        top.addWidget(self._update_prices_btn)
 
         sim_btn = QPushButton("Simular trade")
         sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -350,7 +363,28 @@ class HistoryScreen(QWidget):
     def _on_segment(self, key: str) -> None:
         self._current_segment = key
         self._filter_panel.set_tipo_enabled(key == "market")
+        self._update_prices_btn.setVisible(key == "open")
         self.refresh()
+
+    def _on_update_prices(self) -> None:
+        opens = self._open_cache or []
+        names_missing = [
+            o.name for o in opens if self._price_cache.get(o.name) is None
+        ]
+        if not names_missing:
+            self._status.setText(
+                self._status.text() + "  (todos os precos ja' estao em cache)"
+            )
+            return
+        self._update_prices_btn.setEnabled(False)
+        self._update_prices_btn.setText("Atualizando...")
+        self._price_worker.start(names_missing)
+
+    def _on_prices_updated(self) -> None:
+        self._update_prices_btn.setEnabled(True)
+        self._update_prices_btn.setText("Atualizar precos")
+        if self._current_segment == "open":
+            self.refresh()
 
     def refresh(self) -> None:
         seg = self._current_segment
@@ -440,15 +474,30 @@ class HistoryScreen(QWidget):
         visible = [o for o in opens if _in_period(o.buy_ts, periodo)]
         self._open_cache = visible
         rows: list[list[str]] = []
+        pnl_vals: list[float | None] = []
         for o in visible:
+            current = self._price_cache.get(o.name)
+            if current is None:
+                preco_atual_str = "—"
+                pnl_str = "—"
+                pnl_val: float | None = None
+            else:
+                d = portfolio.position_pnl(o.buy_price, current, 1)
+                preco_atual_str = t.brl(current)
+                pnl_str = t.brl(d["pnl"])
+                pnl_val = d["pnl"]
+            pnl_vals.append(pnl_val)
             rows.append([
                 o.buy_date or "—",
                 o.name,
                 t.brl(o.buy_price),
+                preco_atual_str,
+                pnl_str,
             ])
         return (
-            ["Comprado em", "Item", "Preco de compra"],
-            rows, len(rows), None, None,
+            ["Comprado em", "Item", "Preco de compra",
+             "Preco atual", "P&L se vender hoje"],
+            rows, len(rows), 4, pnl_vals,
         )
 
     def _load_market(self):

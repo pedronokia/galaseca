@@ -16,6 +16,7 @@ Implementado com urllib (stdlib): o "momento magico" roda sem pip install.
 """
 from __future__ import annotations
 
+import html as _html
 import json
 import re
 import urllib.error
@@ -624,7 +625,7 @@ def parse_market_history_html(results_html: str,
         else:
             side = "listed"
         events.append(MarketEvent(
-            name=name_m.group("name").strip(),
+            name=_html.unescape(name_m.group("name").strip()),
             side=side,
             price=parse_brl(price_m.group("price")) if price_m else None,
             date_str=date_m.group("date").strip() if date_m else "",
@@ -682,7 +683,7 @@ def parse_trade_history_html(html: str) -> list[TradeEvent]:
         body = html[start:end]
         offer_m = _TRADE_OFFERID_RE.search(body)
         partner_m = _TRADE_PARTNER_RE.search(body)
-        items = [im.group("name").strip()
+        items = [_html.unescape(im.group("name").strip())
                  for im in _TRADE_ITEM_RE.finditer(body)]
         if not offer_m and not items:
             continue

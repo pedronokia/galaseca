@@ -50,6 +50,43 @@ class PriceWorker(QObject):
         threading.Thread(target=worker, daemon=True).start()
 
 
+class BatchPriceWorker(QObject):
+    """Worker async que popula o cache de precos para uma lista de itens.
+
+    Emite progress(done, total) durante a execucao e batch_done() ao final.
+    Re-fetch ja' eh skip-pado quando o cache tem preco fresco (TTL).
+    """
+
+    progress = pyqtSignal(int, int)
+    batch_done = pyqtSignal()
+
+    def __init__(self, cache: PriceCache,
+                 parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._cache = cache
+        self._running = False
+
+    def start(self, names: list[str]) -> None:
+        if self._running:
+            return
+        self._running = True
+
+        def worker() -> None:
+            seen: set[str] = set()
+            unique = [n for n in names if not (n in seen or seen.add(n))]
+            total = len(unique)
+            for i, name in enumerate(unique, 1):
+                try:
+                    prices_mod.cached_price(name, self._cache)
+                except Exception:
+                    pass
+                self.progress.emit(i, total)
+            self._running = False
+            self.batch_done.emit()
+
+        threading.Thread(target=worker, daemon=True).start()
+
+
 class SinglePriceWorker(QObject):
     """Worker para buscar o preco de um unico item."""
 
