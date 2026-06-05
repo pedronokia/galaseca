@@ -21,6 +21,11 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from skinvault.steam_session import SteamSession
 
 _APP_CS2 = 730
 _CONTEXT = 2
@@ -428,3 +433,221 @@ def parse_brl(text: str | None) -> float | None:
         return float(s)
     except ValueError:
         return None
+
+
+# ── Endpoints autenticados (F10) ────────────────────────────────
+# Tudo aqui exige uma SteamSession com cookies validos. Funcoes publicas
+# acima continuam funcionando sem login.
+
+@dataclass
+class MarketEvent:
+    """Evento do historico do Steam Market (compra ou venda)."""
+    name: str
+    side: str                  # 'buy' | 'sell' | 'listed' | 'cancelled'
+    price: float | None        # em BRL ja parseado
+    date_str: str              # data crua do HTML (ex.: '15 Mar')
+    listing_id: str | None     # id da listagem, quando disponivel
+
+
+@dataclass
+class TradeEvent:
+    """Evento de trade offer aceita (troca entre usuarios)."""
+    tradeofferid: str
+    partner_steamid: str | None
+    date_str: str
+    items_given: list[str]
+    items_received: list[str]
+
+
+def _http_get_auth(url: str, session: "SteamSession",
+                   timeout: float = 20.0,
+                   extra_headers: dict | None = None) -> tuple[int, str | None]:
+    """GET com cookies de sessao. Retorna (code, body)."""
+    headers = {
+        "User-Agent": _UA,
+        "Cookie": session.cookie_header(),
+        "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8",
+        "Referer": "https://steamcommunity.com/market/",
+    }
+    if extra_headers:
+        headers.update(extra_headers)
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status, resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        return exc.code, None
+    except Exception:
+        return 0, None
+
+
+def fetch_market_history(session: "SteamSession", start: int = 0,
+                         count: int = 100) -> dict | None:
+    """JSON cru de /market/myhistory/render/. Pagina manual via start/count."""
+    url = (
+        "https://steamcommunity.com/market/myhistory/render/"
+        f"?query=&start={start}&count={count}"
+    )
+    code, body = _http_get_auth(url, session)
+    if code != 200 or not body:
+        return None
+    try:
+        return json.loads(body)
+    except ValueError:
+        return None
+
+
+def fetch_my_listings(session: "SteamSession", start: int = 0,
+                      count: int = 100) -> dict | None:
+    """JSON cru de /market/mylistings/render/."""
+    url = (
+        "https://steamcommunity.com/market/mylistings/render/"
+        f"?query=&start={start}&count={count}"
+    )
+    code, body = _http_get_auth(url, session)
+    if code != 200 or not body:
+        return None
+    try:
+        return json.loads(body)
+    except ValueError:
+        return None
+
+
+def fetch_trade_history_html(session: "SteamSession",
+                             page: int = 1) -> str | None:
+    """HTML cru da pagina /profiles/{id}/tradehistory."""
+    if not session.steamid:
+        return None
+    url = (
+        f"https://steamcommunity.com/profiles/{session.steamid}/tradehistory/"
+        f"?l=english&p={page}"
+    )
+    code, body = _http_get_auth(url, session)
+    if code != 200 or not body:
+        return None
+    return body
+
+
+# ── Parsers ──────────────────────────────────────────────────────
+# O Steam devolve results_html com .market_listing_row repetidos.
+# Cada row tem o gain/loss indicator, nome, preco e data. Parsers usam
+# regex para nao introduzir nova dependencia (bs4).
+
+_ROW_ANCHOR_RE = re.compile(r'<div class="market_listing_row[^>]*>')
+_ROW_ID_RE = re.compile(r'id="history_row_(?P<lid>[^"_]+_[^"_]+)_')
+_GAINLOSS_RE = re.compile(
+    r'market_listing_gainorloss(?![_a-z])[^>]*>\s*(?P<sign>[+\-\s])\s*<',
+)
+_NAME_RE = re.compile(
+    r'market_listing_item_name(?![_a-z])[^>]*>(?P<name>[^<]+)<',
+)
+_PRICE_RE = re.compile(
+    r'market_listing_price(?![_a-z])[^>]*>\s*(?P<price>[^<\n]+?)\s*<',
+)
+_DATE_RE = re.compile(
+    r'market_listing_listed_date(?![_a-z])[^>]*>\s*(?P<date>[^<]+?)\s*<',
+)
+
+
+def parse_market_history_html(results_html: str) -> list[MarketEvent]:
+    """Extrai eventos do results_html devolvido por myhistory/render.
+
+    Best-effort: o HTML do Steam pode mudar; em caso de regex falhar,
+    retorna lista vazia (sync entao reporta zero novos).
+    """
+    if not results_html:
+        return []
+    anchors = list(_ROW_ANCHOR_RE.finditer(results_html))
+    if not anchors:
+        return []
+    events: list[MarketEvent] = []
+    for i, a in enumerate(anchors):
+        anchor_text = a.group(0)
+        start = a.end()
+        end = anchors[i + 1].start() if i + 1 < len(anchors) else len(results_html)
+        body = results_html[start:end]
+        name_m = _NAME_RE.search(body)
+        if not name_m:
+            continue
+        sign_m = _GAINLOSS_RE.search(body)
+        price_m = _PRICE_RE.search(body)
+        date_m = _DATE_RE.search(body)
+        id_m = _ROW_ID_RE.search(anchor_text)
+        sign = (sign_m.group("sign") if sign_m else " ").strip()
+        if sign == "+":
+            side = "buy"
+        elif sign == "-":
+            side = "sell"
+        else:
+            side = "listed"
+        events.append(MarketEvent(
+            name=name_m.group("name").strip(),
+            side=side,
+            price=parse_brl(price_m.group("price")) if price_m else None,
+            date_str=date_m.group("date").strip() if date_m else "",
+            listing_id=id_m.group("lid") if id_m else None,
+        ))
+    return events
+
+
+def parse_market_history_response(response: dict) -> list[MarketEvent]:
+    """Wrapper: extrai results_html do JSON e parseia."""
+    if not isinstance(response, dict):
+        return []
+    return parse_market_history_html(response.get("results_html") or "")
+
+
+_TRADE_ANCHOR_RE = re.compile(r'<div class="tradehistoryrow"[^>]*>')
+_TRADE_DATE_RE = re.compile(
+    r'tradehistory_date[^>]*>\s*(?P<d>[^<]+?)\s*<',
+)
+_TRADE_TIME_RE = re.compile(
+    r'tradehistory_timestamp[^>]*>\s*(?P<t>[^<]+?)\s*<',
+)
+_TRADE_OFFERID_RE = re.compile(r'tradeofferid[_=]"?(?P<id>\d+)')
+_TRADE_PARTNER_RE = re.compile(
+    r'steamcommunity\.com/profiles/(?P<sid>\d{16,})/?',
+)
+_TRADE_ITEM_RE = re.compile(
+    r'<span class="history_item_name"[^>]*>(?P<name>[^<]+)</span>',
+)
+
+
+def parse_trade_history_html(html: str) -> list[TradeEvent]:
+    """Extrai trade offers aceitas do HTML de /profiles/{id}/tradehistory.
+
+    Best-effort. A pagina divide cada trade em columns "items given"
+    vs "items received"; aqui pegamos a lista plana e nao distinguimos
+    lado (limitacao consciente; suficiente pra registro/auditoria).
+    """
+    if not html:
+        return []
+    anchors = list(_TRADE_ANCHOR_RE.finditer(html))
+    if not anchors:
+        return []
+    events: list[TradeEvent] = []
+    for i, a in enumerate(anchors):
+        start = a.end()
+        end = anchors[i + 1].start() if i + 1 < len(anchors) else len(html)
+        body = html[start:end]
+        offer_m = _TRADE_OFFERID_RE.search(body)
+        partner_m = _TRADE_PARTNER_RE.search(body)
+        items = [im.group("name").strip()
+                 for im in _TRADE_ITEM_RE.finditer(body)]
+        if not offer_m and not items:
+            continue
+        date_m = _TRADE_DATE_RE.search(body)
+        time_m = _TRADE_TIME_RE.search(body)
+        date_str = ""
+        if date_m:
+            date_str = date_m.group("d")
+            if time_m:
+                date_str = f"{date_str} {time_m.group('t')}"
+        events.append(TradeEvent(
+            tradeofferid=offer_m.group("id") if offer_m else "",
+            partner_steamid=partner_m.group("sid") if partner_m else None,
+            date_str=date_str,
+            items_given=items,
+            items_received=[],
+        ))
+    return events

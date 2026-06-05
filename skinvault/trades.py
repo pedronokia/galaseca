@@ -31,7 +31,12 @@ def record_trade(name: str, buy_cost: float, sell_price: float,
                  quantity: int = 1,
                  notes: str = "", tags: list[str] | None = None,
                  buy_ts: float | None = None,
-                 path: Path | str = _DEFAULT_PATH) -> dict:
+                 path: Path | str = _DEFAULT_PATH,
+                 source: str = "manual",
+                 steam_event_id: str | None = None,
+                 sell_ts: float | None = None) -> dict:
+    """Registra trade. source distingue entrada manual de sync Steam (F10).
+    steam_event_id identifica o evento original na Steam pra dedupe."""
     cost_total = buy_cost * quantity
     net = net_proceeds(sell_price) * quantity
     pnl = net - cost_total
@@ -46,9 +51,11 @@ def record_trade(name: str, buy_cost: float, sell_price: float,
         "pnl": round(pnl, 2),
         "pnl_pct": round((pnl / cost_total * 100) if cost_total else 0, 2),
         "buy_ts": buy_ts or now,
-        "sell_ts": now,
+        "sell_ts": sell_ts or now,
         "notes": notes,
         "tags": tags or [],
+        "source": source,
+        "steam_event_id": steam_event_id,
     }
     trades = load_trades(path)
     trades.append(trade)

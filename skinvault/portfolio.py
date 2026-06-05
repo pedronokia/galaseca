@@ -107,12 +107,45 @@ def save_portfolio(positions: list[dict], path: Path | str = _DEFAULT_PATH) -> N
 
 
 def add_position(name: str, cost: float, quantity: int = 1,
-                 path: Path | str = _DEFAULT_PATH) -> list[dict]:
+                 path: Path | str = _DEFAULT_PATH,
+                 source: str = "manual") -> list[dict]:
+    """Adiciona posicao. source distingue entrada manual de sync Steam
+    (F10) -- usado pra preservar cost manual em syncs subsequentes."""
     positions = load_portfolio(path)
     positions.append({"name": name, "cost": float(cost),
-                      "quantity": int(quantity), "added_ts": time.time()})
+                      "quantity": int(quantity), "added_ts": time.time(),
+                      "source": source})
     save_portfolio(positions, path)
     return positions
+
+
+def simulate_trade(buy_price: float, sell_price: float, quantity: int = 1,
+                   fee_rate: float = STEAM_FEE) -> dict:
+    """Simula uma transacao buy->sell e retorna breakdown completo pra UI.
+
+    Diferente de position_pnl, foca em campos legiveis pelo simulador:
+    cost_total, gross_sale, steam_fee, net_received, pnl, roi_pct,
+    break_even_price (preco minimo de listagem pra empatar).
+    """
+    cost_total = buy_price * quantity
+    gross_sale = sell_price * quantity
+    net = net_proceeds(sell_price, fee_rate) * quantity
+    fee = gross_sale - net
+    pnl = net - cost_total
+    return {
+        "buy_price": buy_price,
+        "sell_price": sell_price,
+        "quantity": quantity,
+        "cost_total": round(cost_total, 2),
+        "gross_sale": round(gross_sale, 2),
+        "steam_fee": round(fee, 2),
+        "net_received": round(net, 2),
+        "pnl": round(pnl, 2),
+        "roi_pct": round((pnl / cost_total * 100) if cost_total else 0.0, 2),
+        "break_even_price": round(break_even_price(buy_price, fee_rate), 2),
+        "is_profit": pnl > 0.005,
+        "is_loss": pnl < -0.005,
+    }
 
 
 def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:

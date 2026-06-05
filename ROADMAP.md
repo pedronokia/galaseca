@@ -1,7 +1,7 @@
 # SkinVault Roadmap
 
 ## Filosofia
-- **Zero login/sessão/cookie** — tudo com dados públicos da Steam
+- **Login opt-in** — F1-F9 funcionam sem login (dados públicos); F10 adiciona sync da conta Steam via cookies de sessão (opt-in, sob risco do usuário)
 - **Dados factuais** — descrevemos, não prevemos
 - **Valor real** — após taxa Steam (15%)
 - **Steam-only** por enquanto — multi-market (Buff/CSFloat/Skinport) é decisão futura
@@ -116,23 +116,46 @@ Fatores e pesos atuais:
 
 ---
 
-## 🔴 Fora do Escopo (requerem fonte externa / autenticação)
+## FASE 10 — Steam Account Sync ✅
+**Filosofia revisada:** login passa de "zero" para "opt-in". F1-F9 continuam funcionando sem login; F10 adiciona sync de dados privados sob consentimento.
 
-**Decisão arquitetural Steam-only:** evitar dependência de scraping frágil e sessões privadas.
+- [x] `skinvault/steam_session.py` — `SteamSession` (cookies + steamid), persist/load, validate via /my/ redirect
+- [x] `skinvault/steam_login_dialog.py` — `QWebEngineView` embute login da Steam; intercepta cookies de `steamcommunity.com` via `QWebEngineProfile.cookieStore()`
+- [x] `skinvault/steam_api.py` — funções autenticadas `fetch_market_history`, `fetch_my_listings`, `fetch_trade_history_html` + parsers HTML (regex, sem bs4)
+- [x] `skinvault/sync.py` — orquestrador `sync_all`: inventario → portfolio; market history → `steam_market_events.json`; listings → `active_listings.json`; trade offers → `trade_history.json`
+- [x] Dedupe via `listing_id`/`tradeofferid` ou composite hash; idempotente em runs sucessivos
+- [x] `portfolio.py` + `trades.py` — campo `source` (manual | steam_sync | steam). Sync nunca sobrescreve manual.
+- [x] `backup.py` — cobre os 4 novos JSONs (incluindo `steam_session.json` com aviso de credenciais)
+- [x] `gui.py` — botão "Conectar Steam" no canto superior, `SteamSyncDialog` com 4 steps em thread, menu de status/desconectar
+- [x] `requirements.txt` — `PyQt6-WebEngine>=6.6`
+- [x] Testes: `test_steam_session.py`, `test_steam_api_auth.py`, `test_sync.py`
+
+**Riscos conhecidos** (documentados na UI):
+- Cookies em texto plano em `data/steam_session.json` — coberto por `.gitignore` da pasta data/
+- Steam pode mudar fluxo de login → re-login manual resolve
+- Pareamento BUY↔SELL em trades fechados ainda não implementado (eventos crus em `steam_market_events.json`)
+
+---
+
+## FASE 11 — Redesign UI estilo Athenas (planejada)
+Sidebar hierárquica substituindo QTabWidget, breadcrumb sempre visível, linguagem verbosa-explicativa, cabeçalhos por tela. Mantém tema escuro atual. Plano em `~/.claude/plans/` (sessão posterior).
+
+---
+
+## 🔴 Fora do Escopo (decididos)
 
 - **Float Analysis / Pattern Scanner (#6, #7)** — Steam não expõe via API pública; precisaria CSFloat API
 - **Multi-market arbitragem (#13)** — Buff (login chinês), Skinport (API ok), SkinBaron (scraping), CSFloat (API ok). Reavaliar após uso real do scanner.
 - **Pro player / streamer tracking (#8)** — HLTV/Liquipedia scraping frágil
 - **Unboxing rate (#10)** — só Valve tem
-- **Histórico de compras/vendas Steam pessoal** — requer sessão privada
 
 ---
 
 ## Ordem de Implementação
 
 ```
-✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 → ⏳ F11
 ```
 
-Todas as 9 fases planejadas concluídas. Total: 168 testes, 5 módulos novos
-(signals, cases, alerts, ranking + UI completa).
+F10 introduz 3 novos módulos (`steam_session`, `steam_login_dialog`, `sync`)
+e ~60 testes adicionais. F1-F9 seguem intactas e funcionam sem login.
