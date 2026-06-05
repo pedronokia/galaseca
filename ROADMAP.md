@@ -20,10 +20,10 @@
 | 6 | Float Analysis | ⚪ fora de escopo | — |
 | 7 | Pattern Scanner | ⚪ fora de escopo | — |
 | 8 | Popularidade pro players | ⚪ fora de escopo | — |
-| 9 | Cases de origem + status | ⏳ | F7 |
+| 9 | Cases de origem + status | ✅ | F7 |
 | 10 | Taxa de unboxing | ⚪ fora de escopo | — |
-| 11 | Alertas de oportunidade | ⏳ | F8 |
-| 12 | Score de Investimento (multi-fator) | 🟡 parcial | F6 |
+| 11 | Alertas de oportunidade | ✅ | F8 |
+| 12 | Score de Investimento (multi-fator) | ✅ | F6 |
 | 13 | Multi-marketplace (arbitragem) | ⚪ fora de escopo | — |
 
 ---
@@ -137,8 +137,8 @@ Fatores e pesos atuais:
 
 ---
 
-## FASE 11 — Redesign UI estilo Athenas (planejada)
-Sidebar hierárquica substituindo QTabWidget, breadcrumb sempre visível, linguagem verbosa-explicativa, cabeçalhos por tela. Mantém tema escuro atual. Plano em `~/.claude/plans/` (sessão posterior).
+## FASE 11 — Redesign UI estilo Athenas ✅
+Sidebar hierárquica (7 telas) substituindo QTabWidget, LoginGate opcional, ScreenRouter com navegação por constantes, PyQt6-WebEngine como dependência fixa, janela maximizada+centralizada sem console (pythonw.exe). Telas implementadas: Account (carteira), History (histórico), Scanner (real com rate-limit), Market (busca + depth chart), Trades (CRUD), Simulador (compra/venda), Watchlist (regras + alertas).
 
 ---
 
@@ -154,7 +154,7 @@ Sidebar hierárquica substituindo QTabWidget, breadcrumb sempre visível, lingua
 ## Ordem de Implementação
 
 ```
-✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 → ⏳ F11
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 → ✅ F11
 ```
 
 F10 introduz 3 novos módulos (`steam_session`, `steam_login_dialog`, `sync`)
