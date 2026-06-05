@@ -237,6 +237,14 @@ class AccountScreen(QWidget):
                     i, QHeaderView.ResizeMode.ResizeToContents)
         root.addWidget(self._table, 1)
 
+        # Status
+        self._status = QLabel("")
+        self._status.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        root.addWidget(self._status)
+
         from PyQt6.QtGui import QKeySequence, QShortcut
         find_sc = QShortcut(QKeySequence("Ctrl+F"), self)
         find_sc.activated.connect(self._focus_filter)
@@ -246,14 +254,6 @@ class AccountScreen(QWidget):
     def _focus_filter(self) -> None:
         self._filter_inp.setFocus()
         self._filter_inp.selectAll()
-
-        # Status
-        self._status = QLabel("")
-        self._status.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        root.addWidget(self._status)
 
     # ── perfil ───────────────────────────────────────────
     def _reload_profile(self) -> None:
