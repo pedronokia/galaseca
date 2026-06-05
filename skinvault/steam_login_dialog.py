@@ -1,22 +1,24 @@
-"""Dialog de login Steam embutido (F10).
+"""Dialog de login Steam (sem WebEngine).
 
-Abre um QWebEngineView com a pagina de login do Steam. O usuario loga
-manualmente (incluindo 2FA). Cookies de steamcommunity.com sao
-interceptados via QWebEngineProfile.cookieStore(); quando o redirect
-final cai em /profiles/{id} ou /id/{vanity}, a sessao esta completa.
+Abre o navegador padrao do usuario na pagina de login da Steam.
+Usuario loga manualmente, copia os cookies e cola no dialog.
+Suporta tanto cookie string (nome=valor; nome=valor) como JSON.
 """
 from __future__ import annotations
 
+import json
+import re
 import time
 from typing import Optional
 
-from PyQt6.QtCore import QUrl, pyqtSignal
-from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
-from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -30,110 +32,172 @@ from skinvault.steam_session import (
 
 
 _LOGIN_URL = "https://steamcommunity.com/login/home/?goto=my"
-_SUCCESS_FRAGMENTS = ("/profiles/", "/id/")
-_LOGIN_FRAGMENTS = ("/login", "/openid")
+
+
+def _parse_cookie_input(text: str) -> dict:
+    """Converte input do usuario em dict de cookies.
+
+    Aceita:
+      - JSON dict: {"steamLoginSecure": "...", "sessionid": "..."}
+      - Cookie string: steamLoginSecure=xxx; sessionid=yyy
+      - Linhas chave=valor
+    """
+    text = text.strip()
+    if not text:
+        return {}
+    # Tenta JSON primeiro
+    if text.startswith("{"):
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return {str(k): str(v) for k, v in parsed.items()}
+        except (json.JSONDecodeError, ValueError):
+            pass
+    # Cookie string ou linhas chave=valor
+    cookies: dict = {}
+    for part in text.replace("\n", ";").replace("\r", "").split(";"):
+        part = part.strip()
+        if "=" in part:
+            k, v = part.split("=", 1)
+            cookies[k.strip()] = v.strip()
+    return cookies
 
 
 class SteamLoginDialog(QDialog):
-    """QDialog com webview embutido. Em sucesso, expoe self.session."""
+    """Dialog manual: usuario cola cookies da Steam.
 
-    session_captured = pyqtSignal(object)
+    self.session e' preenchido apos accept() se os cookies tiverem
+    steamLoginSecure valido.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Conectar conta Steam")
-        self.resize(1000, 720)
+        self.resize(660, 440)
         self.session: Optional[SteamSession] = None
-        self._cookies: dict = {}
-        self._finalized = False
         self._build()
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setSpacing(14)
+        layout.setContentsMargins(24, 20, 24, 20)
 
-        self._profile = QWebEngineProfile(self)
-        self._profile.cookieStore().cookieAdded.connect(self._on_cookie_added)
-
-        self._page = QWebEnginePage(self._profile, self)
-        self._view = QWebEngineView(self)
-        self._view.setPage(self._page)
-        self._view.urlChanged.connect(self._on_url_changed)
-        self._view.load(QUrl(_LOGIN_URL))
-        layout.addWidget(self._view, 1)
-
-        footer = QWidget(self)
-        flayout = QHBoxLayout(footer)
-        flayout.setContentsMargins(16, 12, 16, 12)
-        self._status = QLabel(
-            "Faça login na Steam. Após autenticar, a janela fecha sozinha."
+        title = QLabel(
+            "Conectar conta Steam"
         )
-        flayout.addWidget(self._status, 1)
+        title.setStyleSheet("font-size: 14pt; font-weight: 700;")
+        layout.addWidget(title)
 
-        self._reload_btn = QPushButton("Reabrir login da Steam")
-        self._reload_btn.clicked.connect(
-            lambda: self._view.load(QUrl(_LOGIN_URL))
+        instructions = QLabel(
+            "1. Clique em \"Abrir navegador\" e faça login na Steam.\n"
+            "2. Após logar, volte aqui.\n"
+            "3. Copie os cookies da página steamcommunity.com:\n"
+            "   - Chrome: F12 → Application → Cookies → steamcommunity.com\n"
+            "   - Firefox: F12 → Storage → Cookies\n"
+            "4. Selecione TODOS os cookies, copie e cole abaixo.\n"
+            "5. Clique em \"Conectar\"."
         )
-        flayout.addWidget(self._reload_btn)
+        instructions.setWordWrap(True)
+        instructions.setStyleSheet(
+            "color: #9D9DA8; font-size: 10pt; line-height: 1.5;"
+        )
+        layout.addWidget(instructions)
 
-        cancel = QPushButton("Cancelar")
-        cancel.clicked.connect(self.reject)
-        flayout.addWidget(cancel)
+        btn_row = QHBoxLayout()
+        open_btn = QPushButton("Abrir navegador")
+        open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_btn.setMinimumHeight(36)
+        open_btn.setStyleSheet(self._btn_primary())
+        open_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(_LOGIN_URL)))
+        btn_row.addWidget(open_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
 
-        layout.addWidget(footer)
+        paste_label = QLabel("Cookies da Steam (cole abaixo):")
+        paste_label.setStyleSheet("font-size: 10pt; font-weight: 600;")
+        layout.addWidget(paste_label)
 
-    def _domain(self, cookie) -> str:
-        raw = cookie.domain()
-        if isinstance(raw, str):
-            return raw
-        try:
-            return bytes(raw).decode("utf-8", "replace")
-        except Exception:
-            return ""
+        self._input = QPlainTextEdit()
+        self._input.setPlaceholderText(
+            'Cole os cookies aqui...\n'
+            'Ex: steamLoginSecure=xxxxx; sessionid=yyyyy\n'
+            'Ou JSON: {"steamLoginSecure": "xxx", "sessionid": "yyy"}'
+        )
+        self._input.setStyleSheet(
+            "background: #1E1E28; border: 1px solid #2A2A33;"
+            " border-radius: 8px; padding: 10px;"
+            " color: #E6E6EA; font-family: Consolas; font-size: 10pt;"
+        )
+        self._input.setMinimumHeight(120)
+        layout.addWidget(self._input, 1)
 
-    def _to_str(self, raw) -> str:
-        if isinstance(raw, str):
-            return raw
-        try:
-            return bytes(raw).decode("utf-8", "replace")
-        except Exception:
-            return ""
+        footer = QHBoxLayout()
+        self._status = QLabel("")
+        self._status.setStyleSheet("color: #9D9DA8; font-size: 9pt;")
+        footer.addWidget(self._status, 1)
 
-    def _on_cookie_added(self, cookie) -> None:
-        if "steamcommunity.com" not in self._domain(cookie):
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_btn.setStyleSheet(self._btn_ghost())
+        cancel_btn.clicked.connect(self.reject)
+        footer.addWidget(cancel_btn)
+
+        connect_btn = QPushButton("  Conectar  ")
+        connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        connect_btn.setMinimumHeight(36)
+        connect_btn.setStyleSheet(self._btn_primary())
+        connect_btn.clicked.connect(self._on_connect)
+        footer.addWidget(connect_btn)
+
+        layout.addLayout(footer)
+
+    def _parse_input(self) -> dict:
+        text = self._input.toPlainText().strip()
+        return _parse_cookie_input(text)
+
+    def _on_connect(self) -> None:
+        cookies = self._parse_input()
+        if not cookies:
+            self._status.setText("Nenhum cookie encontrado. Cole os cookies primeiro.")
             return
-        name = self._to_str(cookie.name())
-        value = self._to_str(cookie.value())
-        if not name:
+        steamid = extract_steamid_from_cookie(cookies) or ""
+        if not steamid or not cookies.get("steamLoginSecure"):
+            self._status.setText(
+                "Cookie steamLoginSecure não encontrado ou inválido. "
+                "Certifique-se de copiar os cookies de steamcommunity.com."
+            )
             return
-        self._cookies = merge_cookies(self._cookies, {name: value})
-
-    def _on_url_changed(self, url: QUrl) -> None:
-        if self._finalized:
+        merged = merge_cookies({}, cookies)
+        if not merged.get("steamLoginSecure"):
+            self._status.setText("Cookies inválidos. Tente novamente.")
             return
-        s = url.toString()
-        if any(f in s for f in _LOGIN_FRAGMENTS):
-            return
-        if any(f in s for f in _SUCCESS_FRAGMENTS):
-            self._finalize()
-
-    def _finalize(self) -> None:
-        steamid = extract_steamid_from_cookie(self._cookies) or ""
-        if not steamid or not self._cookies.get("steamLoginSecure"):
-            return
-        self._finalized = True
         self.session = SteamSession(
             steamid=steamid,
-            cookies=dict(self._cookies),
+            cookies=merged,
             captured_at=time.time(),
         )
-        self.session_captured.emit(self.session)
         self.accept()
+
+    @staticmethod
+    def _btn_primary() -> str:
+        return (
+            "QPushButton { background: #1B2838; color: #66C0F4;"
+            " border: 1px solid #66C0F4; border-radius: 6px;"
+            " font-size: 10pt; font-weight: 600; padding: 8px 20px; }"
+            "QPushButton:hover { background: #66C0F4; color: #1B2838; }"
+        )
+
+    @staticmethod
+    def _btn_ghost() -> str:
+        return (
+            "QPushButton { background: transparent; color: #9D9DA8;"
+            " border: none; font-size: 10pt; padding: 8px 16px; }"
+            "QPushButton:hover { color: #E6E6EA; }"
+        )
 
 
 def build_steam_login_dialog(
     parent: QWidget | None = None,
 ) -> SteamLoginDialog | None:
-    """Cria o dialog de login Steam."""
+    """Cria o dialog de login Steam (sem WebEngine)."""
     return SteamLoginDialog(parent)
