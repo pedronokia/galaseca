@@ -13,10 +13,10 @@ import time
 from pathlib import Path
 
 from skinvault import steam_api
+from skinvault._paths import DATA_DIR
 
 _TTL_SECONDS = 6 * 3600
-_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-_DEFAULT_PATH = _DATA_DIR / "prices.json"
+_DEFAULT_PATH = DATA_DIR / "prices.json"
 
 
 class PriceCache:

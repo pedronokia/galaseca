@@ -9,8 +9,9 @@ import json
 import time
 from pathlib import Path
 
-_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-_DEFAULT_PATH = _DATA_DIR / "history.json"
+from skinvault._paths import DATA_DIR
+
+_DEFAULT_PATH = DATA_DIR / "history.json"
 
 
 def record_snapshot(total: float, path: Path | str = _DEFAULT_PATH,

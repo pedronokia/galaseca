@@ -60,3 +60,43 @@ def test_persistencia_roundtrip(tmp_path):
     loaded = portfolio.load_portfolio(path=p)
     assert [x["name"] for x in loaded] == ["AK-47 | Redline (FT)", "AWP | Asiimov (FT)"]
     assert loaded[1]["quantity"] == 2 and loaded[1]["cost"] == 700.0
+
+
+def test_import_csv_basic(tmp_path):
+    p = tmp_path / "pf.json"
+    csv = (
+        "AK-47 | Redline (Field-Tested), 200, 1\n"
+        "AWP | Asiimov (FT), 650.50\n"
+    )
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 2
+    assert r["errors"] == []
+    loaded = portfolio.load_portfolio(p)
+    assert loaded[0]["name"] == "AK-47 | Redline (Field-Tested)"
+    assert loaded[0]["cost"] == 200.0
+    assert loaded[1]["cost"] == 650.50
+    assert loaded[1]["quantity"] == 1
+
+
+def test_import_csv_skips_comments_and_empty(tmp_path):
+    p = tmp_path / "pf.json"
+    csv = "# comentario\n\nAK-47, 200\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 1
+    assert r["skipped"] == 2
+
+
+def test_import_csv_invalid_line(tmp_path):
+    p = tmp_path / "pf.json"
+    csv = "AK-47\nSoName\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 0
+    assert len(r["errors"]) == 2
+
+
+def test_import_csv_with_r_prefix(tmp_path):
+    p = tmp_path / "pf.json"
+    csv = "AK-47, R$ 200, 1\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 1
+    assert r["errors"] == []

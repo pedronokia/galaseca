@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>SkinVault — Bookmarklet</title>
+<style>
+  body { background:#0E0E12; color:#E6E6EA; font-family:'Segoe UI',sans-serif; max-width:720px; margin:40px auto; padding:0 20px; }
+  a, a:visited { color:#22C55E; }
+  code { background:#16161C; padding:2px 6px; border-radius:4px; font-size:13px; }
+  .box { background:#16161C; border-radius:12px; padding:24px; margin:20px 0; }
+  .btn { display:inline-block; padding:12px 28px; background:rgba(34,197,94,0.16); color:#DCFFE6; border:1px solid #22C55E; border-radius:8px; cursor:pointer; font-size:13pt; font-weight:600; text-decoration:none; }
+  .btn:hover { background:rgba(34,197,94,0.26); }
+  ol li { margin:10px 0; }
+  hr { border:none; border-top:1px solid #2A2A33; margin:24px 0; }
+</style>
+</head>
+<body>
+
+<h1 style="color:#22C55E;">SkinVault — Bookmarklet</h1>
+<p style="color:#9D9DA8;">Extrai o hist&oacute;rico de compras do Steam Market e formata pra importar no SkinVault.</p>
+
+<div class="box">
+  <h2 style="margin-top:0;">Como instalar</h2>
+  <ol>
+    <li>Arraste o link abaixo para a <strong>barra de favoritos</strong> do seu navegador</li>
+    <li>V&aacute; at&eacute; <code>steamcommunity.com/market</code> (logado) e clique na aba <strong>"My History"</strong></li>
+    <li>Clique no favorito <strong>"SkinVault Import"</strong></li>
+    <li>Copie o texto e cole no <strong>Importar CSV</strong> do SkinVault</li>
+  </ol>
+
+  <p style="text-align:center; margin:24px 0;">
+    <a class="btn" href="javascript:%28function%28%29%7B%0Avar%20r=document.querySelectorAll%28%27.market_history_row%27%29%3B%0Aif%28%21r.length%29%7Balert%28%27Va%20em%20steamcommunity.com%2Fmarket%20%3E%20My%20History%20primeiro.%27%29%3Breturn%3B%7D%0Avar%20c=%27%23%20Steam%20Market%20History%20-%20SkinVault%5Cn%27%3B%0Ar.forEach%28function%28x%29%7B%0Avar%20n=x.querySelector%28%27.market_listing_item_name%27%29%3B%0Aif%28%21n%29return%3B%0Avar%20name=n.textContent.trim%28%29%3B%0Avar%20p=x.querySelector%28%27.market_history_price%27%29%3B%0Avar%20price=p?p.textContent.trim%28%29%3A%270%27%3B%0Avar%20q=x.querySelector%28%27.market_history_quantity%2C.market_history_amount%27%29%3B%0Avar%20qty=q?parseInt%28q.textContent.replace%28%2F%5B%5E0-9%5D%2Fg%2C%27%27%29%7C%7C1%29%3A1%3B%0Ac%2B=name%2B%27%2C%20%27%2Bprice%2B%27%2C%20%27%2Bqty%2B%27%5Cn%27%3B%0A%7D%29%3B%0Avar%20d=document.createElement%28%27div%27%29%3B%0Ad.style.cssText=%27position%3Afixed%3Btop%3A0%3Bleft%3A0%3Bwidth%3A100%25%3Bheight%3A100%25%3Bbackground%3Argba%280%2C0%2C0%2C0.75%29%3Bz-index%3A99999%3Bdisplay%3Aflex%3Balign-items%3Acenter%3Bjustify-content%3Acenter%3Bfont-family%3ASegoe%20UI%2Csans-serif%3B%27%3B%0Ad.innerHTML=%27%3Cdiv%20style=%22background%3A%230E0E12%3Bcolor%3A%23E6E6EA%3Bpadding%3A24px%3Bborder-radius%3A12px%3Bmax-width%3A680px%3Bwidth%3A90%25%3Bmax-height%3A80vh%3Boverflow%3Aauto%3B%22%3E%27%2B%0A%27%3Ch3%20style=%22margin%3A0%200%204px%3Bcolor%3A%2322C55E%3Bfont-size%3A16px%3B%22%3ESkinVault%20-%20Dados%20extraidos%3C%2Fh3%3E%27%2B%0A%27%3Cp%20style=%22color%3A%239D9DA8%3Bfont-size%3A12px%3Bmargin%3A0%200%2012px%3B%22%3ECopie%20e%20cole%20no%20Importar%20CSV%20do%20SkinVault.%3C%2Fp%3E%27%2B%0A%27%3Ctextarea%20id=%22svc%22%20style=%22width%3A100%25%3Bheight%3A260px%3Bbackground%3A%2316161C%3Bcolor%3A%23E6E6EA%3Bborder%3A1px%20solid%20%232A2A33%3Bborder-radius%3A8px%3Bpadding%3A12px%3Bfont-size%3A11px%3Bfont-family%3Amonospace%3Bbox-sizing%3Aborder-box%3B%22%3E%27%2Bc%2B%27%3C%2Ftextarea%3E%27%2B%0A%27%3Cdiv%20style=%22margin-top%3A12px%3Bdisplay%3Aflex%3Bgap%3A8px%3B%22%3E%27%2B%0A%27%3Cbutton%20onclick=%22var%20t=document.getElementById%28%5C%27svc%5C%27%29%3Bt.select%28%29%3Bnavigator.clipboard.writeText%28t.value%29.catch%28function%28%29%7Bt.select%28%29%3Bdocument.execCommand%28%5C%27copy%5C%27%29%3B%7D%29%3Bthis.textContent=%5C%27Copiado%21%5C%27%22%20style=%22padding%3A10px%2022px%3Bbackground%3Argba%2834%2C197%2C94%2C0.16%29%3Bcolor%3A%23DCFFE6%3Bborder%3A1px%20solid%20%2322C55E%3Bborder-radius%3A8px%3Bcursor%3Apointer%3Bfont-size%3A11pt%3Bfont-weight%3A600%3B%22%3ECopiar%3C%2Fbutton%3E%27%2B%0A%27%3Cbutton%20onclick=%22this.parentElement.parentElement.parentElement.remove%28%29%22%20style=%22padding%3A10px%2022px%3Bbackground%3Argba%28255%2C255%2C255%2C0.06%29%3Bcolor%3A%23E6E6EA%3Bborder%3A1px%20solid%20%233A3A44%3Bborder-radius%3A8px%3Bcursor%3Apointer%3Bfont-size%3A11pt%3Bfont-weight%3A600%3B%22%3EFechar%3C%2Fbutton%3E%27%2B%0A%27%3Cspan%20style=%22color%3A%239D9DA8%3Bfont-size%3A11px%3Bmargin-left%3A12px%3Balign-self%3Acenter%3B%22%3E%27%2Bc.split%28%27%5Cn%27%29.filter%28function%28l%29%7Breturn%20l%26%26%21l.startsWith%28%27%23%27%29%7D%29.length%2B%27%20itens%3C%2Fspan%3E%27%2B%0A%27%3C%2Fdiv%3E%3C%2Fdiv%3E%27%3B%0Adocument.body.appendChild%28d%29%3B%0A%7D%29%28%29">SkinVault Import</a>
+  </p>
+
+  <p style="color:#9D9DA8; font-size:11px;">
+    ⚠ O c&oacute;digo roda APENAS no seu navegador. O SkinVault nunca acessa sua sess&atilde;o do Steam.
+  </p>
+</div>
+
+<hr>
+
+<h2>O que extrai</h2>
+<p>O bookmarklet percorre a p&aacute;gina de hist&oacute;rico e gera linhas no formato:</p>
+<pre style="background:#16161C; padding:12px; border-radius:8px; color:#9DDA8;">
+# Steam Market History - SkinVault
+AK-47 | Redline (Field-Tested), R$ 200,00, 1
+AWP | Asiimov (Field-Tested), R$ 650,00, 1
+</pre>
+
+<h2>Alternativa manual</h2>
+<p>Se o bookmarklet n&atilde;o funcionar (Steam mudou o layout), copie os dados manualmente no formato:</p>
+<pre style="background:#16161C; padding:12px; border-radius:8px; color:#9DDA8;">
+Nome exato do item, pre&ccedil;o, quantidade
+</pre>
+<p>E cole no <strong>Importar CSV</strong> dentro da aba "Meu Portf&oacute;lio".</p>
+
+</body>
+</html>

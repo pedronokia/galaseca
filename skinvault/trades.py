@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+
+from skinvault._paths import DATA_DIR
+from skinvault.portfolio import net_proceeds
+
+_DEFAULT_PATH = DATA_DIR / "trades.json"
+
+
+def load_trades(path: Path | str = _DEFAULT_PATH) -> list[dict]:
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def save_trades(trades: list[dict], path: Path | str = _DEFAULT_PATH) -> None:
+    p = Path(path)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(trades, indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def record_trade(name: str, buy_cost: float, sell_price: float,
+                 quantity: int = 1,
+                 notes: str = "", tags: list[str] | None = None,
+                 buy_ts: float | None = None,
+                 path: Path | str = _DEFAULT_PATH) -> dict:
+    cost_total = buy_cost * quantity
+    net = net_proceeds(sell_price) * quantity
+    pnl = net - cost_total
+    now = time.time()
+    trade = {
+        "name": name,
+        "buy_cost": buy_cost,
+        "sell_price": sell_price,
+        "quantity": quantity,
+        "cost_total": cost_total,
+        "net_received": round(net, 2),
+        "pnl": round(pnl, 2),
+        "pnl_pct": round((pnl / cost_total * 100) if cost_total else 0, 2),
+        "buy_ts": buy_ts or now,
+        "sell_ts": now,
+        "notes": notes,
+        "tags": tags or [],
+    }
+    trades = load_trades(path)
+    trades.append(trade)
+    save_trades(trades, path)
+    return trade
+
+
+def update_trade(index: int, path: Path | str = _DEFAULT_PATH,
+                 cost: float | None = None,
+                 sell_price: float | None = None,
+                 **kwargs) -> dict | None:
+    trades = load_trades(path)
+    if not (0 <= index < len(trades)):
+        return None
+    t = trades[index]
+    if cost is not None:
+        t["buy_cost"] = cost
+        t["cost_total"] = cost * t["quantity"]
+    if sell_price is not None:
+        t["sell_price"] = sell_price
+    if cost is not None or sell_price is not None:
+        net = net_proceeds(t["sell_price"]) * t["quantity"]
+        t["net_received"] = round(net, 2)
+        t["pnl"] = round(net - t["cost_total"], 2)
+        t["pnl_pct"] = round((t["pnl"] / t["cost_total"] * 100) if t["cost_total"] else 0, 2)
+    for k, v in kwargs.items():
+        t[k] = v
+    save_trades(trades, path)
+    return t
+
+
+def remove_trade(index: int, path: Path | str = _DEFAULT_PATH) -> list[dict]:
+    trades = load_trades(path)
+    if 0 <= index < len(trades):
+        trades.pop(index)
+        save_trades(trades, path)
+    return trades
+
+
+def clear_trades(path: Path | str = _DEFAULT_PATH) -> None:
+    save_trades([], path)
+
+
+def filter_trades(keyword: str | None = None,
+                  tags: list[str] | None = None,
+                  profit_only: bool | None = None,
+                  loss_only: bool | None = None,
+                  pnl: str | None = None,
+                  path: Path | str = _DEFAULT_PATH) -> list[dict]:
+    trades = load_trades(path)
+    if keyword:
+        kw = keyword.lower()
+        trades = [t for t in trades if kw in t["name"].lower()
+                  or kw in t.get("notes", "").lower()]
+    if tags:
+        trades = [t for t in trades
+                  if any(tg in t.get("tags", []) for tg in tags)]
+    if profit_only:
+        trades = [t for t in trades if t["pnl"] > 0]
+    if loss_only:
+        trades = [t for t in trades if t["pnl"] < 0]
+    if pnl == "profit":
+        trades = [t for t in trades if t["pnl"] >= 0]
+    elif pnl == "loss":
+        trades = [t for t in trades if t["pnl"] < 0]
+    return trades
+
+
+def trade_stats(trades: list[dict] | None = None,
+                path: Path | str = _DEFAULT_PATH) -> dict:
+    if trades is None:
+        trades = load_trades(path)
+    total = len(trades)
+    if not total:
+        return {"total": 0, "pnl_total": 0, "pnl_medio": 0,
+                "win_count": 0, "loss_count": 0, "win_rate": 0,
+                "best": None, "worst": None, "monthly": [],
+                "fees_total": 0.0, "avg_days": 0}
+    pnl_total = sum(t["pnl"] for t in trades)
+    win = sum(1 for t in trades if t["pnl"] > 0.005)
+    loss = sum(1 for t in trades if t["pnl"] < -0.005)
+    best = max(trades, key=lambda t: t["pnl"])
+    worst = min(trades, key=lambda t: t["pnl"])
+    fees_total = sum(
+        (t["sell_price"] * t["quantity"]) - t["net_received"]
+        for t in trades
+    )
+    days_list = [
+        (t["sell_ts"] - t["buy_ts"]) / 86400
+        for t in trades if t["sell_ts"] > t["buy_ts"]
+    ]
+    avg_days = round(sum(days_list) / len(days_list), 1) if days_list else 0
+    monthly: dict[str, list] = {}
+    for t in trades:
+        key = _month_key(t.get("sell_ts", t.get("buy_ts", 0)))
+        monthly.setdefault(key, []).append(t)
+    monthly_stats = [
+        {
+            "month": k, "trades": len(v),
+            "pnl": round(sum(t["pnl"] for t in v), 2),
+        }
+        for k, v in sorted(monthly.items())
+    ]
+    return {
+        "total": total,
+        "pnl_total": round(pnl_total, 2),
+        "pnl_medio": round(pnl_total / total, 2),
+        "win_count": win,
+        "loss_count": loss,
+        "win_rate": round(win / total * 100, 1),
+        "best": best,
+        "worst": worst,
+        "monthly": monthly_stats,
+        "fees_total": round(fees_total, 2),
+        "avg_days": avg_days,
+    }
+
+
+def _month_key(ts: float) -> str:
+    return time.strftime("%Y-%m", time.gmtime(ts))

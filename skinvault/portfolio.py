@@ -14,8 +14,9 @@ import json
 import time
 from pathlib import Path
 
-_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-_DEFAULT_PATH = _DATA_DIR / "portfolio.json"
+from skinvault._paths import DATA_DIR
+
+_DEFAULT_PATH = DATA_DIR / "portfolio.json"
 
 # ~5% Steam + 10% jogo, cobrados sobre o valor que o VENDEDOR recebe.
 STEAM_FEE = 0.15
@@ -112,3 +113,40 @@ def add_position(name: str, cost: float, quantity: int = 1,
                       "quantity": int(quantity), "added_ts": time.time()})
     save_portfolio(positions, path)
     return positions
+
+
+def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
+    """Importa linhas CSV: nome, custo, qtd (opcional).
+
+    Formatos aceitos:
+      AK-47 | Redline (Field-Tested), 200, 1
+      AWP | Asiimov (FT), 650.50
+
+    Linhas com # sao ignoradas. Cost pode vir com R$.
+    Retorna {imported, skipped, errors}."""
+    imported = 0
+    skipped = 0
+    errors: list[str] = []
+    for i, raw in enumerate(text.strip().splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            skipped += 1
+            continue
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 2:
+            errors.append(f"Linha {i}: formato invalido (precisa de nome, custo) — '{line}'")
+            continue
+        name = parts[0]
+        try:
+            cost = float(parts[1].replace("R$", "").replace(" ", "").replace(",", "."))
+        except ValueError:
+            errors.append(f"Linha {i}: custo invalido '{parts[1]}' — '{line}'")
+            continue
+        try:
+            qty = int(parts[2]) if len(parts) >= 3 and parts[2] else 1
+        except ValueError:
+            errors.append(f"Linha {i}: quantidade invalida '{parts[2]}' — '{line}'")
+            continue
+        add_position(name, cost, max(qty, 1), path)
+        imported += 1
+    return {"imported": imported, "skipped": skipped, "errors": errors}

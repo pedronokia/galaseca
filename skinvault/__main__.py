@@ -97,6 +97,24 @@ def _cli_add(args: list[str]) -> None:
           f"{_brl(portfolio.break_even_price(cost))})")
 
 
+def _cli_check(market_hash_name: str) -> None:
+    print(f"Consultando preco de: {market_hash_name}")
+    overview = steam_api.get_market_overview(market_hash_name)
+    if overview is None:
+        print("  Nao consegui obter dados do Market (rede ou item inexistente).")
+        return
+    lowest = overview["lowest"]
+    median = overview["median"]
+    volume = overview["volume"]
+    verdict = steam_api.fair_value_verdict(lowest, median)
+
+    print(f"  Menor listagem: {_brl(lowest) if lowest else 'N/D':>12}")
+    print(f"  Mediana:        {_brl(median) if median else 'N/D':>12}")
+    print(f"  Volume (24h):   {volume if volume else 'N/D':>12}")
+    print(f"  {'-' * 40}")
+    print(f"  VEREDITO: {verdict['message']}")
+
+
 def main() -> None:
     try:
         sys.stdout.reconfigure(errors="replace")  # type: ignore[union-attr]
@@ -109,6 +127,8 @@ def main() -> None:
         raise SystemExit(launch())
     if "--portfolio" in args:
         _cli_portfolio()
+    elif "--check" in args:
+        _cli_check(" ".join(args[args.index("--check") + 1:]))
     elif "--add" in args:
         _cli_add(args[args.index("--add") + 1:])
     elif args and not args[0].startswith("--"):
@@ -118,6 +138,7 @@ def main() -> None:
         print("  python -m skinvault <SteamID64>     avalia o inventario")
         print("  python -m skinvault --portfolio     lucro REAL pos-taxa")
         print('  python -m skinvault --add "<nome>" <custo> [qtd]')
+        print('  python -m skinvault --check "<nome>" fair-value (anti-ripoff)')
         print("  python -m skinvault --ui            abre a janela")
 
 
