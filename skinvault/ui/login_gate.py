@@ -7,6 +7,7 @@ from __future__ import annotations
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
+    QDialog,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -94,9 +95,6 @@ class LoginGate(QWidget):
 
     def _on_connect(self) -> None:
         dlg = build_steam_login_dialog(self)
-        if dlg is None:
-            return
-        from PyQt6.QtWidgets import QDialog
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         sess = dlg.session

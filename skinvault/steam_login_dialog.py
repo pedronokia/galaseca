@@ -1,23 +1,29 @@
-"""Dialog de login Steam (sem WebEngine).
+"""Dialog de login Steam automatico via Chrome DevTools Protocol (WS).
 
-Abre o navegador padrao do usuario na pagina de login da Steam.
-Usuario loga manualmente, copia os cookies e cola no dialog.
-Suporta tanto cookie string (nome=valor; nome=valor) como JSON.
+Abre uma janela Chrome para o usuario logar na Steam.
+Apos o login, extrai cookies via CDP sobre WebSocket
+(incluindo HTTP-only) e cria a sessao automaticamente.
+
+Sem dependencia de selenium nem QtWebEngine.
 """
 from __future__ import annotations
 
 import json
-import re
+import logging
+import os
+import socket
+import subprocess
+import tempfile
+import threading
 import time
+import urllib.request
 from typing import Optional
 
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QVBoxLayout,
@@ -30,51 +36,60 @@ from skinvault.steam_session import (
     merge_cookies,
 )
 
+logger = logging.getLogger(__name__)
 
 _LOGIN_URL = "https://steamcommunity.com/login/home/?goto=my"
+_SUCCESS_FRAGMENTS = ("/profiles/", "/id/")
 
 
-def _parse_cookie_input(text: str) -> dict:
-    """Converte input do usuario em dict de cookies.
+def _find_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return int(s.getsockname()[1])
 
-    Aceita:
-      - JSON dict: {"steamLoginSecure": "...", "sessionid": "..."}
-      - Cookie string: steamLoginSecure=xxx; sessionid=yyy
-      - Linhas chave=valor
-    """
-    text = text.strip()
-    if not text:
-        return {}
-    # Tenta JSON primeiro
-    if text.startswith("{"):
+
+def _find_chrome() -> str | None:
+    """Procura o executavel do Chrome no PATH e locais comuns."""
+    candidates = ["chrome", "google-chrome", "chromium", "chromium-browser"]
+    for name in candidates:
         try:
-            parsed = json.loads(text)
-            if isinstance(parsed, dict):
-                return {str(k): str(v) for k, v in parsed.items()}
-        except (json.JSONDecodeError, ValueError):
+            subprocess.run(
+                [name, "--version"],
+                capture_output=True, timeout=5, check=True,
+            )
+            return name
+        except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
             pass
-    # Cookie string ou linhas chave=valor
-    cookies: dict = {}
-    for part in text.replace("\n", ";").replace("\r", "").split(";"):
-        part = part.strip()
-        if "=" in part:
-            k, v = part.split("=", 1)
-            cookies[k.strip()] = v.strip()
-    return cookies
+    paths = [
+        os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Chromium\Application\chrome.exe"),
+    ]
+    for p in paths:
+        if os.path.isfile(p):
+            return p
+    return None
 
 
 class SteamLoginDialog(QDialog):
-    """Dialog manual: usuario cola cookies da Steam.
+    """Dialog que abre Chrome automaticamente para login Steam.
 
-    self.session e' preenchido apos accept() se os cookies tiverem
-    steamLoginSecure valido.
+    Chrome e' lancado com um perfil temporario e porta de debugging.
+    Acompanha navegacao via CDP (WebSocket). Quando detecta redirect para
+    profiles/id, extrai cookies via CDP e finaliza.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Conectar conta Steam")
-        self.resize(660, 440)
+        self.resize(520, 320)
         self.session: Optional[SteamSession] = None
+        self._chrome_proc: Optional[subprocess.Popen] = None
+        self._ws: Optional["websocket.WebSocket"] = None  # noqa: F821
+        self._user_data_dir: Optional[str] = None
+        self._monitor_active = False
+        self._manual_btn: Optional[QPushButton] = None
         self._build()
 
     def _build(self) -> None:
@@ -82,110 +97,338 @@ class SteamLoginDialog(QDialog):
         layout.setSpacing(14)
         layout.setContentsMargins(24, 20, 24, 20)
 
-        title = QLabel(
-            "Conectar conta Steam"
-        )
+        title = QLabel("Conectar conta Steam")
         title.setStyleSheet("font-size: 14pt; font-weight: 700;")
         layout.addWidget(title)
 
-        instructions = QLabel(
-            "1. Clique em \"Abrir navegador\" e faça login na Steam.\n"
-            "2. Após logar, volte aqui.\n"
-            "3. Copie os cookies da página steamcommunity.com:\n"
-            "   - Chrome: F12 → Application → Cookies → steamcommunity.com\n"
-            "   - Firefox: F12 → Storage → Cookies\n"
-            "4. Selecione TODOS os cookies, copie e cole abaixo.\n"
-            "5. Clique em \"Conectar\"."
+        self._status = QLabel(
+            "Abrindo Chrome para login na Steam...\n"
+            "Faça login normalmente (incluindo 2FA se tiver).\n"
+            "A janela fechará automaticamente após o login."
         )
-        instructions.setWordWrap(True)
-        instructions.setStyleSheet(
-            "color: #9D9DA8; font-size: 10pt; line-height: 1.5;"
-        )
-        layout.addWidget(instructions)
+        self._status.setWordWrap(True)
+        self._status.setStyleSheet("color: #9D9DA8; font-size: 10pt;")
+        layout.addWidget(self._status, 1)
 
         btn_row = QHBoxLayout()
-        open_btn = QPushButton("Abrir navegador")
-        open_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        open_btn.setMinimumHeight(36)
-        open_btn.setStyleSheet(self._btn_primary())
-        open_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(_LOGIN_URL)))
-        btn_row.addWidget(open_btn)
+        self._cancel_btn = QPushButton("Cancelar")
+        self._cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._cancel_btn.setStyleSheet(self._btn_ghost())
+        self._cancel_btn.clicked.connect(self._on_cancel)
         btn_row.addStretch()
+        btn_row.addWidget(self._cancel_btn)
         layout.addLayout(btn_row)
 
-        paste_label = QLabel("Cookies da Steam (cole abaixo):")
-        paste_label.setStyleSheet("font-size: 10pt; font-weight: 600;")
-        layout.addWidget(paste_label)
+    def _on_cancel(self) -> None:
+        self._cleanup()
+        self.reject()
 
-        self._input = QPlainTextEdit()
-        self._input.setPlaceholderText(
-            'Cole os cookies aqui...\n'
-            'Ex: steamLoginSecure=xxxxx; sessionid=yyyyy\n'
-            'Ou JSON: {"steamLoginSecure": "xxx", "sessionid": "yyy"}'
-        )
-        self._input.setStyleSheet(
-            "background: #1E1E28; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 10px;"
-            " color: #E6E6EA; font-family: Consolas; font-size: 10pt;"
-        )
-        self._input.setMinimumHeight(120)
-        layout.addWidget(self._input, 1)
+    def _cleanup(self) -> None:
+        self._monitor_active = False
+        if self._ws is not None:
+            try:
+                self._ws.close()
+            except Exception as exc:
+                logger.warning("Falha ao fechar WebSocket: %s", exc)
+            self._ws = None
+        if self._chrome_proc is not None:
+            try:
+                self._chrome_proc.terminate()
+                self._chrome_proc.wait(timeout=5)
+            except Exception:
+                try:
+                    self._chrome_proc.kill()
+                except Exception:
+                    pass
+            self._chrome_proc = None
+        if self._user_data_dir is not None and os.path.isdir(self._user_data_dir):
+            try:
+                import shutil
+                shutil.rmtree(self._user_data_dir, ignore_errors=True)
+            except Exception:
+                pass
+            self._user_data_dir = None
 
-        footer = QHBoxLayout()
-        self._status = QLabel("")
-        self._status.setStyleSheet("color: #9D9DA8; font-size: 9pt;")
-        footer.addWidget(self._status, 1)
+    def _send_cdp(self, method: str, params: dict | None = None) -> int:
+        """Envia comando CDP e retorna o message id."""
+        if self._ws is None:
+            return -1
+        mid = int(time.time() * 1000) & 0xFFFFFF
+        msg = {"id": mid, "method": method}
+        if params:
+            msg["params"] = params
+        self._ws.send(json.dumps(msg))
+        return mid
 
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cancel_btn.setStyleSheet(self._btn_ghost())
-        cancel_btn.clicked.connect(self.reject)
-        footer.addWidget(cancel_btn)
+    def _recv_cdp(self, timeout: float = 30) -> Optional[dict]:
+        """Le uma mensagem CDP do WebSocket."""
+        if self._ws is None:
+            return None
+        try:
+            self._ws.settimeout(timeout)
+            raw = self._ws.recv()
+            return json.loads(raw)
+        except Exception:
+            return None
 
-        connect_btn = QPushButton("  Conectar  ")
-        connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        connect_btn.setMinimumHeight(36)
-        connect_btn.setStyleSheet(self._btn_primary())
-        connect_btn.clicked.connect(self._on_connect)
-        footer.addWidget(connect_btn)
+    def _wait_for_cdp_result(self, expected_id: int, timeout: float = 30) -> Optional[dict]:
+        """Le mensagens ate encontrar a resposta com o id esperado."""
+        deadline = time.time() + timeout
+        while self._monitor_active and time.time() < deadline:
+            msg = self._recv_cdp(1.0)
+            if msg is None:
+                continue
+            if msg.get("id") == expected_id:
+                return msg.get("result")
+        return None
 
-        layout.addLayout(footer)
+    def _monitor_ws(self) -> None:
+        """Thread principal: poll URL via HTTP /json, depois extrai cookies via WS.
 
-    def _parse_input(self) -> dict:
-        text = self._input.toPlainText().strip()
-        return _parse_cookie_input(text)
-
-    def _on_connect(self) -> None:
-        cookies = self._parse_input()
-        if not cookies:
-            self._status.setText("Nenhum cookie encontrado. Cole os cookies primeiro.")
+        Em vez de manter WebSocket aberto ouvindo eventos, faz polling simples
+        do endpoint HTTP /json que ja expoe a URL atual de cada pagina.
+        Quando detecta /profiles/ ou /id/, conecta via WebSocket SO' pra
+        chamar Network.getAllCookies.
+        """
+        port = _find_free_port()
+        chrome_exe = _find_chrome()
+        if chrome_exe is None:
+            logger.error("Chrome nao encontrado no sistema")
+            QTimer.singleShot(0, self._show_manual_option)
             return
+
+        self._user_data_dir = tempfile.mkdtemp(prefix="sv_")
+
+        try:
+            self._chrome_proc = subprocess.Popen(
+                [
+                    chrome_exe,
+                    f"--remote-debugging-port={port}",
+                    "--remote-allow-origins=*",
+                    "--no-sandbox",
+                    "--disable-gpu",
+                    "--disable-software-rasterizer",
+                    "--no-first-run",
+                    "--disable-default-apps",
+                    f"--user-data-dir={self._user_data_dir}",
+                    "--window-size=1024,768",
+                    _LOGIN_URL,
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception as exc:
+            logger.exception("Falha ao lancar Chrome: %s", exc)
+            QTimer.singleShot(0, lambda e=exc: self._on_chrome_launch_failed(e))
+            return
+
+        logger.info("Chrome lancado (PID=%d), aguardando DevTools na porta %d",
+                     self._chrome_proc.pid, port)
+
+        # Poll HTTP /json ate detectar login na URL
+        deadline = time.time() + 300  # 5 min
+        ws_url: Optional[str] = None
+
+        while self._monitor_active and time.time() < deadline:
+            try:
+                resp = urllib.request.urlopen(
+                    f"http://localhost:{port}/json", timeout=3
+                )
+                pages = json.loads(resp.read().decode("utf-8"))
+                for page in pages:
+                    if page.get("type") != "page":
+                        continue
+                    url = page.get("url", "")
+                    if any(f in url for f in _SUCCESS_FRAGMENTS):
+                        logger.info("Login detectado via /json: %s", url[:100])
+                        ws_url = page.get("webSocketDebuggerUrl") or ""
+                        break
+                if ws_url:
+                    break
+            except Exception:
+                pass
+            time.sleep(1.0)
+
+        if not ws_url:
+            if self._monitor_active:
+                logger.info("Timeout de login, oferecendo modo manual")
+                QTimer.singleShot(0, self._show_manual_option)
+            return
+
+        # Conecta WebSocket so' pra extrair cookies
+        import websocket
+
+        try:
+            self._ws = websocket.create_connection(ws_url, timeout=10)
+        except Exception as exc:
+            logger.exception("Falha ao conectar WS para cookies: %s", exc)
+            QTimer.singleShot(0, self._show_manual_option)
+            return
+
+        logger.info("WS conectado, requisitando cookies...")
+        self._send_cdp("Network.enable")
+        time.sleep(0.5)  # aguarda Network domain ficar pronto
+        mid = self._send_cdp("Network.getAllCookies")
+        result = self._wait_for_cdp_result(mid, timeout=15)
+
+        if not result:
+            logger.error("getAllCookies nao retornou resultado")
+            QTimer.singleShot(0, self._on_login_error)
+            return
+
+        cookies: dict = {}
+        for c in result.get("cookies", []):
+            if "steamcommunity.com" in c.get("domain", ""):
+                cookies[c["name"]] = c["value"]
+
+        logger.info("Extraidos %d cookies Steam via CDP (total=%d)",
+                     len(cookies), len(result.get("cookies", [])))
+
+        # Se veio vazio, tenta uma segunda vez
+        if not cookies:
+            logger.info("Cookies vazio, tentando novamente...")
+            time.sleep(1.0)
+            mid = self._send_cdp("Network.getAllCookies")
+            result = self._wait_for_cdp_result(mid, timeout=15)
+            if result:
+                cookies = {}
+                for c in result.get("cookies", []):
+                    if "steamcommunity.com" in c.get("domain", ""):
+                        cookies[c["name"]] = c["value"]
+                logger.info("Tentativa 2: %d cookies Steam via CDP", len(cookies))
+
         steamid = extract_steamid_from_cookie(cookies) or ""
         if not steamid or not cookies.get("steamLoginSecure"):
-            self._status.setText(
-                "Cookie steamLoginSecure não encontrado ou inválido. "
-                "Certifique-se de copiar os cookies de steamcommunity.com."
+            logger.warning(
+                "Cookies insuficientes: steamid=%s, has_secure=%s",
+                bool(steamid), bool(cookies.get("steamLoginSecure")),
             )
+            QTimer.singleShot(0, self._show_manual_option)
             return
+
         merged = merge_cookies({}, cookies)
-        if not merged.get("steamLoginSecure"):
-            self._status.setText("Cookies inválidos. Tente novamente.")
-            return
         self.session = SteamSession(
             steamid=steamid,
             cookies=merged,
             captured_at=time.time(),
         )
+        logger.info("Sessao Steam capturada: steamid=%s", steamid)
+        QTimer.singleShot(0, self._on_login_success)
+
+    def _on_chrome_launch_failed(self, exc: Exception) -> None:
+        self._status.setText(f"Erro ao abrir Chrome: {exc}")
+        self._show_manual_option()
+
+    def _on_login_error(self) -> None:
+        """Main-thread: feedback de erro no login, oferece manual."""
+        self._status.setText("Erro ao capturar cookies. Tente o modo manual abaixo.")
+        self._cleanup()
+        self._show_manual_option()
+
+    def _on_login_success(self) -> None:
+        """Main-thread: fecha tudo e aceita o dialog."""
+        self._cleanup()
         self.accept()
 
-    @staticmethod
-    def _btn_primary() -> str:
-        return (
-            "QPushButton { background: #1B2838; color: #66C0F4;"
-            " border: 1px solid #66C0F4; border-radius: 6px;"
-            " font-size: 10pt; font-weight: 600; padding: 8px 20px; }"
-            "QPushButton:hover { background: #66C0F4; color: #1B2838; }"
+    def _launch_chrome(self) -> None:
+        """Lanca Chrome em thread separada com CDP via WebSocket."""
+        logger.info("Lancando Chrome para login Steam (CDP raw)...")
+        self._monitor_active = True
+        t = threading.Thread(target=self._monitor_ws, daemon=True)
+        t.start()
+
+    def _show_manual_option(self) -> None:
+        """Troca para modo manual: text area para colar cookies."""
+        self._cleanup()
+        self._manual_btn = QPushButton("Colar cookies manualmente")
+        self._manual_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._manual_btn.setStyleSheet(
+            "QPushButton { background: #2A2A35; color: #E6E6EA;"
+            " border: 1px solid #40404D; border-radius: 6px;"
+            " font-size: 10pt; padding: 10px 20px; }"
+            "QPushButton:hover { background: #333340; }"
         )
+        self._manual_btn.clicked.connect(self._switch_to_manual)
+        self.layout().insertWidget(2, self._manual_btn)
+
+    def _switch_to_manual(self) -> None:
+        """Substitui o conteudo por um text area para colar cookies."""
+        self._cleanup()
+        if self._manual_btn is not None:
+            self._manual_btn.hide()
+            self._manual_btn.deleteLater()
+            self._manual_btn = None
+
+        self._status.setText(
+            "Faça login na Steam pelo seu navegador normalmente.\n"
+            "Depois cole aqui os cookies copiados (F12 > Application > Cookies\n"
+            "> steamcommunity.com > selecione tudo > Copy como JSON)."
+        )
+
+        self._cookie_input = QPlainTextEdit()
+        self._cookie_input.setPlaceholderText(
+            '[{"domain":"steamcommunity.com","name":"steamLoginSecure",...}]'
+        )
+        self._cookie_input.setStyleSheet(
+            "background: #1E1E28; color: #E6E6EA; border: 1px solid #40404D;"
+            " border-radius: 6px; padding: 10px; font-size: 9pt;"
+            " font-family: 'Consolas', monospace;"
+        )
+        self._cookie_input.setMinimumHeight(160)
+        self.layout().insertWidget(2, self._cookie_input)
+
+        self._confirm_btn = QPushButton("Validar cookies")
+        self._confirm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._confirm_btn.setStyleSheet(
+            "QPushButton { background: #22C55E; color: #09090B;"
+            " border: none; border-radius: 6px; font-size: 10pt;"
+            " font-weight: 600; padding: 10px 24px; }"
+            "QPushButton:hover { background: #1DA34F; }"
+        )
+        self._confirm_btn.clicked.connect(self._process_manual_cookies)
+        self.layout().insertWidget(3, self._confirm_btn)
+
+    def _process_manual_cookies(self) -> None:
+        """Processa cookies colados manualmente."""
+        raw = self._cookie_input.toPlainText().strip()
+        if not raw:
+            self._status.setText("Cole os cookies primeiro.")
+            return
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            self._status.setText(f"JSON invalido: {exc}")
+            return
+        if isinstance(parsed, list):
+            cookies: dict = {}
+            for c in parsed:
+                if "steamcommunity.com" in c.get("domain", ""):
+                    cookies[c["name"]] = c["value"]
+        elif isinstance(parsed, dict):
+            cookies = dict(parsed)
+        else:
+            self._status.setText("Formato nao reconhecido. Use array de cookies ou dict.")
+            return
+        steamid = extract_steamid_from_cookie(cookies) or ""
+        if not steamid or not cookies.get("steamLoginSecure"):
+            self._status.setText(
+                "Cookie steamLoginSecure nao encontrado. "
+                "Certifique-se de copiar cookies de steamcommunity.com."
+            )
+            return
+        merged = merge_cookies({}, cookies)
+        self.session = SteamSession(
+            steamid=steamid,
+            cookies=merged,
+            captured_at=time.time(),
+        )
+        logger.info("Sessao Steam via cookies manuais: steamid=%s", steamid)
+        self._cleanup()
+        self.accept()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        QTimer.singleShot(100, self._launch_chrome)
 
     @staticmethod
     def _btn_ghost() -> str:
@@ -198,6 +441,6 @@ class SteamLoginDialog(QDialog):
 
 def build_steam_login_dialog(
     parent: QWidget | None = None,
-) -> SteamLoginDialog | None:
-    """Cria o dialog de login Steam (sem WebEngine)."""
+) -> SteamLoginDialog:
+    """Cria o dialog de login Steam (automatico via Chrome)."""
     return SteamLoginDialog(parent)

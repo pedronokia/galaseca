@@ -10,6 +10,7 @@ nao compartilhar o arquivo.
 from __future__ import annotations
 
 import json
+import logging
 import time
 import urllib.error
 import urllib.parse
@@ -18,6 +19,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from skinvault._paths import DATA_DIR
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_PATH = DATA_DIR / "steam_session.json"
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
@@ -70,14 +73,15 @@ def persist(session: SteamSession, path: Path | str = _DEFAULT_PATH) -> None:
             **asdict(session),
         }
         p.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as exc:
+        logger.exception("Falha ao persistir sessao em %s: %s", p, exc)
 
 
 def load(path: Path | str = _DEFAULT_PATH) -> SteamSession | None:
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        logger.debug("Nenhuma sessao previa para carregar: %s", exc)
         return None
     if not isinstance(data, dict):
         return None
@@ -89,15 +93,16 @@ def load(path: Path | str = _DEFAULT_PATH) -> SteamSession | None:
             captured_at=float(data.get("captured_at", 0.0)),
             validated_at=float(data.get("validated_at", 0.0)),
         )
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as exc:
+        logger.warning("Sessao corrompida: %s", exc)
         return None
 
 
 def clear(path: Path | str = _DEFAULT_PATH) -> None:
     try:
         Path(path).unlink(missing_ok=True)
-    except OSError:
-        pass
+    except OSError as exc:
+        logger.warning("Falha ao limpar sessao: %s", exc)
 
 
 def validate(session: SteamSession, timeout: float = 10.0) -> bool:
@@ -130,7 +135,8 @@ def _follow_redirect(url: str, cookie_header: str, timeout: float) -> str | None
             return resp.geturl()
     except urllib.error.HTTPError as exc:
         return getattr(exc, "url", None) or url
-    except Exception:
+    except Exception as exc:
+        logger.info("Redirect follow falhou: %s", exc)
         return None
 
 
