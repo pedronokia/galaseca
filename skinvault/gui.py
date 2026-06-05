@@ -57,7 +57,7 @@ try:
 except ImportError:
     QSystemTrayIcon = None
 
-from skinvault import backup, history, portfolio, prices, signals, steam_api, trades, watchlist
+from skinvault import backup, cases, history, portfolio, prices, signals, steam_api, trades, watchlist
 from skinvault._paths import DATA_DIR
 from skinvault.settings import DEFAULTS, load_settings, save_settings
 
@@ -1836,12 +1836,18 @@ class MarketTab(QWidget):
             sr = signals.find_support_resistance(price_history, window=5)
             self._sparkline.set_sr(sr)
 
-        disc = signals.discontinued_flag(name)
-        if disc["is_discontinued"]:
-            self._disc_lbl.setStyleSheet(
-                f"color: #FACC15; font-size: 11pt;"
-            )
-            self._disc_lbl.setText(f"Oferta: {disc['flag']}")
+        cs = cases.case_status(name)
+        if cs["case"]:
+            if cs["is_discontinued"]:
+                color = "#FACC15"  # amarelo: descontinuada = sinal positivo
+            elif cs["status"] == "rare":
+                color = "#A78BFA"  # roxo: rara
+            elif cs["status"] == "active":
+                color = _MUTED  # ativa = neutro
+            else:
+                color = _MUTED
+            self._disc_lbl.setStyleSheet(f"color: {color}; font-size: 11pt;")
+            self._disc_lbl.setText(f"Caixa: {cs['label']}")
         else:
             self._disc_lbl.setStyleSheet(f"color: {_MUTED}; font-size: 11pt;")
             self._disc_lbl.setText("")
@@ -2237,6 +2243,8 @@ class ScannerTab(QWidget):
                 )
             if col == 10 and r.get("score_tooltip"):
                 item.setToolTip(r["score_tooltip"])
+            if col == 0 and r.get("case_label"):
+                item.setToolTip(r["case_label"])
             if row_bg.alpha() > 0:
                 item.setBackground(row_bg)
             self._table.setItem(row, col, item)
@@ -2302,6 +2310,11 @@ class ScannerTab(QWidget):
             cor = self._signal_color(best).name()
             spread_txt = f" | Spread {best['spread'].replace('_', ' ')}" if best.get("spread") else ""
             sd_txt = f" | S/D {best['sd_label']}" if best.get("sd_label") and best["sd_label"] != "N/D" else ""
+            case_txt = ""
+            if best.get("is_discontinued"):
+                case_txt = f" | {best['case']} (descont.)"
+            elif best.get("case_status") == "active" and best.get("case"):
+                case_txt = f" | {best['case']}"
             self._top_pick.setStyleSheet(
                 f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
                 f" font-size: 11pt; border-left: 4px solid {cor};"
@@ -2311,7 +2324,7 @@ class ScannerTab(QWidget):
                 f"Preco: {_brl(best['price'])}  |  "
                 f"Score: {best['score']}%  |  "
                 f"Sinal: {sinal}"
-                f"{spread_txt}{sd_txt}"
+                f"{spread_txt}{sd_txt}{case_txt}"
             )
             self._status.setText(
                 f"Scan concluido. {len(self._scan_results)} itens analisados. "
@@ -2367,12 +2380,14 @@ class ScannerTab(QWidget):
                     parts.append(f"{lbl}: {cp:+.1f}%")
             trend_display = " | ".join(parts)
 
+        cs_info = cases.case_status(name)
         score, breakdown = signals.enhanced_score(
             verdict,
             volume=volume if isinstance(volume, (int, float)) else None,
             supply=csell,
             multi_trend=multi,
             price_history=price_history_data,
+            case_status=cs_info,
         )
         score_tooltip = signals.format_breakdown(breakdown)
 
@@ -2408,6 +2423,10 @@ class ScannerTab(QWidget):
             "score": score,
             "score_breakdown": breakdown,
             "score_tooltip": score_tooltip,
+            "case": cs_info.get("case"),
+            "case_status": cs_info.get("status"),
+            "case_label": cs_info.get("label"),
+            "is_discontinued": cs_info.get("is_discontinued", False),
             "message": verdict.get("message", ""),
             "diff_pct": diff_pct,
             "category": category,
