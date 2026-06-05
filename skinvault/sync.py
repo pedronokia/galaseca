@@ -75,7 +75,7 @@ def sync_inventory(session: SteamSession,
 
     Retorna {status, added, skipped}.
     """
-    status, items = steam_api.fetch_inventory(session.steamid)
+    status, items = steam_api.fetch_inventory_authed(session)
     if status != steam_api.INV_OK:
         return {"status": status, "added": 0, "skipped": 0}
 

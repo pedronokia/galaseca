@@ -94,9 +94,38 @@ def fetch_inventory(steam_id: str) -> tuple[str, list[dict]]:
     """
     url = (
         f"https://steamcommunity.com/inventory/{steam_id}/{_APP_CS2}/{_CONTEXT}"
-        f"?l=english&count=5000"
     )
     code, body = _http_get(url)
+    if code in (400, 403):
+        return INV_PRIVATE, []
+    if code == 429:
+        return INV_RATE_LIMITED, []
+    if code != 200 or body is None:
+        return INV_ERROR, []
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return INV_ERROR, []
+    if not data or not data.get("assets") or not data.get("descriptions"):
+        return INV_EMPTY, []
+    items = _parse_items(data)
+    return (INV_OK, items) if items else (INV_EMPTY, [])
+
+
+def fetch_inventory_authed(
+    session: "SteamSession",
+) -> tuple[str, list[dict]]:
+    """Versao autenticada de fetch_inventory: usa cookies da sessao,
+    permitindo ler inventario privado/amigos do proprio usuario.
+
+    Retorna (status, items) com mesmos codigos de fetch_inventory.
+    """
+    steam_id = session.steamid
+    url = (
+        f"https://steamcommunity.com/inventory/{steam_id}/{_APP_CS2}/{_CONTEXT}"
+    )
+    headers = {"Referer": f"https://steamcommunity.com/profiles/{steam_id}/inventory/"}
+    code, body = _http_get_auth(url, session, extra_headers=headers)
     if code in (400, 403):
         return INV_PRIVATE, []
     if code == 429:
