@@ -57,7 +57,7 @@ try:
 except ImportError:
     QSystemTrayIcon = None
 
-from skinvault import alerts, backup, cases, history, portfolio, prices, signals, steam_api, trades, watchlist
+from skinvault import alerts, backup, cases, history, portfolio, prices, ranking, signals, steam_api, trades, watchlist
 from skinvault._paths import DATA_DIR
 from skinvault.settings import DEFAULTS, load_settings, save_settings
 
@@ -2014,6 +2014,7 @@ class ScannerTab(QWidget):
         self._bridge.market_done.connect(self._on_item_scanned)
         self._scan_items: list[str] = []
         self._scan_results: list[dict] = []
+        self._prev_snapshot: dict | None = None
         self._build()
 
     def _build(self) -> None:
@@ -2068,6 +2069,22 @@ class ScannerTab(QWidget):
         )
         self._load_btn.clicked.connect(self._load_defaults)
         cat_layout.addWidget(self._load_btn)
+
+        self._ranking_btn = QPushButton("Ranking Top 20")
+        self._ranking_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._ranking_btn.setToolTip(
+            "Escaneia todas as categorias e gera ranking comparando"
+            " com snapshot anterior"
+        )
+        self._ranking_btn.setStyleSheet(
+            f"QPushButton {{ background: {_SURFACE}; color: {_TEXT};"
+            " border: 1px solid #2A2A33; border-radius: 6px; padding: 6px 14px;"
+            " font-size: 10pt; }}"
+            "QPushButton:hover { background: #2A2A33; }"
+        )
+        self._ranking_btn.clicked.connect(self._on_ranking_scan)
+        cat_layout.addWidget(self._ranking_btn)
+
         cat_layout.addStretch()
         root.addLayout(cat_layout)
 
@@ -2125,14 +2142,15 @@ class ScannerTab(QWidget):
 
         # Results table
         self._table = QTableWidget()
-        self._table.setColumnCount(11)
+        self._table.setColumnCount(12)
         self._table.setHorizontalHeaderLabels(
             ["Item", "Sinal", "Preco", "Preco Justo", "Veredito",
-             "Spread", "Book", "Tendencia", "Mercado", "S/D", "Score"]
+             "Spread", "Book", "Tendencia", "Mercado", "S/D", "Score", "ΔPos"]
         )
         self._table.setColumnWidth(8, 90)
         self._table.setColumnWidth(9, 60)
         self._table.setColumnWidth(10, 60)
+        self._table.setColumnWidth(11, 60)
         self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self._table.setAlternatingRowColors(True)
         self._table.setSortingEnabled(True)
@@ -2211,6 +2229,8 @@ class ScannerTab(QWidget):
             if r.get("volume") and r.get("sell_count") is not None
             else "-"
         )
+        delta_info = r.get("delta_pos") or {}
+        delta_label = delta_info.get("label", "")
         items_data = [
             r["name"],
             sinal,
@@ -2223,6 +2243,7 @@ class ScannerTab(QWidget):
             mercado,
             r.get("sd_label", "-"),
             f"{r['score']}%",
+            delta_label or "-",
         ]
 
         signal_cols = {0: scolor, 1: scolor, 10: scolor}
@@ -2245,9 +2266,31 @@ class ScannerTab(QWidget):
                 item.setToolTip(r["score_tooltip"])
             if col == 0 and r.get("case_label"):
                 item.setToolTip(r["case_label"])
+            if col == 11 and delta_info:
+                d = delta_info.get("delta", 0)
+                if delta_label == "NOVO":
+                    item.setForeground(QColor("#A78BFA"))
+                elif d > 0:
+                    item.setForeground(QColor(_GREEN))
+                elif d < 0:
+                    item.setForeground(QColor(_RED))
+                else:
+                    item.setForeground(QColor(_MUTED))
+                if delta_info.get("prev_pos"):
+                    item.setToolTip(
+                        f"Posicao anterior: {delta_info['prev_pos']}"
+                    )
             if row_bg.alpha() > 0:
                 item.setBackground(row_bg)
             self._table.setItem(row, col, item)
+
+    def _on_ranking_scan(self) -> None:
+        all_items: list[str] = []
+        for cat_items in _SCAN_BY_CATEGORY.values():
+            all_items.extend(cat_items)
+        self._items_edit.setText("\n".join(all_items))
+        self._cat_combo.setCurrentText("Todas")
+        self._on_scan()
 
     def _on_scan(self) -> None:
         items = [
@@ -2258,8 +2301,11 @@ class ScannerTab(QWidget):
             return
         self._scan_items = list(items)
         self._scan_results = []
+        snaps = ranking.load_snapshots()
+        self._prev_snapshot = snaps[-1] if snaps else None
         self._table.setRowCount(0)
         self._scan_btn.setEnabled(False)
+        self._ranking_btn.setEnabled(False)
         self._top_pick.setText("Escaneando... aguarde")
         self._top_pick.setStyleSheet(
             f"background: {_SURFACE}; border-radius: 10px; padding: 14px 18px;"
@@ -2290,10 +2336,21 @@ class ScannerTab(QWidget):
     def _on_item_scanned(self, data: dict) -> None:
         if data.get("_scan_done"):
             self._scan_btn.setEnabled(True)
+            self._ranking_btn.setEnabled(True)
             if not self._scan_results:
                 self._status.setText("Nenhum resultado obtido.")
                 self._top_pick.setText("Nenhum item pode ser avaliado.")
                 return
+
+            # Atribui posicao + delta vs snapshot anterior, salva novo snapshot
+            self._scan_results.sort(key=lambda r: -r["score"])
+            for i, r in enumerate(self._scan_results):
+                r["position"] = i + 1
+                r["delta_pos"] = ranking.position_delta(
+                    r["name"], i + 1, self._prev_snapshot
+                )
+            ranking.save_snapshot(self._scan_results)
+            self._apply_filter()
 
             buys = sum(1 for r in self._scan_results if r["score"] >= 70)
             warns = sum(1 for r in self._scan_results if 45 <= r["score"] < 70)
