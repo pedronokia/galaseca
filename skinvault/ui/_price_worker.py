@@ -19,6 +19,7 @@ class PriceWorker(QObject):
     """Worker async que avalia o portfolio em background thread."""
 
     eval_done = pyqtSignal(dict)
+    progress = pyqtSignal(int, int)  # done, total
 
     def __init__(self, cache: PriceCache,
                  parent: QObject | None = None) -> None:
@@ -29,9 +30,17 @@ class PriceWorker(QObject):
         def worker() -> None:
             try:
                 positions = portfolio_mod.load_portfolio()
+                total = len(positions)
+                done = [0]
+
+                def price_fn(n: str) -> float | None:
+                    p = prices_mod.cached_price(n, self._cache)
+                    done[0] += 1
+                    self.progress.emit(done[0], total)
+                    return p
+
                 result = portfolio_mod.evaluate_portfolio(
-                    positions,
-                    lambda n: prices_mod.cached_price(n, self._cache),
+                    positions, price_fn,
                 )
                 self.eval_done.emit({
                     "positions": positions,

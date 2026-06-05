@@ -16,6 +16,8 @@ DEFAULTS = {
     "theme": "dark",
     "start_minimized": False,
     "minimize_to_tray_on_close": True,
+    "history_last_segment": "all",
+    "history_last_periodo": "all",
     "column_widths": {},
     "window_geometry": {},
     "window_position": {},

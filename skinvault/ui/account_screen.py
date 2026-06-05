@@ -70,6 +70,7 @@ class AccountScreen(QWidget):
         self._bridge.profile_ready.connect(self._on_profile)
         self._price_worker = PriceWorker(cache, self)
         self._price_worker.eval_done.connect(self._on_eval)
+        self._price_worker.progress.connect(self._on_eval_progress)
         self._build()
 
     def set_session(self, session: steam_session.SteamSession | None) -> None:
@@ -288,8 +289,11 @@ class AccountScreen(QWidget):
     def refresh(self) -> None:
         """Avalia portfolio em thread e atualiza tabela + stats."""
         self._progress.setVisible(True)
-        self._status.setText("Avaliando inventario…")
+        self._status.setText("Avaliando inventario...")
         self._price_worker.start()
+
+    def _on_eval_progress(self, done: int, total: int) -> None:
+        self._status.setText(f"Avaliando inventario... {done}/{total}")
 
     def _on_eval(self, data: dict) -> None:
         rows = data["rows"]

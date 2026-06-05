@@ -14,10 +14,11 @@ import time
 from typing import Callable
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor
+from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
@@ -32,6 +33,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import portfolio, sync, trade_matcher, trades, watchlist
 from skinvault.prices import PriceCache
+from skinvault.settings import load_settings, save_settings
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import BatchPriceWorker
 from skinvault.ui.components import Card, SegmentedControl
@@ -160,6 +162,7 @@ class _FilterBar(QWidget):
         self._tipo: str = "all"
         self._periodo_btns: dict[str, QPushButton] = {}
         self._tipo_btns: dict[str, QPushButton] = {}
+        self._tipo_widgets: list[QWidget] = []
         self._build()
 
     def _build(self) -> None:
@@ -174,6 +177,12 @@ class _FilterBar(QWidget):
             f" font-family: {t.FONT_FAMILY};"
         )
         root.addWidget(p_label)
+        _periodo_tips = {
+            "7d": "Ultimos 7 dias",
+            "30d": "Ultimos 30 dias",
+            "90d": "Ultimos 90 dias",
+            "all": "Sem limite de periodo",
+        }
         for key, label in [("7d", "7d"), ("30d", "30d"),
                            ("90d", "90d"), ("all", "Tudo")]:
             btn = QPushButton(label)
@@ -181,19 +190,21 @@ class _FilterBar(QWidget):
             btn.setAutoExclusive(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(self._chip_style())
+            btn.setToolTip(_periodo_tips.get(key, ""))
             btn.clicked.connect(lambda _, k=key: self._set_periodo(k))
             self._periodo_btns[key] = btn
             root.addWidget(btn)
             if key == "all":
                 btn.setChecked(True)
 
-        # Divisor
+        # Divisor (escondido junto com o filtro Tipo)
         sep = QLabel("|")
         sep.setStyleSheet(
             f"color: {t.BORDER}; font-size: {t.FS_BODY};"
             f" padding: 0 6px;"
         )
         root.addWidget(sep)
+        self._tipo_widgets.append(sep)
 
         # Tipo
         t_label = QLabel("Tipo:")
@@ -202,6 +213,12 @@ class _FilterBar(QWidget):
             f" font-family: {t.FONT_FAMILY};"
         )
         root.addWidget(t_label)
+        self._tipo_widgets.append(t_label)
+        _tipo_tips = {
+            "all": "Compras e vendas",
+            "buy": "So' compras (saida de saldo)",
+            "sell": "So' vendas (entrada de saldo)",
+        }
         for key, label in [("all", "Todos"), ("buy", "Compra"),
                            ("sell", "Venda")]:
             btn = QPushButton(label)
@@ -209,9 +226,11 @@ class _FilterBar(QWidget):
             btn.setAutoExclusive(True)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(self._chip_style())
+            btn.setToolTip(_tipo_tips.get(key, ""))
             btn.clicked.connect(lambda _, k=key: self._set_tipo(k))
             self._tipo_btns[key] = btn
             root.addWidget(btn)
+            self._tipo_widgets.append(btn)
             if key == "all":
                 btn.setChecked(True)
 
@@ -225,6 +244,10 @@ class _FilterBar(QWidget):
 
         self._search = QLineEdit()
         self._search.setPlaceholderText("Buscar por nome...")
+        self._search.setToolTip(
+            "Filtra por nome do item (case-insensitive). Ctrl+F foca aqui;"
+            " Esc limpa."
+        )
         self._search.setClearButtonEnabled(True)
         self._search.setStyleSheet(
             f"QLineEdit {{ background: {t.SURFACE}; color: {t.TEXT};"
@@ -284,9 +307,25 @@ class _FilterBar(QWidget):
         self._search.clear()
         self.filters_changed.emit()
 
-    def set_tipo_enabled(self, enabled: bool) -> None:
-        for btn in self._tipo_btns.values():
-            btn.setEnabled(enabled)
+    def clear_search(self) -> None:
+        if self._search.text():
+            self._search.clear()
+
+    def focus_search(self) -> None:
+        self._search.setFocus()
+        self._search.selectAll()
+
+    def set_periodo(self, key: str) -> None:
+        btn = self._periodo_btns.get(key)
+        if btn is None:
+            return
+        if not btn.isChecked():
+            btn.setChecked(True)
+        self._periodo = key
+
+    def set_tipo_visible(self, visible: bool) -> None:
+        for w in self._tipo_widgets:
+            w.setVisible(visible)
 
     @property
     def periodo(self) -> str:
@@ -326,14 +365,25 @@ class HistoryScreen(QWidget):
     def __init__(self, cache: PriceCache | None = None,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._current_segment = "all"
+        settings = load_settings()
+        self._current_segment = settings.get("history_last_segment", "all")
+        self._initial_periodo = settings.get("history_last_periodo", "all")
         self._matched_cache: list[trade_matcher.ClosedTrade] | None = None
         self._open_cache: list[trade_matcher.OpenBuy] | None = None
         self._price_cache = cache or PriceCache()
         self._price_worker = BatchPriceWorker(self._price_cache, self)
         self._price_worker.batch_done.connect(self._on_prices_updated)
+        self._price_worker.progress.connect(self._on_batch_progress)
         self._build()
+        self._seg.select(self._current_segment)
+        self._filter_panel.set_periodo(self._initial_periodo)
         self.refresh()
+
+    def _persist_state(self) -> None:
+        s = load_settings()
+        s["history_last_segment"] = self._current_segment
+        s["history_last_periodo"] = self._filter_panel.periodo
+        save_settings(s)
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
@@ -350,13 +400,32 @@ class HistoryScreen(QWidget):
         self._update_prices_btn = QPushButton("Atualizar precos")
         self._update_prices_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._update_prices_btn.setStyleSheet(t.btn_secondary())
+        self._update_prices_btn.setToolTip(
+            "Busca o preco atual de cada item aberto na Steam Market"
+            " (em segundo plano)."
+        )
         self._update_prices_btn.clicked.connect(self._on_update_prices)
         self._update_prices_btn.setVisible(False)
         top.addWidget(self._update_prices_btn)
 
+        reload_btn = QPushButton("Recarregar")
+        reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        reload_btn.setStyleSheet(t.btn_secondary())
+        reload_btn.setToolTip("Recarrega os dados do segmento atual do disco.")
+        reload_btn.clicked.connect(self.refresh)
+        top.addWidget(reload_btn)
+
+        export_btn = QPushButton("Exportar CSV")
+        export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        export_btn.setStyleSheet(t.btn_secondary())
+        export_btn.setToolTip("Salva o conteudo da tabela atual em arquivo CSV.")
+        export_btn.clicked.connect(self._on_export_csv)
+        top.addWidget(export_btn)
+
         sim_btn = QPushButton("Simular trade")
         sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         sim_btn.setStyleSheet(t.btn_secondary())
+        sim_btn.setToolTip("Calcula lucro real apos taxa Steam de 15%.")
         sim_btn.clicked.connect(self._open_simulator)
         top.addWidget(sim_btn)
 
@@ -376,8 +445,15 @@ class HistoryScreen(QWidget):
             QAbstractItemView.SelectionBehavior.SelectRows
         )
         self._table.setAlternatingRowColors(True)
+        self._table.setSortingEnabled(True)
         self._table.setStyleSheet(t.table_style())
         root.addWidget(self._table, 1)
+
+        # Atalhos: Ctrl+F foca search, Esc limpa search/filtros
+        find_sc = QShortcut(QKeySequence("Ctrl+F"), self)
+        find_sc.activated.connect(self._filter_panel.focus_search)
+        esc_sc = QShortcut(QKeySequence("Esc"), self)
+        esc_sc.activated.connect(self._filter_panel.clear_search)
 
         self._status = QLabel("")
         self._status.setStyleSheet(
@@ -389,10 +465,42 @@ class HistoryScreen(QWidget):
     def _open_simulator(self) -> None:
         SimulateTradeDialog(self).exec()
 
+    def _on_export_csv(self) -> None:
+        import csv
+        cols = self._table.columnCount()
+        rows = self._table.rowCount()
+        if cols == 0 or rows == 0:
+            self._status.setText("Nada para exportar.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Salvar CSV",
+            f"historico_{self._current_segment}.csv",
+            "CSV (*.csv)"
+        )
+        if not path:
+            return
+        headers = [
+            self._table.horizontalHeaderItem(c).text() for c in range(cols)
+        ]
+        try:
+            with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                w = csv.writer(f, delimiter=";")
+                w.writerow(headers)
+                for r in range(rows):
+                    w.writerow([
+                        (self._table.item(r, c).text()
+                         if self._table.item(r, c) else "")
+                        for c in range(cols)
+                    ])
+            self._status.setText(f"Exportado: {path}")
+        except OSError as exc:
+            self._status.setText(f"Erro ao exportar: {exc}")
+
     def _on_segment(self, key: str) -> None:
         self._current_segment = key
-        self._filter_panel.set_tipo_enabled(key == "market")
+        self._filter_panel.set_tipo_visible(key == "market")
         self._update_prices_btn.setVisible(key == "open")
+        self._persist_state()
         self.refresh()
 
     def _on_update_prices(self) -> None:
@@ -415,7 +523,18 @@ class HistoryScreen(QWidget):
         if self._current_segment == "open":
             self.refresh()
 
+    def _on_batch_progress(self, done: int, total: int) -> None:
+        self._update_prices_btn.setText(f"Atualizando {done}/{total}...")
+        # Refresh visual a cada ~10 itens para nao thrashar a UI
+        if self._current_segment == "open" and done % 10 == 0:
+            self.refresh()
+
+    def _match_search(self, name: str) -> bool:
+        s = self._filter_panel.search_text
+        return not s or s in (name or "").lower()
+
     def refresh(self) -> None:
+        self._persist_state()
         seg = self._current_segment
         if seg == "trades":
             headers, rows, count, pnl_col, pnl_vals = self._load_trades()
@@ -459,6 +578,8 @@ class HistoryScreen(QWidget):
             ts = tr.get("sell_ts", 0)
             if not _in_period(ts, periodo):
                 continue
+            if not self._match_search(tr.get("name", "")):
+                continue
             pnl = tr.get("pnl")
             pnl_vals.append(pnl)
             rows.append([
@@ -478,7 +599,10 @@ class HistoryScreen(QWidget):
     def _load_matched(self):
         closed = trade_matcher.load_closed_trades()
         periodo = self._filter_panel.periodo
-        visible = [c for c in closed if _in_period(c.sell_ts, periodo)]
+        visible = [
+            c for c in closed
+            if _in_period(c.sell_ts, periodo) and self._match_search(c.name)
+        ]
         self._matched_cache = visible
         rows: list[list[str]] = []
         pnl_vals: list[float | None] = []
@@ -500,11 +624,9 @@ class HistoryScreen(QWidget):
     def _load_open(self):
         opens = trade_matcher.load_open_buys()
         periodo = self._filter_panel.periodo
-        search = self._filter_panel.search_text
         visible = [
             o for o in opens
-            if _in_period(o.buy_ts, periodo)
-            and (not search or search in o.name.lower())
+            if _in_period(o.buy_ts, periodo) and self._match_search(o.name)
         ]
         self._open_cache = visible
         rows: list[list[str]] = []
@@ -545,6 +667,8 @@ class HistoryScreen(QWidget):
             side = ev.get("side", "").lower()
             if tipo != "all" and side != tipo:
                 continue
+            if not self._match_search(ev.get("name", "")):
+                continue
             rows.append([
                 ev.get("date_str", "—"),
                 ev.get("name", "—"),
@@ -565,6 +689,8 @@ class HistoryScreen(QWidget):
             if not _in_period(of.get("synced_at", 0), periodo):
                 continue
             given = ", ".join(of.get("items_given") or [])
+            if not self._match_search(given):
+                continue
             rows.append([
                 of.get("date_str", "—"),
                 of.get("partner_steamid") or "—",
@@ -579,9 +705,12 @@ class HistoryScreen(QWidget):
     def _load_watchlist(self):
         data = watchlist.load_watchlist()
         rows = []
+        # search aplicado abaixo no loop
         periodo = self._filter_panel.periodo
         for w in data:
             if not _in_period(w.get("added_ts", 0), periodo):
+                continue
+            if not self._match_search(w.get("name", "")):
                 continue
             rows.append([
                 w.get("name", "—"),
@@ -603,6 +732,8 @@ class HistoryScreen(QWidget):
             ts = tr.get("sell_ts", 0)
             if not _in_period(ts, periodo):
                 continue
+            if not self._match_search(tr.get("name", "")):
+                continue
             pnl = tr.get("pnl")
             pnl_vals.append(pnl)
             events.append((ts, [
@@ -616,6 +747,8 @@ class HistoryScreen(QWidget):
             ts = ev.get("synced_at", 0)
             if not _in_period(ts, periodo):
                 continue
+            if not self._match_search(ev.get("name", "")):
+                continue
             pnl_vals.append(None)
             events.append((ts, [
                 ev.get("date_str", "—"),
@@ -628,11 +761,14 @@ class HistoryScreen(QWidget):
             ts = of.get("synced_at", 0)
             if not _in_period(ts, periodo):
                 continue
+            given = ", ".join(of.get("items_given") or [])
+            if not self._match_search(given):
+                continue
             pnl_vals.append(None)
             events.append((ts, [
                 of.get("date_str", "—"),
                 "Trade Offer",
-                ", ".join(of.get("items_given") or []) or "—",
+                given or "—",
                 "—",
                 "Steam",
             ]))
@@ -655,6 +791,9 @@ class HistoryScreen(QWidget):
     def _populate(self, headers: list[str], rows: list[list[str]],
                    pnl_col: int | None = None,
                    pnl_vals: list[float | None] | None = None) -> None:
+        # Desativa sort durante o populate (recomendacao Qt)
+        was_sorting = self._table.isSortingEnabled()
+        self._table.setSortingEnabled(False)
         self._table.clear()
         self._table.setColumnCount(len(headers))
         self._table.setHorizontalHeaderLabels(headers)
@@ -681,3 +820,4 @@ class HistoryScreen(QWidget):
                 QHeaderView.ResizeMode.Stretch if i == 1
                 else QHeaderView.ResizeMode.ResizeToContents,
             )
+        self._table.setSortingEnabled(was_sorting)
