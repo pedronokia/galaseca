@@ -143,6 +143,37 @@ def test_import_csv_br_format_no_prefix(tmp_path):
     assert loaded[0]["cost"] == 1234.50
 
 
+def test_save_portfolio_oserror_handled(tmp_path):
+    """save_portfolio engole OSError sem crash."""
+    dir_path = tmp_path / "subdir" / "pf.json"
+    # subdir nao existe -> mkdir no save cria; mas se for arquivo, falha
+    file_path = tmp_path / "afile"
+    file_path.write_text("", encoding="utf-8")
+    bad_path = file_path / "pf.json"  # file_path e' arquivo, nao diretorio
+    portfolio.save_portfolio([{"name": "X", "cost": 10.0}], path=bad_path)
+    # nao crashou
+
+
+def test_import_csv_invalid_cost(tmp_path):
+    """import_csv reporta erro quando custo nao e' numero."""
+    p = tmp_path / "pf.json"
+    csv = "AK-47, abc, 1\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 0
+    assert len(r["errors"]) == 1
+    assert "custo invalido" in r["errors"][0]
+
+
+def test_import_csv_invalid_qty(tmp_path):
+    """import_csv reporta erro quando quantidade nao e' inteiro."""
+    p = tmp_path / "pf.json"
+    csv = "AK-47, 200, abc\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 0
+    assert len(r["errors"]) == 1
+    assert "quantidade invalida" in r["errors"][0]
+
+
 def test_import_csv_br_format_comma_decimal(tmp_path):
     """Virgula como separador decimal sem ponto milhar."""
     p = tmp_path / "pf.json"
