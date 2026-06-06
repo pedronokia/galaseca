@@ -344,7 +344,8 @@ class ScannerScreen(QWidget):
 
         self._rank_btn = QPushButton("Ranking Top 20")
         self._rank_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._rank_btn.setStyleSheet(t.btn_steam(padding="10px 24px"))
+        self._rank_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
+                                                     fs=t.FS_INPUT))
         self._rank_btn.setToolTip(
             "Escaneia TODAS as categorias e gera ranking dos 20 melhores"
             " scores. Demora vários minutos pelo rate-limit do Steam."

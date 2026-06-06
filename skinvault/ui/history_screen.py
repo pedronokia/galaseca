@@ -399,7 +399,9 @@ class HistoryScreen(QWidget):
 
         self._update_prices_btn = QPushButton("Atualizar precos")
         self._update_prices_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._update_prices_btn.setStyleSheet(t.btn_secondary())
+        self._update_prices_btn.setStyleSheet(
+            t.btn_ghost(padding="8px 14px", fs=t.FS_BODY)
+        )
         self._update_prices_btn.setToolTip(
             "Busca o preco atual de cada item aberto na Steam Market"
             " (em segundo plano)."
@@ -410,21 +412,21 @@ class HistoryScreen(QWidget):
 
         reload_btn = QPushButton("Recarregar")
         reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        reload_btn.setStyleSheet(t.btn_secondary())
+        reload_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         reload_btn.setToolTip("Recarrega os dados do segmento atual do disco.")
         reload_btn.clicked.connect(self.refresh)
         top.addWidget(reload_btn)
 
         export_btn = QPushButton("Exportar CSV")
         export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        export_btn.setStyleSheet(t.btn_secondary())
+        export_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         export_btn.setToolTip("Salva o conteudo da tabela atual em arquivo CSV.")
         export_btn.clicked.connect(self._on_export_csv)
         top.addWidget(export_btn)
 
         sim_btn = QPushButton("Simular trade")
         sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        sim_btn.setStyleSheet(t.btn_secondary())
+        sim_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         sim_btn.setToolTip("Calcula lucro real apos taxa Steam de 15%.")
         sim_btn.clicked.connect(self._open_simulator)
         top.addWidget(sim_btn)
