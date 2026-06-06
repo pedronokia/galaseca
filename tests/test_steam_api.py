@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from skinvault import steam_api
 from skinvault.steam_api import (
     _extract_render_context,
     _find_query,
@@ -328,3 +329,455 @@ class TestParseBRL:
 
     def test_no_prefix(self):
         assert parse_brl("100,50") == pytest.approx(100.5)
+
+    def test_garbage_returns_none(self):
+        assert parse_brl("not a number") is None
+
+
+# ── _http_get ──────────────────────────────────────────────────────
+
+
+class MockResponse:
+    """Simula resposta de urllib.request.urlopen."""
+    def __init__(self, status=200, body=b"ok"):
+        self.status = status
+        self._body = body
+    def read(self):
+        return self._body
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        pass
+
+
+def test_http_get_success(monkeypatch):
+    monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout=15: MockResponse())
+    code, body = steam_api._http_get("http://x")
+    assert code == 200
+    assert body == "ok"
+
+
+def test_http_get_httperror_returns_code(monkeypatch):
+    """HTTPError retorna o codigo do erro."""
+    import urllib.error
+
+    def _raise(url, *a, **kw):
+        raise urllib.error.HTTPError("http://x", 429, "rate", {}, None)
+
+    monkeypatch.setattr("urllib.request.urlopen", _raise)
+    code, body = steam_api._http_get("http://x")
+    assert code == 429
+    assert body is None
+
+
+def test_http_get_network_error_returns_zero(monkeypatch):
+    """Erro generico de rede retorna 0."""
+
+    def _raise(url, *a, **kw):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr("urllib.request.urlopen", _raise)
+    code, body = steam_api._http_get("http://x")
+    assert code == 0
+    assert body is None
+
+
+# ── _get_json ──────────────────────────────────────────────────────
+
+
+def test_get_json_non_200_returns_none(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (404, b"{}"))
+    assert steam_api._get_json("http://x") is None
+
+
+def test_get_json_invalid_json_returns_none(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, "not json"))
+    assert steam_api._get_json("http://x") is None
+
+
+# ── _parse_volume ──────────────────────────────────────────────────
+
+
+def test_parse_volume_none():
+    assert steam_api._parse_volume(None) is None
+
+
+def test_parse_volume_empty():
+    assert steam_api._parse_volume("") is None
+
+
+def test_parse_volume_garbage():
+    assert steam_api._parse_volume("abc") is None
+
+
+def test_parse_volume_with_commas():
+    assert steam_api._parse_volume("1,234") == 1234
+
+
+# ── get_market_price / get_market_overview ─────────────────────────
+
+
+def test_get_market_price_no_data(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: None)
+    assert steam_api.get_market_price("AK") is None
+
+
+def test_get_market_price_not_successful(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {"success": False})
+    assert steam_api.get_market_price("AK") is None
+
+
+def test_get_market_price_falls_back_to_median(monkeypatch):
+    """Sem lowest_price, usa median_price."""
+    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {
+        "success": True,
+        "median_price": "R$ 200,00",
+    })
+    assert steam_api.get_market_price("AK") == 200.0
+
+
+def test_get_market_overview_no_data(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: None)
+    assert steam_api.get_market_overview("AK") is None
+
+
+def test_get_market_overview_not_successful(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {"success": False})
+    assert steam_api.get_market_overview("AK") is None
+
+
+def test_get_market_overview_parse(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {
+        "success": True,
+        "lowest_price": "R$ 100,00",
+        "median_price": "R$ 110,00",
+        "volume": "1,234",
+    })
+    r = steam_api.get_market_overview("AK")
+    assert r["lowest"] == 100.0
+    assert r["median"] == 110.0
+    assert r["volume"] == 1234
+
+
+# ── _parse_items ───────────────────────────────────────────────────
+
+
+def test_parse_items_non_marketable_skipped():
+    data = {
+        "assets": [{"classid": "1", "instanceid": "1", "amount": 1}],
+        "descriptions": [{"classid": "1", "instanceid": "1", "marketable": False}],
+    }
+    assert steam_api._parse_items(data) == []
+
+
+def test_parse_items_empty_name_skipped():
+    data = {
+        "assets": [{"classid": "1", "instanceid": "1", "amount": 1}],
+        "descriptions": [{
+            "classid": "1", "instanceid": "1", "marketable": True,
+            "market_hash_name": "",
+        }],
+    }
+    assert steam_api._parse_items(data) == []
+
+
+def test_parse_items_aggregates_quantity():
+    data = {
+        "assets": [
+            {"classid": "1", "instanceid": "1", "amount": 2},
+            {"classid": "1", "instanceid": "1", "amount": 3},
+        ],
+        "descriptions": [{
+            "classid": "1", "instanceid": "1", "marketable": True,
+            "market_hash_name": "AK-47 | Redline",
+            "tradable": True,
+        }],
+    }
+    result = steam_api._parse_items(data)
+    assert len(result) == 1
+    assert result[0]["quantity"] == 5
+
+
+# ── fetch_inventory status codes ───────────────────────────────────
+
+
+def test_fetch_inventory_private(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (400, None))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "private"
+    assert items == []
+
+
+def test_fetch_inventory_rate_limited(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (429, None))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "rate_limited"
+
+
+def test_fetch_inventory_error_on_non_200(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (500, None))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "error"
+
+
+def test_fetch_inventory_invalid_json(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, "not json"))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "error"
+
+
+def test_fetch_inventory_empty_no_assets(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, "{}"))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "empty"
+
+
+def test_fetch_inventory_empty_no_marketable(monkeypatch):
+    body = json.dumps({
+        "assets": [{"classid": "1", "instanceid": "1", "amount": 1}],
+        "descriptions": [{
+            "classid": "1", "instanceid": "1", "marketable": False,
+        }],
+    })
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, body))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "empty"
+
+
+# ── fetch_public_inventory wrapper ─────────────────────────────────
+
+
+def test_fetch_public_inventory_returns_items_list(monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.steam_api.fetch_inventory",
+        lambda sid: ("ok", [{"name": "AK", "quantity": 1}]),
+    )
+    assert steam_api.fetch_public_inventory("123") == [{"name": "AK", "quantity": 1}]
+
+
+# ── _js_unescape adicional ─────────────────────────────────────────
+
+
+class TestJsUnescapeExtended:
+    def test_carriage_return(self):
+        assert _js_unescape("a\\rb") == "a\rb"
+
+    def test_tab(self):
+        assert _js_unescape("a\\tb") == "a\tb"
+
+    def test_slash(self):
+        assert _js_unescape("a\\/b") == "a/b"
+
+    def test_unicode(self):
+        assert _js_unescape("\\u0041") == "A"
+
+    def test_unescaped_char(self):
+        # \x -> "x", entao a\xb = "axb"
+        assert _js_unescape("a\\xb") == "axb"
+
+    def test_plain_string_no_changes(self):
+        assert _js_unescape("hello") == "hello"
+
+
+# ── _find_query com args extras ────────────────────────────────────
+
+
+def test_find_query_key_not_in_querykey():
+    """queryKey que nao contem a key e' ignorado."""
+    queries = [{"queryKey": ["market", "other"], "state": {"data": "x"}}]
+    assert steam_api._find_query(queries, "pricehistory") is None
+
+
+def test_find_query_item_name_mismatch_skips():
+    """Item name especificado mas queryKey nome difere, sem loose_match."""
+    queries = [
+        {"queryKey": ["market", "orderbook", 730, "AWP | Dragon Lore"],
+         "state": {"data": "dl"}},
+    ]
+    assert steam_api._find_query(queries, "orderbook", "AK-47 | Redline") is None
+
+
+def test_find_query_not_enough_key_length():
+    """queryKey com len <= 3 ignora check de nome."""
+    queries = [
+        {"queryKey": ["market", "pricehistory"], "state": {"data": "ph"}},
+    ]
+    assert steam_api._find_query(queries, "pricehistory", "AK") == "ph"
+
+
+# ── get_market_page_data edge cases ────────────────────────────────
+
+
+def test_get_market_page_data_no_render_context(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, "<html>"))
+    assert steam_api.get_market_page_data("AK") is None
+
+
+def test_get_market_page_data_no_queries(monkeypatch):
+    rc = json.dumps({"queryData": json.dumps({"queries": []})})
+    html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, html))
+    assert steam_api.get_market_page_data("AK") is None
+
+
+def test_get_market_page_data_loose_match_orderbook(monkeypatch):
+    """Quando orderbook exato nao existe, tenta loose_match."""
+    rc = json.dumps({
+        "queryData": json.dumps({
+            "queries": [
+                {
+                    "state": {"data": {"prices": [{"time": 100, "price_median": 10, "purchases": 1}]}},
+                    "queryKey": ["market", "pricehistory", 730, "AK-47 | Redline"],
+                },
+                {
+                    "state": {"data": {"amtMaxBuyOrder": 500, "amtMinSellOrder": 600,
+                                        "cBuyOrders": 10, "cSellOrders": 5,
+                                        "rgCompactBuyOrders": [], "rgCompactSellOrders": []}},
+                    "queryKey": ["market", "orderbook", 730, "AK-47 | Redline (Minimal Wear)"],
+                },
+            ],
+        }),
+    })
+    html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, html))
+    result = steam_api.get_market_page_data("AK-47 | Redline (Field-Tested)")
+    assert result is not None
+    assert result["order_book_approx"] is True
+    assert result["order_book"]["best_bid"] == 500
+
+
+def test_get_market_page_data_invalid_query_data_json(monkeypatch):
+    """queryData com JSON invalido retorna None."""
+    rc = json.dumps({"queryData": "not-a-json-string"})
+    html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, html))
+    assert steam_api.get_market_page_data("AK") is None
+
+
+def test_get_market_page_data_query_data_not_string(monkeypatch):
+    """queryData que nao e' string retorna None."""
+    rc = json.dumps({"queryData": 123})
+    html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, html))
+    assert steam_api.get_market_page_data("AK") is None
+
+
+# ── fetch_my_listings / fetch_market_history JSON error ────────────
+
+
+def test_fetch_my_listings_invalid_json_returns_none(monkeypatch):
+    """fetch_my_listings com JSON invalido retorna None."""
+
+    class FakeSession:
+        steamid = "123"
+        def cookie_header(self):
+            return ""
+
+    monkeypatch.setattr("skinvault.steam_api._http_get_auth", lambda *a, **kw: (200, "bad json"))
+    assert steam_api.fetch_my_listings(FakeSession()) is None
+
+
+# ── parse_market_history_html ──────────────────────────────────────
+
+
+def test_parse_market_history_html_empty():
+    assert steam_api.parse_market_history_html("") == []
+
+
+def test_parse_market_history_html_no_anchors():
+    assert steam_api.parse_market_history_html("<div>no rows</div>") == []
+
+
+def test_parse_market_history_html_skip_no_name():
+    """Nome em branco ou sem regex de nome continua (name fica '')."""
+    html = (
+        '<div class="market_listing_row">'
+        '<div class="market_listing_item_name">   </div>'
+        "<div>extra</div>"
+        "</div>"
+    )
+    result = steam_api.parse_market_history_html(html)
+    assert len(result) == 1
+    assert result[0].name == ""
+
+
+def test_parse_market_history_html_no_name_div_skips_row():
+    """Row sem div de nome (regex nao encontra) e' pulado."""
+    html = (
+        '<div class="market_listing_row">'
+        "<div>no name here</div>"
+        "</div>"
+    )
+    result = steam_api.parse_market_history_html(html)
+    assert len(result) == 0
+
+
+def test_parse_market_history_html_with_name_but_no_price():
+    html = (
+        '<div class="market_listing_row" id="history_row_lid1_lid1_">'
+        '<div class="market_listing_gainorloss">+</div>'
+        '<div class="market_listing_item_name">AK-47</div>'
+        '<div class="market_listing_listed_date">1 Jan</div>'
+        "</div>"
+    )
+    result = steam_api.parse_market_history_html(html)
+    assert len(result) == 1
+    assert result[0].name == "AK-47"
+    assert result[0].side == "buy"  # + → buy
+    assert result[0].price is None  # no price div
+
+
+def test_parse_market_history_html_gainloss_minus():
+    """Sinal '-' marca como sell."""
+    html = (
+        '<div class="market_listing_row" id="history_row_lid1_lid1_">'
+        '<div class="market_listing_gainorloss">-</div>'
+        '<div class="market_listing_item_name">AWP</div>'
+        '<div class="market_listing_listed_date">5 Jan</div>'
+        "</div>"
+    )
+    result = steam_api.parse_market_history_html(html)
+    assert result[0].side == "sell"
+
+
+# ── parse_market_history_response ──────────────────────────────────
+
+
+def test_parse_market_history_response_non_dict():
+    assert steam_api.parse_market_history_response("not dict") == []
+
+
+# ── parse_trade_history_html ───────────────────────────────────────
+
+
+def test_parse_trade_history_html_empty():
+    assert steam_api.parse_trade_history_html("") == []
+
+
+def test_parse_trade_history_html_no_anchors():
+    assert steam_api.parse_trade_history_html("<div>no rows</div>") == []
+
+
+def test_parse_trade_history_html_no_offerid_no_items_skipped():
+    """Row sem tradeofferid e sem items e' pulado."""
+    html = (
+        '<div class="tradehistoryrow">'
+        "<div>stuff</div>"
+        "</div>"
+    )
+    assert steam_api.parse_trade_history_html(html) == []
+
+
+def test_parse_trade_history_html_with_date_and_time():
+    html = (
+        '<div class="tradehistoryrow">'
+        ' tradeofferid_12345 '
+        '<div class="tradehistory_date">1 Jan, 2024</div>'
+        '<div class="tradehistory_timestamp">12:30</div>'
+        '<span class="history_item_name">AK-47</span>'
+        "</div>"
+    )
+    result = steam_api.parse_trade_history_html(html)
+    assert len(result) == 1
+    assert result[0].tradeofferid == "12345"
+    assert "12:30" in result[0].date_str
