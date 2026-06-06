@@ -15,6 +15,14 @@ from skinvault import prices as prices_mod
 from skinvault.prices import PriceCache
 
 
+def _safe_emit(sig: pyqtSignal, *args) -> None:
+    """Emit com tolerancia a C++ objeto deletado."""
+    try:
+        sig.emit(*args)
+    except (RuntimeError, AttributeError):
+        pass
+
+
 class PriceWorker(QObject):
     """Worker async que avalia o portfolio em background thread."""
 
@@ -27,6 +35,9 @@ class PriceWorker(QObject):
         self._cache = cache
 
     def start(self) -> None:
+        sig_progress = self.progress
+        sig_done = self.eval_done
+
         def worker() -> None:
             try:
                 positions = portfolio_mod.load_portfolio()
@@ -36,19 +47,19 @@ class PriceWorker(QObject):
                 def price_fn(n: str) -> float | None:
                     p = prices_mod.cached_price(n, self._cache)
                     done[0] += 1
-                    self.progress.emit(done[0], total)
+                    _safe_emit(sig_progress, done[0], total)
                     return p
 
                 result = portfolio_mod.evaluate_portfolio(
                     positions, price_fn,
                 )
-                self.eval_done.emit({
+                _safe_emit(sig_done, {
                     "positions": positions,
                     "rows": result["rows"],
                     "totals": result["totals"],
                 })
             except Exception as exc:
-                self.eval_done.emit({
+                _safe_emit(sig_done, {
                     "positions": [],
                     "rows": [],
                     "totals": {"market": 0, "net_if_sold": 0, "pnl": 0,
@@ -79,6 +90,8 @@ class BatchPriceWorker(QObject):
         if self._running:
             return
         self._running = True
+        sig_progress = self.progress
+        sig_done = self.batch_done
 
         def worker() -> None:
             seen: set[str] = set()
@@ -89,9 +102,9 @@ class BatchPriceWorker(QObject):
                     prices_mod.cached_price(name, self._cache)
                 except Exception:
                     pass
-                self.progress.emit(i, total)
+                _safe_emit(sig_progress, i, total)
             self._running = False
-            self.batch_done.emit()
+            _safe_emit(sig_done)
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -107,11 +120,13 @@ class SinglePriceWorker(QObject):
         self._cache = cache
 
     def start(self, name: str) -> None:
+        sig_done = self.done
+
         def worker() -> None:
             try:
                 price = prices_mod.cached_price(name, self._cache)
-                self.done.emit(name, price)
+                _safe_emit(sig_done, name, price)
             except Exception:
-                self.done.emit(name, None)
+                _safe_emit(sig_done, name, None)
 
         threading.Thread(target=worker, daemon=True).start()

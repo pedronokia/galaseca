@@ -295,8 +295,8 @@ def _find_query(queries: list, key: str, item_name: str | None = None,
                 return q.get("state", {}).get("data")
             if target_root and target_root == _skin_root_name(cached_name):
                 return q.get("state", {}).get("data")
-            continue
-        return q.get("state", {}).get("data")
+        else:
+            return q.get("state", {}).get("data")
     return None
 
 

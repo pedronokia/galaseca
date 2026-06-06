@@ -191,6 +191,15 @@ def liquidity_flag(volume: int | None) -> dict:
 def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> dict:
     """Calcula variacao percentual em multiplos periodos a partir do price_history SSR.
 
+    Para cada periodo, busca o entry mais antigo dentro da janela desejada
+    (prioriza entries com time <= cutoff). Se nao houver entry antigo o
+    suficiente, usa o mais proximo do cutoff. Descartado se o entry mais
+    proximo estiver a mais de 20% do periodo alvo.
+
+    age_hours no retorno reflete a idade real do entry usado, que pode
+    ser maior ou menor que o rotulo. Ex.: "24h" com age_hours=20 significa
+    que a variacao cobre ~20h, nao 24h exatas.
+
     price_history: lista de {time: unix_seconds, price_median: float, purchases: int}
     periods: lista de janelas em horas (ex: [24, 168, 720, 2160, 8760])
     Retorna dict com {period_label: {change_pct, age_hours, direction, first_price, last_price}}
@@ -214,7 +223,11 @@ def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> 
 
     for period_h in periods:
         cutoff = last_ts - period_h * 3600
-        candidate = min(sorted_hist, key=lambda e: abs(e["time"] - cutoff))
+        # Entry mais proximo do cutoff, com desempate pro mais antigo
+        # (time <= cutoff) quando as distancias sao iguais. Isso
+        # garante janela >= periodo rotulado quando possivel.
+        candidate = min(sorted_hist, key=lambda e: (abs(e["time"] - cutoff),
+                                                      e["time"] > cutoff))
         # Só usa se estiver dentro da janela (tolera 20% além do período)
         if abs(candidate["time"] - cutoff) > period_h * 3600 * 0.2:
             continue
