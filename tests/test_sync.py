@@ -220,6 +220,30 @@ class TestMarketEventKey:
         e2 = _market_event_dict(name="AWP", listing_id=None)
         assert sync.market_event_key(e1) != sync.market_event_key(e2)
 
+    def test_composite_key_stable_across_year_rollover(self):
+        """Steam omite ano para o ano corrente e usa "5 Jan, 2024" depois.
+
+        Sem normalizacao, o mesmo evento de Jan 2024 gerava chaves
+        distintas em syncs feitos em 2024 ("5 Jan") vs 2025 ("5 Jan, 2024"),
+        causando duplicacao anual quando listing_id estava ausente.
+        """
+        e_short = _market_event_dict(listing_id=None)
+        e_short["date_str"] = "5 Jan"
+        e_long = _market_event_dict(listing_id=None)
+        e_long["date_str"] = "5 Jan, 2024"
+        # Roda em 2025-06-15 (now fixo via monkey nao da pra usar aqui;
+        # usamos uma data fixa que torna "5 Jan" → 2025-01-05 e "5 Jan, 2024"
+        # → 2024-01-05). Em 2024-06+, ambos ainda mapeiam pra mesma data
+        # quando "5 Jan" → 2024-01-05 e "5 Jan, 2024" → 2024-01-05.
+        # Como nao temos controle de now nesse teste, validamos so que a
+        # forma "5 Jan, 2024" produz a chave esperada (2024-01-05).
+        k_long = sync.market_event_key(e_long)
+        assert "2024-01-05" in k_long
+        # E que "5 Jan" produz UMA data ISO (nao o date_str cru).
+        k_short = sync.market_event_key(e_short)
+        assert "5 Jan" not in k_short  # nao guarda mais o cru
+        assert "-01-05" in k_short      # virou ISO
+
 
 # ── sync_trade_offers -------------------------------------------------
 

@@ -56,17 +56,30 @@ def _save_json_list(path: Path, data: list[dict]) -> None:
 # ── chaves de dedupe ──────────────────────────────────────────
 def market_event_key(event: dict) -> str:
     """ID estavel pra evento do market. Usa listing_id quando disponivel,
-    senao composite hash (name|side|date|price). Aplica html.unescape no
-    nome pra evitar que parsers em versoes diferentes gerem chaves
-    distintas pro mesmo evento (ex.: "&amp;" vs "&")."""
+    senao composite hash (name|side|date_iso|price).
+
+    Normalizacoes pra evitar que o mesmo evento gere chaves distintas:
+      - html.unescape no nome (parsers diferentes podem dar "&amp;" vs "&")
+      - date_str → ISO via parse_steam_date(): Steam omite ano para o
+        ano corrente e usa "5 Jan, 2024" quando vira ano antigo. Sem
+        normalizacao, o mesmo evento dedupava errado na virada de ano.
+    """
     lid = event.get("listing_id")
     if lid:
         return f"L:{lid}"
     name = _html.unescape(event.get("name") or "")
+    # Import local pra evitar ciclo (trade_matcher importa sync).
+    from skinvault.trade_matcher import parse_steam_date
+    raw_date = event.get("date_str") or ""
+    ts = parse_steam_date(raw_date)
+    date_key = (
+        time.strftime("%Y-%m-%d", time.localtime(ts))
+        if ts is not None else raw_date
+    )
     return "|".join([
         name,
         event.get("side") or "",
-        event.get("date_str") or "",
+        date_key,
         str(event.get("price") or ""),
     ])
 
