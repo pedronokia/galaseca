@@ -73,6 +73,18 @@ class PriceCache:
         self._data[name] = {"price": price, "ts": now}
         self._save()
 
+    def age(self, name: str, now: float | None = None) -> float | None:
+        """Idade da entry em segundos, ou None se nao houver entry.
+
+        Inclui entries expiradas e entries negativas (sem preco). Util
+        para UI exibir "cache de Xmin atras" sem invadir self._data.
+        """
+        entry = self._data.get(name)
+        if entry is None:
+            return None
+        now = time.time() if now is None else now
+        return now - entry.get("ts", now)
+
 
 def _fetch_with_backoff(name: str, retries: int = 3) -> float | None:
     """Tenta o preco com recuo exponencial -- cobre o 429 (rate-limit).

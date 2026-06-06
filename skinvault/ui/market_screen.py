@@ -326,11 +326,12 @@ class MarketScreen(QWidget):
         if not name:
             return
         cache_msg = ""
-        cached = self._cache.get(name)
-        if cached is not None:
-            entry = self._cache._data.get(name, {})
-            age = time.time() - entry.get("ts", time.time())
-            cache_msg = f" (cache de {_cache_age_label(age)} será sobrescrito)"
+        if self._cache.get(name) is not None:
+            age = self._cache.age(name)
+            if age is not None:
+                cache_msg = (
+                    f" (cache de {_cache_age_label(age)} será sobrescrito)"
+                )
         self._status.setText(f"Consultando {name}…{cache_msg}")
         self._search_btn.setEnabled(False)
         self._started_at = time.time()
