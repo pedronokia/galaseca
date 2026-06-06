@@ -54,10 +54,7 @@ def extract_steamid_from_cookie(cookies: dict) -> str | None:
     if not raw:
         return None
     decoded = urllib.parse.unquote(raw)
-    if "||" in decoded:
-        candidate = decoded.split("||", 1)[0]
-    else:
-        candidate = decoded.split("%7C%7C", 1)[0]
+    candidate = decoded.split("||", 1)[0]
     candidate = candidate.strip()
     if candidate.isdigit() and len(candidate) >= 16:
         return candidate

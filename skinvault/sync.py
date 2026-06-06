@@ -195,8 +195,6 @@ def _extract_listings_from_response(resp: dict) -> list[dict]:
     if html:
         events = steam_api.parse_market_history_html(html)
         for e in events:
-            if e.side not in ("listed", "buy", "sell"):
-                continue
             items.append({
                 "name": e.name,
                 "price": e.price,

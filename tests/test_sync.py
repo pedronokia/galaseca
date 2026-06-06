@@ -295,6 +295,139 @@ class TestSyncTradeOffers:
         assert result["new"] == 1
 
 
+# ── _save_json_list / loaders ───────────────────────────────────────
+
+
+def test_save_json_list_oserror_ignored(tmp_path, monkeypatch):
+    """_save_json_list com erro de escrita nao quebra."""
+    p = tmp_path / "out.json"
+    sync._save_json_list(p, [{"a": 1}])
+    p.unlink()
+    p.mkdir()  # diretorio → escrita falha
+    sync._save_json_list(p, [{"b": 2}])  # nao crashou
+
+
+def test_load_market_events_returns_list(tmp_path):
+    p = tmp_path / "events.json"
+    p.write_text('[{"x": 1}]', encoding="utf-8")
+    assert sync.load_market_events(p) == [{"x": 1}]
+
+
+def test_load_active_listings_returns_list(tmp_path):
+    p = tmp_path / "listings.json"
+    p.write_text('[{"y": 2}]', encoding="utf-8")
+    assert sync.load_active_listings(p) == [{"y": 2}]
+
+
+# ── sync_market_history paginacao ───────────────────────────────────
+
+
+class TestSyncMarketHistoryMultiPage:
+    def test_fetches_multiple_pages_and_sleeps(self, tmp_path, monkeypatch):
+        events_path = tmp_path / "events.json"
+        call_count = [0]
+
+        def mock_fetch(session, start=0, count=100, appid=None):
+            call_count[0] += 1
+            if call_count[0] <= 2:
+                return {"success": True, "total_count": 1000,
+                        "results_html": "_"}
+            return None
+
+        page_events = {
+            1: [MarketEvent(f"A-{i}", "buy", 10.0, "1 Jan", f"id_{i}") for i in range(3)],
+            2: [MarketEvent(f"B-{i}", "sell", 20.0, "2 Jan", f"bid_{i}") for i in range(2)],
+        }
+        monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
+        monkeypatch.setattr(
+            steam_api, "parse_market_history_response",
+            lambda r, default_appid=None: page_events[call_count[0]],
+        )
+
+        slept = [0]
+        monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: slept.append(s))
+
+        result = sync.sync_market_history(_session(), path=events_path, max_pages=3)
+        assert result["new"] == 5
+        assert slept[-1] == 1.5  # throttle foi chamado
+
+
+def test_sync_market_history_empty_parsed_stops(monkeypatch, tmp_path):
+    """parse retorna vazio → break no loop."""
+    events_path = tmp_path / "events.json"
+    monkeypatch.setattr(steam_api, "fetch_market_history",
+                        lambda s, **kw: {"success": True, "total_count": 1000,
+                                          "results_html": "_"})
+    monkeypatch.setattr(steam_api, "parse_market_history_response",
+                        lambda r, **kw: [])
+    monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
+    result = sync.sync_market_history(_session(), path=events_path)
+    assert result["new"] == 0
+
+
+# ── sync_listings ──────────────────────────────────────────────────
+
+
+class TestSyncListings:
+    def test_error_response(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(steam_api, "fetch_my_listings", lambda s, **kw: None)
+        result = sync.sync_listings(_session(), path=tmp_path / "l.json")
+        assert result["count"] == 0
+        assert result["status"] == "error"
+
+    def test_success_with_html_listings(self, monkeypatch, tmp_path):
+        """_extract_listings_from_response extrai do results_html."""
+        html = (
+            '<div class="market_listing_row" id="history_row_l1_l1_">'
+            '<div class="market_listing_gainorloss">+</div>'
+            '<div class="market_listing_item_name">AK-47</div>'
+            '<div class="market_listing_listed_date">1 Jan</div>'
+            "</div>"
+        )
+        monkeypatch.setattr(steam_api, "fetch_my_listings",
+                            lambda s, **kw: {"results_html": html})
+        result = sync.sync_listings(_session(), path=tmp_path / "l.json")
+        assert result["status"] == "ok"
+        assert result["count"] >= 1
+
+    def test_listing_with_no_html(self, monkeypatch, tmp_path):
+        """_extract_listings_from_response com HTML vazio."""
+        monkeypatch.setattr(steam_api, "fetch_my_listings",
+                            lambda s, **kw: {"results_html": ""})
+        result = sync.sync_listings(_session(), path=tmp_path / "l.json")
+        assert result["status"] == "ok"
+
+
+# ── sync_trade_offers edge cases ───────────────────────────────────
+
+
+class TestSyncTradeOffersEdge:
+    def test_empty_parse_stops(self, monkeypatch, tmp_path):
+        path = tmp_path / "trades.json"
+        monkeypatch.setattr(steam_api, "fetch_trade_history_html",
+                            lambda s, page=1: "_html_")
+        monkeypatch.setattr(steam_api, "parse_trade_history_html",
+                            lambda h: [])
+        monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
+        result = sync.sync_trade_offers(_session(), path=path)
+        assert result["fetched"] == 0
+
+    def test_all_duplicates_stops(self, monkeypatch, tmp_path):
+        path = tmp_path / "trades.json"
+        path.write_text(json.dumps([
+            {"tradeofferid": "999", "items_given": ["AK"]},
+        ]), encoding="utf-8")
+
+        monkeypatch.setattr(steam_api, "fetch_trade_history_html",
+                            lambda s, page=1: "_html_")
+        sample = [TradeEvent("999", None, "", ["AK"], [])]
+        monkeypatch.setattr(steam_api, "parse_trade_history_html",
+                            lambda h: sample)
+        monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
+        result = sync.sync_trade_offers(_session(), path=path)
+        assert result["new"] == 0
+
+
 # ── sync_all orquestrador --------------------------------------------
 
 class TestSyncAll:
@@ -330,3 +463,17 @@ class TestSyncAll:
         result = sync.sync_all(_session())
         assert "error" in result["inventory"]
         assert "boom" in result["inventory"]["error"]
+
+    def test_progress_cb_exception_does_not_break(self, monkeypatch):
+        monkeypatch.setattr(sync, "sync_inventory",
+                            lambda s: {"status": "ok", "added": 1})
+        monkeypatch.setattr(sync, "sync_market_history",
+                            lambda s: {"new": 0})
+        monkeypatch.setattr(sync, "sync_listings", lambda s: {"count": 0})
+        monkeypatch.setattr(sync, "sync_trade_offers", lambda s: {"new": 0})
+
+        def progress_cb(step, result):
+            raise RuntimeError("cb boom")
+
+        result = sync.sync_all(_session(), progress_cb=progress_cb)
+        assert result["inventory"]["status"] == "ok"

@@ -124,6 +124,33 @@ class TestPersistAndLoad:
     def test_clear_missing_is_noop(self, tmp_path: Path):
         ss.clear(tmp_path / "nada.json")  # nao explode
 
+    def test_clear_on_directory_oserror(self, tmp_path: Path):
+        """clear em diretorio nao quebra."""
+        d = tmp_path / "adir"
+        d.mkdir()
+        ss.clear(d)  # nao deve levantar
+
+    def test_persist_oserror_ignored(self, tmp_path: Path, monkeypatch):
+        """Erro de escrita no persist nao quebra."""
+        target = tmp_path / "session.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # cria um arquivo e transforma em diretorio para forcar erro
+        s = SteamSession(steamid="123", cookies={"a": "b"})
+        persist(s, target)  # sucesso inicial
+        target.unlink()
+        target.mkdir()
+
+        def fail(*a, **kw):
+            raise OSError("permission")
+        monkeypatch.setattr("pathlib.Path.write_text", fail)
+        persist(s, target)  # nao crashou
+
+    def test_load_corrupted_session_data(self, tmp_path: Path):
+        """load com dados que quebram no construtor SteamSession retorna None."""
+        bad = tmp_path / "bad.json"
+        bad.write_text(json.dumps({"captured_at": "not-a-float"}), encoding="utf-8")
+        assert load(bad) is None
+
 
 class TestValidate:
     def test_valid_session_when_redirect_profiles(self, monkeypatch):
@@ -172,6 +199,42 @@ class TestValidate:
         monkeypatch.setattr(ss, "_follow_redirect", mock_redirect)
         s = SteamSession(steamid=SAMPLE_STEAMID, cookies=SAMPLE_COOKIES)
         assert validate(s) is False
+
+    def test_validate_unknown_url_returns_false(self, monkeypatch):
+        def mock_redirect(url, cookie_header, timeout):
+            return "https://steamcommunity.com/unknown"
+
+        monkeypatch.setattr(ss, "_follow_redirect", mock_redirect)
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=SAMPLE_COOKIES)
+        assert validate(s) is False
+
+
+# ── _follow_redirect ──────────────────────────────────────────────
+
+
+def test_follow_redirect_success(monkeypatch):
+    class MockResp:
+        def __init__(self):
+            self._url = "https://steamcommunity.com/profiles/123/"
+        def geturl(self):
+            return self._url
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            pass
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda *a, **kw: MockResp())
+    result = ss._follow_redirect("https://steamcommunity.com/my/", "cookies", 10)
+    assert result == "https://steamcommunity.com/profiles/123/"
+
+
+def test_follow_redirect_network_error_returns_none(monkeypatch):
+    def _raise(req, timeout=10):
+        raise OSError("connection failed")
+
+    monkeypatch.setattr("urllib.request.urlopen", _raise)
+    result = ss._follow_redirect("https://steamcommunity.com/my/", "cookies", 10)
+    assert result is None
 
 
 class TestMergeCookies:
