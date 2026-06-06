@@ -8,14 +8,20 @@ from __future__ import annotations
 import threading
 import time
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor
+from urllib.parse import quote
+
+from PyQt6.QtCore import QObject, Qt, QUrl, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QPainter, QPen
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMenu,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -28,6 +34,194 @@ from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import Card, StatCard
+
+
+_MAX_FACTOR_DELTA = 35.0  # peso maximo de qualquer fator no enhanced_score
+_CS2_APPID = 730
+
+
+class _FactorBar(QWidget):
+    """Barra horizontal centrada: positivo cresce pra direita (verde),
+    negativo pra esquerda (vermelho). Largura proporcional a |delta|/MAX."""
+
+    def __init__(self, delta: float,
+                 max_delta: float = _MAX_FACTOR_DELTA,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._delta = float(delta)
+        self._max = float(max_delta)
+        self.setFixedHeight(18)
+        self.setMinimumWidth(180)
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        cx = w // 2
+        # Eixo central
+        p.setPen(QPen(QColor(t.BORDER), 1))
+        p.drawLine(cx, 1, cx, h - 1)
+        # Barra
+        ratio = min(abs(self._delta) / self._max, 1.0) if self._max else 0
+        bar_w = int(ratio * (w / 2 - 4))
+        if self._delta >= 0:
+            color = QColor(t.ACCENT)
+            x = cx + 1
+        else:
+            color = QColor(t.DANGER)
+            x = cx - 1 - bar_w
+        p.fillRect(x, 4, bar_w, h - 8, color)
+        p.end()
+
+
+class _ScoreBreakdownDialog(QDialog):
+    """Dialog explicativo do enhanced_score com barras por fator."""
+
+    def __init__(self, item: dict, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        name = item.get("name", "Item")
+        self.setWindowTitle(f"Por que esse score? — {name}")
+        self.setMinimumWidth(580)
+        self.setStyleSheet(
+            f"QDialog {{ background: {t.BG_ELEVATED}; }}"
+        )
+        self._build(item)
+
+    def _build(self, item: dict) -> None:
+        layout = QVBoxLayout(self)
+        layout.setSpacing(14)
+        layout.setContentsMargins(20, 18, 20, 18)
+
+        score = int(item.get("score", 0))
+        if score >= 70:
+            verdict_label, vcolor = "COMPRA", t.ACCENT
+        elif score >= 45:
+            verdict_label, vcolor = "ATENÇÃO", t.WARN
+        else:
+            verdict_label, vcolor = "EVITAR", t.DANGER
+
+        breakdown = item.get("breakdown") or []
+        delta_sum = sum(b["delta"] for b in breakdown)
+
+        # ── Header ────────────────────────────────────
+        hdr = QHBoxLayout()
+        hdr.setSpacing(14)
+
+        info_col = QVBoxLayout()
+        info_col.setSpacing(2)
+        name_lbl = QLabel(item.get("name", "Item"))
+        name_lbl.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        name_lbl.setWordWrap(True)
+        info_col.addWidget(name_lbl)
+        formula = QLabel(
+            f"Base 50  {'+' if delta_sum >= 0 else '−'} "
+            f"{abs(delta_sum):.0f} contribuições  =  {score}"
+        )
+        formula.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        info_col.addWidget(formula)
+        hdr.addLayout(info_col, 1)
+
+        score_lbl = QLabel(str(score))
+        score_lbl.setStyleSheet(
+            f"color: {vcolor}; font-size: 36pt; font-weight: 700;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        score_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hdr.addWidget(score_lbl)
+
+        verdict_chip = QLabel(verdict_label)
+        verdict_chip.setStyleSheet(
+            f"color: {vcolor}; font-size: {t.FS_BODY}; font-weight: 700;"
+            f" border: 1px solid {vcolor}; border-radius: 8px;"
+            f" padding: 4px 14px; font-family: {t.FONT_FAMILY};"
+        )
+        verdict_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hdr.addWidget(verdict_chip)
+
+        layout.addLayout(hdr)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"color: {t.BORDER}; background: {t.BORDER};")
+        sep.setFixedHeight(1)
+        layout.addWidget(sep)
+
+        # ── Breakdown rows ────────────────────────────
+        if not breakdown:
+            empty = QLabel(
+                "Sem fatores relevantes — score ficou na base neutra (50)."
+            )
+            empty.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY};"
+            )
+            layout.addWidget(empty)
+        else:
+            for b in breakdown:
+                row = QHBoxLayout()
+                row.setSpacing(10)
+                lbl = QLabel(b["label"])
+                lbl.setStyleSheet(
+                    f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+                    f" font-family: {t.FONT_FAMILY};"
+                )
+                lbl.setMinimumWidth(280)
+                lbl.setWordWrap(True)
+                row.addWidget(lbl)
+
+                bar = _FactorBar(b["delta"])
+                row.addWidget(bar, 1)
+
+                d = b["delta"]
+                d_color = t.ACCENT if d > 0 else t.DANGER
+                val = QLabel(f"{d:+.0f}")
+                val.setStyleSheet(
+                    f"color: {d_color}; font-weight: 700;"
+                    f" font-family: {t.FONT_FAMILY};"
+                )
+                val.setFixedWidth(40)
+                val.setAlignment(
+                    Qt.AlignmentFlag.AlignRight
+                    | Qt.AlignmentFlag.AlignVCenter
+                )
+                row.addWidget(val)
+
+                layout.addLayout(row)
+
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.Shape.HLine)
+        sep2.setStyleSheet(f"color: {t.BORDER}; background: {t.BORDER};")
+        sep2.setFixedHeight(1)
+        layout.addWidget(sep2)
+
+        # ── Legenda ───────────────────────────────────
+        legend = QLabel(
+            "Como interpretar:\n"
+            "  •  Score 70–100 → COMPRA   •   45–69 → ATENÇÃO   •   "
+            "<45 → EVITAR\n"
+            "  •  Base 50 é o ponto neutro. Cada fator soma ou subtrai "
+            "pontos do score.\n"
+            "  •  Lista ordenada do fator mais impactante ao menos."
+        )
+        legend.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        legend.setWordWrap(True)
+        layout.addWidget(legend)
+
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        bb.rejected.connect(self.reject)
+        bb.button(QDialogButtonBox.StandardButton.Close).setStyleSheet(
+            t.btn_secondary()
+        )
+        layout.addWidget(bb)
 
 
 _SCAN_BY_CATEGORY = {
@@ -189,7 +383,26 @@ class ScannerScreen(QWidget):
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for i in range(1, 10):
             hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
+        self._table.doubleClicked.connect(
+            lambda _idx: self._on_explain_selected()
+        )
+        self._table.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self._table.customContextMenuRequested.connect(self._on_ctx_menu)
         root.addWidget(self._table, 1)
+
+        hint = QLabel(
+            "Dica: clique duas vezes em uma linha para ver \"Por que esse "
+            "score?\" — breakdown visual por fator. Botão direito abre mais "
+            "opções."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        root.addWidget(hint)
 
         # Progress/status
         self._status = QLabel("Pronto. Selecione uma categoria e clique em Escanear.")
@@ -327,6 +540,8 @@ class ScannerScreen(QWidget):
                 item = QTableWidgetItem(str(val))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
+                if col == self.COL_NAME:
+                    item.setData(Qt.ItemDataRole.UserRole, r)
                 self._table.setItem(i, col, item)
             # Score breakdown tooltip
             tip = r.get("score_tooltip", "")
@@ -354,6 +569,49 @@ class ScannerScreen(QWidget):
             )
         else:
             self._status.setText(msg)
+
+    # ── explicabilidade ─────────────────────────────────
+    def _selected_result(self) -> dict | None:
+        row = self._table.currentRow()
+        if row < 0:
+            return None
+        item = self._table.item(row, self.COL_NAME)
+        if item is None:
+            return None
+        r = item.data(Qt.ItemDataRole.UserRole)
+        return r if isinstance(r, dict) else None
+
+    def _on_explain_selected(self) -> None:
+        r = self._selected_result()
+        if r is None:
+            return
+        dlg = _ScoreBreakdownDialog(r, self)
+        dlg.exec()
+
+    def _on_open_steam(self) -> None:
+        r = self._selected_result()
+        if r is None:
+            return
+        name = r.get("name", "")
+        if not name:
+            return
+        url = (
+            f"https://steamcommunity.com/market/listings/"
+            f"{_CS2_APPID}/{quote(name)}"
+        )
+        QDesktopServices.openUrl(QUrl(url))
+
+    def _on_ctx_menu(self, pos) -> None:
+        if self._table.currentRow() < 0:
+            return
+        menu = QMenu(self._table)
+        act_why = menu.addAction("Por que esse score?")
+        act_open = menu.addAction("Ver no Steam Market")
+        action = menu.exec(self._table.viewport().mapToGlobal(pos))
+        if action == act_why:
+            self._on_explain_selected()
+        elif action == act_open:
+            self._on_open_steam()
 
     def _on_ranking(self) -> None:
         if not self._scan_results:
