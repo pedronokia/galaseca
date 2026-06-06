@@ -147,3 +147,52 @@ def test_clear_alerts_log(tmp_path):
     assert len(alerts.load_alerts_log(path=p)) == 1
     alerts.clear_alerts_log(path=p)
     assert alerts.load_alerts_log(path=p) == []
+
+
+def test_record_alert_corrupted_json(tmp_path):
+    """Log corrompido e' tratado como lista vazia."""
+    p = tmp_path / "log.json"
+    p.write_text("not json", encoding="utf-8")
+    alerts.record_alert("X", {"rule": "r", "label": "l",
+                              "value": 0, "severity": "info"}, path=p)
+    log = alerts.load_alerts_log(path=p)
+    assert len(log) == 1
+
+
+def test_record_alert_invalid_type(tmp_path):
+    """Log com tipo invalido (dict em vez de list) e' tratado como vazio."""
+    p = tmp_path / "log.json"
+    alerts.record_alert("X", {"rule": "r", "label": "l",
+                              "value": 0, "severity": "info"}, path=p)
+    # Sobrescreve com dict
+    p.write_text('{"bad": "data"}', encoding="utf-8")
+    alerts.record_alert("Y", {"rule": "r", "label": "l",
+                              "value": 0, "severity": "info"}, path=p)
+    log = alerts.load_alerts_log(path=p)
+    assert len(log) == 1  # O dict invalido foi ignorado, so' o Y ficou
+
+
+def test_record_alert_oserror_ignored(tmp_path):
+    """Erro de escrita no log e' silencioso."""
+    file_path = tmp_path / "afile"
+    file_path.write_text("", encoding="utf-8")
+    bad = file_path / "log.json"
+    alerts.record_alert("X", {"rule": "r", "label": "l",
+                              "value": 0, "severity": "info"}, path=bad)
+    # nao crashou
+
+
+def test_load_alerts_log_corrupted_json(tmp_path):
+    """JSON corrompido retorna lista vazia."""
+    p = tmp_path / "log.json"
+    p.write_text("corrupt", encoding="utf-8")
+    assert alerts.load_alerts_log(path=p) == []
+
+
+def test_clear_alerts_log_oserror_ignored(tmp_path):
+    """Erro ao limpar log e' silencioso."""
+    file_path = tmp_path / "afile"
+    file_path.write_text("", encoding="utf-8")
+    bad = file_path / "log.json"
+    alerts.clear_alerts_log(path=bad)
+    # nao crashou

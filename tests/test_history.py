@@ -24,3 +24,14 @@ def test_history_caps_length(tmp_path):
     series = history.load_history(path=p)
     assert len(series) == 500                 # capou
     assert series[-1]["total"] == 519.0       # manteve os mais recentes
+
+
+def test_record_snapshot_oserror_ignored(tmp_path):
+    """Falha de escrita no disco nao quebra."""
+    import os
+    p = tmp_path / "h.json"
+    history.record_snapshot(100.0, path=p, now=1000)
+    # transforma o arquivo em diretorio para forcar OSError na escrita
+    p.unlink()
+    p.mkdir()
+    history.record_snapshot(200.0, path=p, now=2000)  # nao deve levantar

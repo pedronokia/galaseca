@@ -302,12 +302,8 @@ def case_status(name: str) -> dict:
         label += ")"
     elif status == "active":
         label = f"{case_name} (ativa)"
-    elif status == "collection":
-        label = f"{case_name}"
-    elif status == "rare":
-        label = f"{case_name} (rara)"
     else:
-        label = case_name
+        label = f"{case_name}"
 
     return {
         "case": case_name,

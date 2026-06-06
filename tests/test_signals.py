@@ -363,3 +363,134 @@ def test_scan_score_wrapper_returns_int():
     v = {"verdict": "fair", "diff_pct": 0}
     assert signals.scan_score(v) == 50
     assert isinstance(signals.scan_score(v), int)
+
+
+# ── Edge cases de persistencia ─────────────────────────
+def test_record_item_price_corrupted_json(tmp_path):
+    """Arquivo JSON corrompido e' tratado como vazio."""
+    p = tmp_path / "ih.json"
+    p.write_text("corrupt{json", encoding="utf-8")
+    signals.record_item_price("AK", 100.0, path=p)
+    h = signals.load_item_history("AK", path=p)
+    assert len(h) == 1
+
+
+def test_load_item_history_corrupted_json(tmp_path):
+    """JSON corrompido retorna lista vazia."""
+    p = tmp_path / "ih.json"
+    p.write_text("corrupt", encoding="utf-8")
+    assert signals.load_item_history("AK", path=p) == []
+
+
+def test_record_item_price_oserror_ignored(tmp_path):
+    """Erro de escrita no save e' silencioso."""
+    file_path = tmp_path / "afile"
+    file_path.write_text("", encoding="utf-8")
+    bad = file_path / "ih.json"
+    signals.record_item_price("AK", 100.0, path=bad)
+    # nao crashou
+
+
+def test_record_metric_corrupted_json(tmp_path, monkeypatch):
+    """JSON corrompido em metrica e' tratado como vazio."""
+    p = tmp_path / "m.json"
+    p.write_text("corrupt{json", encoding="utf-8")
+    monkeypatch.setattr(signals, "_VOLUME_PATH", p)
+    signals.record_item_volume("AK", 500)
+    h = signals.load_item_volume("AK")
+    assert len(h) == 1
+
+
+def test_record_metric_oserror_ignored(tmp_path, monkeypatch):
+    """Erro de escrita em metrica e' silencioso."""
+    file_path = tmp_path / "afile"
+    file_path.write_text("", encoding="utf-8")
+    bad = file_path / "m.json"
+    monkeypatch.setattr(signals, "_VOLUME_PATH", bad)
+    signals.record_item_volume("AK", 500)
+    # nao crashou
+
+
+def test_load_metric_corrupted_json(tmp_path, monkeypatch):
+    """JSON corrompido em metrica retorna lista vazia."""
+    p = tmp_path / "m.json"
+    p.write_text("corrupt", encoding="utf-8")
+    monkeypatch.setattr(signals, "_VOLUME_PATH", p)
+    assert signals.load_item_volume("AK") == []
+
+
+def test_record_metric_cap_200(tmp_path, monkeypatch):
+    """_record_metric cap em 200 entradas."""
+    p = tmp_path / "m.json"
+    monkeypatch.setattr(signals, "_VOLUME_PATH", p)
+    for i in range(205):
+        signals.record_item_volume("Item", float(i))
+    h = signals.load_item_volume("Item")
+    assert len(h) == 200
+    assert h[0]["value"] == 5.0
+
+
+# ── Edge cases de analise ──────────────────────────────
+def test_volume_anomaly_avg_zero():
+    """Quando a media e' zero, nao ha anomalia."""
+    h = [{"value": 0}] * 4 + [{"value": 100}]
+    a = signals.volume_anomaly(h)
+    assert a["is_anomaly"] is False
+
+
+def test_multi_trend_tolerance_exceeded():
+    """Entry muito distante do cutoff e' ignorado."""
+    now = time.time()
+    ph = [
+        {"time": now - 100, "price_median": 100.0},       # muito perto
+        {"time": now - 10, "price_median": 110.0},         # recente
+    ]
+    result = signals.multi_trend(ph, periods=[24])
+    assert "24h" not in result  # nenhum entry perto de 24h atras
+
+
+def test_multi_trend_first_price_zero():
+    """Pulga entry com first_price == 0."""
+    now = time.time()
+    ph = [
+        {"time": now - 90000, "price_median": 0.0},
+        {"time": now - 1000, "price_median": 110.0},
+    ]
+    result = signals.multi_trend(ph, periods=[24])
+    assert "24h" not in result
+
+
+def test_find_support_resistance_with_resistance():
+    """Detecta pontos de resistencia."""
+    ph = []
+    for i in range(20):
+        ph.append({"price_median": 100.0 + (i % 5) * 5})
+    sr = signals.find_support_resistance(ph, window=2)
+    assert isinstance(sr["support"], list)
+    assert isinstance(sr["resistance"], list)
+
+
+def test_find_support_resistance_clustering_merge():
+    """Niveis proximos sao agrupados em um unico nivel."""
+    ph = [{"price_median": 100.0}] * 10
+    ph[3] = {"price_median": 90.0}  # primeiro suporte
+    ph[7] = {"price_median": 91.0}  # segundo suporte (proximo)
+    sr = signals.find_support_resistance(ph, window=2, min_separation_pct=5.0)
+    assert len(sr["support"]) >= 1
+
+
+def test_find_support_resistance_clustering_keep_separate():
+    """Niveis distantes mantem-se separados."""
+    ph = [{"price_median": 100.0}] * 10
+    ph[3] = {"price_median": 90.0}   # primeiro suporte
+    ph[7] = {"price_median": 50.0}   # segundo suporte (distante)
+    sr = signals.find_support_resistance(ph, window=2, min_separation_pct=5.0)
+    assert len(sr["support"]) >= 2
+
+
+def test_enhanced_score_delta_zero_skipped():
+    """_add com delta=0 nao altera score nem breakdown."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(v)
+    assert score == 50
+    assert breakdown == []

@@ -68,6 +68,27 @@ class TestParseSteamDate:
         assert (lt.tm_hour, lt.tm_min) == (18, 30)
 
 
+    def test_invalid_day_returns_none(self):
+        """Dia nao numerico retorna None."""
+        now = time.mktime((2026, 6, 15, 12, 0, 0, 0, 0, -1))
+        assert trade_matcher.parse_steam_date("abc Jan", now=now) is None
+
+    def test_invalid_time_format_returns_valid_date(self):
+        """Time com formato invalido ignora a hora e retorna data valida."""
+        now = time.mktime((2026, 6, 15, 12, 0, 0, 0, 0, -1))
+        ts = trade_matcher.parse_steam_date("10 Mar xx:yy", now=now)
+        assert ts is not None
+        lt = time.localtime(ts)
+        assert lt.tm_hour == 0
+
+    def test_future_year_adjustment_fails_gracefully(self):
+        """Ajuste de ano futuro que falha retorna None."""
+        now = time.mktime((2024, 2, 15, 12, 0, 0, 0, 0, -1))
+        # 29 Feb 2024 sem ano e' futuro (>1d), tenta 2023 — mas 29 Feb 2023 nao existe
+        ts = trade_matcher.parse_steam_date("29 Feb", now=now)
+        assert ts is None
+
+
 # ── match_events --------------------------------------------------------
 
 def _ev(name, side, price, date_str):
@@ -77,6 +98,19 @@ def _ev(name, side, price, date_str):
 class TestMatchEvents:
     def test_empty_returns_empty(self):
         assert trade_matcher.match_events([]) == []
+
+    def test_appid_filter_ignores_mismatch(self):
+        events = [
+            {"name": "AK", "side": "buy", "price": 10.0, "date_str": "1 Jan",
+             "appid": 730},
+            {"name": "AK", "side": "sell", "price": 20.0, "date_str": "5 Jan",
+             "appid": 730},
+            {"name": "AWP", "side": "buy", "price": 50.0, "date_str": "1 Jan",
+             "appid": 740},
+        ]
+        result = trade_matcher.match_events(events, appid=730)
+        assert len(result) == 1
+        assert result[0].name == "AK"
 
     def test_unmatched_buy_or_sell_does_not_produce_trade(self):
         events = [
@@ -189,6 +223,27 @@ class TestFindOpenBuys:
         result = trade_matcher.find_open_buys(events)
         assert len(result) == 1
         assert result[0].name == "AK"
+
+
+def test_load_closed_trades(monkeypatch):
+    """load_closed_trades carrega eventos do sync e pareia."""
+    monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [
+        {"name": "AK", "side": "buy", "price": 10.0, "date_str": "1 Jan"},
+        {"name": "AK", "side": "sell", "price": 20.0, "date_str": "5 Jan"},
+    ])
+    result = trade_matcher.load_closed_trades()
+    assert len(result) == 1
+    assert result[0].pnl > 0
+
+
+def test_load_open_buys(monkeypatch):
+    """load_open_buys carrega eventos e retorna buys nao vendidos."""
+    monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [
+        {"name": "AK", "side": "buy", "price": 10.0, "date_str": "1 Jan"},
+    ])
+    result = trade_matcher.load_open_buys()
+    assert len(result) == 1
+    assert result[0].name == "AK"
 
 
 class TestSummarize:

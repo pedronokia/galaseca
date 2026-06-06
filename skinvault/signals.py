@@ -215,8 +215,6 @@ def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> 
     for period_h in periods:
         cutoff = last_ts - period_h * 3600
         candidate = min(sorted_hist, key=lambda e: abs(e["time"] - cutoff))
-        if candidate is None:
-            continue
         # Só usa se estiver dentro da janela (tolera 20% além do período)
         if abs(candidate["time"] - cutoff) > period_h * 3600 * 0.2:
             continue
@@ -311,8 +309,6 @@ def enhanced_score(verdict: dict, volume: int | None = None,
 
     def _add(factor: str, delta: float, label: str) -> None:
         nonlocal score
-        if delta == 0:
-            return
         score += delta
         breakdown.append({
             "factor": factor,

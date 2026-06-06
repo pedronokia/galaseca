@@ -28,3 +28,14 @@ def test_partial_update(tmp_path):
     loaded = settings.load_settings(path=p)
     assert loaded["cache_ttl_hours"] == 3
     assert loaded["fee_rate"] == 0.15
+
+
+def test_save_settings_oserror_ignored(tmp_path):
+    p = tmp_path / "settings.json"
+    settings.save_settings({"a": 1}, path=p)
+    loaded = settings.load_settings(path=p)
+    assert loaded["a"] == 1
+    import os
+    p.unlink()
+    p.mkdir()
+    settings.save_settings({"b": 2}, path=p)
