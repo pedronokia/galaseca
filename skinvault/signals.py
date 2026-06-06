@@ -126,8 +126,6 @@ def volume_anomaly(history: list[dict], factor: float = 2.0) -> dict:
         return {"is_anomaly": False, "ratio": 1.0}
     values = [e["value"] for e in history]
     current = values[-1]
-    if len(values) < 3:
-        return {"is_anomaly": False, "ratio": 1.0}
     avg = sum(values[:-1]) / (len(values) - 1)
     if avg == 0:
         return {"is_anomaly": False, "ratio": 1.0}
@@ -367,15 +365,15 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         elif sd < 0.5:
             _add("supply_demand", -10, f"S/D fraco ({sd:.2f}) (-10)")
 
-    # Momentum: preco vs SMA curta
+    # Momentum: preco atual vs media dos ultimos 15 pontos
     if price_history and len(price_history) >= 10:
         prices_m = [e["price_median"] for e in price_history[-15:]]
-        sma10 = sum(prices_m) / len(prices_m)
+        mean_recent = sum(prices_m) / len(prices_m)
         last_p = prices_m[-1]
-        if last_p > sma10 * 1.02:
-            _add("momentum", 5, "Acima da SMA curta (+5)")
-        elif last_p < sma10 * 0.98:
-            _add("momentum", -5, "Abaixo da SMA curta (-5)")
+        if last_p > mean_recent * 1.02:
+            _add("momentum", 5, "Acima da media recente (+5)")
+        elif last_p < mean_recent * 0.98:
+            _add("momentum", -5, "Abaixo da media recente (-5)")
 
     # Concordancia multi-periodo
     if multi_trend and len(multi_trend) >= 3:
