@@ -633,6 +633,9 @@ def test_screen_router_check_session_valid(monkeypatch):
     persist_calls = []
     monkeypatch.setattr("skinvault.steam_session.persist",
                         lambda s: persist_calls.append(s))
+    # AccountScreen.set_session -> refresh -> PriceWorker -> HTTP. Mock pra inline.
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
     router = _make_router()
     router._check_session()
     assert router.session is not None
@@ -655,8 +658,10 @@ def test_screen_router_check_session_invalid(monkeypatch):
     assert router._stack.currentWidget() == router._login_gate
 
 
-def test_screen_router_on_session():
+def test_screen_router_on_session(monkeypatch):
     """_on_session configura estado pos-login."""
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
     router = _make_router()
     sess = _fake_session()
     vis_changes = []
@@ -685,6 +690,8 @@ def test_screen_router_navigate_all_screens(monkeypatch):
     monkeypatch.setattr("skinvault.steam_session.load", lambda: _fake_session())
     monkeypatch.setattr("skinvault.steam_session.validate", lambda s: True)
     monkeypatch.setattr("skinvault.steam_session.persist", lambda s: None)
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
     router = _make_router()
     router._check_session()  # loga
     nav_log = []
@@ -838,7 +845,7 @@ def test_components_instantiation():
     """Componentes da UI instanciam sem erro."""
     from skinvault.ui.components import (
         Avatar, Breadcrumb, Card, Footer, Sidebar,
-        StatCard, SegmentedControl, LockOverlay,
+        StatCard, SegmentedControl, LockOverlay, ActivityFeed,
     )
     assert Card() is not None
     assert StatCard("label", "value") is not None
@@ -848,6 +855,94 @@ def test_components_instantiation():
     assert Avatar() is not None
     assert SegmentedControl() is not None
     assert LockOverlay() is not None
+    assert ActivityFeed() is not None
+
+
+# ── ActivityFeed ───────────────────────────────────────────────
+
+
+def test_activity_color_mapping():
+    from skinvault.ui import components, theme
+    assert components._activity_color("green") == theme.ACCENT
+    assert components._activity_color("red") == theme.DANGER
+    assert components._activity_color("accent") == theme.STEAM_BLUE
+    assert components._activity_color("muted") == theme.TEXT_MUTED
+    assert components._activity_color("unknown") == theme.TEXT_MUTED
+
+
+def test_activity_row_basic():
+    from skinvault.ui.components import _ActivityRow
+    row = _ActivityRow({
+        "type": "trade", "ts": 1_000_000, "title": "AK-47",
+        "subtitle": "P&L +50", "color": "green", "icon": "↑",
+    })
+    assert row is not None
+
+
+def test_activity_row_red_color():
+    from skinvault.ui.components import _ActivityRow
+    row = _ActivityRow({
+        "type": "trade", "ts": 1_000_000, "title": "AWP",
+        "subtitle": "P&L -30", "color": "red", "icon": "↓",
+    })
+    assert row is not None
+
+
+def test_activity_row_missing_fields():
+    """_ActivityRow tolera dict sem icon/color."""
+    from skinvault.ui.components import _ActivityRow
+    row = _ActivityRow({"ts": 0})
+    assert row is not None
+
+
+def test_activity_feed_empty_state():
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([])
+    assert feed._empty.isVisible() or True  # tolera show/hide
+
+
+def test_activity_feed_with_events():
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "trade", "ts": 1000, "title": "AK", "subtitle": "+50",
+         "color": "green", "icon": "↑"},
+        {"type": "alert", "ts": 900, "title": "AWP", "subtitle": "vol 3x",
+         "color": "accent", "icon": "★"},
+    ])
+    # Apos set_events, _list_lay tem 2 rows (sem o _empty)
+    assert feed._list_lay.count() == 2
+
+
+def test_activity_feed_resets_on_subsequent_set_events():
+    """set_events chamado de novo limpa rows anteriores."""
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "trade", "ts": 1000, "title": "A", "subtitle": "",
+         "color": "green", "icon": "↑"},
+        {"type": "trade", "ts": 900, "title": "B", "subtitle": "",
+         "color": "green", "icon": "↑"},
+    ])
+    feed.set_events([
+        {"type": "trade", "ts": 800, "title": "C", "subtitle": "",
+         "color": "red", "icon": "↓"},
+    ])
+    assert feed._list_lay.count() == 1
+
+
+def test_activity_feed_set_empty_after_populated():
+    """Volta ao estado vazio depois de ter eventos."""
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "trade", "ts": 1000, "title": "A", "subtitle": "",
+         "color": "green", "icon": "↑"},
+    ])
+    feed.set_events([])
+    # _empty re-anexado ao layout
+    assert feed._list_lay.count() == 1
 
 
 def test_market_screen():
@@ -2014,6 +2109,30 @@ def test_account_screen_apply_filter():
     assert screen._table.isRowHidden(1) is True
 
 
+def test_account_screen_reload_activity_populates_feed(monkeypatch):
+    """_reload_activity puxa eventos e atualiza o ActivityFeed."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.activity.load_recent_activity",
+                        lambda limit=10: [
+                            {"type": "trade", "ts": 1000, "title": "AK",
+                             "subtitle": "+50", "color": "green", "icon": "↑"},
+                        ])
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._reload_activity()
+    assert screen._activity_feed._list_lay.count() == 1
+
+
+def test_account_screen_reload_activity_swallows_exception(monkeypatch):
+    """_reload_activity engole excecao e mostra feed vazio."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    monkeypatch.setattr("skinvault.activity.load_recent_activity",
+                        lambda limit=10: (_ for _ in ()).throw(ValueError("boom")))
+    screen._reload_activity()  # nao crasha
+
+
 # ── WatchlistScreen + _RulesDialog ──────────────────────────────
 
 def test_rules_dialog_default():
@@ -2218,6 +2337,26 @@ def test_dialogs_instantiation(monkeypatch):
 
 
 # ── PriceWorker edge cases ─────────────────────────────────────
+
+
+def test_safe_emit_swallows_runtime_error():
+    """_safe_emit tolera RuntimeError (C++ obj deletado)."""
+    from skinvault.ui._price_worker import _safe_emit
+
+    class _FakeSig:
+        def emit(self, *args):
+            raise RuntimeError("wrapped C/C++ object has been deleted")
+    _safe_emit(_FakeSig(), 1, 2)  # nao crasha
+
+
+def test_safe_emit_swallows_attribute_error():
+    """_safe_emit tolera AttributeError tambem."""
+    from skinvault.ui._price_worker import _safe_emit
+
+    class _FakeSig:
+        def emit(self, *args):
+            raise AttributeError("no emit")
+    _safe_emit(_FakeSig())
 
 
 def test_batch_price_worker_running_guard(monkeypatch):

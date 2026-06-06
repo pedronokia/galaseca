@@ -343,3 +343,112 @@ class LockOverlay(QWidget):
         cta.setStyleSheet(t.btn_steam(padding="12px 28px", fs=t.FS_INPUT))
         cta.clicked.connect(self.cta_clicked.emit)
         lay.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)
+
+
+# ── ActivityFeed ─────────────────────────────────────────────
+def _activity_color(name: str) -> str:
+    """Mapeia COLOR_* da activity.py para constante do theme."""
+    return {
+        "green": t.ACCENT,
+        "red": t.DANGER,
+        "accent": t.STEAM_BLUE,
+        "muted": t.TEXT_MUTED,
+    }.get(name, t.TEXT_MUTED)
+
+
+class _ActivityRow(QWidget):
+    """Uma linha do feed: bolinha colorida + (titulo/subtitulo) + tempo."""
+
+    def __init__(self, event: dict, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        from skinvault import activity as _act
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+
+        color = _activity_color(event.get("color", "muted"))
+
+        icon = QLabel(event.get("icon", "·"))
+        icon.setFixedSize(28, 28)
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setStyleSheet(
+            f"color: {color}; background: {t.SURFACE};"
+            f" border-radius: 14px; font-size: 12pt; font-weight: 700;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(icon, 0, Qt.AlignmentFlag.AlignTop)
+
+        center = QVBoxLayout()
+        center.setContentsMargins(0, 0, 0, 0)
+        center.setSpacing(1)
+        title = QLabel(event.get("title", ""))
+        title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        title.setWordWrap(True)
+        center.addWidget(title)
+
+        sub_color = color if event.get("color") in ("green", "red") else t.TEXT_MUTED
+        sub = QLabel(event.get("subtitle", ""))
+        sub.setStyleSheet(
+            f"color: {sub_color}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        sub.setWordWrap(True)
+        center.addWidget(sub)
+        lay.addLayout(center, 1)
+
+        ts_label = QLabel(_act.format_relative_ts(event.get("ts", 0)))
+        ts_label.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(ts_label, 0, Qt.AlignmentFlag.AlignTop)
+
+
+class ActivityFeed(Card):
+    """Lista vertical estilo "Recent Activity" do Faceit. Agrega trades,
+    alertas e snapshots de ranking. Use set_events() pra preencher."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent, padding=(16, 14, 16, 14))
+        self.setMinimumWidth(280)
+        self.setMaximumWidth(380)
+
+        title = QLabel("Atividade recente")
+        title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        self.layout().addWidget(title)
+
+        self._list_lay = QVBoxLayout()
+        self._list_lay.setContentsMargins(0, 4, 0, 0)
+        self._list_lay.setSpacing(10)
+        self.layout().addLayout(self._list_lay)
+        self.layout().addStretch(1)
+
+        self._empty = QLabel("Nenhuma atividade ainda.")
+        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; padding: 16px 0;"
+        )
+        self._list_lay.addWidget(self._empty)
+
+    def set_events(self, events: list[dict]) -> None:
+        # Limpa lista atual
+        while self._list_lay.count():
+            item = self._list_lay.takeAt(0)
+            w = item.widget()
+            if w is not None and w is not self._empty:
+                w.deleteLater()
+        if not events:
+            self._empty.show()
+            self._list_lay.addWidget(self._empty)
+            return
+        self._empty.hide()
+        for ev in events:
+            self._list_lay.addWidget(_ActivityRow(ev))

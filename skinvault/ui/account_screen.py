@@ -72,6 +72,7 @@ class AccountScreen(QWidget):
         self._price_worker.eval_done.connect(self._on_eval)
         self._price_worker.progress.connect(self._on_eval_progress)
         self._build()
+        self._reload_activity()
 
     def set_session(self, session: steam_session.SteamSession | None) -> None:
         self._session = session
@@ -188,6 +189,13 @@ class AccountScreen(QWidget):
         self._breakdown_card = breakdown_card
         root.addWidget(breakdown_card)
 
+        # Coluna esquerda (filtro + tabela + status) + ActivityFeed lateral
+        split = QHBoxLayout()
+        split.setSpacing(16)
+
+        left_col = QVBoxLayout()
+        left_col.setSpacing(12)
+
         # Filtro
         filt = QLineEdit()
         filt.setPlaceholderText("Filtrar por nome do item...")
@@ -198,7 +206,7 @@ class AccountScreen(QWidget):
         filt.setStyleSheet(t.input_style())
         filt.textChanged.connect(self._apply_filter)
         self._filter_inp = filt
-        root.addWidget(filt)
+        left_col.addWidget(filt)
 
         # Progress bar (indeterminate, hidden by default)
         self._progress = QProgressBar()
@@ -211,7 +219,7 @@ class AccountScreen(QWidget):
             f"QProgressBar::chunk {{ background: {t.ACCENT};"
             " border-radius: 3px; }}"
         )
-        root.addWidget(self._progress)
+        left_col.addWidget(self._progress)
 
         # Tabela
         self._table = QTableWidget(0, 7)
@@ -235,7 +243,7 @@ class AccountScreen(QWidget):
             if i != self.COL_NAME:
                 hh.setSectionResizeMode(
                     i, QHeaderView.ResizeMode.ResizeToContents)
-        root.addWidget(self._table, 1)
+        left_col.addWidget(self._table, 1)
 
         # Status
         self._status = QLabel("")
@@ -243,7 +251,16 @@ class AccountScreen(QWidget):
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
-        root.addWidget(self._status)
+        left_col.addWidget(self._status)
+
+        split.addLayout(left_col, 1)
+
+        # Coluna direita: Activity Feed
+        from skinvault.ui.components import ActivityFeed
+        self._activity_feed = ActivityFeed(self)
+        split.addWidget(self._activity_feed, 0)
+
+        root.addLayout(split, 1)
 
         from PyQt6.QtGui import QKeySequence, QShortcut
         find_sc = QShortcut(QKeySequence("Ctrl+F"), self)
@@ -306,6 +323,16 @@ class AccountScreen(QWidget):
         self._progress.setVisible(True)
         self._status.setText("Avaliando inventario...")
         self._price_worker.start()
+        self._reload_activity()
+
+    def _reload_activity(self) -> None:
+        """Atualiza o feed de atividade recente (sem I/O de rede)."""
+        from skinvault import activity as _act
+        try:
+            events = _act.load_recent_activity(limit=10)
+        except Exception:
+            events = []
+        self._activity_feed.set_events(events)
 
     def _on_eval_progress(self, done: int, total: int) -> None:
         self._status.setText(f"Avaliando inventario... {done}/{total}")
