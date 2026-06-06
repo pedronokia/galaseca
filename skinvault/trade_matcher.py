@@ -10,6 +10,7 @@ Modulo puro: parsing + matching, sem IO direto (apenas o helper
 """
 from __future__ import annotations
 
+import datetime as _dt
 import time
 from dataclasses import dataclass
 
@@ -59,14 +60,16 @@ def parse_steam_date(date_str: str, now: float | None = None) -> float | None:
             except ValueError:
                 pass
 
+    # datetime valida dia/mes; time.mktime e permissivo (vira 31 Apr em
+    # 1 Mai silenciosamente). Queremos None pra dia invalido.
     try:
-        ts = time.mktime((year, month, day, hh, mm, 0, 0, 0, -1))
+        ts = _dt.datetime(year, month, day, hh, mm).timestamp()
     except (ValueError, OverflowError):
         return None
 
     if not explicit_year and ts > now_ts + 86400:
         try:
-            ts = time.mktime((year - 1, month, day, hh, mm, 0, 0, 0, -1))
+            ts = _dt.datetime(year - 1, month, day, hh, mm).timestamp()
         except (ValueError, OverflowError):
             return None
     return ts

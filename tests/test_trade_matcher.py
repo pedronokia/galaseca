@@ -19,6 +19,25 @@ class TestParseSteamDate:
         assert trade_matcher.parse_steam_date("garbage") is None
         assert trade_matcher.parse_steam_date("32 Foo") is None
 
+    def test_invalid_calendar_dates_return_none(self):
+        """Regression: time.mktime normalizava silenciosamente datas
+        invalidas (31 Apr → 1 Mai, 29 Feb fora de bissexto → 1 Mar,
+        99 Jan → ~8 Abr). Agora usamos datetime e essas viram None."""
+        now = time.mktime((2025, 6, 15, 12, 0, 0, 0, 0, -1))
+        assert trade_matcher.parse_steam_date("31 Apr", now=now) is None
+        assert trade_matcher.parse_steam_date("99 Jan", now=now) is None
+        # 29 Feb em ano nao bissexto vira None
+        assert trade_matcher.parse_steam_date(
+            "29 Feb, 2025", now=now
+        ) is None
+
+    def test_29_feb_valid_in_leap_year(self):
+        now = time.mktime((2025, 6, 15, 12, 0, 0, 0, 0, -1))
+        ts = trade_matcher.parse_steam_date("29 Feb, 2024", now=now)
+        assert ts is not None
+        lt = time.localtime(ts)
+        assert (lt.tm_year, lt.tm_mon, lt.tm_mday) == (2024, 2, 29)
+
     def test_parses_day_month_with_implicit_year(self):
         # Em 15-Jun-2026: "10 Mar" deve cair em 2026
         now = time.mktime((2026, 6, 15, 12, 0, 0, 0, 0, -1))
