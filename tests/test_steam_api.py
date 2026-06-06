@@ -96,6 +96,35 @@ class TestFairValueVerdict:
         v = fair_value_verdict(90.0, 100.0)
         assert set(v.keys()) == {"diff_pct", "verdict", "label", "message"}
 
+    def test_spread_must_be_int_not_dict(self):
+        """Regression: chamar com spread=dict crashava com TypeError.
+
+        Scanner e Market faziam spread=page['order_book'] (dict). O
+        contrato espera int (centavos). Tests garantem que callers usem
+        ob.get('spread') -- valor escalar -- e nao o dict inteiro.
+        """
+        with pytest.raises(TypeError):
+            fair_value_verdict(100.0, 100.0, spread={"buy_count": 5})
+
+    def test_order_book_dict_via_correct_keys(self):
+        """Order book do get_market_page_data tem chaves buy_count/
+        sell_count/spread. Callers devem extrair escalar antes de passar."""
+        ob = {
+            "best_bid": 9500,
+            "best_ask": 10500,
+            "buy_count": 100,
+            "sell_count": 50,
+            "spread": 1000,
+        }
+        v = fair_value_verdict(
+            100.0, 100.0,
+            spread=ob["spread"],
+            buy_count=ob["buy_count"],
+            sell_count=ob["sell_count"],
+        )
+        assert "spread_verdict" in v
+        assert "book_verdict" in v
+
 
 SAMPLE_RENDER_CONTEXT = json.dumps(
     {

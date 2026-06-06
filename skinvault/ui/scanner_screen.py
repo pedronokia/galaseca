@@ -458,20 +458,18 @@ class ScannerScreen(QWidget):
 
         self._cache.put(name, lowest)
 
+        ob = page.get("order_book") if page else None
         verdict = steam_api.fair_value_verdict(
             lowest, median,
-            spread=page.get("order_book") if page else None,
-            buy_count=(len(page["order_book"].get("buy", []))
-                       if page and page.get("order_book") else None),
-            sell_count=(len(page["order_book"].get("sell", []))
-                        if page and page.get("order_book") else None),
+            spread=ob.get("spread") if ob else None,
+            buy_count=ob.get("buy_count") if ob else None,
+            sell_count=ob.get("sell_count") if ob else None,
             price_history=page.get("price_history") if page else None,
         ) if page else steam_api.fair_value_verdict(lowest, median)
         signals.record_item_price(name, lowest)
         if volume:
             signals.record_item_volume(name, volume)
-        supply = (len(page["order_book"].get("sell", []))
-                  if page and page.get("order_book") else None)
+        supply = ob.get("sell_count") if ob else None
         if supply is not None:
             signals.record_item_supply(name, supply)
 

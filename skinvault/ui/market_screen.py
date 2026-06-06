@@ -398,9 +398,9 @@ class MarketScreen(QWidget):
             ob = page.get("order_book") if page else None
             verdict = steam_api.fair_value_verdict(
                 lowest, median,
-                spread=ob,
-                buy_count=len(ob.get("buy", [])) if ob else None,
-                sell_count=len(ob.get("sell", [])) if ob else None,
+                spread=ob.get("spread") if ob else None,
+                buy_count=ob.get("buy_count") if ob else None,
+                sell_count=ob.get("sell_count") if ob else None,
                 price_history=page.get("price_history") if page else None,
             )
 
@@ -450,8 +450,8 @@ class MarketScreen(QWidget):
 
             if order_book:
                 self._depth.set_data(order_book)
-                buys = len(order_book.get("buy", []))
-                sells = len(order_book.get("sell", []))
+                buys = order_book.get("buy_count") or 0
+                sells = order_book.get("sell_count") or 0
                 if buys or sells:
                     supply = sells
                     signals.record_item_supply(name, supply)
@@ -503,8 +503,8 @@ class MarketScreen(QWidget):
                                  f"{diff:+.1f}%", color=color)
         if page:
             ob = page.get("order_book") or {}
-            buys = len(ob.get("buy", []))
-            sells = len(ob.get("sell", []))
+            buys = ob.get("buy_count") or 0
+            sells = ob.get("sell_count") or 0
             self._add_detail("Ordens de compra", str(buys))
             self._add_detail("Listagens à venda", str(sells))
             if verdict.get("spread_verdict"):
