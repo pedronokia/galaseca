@@ -283,3 +283,156 @@ class TestFetchTradeHistoryHtml:
         monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
         fetch_trade_history_html(_session(), page=3)
         assert "p=3" in captured["url"]
+
+
+# ── Tests: fetch_inventory_authed -----------------------------------------
+
+INV_OK = "ok"
+INV_PRIVATE = "private"
+INV_RATE_LIMITED = "rate_limited"
+INV_EMPTY = "empty"
+INV_ERROR = "error"
+
+
+class TestFetchInventoryAuthed:
+    def test_private_403(self, monkeypatch):
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (403, None)
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_PRIVATE
+        assert items == []
+
+    def test_rate_limited_429(self, monkeypatch):
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (429, None)
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_RATE_LIMITED
+        assert items == []
+
+    def test_error_on_non_200(self, monkeypatch):
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (500, None)
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_ERROR
+        assert items == []
+
+    def test_error_on_none_body_with_200(self, monkeypatch):
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (200, None)
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_ERROR
+        assert items == []
+
+    def test_invalid_json(self, monkeypatch):
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (200, "not-json")
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_ERROR
+        assert items == []
+
+    def test_empty_no_assets(self, monkeypatch):
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (200, "{}")
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_EMPTY
+        assert items == []
+
+    def test_empty_no_marketable(self, monkeypatch):
+        data = json.dumps({"assets": [], "descriptions": []})
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (200, data)
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_EMPTY
+        assert items == []
+
+    def test_returns_items(self, monkeypatch):
+        payload = {
+            "assets": [
+                {"classid": "1", "instanceid": "0", "amount": "1"}
+            ],
+            "descriptions": [
+                {"classid": "1", "instanceid": "0",
+                 "marketable": 1, "market_hash_name": "AK-47 | Redline (FT)"}
+            ],
+        }
+        mock_get = lambda url, session, timeout=20.0, extra_headers=None: (200, json.dumps(payload))
+        monkeypatch.setattr(steam_api, "_http_get_auth", mock_get)
+        status, items = steam_api.fetch_inventory_authed(_session())
+        assert status == INV_OK
+        assert len(items) == 1
+        assert items[0]["name"] == "AK-47 | Redline (FT)"
+
+
+# ── Tests: _http_get_auth (real urllib) ----------------------------------
+
+
+class TestHttpGetAuth:
+    """Testa _http_get_auth mockando urllib diretamente."""
+
+    def test_success(self, monkeypatch):
+        class MockResp:
+            status = 200
+            def read(self):
+                return b'{"ok": true}'
+
+        class MockUrlOpen:
+            def __enter__(self):
+                return MockResp()
+            def __exit__(self, *a):
+                pass
+
+        monkeypatch.setattr("urllib.request.urlopen",
+                            lambda req, timeout=20.0: MockUrlOpen())
+        code, body = steam_api._http_get_auth("https://example.com", _session())
+        assert code == 200
+        assert body == '{"ok": true}'
+
+    def test_success_with_extra_headers(self, monkeypatch):
+        class MockResp:
+            status = 200
+            def read(self):
+                return b"ok"
+
+        class MockUrlOpen:
+            def __enter__(self):
+                return MockResp()
+            def __exit__(self, *a):
+                pass
+
+        monkeypatch.setattr("urllib.request.urlopen",
+                            lambda req, timeout=20.0: MockUrlOpen())
+
+        def check_headers(url, session, timeout=20.0, extra_headers=None):
+            # Verifica que o Referer foi passado
+            assert extra_headers == {"Referer": "https://steamcommunity.com/profiles/x"}
+            return steam_api._http_get_auth(url, session, timeout, extra_headers)
+
+        code, body = check_headers(
+            "https://example.com", _session(),
+            extra_headers={"Referer": "https://steamcommunity.com/profiles/x"}
+        )
+        assert code == 200
+
+    def test_http_error_returns_code(self, monkeypatch):
+        def raiser(*a, **k):
+            import urllib.error
+            try:
+                raise urllib.error.HTTPError(
+                    "https://example.com", 429, "Too Many", {},
+                    None
+                )
+            except urllib.error.HTTPError:
+                raise
+        monkeypatch.setattr("urllib.request.urlopen", raiser)
+        code, body = steam_api._http_get_auth("https://example.com", _session())
+        assert code == 429
+        assert body is None
+
+    def test_generic_exception_returns_zero(self, monkeypatch):
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            lambda req, timeout=20.0: (_ for _ in ()).throw(ValueError("boom"))
+        )
+        code, body = steam_api._http_get_auth("https://example.com", _session())
+        assert code == 0
+        assert body is None

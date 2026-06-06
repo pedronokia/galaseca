@@ -237,6 +237,18 @@ def test_follow_redirect_network_error_returns_none(monkeypatch):
     assert result is None
 
 
+def test_follow_redirect_http_error_returns_url(monkeypatch):
+    """HTTPError retorna exc.url."""
+    import io
+    def _raise(req, timeout=10):
+        from urllib.error import HTTPError
+        raise HTTPError("https://steamcommunity.com/login/", 302,
+                        "Redirect", {}, io.BytesIO())
+
+    monkeypatch.setattr("urllib.request.urlopen", _raise)
+    result = ss._follow_redirect("https://steamcommunity.com/my/", "cookies", 10)
+    assert result == "https://steamcommunity.com/login/"
+
 class TestMergeCookies:
     def test_keeps_relevant_keys_only(self):
         existing = {"sessionid": "old"}
