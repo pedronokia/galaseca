@@ -1,19 +1,29 @@
-# SkinVault — Handoff (sessão Claude Code, 2026-06-06)
+# SkinVault — Handoff (continuação 2026-06-06, pós-OpenCode)
 
-Documento pra continuar a sessão em outra ferramenta (OpenCode) sem
-perder contexto. Conta o que mudou, o que está em aberto e por onde
-seguir.
+Documento pra continuar a sessão em outra ferramenta sem perder contexto.
+Conta o que mudou, o que está em aberto e por onde seguir.
 
 ---
 
-## Estado do repo
+## Estado do repo (atualizado)
 
-- Branch ativo: `main` — `5fe3d58` (HEAD)
-- Branch espelho: `ux-polish-and-bugfixes` (mesmo HEAD, não-destrutiva)
-- 286 testes passando (`python -m pytest -q`)
+- Branch ativo: `main` — `37614b4` (HEAD)
+- 867 testes passando (`python -m pytest -q`) — antes eram 286
+- Cobertura: 99% total (5522 stmts, 3 missing: `__main__:155`, `gui:54-55` — unreachable)
 - Working tree limpo
 - Sem remote configurado — quando for hospedar (GitHub/GitLab),
   rodar `git remote add origin <url>` e push.
+
+### Frentes do HANDOFF anterior — status
+
+| # | Frente | Status |
+|---|--------|--------|
+| 1 | Pill StatCards | ✅ feito (`14d7523`) |
+| 2 | LoginGate cinematográfico | ✅ feito (`14d7523`) |
+| 3 | `multi_trend` confusa | ✅ feito (`5520ef0`) — desempate prefere entry mais antigo |
+| 4 | Persistência de `_recent` no Market | ✅ feito (`f1c4f98`) — `data/market_recent.json` |
+| 5 | Suite de testes pra UI screens | ✅ feito (`0294389`) — +581 testes |
+| 6 | `import_csv` quebra com formato BR completo | ✅ feito (`f1c4f98`) — parser BR via `_parse_brl` |
 
 Caminho típico pra PR depois de configurar remote:
 
@@ -91,38 +101,22 @@ gh pr create --base main --head ux-polish-and-bugfixes
 
 ---
 
-## Frentes em aberto (propostas)
+## Frentes em aberto
 
-### (1) Pill StatCards
-Cosmético. Cards arredondados (`border-radius` maior, ~22px) com
-mais respiração, possivelmente centralizados nos lugares onde são o
-destaque visual (topo de Account, Scanner). Não muda comportamento.
+Nenhuma da lista anterior. Possíveis próximos:
 
-### (2) LoginGate cinematográfico
-Welcome state mais polido — hero centralizado com headline + sub +
-CTA único enorme em vez do layout funcional atual. Só aparece antes
-do login, mas é a primeira impressão.
+### (A) `.coverage` no `.gitignore`
+O binário `.coverage` é regerado a cada `pytest --cov`. Tá tracked no repo
+e sujeito a diffs ruidosos. Mover pra `.gitignore` + `git rm --cached`.
 
-### (3) `multi_trend` confusa
-Em `signals.py:217-226`, a busca pega o **primeiro entry dentro da
-janela** (mais antigo), não o mais próximo do cutoff. Resulta em
-métricas enganadoras — "24h" pode comparar com ponto de 12h atrás se
-o de 24h não existir. Documentar ou refatorar.
+### (B) Cobrir os 3 missing
+- `__main__:155` — `if __name__ == "__main__": main()` (precisa subprocess via `python -m skinvault`)
+- `gui:54-55` — fallback de `QSystemTrayIcon` quando PyQt6 está incompleto (inalcançável em ambiente real)
 
-### (4) Persistência de `_recent` no Market
-O menu "Buscas recentes" é só in-memory (vazio a cada relaunch).
-Podia persistir em `data/market_recent.json` (cap 8, igual ao
-`watchlist.json`).
+Provavelmente não vale o esforço — 99% é teto natural.
 
-### (5) Suite de testes pra UI screens
-Hoje testamos os módulos puros (signals, portfolio, trade_matcher,
-sync, alerts, backup). Telas não têm cobertura. Considerar adicionar
-smoke tests com `pytest-qt`.
-
-### (6) `import_csv` quebra com formato BR completo
-`portfolio.import_csv` usa `parts[1].replace(",", ".")` — formato
-`R$ 1.234,50` vira `1.234.50` → ValueError. Caso de uso raro; aceitar
-ou usar parser robusto que detecta formato.
+### (C) Remote para o repo
+Ainda não tem remote (`git remote -v` vazio). Quando for publicar, `git remote add origin <url>` + push.
 
 ---
 
