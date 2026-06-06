@@ -1917,8 +1917,10 @@ def test_account_screen_reload_profile_with_session(monkeypatch):
                         lambda sid: None)
     monkeypatch.setattr("skinvault.ui.account_screen.fetch_public_profile",
                         lambda sid, force=False: None)
-    # _bridge.profile_ready not connected for None data
-    # Ensure no crash
+    # set_session dispara refresh() -> PriceWorker.start() -> HTTP real.
+    # Mock threading.Thread + load_portfolio pra rodar inline e nao chamar Steam.
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
     screen = AccountScreen(PriceCache(ttl=3600))
     sess = SteamSession("76561198000000001", {"c": "x"})
     screen.set_session(sess)
