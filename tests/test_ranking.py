@@ -124,3 +124,44 @@ def test_clear_rankings(tmp_path):
     assert len(ranking.load_snapshots(path=p)) == 1
     ranking.clear_rankings(path=p)
     assert ranking.load_snapshots(path=p) == []
+
+
+def test_save_snapshot_corrupted_file(tmp_path):
+    """Arquivo existente com dado corrompido e' ignorado."""
+    p = tmp_path / "r.json"
+    p.write_text("not json", encoding="utf-8")
+    snap = ranking.save_snapshot([{"name": "A", "score": 50}], path=p)
+    assert len(snap["items"]) == 1
+
+
+def test_save_snapshot_not_a_list(tmp_path):
+    """Arquivo existente com dict (nao lista) e' ignorado."""
+    p = tmp_path / "r.json"
+    p.write_text('{"bad": "data"}', encoding="utf-8")
+    snap = ranking.save_snapshot([{"name": "A", "score": 50}], path=p)
+    assert len(snap["items"]) == 1
+
+
+def test_save_snapshot_oserror_ignored(tmp_path):
+    """Segundo save (write) falha silenciosamente."""
+    p = tmp_path / "r.json"
+    ranking.save_snapshot([{"name": "A", "score": 50}], path=p)
+    p.unlink()
+    p.mkdir()
+    # Falha ao escrever (p e' diretorio) — nao crasha
+    snap = ranking.save_snapshot([{"name": "B", "score": 60}], path=p)
+    assert len(snap["items"]) == 1
+
+
+def test_load_snapshots_corrupted_json(tmp_path):
+    p = tmp_path / "r.json"
+    p.write_text("not json", encoding="utf-8")
+    assert ranking.load_snapshots(path=p) == []
+
+
+def test_clear_rankings_oserror_ignored(tmp_path):
+    p = tmp_path / "r.json"
+    p.write_text("[]", encoding="utf-8")
+    p.unlink()
+    p.mkdir()
+    ranking.clear_rankings(path=p)  # nao crashou

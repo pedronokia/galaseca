@@ -162,3 +162,60 @@ def test_clear_trades(tmp_path):
     assert trades.load_trades(path=p) == []
     s = trades.trade_stats(path=p)
     assert s["total"] == 0
+
+
+def test_save_trades_oserror_ignored(tmp_path):
+    p = tmp_path / "t.json"
+    trades.save_trades([{"name": "A"}], path=p)
+    p.unlink()
+    p.mkdir()
+    trades.save_trades([{"name": "B"}], path=p)  # nao crashou
+
+
+def test_update_trade_invalid_index(tmp_path):
+    p = tmp_path / "t.json"
+    trades.record_trade("A", 100.0, 200.0, 1, path=p)
+    assert trades.update_trade(99, cost=150.0, path=p) is None
+
+
+def test_update_trade_cost_only(tmp_path):
+    p = tmp_path / "t.json"
+    trades.record_trade("A", 100.0, 200.0, 1, path=p)
+    t = trades.update_trade(0, cost=150.0, path=p)
+    assert t["buy_cost"] == 150.0
+    assert t["cost_total"] == 150.0
+    assert t["pnl"] > 0
+
+
+def test_update_trade_sell_price_only(tmp_path):
+    p = tmp_path / "t.json"
+    trades.record_trade("A", 100.0, 200.0, 1, path=p)
+    t = trades.update_trade(0, sell_price=300.0, path=p)
+    assert t["sell_price"] == 300.0
+    assert t["pnl"] > 0
+    assert t["net_received"] > 0
+
+
+def test_update_trade_cost_and_sell(tmp_path):
+    p = tmp_path / "t.json"
+    trades.record_trade("A", 100.0, 200.0, 1, path=p)
+    t = trades.update_trade(0, cost=50.0, sell_price=300.0, path=p)
+    assert t["pnl"] > 0
+
+
+def test_filter_trades_pnl_profit(tmp_path):
+    p = tmp_path / "t.json"
+    trades.record_trade("A", 100.0, 200.0, 1, path=p)  # profit
+    trades.record_trade("B", 200.0, 180.0, 1, path=p)  # loss
+    r = trades.filter_trades(pnl="profit", path=p)
+    assert len(r) == 1
+    assert r[0]["name"] == "A"
+
+
+def test_filter_trades_pnl_loss(tmp_path):
+    p = tmp_path / "t.json"
+    trades.record_trade("A", 100.0, 200.0, 1, path=p)  # profit
+    trades.record_trade("B", 200.0, 180.0, 1, path=p)  # loss
+    r = trades.filter_trades(pnl="loss", path=p)
+    assert len(r) == 1
+    assert r[0]["name"] == "B"
