@@ -1,10 +1,12 @@
 """Tela — Simulador de Trade (F11).
 
-Calcula lucro/prejuizo real apos taxa Steam de 15%.
+Calcula lucro/prejuizo real apos taxa Steam de 15%, mostra breakeven
+e mantem historico in-memory das ultimas simulacoes.
 """
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QHBoxLayout,
@@ -20,6 +22,31 @@ from skinvault.ui import theme as t
 from skinvault.ui.components import Card, StatCard
 
 
+_HIST_CAP = 5
+
+
+class _HistoryChip(QPushButton):
+    """Botao pill com resumo de uma simulacao previa."""
+
+    def __init__(self, snap: dict, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        pnl = snap.get("pnl", 0)
+        color = t.ACCENT if pnl >= 0 else t.DANGER
+        label = (
+            f"R$ {snap['buy_price']:.0f} → R$ {snap['sell_price']:.0f}"
+            f" × {snap['quantity']}  •  {t.brl(pnl)}"
+        )
+        self.setText(label)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet(
+            f"QPushButton {{ color: {color}; background: transparent;"
+            f" border: 1px solid {t.BORDER}; border-radius: 14px;"
+            f" padding: 6px 12px; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; }}"
+            f"QPushButton:hover {{ background: {t.SURFACE}; }}"
+        )
+
+
 class SimuladorScreen(QWidget):
     """Simulador de trade com fee-aware P&L."""
 
@@ -28,6 +55,7 @@ class SimuladorScreen(QWidget):
         self._buy_inp = QDoubleSpinBox()
         self._sell_inp = QDoubleSpinBox()
         self._qty_inp = QSpinBox()
+        self._history: list[dict] = []
         self._build()
 
     def _style_spin(self, s: QDoubleSpinBox | QSpinBox) -> None:
@@ -41,13 +69,20 @@ class SimuladorScreen(QWidget):
             f":focus {{ border: 1px solid {t.ACCENT}; }}"
         )
 
-    def _labeled(self, text: str, w: QWidget) -> QWidget:
+    def _labeled(self, text: str, w: QWidget,
+                 tooltip: str = "") -> QWidget:
         wrap = QWidget()
         lay = QVBoxLayout(wrap)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(4)
         lbl = QLabel(text)
-        lbl.setStyleSheet(f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};")
+        lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        if tooltip:
+            lbl.setToolTip(tooltip)
+            w.setToolTip(tooltip)
         lay.addWidget(lbl)
         lay.addWidget(w)
         return wrap
@@ -55,22 +90,28 @@ class SimuladorScreen(QWidget):
     def _build(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(16)
+        root.setSpacing(14)
 
         title = QLabel("Simulador de Trade")
         title.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
         )
         root.addWidget(title)
 
         desc = QLabel(
-            "Simule uma compra e venda na Steam Community Market.\n"
-            "O calculo considera a taxa de 15% da Steam sobre o valor de venda."
+            "Simule uma compra e venda no Steam Community Market e veja o "
+            "lucro real após a taxa de 15%. O \"preço mínimo de venda\" "
+            "mostra por quanto você precisa listar para empatar."
         )
         desc.setWordWrap(True)
-        desc.setStyleSheet(f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};")
+        desc.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
         root.addWidget(desc)
 
+        # ── Card de inputs ────────────────────────────────
         card = Card(self, padding=(20, 18, 20, 18))
         params = QVBoxLayout()
         params.setSpacing(12)
@@ -79,10 +120,17 @@ class SimuladorScreen(QWidget):
         row1.setSpacing(16)
         self._buy_inp.setPrefix("R$ ")
         self._style_spin(self._buy_inp)
-        row1.addWidget(self._labeled("Preco de compra", self._buy_inp))
+        row1.addWidget(self._labeled(
+            "Preço de compra (unitário)", self._buy_inp,
+            tooltip="Quanto você paga por cada unidade ao comprar.",
+        ))
         self._sell_inp.setPrefix("R$ ")
         self._style_spin(self._sell_inp)
-        row1.addWidget(self._labeled("Preco de venda", self._sell_inp))
+        row1.addWidget(self._labeled(
+            "Preço de venda (unitário, listagem)", self._sell_inp,
+            tooltip="Preço pelo qual você lista cada unidade.\nA Steam cobra "
+                    "15% sobre este valor.",
+        ))
         params.addLayout(row1)
 
         row2 = QHBoxLayout()
@@ -90,83 +138,231 @@ class SimuladorScreen(QWidget):
         self._qty_inp.setMinimum(1)
         self._qty_inp.setMaximum(999)
         self._style_spin(self._qty_inp)
-        row2.addWidget(self._labeled("Quantidade", self._qty_inp))
+        row2.addWidget(self._labeled(
+            "Quantidade (listagens)", self._qty_inp,
+            tooltip="Cada unidade vira uma listagem separada. A taxa de 15% "
+                    "aplica sobre cada listagem.",
+        ), 1)
+        row2.addStretch(1)
         params.addLayout(row2)
 
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
         self._simular_btn = QPushButton("Simular")
         self._simular_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._simular_btn.setStyleSheet(t.btn_primary(padding="12px 32px"))
+        self._simular_btn.setToolTip(
+            "Calcula custo, taxa Steam, valor líquido e ROI. Atalho: Enter."
+        )
         self._simular_btn.clicked.connect(self._on_simular)
-        params.addWidget(self._simular_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        btn_row.addWidget(self._simular_btn)
+
+        self._clear_btn = QPushButton("Limpar")
+        self._clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._clear_btn.setStyleSheet(t.btn_ghost(padding="12px 18px",
+                                                  fs=t.FS_BODY))
+        self._clear_btn.setToolTip("Zera os campos e o resultado.")
+        self._clear_btn.clicked.connect(self._on_clear)
+        btn_row.addWidget(self._clear_btn)
+        btn_row.addStretch(1)
+        params.addLayout(btn_row)
 
         card.layout().addLayout(params)
         root.addWidget(card)
 
+        # ── Card de resultado ─────────────────────────────
         result_card = Card(self, padding=(20, 18, 20, 18))
         rl = QVBoxLayout()
-        rl.setSpacing(4)
+        rl.setSpacing(8)
 
         self._result_title = QLabel("Resultado")
         self._result_title.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
         )
         rl.addWidget(self._result_title)
 
-        self._result_detail = QLabel("Preencha os valores e clique em Simular.")
+        self._result_detail = QLabel(
+            "Preencha os valores e clique em Simular."
+        )
         self._result_detail.setWordWrap(True)
         self._result_detail.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
         )
         rl.addWidget(self._result_detail)
 
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
-        self._stat_pnl = StatCard("Lucro/Prejuizo", "—")
+        self._stat_pnl = StatCard("Lucro/Prejuízo", "—")
+        self._stat_pnl.setToolTip(
+            "Resultado líquido = valor recebido – custo total. "
+            "Negativo = prejuízo."
+        )
         self._stat_roi = StatCard("ROI", "—")
-        self._stat_recebe = StatCard("Valor recebido (-15%)", "—",
+        self._stat_roi.setToolTip(
+            "Retorno sobre o investimento: lucro líquido ÷ custo total."
+        )
+        self._stat_recebe = StatCard("Valor recebido (–15%)", "—",
                                      accent=t.STEAM_BLUE)
-        self._stat_fee = StatCard("Taxa Steam (15%)", "—", accent=t.DANGER)
+        self._stat_recebe.setToolTip(
+            "Total que cai na sua carteira Steam após a taxa de 15%."
+        )
+        self._stat_break = StatCard("Preço mínimo de venda", "—",
+                                    accent=t.WARN)
+        self._stat_break.setToolTip(
+            "Preço pelo qual você precisa listar para empatar — recuperar "
+            "exatamente o custo de compra após a taxa Steam."
+        )
         for sc in (self._stat_pnl, self._stat_roi, self._stat_recebe,
-                   self._stat_fee):
+                   self._stat_break):
             stats_row.addWidget(sc, 1)
         rl.addLayout(stats_row)
 
         result_card.layout().addLayout(rl)
         root.addWidget(result_card)
 
+        # ── Historico de simulacoes ───────────────────────
+        hist_lbl = QLabel("Simulações recentes")
+        hist_lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        hist_lbl.setToolTip(
+            "Clique em uma para repor os campos com aqueles valores."
+        )
+        root.addWidget(hist_lbl)
+
+        self._hist_row = QHBoxLayout()
+        self._hist_row.setSpacing(8)
+        self._hist_empty = QLabel(
+            "As últimas 5 simulações desta sessão aparecem aqui."
+        )
+        self._hist_empty.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        self._hist_row.addWidget(self._hist_empty)
+        self._hist_row.addStretch(1)
+        root.addLayout(self._hist_row)
+
         root.addStretch(1)
 
+        # Atalhos
+        QShortcut(QKeySequence("Return"), self).activated.connect(
+            self._on_simular
+        )
+        QShortcut(QKeySequence("Enter"), self).activated.connect(
+            self._on_simular
+        )
+
+    # ── acoes ─────────────────────────────────────────────
     def _on_simular(self) -> None:
         buy = self._buy_inp.value()
         sell = self._sell_inp.value()
         qty = self._qty_inp.value()
         if buy <= 0 or sell <= 0 or qty <= 0:
             self._result_detail.setText(
-                "Preencha todos os campos com valores positivos."
+                "Preencha compra, venda e quantidade com valores positivos."
             )
             self._result_detail.setStyleSheet(
                 f"color: {t.DANGER}; font-size: {t.FS_BODY};"
+                f" font-weight: 600; font-family: {t.FONT_FAMILY};"
             )
             return
 
         r = portfolio.simulate_trade(buy, sell, qty)
 
         pnl = r["pnl"]
-        pnl_color = t.ACCENT if r["is_profit"] else t.DANGER
+        pnl_color = t.ACCENT if r["is_profit"] else (
+            t.DANGER if r["is_loss"] else t.TEXT
+        )
+        # roi_pct ja vem em 0-100 do portfolio.simulate_trade
+        roi = r["roi_pct"]
+
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_color)
-        self._stat_roi.set_value(f"{r['roi_pct']*100:+.1f}%")
+        self._stat_roi.set_value(f"{roi:+.1f}%", accent=pnl_color)
         self._stat_recebe.set_value(t.brl(r["net_received"]),
                                     accent=t.STEAM_BLUE)
-        self._stat_fee.set_value(t.brl(r["steam_fee"]))
+        self._stat_break.set_value(t.brl(r["break_even_price"]),
+                                   accent=t.WARN)
 
-        lines = [
-            f"Custo total: {t.brl(r['cost_total'])}",
-            f"Venda bruta: {t.brl(r['gross_sale'])}",
-            f"Taxa Steam: {t.brl(r['steam_fee'])}",
-            f"Valor recebido: {t.brl(r['net_received'])}",
-            f"Lucro/Prejuizo: {t.brl(pnl)} ({r['roi_pct']*100:+.1f}%)",
-        ]
-        self._result_detail.setText("\n".join(lines))
+        # Mensagem do veredito
+        if r["is_profit"]:
+            msg = (
+                f"Lucro líquido de {t.brl(pnl)} ({roi:+.1f}% sobre o custo). "
+                f"A Steam fica com {t.brl(r['steam_fee'])} em taxa."
+            )
+        elif r["is_loss"]:
+            gap = r["break_even_price"] - sell
+            msg = (
+                f"Prejuízo de {t.brl(pnl)} ({roi:+.1f}%). Para empatar você "
+                f"precisaria listar por {t.brl(r['break_even_price'])} — "
+                f"{t.brl(gap)} acima do preço atual."
+            )
+        else:
+            msg = "Trade no zero a zero: receita líquida iguala o custo."
+        self._result_detail.setText(msg)
         self._result_detail.setStyleSheet(
             f"color: {pnl_color}; font-size: {t.FS_BODY};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
         )
+
+        # Atualiza historico
+        self._push_history(r)
+
+    def _on_clear(self) -> None:
+        self._buy_inp.setValue(0)
+        self._sell_inp.setValue(0)
+        self._qty_inp.setValue(1)
+        self._buy_inp.setFocus()
+        for sc in (self._stat_pnl, self._stat_roi, self._stat_recebe,
+                   self._stat_break):
+            sc.set_value("—", accent=t.TEXT)
+        self._result_detail.setText(
+            "Preencha os valores e clique em Simular."
+        )
+        self._result_detail.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+
+    # ── historico ─────────────────────────────────────────
+    def _push_history(self, snap: dict) -> None:
+        self._history.insert(0, snap)
+        self._history = self._history[:_HIST_CAP]
+        self._rebuild_history()
+
+    def _rebuild_history(self) -> None:
+        # Remove todos os widgets do hist_row
+        while self._hist_row.count() > 0:
+            item = self._hist_row.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+
+        if not self._history:
+            self._hist_empty = QLabel(
+                "As últimas 5 simulações desta sessão aparecem aqui."
+            )
+            self._hist_empty.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+                f" font-family: {t.FONT_FAMILY};"
+            )
+            self._hist_row.addWidget(self._hist_empty)
+            self._hist_row.addStretch(1)
+            return
+
+        for snap in self._history:
+            chip = _HistoryChip(snap, self)
+            chip.clicked.connect(
+                lambda _checked=False, s=snap: self._restore(s)
+            )
+            self._hist_row.addWidget(chip)
+        self._hist_row.addStretch(1)
+
+    def _restore(self, snap: dict) -> None:
+        self._buy_inp.setValue(snap["buy_price"])
+        self._sell_inp.setValue(snap["sell_price"])
+        self._qty_inp.setValue(snap["quantity"])
+        self._on_simular()
