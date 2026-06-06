@@ -51,20 +51,23 @@ class StatCard(Card):
     def __init__(self, label: str, value: str = "—",
                  accent: str = t.TEXT,
                  parent: QWidget | None = None) -> None:
-        super().__init__(parent, padding=(16, 12, 16, 12), radius=22)
+        super().__init__(parent, padding=(20, 16, 20, 16), radius=22)
+        self.layout().setSpacing(4)
         self._label = QLabel(label)
+        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._label.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
         self._value = QLabel(value)
+        self._value.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._value.setStyleSheet(
             f"color: {accent}; font-size: {t.FS_STAT}; font-weight: 600;"
             f" font-family: {t.FONT_FAMILY};"
         )
         self.layout().addWidget(self._label)
         self.layout().addWidget(self._value)
-        self.setMinimumWidth(140)
+        self.setMinimumWidth(120)
 
     def set_value(self, value: str, accent: str | None = None) -> None:
         self._value.setText(value)

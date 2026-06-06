@@ -269,10 +269,6 @@ class DepthChart(QWidget):
             all_prices.append(price)
             all_qty.append(cum_qty)
 
-        if not all_prices:
-            p.end()
-            return
-
         price_min = min(all_prices)
         price_max = max(all_prices)
         price_rng = (price_max - price_min) or 1.0

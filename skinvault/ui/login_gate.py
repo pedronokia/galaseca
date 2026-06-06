@@ -39,20 +39,22 @@ class LoginGate(QWidget):
         # ── Hero central ──────────────────────────────────
         hero = QVBoxLayout()
         hero.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hero.setSpacing(20)
+        hero.setSpacing(16)
 
-        icon = QLabel("◐")
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon.setStyleSheet(
-            f"color: {t.ACCENT}; font-size: 96pt;"
-            f" font-family: {t.FONT_FAMILY};"
+        # Accent line decorativa
+        accent_line = QLabel()
+        accent_line.setFixedSize(48, 3)
+        accent_line.setStyleSheet(
+            f"background: {t.ACCENT}; border-radius: 2px;"
         )
-        hero.addWidget(icon)
+        hero.addWidget(accent_line, 0, Qt.AlignmentFlag.AlignCenter)
+
+        hero.addSpacing(8)
 
         title = QLabel("SkinVault")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: 40pt; font-weight: 700;"
+            f"color: {t.TEXT}; font-size: 48pt; font-weight: 700;"
             f" font-family: {t.FONT_FAMILY}; letter-spacing: -1px;"
         )
         hero.addWidget(title)
@@ -60,53 +62,49 @@ class LoginGate(QWidget):
         tagline = QLabel("Análise inteligente do Steam Community Market")
         tagline.setAlignment(Qt.AlignmentFlag.AlignCenter)
         tagline.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_INPUT};"
+            f"color: {t.TEXT_MUTED}; font-size: 14pt;"
             f" font-family: {t.FONT_FAMILY}; font-weight: 400;"
         )
         hero.addWidget(tagline)
 
-        desc = QLabel(
-            "Conecte sua conta Steam para acompanhar seu inventário, "
-            "histórico de mercado e simular trades com o lucro real "
-            "após a taxa de 15%."
+        features = QLabel("Inventário  ·  Histórico  ·  Simulação  ·  Scanner")
+        features.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        features.setStyleSheet(
+            f"color: {t.ACCENT}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY}; font-weight: 500;"
+            f" letter-spacing: 2px;"
         )
-        desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc.setWordWrap(True)
-        desc.setFixedWidth(480)
-        desc.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY}; line-height: 1.6;"
-        )
-        hero.addWidget(desc, 0, Qt.AlignmentFlag.AlignCenter)
+        hero.addWidget(features)
 
         outer.addLayout(hero)
-        outer.addSpacing(32)
-
-        # ── CTA enorme ────────────────────────────────────
-        connect_btn = QPushButton("  Conectar conta Steam  ")
-        connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        connect_btn.setMinimumHeight(56)
-        connect_btn.setFixedWidth(340)
-        connect_btn.setStyleSheet(t.btn_primary(padding="16px 40px",
-                                                fs="13pt"))
-        connect_btn.clicked.connect(self._on_connect)
-        outer.addWidget(connect_btn, 0, Qt.AlignmentFlag.AlignCenter)
-
         outer.addSpacing(48)
 
-        # ── Disclaimer ────────────────────────────────────
-        warning = QLabel(
-            "Cookies de sessão ficam apenas no seu computador "
-            "(data/steam_session.json). Você pode desconectar a qualquer momento."
+        # ── CTA enorme ────────────────────────────────────
+        btn_row = QHBoxLayout()
+        btn_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        connect_btn = QPushButton("  Conectar com Steam  ")
+        connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        connect_btn.setMinimumHeight(64)
+        connect_btn.setFixedWidth(400)
+        connect_btn.setStyleSheet(t.btn_steam(padding="18px 44px", fs="14pt"))
+        connect_btn.clicked.connect(self._on_connect)
+        btn_row.addWidget(connect_btn)
+
+        outer.addLayout(btn_row)
+
+        outer.addSpacing(16)
+
+        footnote = QLabel(
+            "Cookies de sessão salvos localmente · "
+            "Desconecte quando quiser"
         )
-        warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        warning.setWordWrap(True)
-        warning.setFixedWidth(480)
-        warning.setStyleSheet(
+        footnote.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        footnote.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
-        outer.addWidget(warning, 0, Qt.AlignmentFlag.AlignCenter)
+        outer.addWidget(footnote, 0, Qt.AlignmentFlag.AlignCenter)
 
     def _on_connect(self) -> None:
         dlg = build_steam_login_dialog(self)

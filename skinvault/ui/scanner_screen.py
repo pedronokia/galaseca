@@ -356,7 +356,7 @@ class ScannerScreen(QWidget):
 
         # Stats
         stats_row = QHBoxLayout()
-        stats_row.setSpacing(12)
+        stats_row.setSpacing(16)
         self._stat_count = StatCard("Itens escaneados", "0")
         self._stat_best = StatCard("Melhor score", "—")
         self._stat_avg = StatCard("Score medio", "—")

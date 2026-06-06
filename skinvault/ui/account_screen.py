@@ -148,7 +148,7 @@ class AccountScreen(QWidget):
 
         # Stat cards row
         stats_row = QHBoxLayout()
-        stats_row.setSpacing(12)
+        stats_row.setSpacing(16)
         self._stat_gross = StatCard("Valor bruto (Market)", "—")
         self._stat_net = StatCard("Valor líquido (-15%)", "—",
                                   accent=t.STEAM_BLUE)
@@ -172,7 +172,7 @@ class AccountScreen(QWidget):
         bd_lay.addWidget(bd_title)
 
         bd_row = QHBoxLayout()
-        bd_row.setSpacing(16)
+        bd_row.setSpacing(20)
         self._bd_invested = StatCard("Total investido", "—")
         self._bd_profit_count = StatCard("Itens no lucro", "—",
                                          accent=t.ACCENT)
