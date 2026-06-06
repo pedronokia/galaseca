@@ -369,13 +369,15 @@ class AccountScreen(QWidget):
             accent=t.DANGER
         )
         self._bd_best.set_value(
-            f"{t.brl(best['pnl'])} ({best.get('name','')[:20]})" if best else "—",
+            t.brl(best['pnl']) if best else "—",
             accent=t.ACCENT
         )
+        self._bd_best.setToolTip(best.get("name", "") if best else "")
         self._bd_worst.set_value(
-            f"{t.brl(worst['pnl'])} ({worst.get('name','')[:20]})" if worst else "—",
+            t.brl(worst['pnl']) if worst else "—",
             accent=t.DANGER
         )
+        self._bd_worst.setToolTip(worst.get("name", "") if worst else "")
 
         # Atualiza tabela
         self._populate_table(rows, data["positions"])

@@ -10,6 +10,7 @@ def test_load_recent_activity_empty(monkeypatch):
     monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
     monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
     monkeypatch.setattr("skinvault.ranking.load_snapshots", lambda: [])
+    monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [])
     assert activity.load_recent_activity() == []
 
 
@@ -24,10 +25,29 @@ def test_load_recent_activity_orders_by_ts_desc(monkeypatch):
     monkeypatch.setattr("skinvault.ranking.load_snapshots", lambda: [
         {"ts": 250, "items": [{"name": "AWP", "score": 90}]},
     ])
+    monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [])
     events = activity.load_recent_activity(limit=10)
     assert [e["title"] for e in events] == [
         "Newer trade", "Ranking Top 20", "AK", "Older trade",
     ]
+
+
+def test_load_recent_activity_includes_market_events(monkeypatch):
+    """Eventos do steam_market_events.json aparecem misturados."""
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+    monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
+    monkeypatch.setattr("skinvault.ranking.load_snapshots", lambda: [])
+    monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [
+        {"name": "AK-47 | Redline", "side": "sell", "price": 9.05,
+         "date_str": "", "synced_at": 500.0},
+        {"name": "Glock", "side": "buy", "price": 3.50,
+         "date_str": "", "synced_at": 400.0},
+    ])
+    events = activity.load_recent_activity(limit=10)
+    assert len(events) == 2
+    assert events[0]["title"] == "AK-47 | Redline"
+    assert events[0]["color"] == "green"
+    assert events[1]["color"] == "red"
 
 
 def test_load_recent_activity_respects_limit(monkeypatch):
@@ -38,6 +58,7 @@ def test_load_recent_activity_respects_limit(monkeypatch):
     monkeypatch.setattr("skinvault.trades.load_trades", lambda: trades_list)
     monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
     monkeypatch.setattr("skinvault.ranking.load_snapshots", lambda: [])
+    monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [])
     events = activity.load_recent_activity(limit=5)
     assert len(events) == 5
 
@@ -47,6 +68,7 @@ def test_load_recent_activity_limit_zero(monkeypatch):
         {"name": "x", "sell_ts": 100, "pnl": 1, "pnl_pct": 1}])
     monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
     monkeypatch.setattr("skinvault.ranking.load_snapshots", lambda: [])
+    monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [])
     assert activity.load_recent_activity(limit=0) == []
 
 
@@ -172,3 +194,104 @@ def test_format_relative_ts_old_uses_date():
 def test_format_relative_ts_default_now_uses_time(monkeypatch):
     monkeypatch.setattr(time, "time", lambda: 10000.0)
     assert activity.format_relative_ts(9999.0) == "agora"
+
+
+# ── _market_event ─────────────────────────────────────────────
+
+
+def test_market_event_buy():
+    ev = activity._market_event({
+        "name": "AK-47", "side": "buy", "price": 5.5,
+        "date_str": "", "synced_at": 1000.0,
+    })
+    assert ev["type"] == "market"
+    assert ev["color"] == "red"
+    assert ev["icon"] == "↓"
+    assert "Compra" in ev["subtitle"]
+
+
+def test_market_event_sell():
+    ev = activity._market_event({
+        "name": "AK-47", "side": "sell", "price": 10.0,
+        "date_str": "", "synced_at": 1000.0,
+    })
+    assert ev["color"] == "green"
+    assert ev["icon"] == "↑"
+    assert "Venda" in ev["subtitle"]
+
+
+def test_market_event_listed():
+    ev = activity._market_event({
+        "name": "AWP", "side": "listed", "price": 100.0,
+        "date_str": "", "synced_at": 1000.0,
+    })
+    assert ev["color"] == "accent"
+    assert "Listado" in ev["subtitle"]
+
+
+def test_market_event_cancelled():
+    ev = activity._market_event({
+        "name": "x", "side": "cancelled", "price": None,
+        "date_str": "", "synced_at": 1000.0,
+    })
+    assert ev["color"] == "muted"
+    assert ev["icon"] == "×"
+
+
+def test_market_event_unknown_side():
+    ev = activity._market_event({
+        "name": "x", "side": "weird", "price": 5.0,
+        "date_str": "", "synced_at": 1000.0,
+    })
+    assert ev["color"] == "muted"
+    assert ev["icon"] == "·"
+
+
+def test_market_event_uses_parse_steam_date(monkeypatch):
+    """Quando date_str e parseavel, ts vem dele em vez de synced_at."""
+    monkeypatch.setattr("skinvault.activity.parse_steam_date",
+                        lambda s: 2000.0 if s == "15 Mar" else None)
+    ev = activity._market_event({
+        "name": "x", "side": "buy", "price": 1.0,
+        "date_str": "15 Mar", "synced_at": 1000.0,
+    })
+    assert ev["ts"] == 2000.0
+
+
+def test_market_event_falls_back_to_synced_at(monkeypatch):
+    """date_str ilegivel cai pro synced_at."""
+    monkeypatch.setattr("skinvault.activity.parse_steam_date",
+                        lambda s: None)
+    ev = activity._market_event({
+        "name": "x", "side": "buy", "price": 1.0,
+        "date_str": "garbage", "synced_at": 1000.0,
+    })
+    assert ev["ts"] == 1000.0
+
+
+def test_market_event_no_ts_returns_none(monkeypatch):
+    monkeypatch.setattr("skinvault.activity.parse_steam_date",
+                        lambda s: None)
+    assert activity._market_event({
+        "name": "x", "side": "buy", "price": 1.0,
+        "date_str": "", "synced_at": None,
+    }) is None
+
+
+def test_market_event_missing_name(monkeypatch):
+    monkeypatch.setattr("skinvault.activity.parse_steam_date",
+                        lambda s: None)
+    ev = activity._market_event({
+        "side": "buy", "price": 1.0, "synced_at": 1000.0,
+    })
+    assert ev["title"] == "Steam Market"
+
+
+def test_market_event_price_not_number(monkeypatch):
+    monkeypatch.setattr("skinvault.activity.parse_steam_date",
+                        lambda s: None)
+    ev = activity._market_event({
+        "name": "x", "side": "buy", "price": None,
+        "synced_at": 1000.0,
+    })
+    assert "—" in ev["subtitle"]

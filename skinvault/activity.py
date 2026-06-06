@@ -8,12 +8,14 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from skinvault import alerts, ranking, trades
+from skinvault import alerts, ranking, sync, trades
+from skinvault.trade_matcher import parse_steam_date
 
 # Tipos de evento normalizados
 TYPE_TRADE = "trade"
 TYPE_ALERT = "alert"
 TYPE_RANKING = "ranking"
+TYPE_MARKET = "market"
 
 # Cores semanticas (mapeiam para theme.ACCENT/DANGER/STEAM_BLUE/TEXT_MUTED na UI)
 COLOR_GREEN = "green"
@@ -49,6 +51,39 @@ def _alert_event(a: dict) -> dict | None:
         "subtitle": a.get("label") or a.get("rule") or "",
         "color": COLOR_ACCENT,
         "icon": "★",
+    }
+
+
+def _market_event(e: dict) -> dict | None:
+    """Eventos do steam_market_events.json: buy/sell/listed/cancelled."""
+    ts = parse_steam_date(e.get("date_str", "")) or e.get("synced_at")
+    if ts is None:
+        return None
+    side = (e.get("side") or "").lower()
+    price = e.get("price")
+    price_str = f"R$ {price:.2f}" if isinstance(price, (int, float)) else "—"
+    if side == "buy":
+        subtitle = f"Compra • {price_str}"
+        color, icon = COLOR_RED, "↓"
+    elif side == "sell":
+        subtitle = f"Venda • {price_str}"
+        color, icon = COLOR_GREEN, "↑"
+    elif side == "listed":
+        subtitle = f"Listado • {price_str}"
+        color, icon = COLOR_ACCENT, "•"
+    elif side == "cancelled":
+        subtitle = "Listagem cancelada"
+        color, icon = COLOR_MUTED, "×"
+    else:
+        subtitle = price_str
+        color, icon = COLOR_MUTED, "·"
+    return {
+        "type": TYPE_MARKET,
+        "ts": float(ts),
+        "title": e.get("name") or "Steam Market",
+        "subtitle": subtitle,
+        "color": color,
+        "icon": icon,
     }
 
 
@@ -89,6 +124,10 @@ def load_recent_activity(limit: int = 10) -> list[dict]:
             events.append(ev)
     for s in ranking.load_snapshots():
         ev = _ranking_event(s)
+        if ev:
+            events.append(ev)
+    for m in sync.load_market_events():
+        ev = _market_event(m)
         if ev:
             events.append(ev)
     events.sort(key=lambda e: -e["ts"])
