@@ -96,10 +96,19 @@ def delete_backup(path: str) -> bool:
 
 
 def restore_backup(path: str) -> int:
+    """Restaura backup .zip para DATA_DIR.
+
+    Aceita apenas nomes presentes em _DATA_FILES (whitelist) — protege
+    contra Zip Slip (entry com path traversal como ../../etc/passwd)
+    caso o usuario tente restaurar um backup adulterado.
+    """
+    allowed = frozenset(_DATA_FILES)
     count = 0
     try:
         with zipfile.ZipFile(path, "r") as z:
             for fname in z.namelist():
+                if fname not in allowed:
+                    continue
                 data = z.read(fname)
                 (DATA_DIR / fname).write_bytes(data)
                 count += 1

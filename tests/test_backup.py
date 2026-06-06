@@ -36,3 +36,27 @@ def test_backup_prune(tmp_path, monkeypatch):
 
     remaining = sorted(Path(backup._BACKUP_DIR).glob("*.zip"))
     assert len(remaining) <= 3
+
+
+def test_restore_ignores_unknown_and_path_traversal_entries(tmp_path,
+                                                             monkeypatch):
+    """Regression: restore aceitava qualquer nome de entry no zip,
+    abrindo Zip Slip se o backup viesse adulterado. Agora so' nomes
+    em _DATA_FILES sao escritos.
+    """
+    monkeypatch.setattr(backup, "DATA_DIR", tmp_path / "data")
+    (tmp_path / "data").mkdir()
+    evil_zip = tmp_path / "evil.zip"
+    with zipfile.ZipFile(evil_zip, "w") as z:
+        # Entry valida (whitelisted)
+        z.writestr("portfolio.json", "[]")
+        # Entries que NAO podem ser escritas
+        z.writestr("hax.json", "owned")
+        z.writestr("../escape.json", "escaped")
+
+    count = backup.restore_backup(str(evil_zip))
+    assert count == 1
+    assert (tmp_path / "data" / "portfolio.json").exists()
+    assert not (tmp_path / "data" / "hax.json").exists()
+    # Path traversal nao escapou do data dir
+    assert not (tmp_path / "escape.json").exists()
