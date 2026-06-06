@@ -506,8 +506,14 @@ class MarketScreen(QWidget):
             ob = page.get("order_book") or {}
             buys = ob.get("buy_count") or 0
             sells = ob.get("sell_count") or 0
-            self._add_detail("Ordens de compra", str(buys))
-            self._add_detail("Listagens à venda", str(sells))
+            approx = bool(page.get("order_book_approx"))
+            approx_tag = "  (aprox. — outro wear)" if approx else ""
+            self._add_detail("Ordens de compra",
+                             f"{buys}{approx_tag}",
+                             color=t.WARN if approx else None)
+            self._add_detail("Listagens à venda",
+                             f"{sells}{approx_tag}",
+                             color=t.WARN if approx else None)
             if verdict.get("spread_verdict"):
                 self._add_detail("Spread",
                                  verdict.get("spread_verdict", "—"))

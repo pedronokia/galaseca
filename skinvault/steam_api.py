@@ -247,12 +247,43 @@ def _extract_render_context(html: str) -> dict | None:
         return None
 
 
-def _find_query(queries: list, key: str, item_name: str | None = None) -> dict | None:
+_WEAR_RE = re.compile(
+    r"\s*\((?:Factory New|Minimal Wear|Field-Tested|Well-Worn|Battle-Scarred)\)\s*$",
+    re.IGNORECASE,
+)
+_PREFIX_RE = re.compile(
+    r"^(?:StatTrak[™®'\s]*|Souvenir\s+|★\s*)+",
+    re.IGNORECASE,
+)
+
+
+def _skin_root_name(name: str) -> str:
+    """Normaliza o nome para "root" do skin: sem wear, StatTrak, Souvenir,
+    ★ (Vanilla knife marker).
+
+    "StatTrak™ AK-47 | Redline (Field-Tested)" -> "ak-47 | redline"
+    "Souvenir P250 | Sand Dune"                     -> "p250 | sand dune"
+    Util quando a Steam pre-carrega orderbook de um wear so' e queremos
+    aproximacao do mesmo skin.
+    """
+    s = name or ""
+    s = _PREFIX_RE.sub("", s)
+    s = _WEAR_RE.sub("", s)
+    return s.strip().lower()
+
+
+def _find_query(queries: list, key: str, item_name: str | None = None,
+                loose_match: bool = False) -> dict | None:
     """Procura no React Query cache a query com queryKey contendo `key`.
 
     Se `item_name` for fornecido, tambem confere se o queryKey inclui o
     nome do item (posicao 3, depois de appid).
+
+    `loose_match`: aceita match pelo "skin root" (sem wear/StatTrak/etc).
+    Util pra orderbook, que a Steam pre-carrega para apenas um wear do
+    skin (ex.: pedi Field-Tested mas SSR so' tem Minimal Wear cached).
     """
+    target_root = _skin_root_name(item_name) if (loose_match and item_name) else None
     for q in queries:
         qk = q.get("queryKey", [])
         if not isinstance(qk, list) or key not in qk:
@@ -260,8 +291,11 @@ def _find_query(queries: list, key: str, item_name: str | None = None) -> dict |
         if item_name is not None and len(qk) > 3:
             # queryKey = ["market", key, 730, "Item Name"]
             cached_name = str(qk[3])
-            if item_name.lower() not in cached_name.lower():
-                continue
+            if item_name.lower() in cached_name.lower():
+                return q.get("state", {}).get("data")
+            if target_root and target_root == _skin_root_name(cached_name):
+                return q.get("state", {}).get("data")
+            continue
         return q.get("state", {}).get("data")
     return None
 
@@ -306,7 +340,15 @@ def get_market_page_data(
 
     # Price history
     price_data = _find_query(queries, "pricehistory", market_hash_name)
+    # Tenta orderbook exato; se nao houver, aceita orderbook de outro wear
+    # do mesmo skin (Steam pre-carrega so' um wear). Sinaliza via flag.
     order_data = _find_query(queries, "orderbook", market_hash_name)
+    order_approx = False
+    if order_data is None:
+        order_data = _find_query(
+            queries, "orderbook", market_hash_name, loose_match=True,
+        )
+        order_approx = order_data is not None
 
     result: dict = {}
     if price_data:
@@ -315,6 +357,7 @@ def get_market_page_data(
             result["price_history"] = prices
 
     if order_data and isinstance(order_data, dict):
+        result["order_book_approx"] = order_approx
         result["order_book"] = {
             "best_bid": order_data.get("amtMaxBuyOrder"),
             "best_ask": order_data.get("amtMinSellOrder"),

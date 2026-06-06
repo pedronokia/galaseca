@@ -9,6 +9,7 @@ from skinvault.steam_api import (
     _extract_render_context,
     _find_query,
     _js_unescape,
+    _skin_root_name,
     fair_value_verdict,
     get_market_page_data,
     parse_brl,
@@ -219,6 +220,60 @@ class TestFindQuery:
 
     def test_returns_none_when_missing(self):
         assert _find_query([], "pricehistory") is None
+
+    def test_exact_match_when_item_specified(self):
+        queries = [
+            {"queryKey": ["market", "orderbook", 730,
+                          "AK-47 | Redline (Minimal Wear)"],
+             "state": {"data": "mw"}},
+            {"queryKey": ["market", "orderbook", 730,
+                          "AK-47 | Redline (Field-Tested)"],
+             "state": {"data": "ft"}},
+        ]
+        # Sem loose_match, exige substring match no nome cached
+        assert _find_query(queries, "orderbook",
+                           "AK-47 | Redline (Field-Tested)") == "ft"
+
+    def test_loose_match_falls_back_to_skin_root(self):
+        """Steam pre-carrega orderbook so' de um wear; loose_match pega
+        do mesmo skin."""
+        queries = [
+            {"queryKey": ["market", "orderbook", 730,
+                          "AK-47 | Redline (Minimal Wear)"],
+             "state": {"data": "mw"}},
+        ]
+        # Pediu FT mas so' tem MW: loose_match resgata o MW
+        assert _find_query(queries, "orderbook",
+                           "AK-47 | Redline (Field-Tested)",
+                           loose_match=True) == "mw"
+        # Sem loose_match retorna None
+        assert _find_query(queries, "orderbook",
+                           "AK-47 | Redline (Field-Tested)") is None
+
+
+class TestSkinRootName:
+    def test_strips_wear(self):
+        assert _skin_root_name(
+            "AK-47 | Redline (Field-Tested)"
+        ) == "ak-47 | redline"
+
+    def test_strips_stattrak_prefix(self):
+        assert _skin_root_name(
+            "StatTrak™ AK-47 | Redline (Minimal Wear)"
+        ) == "ak-47 | redline"
+
+    def test_strips_souvenir_prefix(self):
+        assert _skin_root_name(
+            "Souvenir P250 | Sand Dune (Factory New)"
+        ) == "p250 | sand dune"
+
+    def test_strips_star_marker(self):
+        assert _skin_root_name(
+            "★ Karambit | Doppler (Factory New)"
+        ) == "karambit | doppler"
+
+    def test_no_wear_no_op(self):
+        assert _skin_root_name("Operation Bravo Case") == "operation bravo case"
 
 
 class TestGetMarketPageData:

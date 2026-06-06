@@ -485,6 +485,8 @@ class ScannerScreen(QWidget):
             case_status=cs,
         )
 
+        ob_approx = bool(page.get("order_book_approx")) if page else False
+        approx_suffix = " ~" if ob_approx else ""
         return {
             "name": name,
             "price": lowest,
@@ -494,14 +496,17 @@ class ScannerScreen(QWidget):
             "verdict": verdict.get("label", "—"),
             "verdict_color": t.ACCENT if verdict.get("diff_pct", 0) <= 0
                              else t.DANGER,
-            "spread": verdict.get("spread_verdict", ""),
-            "book": verdict.get("book_verdict", ""),
+            "spread": (verdict.get("spread_verdict", "") +
+                       (approx_suffix if verdict.get("spread_verdict") else "")),
+            "book": (verdict.get("book_verdict", "") +
+                     (approx_suffix if verdict.get("book_verdict") else "")),
             "trend": verdict.get("trend_verdict", ""),
             "volume": volume,
             "supply": supply,
             "sd_label": signals.supply_demand_ratio(volume, supply).get("label", ""),
             "score_tooltip": signals.format_breakdown(breakdown),
             "case_label": cs.get("label", ""),
+            "order_book_approx": ob_approx,
         }
 
     def _on_item_done(self, result: dict) -> None:
@@ -545,6 +550,18 @@ class ScannerScreen(QWidget):
             tip = r.get("score_tooltip", "")
             if tip:
                 self._table.item(i, self.COL_SCORE).setToolTip(tip)
+            # Tooltip explicando "~" quando order_book vem de outro wear
+            if r.get("order_book_approx"):
+                msg = (
+                    "Steam só pré-carrega order book de um wear do skin; "
+                    "este valor vem de outra variante do mesmo item. "
+                    "Use como aproximação — pode diferir do wear exato."
+                )
+                for c in (self.COL_SPREAD, self.COL_BOOK):
+                    cell = self._table.item(i, c)
+                    if cell is not None and cell.text():
+                        cell.setForeground(QBrush(QColor(t.WARN)))
+                        cell.setToolTip(msg)
         self._table.setSortingEnabled(was_sorting)
 
         # Stats
