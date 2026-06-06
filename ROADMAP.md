@@ -120,14 +120,14 @@ Fatores e pesos atuais:
 **Filosofia revisada:** login passa de "zero" para "opt-in". F1-F9 continuam funcionando sem login; F10 adiciona sync de dados privados sob consentimento.
 
 - [x] `skinvault/steam_session.py` — `SteamSession` (cookies + steamid), persist/load, validate via /my/ redirect
-- [x] `skinvault/steam_login_dialog.py` — `QWebEngineView` embute login da Steam; intercepta cookies de `steamcommunity.com` via `QWebEngineProfile.cookieStore()`
+- [x] `skinvault/steam_login_dialog.py` — Chrome DevTools Protocol via WebSocket. Lança `chrome.exe` com `--remote-debugging-port`, faz polling em `/json` até detectar `/profiles/` ou `/id/` na URL, conecta WS e extrai cookies (HTTP-only inclusive) via `Network.getAllCookies`. Sem QtWebEngine (removido por crash do Qt6Core 6.10.2); fallback manual (colar cookies JSON) permanece.
 - [x] `skinvault/steam_api.py` — funções autenticadas `fetch_market_history`, `fetch_my_listings`, `fetch_trade_history_html` + parsers HTML (regex, sem bs4)
 - [x] `skinvault/sync.py` — orquestrador `sync_all`: inventario → portfolio; market history → `steam_market_events.json`; listings → `active_listings.json`; trade offers → `trade_history.json`
 - [x] Dedupe via `listing_id`/`tradeofferid` ou composite hash; idempotente em runs sucessivos
 - [x] `portfolio.py` + `trades.py` — campo `source` (manual | steam_sync | steam). Sync nunca sobrescreve manual.
 - [x] `backup.py` — cobre os 4 novos JSONs (incluindo `steam_session.json` com aviso de credenciais)
 - [x] `gui.py` — botão "Conectar Steam" no canto superior, `SteamSyncDialog` com 4 steps em thread, menu de status/desconectar
-- [x] `requirements.txt` — `PyQt6-WebEngine>=6.6`
+- [x] `requirements.txt` — `httpx>=0.28`, `websocket-client>=1.6` (sem PyQt6-WebEngine)
 - [x] Testes: `test_steam_session.py`, `test_steam_api_auth.py`, `test_sync.py`
 
 **Riscos conhecidos** (documentados na UI):
@@ -144,8 +144,6 @@ Sidebar hierárquica (7 telas) substituindo QTabWidget, LoginGate opcional, Scre
 - [x] Novo segmento "Pareados" no HistoryScreen com colunas Vendido em / Item / Compra / Venda / P&L líquido / ROI
 - [x] Status bar com agregados (count, total P&L, W/L, win rate) respeitando filtro de período
 - [x] 15 testes cobrindo parsing, FIFO, isolamento por nome, sell antes de buy, summarize
-
-**Login Steam (post-F10):** após v1.0.0 trocamos `QWebEngineView` por captura via Chrome DevTools Protocol sobre WebSocket (`websocket-client`). Lança `chrome.exe` com `--remote-debugging-port`, faz polling em `/json` até detectar `/profiles/` ou `/id/` na URL, conecta WS e extrai cookies (HTTP-only inclusive) via `Network.getAllCookies`. Fallback manual (colar cookies JSON) permanece.
 
 ---
 
