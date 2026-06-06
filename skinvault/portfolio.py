@@ -52,7 +52,7 @@ def position_pnl(cost: float, current_price: float, quantity: int = 1,
         "market": market,
         "net_if_sold": net,
         "pnl": pnl,
-        "pnl_pct": (pnl / cost_total) if cost_total else 0.0,
+        "pnl_pct": (pnl / cost_total * 100) if cost_total else 0.0,
         "break_even": break_even_price(cost, fee_rate),
         "status": status,
     }
@@ -83,7 +83,7 @@ def evaluate_portfolio(positions: list[dict], price_fn,
         "market": t_market,
         "net_if_sold": t_net,
         "pnl": t_net - t_cost,
-        "pnl_pct": ((t_net - t_cost) / t_cost) if t_cost else 0.0,
+        "pnl_pct": ((t_net - t_cost) / t_cost * 100) if t_cost else 0.0,
     }
     return {"rows": rows, "totals": totals}
 

@@ -12,6 +12,25 @@ def test_net_proceeds_and_break_even():
     assert portfolio.break_even_price(100.0) == pytest.approx(115.0)
 
 
+def test_position_pnl_pct_is_0_100():
+    """pnl_pct retorna 0-100, nao fracao."""
+    d = portfolio.position_pnl(cost=100.0, current_price=150.0)
+    assert d["pnl_pct"] == pytest.approx(30.43, abs=0.01)
+
+
+def test_evaluate_portfolio_pnl_pct_is_0_100():
+    """totals.pnl_pct retorna 0-100, nao fracao."""
+    positions = [{"name": "AK", "cost": 100.0, "quantity": 1}]
+    res = portfolio.evaluate_portfolio(positions, lambda n: 150.0)
+    assert res["totals"]["pnl_pct"] == pytest.approx(30.43, abs=0.01)
+
+
+def test_simulate_trade_roi_pct_is_0_100():
+    """roi_pct retorna 0-100, nao fracao."""
+    r = portfolio.simulate_trade(100.0, 150.0)
+    assert r["roi_pct"] == pytest.approx(30.43, abs=0.01)
+
+
 def test_position_que_PARECE_lucro_mas_e_prejuizo():
     # paguei 100, "vale" 110 -> parece +10. Mas recebo 110/1.15 = 95.65 -> -4.35
     d = portfolio.position_pnl(cost=100.0, current_price=110.0)

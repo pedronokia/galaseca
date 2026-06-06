@@ -192,6 +192,15 @@ class TestFindOpenBuys:
 
 
 class TestSummarize:
+    def test_win_rate_is_0_100(self):
+        """summarize.win_rate retorna 0-100, nao fracao."""
+        trades = [
+            trade_matcher.ClosedTrade("X", "1 Jan", 10.0, "5 Jan", 20.0,
+                                      0.0, +5.0, 0.5),
+        ]
+        s = trade_matcher.summarize(trades)
+        assert s["win_rate"] == 100.0
+
     def test_empty(self):
         s = trade_matcher.summarize([])
         assert s == {"count": 0, "total_pnl": 0.0, "winners": 0,
@@ -211,4 +220,4 @@ class TestSummarize:
         assert s["winners"] == 2
         assert s["losers"] == 1
         assert s["total_pnl"] == pytest.approx(3.0)
-        assert s["win_rate"] == pytest.approx(2 / 3)
+        assert s["win_rate"] == pytest.approx(200 / 3)

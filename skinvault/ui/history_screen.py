@@ -558,7 +558,7 @@ class HistoryScreen(QWidget):
             self._status.setText(
                 f"{s['count']} pareados • P&L total {t.brl(s['total_pnl'])}"
                 f" • {s['winners']}W / {s['losers']}L"
-                f" ({s['win_rate']*100:.0f}% win rate)"
+                f" ({s['win_rate']:.0f}% win rate)"
             )
         elif seg == "open":
             opens = self._open_cache or []
@@ -616,7 +616,7 @@ class HistoryScreen(QWidget):
                 t.brl(c.buy_price),
                 t.brl(c.sell_price),
                 t.brl(c.pnl),
-                f"{c.pnl_pct*100:+.1f}%",
+                f"{c.pnl_pct:+.1f}%",
             ])
         return (
             ["Vendido em", "Item", "Compra", "Venda", "P&L liquido", "ROI"],

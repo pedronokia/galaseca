@@ -213,5 +213,5 @@ def summarize(closed: list[ClosedTrade]) -> dict:
         "total_pnl": sum(c.pnl for c in closed),
         "winners": winners,
         "losers": losers,
-        "win_rate": winners / len(closed) if closed else 0.0,
+        "win_rate": winners / len(closed) * 100 if closed else 0.0,
     }

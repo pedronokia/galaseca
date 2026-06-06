@@ -6,6 +6,21 @@ import pytest
 from skinvault import trades
 
 
+def test_record_trade_pnl_pct_is_0_100(tmp_path):
+    """record_trade.pnl_pct retorna 0-100, nao fracao."""
+    t = trades.record_trade("AK-47 | Redline", 100.0, 150.0, 1,
+                            path=tmp_path / "t.json")
+    assert t["pnl_pct"] == pytest.approx(30.43, abs=0.01)
+
+
+def test_trade_stats_win_rate_is_0_100(tmp_path):
+    """trade_stats.win_rate retorna 0-100, nao fracao."""
+    p = tmp_path / "t.json"
+    trades.record_trade("A", 100.0, 150.0, 1, path=p)
+    s = trades.trade_stats(path=p)
+    assert s["win_rate"] == 100.0 if s["total"] else 0.0
+
+
 def test_record_trade_profit(tmp_path):
     p = tmp_path / "trades.json"
     t = trades.record_trade("AK-47 | Redline", 200.0, 350.0, 1, path=p)

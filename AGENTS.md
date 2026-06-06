@@ -97,23 +97,22 @@ Exemplos consolidados:
 
 ## Gotchas — leia antes de mudar coisa relacionada
 
-### 1. Convenção de porcentagem é **inconsistente** entre módulos
+### 1. Convenção de porcentagem — **unificada para 0–100**
 
-Antes de multiplicar `*_pct` por 100 ou formatar como `%`, **abra a
-função fonte** e confirme:
+Todas as funções retornam `*_pct` / `*_rate` como percentual **0–100**.
+Não multiplique por 100.
 
 | Função | Retorno |
 |---|---|
-| `portfolio.position_pnl` → `pnl_pct` | **fração 0–1** (multiplique por 100) |
-| `portfolio.evaluate_portfolio` → `totals.pnl_pct` | **fração 0–1** |
-| `portfolio.simulate_trade` → `roi_pct` | **0–100** (não multiplique) |
-| `trades.record_trade` → `pnl_pct` | **0–100** |
-| `trades.trade_stats` → `win_rate` | **0–100** |
-| `trade_matcher.summarize` → `win_rate` | **fração 0–1** |
+| `portfolio.position_pnl` → `pnl_pct` | **0–100** ✅ |
+| `portfolio.evaluate_portfolio` → `totals.pnl_pct` | **0–100** ✅ |
+| `portfolio.simulate_trade` → `roi_pct` | **0–100** ✅ |
+| `trades.record_trade` → `pnl_pct` | **0–100** ✅ |
+| `trades.trade_stats` → `win_rate` | **0–100** ✅ |
+| `trade_matcher.summarize` → `win_rate` | **0–100** ✅ |
 
-Já causou bugs em Trades, Simulador e foi quase causado de novo em
-outras telas nesta sessão. Tem testes de regressão mas a convenção
-não foi unificada.
+Unificado em 2026-06-06. Se adicionar função nova de pct, mantenha
+0–100.
 
 ### 2. `time.mktime` é permissivo
 

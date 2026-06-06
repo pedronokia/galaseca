@@ -77,7 +77,7 @@ def _cli_portfolio() -> None:
     sign = "+" if t["pnl"] >= 0 else ""
     print(f"TOTAIS  custo {_brl(t['cost'])}  |  vale {_brl(t['market'])}  |  "
           f"recebe {_brl(t['net_if_sold'])}  |  LUCRO REAL {sign}{_brl(t['pnl'])} "
-          f"({t['pnl_pct']*100:+.1f}%)")
+          f"({t['pnl_pct']:+.1f}%)")
     print("(LUCRO REAL = o que voce recebe pos-taxa 15% menos o que pagou. "
           "'Vale' e' so' aparencia.)")
 
