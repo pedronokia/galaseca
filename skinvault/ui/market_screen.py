@@ -4,8 +4,10 @@ Consulta preco ao vivo, fair value verdict, order book e sparkline.
 """
 from __future__ import annotations
 
+import json
 import threading
 import time
+from pathlib import Path
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
@@ -21,6 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import cases, signals, steam_api
+from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import Card, StatCard
@@ -28,6 +31,23 @@ from skinvault.ui.widgets import DepthChart, MiniSparkline
 
 
 _RECENT_CAP = 8
+_RECENT_PATH = DATA_DIR / "market_recent.json"
+
+
+def _load_recent() -> list[str]:
+    try:
+        data = json.loads(_RECENT_PATH.read_text("utf-8"))
+        return data[:8] if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_recent(items: list[str]) -> None:
+    try:
+        _RECENT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _RECENT_PATH.write_text(json.dumps(items[:8]), encoding="utf-8")
+    except OSError:
+        pass
 
 
 _VERDICT_COLOR = {
@@ -62,9 +82,10 @@ class MarketScreen(QWidget):
         self._cache = cache
         self._bridge = _MarketBridge()
         self._bridge.data_ready.connect(self._on_data)
-        self._recent: list[str] = []
+        self._recent: list[str] = _load_recent()
         self._started_at: float = 0.0
         self._build()
+        self._rebuild_recent_menu()
 
     # ── construcao ────────────────────────────────────────
     def _build(self) -> None:
@@ -285,11 +306,7 @@ class MarketScreen(QWidget):
         )
 
     # ── helpers ───────────────────────────────────────────
-    def _push_recent(self, name: str) -> None:
-        if name in self._recent:
-            self._recent.remove(name)
-        self._recent.insert(0, name)
-        self._recent = self._recent[:_RECENT_CAP]
+    def _rebuild_recent_menu(self) -> None:
         self._recent_menu.clear()
         for n in self._recent:
             act = self._recent_menu.addAction(n)
@@ -297,6 +314,14 @@ class MarketScreen(QWidget):
                 lambda _checked=False, nm=n: self._search_and_run(nm)
             )
         self._recent_btn.setEnabled(bool(self._recent))
+
+    def _push_recent(self, name: str) -> None:
+        if name in self._recent:
+            self._recent.remove(name)
+        self._recent.insert(0, name)
+        self._recent = self._recent[:_RECENT_CAP]
+        _save_recent(self._recent)
+        self._rebuild_recent_menu()
 
     def _search_and_run(self, name: str) -> None:
         self._search_inp.setText(name)

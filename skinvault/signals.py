@@ -214,13 +214,11 @@ def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> 
 
     for period_h in periods:
         cutoff = last_ts - period_h * 3600
-        # Encontra o entry mais proximo do cutoff
-        candidate = None
-        for entry in sorted_hist:
-            if entry["time"] >= cutoff:
-                candidate = entry
-                break
+        candidate = min(sorted_hist, key=lambda e: abs(e["time"] - cutoff))
         if candidate is None:
+            continue
+        # Só usa se estiver dentro da janela (tolera 20% além do período)
+        if abs(candidate["time"] - cutoff) > period_h * 3600 * 0.2:
             continue
 
         first_price = candidate["price_median"]

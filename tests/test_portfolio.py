@@ -100,3 +100,36 @@ def test_import_csv_with_r_prefix(tmp_path):
     r = portfolio.import_csv(csv, path=p)
     assert r["imported"] == 1
     assert r["errors"] == []
+
+
+def test_import_csv_br_format_full(tmp_path):
+    """Formato BR completo: R$ 1.234,50 com milhar separador."""
+    p = tmp_path / "pf.json"
+    csv = "AK-47, R$ 1.234,50, 1\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 1
+    assert r["errors"] == []
+    loaded = portfolio.load_portfolio(p)
+    assert loaded[0]["cost"] == 1234.50
+
+
+def test_import_csv_br_format_no_prefix(tmp_path):
+    """Formato BR sem R$."""
+    p = tmp_path / "pf.json"
+    csv = "AK-47, 1.234,50, 1\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 1
+    assert r["errors"] == []
+    loaded = portfolio.load_portfolio(p)
+    assert loaded[0]["cost"] == 1234.50
+
+
+def test_import_csv_br_format_comma_decimal(tmp_path):
+    """Virgula como separador decimal sem ponto milhar."""
+    p = tmp_path / "pf.json"
+    csv = "AK-47, 1234,50, 1\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 1
+    assert r["errors"] == []
+    loaded = portfolio.load_portfolio(p)
+    assert loaded[0]["cost"] == 1234.50

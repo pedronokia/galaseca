@@ -103,6 +103,36 @@ def test_components_instantiation():
     assert LockOverlay() is not None
 
 
+def test_market_screen():
+    """MarketScreen instancia sem erro."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    screen = MarketScreen(PriceCache(ttl=3600))
+    assert screen is not None
+
+
+def test_trades_screen():
+    """TradesScreen instancia sem erro."""
+    from skinvault.ui.trades_screen import TradesScreen
+    screen = TradesScreen()
+    assert screen is not None
+
+
+def test_simulador_screen():
+    """SimuladorScreen instancia sem erro."""
+    from skinvault.ui.simulador_screen import SimuladorScreen
+    screen = SimuladorScreen()
+    assert screen is not None
+
+
+def test_watchlist_screen():
+    """WatchlistScreen instancia sem erro."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    assert screen is not None
+
+
 def test_dialogs_instantiation(monkeypatch):
     """SettingsDialog, BackupDialog e SteamSyncDialog instanciam."""
     monkeypatch.setattr("skinvault.sync.sync_all",

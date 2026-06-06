@@ -159,10 +159,8 @@ def test_multi_trend_returns_empty_for_short_history():
 def test_multi_trend_basic():
     now = time.time()
     ph = [
-        {"time": now - 200000, "price_median": 100.0},
-        {"time": now - 100000, "price_median": 110.0},
-        {"time": now - 50000, "price_median": 115.0},
-        {"time": now - 1000, "price_median": 120.0},
+        {"time": now - 90000, "price_median": 100.0},   # ~25h ago (within 20% tolerance)
+        {"time": now - 1000, "price_median": 120.0},    # recente
     ]
     result = signals.multi_trend(ph, periods=[24])
     assert "24h" in result
@@ -172,8 +170,8 @@ def test_multi_trend_basic():
 def test_multi_trend_period_labels():
     now = time.time()
     ph = [
-        {"time": now - 700000, "price_median": 100.0},  # ~194h ago (antes de 7d)
-        {"time": now - 500000, "price_median": 105.0},  # ~138h ago (dentro de 7d)
+        {"time": now - 700000, "price_median": 100.0},  # ~194h ago (dentro da tolerancia 7d)
+        {"time": now - 86400, "price_median": 105.0},   # exatamente 24h ago
         {"time": now - 1000, "price_median": 110.0},    # recente
     ]
     result = signals.multi_trend(ph, periods=[24, 168])

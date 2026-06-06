@@ -29,7 +29,7 @@ class Card(QFrame):
 
     def __init__(self, parent: QWidget | None = None,
                  padding: tuple[int, int, int, int] = (16, 14, 16, 14),
-                 radius: int = 10) -> None:
+                 radius: int = 14) -> None:
         super().__init__(parent)
         self.setObjectName("Card")
         self.setStyleSheet(t.card_style(radius))
@@ -51,7 +51,7 @@ class StatCard(Card):
     def __init__(self, label: str, value: str = "—",
                  accent: str = t.TEXT,
                  parent: QWidget | None = None) -> None:
-        super().__init__(parent, padding=(16, 12, 16, 12))
+        super().__init__(parent, padding=(16, 12, 16, 12), radius=22)
         self._label = QLabel(label)
         self._label.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"

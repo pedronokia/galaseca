@@ -148,6 +148,26 @@ def simulate_trade(buy_price: float, sell_price: float, quantity: int = 1,
     }
 
 
+def _parse_brl(raw: str) -> float:
+    """Converte string de custo para float, aceitando formatos BR e US.
+
+    "200"       -> 200.0
+    "650.50"    -> 650.5
+    "R$ 200"    -> 200.0
+    "R$ 1.234,50" -> 1234.5
+    "1.234,50"  -> 1234.5
+    "1234,50"   -> 1234.5
+    """
+    s = raw.replace("R$", "").strip()
+    if "," in s and "." in s:
+        # Formato BR: "1.234,50" -> remove pontos, troca virgula por ponto
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+    return float(s)
+
+
 def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
     """Importa linhas CSV: nome, custo, qtd (opcional).
 
@@ -170,15 +190,23 @@ def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
             errors.append(f"Linha {i}: formato invalido (precisa de nome, custo) — '{line}'")
             continue
         name = parts[0]
+        # Se tem mais de 3 partes, o custo BR tem virgula decimal
+        # ex: "AK-47, R$ 1.234,50, 1" -> parts = [AK-47, R$ 1.234, 50, 1]
+        if len(parts) > 3:
+            cost_raw = ",".join(parts[1:-1])
+            qty_raw = parts[-1]
+        else:
+            cost_raw = parts[1]
+            qty_raw = parts[2] if len(parts) >= 3 and parts[2] else ""
         try:
-            cost = float(parts[1].replace("R$", "").replace(" ", "").replace(",", "."))
+            cost = _parse_brl(cost_raw)
         except ValueError:
-            errors.append(f"Linha {i}: custo invalido '{parts[1]}' — '{line}'")
+            errors.append(f"Linha {i}: custo invalido '{cost_raw}' — '{line}'")
             continue
         try:
-            qty = int(parts[2]) if len(parts) >= 3 and parts[2] else 1
+            qty = int(qty_raw) if qty_raw else 1
         except ValueError:
-            errors.append(f"Linha {i}: quantidade invalida '{parts[2]}' — '{line}'")
+            errors.append(f"Linha {i}: quantidade invalida '{qty_raw}' — '{line}'")
             continue
         add_position(name, cost, max(qty, 1), path)
         imported += 1

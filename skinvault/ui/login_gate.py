@@ -19,7 +19,6 @@ from PyQt6.QtWidgets import (
 from skinvault import steam_session
 from skinvault.steam_login_dialog import build_steam_login_dialog
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card
 
 
 class LoginGate(QWidget):
@@ -35,63 +34,79 @@ class LoginGate(QWidget):
     def _build(self) -> None:
         outer = QVBoxLayout(self)
         outer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        outer.setSpacing(0)
 
-        card = Card(self, padding=(48, 40, 48, 40))
-        card.setFixedWidth(560)
-        body = card.layout()
-        body.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        body.setSpacing(18)
+        # ── Hero central ──────────────────────────────────
+        hero = QVBoxLayout()
+        hero.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hero.setSpacing(20)
 
         icon = QLabel("◐")
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon.setStyleSheet(
-            f"color: {t.STEAM_BLUE}; font-size: 64pt;"
+            f"color: {t.ACCENT}; font-size: 96pt;"
             f" font-family: {t.FONT_FAMILY};"
         )
-        body.addWidget(icon)
+        hero.addWidget(icon)
 
-        title = QLabel("Bem-vindo ao SkinVault")
+        title = QLabel("SkinVault")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
+            f"color: {t.TEXT}; font-size: 40pt; font-weight: 700;"
+            f" font-family: {t.FONT_FAMILY}; letter-spacing: -1px;"
         )
-        body.addWidget(title)
+        hero.addWidget(title)
+
+        tagline = QLabel("Análise inteligente do Steam Community Market")
+        tagline.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tagline.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_INPUT};"
+            f" font-family: {t.FONT_FAMILY}; font-weight: 400;"
+        )
+        hero.addWidget(tagline)
 
         desc = QLabel(
-            "Conecte sua conta Steam para acessar seu inventário,\n"
-            "histórico de mercado e simular trades com o lucro real\n"
+            "Conecte sua conta Steam para acompanhar seu inventário, "
+            "histórico de mercado e simular trades com o lucro real "
             "após a taxa de 15%."
         )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
+        desc.setFixedWidth(480)
         desc.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
+            f" font-family: {t.FONT_FAMILY}; line-height: 1.6;"
         )
-        body.addWidget(desc)
+        hero.addWidget(desc, 0, Qt.AlignmentFlag.AlignCenter)
 
+        outer.addLayout(hero)
+        outer.addSpacing(32)
+
+        # ── CTA enorme ────────────────────────────────────
         connect_btn = QPushButton("  Conectar conta Steam  ")
         connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        connect_btn.setMinimumHeight(48)
-        connect_btn.setStyleSheet(t.btn_primary(padding="14px 32px",
-                                                fs=t.FS_INPUT))
+        connect_btn.setMinimumHeight(56)
+        connect_btn.setFixedWidth(340)
+        connect_btn.setStyleSheet(t.btn_primary(padding="16px 40px",
+                                                fs="13pt"))
         connect_btn.clicked.connect(self._on_connect)
-        body.addWidget(connect_btn)
+        outer.addWidget(connect_btn, 0, Qt.AlignmentFlag.AlignCenter)
 
+        outer.addSpacing(48)
+
+        # ── Disclaimer ────────────────────────────────────
         warning = QLabel(
             "Cookies de sessão ficam apenas no seu computador "
             "(data/steam_session.json). Você pode desconectar a qualquer momento."
         )
         warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
         warning.setWordWrap(True)
+        warning.setFixedWidth(480)
         warning.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
-        body.addWidget(warning)
-
-        outer.addWidget(card)
+        outer.addWidget(warning, 0, Qt.AlignmentFlag.AlignCenter)
 
     def _on_connect(self) -> None:
         dlg = build_steam_login_dialog(self)

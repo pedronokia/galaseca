@@ -23,6 +23,8 @@ _DATA_FILES = [
     "settings.json",
     "alerts_log.json",
     "rankings.json",
+    # Market buscas recentes
+    "market_recent.json",
     # F10 -- sync da conta Steam
     "steam_session.json",
     "steam_market_events.json",
