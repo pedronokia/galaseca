@@ -4,21 +4,49 @@ Consulta preco ao vivo, fair value verdict, order book e sparkline.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
+import threading
+import time
+
+from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from skinvault import signals, steam_api
+from skinvault import cases, signals, steam_api
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import Card, StatCard
-from skinvault.ui.widgets import MiniSparkline, DepthChart
+from skinvault.ui.widgets import DepthChart, MiniSparkline
+
+
+_RECENT_CAP = 8
+
+
+_VERDICT_COLOR = {
+    "below_median": t.ACCENT,
+    "fair": t.TEXT,
+    "slightly_above": t.WARN,
+    "overpriced": t.DANGER,
+    "unknown": t.TEXT_MUTED,
+}
+
+
+def _cache_age_label(seconds: float) -> str:
+    if seconds < 60:
+        return "agora há pouco"
+    if seconds < 3600:
+        return f"há {int(seconds // 60)}min"
+    if seconds < 86400:
+        return f"há {int(seconds // 3600)}h"
+    return f"há {int(seconds // 86400)}d"
 
 
 class _MarketBridge(QObject):
@@ -34,62 +62,140 @@ class MarketScreen(QWidget):
         self._cache = cache
         self._bridge = _MarketBridge()
         self._bridge.data_ready.connect(self._on_data)
+        self._recent: list[str] = []
+        self._started_at: float = 0.0
         self._build()
 
+    # ── construcao ────────────────────────────────────────
     def _build(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(16)
+        root.setSpacing(14)
 
-        title = QLabel("Market")
+        title = QLabel("Consulta de Mercado")
         title.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
         )
         root.addWidget(title)
 
-        # Search
+        subtitle = QLabel(
+            "Análise de fair value, histórico de preços e profundidade do "
+            "livro de ofertas no Steam Community Market."
+        )
+        subtitle.setWordWrap(True)
+        subtitle.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        root.addWidget(subtitle)
+
+        # ── Search row ────────────────────────────────────
         search_row = QHBoxLayout()
+        search_row.setSpacing(8)
+
         self._search_inp = QLineEdit()
         self._search_inp.setPlaceholderText(
-            "Ex: AK-47 | Redline (Field-Tested)"
+            "Ex: AK-47 | Redline (Field-Tested)  •  Karambit | Doppler (Factory New)"
         )
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.returnPressed.connect(self._on_search)
         search_row.addWidget(self._search_inp, 1)
 
-        self._search_btn = QPushButton("Consultar")
+        self._recent_btn = QPushButton("Buscas recentes ▾")
+        self._recent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._recent_btn.setStyleSheet(t.btn_ghost(padding="10px 14px",
+                                                   fs=t.FS_BODY))
+        self._recent_btn.setToolTip("Repete uma consulta recente desta sessão.")
+        self._recent_menu = QMenu(self._recent_btn)
+        self._recent_btn.setMenu(self._recent_menu)
+        self._recent_btn.setEnabled(False)
+        search_row.addWidget(self._recent_btn)
+
+        self._clear_btn = QPushButton("Limpar")
+        self._clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._clear_btn.setStyleSheet(t.btn_ghost(padding="10px 14px",
+                                                  fs=t.FS_BODY))
+        self._clear_btn.setToolTip("Limpa a busca e o resultado atual.")
+        self._clear_btn.clicked.connect(self._on_clear)
+        search_row.addWidget(self._clear_btn)
+
+        self._search_btn = QPushButton("Consultar item")
         self._search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._search_btn.setStyleSheet(t.btn_primary())
+        self._search_btn.setToolTip(
+            "Busca menor preço, mediana, volume 24h, histórico e livro de "
+            "ofertas.\nRespeita o rate-limit do Steam (~2s por consulta)."
+        )
         self._search_btn.clicked.connect(self._on_search)
         search_row.addWidget(self._search_btn)
+
         root.addLayout(search_row)
 
-        # Stat cards
+        hint = QLabel(
+            "Cole o nome exatamente como aparece no Steam Market — incluindo "
+            "wear e StatTrak/Souvenir quando aplicável. Atalho: Ctrl+L."
+        )
+        hint.setWordWrap(True)
+        hint.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        root.addWidget(hint)
+
+        # ── Stat cards ────────────────────────────────────
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
-        self._stat_lowest = StatCard("Menor preco", "—")
-        self._stat_median = StatCard("Mediana", "—")
-        self._stat_volume = StatCard("Volume (24h)", "—")
+        self._stat_lowest = StatCard("Menor listagem ativa", "—")
+        self._stat_lowest.setToolTip(
+            "Preço da listagem mais barata disponível agora no Steam Market."
+        )
+        self._stat_median = StatCard("Mediana 24h", "—")
+        self._stat_median.setToolTip(
+            "Mediana das vendas das últimas 24h. Referência de \"preço justo\"."
+        )
+        self._stat_volume = StatCard("Volume 24h", "—")
+        self._stat_volume.setToolTip(
+            "Unidades vendidas nas últimas 24h. Acima de ~2000 indica "
+            "liquidez confortável. Marca anomalia quando desvia 2x da média."
+        )
         self._stat_verdict = StatCard("Veredito", "—")
+        self._stat_verdict.setToolTip(
+            "Análise multi-fator: posição vs mediana, spread, profundidade do "
+            "book e tendência recente."
+        )
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict):
             stats_row.addWidget(sc, 1)
         root.addLayout(stats_row)
 
-        # Cards: sparkline + depth chart
+        # ── Charts ────────────────────────────────────────
         charts_row = QHBoxLayout()
         charts_row.setSpacing(12)
 
         spark_card = Card(self, padding=(16, 14, 16, 14))
         spark_lay = QVBoxLayout()
         spark_lay.setSpacing(8)
-        spark_lbl = QLabel("Historico de precos")
+        spark_hdr = QHBoxLayout()
+        spark_lbl = QLabel("Histórico de preços")
         spark_lbl.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
         )
-        spark_lay.addWidget(spark_lbl)
+        spark_hdr.addWidget(spark_lbl)
+        spark_hdr.addStretch(1)
+        self._spark_meta = QLabel("")
+        self._spark_meta.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+        )
+        spark_hdr.addWidget(self._spark_meta)
+        spark_lay.addLayout(spark_hdr)
         self._sparkline = MiniSparkline(parent=spark_card)
         self._sparkline.setMinimumHeight(140)
+        self._sparkline.setToolTip(
+            "Últimos ~100 pontos do preço mediano.\n"
+            "Linha tracejada = SMA 7 dias. Linhas horizontais = suporte e "
+            "resistência aproximados."
+        )
         spark_lay.addWidget(self._sparkline, 1)
         spark_card.layout().addLayout(spark_lay)
         charts_row.addWidget(spark_card, 1)
@@ -97,45 +203,137 @@ class MarketScreen(QWidget):
         depth_card = Card(self, padding=(16, 14, 16, 14))
         depth_lay = QVBoxLayout()
         depth_lay.setSpacing(8)
-        depth_lbl = QLabel("Order book")
+        depth_hdr = QHBoxLayout()
+        depth_lbl = QLabel("Livro de ofertas")
         depth_lbl.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
         )
-        depth_lay.addWidget(depth_lbl)
+        depth_hdr.addWidget(depth_lbl)
+        depth_hdr.addStretch(1)
+        self._depth_meta = QLabel("")
+        self._depth_meta.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+        )
+        depth_hdr.addWidget(self._depth_meta)
+        depth_lay.addLayout(depth_hdr)
         self._depth = DepthChart(parent=depth_card)
         self._depth.setMinimumHeight(140)
+        self._depth.setToolTip(
+            "Profundidade acumulada do book.\n"
+            "Verde = ordens de compra (demanda). Vermelho = listagens à venda "
+            "(oferta).\nBook carregado de um lado indica pressão de preço."
+        )
         depth_lay.addWidget(self._depth, 1)
         depth_card.layout().addLayout(depth_lay)
         charts_row.addWidget(depth_card, 1)
 
         root.addLayout(charts_row)
 
-        # Detail card
+        # ── Detail card ───────────────────────────────────
         detail_card = Card(self, padding=(16, 14, 16, 14))
-        self._detail_lay = QVBoxLayout()
-        self._detail_lbl = QLabel("Consulte um item para ver detalhes.")
-        self._detail_lbl.setWordWrap(True)
-        self._detail_lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+        detail_lay = QVBoxLayout()
+        detail_lay.setSpacing(10)
+
+        detail_hdr = QHBoxLayout()
+        self._detail_title = QLabel("Detalhes do item")
+        self._detail_title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
         )
-        self._detail_lay.addWidget(self._detail_lbl)
-        detail_card.layout().addLayout(self._detail_lay)
+        detail_hdr.addWidget(self._detail_title)
+        detail_hdr.addStretch(1)
+        self._case_badge = QLabel("")
+        self._case_badge.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" border: 1px solid {t.BORDER}; border-radius: 6px;"
+            f" padding: 2px 8px; font-family: {t.FONT_FAMILY};"
+        )
+        self._case_badge.setVisible(False)
+        detail_hdr.addWidget(self._case_badge)
+        detail_lay.addLayout(detail_hdr)
+
+        self._detail_msg = QLabel(
+            "Consulte um item para ver fair value, spread, tendência e "
+            "profundidade do livro."
+        )
+        self._detail_msg.setWordWrap(True)
+        self._detail_msg.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        detail_lay.addWidget(self._detail_msg)
+
+        self._detail_form = QFormLayout()
+        self._detail_form.setSpacing(6)
+        self._detail_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+        detail_lay.addLayout(self._detail_form)
+
+        detail_card.layout().addLayout(detail_lay)
         root.addWidget(detail_card)
 
-        self._status = QLabel("")
+        # ── Status ────────────────────────────────────────
+        self._status = QLabel(
+            "Pronto. Cole o nome de um item e clique em Consultar."
+        )
         self._status.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
         )
         root.addWidget(self._status)
 
+        QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(
+            self._search_inp.setFocus
+        )
+
+    # ── helpers ───────────────────────────────────────────
+    def _push_recent(self, name: str) -> None:
+        if name in self._recent:
+            self._recent.remove(name)
+        self._recent.insert(0, name)
+        self._recent = self._recent[:_RECENT_CAP]
+        self._recent_menu.clear()
+        for n in self._recent:
+            act = self._recent_menu.addAction(n)
+            act.triggered.connect(
+                lambda _checked=False, nm=n: self._search_and_run(nm)
+            )
+        self._recent_btn.setEnabled(bool(self._recent))
+
+    def _search_and_run(self, name: str) -> None:
+        self._search_inp.setText(name)
+        self._on_search()
+
+    def _clear_detail_form(self) -> None:
+        while self._detail_form.rowCount() > 0:
+            self._detail_form.removeRow(0)
+
+    def _add_detail(self, label: str, value: str,
+                    color: str | None = None) -> None:
+        lbl = QLabel(label)
+        lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        val = QLabel(value)
+        val.setStyleSheet(
+            f"color: {color or t.TEXT}; font-size: {t.FS_BODY};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        self._detail_form.addRow(lbl, val)
+
+    # ── acoes ─────────────────────────────────────────────
     def _on_search(self) -> None:
         name = self._search_inp.text().strip()
         if not name:
             return
-        self._status.setText("Consultando...")
+        cache_msg = ""
+        cached = self._cache.get(name)
+        if cached is not None:
+            entry = self._cache._data.get(name, {})
+            age = time.time() - entry.get("ts", time.time())
+            cache_msg = f" (cache de {_cache_age_label(age)} será sobrescrito)"
+        self._status.setText(f"Consultando {name}…{cache_msg}")
         self._search_btn.setEnabled(False)
-
-        import threading
+        self._started_at = time.time()
 
         def _worker():
             data = {}
@@ -150,37 +348,94 @@ class MarketScreen(QWidget):
 
         threading.Thread(target=_worker, daemon=True).start()
 
+    def _on_clear(self) -> None:
+        self._search_inp.clear()
+        self._search_inp.setFocus()
+        for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
+                   self._stat_verdict):
+            sc.set_value("—", accent=t.TEXT)
+        self._sparkline.set_series([])
+        self._sparkline.set_sma([])
+        self._sparkline.set_sr({})
+        self._depth.set_data({})
+        self._spark_meta.setText("")
+        self._depth_meta.setText("")
+        self._detail_title.setText("Detalhes do item")
+        self._detail_msg.setText(
+            "Consulte um item para ver fair value, spread, tendência e "
+            "profundidade do livro."
+        )
+        self._detail_msg.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        self._case_badge.setVisible(False)
+        self._clear_detail_form()
+        self._status.setText(
+            "Pronto. Cole o nome de um item e clique em Consultar."
+        )
+
     def _on_data(self, data: dict) -> None:
         self._search_btn.setEnabled(True)
         name = data.get("name", "")
         overview = data.get("overview")
         page = data.get("page")
+        elapsed = time.time() - self._started_at if self._started_at else 0.0
 
         if not overview and not page:
             self._status.setText(
-                "Nao foi possivel obter dados. Verifique o nome do item."
+                f"Não foi possível obter dados de “{name}”. "
+                "Verifique o nome (wear, StatTrak, espaços) ou tente novamente."
             )
             return
 
+        # Stats
+        verdict: dict = {}
         if overview:
             lowest = overview.get("lowest")
             median = overview.get("median")
             volume = overview.get("volume")
-            verdict = steam_api.fair_value_verdict(lowest, median)
+            ob = page.get("order_book") if page else None
+            verdict = steam_api.fair_value_verdict(
+                lowest, median,
+                spread=ob,
+                buy_count=len(ob.get("buy", [])) if ob else None,
+                sell_count=len(ob.get("sell", [])) if ob else None,
+                price_history=page.get("price_history") if page else None,
+            )
+
+            v_color = _VERDICT_COLOR.get(verdict.get("verdict", "unknown"),
+                                         t.TEXT)
             self._stat_lowest.set_value(t.brl(lowest))
             self._stat_median.set_value(t.brl(median))
-            self._stat_volume.set_value(str(volume) if volume else "—")
-            v_color = t.ACCENT if verdict.get("diff_pct", 0) <= 0 else t.DANGER
             self._stat_verdict.set_value(verdict.get("label", "—"),
                                          accent=v_color)
             self._cache.put(name, lowest)
 
+            # Volume + anomalia
+            vol_label = str(volume) if volume else "—"
+            vol_color = t.TEXT
+            if volume:
+                signals.record_item_volume(name, volume)
+                hist = signals.load_item_volume(name)
+                anom = signals.volume_anomaly(hist)
+                if anom.get("is_anomaly"):
+                    vol_label = f"{volume}  (anômalo {anom['ratio']:.1f}x)"
+                    vol_color = t.WARN
+                    self._stat_volume.setToolTip(
+                        "Unidades vendidas nas últimas 24h.\n"
+                        f"Anomalia detectada: {anom.get('label', '')}"
+                    )
+            self._stat_volume.set_value(vol_label, accent=vol_color)
+
+        # Charts
         if page:
             price_history = page.get("price_history", [])
             order_book = page.get("order_book")
 
             if price_history:
-                prices_list = [x["price"] for x in price_history if "price" in x]
+                prices_list = [x["price"] for x in price_history
+                               if "price" in x]
                 if prices_list:
                     self._sparkline.set_series(prices_list[-100:])
                     sma_vals = signals.sma(prices_list, period=7)
@@ -189,23 +444,80 @@ class MarketScreen(QWidget):
                     sr = signals.find_support_resistance(price_history[-100:])
                     if sr:
                         self._sparkline.set_sr(sr)
+                self._spark_meta.setText(
+                    f"{len(price_history)} pontos"
+                )
 
             if order_book:
                 self._depth.set_data(order_book)
+                buys = len(order_book.get("buy", []))
+                sells = len(order_book.get("sell", []))
+                if buys or sells:
+                    supply = sells
+                    signals.record_item_supply(name, supply)
+                self._depth_meta.setText(
+                    f"{buys} compras • {sells} vendas"
+                )
 
         # Detail
-        lines = [f"Item: {name}"]
-        if overview:
-            lines.append(f"Menor listagem: {t.brl(overview.get('lowest'))}")
-            lines.append(f"Mediana: {t.brl(overview.get('median'))}")
-            lines.append(f"Volume 24h: {overview.get('volume', '—')}")
-        if page:
-            lines.append(
-                f"Historico: {len(page.get('price_history', []))} pontos"
+        self._detail_title.setText(name or "Detalhes do item")
+        cs = cases.case_status(name) if name else {}
+        cs_label = cs.get("label", "") if cs else ""
+        if cs_label:
+            self._case_badge.setText(f"Caixa: {cs_label}")
+            self._case_badge.setVisible(True)
+        else:
+            self._case_badge.setVisible(False)
+
+        msg = verdict.get("message") if verdict else None
+        if msg:
+            self._detail_msg.setText(msg)
+            v_color = _VERDICT_COLOR.get(verdict.get("verdict", "unknown"),
+                                         t.TEXT)
+            self._detail_msg.setStyleSheet(
+                f"color: {v_color}; font-size: {t.FS_BODY};"
+                f" font-weight: 600; font-family: {t.FONT_FAMILY};"
             )
-            ob = page.get("order_book", {})
-            buys = len(ob.get("buy", [])) if ob else 0
-            sells = len(ob.get("sell", [])) if ob else 0
-            lines.append(f"Ordens de compra: {buys} | Venda: {sells}")
-        self._detail_lbl.setText("\n".join(lines))
-        self._status.setText(f"Atualizado: {name}")
+        else:
+            self._detail_msg.setText("Dados insuficientes para um veredito.")
+            self._detail_msg.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY};"
+            )
+
+        self._clear_detail_form()
+        if overview:
+            self._add_detail("Menor listagem",
+                             t.brl(overview.get("lowest")))
+            self._add_detail("Mediana 24h",
+                             t.brl(overview.get("median")))
+            vol = overview.get("volume")
+            self._add_detail("Volume 24h",
+                             str(vol) if vol else "—")
+            diff = verdict.get("diff_pct")
+            if diff is not None:
+                color = t.ACCENT if diff <= 0 else (
+                    t.WARN if diff <= 20 else t.DANGER
+                )
+                self._add_detail("Diferença vs mediana",
+                                 f"{diff:+.1f}%", color=color)
+        if page:
+            ob = page.get("order_book") or {}
+            buys = len(ob.get("buy", []))
+            sells = len(ob.get("sell", []))
+            self._add_detail("Ordens de compra", str(buys))
+            self._add_detail("Listagens à venda", str(sells))
+            if verdict.get("spread_verdict"):
+                self._add_detail("Spread",
+                                 verdict.get("spread_verdict", "—"))
+            if verdict.get("book_verdict"):
+                self._add_detail("Pressão do book",
+                                 verdict.get("book_verdict", "—"))
+            if verdict.get("trend_verdict"):
+                self._add_detail("Tendência recente",
+                                 verdict.get("trend_verdict", "—"))
+
+        if name:
+            self._push_recent(name)
+        dur = f" em {elapsed:.1f}s" if elapsed > 0 else ""
+        self._status.setText(f"Atualizado: {name}{dur}.")
