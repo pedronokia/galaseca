@@ -1,71 +1,83 @@
 """Testes do entrypoint CLI (subprocess + unit)."""
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 
+import pytest
 
-def _run(*args: str) -> subprocess.CompletedProcess:
+
+@pytest.fixture
+def _data_dir(tmp_path):
+    """Tmp path pra cada subprocess do CLI. Sem isso, `--add "Test Item"`
+    polui data/portfolio.json em cada run."""
+    return tmp_path
+
+
+def _run(data_dir, *args: str) -> subprocess.CompletedProcess:
+    env = {**os.environ, "SKINVAULT_DATA_DIR": str(data_dir)}
     return subprocess.run(
         [sys.executable, "-m", "skinvault", *args],
         capture_output=True, text=True, timeout=5,
+        env=env,
     )
 
 
-def test_no_args_shows_banner():
-    r = _run()
+def test_no_args_shows_banner(_data_dir):
+    r = _run(_data_dir)
     assert r.returncode == 0
     assert "SkinVault" in r.stdout
 
 
-def test_help_flag_shows_banner():
-    r = _run("--help")
+def test_help_flag_shows_banner(_data_dir):
+    r = _run(_data_dir, "--help")
     assert r.returncode == 0
     assert "SkinVault" in r.stdout
 
 
-def test_add_requires_minimum_args():
-    r = _run("--add")
+def test_add_requires_minimum_args(_data_dir):
+    r = _run(_data_dir, "--add")
     assert r.returncode == 0
     assert "Uso:" in r.stdout
     assert "--add" in r.stdout
 
 
-def test_add_partial_args_shows_usage():
-    r = _run("--add", "Some Item")
+def test_add_partial_args_shows_usage(_data_dir):
+    r = _run(_data_dir, "--add", "Some Item")
     assert r.returncode == 0
     assert "Uso:" in r.stdout
 
 
-def test_add_does_not_crash():
-    r = _run("--add", "Test Item", "100", "1")
+def test_add_does_not_crash(_data_dir):
+    r = _run(_data_dir, "--add", "Test Item", "100", "1")
     assert r.returncode == 0
 
 
-def test_portfolio_does_not_crash():
+def test_portfolio_does_not_crash(_data_dir):
     try:
-        r = _run("--portfolio")
+        r = _run(_data_dir, "--portfolio")
         assert r.returncode == 0
     except subprocess.TimeoutExpired:
         pass
 
 
-def test_check_does_not_crash():
+def test_check_does_not_crash(_data_dir):
     try:
-        r = _run("--check", "AK-47 | Redline (Field-Tested)")
+        r = _run(_data_dir, "--check", "AK-47 | Redline (Field-Tested)")
         assert r.returncode == 0
     except subprocess.TimeoutExpired:
         pass
 
 
-def test_unknown_flag_shows_banner():
-    r = _run("--nosuchflag")
+def test_unknown_flag_shows_banner(_data_dir):
+    r = _run(_data_dir, "--nosuchflag")
     assert r.returncode == 0
     assert "SkinVault" in r.stdout
 
 
-def test_flag_like_value_shows_banner():
-    r = _run("--ui")
+def test_flag_like_value_shows_banner(_data_dir):
+    r = _run(_data_dir, "--ui")
     assert r.returncode == 0
 
 
