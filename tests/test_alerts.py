@@ -134,10 +134,74 @@ def test_format_rules_summary_multi():
         "price_drop_pct": 15,
         "volume_spike": 3.0,
         "supply_drop": 2.0,
+        "score_above": 85,
     })
     assert "queda 15%" in s
     assert "vol 3.0x" in s
     assert "oferta 2.0x" in s
+    assert "score >=85" in s
+
+
+def test_evaluate_score_above_dispara():
+    """Score >= threshold gera alerta opportunity."""
+    item = {"name": "X", "rules": {"score_above": 85}}
+    out = alerts.evaluate_item(item, current_price=100.0,
+                                current_score=87)
+    score_alerts = [a for a in out if a["rule"] == "score_above"]
+    assert len(score_alerts) == 1
+    assert score_alerts[0]["severity"] == "opportunity"
+    assert score_alerts[0]["value"] == 87
+    assert "85" in score_alerts[0]["label"]
+    assert "87" in score_alerts[0]["label"]
+
+
+def test_evaluate_score_above_nao_dispara_abaixo():
+    """Score < threshold nao gera alerta."""
+    item = {"name": "X", "rules": {"score_above": 85}}
+    out = alerts.evaluate_item(item, current_price=100.0,
+                                current_score=70)
+    assert all(a["rule"] != "score_above" for a in out)
+
+
+def test_evaluate_score_above_ignora_sem_score():
+    """Sem current_score, regra e' ignorada (nao crasha)."""
+    item = {"name": "X", "rules": {"score_above": 85}}
+    out = alerts.evaluate_item(item, current_price=100.0,
+                                current_score=None)
+    assert all(a["rule"] != "score_above" for a in out)
+
+
+def test_evaluate_score_above_sem_rule_nao_dispara():
+    """Score alto mas sem regra configurada nao dispara."""
+    item = {"name": "X", "rules": {}}
+    out = alerts.evaluate_item(item, current_price=100.0,
+                                current_score=95)
+    assert all(a["rule"] != "score_above" for a in out)
+
+
+def test_evaluate_score_above_auto_rearm():
+    """Score sobe acima do threshold dispara; cai e sobe denovo redispara."""
+    item = {"name": "X", "rules": {"score_above": 85},
+            "triggered_rules": []}
+    # 1a vez: score 87, dispara
+    fresh = alerts.evaluate_item(item, current_price=100.0,
+                                  current_score=87)
+    new = alerts.diff_new_alerts(item, fresh)
+    assert any(a["rule"] == "score_above" for a in new)
+    # 2a vez: score 87 ainda, nao dispara denovo
+    fresh = alerts.evaluate_item(item, current_price=100.0,
+                                  current_score=87)
+    new = alerts.diff_new_alerts(item, fresh)
+    assert all(a["rule"] != "score_above" for a in new)
+    # Score cai pra 50 (regra nao mais ativa)
+    fresh = alerts.evaluate_item(item, current_price=100.0,
+                                  current_score=50)
+    new = alerts.diff_new_alerts(item, fresh)
+    # 3a vez: score sobe denovo, redispara
+    fresh = alerts.evaluate_item(item, current_price=100.0,
+                                  current_score=90)
+    new = alerts.diff_new_alerts(item, fresh)
+    assert any(a["rule"] == "score_above" for a in new)
 
 
 def test_clear_alerts_log(tmp_path):

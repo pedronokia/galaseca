@@ -25,6 +25,9 @@ DEFAULTS = {
     "sidebar_width": 220,
     "scanner_unlocked": False,
     "welcome_seen": False,
+    "overlay_mode": False,  # janela "stays on top" + show sem roubar foco
+    "scanner_hide_low_confidence": False,
+    "validate_interval_minutes": 30,  # 0 = desliga schedule automatico
 }
 
 

@@ -1,144 +1,150 @@
-# SkinVault — Handoff (continuação 2026-06-06, pós-OpenCode)
+# SkinVault — Handoff (2026-06-07)
 
-Documento pra continuar a sessão em outra ferramenta sem perder contexto.
-Conta o que mudou, o que está em aberto e por onde seguir.
+Documento pra continuar a sessão em outra ferramenta (OpenCode/etc).
 
----
+## Estado atual
 
-## Estado do repo (atualizado)
+- **1156 testes passando** (`python -m pytest`)
+- Python 3.9 compat, PyQt6 GUI, Steam-only
+- Backtest infraestrutura completa + score validado em 9996 amostras / 44 itens
+- Aggregate correlation Pearson: **+0.1173** (score atual com `rel_ath` universal)
+- Modo overlay ativo (jogar enquanto usa)
 
-- Branch ativo: `main` — `37614b4` (HEAD)
-- 867 testes passando (`python -m pytest -q`) — antes eram 286
-- Cobertura: 99% total (5522 stmts, 3 missing: `__main__:155`, `gui:54-55` — unreachable)
-- Working tree limpo
-- Sem remote configurado — quando for hospedar (GitHub/GitLab),
-  rodar `git remote add origin <url>` e push.
+## Filosofia (NÃO mudar)
 
-### Frentes do HANDOFF anterior — status
+- **Nunca prever futuro; apenas descrever dados factualmente** — comentários e labels usam "tendência subiu X%", nunca "vai valorizar"
+- Tudo em `gui.py` salvo lógica pura; análise vai em `signals.py`/`cases.py`/`alerts.py`/`backtest.py`
+- Steam-only por enquanto
 
-| # | Frente | Status |
-|---|--------|--------|
-| 1 | Pill StatCards | ✅ feito (`14d7523`) |
-| 2 | LoginGate cinematográfico | ✅ feito (`14d7523`) |
-| 3 | `multi_trend` confusa | ✅ feito (`5520ef0`) — desempate prefere entry mais antigo |
-| 4 | Persistência de `_recent` no Market | ✅ feito (`f1c4f98`) — `data/market_recent.json` |
-| 5 | Suite de testes pra UI screens | ✅ feito (`0294389`) — +581 testes |
-| 6 | `import_csv` quebra com formato BR completo | ✅ feito (`f1c4f98`) — parser BR via `_parse_brl` |
+## Score: fatores integrados (signals.enhanced_score)
 
-Caminho típico pra PR depois de configurar remote:
+| Fator | Peso | Sinal |
+|---|---|---|
+| mediana (diff_pct) | ±35 | preço vs mediana histórica |
+| spread | ±25 | spread bid/ask do order book |
+| book | ±20 | dominância buy vs sell |
+| trend | ±15 | direção dos últimos preços |
+| supply_demand | ±15 | volume/sell_count |
+| multi_period | ±10 | concordância 24h/7d/30d/90d |
+| **rel_ath** | ±10 | distância ao all-time high (universal) |
+| momentum | ±5 | preço vs SMA recente |
+| liquidity | +5 | volume alto |
+| case | +5/+3 | caixa descontinuada/rara |
 
-```bash
-git checkout main
-git reset --hard 6507339          # recua main pro estado pre-sessão
-git checkout ux-polish-and-bugfixes
-git push -u origin ux-polish-and-bugfixes
-gh pr create --base main --head ux-polish-and-bugfixes
+## Descobertas empíricas chave (memória persistida)
+
+Ver `~/.claude/projects/C--SkinVault/memory/`:
+- **score-90d-horizon.md** — score é sinal de 60-90d, não curto prazo. Bucket 70-84: +27% / hit 62%. Bucket 85-100: +50% / hit 75%.
+- **bucket-85-outliers.md** — bucket de elite é dominado por containers (Chroma 2 +80%, Spectrum +46%, Prisma +38%)
+- **clutch-case-falling-knife.md** — anti-padrão que motivou `rel_ath`. Containers em squeeze inicial (centavos) ganham; tardio (dólares) perdem.
+- **bucket-0-29-negative-finding.md** — noise heterogêneo, sem fix sistêmico (skins icônicos como Asiimov bagunçam)
+
+## Infraestrutura empírica
+
+**Engine:** `skinvault/backtest.py`
+- `simulate_item(name, ph, horizon_days=90, step_days=14)` — gera samples
+- `score_from_history(name, ph)` — score atual usado em watchlist/portfolio
+- `aggregate_by_bucket(samples)` + `correlation(samples)` + `format_report(...)`
+
+**Cache:** `skinvault/ssr_cache.py`
+- `PriceHistoryCache` TTL 24h em `data/ssr_cache.json`
+- `cached_price_history(name, cache=...)` — usa cache senão fetch
+- CLI suporta `--no-cache` pra force refresh
+
+**CLI:** `python -m skinvault --backtest "<item>"` ou `--from-portfolio` (default 90d/14d)
+
+## UI completa (3 telas com Validar Score + Score column)
+
+| Tela | Botão | Coluna Score | Persistência |
+|---|---|---|---|
+| Scanner | "Validar Score" | Score + Conf. + filtro | per-scan |
+| Watchlist | "Validar Score" | Sim + schedule 30min | `current_score` em watchlist.json |
+| Portfolio (AccountScreen) | "Validar Score do Portfolio" | Sim + schedule 30min | `current_score` em portfolio.json |
+
+Tooltip mostra retorno empírico do bucket por tipo (skin vs container).
+
+## Alertas score-based (end-to-end funcional)
+
+- `alerts.evaluate_item(..., current_score=N)` aceita score
+- Regra `score_above` no `_RulesDialog` (recomendado: 85 alta convicção, 70 ampla cobertura)
+- Watchlist worker chama `evaluate_item` durante "Validar Score"
+- Fluxo: `bridge.alert_fired` → `notification_requested` (signal) → router re-emit → MainWindow → `tray_icon.showMessage`
+- Respeita `settings.tray_notifications`
+
+## Modo overlay (CS fullscreen)
+
+- Toggle via tray menu "Modo overlay (CS fullscreen)"
+- Flags: `WindowStaysOnTopHint` + `WA_ShowWithoutActivating`
+- Setting `overlay_mode` em `settings.py` DEFAULTS
+
+## Arquivos chave
+
+```
+skinvault/
+  signals.py           — sinais factuais + enhanced_score + price_zscore, drawdown, data_quality, relative_to_ath
+  backtest.py          — engine de validação + score_from_history
+  ssr_cache.py         — cache 24h de price_history
+  cases.py             — case_status, is_container
+  alerts.py            — engine de regras (5 tipos incl. score_above)
+  __main__.py          — CLI com --backtest, --no-cache
+  gui.py               — MainWindow, tray, overlay
+  ui/
+    scanner_screen.py  — Scanner + Validar Score + Conf. filter + scatter
+    watchlist_screen.py — Watchlist + Score column + alerts wiring
+    account_screen.py  — Portfolio + Score column
+    screen_router.py   — sinais routing (notification_requested)
 ```
 
----
+## Methodology (que funcionou)
 
-## O que esta sessão entregou (13 commits)
+```
+1. Observação: bucket X tem comportamento Y
+2. Investigação direcionada: comparar com bucket vizinho ou outliers
+3. Hipótese mecânica: explicação concreta com critério verificável
+4. Experimento: implementar com gate fácil de reverter
+5. Validação: backtest agregado COM critério de sucesso pré-acordado
+6. Decisão: keep se passa critério, revert se não
+7. Documentar: memory file pro próximo ciclo
+```
 
-### UX redesign no padrão Athenas
+Resultados de 4 experimentos:
+- z-score reversion → regrediu, reverted, documented
+- drawdown → +0.0017 marginal win, kept
+- rel_ath (containers) → +37% relativo, kept
+- rel_ath (universal) → +7% adicional, kept
 
-- [`5cabd1f`] **Market** — título "Consulta de Mercado", buscas
-  recentes (menu, 8 últimas), tooltips, veredito com 4 cores semânticas
-  (`below_median`/`fair`/`slightly_above`/`overpriced`), badge "Caixa:
-  ...", QFormLayout com label/valor, anomalia de volume sinalizada,
-  atalho Ctrl+L.
-- [`d46f8e9`] **Trades** — chips de período + resultado, edição
-  inline (double-click, Delete, Enter, right-click), coluna Origem
-  (Manual/Steam), card "Taxas pagas", overflow menu "⋯". **Fix do bug
-  win_rate ×100** (mostrava 7500%).
-- [`90c46cd`] **Simulador** — StatCard "Preço mínimo de venda",
-  histórico in-memory de 5 simulações como chips clicáveis, mensagem
-  de veredito contextual. **Fix do bug ROI ×100**.
-- [`dc7a319`] **Scanner** — dialog "Por que esse score?" com breakdown
-  visual em barras (`_FactorBar`, `_ScoreBreakdownDialog`),
-  double-click ou right-click abre. Menu de contexto também tem "Ver
-  no Steam Market".
+## Pending features
 
-### Caça-bugs
+All 7 tasks from F12 concluídas. Nenhuma pendente no momento.
 
-- [`950f6ea`] **PriceCache.age()** — novo método público em vez de
-  acessar `_data` privado do Market.
-- [`44f0ee3`] **fair_value_verdict** — Scanner e Market passavam o
-  `order_book` dict inteiro como `spread` (int), causando
-  `TypeError` silenciado no worker. Chaves `buy`/`sell` estavam
-  erradas (deveriam ser `buy_count`/`sell_count`) — `book_verdict`
-  nunca aparecia. +2 testes de regressão.
-- [`44716f3`] **market_event_key** — Steam omite ano para o ano
-  corrente e usa ano explícito quando vira ano antigo; o mesmo evento
-  gerava chaves distintas → duplicação anual. Normaliza via
-  `parse_steam_date` para ISO.
-- [`d6a545a`] **parse_steam_date** — `time.mktime` normalizava
-  silenciosamente "31 Apr" → 1 Mai, "29 Feb" fora de bissexto → 1
-  Mar, "99 Jan" → ~8 Abr. Trocado por `datetime.datetime` estrito.
-- [`d482e0a`] **signals.py** — `volume_anomaly` tinha `if len(values)
-  < 3` inalcançável; `enhanced_score` chamava `sma10` o que é média
-  dos 15 pontos (renomeado pra `mean_recent`).
-- [`da42fc6`] **restore_backup** — vulnerabilidade **Zip Slip**:
-  entry com `../../etc/passwd` escrevia fora de `DATA_DIR`. Whitelist
-  contra `_DATA_FILES`.
-
-### Order book sumido do SSR
-
-- [`6a0cb5e`] Steam removeu o `item_nameid` da página de listing (não
-  está mais no body, nem em `Market_LoadOrderSpread(...)`, nem no
-  endpoint `/render`). O endpoint `itemordershistogram` ainda
-  funciona, mas sem o id não dá pra usar. **Solução adotada**:
-  `_find_query(loose_match=True)` resgata orderbook de outro wear do
-  mesmo skin via `_skin_root_name`. Resultado é marcado
-  `order_book_approx=True` e a UI sinaliza visualmente (sufixo " ~"
-  em amarelo no Scanner; "(aprox. — outro wear)" no Market).
-
-### UX consolidação
-
-- [`5fe3d58`] **CTA único por tela** (estilo Faceit) — Scanner:
-  "Ranking Top 20" demoted de `btn_steam` pra `btn_secondary` (só
-  "Escanear" fica como CTA primário). History: 4 botões do toolbar
-  demoted pra `btn_ghost` (SegmentedControl é o protagonista).
-
----
-
-## Frentes em aberto
-
-Nenhuma da lista anterior. Possíveis próximos:
-
-### (A) `.coverage` no `.gitignore`
-O binário `.coverage` é regerado a cada `pytest --cov`. Tá tracked no repo
-e sujeito a diffs ruidosos. Mover pra `.gitignore` + `git rm --cached`.
-
-### (B) Cobrir os 3 missing
-- `__main__:155` — `if __name__ == "__main__": main()` (precisa subprocess via `python -m skinvault`)
-- `gui:54-55` — fallback de `QSystemTrayIcon` quando PyQt6 está incompleto (inalcançável em ambiente real)
-
-Provavelmente não vale o esforço — 99% é teto natural.
-
-### (C) Remote para o repo
-Ainda não tem remote (`git remote -v` vazio). Quando for publicar, `git remote add origin <url>` + push.
-
----
-
-## Como rodar
+## Comandos úteis
 
 ```bash
-# GUI (Windows relança em pythonw, exit code 0 esperado)
+# Rodar testes
+python -m pytest
+
+# Rodar app
 python -m skinvault --ui
 
-# CLI
-python -m skinvault --portfolio
-python -m skinvault --add "<nome>" <custo> [qtd]
+# Backtest CLI
+python -m skinvault --backtest "AK-47 | Redline (Field-Tested)"
+python -m skinvault --backtest --from-portfolio
+python -m skinvault --backtest "<item>" --no-cache  # force refresh
 
-# Testes
-python -m pytest -q
+# Validar mudança no score
+# 1. Implementar com gate fácil de reverter (if False and ...)
+# 2. Rodar backtest em 21+ itens diversos
+# 3. Comparar agg corr vs +0.1173 baseline
+# 4. Se passar: remover gate, atualizar _BUCKET_HISTORY_90D + memória
+# 5. Se falhar: reverter, documentar negative finding
 ```
 
----
+## Números chave pra referência
 
-## Gotchas estruturais descobertos nesta sessão
-
-Ver [AGENTS.md](AGENTS.md) — convenções e armadilhas que pegam quem
-não conhece o codebase (ex.: convenção de `pct` é inconsistente entre
-módulos; Steam SSR não traz mais `item_nameid`; `time.mktime` é
-permissivo demais).
+- **Baseline correlação:** +0.1173 (44 itens / 9996 amostras / rel_ath universal)
+- **Bucket 70-84:** +26.99% avg, 62% hit, n=1639
+- **Bucket 85-100:** +50.26% avg, 75% hit, n=186
+- **Por tipo (70-84):** skin +7.5% / container +32.9%
+- **Por tipo (85-100):** skin +21.3% / container +52.2%
+- **Cache TTL:** 24h em `data/ssr_cache.json`
+- **Horizon padrão:** 90d (CLI + simulate_item)

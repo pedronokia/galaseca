@@ -122,6 +122,527 @@ def test_score_breakdown_dialog_with_breakdown():
     })
     assert dlg is not None
 
+
+def test_bucket_for_score_mapping():
+    """_bucket_for_score retorna o bucket correto para cada score."""
+    from skinvault.ui.scanner_screen import _bucket_for_score
+    assert _bucket_for_score(0) == (0, 30)
+    assert _bucket_for_score(29) == (0, 30)
+    assert _bucket_for_score(30) == (30, 50)
+    assert _bucket_for_score(49) == (30, 50)
+    assert _bucket_for_score(50) == (50, 70)
+    assert _bucket_for_score(69) == (50, 70)
+    assert _bucket_for_score(70) == (70, 85)
+    assert _bucket_for_score(84) == (70, 85)
+    assert _bucket_for_score(85) == (85, 101)
+    assert _bucket_for_score(100) == (85, 101)
+
+
+def test_bucket_for_score_boundaries():
+    """Score fora do range esperado: retorna None (defensivo)."""
+    from skinvault.ui.scanner_screen import _bucket_for_score
+    # Range valido cobre 0..100. Score 101 nao deve mapear.
+    assert _bucket_for_score(101) is None
+
+
+def test_bucket_history_data_integrity():
+    """Os buckets historicos cobrem 0..100 sem gap."""
+    from skinvault.ui.scanner_screen import _BUCKET_HISTORY_90D
+    bounds = sorted(_BUCKET_HISTORY_90D.keys())
+    assert bounds[0][0] == 0
+    assert bounds[-1][1] == 101  # cobre 100 inclusive
+    # nao tem gap entre buckets
+    for i in range(len(bounds) - 1):
+        assert bounds[i][1] == bounds[i + 1][0]
+
+
+def _hidden_levels_by_name(screen) -> dict:
+    """Helper: mapa name -> hidden bool, usando dq.level."""
+    from PyQt6.QtCore import Qt
+    out = {}
+    for row in range(screen._table.rowCount()):
+        cell = screen._table.item(row, screen.COL_NAME)
+        if not cell:
+            continue
+        r = cell.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(r, dict):
+            continue
+        out[r["name"]] = {
+            "level": r.get("data_quality", {}).get("level"),
+            "hidden": screen._table.isRowHidden(row),
+        }
+    return out
+
+
+def test_scanner_filtro_conf_existe(monkeypatch):
+    """Checkbox 'Esconder baixa confiança' existe e default off."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    assert screen._hide_low_conf_cb is not None
+    assert screen._hide_low_conf_cb.isChecked() is False
+
+
+def test_scanner_filtro_off_nao_esconde_nada(monkeypatch):
+    """Filtro desligado: todas as linhas visíveis."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s: None)
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        {"name": "A", "score": 75, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "high", "confidence": 0.9, "n": 200}},
+        {"name": "B", "score": 60, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "low", "confidence": 0.3, "n": 30}},
+    ]
+    screen._hide_low_conf_cb.setChecked(False)
+    screen._populate()
+    by_name = _hidden_levels_by_name(screen)
+    assert by_name["A"]["hidden"] is False
+    assert by_name["B"]["hidden"] is False
+
+
+def test_scanner_filtro_on_esconde_baixa_e_minima(monkeypatch):
+    """Filtro ligado: low e very_low ocultos; high e medium visíveis."""
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s: None)
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        {"name": "A", "score": 75, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "high", "confidence": 0.9, "n": 200}},
+        {"name": "B", "score": 70, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "medium", "confidence": 0.6, "n": 110}},
+        {"name": "C", "score": 60, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "low", "confidence": 0.3, "n": 40}},
+        {"name": "D", "score": 50, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "very_low", "confidence": 0.1, "n": 10}},
+    ]
+    screen._hide_low_conf_cb.setChecked(True)
+    screen._populate()
+    by_name = _hidden_levels_by_name(screen)
+    assert by_name["A"]["hidden"] is False  # high
+    assert by_name["B"]["hidden"] is False  # medium
+    assert by_name["C"]["hidden"] is True   # low
+    assert by_name["D"]["hidden"] is True   # very_low
+
+
+def test_scanner_filtro_toggle_persiste(monkeypatch):
+    """Toggle do filtro grava em settings."""
+    saved = {}
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s: saved.update(s))
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._hide_low_conf_cb.setChecked(True)
+    assert saved.get("scanner_hide_low_confidence") is True
+    screen._hide_low_conf_cb.setChecked(False)
+    assert saved.get("scanner_hide_low_confidence") is False
+
+
+def test_scanner_filtro_status_mostra_ocultos(monkeypatch):
+    """Status menciona N ocultos por baixa confiança."""
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s: None)
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        {"name": "A", "score": 75, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "low", "confidence": 0.3, "n": 30}},
+    ]
+    screen._hide_low_conf_cb.setChecked(True)
+    screen._populate()
+    assert "1 oculto" in screen._status.text()
+
+
+def test_scanner_tabela_tem_coluna_conf():
+    """Tabela do Scanner tem 11 colunas, sendo a 11a 'Conf.'."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    assert screen._table.columnCount() == 11
+    assert screen.COL_CONFIDENCE == 10
+    hdr = screen._table.horizontalHeaderItem(10)
+    assert hdr is not None
+    assert hdr.text() == "Conf."
+
+
+def test_scanner_populate_preenche_confianca_alta():
+    """Resultado com data_quality 'high' renderiza 'Alta' na coluna Conf."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [{
+        "name": "AK", "score": 75, "price": 100, "median": 110,
+        "breakdown": [], "verdict": "COMPRA", "verdict_color": "#0f0",
+        "spread": "", "book": "", "trend": "", "sd_label": "",
+        "data_quality": {"level": "high", "confidence": 0.9, "n": 200},
+    }]
+    screen._populate()
+    cell = screen._table.item(0, screen.COL_CONFIDENCE)
+    assert cell.text() == "Alta"
+
+
+def test_scanner_populate_renderiza_confianca_low():
+    """Level 'low' renderiza 'Baixa'."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [{
+        "name": "AK", "score": 30, "price": 100, "median": 110,
+        "breakdown": [], "verdict": "EVITAR", "verdict_color": "#f00",
+        "spread": "", "book": "", "trend": "", "sd_label": "",
+        "data_quality": {"level": "low", "confidence": 0.3, "n": 40},
+    }]
+    screen._populate()
+    cell = screen._table.item(0, screen.COL_CONFIDENCE)
+    assert cell.text() == "Baixa"
+
+
+def test_scanner_populate_sem_dq_renderiza_dash():
+    """Resultado sem data_quality (back-compat): coluna mostra '—'."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [{
+        "name": "AK", "score": 50, "price": 100, "median": 110,
+        "breakdown": [], "verdict": "ATENCAO", "verdict_color": "#ff0",
+        "spread": "", "book": "", "trend": "", "sd_label": "",
+    }]
+    screen._populate()
+    cell = screen._table.item(0, screen.COL_CONFIDENCE)
+    assert cell.text() == "—"
+
+
+def test_scanner_populate_conf_tooltip():
+    """Tooltip da coluna Conf. menciona o numero de pontos."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [{
+        "name": "AK", "score": 75, "price": 100, "median": 110,
+        "breakdown": [], "verdict": "COMPRA", "verdict_color": "#0f0",
+        "spread": "", "book": "", "trend": "", "sd_label": "",
+        "data_quality": {"level": "high", "confidence": 0.85, "n": 180},
+    }]
+    screen._populate()
+    cell = screen._table.item(0, screen.COL_CONFIDENCE)
+    tip = cell.toolTip()
+    assert "180" in tip
+    assert "0.85" in tip
+
+
+def test_score_breakdown_dialog_container_mostra_especifico():
+    """Container com is_container=True mostra retorno tipico de container."""
+    from PyQt6.QtWidgets import QLabel
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    dlg = _ScoreBreakdownDialog({
+        "name": "Clutch Case", "score": 75, "breakdown": [],
+        "is_container": True,
+    })
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    assert any("Específico para containers" in t for t in texts)
+    # Bucket 70-84 container = +32.9%
+    assert any("+32" in t for t in texts)
+
+
+def test_score_breakdown_dialog_skin_mostra_especifico():
+    """Skin com is_container=False mostra retorno tipico de skin."""
+    from PyQt6.QtWidgets import QLabel
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    dlg = _ScoreBreakdownDialog({
+        "name": "AK-47 | Redline", "score": 75, "breakdown": [],
+        "is_container": False,
+    })
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    assert any("Específico para skins" in t for t in texts)
+    # Bucket 70-84 skin = +7.5%
+    assert any("+7.5" in t or "+7." in t for t in texts)
+
+
+def test_score_breakdown_dialog_sem_is_container_omite_tipo():
+    """Sem is_container, nao mostra info por tipo (back-compat)."""
+    from PyQt6.QtWidgets import QLabel
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    dlg = _ScoreBreakdownDialog({
+        "name": "X", "score": 75, "breakdown": [],
+    })
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    assert not any("Específico para" in t for t in texts)
+
+
+def test_score_breakdown_dialog_bucket_n_pequeno_omite():
+    """Bucket com n<30 (ex: skin 85-100 n=12) omite linha especifica."""
+    from PyQt6.QtWidgets import QLabel
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    # Skin no bucket 85-100: n=12 (insuficiente)
+    dlg = _ScoreBreakdownDialog({
+        "name": "X skin", "score": 95, "breakdown": [],
+        "is_container": False,
+    })
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    # Linha geral aparece (n=186), mas a "Especifico para skins" nao
+    assert any("Histórico em 90 dias" in t for t in texts)
+    assert not any("Específico para skins" in t for t in texts)
+
+
+def test_score_breakdown_dialog_confidence_high():
+    """Dialog mostra badge de confianca alta."""
+    from PyQt6.QtWidgets import QLabel
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    dlg = _ScoreBreakdownDialog({
+        "name": "AK", "score": 75, "breakdown": [],
+        "data_quality": {"level": "high", "confidence": 0.9,
+                          "n": 200, "age_days": 1.0},
+    })
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    assert any("Confiança alta" in t for t in texts)
+    # Sem warning para high
+    assert not any("anti-preditivo" in t for t in texts)
+
+
+def test_score_breakdown_dialog_confidence_baixa_mostra_warning():
+    """Dialog mostra warning quando level e' low ou very_low."""
+    from PyQt6.QtWidgets import QLabel
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    dlg = _ScoreBreakdownDialog({
+        "name": "AK", "score": 75, "breakdown": [],
+        "data_quality": {"level": "very_low", "confidence": 0.1,
+                          "n": 10, "age_days": 5.0},
+    })
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    assert any("Confiança MUITO BAIXA" in t for t in texts)
+    assert any("anti-preditivo" in t for t in texts)
+
+
+def test_score_breakdown_dialog_sem_dq_nao_crasha():
+    """Sem data_quality no item: dialog continua renderizando (back-compat)."""
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    dlg = _ScoreBreakdownDialog({
+        "name": "AK", "score": 75, "breakdown": [],
+    })
+    # Sem crash
+    assert dlg is not None
+
+
+def test_score_breakdown_dialog_mostra_historico():
+    """Dialog inclui texto do historico empirico do bucket."""
+    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    dlg = _ScoreBreakdownDialog({
+        "name": "AK-47", "score": 75, "breakdown": [],
+    })
+    # Procura QLabel com texto "Histórico em 90 dias"
+    from PyQt6.QtWidgets import QLabel
+    labels = dlg.findChildren(QLabel)
+    texts = [lbl.text() for lbl in labels]
+    assert any("Histórico em 90 dias" in t for t in texts)
+    # Bucket 70-84 tem retorno positivo de dois digitos (~+27%)
+    assert any("+27" in t for t in texts)
+
+
+# ── _BacktestResultDialog + botao validar ────────────
+
+def test_backtest_result_dialog_empty():
+    """Dialog com lista vazia mostra mensagem de empty state."""
+    from PyQt6.QtWidgets import QLabel
+    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    dlg = _BacktestResultDialog([], 0)
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    assert any("Nenhuma amostra" in t for t in texts)
+
+
+def test_backtest_result_dialog_com_samples():
+    """Dialog com samples renderiza tabela e correlação."""
+    from PyQt6.QtWidgets import QLabel, QTableWidget
+    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    samples = [
+        {"item": "X", "ts": 0, "score": s, "return_pct": float(s) - 50,
+         "breakdown_count": 5}
+        for s in [20, 30, 40, 50, 60, 70, 80, 90]
+    ]
+    dlg = _BacktestResultDialog(samples, items_count=2)
+    # Tabela de buckets presente
+    tables = dlg.findChildren(QTableWidget)
+    assert len(tables) == 1
+    assert tables[0].rowCount() == 5  # 5 buckets
+    # Texto de correlação presente
+    texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
+    assert any("Correlação Pearson" in t for t in texts)
+
+
+def test_backtest_result_dialog_title_inclui_contagem():
+    """Title menciona quantidade de samples e itens."""
+    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    samples = [{"item": "X", "ts": 0, "score": 50, "return_pct": 5.0,
+                "breakdown_count": 1}]
+    dlg = _BacktestResultDialog(samples, items_count=3)
+    title = dlg.windowTitle()
+    assert "1" in title
+    assert "3" in title
+
+
+def test_scanner_validate_btn_exists():
+    """Botao 'Validar Score' existe e esta habilitado por default."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    assert screen._validate_btn is not None
+    assert screen._validate_btn.isEnabled()
+
+
+def test_scanner_on_validate_sem_resultados():
+    """_on_validate_score sem _scan_results: mostra mensagem e nao crasha."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._on_validate_score()
+    assert "Escaneie" in screen._status.text()
+
+
+def test_scanner_on_validate_samples_acumula():
+    """_on_validate_samples acumula em _validate_samples."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._on_validate_samples([{"item": "A", "ts": 0, "score": 70,
+                                    "return_pct": 5.0, "breakdown_count": 1}])
+    screen._on_validate_samples([{"item": "B", "ts": 0, "score": 80,
+                                    "return_pct": 10.0, "breakdown_count": 1}])
+    assert len(screen._validate_samples) == 2
+
+
+def test_scatter_plot_empty():
+    """_ScatterPlot com lista vazia renderiza sem crash."""
+    from skinvault.ui.scanner_screen import _ScatterPlot
+    sc = _ScatterPlot([])
+    sc.resize(600, 220)
+    sc.grab()
+
+
+def test_scatter_plot_com_samples():
+    """_ScatterPlot pinta pontos sem crash."""
+    from skinvault.ui.scanner_screen import _ScatterPlot
+    samples = [
+        {"item": "X", "ts": 0, "score": s, "return_pct": float(s) * 0.5,
+         "breakdown_count": 1}
+        for s in range(0, 101, 10)
+    ]
+    sc = _ScatterPlot(samples)
+    sc.resize(600, 220)
+    sc.grab()
+    assert len(sc._samples) == 11
+
+
+def test_scatter_plot_extreme_returns_clamped():
+    """Retornos > Y_CLAMP nao quebram o plot (clamp aplicado)."""
+    from skinvault.ui.scanner_screen import _ScatterPlot
+    samples = [
+        {"item": "X", "ts": 0, "score": 50, "return_pct": 999.0,
+         "breakdown_count": 1},
+        {"item": "Y", "ts": 0, "score": 70, "return_pct": -500.0,
+         "breakdown_count": 1},
+    ]
+    sc = _ScatterPlot(samples)
+    sc.resize(600, 220)
+    sc.grab()
+
+
+def test_scatter_plot_alpha_por_confidence():
+    """Sample com confidence baixa renderiza sem crash (alpha diferenciado)."""
+    from skinvault.ui.scanner_screen import _ScatterPlot
+    samples = [
+        {"item": "X", "ts": 0, "score": 70, "return_pct": 10.0,
+         "confidence": 0.9, "level": "high"},
+        {"item": "Y", "ts": 0, "score": 50, "return_pct": 5.0,
+         "confidence": 0.2, "level": "low"},
+    ]
+    sc = _ScatterPlot(samples)
+    sc.resize(600, 220)
+    sc.grab()  # paintEvent sem crash
+
+
+def test_scatter_plot_back_compat_sem_confidence():
+    """Sample legado sem campo 'confidence' funciona (default 1.0)."""
+    from skinvault.ui.scanner_screen import _ScatterPlot
+    samples = [
+        {"item": "X", "ts": 0, "score": 70, "return_pct": 10.0,
+         "breakdown_count": 1},
+    ]
+    sc = _ScatterPlot(samples)
+    sc.resize(600, 220)
+    sc.grab()
+
+
+def test_scatter_plot_bucket_colors():
+    """_bucket_color retorna cores distintas por banda."""
+    from skinvault.ui.scanner_screen import _ScatterPlot
+    sc = _ScatterPlot([])
+    c_low = sc._bucket_color(20)
+    c_mid = sc._bucket_color(60)
+    c_high = sc._bucket_color(80)
+    # Cores devem ser distintas
+    assert c_low.name() != c_mid.name()
+    assert c_mid.name() != c_high.name()
+
+
+def test_backtest_dialog_inclui_scatter():
+    """_BacktestResultDialog com samples instancia um _ScatterPlot."""
+    from skinvault.ui.scanner_screen import _BacktestResultDialog, _ScatterPlot
+    samples = [
+        {"item": "X", "ts": 0, "score": 70, "return_pct": 15.0,
+         "breakdown_count": 1},
+        {"item": "X", "ts": 0, "score": 40, "return_pct": -3.0,
+         "breakdown_count": 1},
+    ]
+    dlg = _BacktestResultDialog(samples, items_count=1)
+    scatters = dlg.findChildren(_ScatterPlot)
+    assert len(scatters) == 1
+
+
+def test_scanner_on_validate_finished_reativa_botoes(monkeypatch):
+    """_on_validate_finished reabilita botões e abre dialog."""
+    from PyQt6.QtWidgets import QDialog
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import (
+        ScannerScreen, _BacktestResultDialog,
+    )
+    monkeypatch.setattr(_BacktestResultDialog, "exec",
+                        lambda self: QDialog.DialogCode.Accepted)
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_btn.setEnabled(False)
+    screen._rank_btn.setEnabled(False)
+    screen._validate_btn.setEnabled(False)
+    screen._scan_results = [{"name": "AK-47", "score": 70}]
+    screen._validate_samples = []
+    screen._on_validate_finished()
+    assert screen._scan_btn.isEnabled()
+    assert screen._rank_btn.isEnabled()
+    assert screen._validate_btn.isEnabled()
+
 def test_scanner_selected_result_no_row():
     """_selected_result returns None when no row selected."""
     from skinvault.prices import PriceCache
@@ -5323,6 +5844,7 @@ def _make_mw(monkeypatch) -> "MainWindow":
         sync_requested = pyqtSignal(object)
         navigated = pyqtSignal(str)
         sidebar_visibility_changed = pyqtSignal(bool)
+        notification_requested = pyqtSignal(str, str, str)
 
         def __init__(self, cache=None, parent=None):
             super().__init__(parent)
@@ -5793,3 +6315,595 @@ def test_launch_show_maximized(monkeypatch):
     result = launch()
     assert result == 0
     assert len(shown) == 1
+
+
+# ── Validar Score do Portfolio (AccountScreen) ────────
+
+def test_account_validate_btn_existe():
+    """Botão 'Validar Score do Portfolio' existe e habilitado."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    assert screen._validate_btn is not None
+    assert screen._validate_btn.isEnabled()
+    assert "Validar" in screen._validate_btn.text()
+
+
+def test_account_on_validate_portfolio_vazio(monkeypatch):
+    """Sem portfolio: handler mostra mensagem e não habilita worker."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_validate_portfolio()
+    assert "vazio" in screen._status.text().lower()
+    # Botão segue habilitado pra outra tentativa
+    assert screen._validate_btn.isEnabled()
+
+
+def test_account_on_validate_samples_acumula():
+    """_on_validate_samples acumula em _validate_samples."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_validate_samples([{"item": "A", "ts": 0, "score": 70,
+                                    "return_pct": 5.0,
+                                    "breakdown_count": 1}])
+    screen._on_validate_samples([{"item": "B", "ts": 0, "score": 80,
+                                    "return_pct": 10.0,
+                                    "breakdown_count": 1}])
+    assert len(screen._validate_samples) == 2
+
+
+def test_account_on_validate_finished_reativa_botoes(monkeypatch):
+    """_on_validate_finished reabilita botões e abre dialog."""
+    from PyQt6.QtWidgets import QDialog
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    monkeypatch.setattr(_BacktestResultDialog, "exec",
+                        lambda self: QDialog.DialogCode.Accepted)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._sync_btn.setEnabled(False)
+    screen._validate_btn.setEnabled(False)
+    screen._validate_samples = []
+    screen._validate_items_count = 2
+    screen._on_validate_finished()
+    assert screen._sync_btn.isEnabled()
+    assert screen._validate_btn.isEnabled()
+
+
+def test_account_validate_progress_atualiza_status():
+    """_on_validate_progress atualiza o status label."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_validate_progress("Validando [1/3] AK-47 (cache)")
+    assert "AK-47" in screen._status.text()
+
+
+# ── Validar Score da Watchlist ────────────────────────
+
+def test_watchlist_validate_btn_existe():
+    """Botão 'Validar Score' existe na watchlist e habilitado."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    assert screen._validate_btn is not None
+    assert screen._validate_btn.isEnabled()
+    assert "Validar" in screen._validate_btn.text()
+
+
+def test_watchlist_on_validate_vazia(monkeypatch):
+    """Sem itens: handler mostra mensagem e nao habilita worker."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: [])
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._items = []
+    screen._on_validate_watchlist()
+    assert "vazia" in screen._status.text().lower()
+    assert screen._validate_btn.isEnabled()
+
+
+def test_watchlist_on_validate_samples_acumula():
+    """_on_validate_samples acumula em _validate_samples."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._on_validate_samples([{"item": "A", "ts": 0, "score": 70,
+                                    "return_pct": 5.0,
+                                    "breakdown_count": 1}])
+    screen._on_validate_samples([{"item": "B", "ts": 0, "score": 80,
+                                    "return_pct": 10.0,
+                                    "breakdown_count": 1}])
+    assert len(screen._validate_samples) == 2
+
+
+def test_watchlist_on_validate_finished_reativa(monkeypatch):
+    """_on_validate_finished reabilita botões e abre dialog."""
+    from PyQt6.QtWidgets import QDialog
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr(_BacktestResultDialog, "exec",
+                        lambda self: QDialog.DialogCode.Accepted)
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._add_btn.setEnabled(False)
+    screen._validate_btn.setEnabled(False)
+    screen._validate_samples = []
+    screen._validate_items_count = 3
+    screen._on_validate_finished()
+    assert screen._add_btn.isEnabled()
+    assert screen._validate_btn.isEnabled()
+
+
+def _watchlist_row_by_name(screen, name):
+    """Acha row no table pelo nome (sort-safe)."""
+    from PyQt6.QtWidgets import QTableWidgetItem  # noqa
+    for row in range(screen._table.rowCount()):
+        cell = screen._table.item(row, screen.COL_NAME)
+        if cell and name in cell.text():
+            return row
+    return -1
+
+
+def test_account_tem_coluna_score():
+    """Tabela do AccountScreen tem 8 colunas com Score na ultima."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    assert screen._table.columnCount() == 8
+    assert screen.COL_SCORE == 7
+    hdr = screen._table.horizontalHeaderItem(7)
+    assert hdr.text() == "Score"
+
+
+def test_account_coluna_score_renderiza_valor():
+    """Position com current_score aparece na coluna como int."""
+    import time as _t
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
+             "net_if_sold": 85, "pnl": 10}]
+    positions = [{"name": "X", "cost": 90, "source": "manual",
+                  "current_score": 75, "score_ts": _t.time()}]
+    screen._populate_table(rows, positions)
+    assert screen._table.item(0, 7).text() == "75"
+
+
+def test_account_coluna_score_sem_valor_mostra_dash():
+    """Position sem current_score mostra '—'."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
+             "net_if_sold": 85, "pnl": 10}]
+    positions = [{"name": "X", "cost": 90, "source": "manual"}]
+    screen._populate_table(rows, positions)
+    assert screen._table.item(0, 7).text() == "—"
+
+
+def test_account_coluna_score_tooltip_age():
+    """Tooltip menciona idade do score."""
+    import time as _t
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
+             "net_if_sold": 85, "pnl": 10}]
+    positions = [{"name": "X", "cost": 90, "source": "manual",
+                  "current_score": 80, "score_ts": _t.time()}]
+    screen._populate_table(rows, positions)
+    assert "agora" in screen._table.item(0, 7).toolTip()
+
+
+def test_watchlist_tem_coluna_score():
+    """Tabela tem 7 colunas com 'Score' na penultima e 'Confianca' na ultima."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    assert screen._table.columnCount() == 7
+    assert screen.COL_SCORE == 5
+    assert screen.COL_CONFIDENCE == 6
+    hdr = screen._table.horizontalHeaderItem(5)
+    assert hdr.text() == "Score"
+    hdr2 = screen._table.horizontalHeaderItem(6)
+    assert hdr2.text() == "Confian\u00e7a"
+
+
+def test_watchlist_coluna_score_renderiza_valor():
+    """item['current_score'] aparece na coluna como int."""
+    import time as _t
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._items = [
+        {"name": "ItemA", "current_score": 88, "score_ts": _t.time()},
+    ]
+    screen._populate()
+    row = _watchlist_row_by_name(screen, "ItemA")
+    cell = screen._table.item(row, screen.COL_SCORE)
+    assert cell.text() == "88"
+
+
+def test_watchlist_coluna_score_sem_valor_mostra_dash():
+    """Item sem current_score mostra '—'."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._items = [{"name": "Nope"}]
+    screen._populate()
+    row = _watchlist_row_by_name(screen, "Nope")
+    cell = screen._table.item(row, screen.COL_SCORE)
+    assert cell.text() == "—"
+
+
+def test_watchlist_coluna_score_tooltip_age(monkeypatch):
+    """Tooltip menciona idade do score (agora/h/d)."""
+    import time as _t
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._items = [
+        {"name": "Fresh", "current_score": 75, "score_ts": _t.time()},
+        {"name": "Old1d", "current_score": 75,
+         "score_ts": _t.time() - 86400 * 3},
+    ]
+    screen._populate()
+    row_fresh = _watchlist_row_by_name(screen, "Fresh")
+    row_old = _watchlist_row_by_name(screen, "Old1d")
+    assert "agora" in screen._table.item(row_fresh, 5).toolTip()
+    assert "3d" in screen._table.item(row_old, 5).toolTip()
+
+
+def test_watchlist_alert_fired_emite_notification(monkeypatch):
+    """Quando alert_fired chega via bridge, notification_requested e' emitido."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"tray_notifications": True})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    captured = []
+    screen.notification_requested.connect(
+        lambda title, body, sev: captured.append((title, body, sev))
+    )
+    screen._validate_bridge.alert_fired.emit("Clutch Case", {
+        "rule": "score_above",
+        "label": "Score atingiu 90 (gatilho >= 85)",
+        "value": 90,
+        "severity": "opportunity",
+    })
+    assert len(captured) == 1
+    title, body, sev = captured[0]
+    assert "SkinVault" in title
+    assert "Caixa" in body or "Clutch" in body  # nome localizado ou original
+    assert "90" in body
+    assert sev == "opportunity"
+
+
+def test_watchlist_alert_silenciado_quando_settings_off(monkeypatch):
+    """Settings tray_notifications=False suprime emit."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"tray_notifications": False})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    captured = []
+    screen.notification_requested.connect(
+        lambda title, body, sev: captured.append((title, body, sev))
+    )
+    screen._validate_bridge.alert_fired.emit("X", {
+        "rule": "score_above", "label": "Score 90",
+        "value": 90, "severity": "opportunity",
+    })
+    assert captured == []
+
+
+def test_router_re_emite_notification_da_watchlist(monkeypatch):
+    """ScreenRouter re-emite notification_requested vindo do WatchlistScreen."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"tray_notifications": True})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.screen_router import ScreenRouter
+    router = ScreenRouter(PriceCache(ttl=3600))
+    captured = []
+    router.notification_requested.connect(
+        lambda title, body, sev: captured.append((title, body, sev))
+    )
+    # Emite na watchlist; deve sair pelo router
+    router._watchlist_screen.notification_requested.emit(
+        "T", "B", "opportunity"
+    )
+    assert captured == [("T", "B", "opportunity")]
+
+
+def test_mainwindow_notification_chama_tray_showmessage(monkeypatch):
+    """_on_notification do MainWindow dispara tray.showMessage."""
+    from PyQt6.QtWidgets import QSystemTrayIcon
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
+                        lambda: True)
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    from skinvault.gui import MainWindow
+    win = MainWindow()
+    if win._tray_icon is None:
+        # Tray indisponivel no ambiente de test — pula
+        return
+    calls = []
+    monkeypatch.setattr(
+        win._tray_icon, "showMessage",
+        lambda title, body, icon, ms: calls.append((title, body)),
+    )
+    win._on_notification("T", "B", "opportunity")
+    assert len(calls) == 1
+    assert calls[0] == ("T", "B")
+
+
+def test_current_score_from_history_vazio_retorna_none():
+    """price_history vazio ou curto retorna None."""
+    from skinvault.ui.watchlist_screen import _current_score_from_history
+    assert _current_score_from_history("X", []) is None
+    assert _current_score_from_history("X", [{"time": 0}]) is None
+
+
+def test_current_score_from_history_retorna_int():
+    """Historico valido retorna int em [0, 100]."""
+    import time as _t
+    from skinvault.ui.watchlist_screen import _current_score_from_history
+    ph = [{"time": _t.time() - i * 86400,
+           "price_median": 100.0 + i * 0.1, "purchases": 5}
+          for i in range(60)]
+    score = _current_score_from_history("AK-47 | X", ph)
+    assert isinstance(score, int)
+    assert 0 <= score <= 100
+
+
+def test_current_score_from_history_container_squeeze_inicial_alto():
+    """Container com squeeze inicial sintetico tem score >= 50."""
+    import time as _t
+    from skinvault.ui.watchlist_screen import _current_score_from_history
+    # ATH em 100, atual em 3 (squeeze inicial)
+    prices = [100.0] * 25 + [50.0, 30.0, 10.0, 5.0, 3.0]
+    ph = [{"time": _t.time() - (30 - i) * 86400,
+           "price_median": p, "purchases": 5}
+          for i, p in enumerate(prices)]
+    score = _current_score_from_history("Clutch Case", ph)
+    assert score is not None
+    # Multiplos sinais positivos: rel_ath very_deep, mediana below
+    assert score >= 50
+
+
+def test_watchlist_rules_dialog_score_above_carrega():
+    """_RulesDialog carrega score_above existente."""
+    from skinvault.ui.watchlist_screen import _RulesDialog
+    dlg = _RulesDialog({"name": "X", "rules": {"score_above": 85}})
+    assert dlg._score_above.value() == 85
+
+
+def test_watchlist_rules_dialog_score_above_default_off():
+    """_RulesDialog default score_above = 0 (desligado)."""
+    from skinvault.ui.watchlist_screen import _RulesDialog
+    dlg = _RulesDialog({"name": "X", "rules": {}})
+    assert dlg._score_above.value() == 0
+
+
+def test_watchlist_rules_dialog_score_above_get_rules():
+    """get_rules retorna score_above quando > 0."""
+    from skinvault.ui.watchlist_screen import _RulesDialog
+    dlg = _RulesDialog({"name": "X", "rules": {}})
+    dlg._score_above.setValue(75)
+    rules = dlg.get_rules()
+    assert rules.get("score_above") == 75
+
+
+def test_watchlist_rules_dialog_score_above_zero_omite():
+    """Score 0 (desligado) nao entra em rules."""
+    from skinvault.ui.watchlist_screen import _RulesDialog
+    dlg = _RulesDialog({"name": "X", "rules": {}})
+    dlg._score_above.setValue(0)
+    rules = dlg.get_rules()
+    assert "score_above" not in rules
+
+
+def test_watchlist_validate_progress_atualiza_status():
+    """_on_validate_progress atualiza o status."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._on_validate_progress("Validando [2/5] AWP (buscando)")
+    assert "AWP" in screen._status.text()
+
+
+# ── Schedule automatico Watchlist ───────────────────────
+
+def test_watchlist_timer_criado(monkeypatch):
+    """WatchlistScreen cria QTimer para schedule (default 30min ligado)."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"validate_interval_minutes": 30})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    assert hasattr(screen, "_schedule_timer")
+    assert screen._schedule_timer.isActive()
+    assert screen._schedule_timer.interval() == 30 * 60_000
+
+
+def test_watchlist_start_schedule_lê_settings(monkeypatch):
+    """_start_schedule usa intervalo do settings."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"validate_interval_minutes": 15})
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._start_schedule()
+    assert screen._schedule_timer.interval() == 15 * 60_000
+    assert screen._schedule_timer.isActive()
+
+
+def test_watchlist_start_schedule_interval_zero(monkeypatch):
+    """Intervalo 0 desliga schedule."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"validate_interval_minutes": 0})
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    assert not screen._schedule_timer.isActive()
+
+
+def test_watchlist_validating_guard_impede_concorrencia(monkeypatch):
+    """Segunda chamada a _on_validate_watchlist enquanto validating retorna cedo."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._validating = True
+    screen._on_validate_watchlist()
+    assert screen._validating
+
+
+def test_watchlist_validating_flag_limpo_apos_finished(monkeypatch):
+    """_on_validate_finished limpa _validating."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._validating = True
+    screen._refresh_mode = True
+    screen._on_validate_finished()
+    assert not screen._validating
+
+
+# ── Schedule automatico Account ─────────────────────────
+
+def test_account_timer_criado(monkeypatch):
+    """AccountScreen cria QTimer para schedule."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"validate_interval_minutes": 30})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    assert hasattr(screen, "_schedule_timer")
+
+
+def test_account_start_schedule_sem_session_pausado(monkeypatch):
+    """Schedule pausado quando nao ha sessao."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"validate_interval_minutes": 30})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    assert screen._session is None
+    assert not screen._schedule_timer.isActive()
+
+
+def test_account_validating_guard_impede_concorrencia(monkeypatch):
+    """Segunda chamada a _on_validate_portfolio enquanto validating retorna cedo."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"validate_interval_minutes": 30})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._validating = True
+    screen._on_validate_portfolio()
+    assert screen._validating
+
+
+def test_account_validating_flag_limpo_apos_finished(monkeypatch):
+    """_on_validate_finished limpa _validating."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {"validate_interval_minutes": 30})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._validating = True
+    screen._refresh_mode = True
+    screen._on_validate_finished()
+    assert not screen._validating
+
+
+# ── Modo overlay (fullscreen-friendly) ────────────────
+
+def test_overlay_mode_default_false(monkeypatch):
+    """Sem settings, overlay_mode default e' False."""
+    from PyQt6.QtWidgets import QSystemTrayIcon
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
+                        lambda: False)
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    from skinvault.gui import MainWindow
+    win = MainWindow()
+    assert win._overlay_mode is False
+
+
+def test_overlay_mode_settings_default_includes_key():
+    """DEFAULTS de settings inclui overlay_mode."""
+    from skinvault.settings import DEFAULTS
+    assert "overlay_mode" in DEFAULTS
+    assert DEFAULTS["overlay_mode"] is False
+
+
+def test_overlay_mode_aplica_flags(monkeypatch):
+    """set_overlay_mode(True) aplica WindowStaysOnTopHint + WA_ShowWithoutActivating."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QSystemTrayIcon
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
+                        lambda: False)
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    saved = {}
+    monkeypatch.setattr("skinvault.gui.save_settings",
+                        lambda s: saved.update(s))
+    from skinvault.gui import MainWindow
+    win = MainWindow()
+    win.set_overlay_mode(True)
+    assert win._overlay_mode is True
+    flags = int(win.windowFlags())
+    assert flags & int(Qt.WindowType.WindowStaysOnTopHint)
+    assert win.testAttribute(
+        Qt.WidgetAttribute.WA_ShowWithoutActivating,
+    )
+    assert saved.get("overlay_mode") is True
+
+
+def test_overlay_mode_desativa_flags(monkeypatch):
+    """set_overlay_mode(False) remove flags."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QSystemTrayIcon
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
+                        lambda: False)
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.gui.load_settings",
+                        lambda: {"overlay_mode": True})
+    monkeypatch.setattr("skinvault.gui.save_settings", lambda s: None)
+    from skinvault.gui import MainWindow
+    win = MainWindow()
+    assert win._overlay_mode is True
+    win.set_overlay_mode(False)
+    flags = int(win.windowFlags())
+    assert not (flags & int(Qt.WindowType.WindowStaysOnTopHint))
+    assert not win.testAttribute(
+        Qt.WidgetAttribute.WA_ShowWithoutActivating,
+    )
+
+
+def test_overlay_mode_persiste_settings(monkeypatch):
+    """Toggle do overlay grava em settings."""
+    from PyQt6.QtWidgets import QSystemTrayIcon
+    monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
+                        lambda: False)
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    written = []
+    monkeypatch.setattr("skinvault.gui.save_settings",
+                        lambda s: written.append(dict(s)))
+    from skinvault.gui import MainWindow
+    win = MainWindow()
+    win.set_overlay_mode(True)
+    assert written and written[-1].get("overlay_mode") is True
+    win.set_overlay_mode(False)
+    assert written[-1].get("overlay_mode") is False

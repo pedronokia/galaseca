@@ -556,6 +556,13 @@ class MainWindow(QMainWindow):
             self._center_on_screen()
 
         self._apply_stylesheet()
+        # Modo overlay: nao rouba foco de jogos fullscreen (CS2, etc).
+        # Combina stays-on-top + WA_ShowWithoutActivating pra que a
+        # janela apareca sobre o jogo sem minimiza-lo.
+        self._overlay_mode: bool = bool(settings.get("overlay_mode", False))
+        if self._overlay_mode:
+            self._apply_overlay_flags(True)
+
         ttl = settings.get("cache_ttl_hours", 6) * 3600
         self._cache = prices.PriceCache(ttl=ttl)
 
@@ -566,6 +573,7 @@ class MainWindow(QMainWindow):
         from skinvault.ui.screen_router import ScreenRouter
         self._router = ScreenRouter(self._cache, self)
         self._router.sync_requested.connect(self._on_sync_requested)
+        self._router.notification_requested.connect(self._on_notification)
         self.setCentralWidget(self._router)
 
         self._create_sidebar_dock(settings)
@@ -593,6 +601,36 @@ class MainWindow(QMainWindow):
             f"background: {_BG}; color: {_TEXT};"
             "font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui;"
         )
+
+    def _apply_overlay_flags(self, enable: bool) -> None:
+        """Liga/desliga flags que permitem coexistir com jogo fullscreen.
+
+        WindowStaysOnTopHint: janela fica acima do jogo.
+        WA_ShowWithoutActivating: aparecer nao rouba foco do jogo.
+        """
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enable)
+        self.setAttribute(
+            Qt.WidgetAttribute.WA_ShowWithoutActivating, enable,
+        )
+
+    def set_overlay_mode(self, enable: bool) -> None:
+        """Toggle do overlay em runtime. Persiste em settings."""
+        was_visible = self.isVisible()
+        self._overlay_mode = bool(enable)
+        self._apply_overlay_flags(self._overlay_mode)
+        s = load_settings()
+        s["overlay_mode"] = self._overlay_mode
+        save_settings(s)
+        # setWindowFlag exige re-show pra ter efeito
+        if was_visible:
+            self.show()
+        # Atualiza label do menu da tray, se existir
+        if hasattr(self, "_overlay_action") and self._overlay_action is not None:
+            self._overlay_action.setText(
+                "Modo overlay: ATIVO" if self._overlay_mode
+                else "Modo overlay (CS fullscreen)"
+            )
+            self._overlay_action.setChecked(self._overlay_mode)
 
     # ── sidebar dock ──────────────────────────────────────────
     def _create_sidebar_dock(self, settings: dict) -> None:
@@ -723,12 +761,40 @@ class MainWindow(QMainWindow):
         restore_action = menu.addAction("Abrir SkinVault")
         restore_action.triggered.connect(self._restore_from_tray)
         menu.addSeparator()
+        self._overlay_action = menu.addAction(
+            "Modo overlay: ATIVO" if self._overlay_mode
+            else "Modo overlay (CS fullscreen)"
+        )
+        self._overlay_action.setCheckable(True)
+        self._overlay_action.setChecked(self._overlay_mode)
+        self._overlay_action.setToolTip(
+            "Liga 'stays on top' + 'no focus steal'. "
+            "Permite a janela aparecer sobre o jogo fullscreen "
+            "sem minimiza-lo. Persiste entre execucoes."
+        )
+        self._overlay_action.triggered.connect(
+            lambda checked: self.set_overlay_mode(checked)
+        )
+        menu.addSeparator()
         quit_action = menu.addAction("Sair")
         quit_action.triggered.connect(QApplication.instance().quit)
         self._tray_icon.setContextMenu(menu)
         self._tray_icon.setToolTip("SkinVault - Gerenciador de portfolio CS2")
         self._tray_icon.activated.connect(self._on_tray_activated)
         self._tray_icon.show()
+
+    def _on_notification(self, title: str, body: str, severity: str) -> None:
+        """Mostra notificacao via tray icon (Windows nativo)."""
+        if not self._tray_icon:
+            return
+        # severity: opportunity (verde) | warning (amarelo) | info (azul)
+        icon_type = QSystemTrayIcon.MessageIcon.Information
+        if severity == "warning":
+            icon_type = QSystemTrayIcon.MessageIcon.Warning
+        try:
+            self._tray_icon.showMessage(title, body, icon_type, 5000)
+        except Exception:
+            pass
 
     def _restore_from_tray(self) -> None:
         self.showNormal()
@@ -828,6 +894,10 @@ def launch() -> int:
     settings = load_settings()
     if settings.get("start_minimized", False) and win._tray_icon is not None:
         win.hide()
+    elif settings.get("overlay_mode", False):
+        # Overlay: show() em vez de showMaximized() pra nao se sobrepor
+        # totalmente ao jogo, mantendo a janela em tamanho gerenciavel.
+        win.show()
     else:
         win.showMaximized()
     return app.exec()

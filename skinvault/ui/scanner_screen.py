@@ -11,9 +11,10 @@ import time
 from urllib.parse import quote
 
 from PyQt6.QtCore import QObject, Qt, QUrl, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QPainter, QPen
+from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -29,7 +30,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import cases, ranking, signals, steam_api
+from skinvault import backtest, cases, ranking, signals, ssr_cache, steam_api
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
@@ -38,6 +39,47 @@ from skinvault.ui.components import Card, StatCard
 
 _MAX_FACTOR_DELTA = 35.0  # peso maximo de qualquer fator no enhanced_score
 _CS2_APPID = 730
+
+# Histórico empírico do score por bucket — backtest agregado em 44 itens
+# (rifles, pistolas, AWPs, SMG, 25 cases), horizonte 90d, 9996 amostras.
+# Atualizado em 2026-06-07 com fator rel_ath UNIVERSAL (skins + containers).
+# Correlação agregada: +0.1173.
+# (low, high_exclusive): {"avg_return_pct", "hit_rate", "n"}
+_BUCKET_HISTORY_90D: dict[tuple[int, int], dict] = {
+    (0, 30):   {"avg": 2.19,  "hit": 53, "n": 152},
+    (30, 50):  {"avg": 9.91,  "hit": 58, "n": 3174},
+    (50, 70):  {"avg": 15.92, "hit": 59, "n": 4845},
+    (70, 85):  {"avg": 26.99, "hit": 62, "n": 1639},
+    (85, 101): {"avg": 50.26, "hit": 75, "n": 186},
+}
+
+# Histórico por tipo de item (skin vs container).
+# Score tem magnitudes muito diferentes por tipo:
+# - Skins em 70-84 retornam ~+7.5%
+# - Containers em 70-84 retornam ~+33%
+# Surface essa info pro usuário decidir baseado no tipo do item dele.
+_BUCKET_HISTORY_90D_SKIN: dict[tuple[int, int], dict] = {
+    (0, 30):   {"avg": 2.19,  "hit": 52, "n": 114},
+    (30, 50):  {"avg": 4.60,  "hit": 54, "n": 1868},
+    (50, 70):  {"avg": 4.84,  "hit": 53, "n": 2139},
+    (70, 85):  {"avg": 7.55,  "hit": 52, "n": 382},
+    (85, 101): {"avg": 21.28, "hit": 67, "n": 12},
+}
+_BUCKET_HISTORY_90D_CONTAINER: dict[tuple[int, int], dict] = {
+    (0, 30):   {"avg": 2.20,  "hit": 58, "n": 38},
+    (30, 50):  {"avg": 17.52, "hit": 64, "n": 1306},
+    (50, 70):  {"avg": 24.68, "hit": 63, "n": 2706},
+    (70, 85):  {"avg": 32.90, "hit": 65, "n": 1257},
+    (85, 101): {"avg": 52.25, "hit": 76, "n": 174},
+}
+
+
+def _bucket_for_score(score: int) -> tuple[int, int] | None:
+    """Retorna (low, high) do bucket histórico ao qual o score pertence."""
+    for (lo, hi) in _BUCKET_HISTORY_90D:
+        if lo <= score < hi:
+            return (lo, hi)
+    return None
 
 
 class _FactorBar(QWidget):
@@ -152,6 +194,43 @@ class _ScoreBreakdownDialog(QDialog):
         sep.setFixedHeight(1)
         layout.addWidget(sep)
 
+        # ── Badge de confianca (data_quality) ────────
+        dq = item.get("data_quality") or {}
+        if dq:
+            level = dq.get("level", "none")
+            level_colors = {
+                "high":     (t.ACCENT,     "Confiança alta"),
+                "medium":   (t.WARN,       "Confiança média"),
+                "low":      (t.DANGER,     "Confiança BAIXA"),
+                "very_low": (t.DANGER,     "Confiança MUITO BAIXA"),
+                "none":     (t.TEXT_MUTED, "Sem dados"),
+            }
+            color, lbl_txt = level_colors.get(level, (t.TEXT_MUTED, level))
+            conf = dq.get("confidence", 0)
+            n = dq.get("n", 0)
+            badge = QLabel(
+                f"<b style='color:{color}'>{lbl_txt}</b> "
+                f"({conf:.2f}, n={n} pontos no histórico)"
+            )
+            badge.setTextFormat(Qt.TextFormat.RichText)
+            badge.setStyleSheet(
+                f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY}; padding: 4px 0;"
+            )
+            layout.addWidget(badge)
+            if level in ("low", "very_low"):
+                warn = QLabel(
+                    "⚠ Score nesta faixa de confiança é estatisticamente "
+                    "anti-preditivo nos backtests (corr -0.14 em n=75). "
+                    "Trate com ceticismo."
+                )
+                warn.setStyleSheet(
+                    f"color: {t.DANGER}; font-size: {t.FS_MUTED};"
+                    f" font-family: {t.FONT_FAMILY}; font-weight: 600;"
+                )
+                warn.setWordWrap(True)
+                layout.addWidget(warn)
+
         # ── Breakdown rows ────────────────────────────
         if not breakdown:
             empty = QLabel(
@@ -200,6 +279,80 @@ class _ScoreBreakdownDialog(QDialog):
         sep2.setFixedHeight(1)
         layout.addWidget(sep2)
 
+        # ── Histórico empírico do bucket ─────────────
+        bucket = _bucket_for_score(score)
+        if bucket:
+            stats = _BUCKET_HISTORY_90D[bucket]
+            lo, hi = bucket
+            hi_label = min(hi - 1, 100)
+            avg = stats["avg"]
+            hit = stats["hit"]
+            n = stats["n"]
+            color = t.ACCENT if avg > 5 else (t.WARN if avg > 0 else t.DANGER)
+            insufficient = " (amostra pequena)" if n < 30 else ""
+            hist_lbl = QLabel(
+                f"Histórico em 90 dias: itens com score {lo}-{hi_label} "
+                f"retornaram em média <b style='color:{color}'>"
+                f"{avg:+.1f}%</b>, com {hit}% de acertos "
+                f"(n={n} amostras{insufficient})."
+            )
+            hist_lbl.setStyleSheet(
+                f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY}; padding: 6px 0;"
+            )
+            hist_lbl.setWordWrap(True)
+            hist_lbl.setTextFormat(Qt.TextFormat.RichText)
+            layout.addWidget(hist_lbl)
+
+            # ── Histórico específico por tipo (skin vs container)
+            is_cont = item.get("is_container")
+            if is_cont is not None:
+                type_dict = (_BUCKET_HISTORY_90D_CONTAINER if is_cont
+                             else _BUCKET_HISTORY_90D_SKIN)
+                type_stats = type_dict.get(bucket, {})
+                type_avg = type_stats.get("avg", 0)
+                type_hit = type_stats.get("hit", 0)
+                type_n = type_stats.get("n", 0)
+                if type_n >= 30:
+                    type_color = (t.ACCENT if type_avg > 5
+                                  else (t.WARN if type_avg > 0
+                                        else t.DANGER))
+                    type_label = "containers" if is_cont else "skins"
+                    type_lbl = QLabel(
+                        f"<b>Específico para {type_label}:</b> "
+                        f"<b style='color:{type_color}'>"
+                        f"{type_avg:+.1f}%</b> avg, {type_hit}% hit rate "
+                        f"(n={type_n}). "
+                        f"Score 70-84 em containers retorna ~+33%; "
+                        f"em skins, ~+8%."
+                    )
+                    type_lbl.setTextFormat(Qt.TextFormat.RichText)
+                    type_lbl.setStyleSheet(
+                        f"color: {t.TEXT}; font-size: {t.FS_MUTED};"
+                        f" font-family: {t.FONT_FAMILY}; padding: 2px 0;"
+                    )
+                    type_lbl.setWordWrap(True)
+                    layout.addWidget(type_lbl)
+
+            hist_src = QLabel(
+                "Fonte: backtest agregado em 44 itens (rifles, pistolas, "
+                "AWPs, SMG, 25 cases — 9996 amostras, 2026-06-07, "
+                "fator rel_ath universal). Não é garantia — descreve "
+                "comportamento passado."
+            )
+            hist_src.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+                f" font-family: {t.FONT_FAMILY}; font-style: italic;"
+            )
+            hist_src.setWordWrap(True)
+            layout.addWidget(hist_src)
+
+            sep3 = QFrame()
+            sep3.setFrameShape(QFrame.Shape.HLine)
+            sep3.setStyleSheet(f"color: {t.BORDER}; background: {t.BORDER};")
+            sep3.setFixedHeight(1)
+            layout.addWidget(sep3)
+
         # ── Legenda ───────────────────────────────────
         legend = QLabel(
             "Como interpretar:\n"
@@ -216,6 +369,268 @@ class _ScoreBreakdownDialog(QDialog):
         legend.setWordWrap(True)
         layout.addWidget(legend)
 
+        bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        bb.rejected.connect(self.reject)
+        bb.button(QDialogButtonBox.StandardButton.Close).setStyleSheet(
+            t.btn_secondary()
+        )
+        layout.addWidget(bb)
+
+
+class _ScatterPlot(QWidget):
+    """Scatter score (x) vs return_pct (y) com cores por bucket.
+
+    Eixos: x = score 0..100. y = retorno %, auto-scale com clamp em ±150%
+    para evitar outliers dominarem. Linha tracejada em y=0.
+    """
+
+    _Y_CLAMP = 150.0  # retorno % maximo absoluto mostrado
+
+    def __init__(self, samples: list[dict],
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._samples = samples
+        self.setMinimumHeight(220)
+        self.setMinimumWidth(560)
+
+    def _bucket_color(self, score: int) -> QColor:
+        if score < 30:
+            return QColor(t.DANGER)
+        if score < 50:
+            return QColor(t.WARN)
+        if score < 70:
+            return QColor(t.TEXT_MUTED)
+        return QColor(t.ACCENT)
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        margin_l, margin_r = 48, 12
+        margin_t, margin_b = 14, 22
+        plot_w = w - margin_l - margin_r
+        plot_h = h - margin_t - margin_b
+
+        # Background do plot
+        p.fillRect(margin_l, margin_t, plot_w, plot_h, QColor(t.SURFACE))
+
+        if not self._samples or plot_w <= 0 or plot_h <= 0:
+            p.setPen(QPen(QColor(t.TEXT_MUTED), 1))
+            p.setFont(QFont(t.FONT_FAMILY, 9))
+            p.drawText(margin_l + 10, margin_t + plot_h // 2,
+                       "Sem amostras")
+            p.end()
+            return
+
+        clamped = [
+            max(min(s["return_pct"], self._Y_CLAMP), -self._Y_CLAMP)
+            for s in self._samples
+        ]
+        y_lo = min(clamped + [0])
+        y_hi = max(clamped + [0])
+        # padding 10% em cada lado
+        span = max(y_hi - y_lo, 1.0)
+        y_lo -= span * 0.05
+        y_hi += span * 0.05
+
+        def to_x(score: float) -> int:
+            return int(margin_l + (score / 100.0) * plot_w)
+
+        def to_y(ret: float) -> int:
+            return int(margin_t + plot_h
+                       - ((ret - y_lo) / (y_hi - y_lo)) * plot_h)
+
+        # Eixos
+        p.setPen(QPen(QColor(t.BORDER), 1))
+        p.drawLine(margin_l, margin_t + plot_h,
+                   margin_l + plot_w, margin_t + plot_h)
+        p.drawLine(margin_l, margin_t, margin_l, margin_t + plot_h)
+
+        # Linhas verticais nos limites dos buckets
+        p.setPen(QPen(QColor(t.BORDER), 1, Qt.PenStyle.DotLine))
+        for sb in (30, 50, 70, 85):
+            x = to_x(sb)
+            p.drawLine(x, margin_t, x, margin_t + plot_h)
+
+        # Linha zero (tracejada)
+        if y_lo < 0 < y_hi:
+            y0 = to_y(0)
+            p.setPen(QPen(QColor(t.TEXT_MUTED), 1, Qt.PenStyle.DashLine))
+            p.drawLine(margin_l, y0, margin_l + plot_w, y0)
+
+        # Pontos: cor = bucket de score; alpha = confidence
+        # (confianca alta -> opaco, baixa -> fantasma).
+        p.setPen(Qt.PenStyle.NoPen)
+        for sample, ret_clamp in zip(self._samples, clamped):
+            color = self._bucket_color(int(sample["score"]))
+            conf = sample.get("confidence", 1.0)
+            # alpha de 50 (very_low) a 200 (high)
+            alpha = max(50, min(200, int(50 + conf * 150)))
+            color.setAlpha(alpha)
+            p.setBrush(QBrush(color))
+            cx = to_x(sample["score"])
+            cy = to_y(ret_clamp)
+            p.drawEllipse(cx - 3, cy - 3, 6, 6)
+
+        # Labels dos eixos
+        p.setPen(QPen(QColor(t.TEXT_MUTED), 1))
+        p.setFont(QFont(t.FONT_FAMILY, 8))
+        # Y labels (min, 0, max)
+        p.drawText(2, margin_t + 8, f"{y_hi:+.0f}%")
+        p.drawText(2, margin_t + plot_h, f"{y_lo:+.0f}%")
+        if y_lo < 0 < y_hi:
+            p.drawText(4, to_y(0) - 2, "0%")
+        # X labels (score buckets)
+        for sb in (0, 30, 50, 70, 85, 100):
+            x = to_x(sb)
+            p.drawText(x - 8, margin_t + plot_h + 16, str(sb))
+
+        p.end()
+
+
+class _BacktestResultDialog(QDialog):
+    """Mostra resultado do backtest dos itens escaneados (horizonte 90d).
+
+    Para cada bucket de score: n amostras, retorno médio, hit rate.
+    Mostra correlação Pearson agregada (score vs retorno).
+    """
+
+    def __init__(self, samples: list[dict], items_count: int,
+                 horizon_days: int = 90,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._samples = samples
+        self._items_count = items_count
+        self._horizon = horizon_days
+        self.setWindowTitle(
+            f"Validação do score — {len(samples)} amostras de "
+            f"{items_count} itens"
+        )
+        self.setMinimumWidth(640)
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
+        self._build()
+
+    def _build(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setSpacing(14)
+        layout.setContentsMargins(20, 18, 20, 18)
+
+        title = QLabel(
+            f"Backtest dos itens escaneados (horizonte {self._horizon}d)"
+        )
+        title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        layout.addWidget(title)
+
+        if not self._samples:
+            empty = QLabel(
+                "Nenhuma amostra gerada. Itens podem ter histórico curto demais "
+                "ou Steam não respondeu."
+            )
+            empty.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY};"
+            )
+            empty.setWordWrap(True)
+            layout.addWidget(empty)
+            self._add_close(layout)
+            return
+
+        buckets = backtest.aggregate_by_bucket(self._samples)
+        corr = backtest.correlation(self._samples)
+
+        # Tabela de buckets
+        bucket_table = QTableWidget(len(buckets), 4)
+        bucket_table.setHorizontalHeaderLabels(
+            ["Bucket de score", "N amostras", "Retorno médio", "Hit rate"]
+        )
+        bucket_table.verticalHeader().setVisible(False)
+        bucket_table.setEditTriggers(
+            QAbstractItemView.EditTrigger.NoEditTriggers
+        )
+        bucket_table.setStyleSheet(t.table_style())
+        hh = bucket_table.horizontalHeader()
+        for i in range(4):
+            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+
+        for row, b in enumerate(buckets):
+            avg = b["avg_return_pct"]
+            color = (t.ACCENT if avg > 5 else
+                     (t.WARN if avg > 0 else t.DANGER))
+            bucket_table.setItem(row, 0, QTableWidgetItem(b["bucket"]))
+            bucket_table.setItem(row, 1, QTableWidgetItem(str(b["n"])))
+            avg_item = QTableWidgetItem(f"{avg:+.2f}%")
+            if b["n"] > 0:
+                avg_item.setForeground(QBrush(QColor(color)))
+            bucket_table.setItem(row, 2, avg_item)
+            hit_item = QTableWidgetItem(
+                f"{b['hit_rate']:.1f}%" if b["n"] > 0 else "—"
+            )
+            bucket_table.setItem(row, 3, hit_item)
+
+        bucket_table.setMinimumHeight(180)
+        layout.addWidget(bucket_table)
+
+        # Scatter plot score × retorno
+        scatter_lbl = QLabel(
+            "Distribuição score × retorno — cor = bucket, "
+            "opacidade = confiança (pontos esmaecidos = baixa confiança):"
+        )
+        scatter_lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; padding-top: 4px;"
+        )
+        layout.addWidget(scatter_lbl)
+        scatter = _ScatterPlot(self._samples)
+        layout.addWidget(scatter)
+
+        # Correlação agregada
+        if corr is not None:
+            corr_color = (t.ACCENT if corr > 0.05 else
+                          (t.WARN if corr > 0 else t.DANGER))
+            corr_lbl = QLabel(
+                f"<b>Correlação Pearson (score × retorno):</b> "
+                f"<span style='color:{corr_color}'>{corr:+.4f}</span>"
+            )
+            corr_lbl.setTextFormat(Qt.TextFormat.RichText)
+            corr_lbl.setStyleSheet(
+                f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY}; padding: 4px 0;"
+            )
+            layout.addWidget(corr_lbl)
+
+            interp = QLabel(
+                "Valores > 0 indicam que score maior se associa a "
+                "retorno maior — o score está prevendo. < 0 seria "
+                "anti-sinal. Valores entre ±0.05 são fracos."
+            )
+            interp.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+                f" font-family: {t.FONT_FAMILY};"
+            )
+            interp.setWordWrap(True)
+            layout.addWidget(interp)
+
+        # Comparação com baseline empírico
+        baseline = QLabel(
+            "<i>Comparação:</i> baseline agregado em 44 itens "
+            "(2026-06-07, 9996 amostras, rel_ath universal) foi "
+            "<b>+0.1173</b>. Valores próximos ou acima indicam que o "
+            "score funciona tão bem ou melhor nos seus itens."
+        )
+        baseline.setTextFormat(Qt.TextFormat.RichText)
+        baseline.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; padding-top: 6px;"
+        )
+        baseline.setWordWrap(True)
+        layout.addWidget(baseline)
+
+        self._add_close(layout)
+
+    def _add_close(self, layout: QVBoxLayout) -> None:
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         bb.rejected.connect(self.reject)
         bb.button(QDialogButtonBox.StandardButton.Close).setStyleSheet(
@@ -282,6 +697,12 @@ class _ScannerBridge(QObject):
     progress = pyqtSignal(str)
 
 
+class _ValidationBridge(QObject):
+    samples_ready = pyqtSignal(list)
+    progress = pyqtSignal(str)
+    finished = pyqtSignal()
+
+
 class ScannerScreen(QWidget):
     """Scanner de investimento multi-fator."""
 
@@ -295,6 +716,7 @@ class ScannerScreen(QWidget):
     COL_TREND = 7
     COL_SD = 8
     COL_SCORE = 9
+    COL_CONFIDENCE = 10
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -303,7 +725,12 @@ class ScannerScreen(QWidget):
         self._bridge = _ScannerBridge()
         self._bridge.result_ready.connect(self._on_item_done)
         self._bridge.progress.connect(self._on_progress)
+        self._validate_bridge = _ValidationBridge()
+        self._validate_bridge.samples_ready.connect(self._on_validate_samples)
+        self._validate_bridge.progress.connect(self._on_progress)
+        self._validate_bridge.finished.connect(self._on_validate_finished)
         self._scan_results: list[dict] = []
+        self._validate_samples: list[dict] = []
         self._build()
 
     def _build(self) -> None:
@@ -352,7 +779,52 @@ class ScannerScreen(QWidget):
         )
         self._rank_btn.clicked.connect(self._on_ranking)
         hdr.addWidget(self._rank_btn)
+
+        self._validate_btn = QPushButton("Validar Score")
+        self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._validate_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
+                                                          fs=t.FS_INPUT))
+        self._validate_btn.setToolTip(
+            "Roda backtest histórico nos itens escaneados (horizonte 90d)."
+            " Mostra se o score realmente prediz retornos pra esses itens."
+            " Demora ~2s por item pelo rate-limit do Steam."
+        )
+        self._validate_btn.clicked.connect(self._on_validate_score)
+        hdr.addWidget(self._validate_btn)
+
+        self._clear_cache_btn = QPushButton("Limpar cache SSR")
+        self._clear_cache_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._clear_cache_btn.setStyleSheet(t.btn_ghost())
+        self._clear_cache_btn.setToolTip(
+            "Limpa o cache local de dados SSR (PriceHistoryCache)."
+            " Útil quando você quer forçar busca nova da Steam na próxima"
+            " consulta. O cache expira automaticamente em 24h."
+        )
+        self._clear_cache_btn.clicked.connect(self._on_clear_ssr_cache)
+        hdr.addWidget(self._clear_cache_btn)
         root.addLayout(hdr)
+
+        # Filtros sob o header
+        from skinvault.settings import load_settings as _load
+        _s = _load()
+        filt_row = QHBoxLayout()
+        filt_row.setSpacing(12)
+        self._hide_low_conf_cb = QCheckBox("Esconder baixa confiança")
+        self._hide_low_conf_cb.setChecked(
+            bool(_s.get("scanner_hide_low_confidence", False))
+        )
+        self._hide_low_conf_cb.setToolTip(
+            "Oculta itens onde data_quality é 'low' ou 'very_low'."
+            " Empiricamente esses scores são anti-preditivos (corr -0.14)."
+        )
+        self._hide_low_conf_cb.setStyleSheet(
+            f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; }}"
+        )
+        self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
+        filt_row.addWidget(self._hide_low_conf_cb)
+        filt_row.addStretch(1)
+        root.addLayout(filt_row)
 
         # Stats
         stats_row = QHBoxLayout()
@@ -365,10 +837,10 @@ class ScannerScreen(QWidget):
         root.addLayout(stats_row)
 
         # Tabela
-        self._table = QTableWidget(0, 10)
+        self._table = QTableWidget(0, 11)
         self._table.setHorizontalHeaderLabels([
             "Item", "Sinal", "Preco", "Preco justo", "Veredito",
-            "Spread", "Book", "Tendencia", "S/D", "Score",
+            "Spread", "Book", "Tendencia", "S/D", "Score", "Conf.",
         ])
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(
@@ -382,7 +854,7 @@ class ScannerScreen(QWidget):
         self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        for i in range(1, 10):
+        for i in range(1, 11):
             hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         self._table.doubleClicked.connect(
             lambda _idx: self._on_explain_selected()
@@ -442,6 +914,7 @@ class ScannerScreen(QWidget):
         self._table.setVisible(True)
         self._scan_btn.setEnabled(False)
         self._rank_btn.setEnabled(False)
+        self._validate_btn.setEnabled(False)
         self._status.setText(f"Escaneando {len(items)} itens...")
 
         def _worker():
@@ -499,6 +972,11 @@ class ScannerScreen(QWidget):
             multi_trend=multi,
             price_history=page.get("price_history") if page else None,
             case_status=cs,
+            is_container=cases.is_container(name),
+        )
+
+        dq = signals.data_quality(
+            page.get("price_history") if page else []
         )
 
         ob_approx = bool(page.get("order_book_approx")) if page else False
@@ -509,6 +987,8 @@ class ScannerScreen(QWidget):
             "median": median,
             "score": score,
             "breakdown": breakdown,
+            "data_quality": dq,
+            "is_container": cases.is_container(name),
             "verdict": verdict.get("label", "—"),
             "verdict_color": t.ACCENT if verdict.get("diff_pct", 0) <= 0
                              else t.DANGER,
@@ -548,6 +1028,22 @@ class ScannerScreen(QWidget):
                 "ATENCAO" if score >= 45 else "EVITAR"
             )
             from skinvault.localization import localize_name as _ln
+            dq = r.get("data_quality") or {}
+            dq_level = dq.get("level", "none")
+            dq_conf = dq.get("confidence", 0)
+            dq_n = dq.get("n", 0)
+            _dq_color_map = {
+                "high": t.ACCENT, "medium": t.WARN,
+                "low": t.DANGER, "very_low": t.DANGER,
+                "none": t.TEXT_MUTED,
+            }
+            _dq_label_map = {
+                "high": "Alta", "medium": "Média",
+                "low": "Baixa", "very_low": "Mín.",
+                "none": "—",
+            }
+            dq_color = _dq_color_map.get(dq_level, t.TEXT_MUTED)
+            dq_label = _dq_label_map.get(dq_level, "—")
             cells = [
                 (_ln(r["name"]), None),
                 (label, score_color),
@@ -559,6 +1055,7 @@ class ScannerScreen(QWidget):
                 (r["trend"], None),
                 (r["sd_label"], None),
                 (str(score), score_color),
+                (dq_label, dq_color),
             ]
             for col, (val, color) in enumerate(cells):
                 item = QTableWidgetItem(str(val))
@@ -571,6 +1068,17 @@ class ScannerScreen(QWidget):
             tip = r.get("score_tooltip", "")
             if tip:
                 self._table.item(i, self.COL_SCORE).setToolTip(tip)
+            # Tooltip da confidence
+            if dq:
+                conf_tip = (
+                    f"Confiança: {dq_label} ({dq_conf:.2f})\n"
+                    f"Histórico: {dq_n} pontos\n"
+                    f"Empiricamente, score em itens com baixa confiança\n"
+                    f"é anti-preditivo (corr -0.14 nos backtests)."
+                )
+                cell_conf = self._table.item(i, self.COL_CONFIDENCE)
+                if cell_conf is not None:
+                    cell_conf.setToolTip(conf_tip)
             # Tooltip explicando "~" quando order_book vem de outro wear
             if r.get("order_book_approx"):
                 msg = (
@@ -585,6 +1093,9 @@ class ScannerScreen(QWidget):
                         cell.setToolTip(msg)
         self._table.setSortingEnabled(was_sorting)
 
+        # Aplica filtro de baixa confiança
+        hidden = self._apply_confidence_filter()
+
         # Stats
         if self._scan_results:
             scores = [r["score"] for r in self._scan_results]
@@ -592,14 +1103,54 @@ class ScannerScreen(QWidget):
             self._stat_best.set_value(str(max(scores)),
                                       accent=t.ACCENT)
             self._stat_avg.set_value(str(round(sum(scores)/len(scores))))
-        self._status.setText(
-            f"{len(self._scan_results)} itens escaneados"
+        n = len(self._scan_results)
+        if hidden:
+            self._status.setText(
+                f"{n} itens escaneados ({hidden} ocultos por baixa confiança)"
+            )
+        else:
+            self._status.setText(f"{n} itens escaneados")
+
+    def _apply_confidence_filter(self) -> int:
+        """Aplica/remove esconder baixa confianca. Retorna # ocultas."""
+        if not hasattr(self, "_hide_low_conf_cb"):
+            return 0
+        active = self._hide_low_conf_cb.isChecked()
+        hidden = 0
+        for row in range(self._table.rowCount()):
+            cell = self._table.item(row, self.COL_NAME)
+            r = cell.data(Qt.ItemDataRole.UserRole) if cell else None
+            if not isinstance(r, dict):
+                continue
+            dq = r.get("data_quality") or {}
+            level = dq.get("level", "none")
+            should_hide = active and level in ("low", "very_low")
+            self._table.setRowHidden(row, should_hide)
+            if should_hide:
+                hidden += 1
+        return hidden
+
+    def _on_hide_low_conf_toggle(self, checked: bool) -> None:
+        from skinvault.settings import (
+            load_settings as _ls, save_settings as _ss,
         )
+        s = _ls()
+        s["scanner_hide_low_confidence"] = bool(checked)
+        _ss(s)
+        hidden = self._apply_confidence_filter()
+        n = len(self._scan_results)
+        if hidden:
+            self._status.setText(
+                f"{n} itens escaneados ({hidden} ocultos por baixa confiança)"
+            )
+        else:
+            self._status.setText(f"{n} itens escaneados")
 
     def _on_progress(self, msg: str) -> None:
         if msg == "FIM":
             self._scan_btn.setEnabled(True)
             self._rank_btn.setEnabled(True)
+            self._validate_btn.setEnabled(True)
             self._status.setText(
                 f"Scan concluido: {len(self._scan_results)} itens"
             )
@@ -675,3 +1226,84 @@ class ScannerScreen(QWidget):
         )
         mb.exec()
         self._status.setText("Ranking salvo!")
+
+    # ── limpar cache SSR ────────────────────────────────
+    def _on_clear_ssr_cache(self) -> None:
+        from PyQt6.QtWidgets import QMessageBox
+        cache = ssr_cache.PriceHistoryCache()
+        size = cache.size()
+        mb = QMessageBox(self)
+        mb.setWindowTitle("Limpar cache SSR?")
+        mb.setText(
+            f"Os dados SSR baixados da Steam serão apagados ({size} itens).\n"
+            "Na próxima consulta os dados serão baixados novamente."
+        )
+        mb.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        mb.setDefaultButton(QMessageBox.StandardButton.No)
+        if mb.exec() != QMessageBox.StandardButton.Yes:
+            return
+        cache.clear()
+        self._status.setText("Cache SSR limpo. Dados serão baixados na próxima consulta.")
+
+    # ── validacao do score (backtest ao vivo) ────────────
+    def _on_validate_score(self) -> None:
+        if not self._scan_results:
+            self._status.setText("Escaneie itens antes de validar.")
+            return
+        names = [r["name"] for r in self._scan_results]
+        self._validate_samples = []
+        self._scan_btn.setEnabled(False)
+        self._rank_btn.setEnabled(False)
+        self._validate_btn.setEnabled(False)
+        bridge = self._validate_bridge
+        cache = ssr_cache.PriceHistoryCache()
+
+        def _worker() -> None:
+            try:
+                for i, name in enumerate(names, start=1):
+                    hit = cache.has(name)
+                    tag = "cache" if hit else "buscando"
+                    bridge.progress.emit(
+                        f"Validando [{i}/{len(names)}] {name} ({tag})"
+                    )
+                    try:
+                        price_history = ssr_cache.cached_price_history(
+                            name, cache=cache,
+                        )
+                    except Exception:
+                        price_history = None
+                    if price_history:
+                        try:
+                            samples = backtest.simulate_item(
+                                name, price_history,
+                            )
+                        except Exception:
+                            samples = []
+                        if samples:
+                            bridge.samples_ready.emit(samples)
+                    # Rate-limit so' em fetch (cache hit nao bate Steam)
+                    if not hit:
+                        time.sleep(2.0)
+            finally:
+                bridge.finished.emit()
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_validate_samples(self, samples: list) -> None:
+        self._validate_samples.extend(samples)
+
+    def _on_validate_finished(self) -> None:
+        self._scan_btn.setEnabled(True)
+        self._rank_btn.setEnabled(True)
+        self._validate_btn.setEnabled(True)
+        items_count = len(self._scan_results)
+        n = len(self._validate_samples)
+        self._status.setText(
+            f"Validacao concluida: {n} amostras de {items_count} itens"
+        )
+        dlg = _BacktestResultDialog(
+            self._validate_samples, items_count, parent=self,
+        )
+        dlg.exec()

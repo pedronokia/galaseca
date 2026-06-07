@@ -12,7 +12,15 @@ from __future__ import annotations
 
 import sys
 
-from skinvault import __version__, history, portfolio, prices, steam_api
+from skinvault import (
+    __version__,
+    backtest as backtest_mod,
+    history,
+    portfolio,
+    prices,
+    ssr_cache,
+    steam_api,
+)
 
 
 def _brl(v: float) -> str:
@@ -115,6 +123,119 @@ def _cli_check(market_hash_name: str) -> None:
     print(f"  VEREDITO: {verdict['message']}")
 
 
+def _cli_backtest(args: list[str]) -> None:
+    """Roda backtest do enhanced_score.
+
+    Uso:
+      --backtest "<item>"                  um item
+      --backtest --from-portfolio          todos os itens do portfolio
+      --backtest <...> --horizon 90        horizonte em dias (default 90)
+      --backtest <...> --step 14           passo entre simulacoes (default 14)
+      --backtest <...> --min-confidence 0.5  filtra amostras com confianca < N (default 0)
+
+    Default 90d porque empiricamente o score e' sinal de medio prazo:
+    bucket 70-84 retorna +19% em 90d vs +4.7% em 30d.
+
+    Cache local (data/ssr_cache.json, TTL 24h) acelera reruns. Use
+    --no-cache pra forcar refresh.
+    """
+    horizon = 90
+    step = 14
+    use_cache = "--no-cache" not in args
+    if "--horizon" in args:
+        try:
+            horizon = int(args[args.index("--horizon") + 1])
+        except (IndexError, ValueError):
+            print("--horizon precisa de um numero em dias.")
+            return
+    if "--step" in args:
+        try:
+            step = int(args[args.index("--step") + 1])
+        except (IndexError, ValueError):
+            print("--step precisa de um numero em dias.")
+            return
+    if "--min-confidence" in args:
+        try:
+            min_confidence = float(args[args.index("--min-confidence") + 1])
+            if not (0.0 <= min_confidence <= 1.0):
+                print("--min-confidence precisa estar entre 0 e 1.")
+                return
+        except (IndexError, ValueError):
+            print("--min-confidence precisa de um numero (0.0 a 1.0).")
+            return
+
+    items: list[str] = []
+    if "--from-portfolio" in args:
+        positions = portfolio.load_portfolio()
+        items = sorted({p["name"] for p in positions})
+        if not items:
+            print("Portfolio vazio. Use --add primeiro.")
+            return
+        print(f"Backtest do portfolio: {len(items)} itens unicos.")
+    else:
+        skip_values = {str(horizon), str(step)}
+        if min_confidence > 0:
+            skip_values.add(str(min_confidence))
+        positional = [a for a in args if not a.startswith("--")
+                       and a not in skip_values]
+        if not positional:
+            print('Uso: python -m skinvault --backtest "<item>" '
+                  "[--horizon 90] [--step 14]")
+            print("     python -m skinvault --backtest --from-portfolio")
+            return
+        items = [" ".join(positional)]
+
+    cache = ssr_cache.PriceHistoryCache() if use_cache else None
+    all_samples: list[dict] = []
+    hits, misses = 0, 0
+    for i, name in enumerate(items, start=1):
+        if cache and cache.has(name):
+            print(f"[{i}/{len(items)}] CACHE HIT: {name}")
+            price_history = cache.get(name)
+            hits += 1
+        else:
+            print(f"[{i}/{len(items)}] Buscando: {name}")
+            price_history = ssr_cache.cached_price_history(name, cache=cache)
+            misses += 1
+        if not price_history:
+            print("  sem price_history (rede/item invalido). Pulando.")
+            continue
+        samples = backtest_mod.simulate_item(
+            name, price_history,
+            horizon_days=horizon, step_days=step,
+        )
+        if not samples:
+            print(f"  historico curto demais. Pulando.")
+            continue
+        print(f"  {len(samples)} simulacoes geradas.")
+        all_samples.extend(samples)
+
+    if cache:
+        print(f"\nCache: {hits} HITs, {misses} fetches "
+              f"(total cached: {cache.size()})")
+
+    if not all_samples:
+        print("\nNenhuma amostra gerada. Sem dados para reportar.")
+        return
+
+    if min_confidence > 0:
+        before = len(all_samples)
+        all_samples = [s for s in all_samples
+                        if s.get("confidence", 0) >= min_confidence]
+        filtered = before - len(all_samples)
+        if filtered:
+            print(f"\nFiltro de confianca >= {min_confidence}: "
+                  f"{filtered} amostras removidas ({len(all_samples)} restantes).")
+
+    buckets = backtest_mod.aggregate_by_bucket(all_samples)
+    corr = backtest_mod.correlation(all_samples)
+    print()
+    print(backtest_mod.format_report(
+        buckets, correlation_value=corr,
+        horizon_days=horizon, total_samples=len(all_samples),
+    ))
+
+
 def main() -> None:
     try:
         sys.stdout.reconfigure(errors="replace")  # type: ignore[union-attr]
@@ -140,6 +261,8 @@ def main() -> None:
         _cli_check(" ".join(args[args.index("--check") + 1:]))
     elif "--add" in args:
         _cli_add(args[args.index("--add") + 1:])
+    elif "--backtest" in args:
+        _cli_backtest(args[args.index("--backtest") + 1:])
     elif args and not args[0].startswith("--"):
         _cli_value(args[0])
     else:
@@ -148,6 +271,7 @@ def main() -> None:
         print("  python -m skinvault --portfolio     lucro REAL pos-taxa")
         print('  python -m skinvault --add "<nome>" <custo> [qtd]')
         print('  python -m skinvault --check "<nome>" fair-value (anti-ripoff)')
+        print('  python -m skinvault --backtest "<nome>" [--horizon 90] [--step 14] [--min-confidence 0.5]')
         print("  python -m skinvault --ui            abre a janela")
 
 

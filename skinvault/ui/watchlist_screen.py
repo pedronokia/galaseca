@@ -6,12 +6,14 @@ e log de alertas disparados.
 from __future__ import annotations
 
 import json
+import threading
 import time
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -30,7 +32,14 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import alerts, steam_api, watchlist as wl
+from skinvault import (
+    alerts,
+    backtest as backtest_mod,
+    signals,
+    ssr_cache,
+    steam_api,
+    watchlist as wl,
+)
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
@@ -85,6 +94,18 @@ class _RulesDialog(QDialog):
         qb_lay.addWidget(self._supply_drop)
         form.addRow(qb)
 
+        # Score above (validado empiricamente: 85+ retorna +50% em 90d)
+        self._score_above = QSpinBox()
+        self._score_above.setRange(0, 100)
+        self._score_above.setValue(int(rules.get("score_above", 0)))
+        self._score_above.setSpecialValueText("Desligado")
+        self._score_above.setToolTip(
+            "Dispara quando o enhanced_score atingir o valor (0-100)."
+            " Empíricamente: score >=85 retorna +50% em 90d (containers)."
+            " Recomendado: 85 pra alta convicção, 70 pra ampla cobertura."
+        )
+        form.addRow("Score atingir:", self._score_above)
+
         layout.addLayout(form)
 
         self._rules_instr = QLabel(
@@ -117,7 +138,22 @@ class _RulesDialog(QDialog):
         v = self._supply_drop.value()
         if v > 0:
             rules["supply_drop"] = v
+        v = self._score_above.value()
+        if v > 0:
+            rules["score_above"] = v
         return rules
+
+
+# _current_score_from_history movido pra backtest.score_from_history.
+# Mantido aqui como alias pra back-compat com testes existentes.
+_current_score_from_history = backtest_mod.score_from_history
+
+
+class _WatchlistValidationBridge(QObject):
+    samples_ready = pyqtSignal(list)
+    progress = pyqtSignal(str)
+    finished = pyqtSignal()
+    alert_fired = pyqtSignal(str, dict)  # name, alert dict
 
 
 class WatchlistScreen(QWidget):
@@ -128,6 +164,12 @@ class WatchlistScreen(QWidget):
     COL_PRICE = 2
     COL_STATUS = 3
     COL_RULES = 4
+    COL_SCORE = 5
+    COL_CONFIDENCE = 6
+
+    # Sinal emitido quando um alerta dispara durante Validar Score.
+    # (title, body, severity). Router conecta -> MainWindow conecta -> tray.
+    notification_requested = pyqtSignal(str, str, str)
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -135,8 +177,21 @@ class WatchlistScreen(QWidget):
         self._cache = cache
         self._items: list[dict] = []
         self._alerts_log: list[dict] = []
+        self._validate_bridge = _WatchlistValidationBridge()
+        self._validate_bridge.samples_ready.connect(
+            self._on_validate_samples,
+        )
+        self._validate_bridge.progress.connect(self._on_validate_progress)
+        self._validate_bridge.finished.connect(self._on_validate_finished)
+        self._validate_bridge.alert_fired.connect(self._on_alert_fired)
+        self._validate_samples: list[dict] = []
+        self._validate_items_count: int = 0
+        self._validating = False
+        self._schedule_timer = QTimer(self)
+        self._schedule_timer.timeout.connect(self._on_refresh_scores)
         self._build()
         self.refresh()
+        self._start_schedule()
 
     def _build(self) -> None:
         from skinvault.ui.components import StatCard
@@ -175,6 +230,28 @@ class WatchlistScreen(QWidget):
         )
         self._add_btn.clicked.connect(self._on_add)
         hdr.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignTop)
+
+        self._validate_btn = QPushButton("Validar Score")
+        self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._validate_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
+                                                          fs=t.FS_INPUT))
+        self._validate_btn.setToolTip(
+            "Roda backtest histórico (90d) nos itens monitorados."
+            " Mostra se o score realmente prediz retornos pra esses itens."
+            " Usa cache 24h, então reruns são rápidos."
+        )
+        self._validate_btn.clicked.connect(self._on_validate_watchlist)
+        hdr.addWidget(self._validate_btn, 0, Qt.AlignmentFlag.AlignTop)
+
+        self._refresh_btn = QPushButton("Atualizar scores+alertas")
+        self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._refresh_btn.setStyleSheet(t.btn_ghost())
+        self._refresh_btn.setToolTip(
+            "Recomputa scores e reavalia alertas de todos os itens usando"
+            " dados do cache. Mais rápido que Validar Score — sem dialog."
+        )
+        self._refresh_btn.clicked.connect(self._on_refresh_scores)
+        hdr.addWidget(self._refresh_btn, 0, Qt.AlignmentFlag.AlignTop)
         root.addLayout(hdr)
 
         # Stat cards: total + com regras + disparados + recentes 24h
@@ -192,10 +269,27 @@ class WatchlistScreen(QWidget):
             stats_row.addWidget(sc, 1)
         root.addLayout(stats_row)
 
+        # Filtro de confianca (mesmo padrao do Scanner)
+        filt_row = QHBoxLayout()
+        self._hide_low_conf_cb = QCheckBox("Esconder baixa confian\u00e7a")
+        self._hide_low_conf_cb.setToolTip(
+            "Oculta itens onde a confianca dos dados e 'low' ou 'very_low'."
+            " Disponivel apenas apos 'Validar Score'."
+        )
+        self._hide_low_conf_cb.setStyleSheet(
+            f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; }}"
+        )
+        self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
+        filt_row.addWidget(self._hide_low_conf_cb)
+        filt_row.addStretch(1)
+        root.addLayout(filt_row)
+
         # Tabela
-        self._table = QTableWidget(0, 5)
+        self._table = QTableWidget(0, 7)
         self._table.setHorizontalHeaderLabels(
-            ["Item", "Preco alvo", "Preco atual", "Status", "Regras"]
+            ["Item", "Preco alvo", "Preco atual", "Status", "Regras",
+             "Score", "Confiança"]
         )
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(
@@ -216,6 +310,10 @@ class WatchlistScreen(QWidget):
         hh.setSectionResizeMode(self.COL_STATUS,
                                 QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(self.COL_RULES,
+                                QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(self.COL_SCORE,
+                                QHeaderView.ResizeMode.ResizeToContents)
+        hh.setSectionResizeMode(self.COL_CONFIDENCE,
                                 QHeaderView.ResizeMode.ResizeToContents)
         root.addWidget(self._table, 1)
 
@@ -305,6 +403,54 @@ class WatchlistScreen(QWidget):
                 QTableWidgetItem(alerts.format_rules_summary(rules)),
             )
 
+            # Score atual (persistido pelo Validar Score)
+            cur_score = item.get("current_score")
+            score_ts = item.get("score_ts")
+            if cur_score is None:
+                score_item = QTableWidgetItem("—")
+                score_item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+                score_item.setToolTip(
+                    "Clique em 'Validar Score' para calcular."
+                )
+            else:
+                score_item = QTableWidgetItem(str(int(cur_score)))
+                stale = signals.is_score_stale(score_ts)
+                if stale:
+                    color = t.WARN
+                elif cur_score >= 70:
+                    color = t.ACCENT
+                elif cur_score >= 45:
+                    color = t.WARN
+                else:
+                    color = t.DANGER
+                score_item.setForeground(QBrush(QColor(color)))
+                age_txt = signals.score_age_text(score_ts)
+                stale_tag = " [DESATUALIZADO]" if stale else ""
+                score_item.setToolTip(
+                    f"Score {int(cur_score)} — calculado {age_txt}."
+                    f"{stale_tag}\n"
+                    f"Empíricamente:\n"
+                    f"  70-84 containers → +33%, skins → +8% em 90d\n"
+                    f"  85+ containers → +52%, skins → +21% em 90d"
+                )
+            self._table.setItem(i, self.COL_SCORE, score_item)
+
+            # Confianca (data quality)
+            dq = item.get("data_quality") or {}
+            conf_level = dq.get("level", "none")
+            conf_labels = {"high": "Alta", "medium": "Média",
+                           "low": "Baixa", "very_low": "Muito baixa",
+                           "none": "—"}
+            conf_colors = {"high": t.ACCENT, "medium": t.WARN,
+                           "low": t.DANGER, "very_low": t.DANGER,
+                           "none": t.TEXT_MUTED}
+            conf_item = QTableWidgetItem(conf_labels.get(conf_level, conf_level))
+            conf_item.setForeground(
+                QBrush(QColor(conf_colors.get(conf_level, t.TEXT_MUTED)))
+            )
+            conf_item.setToolTip(dq.get("label", ""))
+            self._table.setItem(i, self.COL_CONFIDENCE, conf_item)
+
             # Acoes (context menu via botoes na ultima coluna ou botoes inline)
             # Usa botoes simples: Editar e Remover
         self._table.setSortingEnabled(was_sorting)
@@ -312,6 +458,205 @@ class WatchlistScreen(QWidget):
             f"{len(self._items)} itens • "
             f"{len([x for x in self._items if x.get('triggered')])} alertas ativos"
         )
+        self._apply_confidence_filter()
+
+    # ── Validar Score + Avaliar alertas ───────────────────
+    def _on_validate_watchlist(self) -> None:
+        if self._validating:
+            return
+        items_full = self._items or wl.load_watchlist()
+        items_by_name = {i["name"]: i for i in items_full
+                          if i.get("name")}
+        names = sorted(items_by_name.keys())
+        if not names:
+            self._status.setText(
+                "Watchlist vazia. Adicione itens antes de validar."
+            )
+            return
+        self._validate_samples = []
+        self._validate_items_count = len(names)
+        self._validate_btn.setEnabled(False)
+        self._refresh_btn.setEnabled(False)
+        self._add_btn.setEnabled(False)
+        bridge = self._validate_bridge
+        cache = ssr_cache.PriceHistoryCache()
+        items_snapshot = items_full  # pra salvar de volta depois
+
+        def _worker() -> None:
+            try:
+                fired_alerts: list[tuple[str, dict]] = []
+                for i, name in enumerate(names, start=1):
+                    hit = cache.has(name)
+                    tag = "cache" if hit else "buscando"
+                    bridge.progress.emit(
+                        f"Validando [{i}/{len(names)}] {name} ({tag})"
+                    )
+                    try:
+                        ph = ssr_cache.cached_price_history(name, cache=cache)
+                    except Exception:
+                        ph = None
+                    if not ph:
+                        if not hit:
+                            time.sleep(2.0)
+                        continue
+                    # Backtest samples (igual antes)
+                    try:
+                        samples = backtest_mod.simulate_item(name, ph)
+                    except Exception:
+                        samples = []
+                    if samples:
+                        bridge.samples_ready.emit(samples)
+                    # Score atual = enhanced_score com a historia inteira.
+                    # Fair-value via mediana 30d, igual ao _mock_verdict_from_history.
+                    try:
+                        current_score = backtest_mod.score_from_history(
+                            name, ph,
+                        )
+                    except Exception:
+                        current_score = None
+                    # Persiste score por item (pra coluna mostrar)
+                    item = items_by_name.get(name)
+                    if item and current_score is not None:
+                        item["current_score"] = int(current_score)
+                        item["score_ts"] = time.time()
+                    # Data quality (confianca) — computada do mesmo price_history
+                    if item and ph:
+                        try:
+                            dq = signals.data_quality(ph)
+                            item["data_quality"] = dq
+                        except Exception:
+                            pass
+                    # Avalia alertas com score atual
+                    if item and current_score is not None:
+                        fresh = alerts.evaluate_item(
+                            item, current_price=None,
+                            current_score=current_score,
+                        )
+                        new = alerts.diff_new_alerts(item, fresh)
+                        for a in new:
+                            alerts.record_alert(name, a)
+                            fired_alerts.append((name, a))
+                            # Emit pra UI mostrar notificacao
+                            bridge.alert_fired.emit(name, a)
+                        item["triggered"] = bool(item.get("triggered_rules"))
+                    if not hit:
+                        time.sleep(2.0)
+                # Persiste estado atualizado da watchlist
+                try:
+                    wl.save_watchlist(items_snapshot)
+                except Exception:
+                    pass
+                if fired_alerts:
+                    bridge.progress.emit(
+                        f"⚡ {len(fired_alerts)} alerta(s) novo(s) disparado(s)"
+                    )
+            finally:
+                bridge.finished.emit()
+
+        self._validating = True
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_validate_progress(self, msg: str) -> None:
+        self._status.setText(msg)
+
+    def _on_validate_samples(self, samples: list) -> None:
+        self._validate_samples.extend(samples)
+
+    def _on_alert_fired(self, name: str, alert: dict) -> None:
+        """Recebe alert do worker e emite notification_requested.
+
+        Respeita settings.tray_notifications (off => silencioso).
+        """
+        from skinvault.settings import load_settings as _ls
+        if not _ls().get("tray_notifications", True):
+            return
+        rule = alert.get("rule", "")
+        label = alert.get("label", "")
+        from skinvault.localization import localize_name as _ln
+        body = f"{_ln(name)}\n{label}"
+        title = "SkinVault: oportunidade detectada"
+        severity = alert.get("severity", "info")
+        self.notification_requested.emit(title, body, severity)
+
+    # ── Filtro de confianca ─────────────────────────────
+    def _apply_confidence_filter(self) -> int:
+        if not hasattr(self, "_hide_low_conf_cb"):
+            return 0
+        active = self._hide_low_conf_cb.isChecked()
+        hidden = 0
+        for row in range(self._table.rowCount()):
+            cell = self._table.item(row, self.COL_NAME)
+            if not cell:
+                continue
+            dq = None
+            item_name = cell.text()
+            for it in (self._items or []):
+                if it.get("name") == item_name:
+                    dq = it.get("data_quality") or {}
+                    break
+            level = dq.get("level", "none") if dq else "none"
+            should_hide = active and level in ("low", "very_low")
+            self._table.setRowHidden(row, should_hide)
+            if should_hide:
+                hidden += 1
+        return hidden
+
+    def _on_hide_low_conf_toggle(self, checked: bool) -> None:
+        hidden = self._apply_confidence_filter()
+        n = len(self._items or [])
+        if hidden:
+            self._status.setText(
+                f"{n} itens ({hidden} ocultos por baixa confian\u00e7a)"
+            )
+        else:
+            self._status.setText(f"{n} itens")
+
+    def _on_refresh_scores(self) -> None:
+        """Atualiza scores+alertas silenciosamente (sem dialog)."""
+        self._refresh_mode = True
+        self._on_validate_watchlist()
+
+    def _on_validate_finished(self) -> None:
+        self._validating = False
+        self._validate_btn.setEnabled(True)
+        self._refresh_btn.setEnabled(True)
+        self._add_btn.setEnabled(True)
+        n = len(self._validate_samples)
+        items_n = self._validate_items_count
+        self._status.setText(
+            f"Validação concluída: {n} amostras de {items_n} itens"
+        )
+        refresh = getattr(self, "_refresh_mode", False)
+        if refresh:
+            self._refresh_mode = False
+            self.refresh()
+            return
+        from skinvault.ui.scanner_screen import _BacktestResultDialog
+        dlg = _BacktestResultDialog(
+            self._validate_samples, items_n, parent=self,
+        )
+        dlg.exec()
+
+    # ── Schedule automatico ──────────────────────────────
+    def _start_schedule(self) -> None:
+        from skinvault.settings import load_settings as _ls
+        interval = _ls().get("validate_interval_minutes", 30)
+        if interval <= 0:
+            self._schedule_timer.stop()
+            return
+        self._schedule_timer.setInterval(interval * 60_000)
+        self._schedule_timer.start()
+
+    def _stop_schedule(self) -> None:
+        self._schedule_timer.stop()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._start_schedule()
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self._stop_schedule()
 
     def _on_add(self) -> None:
         # Dialog simples para adicionar

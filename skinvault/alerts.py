@@ -6,6 +6,7 @@ Suporta:
 - price_drop_pct: preco caiu X% vs baseline (ex.: 15)
 - volume_spike: volume_anomaly ratio >= X (ex.: 3.0)
 - supply_drop: supply_anomaly direction == 'abaixo' com ratio >= X
+- score_above: enhanced_score atual >= X (ex.: 85)
 
 Tudo deterministico: dado mesmo input, mesmo output.
 Logging em data/alerts_log.json (cap 500 entries).
@@ -28,11 +29,15 @@ def evaluate_item(
     current_price: float | None,
     volume_history: list[dict] | None = None,
     supply_history: list[dict] | None = None,
+    current_score: int | None = None,
 ) -> list[dict]:
     """Avalia regras de um item da watchlist e retorna alertas disparados.
 
     Retorna lista de {rule, label, value, severity}.
     severity: 'info' | 'opportunity' | 'warning'.
+
+    current_score: enhanced_score do item agora (0-100). Se None, regra
+    score_above e' ignorada.
     """
     alerts: list[dict] = []
     rules = item.get("rules") or {}
@@ -84,6 +89,16 @@ def evaluate_item(
                 "value": anom_s["ratio"],
                 "severity": "opportunity",
             })
+
+    # 5. Score acima do threshold (validado empiricamente: 85+ retorna +50%)
+    score_thr = rules.get("score_above")
+    if score_thr and current_score is not None and current_score >= int(score_thr):
+        alerts.append({
+            "rule": "score_above",
+            "label": f"Score atingiu {current_score} (gatilho >= {int(score_thr)})",
+            "value": current_score,
+            "severity": "opportunity",
+        })
 
     return alerts
 
@@ -162,4 +177,6 @@ def format_rules_summary(rules: dict | None) -> str:
         parts.append(f"vol {rules['volume_spike']}x")
     if rules.get("supply_drop"):
         parts.append(f"oferta {rules['supply_drop']}x")
+    if rules.get("score_above"):
+        parts.append(f"score >={int(rules['score_above'])}")
     return ", ".join(parts)

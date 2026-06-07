@@ -31,8 +31,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
-from skinvault import prices, steam_session
+from skinvault import prices, signals, ssr_cache, steam_session
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
 from skinvault.ui.components import Avatar, Card, StatCard
@@ -48,6 +49,12 @@ class _AccountBridge(QObject):
     profile_ready = pyqtSignal(dict)
 
 
+class _PortfolioValidationBridge(QObject):
+    samples_ready = pyqtSignal(list)
+    progress = pyqtSignal(str)
+    finished = pyqtSignal()
+
+
 class AccountScreen(QWidget):
     """Tela 1 -- Minha Conta + Inventario."""
 
@@ -58,6 +65,7 @@ class AccountScreen(QWidget):
     COL_RECEIVED = 4
     COL_PNL = 5
     COL_ORIGIN = 6
+    COL_SCORE = 7
 
     request_sync = pyqtSignal()
 
@@ -68,11 +76,23 @@ class AccountScreen(QWidget):
         self._session: steam_session.SteamSession | None = None
         self._bridge = _AccountBridge()
         self._bridge.profile_ready.connect(self._on_profile)
+        self._validate_bridge = _PortfolioValidationBridge()
+        self._validate_bridge.samples_ready.connect(
+            self._on_validate_samples,
+        )
+        self._validate_bridge.progress.connect(self._on_validate_progress)
+        self._validate_bridge.finished.connect(self._on_validate_finished)
+        self._validate_samples: list[dict] = []
+        self._validate_items_count: int = 0
+        self._validating = False
+        self._schedule_timer = QTimer(self)
+        self._schedule_timer.timeout.connect(self._on_refresh_scores)
         self._price_worker = PriceWorker(cache, self)
         self._price_worker.eval_done.connect(self._on_eval)
         self._price_worker.progress.connect(self._on_eval_progress)
         self._build()
         self._reload_activity()
+        self._start_schedule()
 
     def set_session(self, session: steam_session.SteamSession | None) -> None:
         self._session = session
@@ -134,6 +154,30 @@ class AccountScreen(QWidget):
         self._sync_btn.setStyleSheet(t.btn_steam())
         self._sync_btn.clicked.connect(self.request_sync.emit)
         btn_col.addWidget(self._sync_btn, 0, Qt.AlignmentFlag.AlignRight)
+
+        self._validate_btn = QPushButton("Validar Score do Portfolio")
+        self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._validate_btn.setStyleSheet(t.btn_secondary(padding="8px 14px",
+                                                          fs=t.FS_INPUT))
+        self._validate_btn.setToolTip(
+            "Roda backtest histórico (90d) nos itens do seu portfolio."
+            " Mostra se o score realmente prediz retornos pros itens"
+            " que você possui. Usa cache 24h, então reruns são rápidos."
+        )
+        self._validate_btn.clicked.connect(self._on_validate_portfolio)
+        btn_col.addWidget(self._validate_btn, 0,
+                          Qt.AlignmentFlag.AlignRight)
+
+        self._refresh_btn = QPushButton("Atualizar scores")
+        self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._refresh_btn.setStyleSheet(t.btn_ghost())
+        self._refresh_btn.setToolTip(
+            "Recomputa scores de todos os itens usando dados do cache."
+            " Mais rápido que Validar Score — não mostra dialog de backtest."
+        )
+        self._refresh_btn.clicked.connect(self._on_refresh_scores)
+        btn_col.addWidget(self._refresh_btn, 0,
+                          Qt.AlignmentFlag.AlignRight)
 
         self._last_sync_lbl = QLabel("")
         self._last_sync_lbl.setStyleSheet(
@@ -222,10 +266,10 @@ class AccountScreen(QWidget):
         left_col.addWidget(self._progress)
 
         # Tabela
-        self._table = QTableWidget(0, 7)
+        self._table = QTableWidget(0, 8)
         self._table.setHorizontalHeaderLabels([
             "Item", "Qtd", "Preço atual", "Subtotal", "Recebido (-15%)",
-            "P&L", "Origem",
+            "P&L", "Origem", "Score",
         ])
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(
@@ -239,7 +283,7 @@ class AccountScreen(QWidget):
         self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        for i in range(max(self.COL_QTY, self.COL_ORIGIN + 1)):
+        for i in range(max(self.COL_QTY, self.COL_SCORE + 1)):
             if i != self.COL_NAME:
                 hh.setSectionResizeMode(
                     i, QHeaderView.ResizeMode.ResizeToContents)
@@ -350,6 +394,133 @@ class AccountScreen(QWidget):
     def _on_eval_progress(self, done: int, total: int) -> None:
         self._status.setText(f"Avaliando inventario... {done}/{total}")
 
+    # ── Validar Score do Portfolio ───────────────────────
+    def _on_refresh_scores(self) -> None:
+        """Atualiza scores do portfolio silenciosamente (sem dialog)."""
+        self._refresh_mode = True
+        self._on_validate_portfolio()
+
+    def _on_validate_portfolio(self) -> None:
+        if self._validating:
+            return
+        positions = portfolio_mod.load_portfolio()
+        names = sorted({p["name"] for p in positions})
+        if not names:
+            self._status.setText(
+                "Portfolio vazio. Sincronize ou adicione posições primeiro."
+            )
+            return
+        self._validate_samples = []
+        self._validate_items_count = len(names)
+        self._validate_btn.setEnabled(False)
+        self._refresh_btn.setEnabled(False)
+        self._sync_btn.setEnabled(False)
+        bridge = self._validate_bridge
+        cache = ssr_cache.PriceHistoryCache()
+        positions_snapshot = positions
+
+        def _worker() -> None:
+            try:
+                name_to_score: dict[str, tuple[int, float]] = {}
+                for i, name in enumerate(names, start=1):
+                    hit = cache.has(name)
+                    tag = "cache" if hit else "buscando"
+                    bridge.progress.emit(
+                        f"Validando [{i}/{len(names)}] {name} ({tag})"
+                    )
+                    try:
+                        ph = ssr_cache.cached_price_history(name, cache=cache)
+                    except Exception:
+                        ph = None
+                    if ph:
+                        try:
+                            samples = backtest_mod.simulate_item(name, ph)
+                        except Exception:
+                            samples = []
+                        if samples:
+                            bridge.samples_ready.emit(samples)
+                        # Computa current_score pra persistir
+                        try:
+                            cs = backtest_mod.score_from_history(name, ph)
+                        except Exception:
+                            cs = None
+                        if cs is not None:
+                            name_to_score[name] = (int(cs), time.time())
+                    if not hit:
+                        time.sleep(2.0)
+                # Atualiza positions com scores e persiste
+                for p in positions_snapshot:
+                    n = p.get("name")
+                    if n in name_to_score:
+                        cs, ts = name_to_score[n]
+                        p["current_score"] = cs
+                        p["score_ts"] = ts
+                try:
+                    portfolio_mod.save_portfolio(positions_snapshot)
+                except Exception:
+                    pass
+            finally:
+                bridge.finished.emit()
+
+        self._validating = True
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_validate_progress(self, msg: str) -> None:
+        self._status.setText(msg)
+
+    def _on_validate_samples(self, samples: list) -> None:
+        self._validate_samples.extend(samples)
+
+    def _on_validate_finished(self) -> None:
+        self._validating = False
+        self._validate_btn.setEnabled(True)
+        self._refresh_btn.setEnabled(True)
+        self._sync_btn.setEnabled(True)
+        n = len(self._validate_samples)
+        items_n = self._validate_items_count
+        self._status.setText(
+            f"Validação concluída: {n} amostras de {items_n} itens"
+        )
+        refresh = getattr(self, "_refresh_mode", False)
+        if refresh:
+            self._refresh_mode = False
+            # Refresh = recalcula scores, persiste, atualiza tabela.
+            positions = portfolio_mod.load_portfolio()
+            result = portfolio_mod.evaluate_portfolio(positions,
+                                                       lambda n: None)
+            rows = result["rows"]
+            self._populate_table(rows, positions)
+            self._on_eval({"rows": rows, "totals": result["totals"],
+                          "positions": positions})
+            return
+        # Reusa o dialog do scanner pra manter UX coerente
+        from skinvault.ui.scanner_screen import _BacktestResultDialog
+        dlg = _BacktestResultDialog(
+            self._validate_samples, items_n, parent=self,
+        )
+        dlg.exec()
+
+    # ── Schedule automatico ──────────────────────────────
+    def _start_schedule(self) -> None:
+        from skinvault.settings import load_settings as _ls
+        interval = _ls().get("validate_interval_minutes", 30)
+        if interval <= 0 or not self._session:
+            self._schedule_timer.stop()
+            return
+        self._schedule_timer.setInterval(interval * 60_000)
+        self._schedule_timer.start()
+
+    def _stop_schedule(self) -> None:
+        self._schedule_timer.stop()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._start_schedule()
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self._stop_schedule()
+
     def _on_eval(self, data: dict) -> None:
         rows = data["rows"]
         totals = data["totals"]
@@ -412,8 +583,12 @@ class AccountScreen(QWidget):
         self._table.setRowCount(0)
         for i, r in enumerate(rows):
             self._table.insertRow(i)
-            src = positions[i].get("source", "manual") if i < len(positions) else "manual"
+            pos = positions[i] if i < len(positions) else {}
+            src = pos.get("source", "manual")
             origin = "Steam" if src == "steam_sync" else "Manual"
+            cur_score = pos.get("current_score")
+            score_ts = pos.get("score_ts")
+            score_txt = str(int(cur_score)) if cur_score is not None else "—"
             from skinvault.localization import localize_name as _ln
             cells = [
                 _ln(r.get("name") or "") or "—",
@@ -423,6 +598,7 @@ class AccountScreen(QWidget):
                 t.brl(r.get("net_if_sold")),
                 t.brl(r.get("pnl")),
                 origin,
+                score_txt,
             ]
             for col, val in enumerate(cells):
                 item = QTableWidgetItem(val)
@@ -434,6 +610,35 @@ class AccountScreen(QWidget):
                         )
                 elif col == self.COL_ORIGIN and origin == "Steam":
                     item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
+                elif col == self.COL_SCORE:
+                    if cur_score is None:
+                        item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+                        item.setToolTip(
+                            "Clique 'Validar Score do Portfolio' "
+                            "para calcular."
+                        )
+                    else:
+                        stale = signals.is_score_stale(score_ts)
+                        if stale:
+                            color = t.WARN
+                        elif cur_score >= 70:
+                            color = t.ACCENT
+                        elif cur_score >= 45:
+                            color = t.WARN
+                        else:
+                            color = t.DANGER
+                        item.setForeground(QBrush(QColor(color)))
+                        age_txt = signals.score_age_text(score_ts)
+                        stale_tag = " [DESATUALIZADO]" if stale else ""
+                        item.setToolTip(
+                            f"Score {int(cur_score)} — calculado "
+                            f"{age_txt}.{stale_tag}\n"
+                            f"Empíricamente:\n"
+                            f"  70-84 containers → +33%, "
+                            f"skins → +8% em 90d\n"
+                            f"  85+ containers → +52%, "
+                            f"skins → +21% em 90d"
+                        )
                 self._table.setItem(i, col, item)
         self._table.setSortingEnabled(was_sorting)
 

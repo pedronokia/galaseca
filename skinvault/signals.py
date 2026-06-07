@@ -306,16 +306,214 @@ def find_support_resistance(
     }
 
 
+def price_zscore(price_history: list[dict], window: int = 30) -> dict:
+    """Z-score do preco atual vs media e desvio padrao da janela trailing.
+
+    z = (last_price - mean) / std
+
+    z negativo => preco abaixo da media (potencial reversao a media para cima)
+    z positivo => preco acima da media (potencial reversao para baixo)
+
+    Sinal factual: descreve o quanto o preco atual se desvia do
+    comportamento recente, normalizado pela volatilidade. NAO preve.
+
+    Retorna {z, mean, std, window_used, band, label} ou {} se historico
+    curto demais ou std == 0.
+    """
+    if not price_history or len(price_history) < window:
+        return {}
+    sorted_hist = sorted(price_history, key=lambda x: x["time"])
+    prices = [p["price_median"] for p in sorted_hist[-window:]]
+    last = prices[-1]
+    mean_p = sum(prices) / len(prices)
+    var = sum((p - mean_p) ** 2 for p in prices) / len(prices)
+    std = var ** 0.5
+    if std == 0 or mean_p == 0:
+        return {}
+    z = (last - mean_p) / std
+    if z <= -2:
+        band = "extreme_low"
+    elif z <= -1:
+        band = "low"
+    elif z >= 2:
+        band = "extreme_high"
+    elif z >= 1:
+        band = "high"
+    else:
+        band = "neutral"
+    return {
+        "z": round(z, 2),
+        "mean": round(mean_p, 2),
+        "std": round(std, 2),
+        "window_used": len(prices),
+        "band": band,
+        "label": f"Z={z:.2f} ({band})",
+    }
+
+
+def relative_to_ath(price_history: list[dict]) -> dict:
+    """Quao perto o preco atual esta do all-time high historico.
+
+    Retorna {pct_of_ath, distance_pct, ath, current, band, label}.
+    band: at_ath (>=0.9), near_ath (>=0.5), midrange (>=0.2),
+          deep_below (>=0.05), very_deep (<0.05).
+
+    Util pra detectar squeeze tardio em containers: preco perto do ATH
+    historico tem upside limitado vs squeeze inicial (Chroma 2 em
+    centavos vs Clutch ja' em dolares). Filosofia honesta: descreve, nao
+    preve.
+    """
+    if not price_history or len(price_history) < 10:
+        return {}
+    # Robusto a entries sem 'time' (testes legados/fixtures simples):
+    # se nao tiver time, assume ordem do input.
+    try:
+        sorted_h = sorted(price_history, key=lambda x: x["time"])
+    except (KeyError, TypeError):
+        sorted_h = list(price_history)
+    prices = [p["price_median"] for p in sorted_h]
+    ath = max(prices)
+    if ath <= 0:
+        return {}
+    current = prices[-1]
+    pct = current / ath
+    distance_pct = (ath - current) / ath * 100
+    if pct >= 0.9:
+        band = "at_ath"
+    elif pct >= 0.5:
+        band = "near_ath"
+    elif pct >= 0.2:
+        band = "midrange"
+    elif pct >= 0.05:
+        band = "deep_below"
+    else:
+        band = "very_deep"
+    return {
+        "pct_of_ath": round(pct, 3),
+        "distance_pct": round(distance_pct, 2),
+        "ath": round(ath, 4),
+        "current": round(current, 4),
+        "band": band,
+        "label": f"Preco a {pct:.0%} do ATH (${ath:.2f})",
+    }
+
+
+def data_quality(price_history: list[dict],
+                  now: float | None = None) -> dict:
+    """Estima confianca do sinal baseado em tamanho e recencia.
+
+    confidence ∈ [0, 1]. Combina dois fatores:
+      - size: len(history)/200 (saturado em 1.0)
+      - recency: 1.0 se ultimo ponto <30d; decai linearmente ate 180d.
+
+    now: timestamp de referencia (default time.time()). Util para
+    backtest historico onde queremos calcular confianca em t passado.
+
+    Retorna {confidence, n, age_days, level, label}.
+    level: high (>=0.8), medium (>=0.5), low (>=0.2), very_low (<0.2).
+
+    Util para:
+      - Filtrar score: ignorar/dampear scores com baixa confianca
+      - UI badge: mostrar ao usuario quando confiar no score
+    """
+    if not price_history:
+        return {"confidence": 0.0, "n": 0, "age_days": None,
+                "level": "none", "label": "sem dados"}
+    n = len(price_history)
+    size_factor = min(n / 200.0, 1.0)
+    try:
+        last_ts = max(p["time"] for p in price_history
+                       if isinstance(p, dict) and "time" in p)
+    except (TypeError, ValueError):
+        return {"confidence": 0.0, "n": n, "age_days": None,
+                "level": "none", "label": "dados invalidos"}
+    ref_now = now if now is not None else time.time()
+    age_days = (ref_now - last_ts) / 86400
+    if age_days < 30:
+        recency = 1.0
+    elif age_days < 180:
+        recency = max(0.0, 1.0 - (age_days - 30) / 150.0)
+    else:
+        recency = 0.0
+    confidence = round(size_factor * recency, 2)
+    if confidence >= 0.8:
+        level = "high"
+    elif confidence >= 0.5:
+        level = "medium"
+    elif confidence >= 0.2:
+        level = "low"
+    else:
+        level = "very_low"
+    return {
+        "confidence": confidence,
+        "n": n,
+        "age_days": round(age_days, 1),
+        "level": level,
+        "label": f"Confianca {level} ({confidence:.2f}) — n={n}, "
+                  f"ultimo {age_days:.0f}d atras",
+    }
+
+
+def drawdown(price_history: list[dict], window_days: int = 90) -> dict:
+    """Drawdown atual = quanto o preco caiu vs o maximo da janela trailing.
+
+    drawdown_pct: positivo 0..100. 0 = no maximo. 25 = 25% abaixo.
+    band: at_high (<5%), mild (5-15%), moderate (15-30%), deep (>=30%).
+
+    Sinal factual: descreve onde o preco esta em relacao ao pico recente,
+    nao preve recuperacao.
+
+    Retorna {drawdown_pct, max_price, current_price, days_since_max,
+    band, label} ou {} se historico insuficiente.
+    """
+    if not price_history or len(price_history) < 5:
+        return {}
+    sorted_hist = sorted(price_history, key=lambda x: x["time"])
+    last_ts = sorted_hist[-1]["time"]
+    cutoff = last_ts - window_days * 86400
+    window = [p for p in sorted_hist if p["time"] >= cutoff]
+    if len(window) < 5:
+        return {}
+    max_entry = max(window, key=lambda x: x["price_median"])
+    max_price = max_entry["price_median"]
+    current = window[-1]["price_median"]
+    if max_price == 0:
+        return {}
+    dd_pct = ((max_price - current) / max_price) * 100
+    days_since_max = (last_ts - max_entry["time"]) / 86400
+    if dd_pct < 5:
+        band = "at_high"
+    elif dd_pct < 15:
+        band = "mild"
+    elif dd_pct < 30:
+        band = "moderate"
+    else:
+        band = "deep"
+    return {
+        "drawdown_pct": round(dd_pct, 2),
+        "max_price": round(max_price, 2),
+        "current_price": round(current, 2),
+        "days_since_max": round(days_since_max, 1),
+        "band": band,
+        "label": f"DD {dd_pct:.1f}% ({band}), max {days_since_max:.0f}d atras",
+    }
+
+
 def enhanced_score(verdict: dict, volume: int | None = None,
                    supply: int | None = None,
                    multi_trend: dict | None = None,
                    price_history: list[dict] | None = None,
-                   case_status: dict | None = None) -> tuple[int, list[dict]]:
+                   case_status: dict | None = None,
+                   is_container: bool = False) -> tuple[int, list[dict]]:
     """Score 0-100 + breakdown com contribuicao de cada fator.
 
     Retorna (score_final, breakdown) onde breakdown e lista de
     {factor, delta, label} ordenada por |delta| decrescente.
     Base = 50, clipado em [0, 100].
+
+    is_container: parametro mantido por compatibilidade; nao e' mais
+    usado internamente (rel_ath agora aplica universal — backtest
+    2026-06-07 validou ganho para skins tambem).
     """
     score = 50.0
     breakdown: list[dict] = []
@@ -360,6 +558,11 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     if tv == "rising":
         _add("trend", 15, "Tendencia: subindo (+15)")
     elif tv == "falling":
+        # EXPERIMENT 2026-06-07: fair_penalty_halving — REVERTIDO
+        # Hipótese: trend falling quando preco esta "fair" (±5%) e' ruido.
+        # Resultado: +0.0016 agg corr (56 itens, n=22014), abaixo do criterio
+        # de +0.002. Keep: 85-100 intacto, 112 falsos negativos removidos.
+        # Negative finding: efeito real mas marginal; nao justifica mudanca.
         _add("trend", -10, "Tendencia: caindo (-10)")
 
     # Oferta / Demanda
@@ -371,6 +574,34 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             _add("supply_demand", 10, f"S/D bom ({sd:.1f}) (+10)")
         elif sd < 0.5:
             _add("supply_demand", -10, f"S/D fraco ({sd:.2f}) (-10)")
+
+    # NOTAS DE EXPERIMENTOS (manter como guia):
+    # - Z-score como reversao a media (universal): regrediu 7/9 itens.
+    # - Z-score gated por trend (universal): regrediu agregado +0.041 -> +0.036.
+    # - Z-score so' para containers: SEM ganho sobre drawdown sozinho
+    #   (Clutch 0.0162->0.0171, Prisma 0.0534->0.0494, agg 0.0313->0.0304).
+    #   Drawdown ja' captura o sinal que z-score tentava.
+    # A funcao price_zscore() e is_container() seguem disponiveis como
+    # sinais standalone para UI/alertas futuros, mas nao entram no score.
+
+    # Drawdown como modificador de momentum (NAO reversao a media).
+    # Hipotese: em mercado de skins, "at highs + trend up" confirma
+    # momentum; "deep + falling" confirma distress continuo.
+    if price_history and len(price_history) >= 30:
+        dd = drawdown(price_history)
+        if dd:
+            band = dd["band"]
+            dd_pct = dd["drawdown_pct"]
+            trend_dir = verdict.get("trend_verdict", "")
+            if band == "at_high" and trend_dir in ("rising", "stable"):
+                _add("drawdown", 5,
+                     f"No topo (DD {dd_pct:.0f}%) + trend up (+5)")
+            elif band == "deep" and trend_dir == "falling":
+                _add("drawdown", -5,
+                     f"DD profundo {dd_pct:.0f}% + trend down (-5)")
+            elif band == "deep" and trend_dir == "rising":
+                _add("drawdown", 5,
+                     f"DD profundo {dd_pct:.0f}% + recuperacao (+5)")
 
     # Momentum: preco atual vs media dos ultimos 15 pontos
     if price_history and len(price_history) >= 10:
@@ -399,6 +630,29 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     if volume is not None and volume > 2000:
         _add("liquidity", 5, f"Volume alto ({int(volume)}) (+5)")
 
+    # Distancia ao ATH historico — UNIVERSAL (skins + containers).
+    # Inicialmente testado so' para containers apos investigacao do Clutch Case.
+    # Validado universal em 2026-06-07: agg corr +0.0985 -> +0.1173 (+19% rel).
+    # Skins ganham sinal de mean reversion (corr +0.0239); containers mantem.
+    # Bonifica squeeze inicial, penaliza squeeze tardio.
+    if price_history and len(price_history) >= 10:
+        rta = relative_to_ath(price_history)
+        if rta:
+            band = rta["band"]
+            pct = rta["pct_of_ath"]
+            if band == "very_deep":
+                _add("rel_ath", 5,
+                     f"{pct:.0%} do ATH (squeeze inicial) (+5)")
+            elif band == "deep_below":
+                _add("rel_ath", 2,
+                     f"{pct:.0%} do ATH (squeeze ainda jovem) (+2)")
+            elif band == "near_ath":
+                _add("rel_ath", -8,
+                     f"{pct:.0%} do ATH (squeeze tardio) (-8)")
+            elif band == "at_ath":
+                _add("rel_ath", -10,
+                     f"{pct:.0%} do ATH (topo histórico) (-10)")
+
     # Caixa descontinuada / rara (F7)
     if case_status:
         if case_status.get("is_discontinued"):
@@ -415,10 +669,11 @@ def scan_score(verdict: dict, volume: int | None = None,
                supply: int | None = None,
                multi_trend: dict | None = None,
                price_history: list[dict] | None = None,
-               case_status: dict | None = None) -> int:
+               case_status: dict | None = None,
+               is_container: bool = False) -> int:
     """Wrapper retornando apenas o score. Ver enhanced_score para breakdown."""
     score, _ = enhanced_score(verdict, volume, supply, multi_trend,
-                              price_history, case_status)
+                              price_history, case_status, is_container)
     return score
 
 
@@ -440,6 +695,32 @@ def format_breakdown(breakdown: list[dict]) -> str:
         for b in neg:
             lines.append(f"  - {b['label']}")
     return "\n".join(lines)
+
+
+def is_score_stale(score_ts: float | None,
+                   max_age_days: int = 7) -> bool:
+    """True se score_ts e' None ou mais velho que max_age_days."""
+    if score_ts is None:
+        return True
+    age_days = (time.time() - score_ts) / 86400
+    return age_days > max_age_days
+
+
+def score_age_text(score_ts: float | None) -> str:
+    """Texto legivel da idade do score para tooltip."""
+    if score_ts is None:
+        return "nunca calculado"
+    age_s = time.time() - score_ts
+    if age_s < 60:
+        return "agora"
+    if age_s < 3600:
+        return f"{int(age_s / 60)}min atras"
+    if age_s < 86400:
+        return f"{int(age_s / 3600)}h atras"
+    days = age_s / 86400
+    if days < 30:
+        return f"{int(days)}d atras"
+    return f"{int(days)}d atras (desatualizado)"
 
 
 def discontinued_flag(name: str) -> dict:

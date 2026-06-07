@@ -318,3 +318,22 @@ def case_status(name: str) -> dict:
 def list_cases_by_status(status: str) -> list[str]:
     """Lista nomes de cases por status."""
     return [name for name, meta in _CASES.items() if meta.get("status") == status]
+
+
+_CONTAINER_SUFFIXES = (
+    " Case", " Capsule", " Package", " Pin", " Music Kit",
+    " Sticker Capsule", " Patch Pack",
+)
+
+
+def is_container(name: str) -> bool:
+    """Retorna True se o item e' um container (caixa, capsula, package).
+
+    Cases respondem a sinais diferentes de skins (oferta finita vs
+    geracao continua de drops). Usar essa flag pra ajustar score.
+    """
+    if not name:
+        return False
+    if name in _CASES:
+        return True
+    return name.endswith(_CONTAINER_SUFFIXES)

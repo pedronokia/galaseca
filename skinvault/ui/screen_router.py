@@ -49,6 +49,7 @@ class ScreenRouter(QWidget):
     sync_requested = pyqtSignal(object)  # SteamSession
     sidebar_visibility_changed = pyqtSignal(bool)
     navigated = pyqtSignal(str)
+    notification_requested = pyqtSignal(str, str, str)  # title, body, severity
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -104,6 +105,9 @@ class ScreenRouter(QWidget):
         self._stack.addWidget(self._simulador_screen)
 
         self._watchlist_screen = WatchlistScreen(self._cache, self)
+        self._watchlist_screen.notification_requested.connect(
+            self.notification_requested,
+        )
         self._stack.addWidget(self._watchlist_screen)
 
         root.addWidget(self._stack, 1)
