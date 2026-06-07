@@ -368,16 +368,17 @@ class AccountScreen(QWidget):
             f"{loss_items} ({loss_items/len(rows)*100:.0f}%)" if rows else "0",
             accent=t.DANGER
         )
+        from skinvault.localization import localize_name as _ln
         self._bd_best.set_value(
             t.brl(best['pnl']) if best else "—",
             accent=t.ACCENT
         )
-        self._bd_best.setToolTip(best.get("name", "") if best else "")
+        self._bd_best.setToolTip(_ln(best.get("name", "")) if best else "")
         self._bd_worst.set_value(
             t.brl(worst['pnl']) if worst else "—",
             accent=t.DANGER
         )
-        self._bd_worst.setToolTip(worst.get("name", "") if worst else "")
+        self._bd_worst.setToolTip(_ln(worst.get("name", "")) if worst else "")
 
         # Atualiza tabela
         self._populate_table(rows, data["positions"])
@@ -396,8 +397,9 @@ class AccountScreen(QWidget):
             self._table.insertRow(i)
             src = positions[i].get("source", "manual") if i < len(positions) else "manual"
             origin = "Steam" if src == "steam_sync" else "Manual"
+            from skinvault.localization import localize_name as _ln
             cells = [
-                r.get("name") or "—",
+                _ln(r.get("name") or "") or "—",
                 str(r.get("quantity") or 1),
                 t.brl(r.get("price")),
                 t.brl(r.get("market")),

@@ -213,8 +213,9 @@ class WatchlistScreen(QWidget):
             rules = item.get("rules") or {}
             baseline = item.get("baseline_price")
 
-            # Nome
-            self._table.setItem(i, self.COL_NAME, QTableWidgetItem(name))
+            # Nome (display localizado; nome original fica no dict do item)
+            from skinvault.localization import localize_name as _ln
+            self._table.setItem(i, self.COL_NAME, QTableWidgetItem(_ln(name)))
 
             # Target
             self._table.setItem(i, self.COL_TARGET,

@@ -793,6 +793,7 @@ class HistoryScreen(QWidget):
     def _populate(self, headers: list[str], rows: list[list[str]],
                    pnl_col: int | None = None,
                    pnl_vals: list[float | None] | None = None) -> None:
+        from skinvault.localization import localize_name as _ln
         # Desativa sort durante o populate (recomendacao Qt)
         was_sorting = self._table.isSortingEnabled()
         self._table.setSortingEnabled(False)
@@ -800,9 +801,16 @@ class HistoryScreen(QWidget):
         self._table.setColumnCount(len(headers))
         self._table.setHorizontalHeaderLabels(headers)
         self._table.setRowCount(0)
+        # Colunas onde valor e nome de item (aplicar localize_name)
+        name_cols = {
+            i for i, h in enumerate(headers)
+            if h in ("Item", "Itens")
+        }
         for i, row in enumerate(rows):
             self._table.insertRow(i)
             for c, val in enumerate(row):
+                if c in name_cols:
+                    val = _ln(val)
                 it = QTableWidgetItem(val)
                 # cores: P&L verde/vermelho (numeric)
                 if pnl_col is not None and c == pnl_col and pnl_vals:

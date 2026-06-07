@@ -357,7 +357,8 @@ class MarketScreen(QWidget):
                 cache_msg = (
                     f" (cache de {_cache_age_label(age)} será sobrescrito)"
                 )
-        self._status.setText(f"Consultando {name}…{cache_msg}")
+        from skinvault.localization import localize_name as _ln
+        self._status.setText(f"Consultando {_ln(name)}…{cache_msg}")
         self._search_btn.setEnabled(False)
         self._started_at = time.time()
 
@@ -486,7 +487,8 @@ class MarketScreen(QWidget):
                 )
 
         # Detail
-        self._detail_title.setText(name or "Detalhes do item")
+        from skinvault.localization import localize_name as _ln
+        self._detail_title.setText(_ln(name) if name else "Detalhes do item")
         cs = cases.case_status(name) if name else {}
         cs_label = cs.get("label", "") if cs else ""
         if cs_label:
@@ -552,4 +554,5 @@ class MarketScreen(QWidget):
         if name:
             self._push_recent(name)
         dur = f" em {elapsed:.1f}s" if elapsed > 0 else ""
-        self._status.setText(f"Atualizado: {name}{dur}.")
+        from skinvault.localization import localize_name as _ln
+        self._status.setText(f"Atualizado: {_ln(name)}{dur}.")

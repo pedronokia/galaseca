@@ -380,9 +380,10 @@ class TradesScreen(QWidget):
             src_label, src_color = _source_label(tr.get("source", "manual"))
             sell_ts = tr.get("sell_ts") or tr.get("buy_ts") or 0
             roi = (tr.get("pnl_pct") or 0)
+            from skinvault.localization import localize_name as _ln
             cells = [
                 (_fmt_date(sell_ts), None),
-                (tr.get("name", ""), None),
+                (_ln(tr.get("name", "")), None),
                 (str(tr.get("quantity", 1)), None),
                 (t.brl(tr.get("buy_cost", 0)), None),
                 (t.brl(tr.get("sell_price", 0)), None),

@@ -564,7 +564,8 @@ class _MatchChip(QLabel):
             f" font-size: {t.FS_BODY}; font-weight: 700;"
             f" font-family: {t.FONT_FAMILY};"
         )
-        name = trade.get("name") or ""
+        from skinvault.localization import localize_name as _ln
+        name = _ln(trade.get("name") or "")
         ts = trade.get("sell_ts") or trade.get("buy_ts") or 0
         import time as _time
         ts_str = _time.strftime("%d/%m/%Y", _time.localtime(ts)) if ts else ""

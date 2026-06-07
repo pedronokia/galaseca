@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 from skinvault import alerts, ranking, sync, trades
+from skinvault.localization import localize_name
 from skinvault.trade_matcher import parse_steam_date
 
 # Tipos de evento normalizados
@@ -33,7 +34,7 @@ def _trade_event(t: dict) -> dict | None:
     return {
         "type": TYPE_TRADE,
         "ts": float(ts),
-        "title": t.get("name") or "Trade",
+        "title": localize_name(t.get("name") or "") or "Trade",
         "subtitle": f"P&L R$ {pnl:+.2f} ({pnl_pct:+.1f}%)",
         "color": COLOR_GREEN if pnl >= 0 else COLOR_RED,
         "icon": "↑" if pnl >= 0 else "↓",
@@ -47,7 +48,7 @@ def _alert_event(a: dict) -> dict | None:
     return {
         "type": TYPE_ALERT,
         "ts": float(ts),
-        "title": a.get("name") or "Alerta",
+        "title": localize_name(a.get("name") or "") or "Alerta",
         "subtitle": a.get("label") or a.get("rule") or "",
         "color": COLOR_ACCENT,
         "icon": "★",
@@ -80,7 +81,7 @@ def _market_event(e: dict) -> dict | None:
     return {
         "type": TYPE_MARKET,
         "ts": float(ts),
-        "title": e.get("name") or "Steam Market",
+        "title": localize_name(e.get("name") or "") or "Steam Market",
         "subtitle": subtitle,
         "color": color,
         "icon": icon,
@@ -94,7 +95,7 @@ def _ranking_event(s: dict) -> dict | None:
     items = s.get("items") or []
     top = items[0] if items else None
     if top:
-        subtitle = f"Lider: {top.get('name', '?')}"
+        subtitle = f"Lider: {localize_name(top.get('name', '?'))}"
     else:
         subtitle = "Snapshot vazio"
     return {

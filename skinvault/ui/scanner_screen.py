@@ -528,8 +528,9 @@ class ScannerScreen(QWidget):
             label = "COMPRA" if score >= 70 else (
                 "ATENCAO" if score >= 45 else "EVITAR"
             )
+            from skinvault.localization import localize_name as _ln
             cells = [
-                (r["name"], None),
+                (_ln(r["name"]), None),
                 (label, score_color),
                 (t.brl(r["price"]), None),
                 (t.brl(r["median"]), None),
