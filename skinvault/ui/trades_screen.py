@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import trades as trades_mod
 from skinvault.ui import theme as t
-from skinvault.ui.components import SegmentedControl, StatCard
+from skinvault.ui.components import RecentMatchesStrip, SegmentedControl, StatCard
 
 
 _PERIODS = [
@@ -226,6 +226,10 @@ class TradesScreen(QWidget):
             stats_row.addWidget(sc, 1)
         root.addLayout(stats_row)
 
+        # Recent Matches strip — chips W/L horizontais
+        self._matches_strip = RecentMatchesStrip(self)
+        root.addWidget(self._matches_strip)
+
         # Filtros: periodo + resultado em uma linha horizontal
         filt_row = QHBoxLayout()
         filt_row.setSpacing(10)
@@ -323,6 +327,13 @@ class TradesScreen(QWidget):
     # ── filtros ───────────────────────────────────────────
     def refresh(self) -> None:
         self._trades = trades_mod.load_trades()
+        # Strip mostra os 15 mais recentes independente de filtro
+        sorted_recent = sorted(
+            self._trades,
+            key=lambda tr: tr.get("sell_ts") or tr.get("buy_ts") or 0,
+            reverse=True,
+        )
+        self._matches_strip.set_trades(sorted_recent)
         self._apply_filter()
 
     def _on_period(self, key: str) -> None:

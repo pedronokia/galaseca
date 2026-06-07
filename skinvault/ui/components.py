@@ -514,3 +514,131 @@ class ActivityFeed(Card):
     def set_events(self, events: list[dict]) -> None:
         self._all_events = list(events)
         self._render()
+
+
+# ── RecentMatchesStrip ────────────────────────────────────────
+def _streak_summary(trades: list[dict]) -> tuple[str, str] | None:
+    """Calcula a sequencia atual de vitorias/derrotas a partir do
+    trade mais recente. Trades com pnl == 0 quebram a sequencia.
+
+    Retorna (texto, cor) ou None se nao houver sequencia.
+    """
+    if not trades:
+        return None
+    # Trades chegam mais recentes primeiro
+    first_pnl = trades[0].get("pnl", 0) or 0
+    if first_pnl == 0:
+        return None
+    is_win = first_pnl > 0
+    count = 0
+    for t_ in trades:
+        p = t_.get("pnl", 0) or 0
+        if (p > 0) == is_win and p != 0:
+            count += 1
+        else:
+            break
+    if count < 2:
+        return None
+    label = f"{count} vitorias em sequencia" if is_win else f"{count} derrotas em sequencia"
+    return (label, t.ACCENT if is_win else t.DANGER)
+
+
+class _MatchChip(QLabel):
+    """Chip pequeno W/L pra strip de Recent Matches."""
+
+    def __init__(self, trade: dict, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        pnl = trade.get("pnl", 0) or 0
+        if pnl > 0:
+            text, color = "V", t.ACCENT
+        elif pnl < 0:
+            text, color = "D", t.DANGER
+        else:
+            text, color = "—", t.TEXT_MUTED
+        self.setText(text)
+        self.setFixedSize(28, 28)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setStyleSheet(
+            f"color: {color}; background: {t.SURFACE};"
+            f" border: 1px solid {color}; border-radius: 6px;"
+            f" font-size: {t.FS_BODY}; font-weight: 700;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        name = trade.get("name") or ""
+        ts = trade.get("sell_ts") or trade.get("buy_ts") or 0
+        import time as _time
+        ts_str = _time.strftime("%d/%m/%Y", _time.localtime(ts)) if ts else ""
+        self.setToolTip(
+            f"{ts_str} • {name}\nP&L R$ {pnl:+.2f}"
+        )
+
+
+class RecentMatchesStrip(Card):
+    """Strip horizontal estilo "Recent Matches" do Faceit: chips W/L
+    coloridos pros ultimos trades + streak indicator a direita."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent, padding=(14, 10, 14, 10))
+
+        outer = QHBoxLayout()
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(12)
+
+        title = QLabel("Ultimos resultados")
+        title.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+            f" letter-spacing: 1px;"
+        )
+        outer.addWidget(title)
+
+        self._chip_lay = QHBoxLayout()
+        self._chip_lay.setContentsMargins(0, 0, 0, 0)
+        self._chip_lay.setSpacing(4)
+        outer.addLayout(self._chip_lay)
+
+        outer.addStretch(1)
+
+        self._streak = QLabel("")
+        self._streak.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        outer.addWidget(self._streak)
+
+        self._empty = QLabel("Nenhum trade fechado ainda.")
+        self._empty.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        self._chip_lay.addWidget(self._empty)
+
+        self.layout().addLayout(outer)
+
+    def set_trades(self, trades: list[dict], limit: int = 15) -> None:
+        """trades: lista ordenada do mais recente pro mais antigo."""
+        # Limpa
+        while self._chip_lay.count():
+            item = self._chip_lay.takeAt(0)
+            w = item.widget()
+            if w is not None and w is not self._empty:
+                w.deleteLater()
+        recent = trades[:limit]
+        if not recent:
+            self._empty.show()
+            self._chip_lay.addWidget(self._empty)
+            self._streak.setText("")
+            return
+        self._empty.hide()
+        for tr in recent:
+            self._chip_lay.addWidget(_MatchChip(tr))
+        streak = _streak_summary(recent)
+        if streak:
+            text, color = streak
+            self._streak.setText(text)
+            self._streak.setStyleSheet(
+                f"color: {color}; font-size: {t.FS_MUTED};"
+                f" font-weight: 700; font-family: {t.FONT_FAMILY};"
+            )
+        else:
+            self._streak.setText("")

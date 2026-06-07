@@ -1028,6 +1028,150 @@ def test_activity_feed_chip_click_emits_filter_change():
     assert feed._list_lay.count() == 1
 
 
+# ── RecentMatchesStrip ─────────────────────────────────────────
+
+
+def test_match_chip_win():
+    from skinvault.ui.components import _MatchChip
+    chip = _MatchChip({"name": "AK", "pnl": 50, "sell_ts": 1700000000})
+    assert chip.text() == "V"
+
+
+def test_match_chip_loss():
+    from skinvault.ui.components import _MatchChip
+    chip = _MatchChip({"name": "AK", "pnl": -10, "sell_ts": 1700000000})
+    assert chip.text() == "D"
+
+
+def test_match_chip_neutral():
+    from skinvault.ui.components import _MatchChip
+    chip = _MatchChip({"name": "AK", "pnl": 0, "sell_ts": 1700000000})
+    assert chip.text() == "—"
+
+
+def test_match_chip_uses_buy_ts_fallback():
+    from skinvault.ui.components import _MatchChip
+    chip = _MatchChip({"name": "AK", "pnl": 50, "buy_ts": 1700000000})
+    assert "AK" in chip.toolTip()
+
+
+def test_match_chip_no_ts():
+    from skinvault.ui.components import _MatchChip
+    chip = _MatchChip({"name": "AK", "pnl": 50})
+    assert chip.text() == "V"
+
+
+def test_streak_summary_empty():
+    from skinvault.ui.components import _streak_summary
+    assert _streak_summary([]) is None
+
+
+def test_streak_summary_no_streak_single():
+    """Sequencia <2 retorna None."""
+    from skinvault.ui.components import _streak_summary
+    assert _streak_summary([{"pnl": 50}]) is None
+
+
+def test_streak_summary_wins():
+    from skinvault.ui.components import _streak_summary
+    label, _color = _streak_summary([
+        {"pnl": 50}, {"pnl": 30}, {"pnl": 10}, {"pnl": -5},
+    ])
+    assert "3 vitorias" in label
+
+
+def test_streak_summary_losses():
+    from skinvault.ui.components import _streak_summary
+    label, _color = _streak_summary([
+        {"pnl": -20}, {"pnl": -10}, {"pnl": 5},
+    ])
+    assert "2 derrotas" in label
+
+
+def test_streak_summary_breaks_on_zero():
+    """pnl == 0 quebra a sequencia."""
+    from skinvault.ui.components import _streak_summary
+    assert _streak_summary([{"pnl": 0}, {"pnl": 10}]) is None
+
+
+def test_streak_summary_zero_in_middle():
+    """pnl == 0 no meio para a contagem."""
+    from skinvault.ui.components import _streak_summary
+    label, _ = _streak_summary([
+        {"pnl": 50}, {"pnl": 30}, {"pnl": 0}, {"pnl": 10},
+    ])
+    assert "2 vitorias" in label
+
+
+def test_recent_matches_strip_instantiation():
+    from skinvault.ui.components import RecentMatchesStrip
+    strip = RecentMatchesStrip()
+    assert strip is not None
+
+
+def test_recent_matches_strip_empty():
+    from skinvault.ui.components import RecentMatchesStrip
+    strip = RecentMatchesStrip()
+    strip.set_trades([])
+    # _empty visivel, streak vazio
+    assert strip._streak.text() == ""
+
+
+def test_recent_matches_strip_populated():
+    from skinvault.ui.components import RecentMatchesStrip
+    strip = RecentMatchesStrip()
+    strip.set_trades([
+        {"name": "AK", "pnl": 50, "sell_ts": 1700000000},
+        {"name": "Glock", "pnl": -10, "sell_ts": 1699000000},
+    ])
+    # _chip_lay tem 2 chips (sem _empty)
+    assert strip._chip_lay.count() == 2
+
+
+def test_recent_matches_strip_respects_limit():
+    from skinvault.ui.components import RecentMatchesStrip
+    strip = RecentMatchesStrip()
+    trades = [{"name": f"t{i}", "pnl": 1, "sell_ts": i} for i in range(30)]
+    strip.set_trades(trades, limit=5)
+    assert strip._chip_lay.count() == 5
+
+
+def test_recent_matches_strip_shows_streak():
+    from skinvault.ui.components import RecentMatchesStrip
+    strip = RecentMatchesStrip()
+    strip.set_trades([
+        {"name": "a", "pnl": 50}, {"name": "b", "pnl": 30},
+        {"name": "c", "pnl": -5},
+    ])
+    assert "vitorias" in strip._streak.text()
+
+
+def test_recent_matches_strip_no_streak_clears_label():
+    from skinvault.ui.components import RecentMatchesStrip
+    strip = RecentMatchesStrip()
+    # Primeiro popula com streak
+    strip.set_trades([
+        {"name": "a", "pnl": 50}, {"name": "b", "pnl": 30},
+    ])
+    assert strip._streak.text() != ""
+    # Agora popula com algo sem streak (pnl == 0 quebra)
+    strip.set_trades([{"name": "x", "pnl": 0}])
+    assert strip._streak.text() == ""
+
+
+def test_trades_screen_has_recent_matches_strip(monkeypatch):
+    """TradesScreen instancia inclui o strip; refresh atualiza."""
+    from skinvault.ui.trades_screen import TradesScreen
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [
+        {"name": "AK", "pnl": 50, "sell_ts": 1700000000, "buy_ts": 1699000000,
+         "buy_cost": 100, "sell_price": 200, "quantity": 1, "source": "manual",
+         "pnl_pct": 50, "net_received": 170, "cost_total": 100, "notes": ""},
+    ])
+    screen = TradesScreen()
+    screen.refresh()
+    assert screen._matches_strip._chip_lay.count() == 1
+
+
 def test_market_screen():
     """MarketScreen instancia sem erro."""
     from skinvault.prices import PriceCache
@@ -1081,8 +1225,9 @@ class TestMarketScreen:
         assert _load_recent() == []
 
     def test_load_recent_exception(self, tmp_path, monkeypatch):
-        from skinvault.ui.market_screen import _load_recent, _RECENT_PATH
-        p = tmp_path / "market_recent.json"
+        from skinvault.ui.market_screen import _load_recent
+        # Path inexistente — read_text levanta FileNotFoundError → except
+        p = tmp_path / "nonexistent.json"
         monkeypatch.setattr("skinvault.ui.market_screen._RECENT_PATH", p)
         assert _load_recent() == []
 
