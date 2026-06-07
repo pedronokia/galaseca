@@ -945,6 +945,89 @@ def test_activity_feed_set_empty_after_populated():
     assert feed._list_lay.count() == 1
 
 
+def test_activity_feed_filter_sell_only():
+    """Filtro 'sell' mostra so eventos com icon ↑."""
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "market", "ts": 3, "title": "AK", "subtitle": "",
+         "color": "green", "icon": "↑"},
+        {"type": "market", "ts": 2, "title": "Glock", "subtitle": "",
+         "color": "red", "icon": "↓"},
+        {"type": "alert", "ts": 1, "title": "AWP", "subtitle": "",
+         "color": "accent", "icon": "★"},
+    ])
+    feed._set_filter("sell")
+    assert feed._list_lay.count() == 1
+
+
+def test_activity_feed_filter_buy_only():
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "market", "ts": 3, "title": "AK", "subtitle": "",
+         "color": "green", "icon": "↑"},
+        {"type": "market", "ts": 2, "title": "Glock", "subtitle": "",
+         "color": "red", "icon": "↓"},
+    ])
+    feed._set_filter("buy")
+    assert feed._list_lay.count() == 1
+
+
+def test_activity_feed_filter_alert():
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "alert", "ts": 1, "title": "AWP", "subtitle": "",
+         "color": "accent", "icon": "★"},
+        {"type": "market", "ts": 2, "title": "AK", "subtitle": "",
+         "color": "green", "icon": "↑"},
+    ])
+    feed._set_filter("alert")
+    assert feed._list_lay.count() == 1
+
+
+def test_activity_feed_filter_back_to_all():
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "market", "ts": 3, "title": "AK", "subtitle": "",
+         "color": "green", "icon": "↑"},
+        {"type": "market", "ts": 2, "title": "Glock", "subtitle": "",
+         "color": "red", "icon": "↓"},
+    ])
+    feed._set_filter("sell")
+    feed._set_filter("all")
+    assert feed._list_lay.count() == 2
+
+
+def test_activity_feed_filter_empty_state_message():
+    """Quando filtro nao bate nada, mostra 'Sem eventos nesse filtro'."""
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "market", "ts": 3, "title": "AK", "subtitle": "",
+         "color": "green", "icon": "↑"},
+    ])
+    feed._set_filter("buy")
+    assert "filtro" in feed._empty.text()
+
+
+def test_activity_feed_chip_click_emits_filter_change():
+    """Click no chip dispara _set_filter via signal."""
+    from skinvault.ui.components import ActivityFeed
+    feed = ActivityFeed()
+    feed.set_events([
+        {"type": "market", "ts": 3, "title": "AK", "subtitle": "",
+         "color": "green", "icon": "↑"},
+        {"type": "market", "ts": 2, "title": "Glock", "subtitle": "",
+         "color": "red", "icon": "↓"},
+    ])
+    feed._chip_buttons["buy"].click()
+    assert feed._filter == "buy"
+    assert feed._list_lay.count() == 1
+
+
 def test_market_screen():
     """MarketScreen instancia sem erro."""
     from skinvault.prices import PriceCache

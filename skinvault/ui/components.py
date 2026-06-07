@@ -410,12 +410,27 @@ class _ActivityRow(QWidget):
 
 class ActivityFeed(Card):
     """Lista vertical estilo "Recent Activity" do Faceit. Agrega trades,
-    alertas e snapshots de ranking. Use set_events() pra preencher."""
+    alertas e snapshots de ranking. Use set_events() pra preencher.
+
+    Tem chips no topo pra filtrar por categoria: tudo/vendas/compras/alertas.
+    """
+
+    # Filtros por icone do evento
+    _FILTERS = [
+        ("all", "Tudo", None),
+        ("sell", "↑ Vendas", "↑"),
+        ("buy", "↓ Compras", "↓"),
+        ("alert", "★ Alertas", "★"),
+    ]
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent, padding=(16, 14, 16, 14))
         self.setMinimumWidth(280)
         self.setMaximumWidth(380)
+
+        self._all_events: list[dict] = []
+        self._filter: str = "all"
+        self._chip_buttons: dict[str, QPushButton] = {}
 
         title = QLabel("Atividade recente")
         title.setStyleSheet(
@@ -423,6 +438,23 @@ class ActivityFeed(Card):
             f" font-weight: 600; font-family: {t.FONT_FAMILY};"
         )
         self.layout().addWidget(title)
+
+        chips_row = QHBoxLayout()
+        chips_row.setContentsMargins(0, 2, 0, 4)
+        chips_row.setSpacing(4)
+        for key, label, _icon in self._FILTERS:
+            btn = QPushButton(label)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setCheckable(True)
+            btn.setAutoExclusive(True)
+            btn.setStyleSheet(self._chip_style())
+            btn.clicked.connect(lambda _checked, k=key: self._set_filter(k))
+            if key == "all":
+                btn.setChecked(True)
+            self._chip_buttons[key] = btn
+            chips_row.addWidget(btn)
+        chips_row.addStretch(1)
+        self.layout().addLayout(chips_row)
 
         self._list_lay = QVBoxLayout()
         self._list_lay.setContentsMargins(0, 4, 0, 0)
@@ -438,17 +470,47 @@ class ActivityFeed(Card):
         )
         self._list_lay.addWidget(self._empty)
 
-    def set_events(self, events: list[dict]) -> None:
+    def _chip_style(self) -> str:
+        return (
+            f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
+            f" border: 1px solid {t.BORDER}; border-radius: 10px;"
+            f" padding: 3px 9px; font-size: {t.FS_MUTED}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY}; }}"
+            f"QPushButton:hover {{ color: {t.TEXT}; }}"
+            f"QPushButton:checked {{ color: {t.TEXT}; background: {t.SURFACE};"
+            f" border: 1px solid {t.ACCENT}; }}"
+        )
+
+    def _set_filter(self, key: str) -> None:
+        self._filter = key
+        self._render()
+
+    def _filtered_events(self) -> list[dict]:
+        if self._filter == "all":
+            return self._all_events
+        wanted_icon = dict((k, ic) for k, _, ic in self._FILTERS)[self._filter]
+        return [e for e in self._all_events if e.get("icon") == wanted_icon]
+
+    def _render(self) -> None:
         # Limpa lista atual
         while self._list_lay.count():
             item = self._list_lay.takeAt(0)
             w = item.widget()
             if w is not None and w is not self._empty:
                 w.deleteLater()
+        events = self._filtered_events()
         if not events:
+            if self._filter != "all":
+                self._empty.setText("Sem eventos nesse filtro.")
+            else:
+                self._empty.setText("Nenhuma atividade ainda.")
             self._empty.show()
             self._list_lay.addWidget(self._empty)
             return
         self._empty.hide()
         for ev in events:
             self._list_lay.addWidget(_ActivityRow(ev))
+
+    def set_events(self, events: list[dict]) -> None:
+        self._all_events = list(events)
+        self._render()
