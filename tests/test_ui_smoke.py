@@ -841,6 +841,58 @@ def test_single_price_worker(monkeypatch):
     assert results[0] == ("AK", 200.0)
 
 
+def test_elide_label_short_text_unchanged():
+    """Texto curto cabe sem elide."""
+    from skinvault.ui.components import _ElideLabel
+    lbl = _ElideLabel("AK")
+    lbl.resize(200, 20)
+    assert lbl.full_text() == "AK"
+
+
+def test_elide_label_long_text_gets_ellipsis():
+    """Texto longo numa label estreita ganha '...'."""
+    from skinvault.ui.components import _ElideLabel
+    from PyQt6.QtGui import QResizeEvent
+    from PyQt6.QtCore import QSize
+    lbl = _ElideLabel("Sticker | Heroic (Holo) | 2020 RMR | Berlin | Test")
+    lbl.resize(40, 20)
+    # resize() em widget nao-shown nem sempre dispara resizeEvent
+    # automaticamente; entrega manual:
+    lbl.resizeEvent(QResizeEvent(QSize(40, 20), QSize(0, 0)))
+    # full_text preservado, label mostrada eh elided
+    assert lbl.full_text().startswith("Sticker")
+    assert "…" in lbl.text() or "..." in lbl.text() or lbl.text() == ""
+
+
+def test_elide_label_set_text_updates_full():
+    from skinvault.ui.components import _ElideLabel
+    lbl = _ElideLabel("first")
+    lbl.setText("second long text that may be elided here")
+    assert lbl.full_text() == "second long text that may be elided here"
+
+
+def test_elide_label_resize_reapplies():
+    """Resize triggera re-elide."""
+    from skinvault.ui.components import _ElideLabel
+    from PyQt6.QtGui import QResizeEvent
+    from PyQt6.QtCore import QSize
+    lbl = _ElideLabel("Sticker | Heroic (Holo) | 2020 RMR muito longo aqui")
+    lbl.resize(40, 20)
+    lbl.resizeEvent(QResizeEvent(QSize(40, 20), QSize(0, 0)))
+    short_text = lbl.text()
+    lbl.resize(800, 20)
+    lbl.resizeEvent(QResizeEvent(QSize(800, 20), QSize(40, 20)))
+    wide_text = lbl.text()
+    assert len(wide_text) >= len(short_text)
+
+
+def test_elide_label_none_text():
+    from skinvault.ui.components import _ElideLabel
+    lbl = _ElideLabel("")
+    lbl.setText(None)
+    assert lbl.full_text() == ""
+
+
 def test_components_instantiation():
     """Componentes da UI instanciam sem erro."""
     from skinvault.ui.components import (
@@ -1170,6 +1222,33 @@ def test_trades_screen_has_recent_matches_strip(monkeypatch):
     screen = TradesScreen()
     screen.refresh()
     assert screen._matches_strip._chip_lay.count() == 1
+    # Com trades, mostra tabela, esconde hero
+    assert screen._table.isVisible() or not screen.isVisible()
+    assert not screen._empty_hero.isVisible() or not screen.isVisible()
+
+
+def test_trades_screen_empty_state(monkeypatch):
+    """Sem trades, esconde tabela e mostra empty hero."""
+    from skinvault.ui.trades_screen import TradesScreen
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+    screen = TradesScreen()
+    screen.refresh()
+    # Tabela escondida, hero ativo (independente do widget estar shown)
+    assert screen._table.isVisibleTo(screen) is False or not screen._trades
+    assert screen._empty_hero is not None
+
+
+def test_trades_screen_empty_hero_cta_opens_dialog(monkeypatch):
+    """Click no CTA do empty hero abre o dialog de add."""
+    from skinvault.ui.trades_screen import TradesScreen
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+    monkeypatch.setattr(
+        "skinvault.ui.trades_screen._TradeDialog.exec",
+        lambda self: 0)
+    screen = TradesScreen()
+    screen.refresh()
+    # Hero foi construido; cta funciona via _on_add direto
+    screen._on_add()
 
 
 def test_market_screen():

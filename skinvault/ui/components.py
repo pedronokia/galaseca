@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Callable
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QPixmap
+from PyQt6.QtGui import QFont, QFontMetrics, QPixmap
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -18,6 +18,37 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+class _ElideLabel(QLabel):
+    """QLabel que aplica elide (…) automaticamente quando o texto
+    nao cabe na largura disponivel. Mantem altura fixa de uma linha."""
+
+    def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._full = text
+        self.setText(text)
+        self.setWordWrap(False)
+
+    def setText(self, text: str) -> None:
+        self._full = text or ""
+        self._apply_elide()
+
+    def full_text(self) -> str:
+        return self._full
+
+    def resizeEvent(self, ev) -> None:
+        super().resizeEvent(ev)
+        self._apply_elide()
+
+    def _apply_elide(self) -> None:
+        fm = QFontMetrics(self.font())
+        elided = fm.elidedText(
+            self._full, Qt.TextElideMode.ElideRight,
+            max(self.width() - 2, 0),
+        )
+        # Usa o setText do super pra nao recursar
+        QLabel.setText(self, elided)
 
 from skinvault.ui import theme as t
 
@@ -382,23 +413,24 @@ class _ActivityRow(QWidget):
         center = QVBoxLayout()
         center.setContentsMargins(0, 0, 0, 0)
         center.setSpacing(1)
-        title = QLabel(event.get("title", ""))
+        title = _ElideLabel(event.get("title", ""))
         title.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_BODY};"
             f" font-weight: 600; font-family: {t.FONT_FAMILY};"
         )
-        title.setWordWrap(True)
+        title.setToolTip(event.get("title", ""))
         center.addWidget(title)
 
         sub_color = color if event.get("color") in ("green", "red") else t.TEXT_MUTED
-        sub = QLabel(event.get("subtitle", ""))
+        sub = _ElideLabel(event.get("subtitle", ""))
         sub.setStyleSheet(
             f"color: {sub_color}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
-        sub.setWordWrap(True)
         center.addWidget(sub)
         lay.addLayout(center, 1)
+        # Altura fixa garante linhas uniformes mesmo com titulos longos
+        self.setFixedHeight(44)
 
         ts_label = QLabel(_act.format_relative_ts(event.get("ts", 0)))
         ts_label.setStyleSheet(

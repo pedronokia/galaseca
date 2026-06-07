@@ -303,6 +303,11 @@ class TradesScreen(QWidget):
         self._table.customContextMenuRequested.connect(self._on_ctx_menu)
         root.addWidget(self._table, 1)
 
+        # Empty state hero (mostrado quando self._trades == [])
+        self._empty_hero = self._build_empty_hero()
+        root.addWidget(self._empty_hero, 1)
+        self._empty_hero.setVisible(False)
+
         self._status = QLabel("")
         self._status.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
@@ -324,6 +329,48 @@ class TradesScreen(QWidget):
             self._on_edit_selected
         )
 
+    def _build_empty_hero(self) -> QWidget:
+        from PyQt6.QtCore import Qt as _Qt
+        from PyQt6.QtWidgets import QFrame, QVBoxLayout
+        w = QFrame(self)
+        lay = QVBoxLayout(w)
+        lay.setAlignment(_Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(14)
+
+        icon = QLabel("◇")
+        icon.setAlignment(_Qt.AlignmentFlag.AlignCenter)
+        icon.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: 64pt;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(icon)
+
+        title = QLabel("Nenhum trade ainda")
+        title.setAlignment(_Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(title)
+
+        sub = QLabel(
+            "Adicione um trade manualmente ou sincronize com a Steam\n"
+            "pra ver seu histórico de operações aparecer aqui."
+        )
+        sub.setAlignment(_Qt.AlignmentFlag.AlignCenter)
+        sub.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(sub)
+
+        cta = QPushButton("+ Adicionar trade")
+        cta.setCursor(_Qt.CursorShape.PointingHandCursor)
+        cta.setStyleSheet(t.btn_primary(padding="12px 28px", fs=t.FS_INPUT))
+        cta.clicked.connect(self._on_add)
+        lay.addWidget(cta, 0, _Qt.AlignmentFlag.AlignCenter)
+        return w
+
     # ── filtros ───────────────────────────────────────────
     def refresh(self) -> None:
         self._trades = trades_mod.load_trades()
@@ -334,6 +381,10 @@ class TradesScreen(QWidget):
             reverse=True,
         )
         self._matches_strip.set_trades(sorted_recent)
+        # Empty state quando nao ha nenhum trade
+        is_empty = not self._trades
+        self._table.setVisible(not is_empty)
+        self._empty_hero.setVisible(is_empty)
         self._apply_filter()
 
     def _on_period(self, key: str) -> None:
