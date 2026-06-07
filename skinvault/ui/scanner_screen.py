@@ -393,6 +393,18 @@ class ScannerScreen(QWidget):
         self._table.customContextMenuRequested.connect(self._on_ctx_menu)
         root.addWidget(self._table, 1)
 
+        # Empty state: ainda nao escaneou nenhum item
+        from skinvault.ui.components import EmptyState
+        self._empty_hero = EmptyState(
+            icon="◎",
+            title="Pronto pra escanear",
+            subtitle=("Escolha uma categoria acima (Rifles, Facas, Luvas…)\n"
+                       "e clique em Escanear para descobrir oportunidades."),
+        )
+        root.addWidget(self._empty_hero, 1)
+        # Estado inicial: hero visivel, tabela escondida
+        self._table.setVisible(False)
+
         hint = QLabel(
             "Dica: clique duas vezes em uma linha para ver \"Por que esse "
             "score?\" — breakdown visual por fator. Botão direito abre mais "
@@ -425,6 +437,9 @@ class ScannerScreen(QWidget):
 
         self._scan_results.clear()
         self._table.setRowCount(0)
+        # Mostra a tabela vazia (vai encher progressivamente) e esconde hero
+        self._empty_hero.setVisible(False)
+        self._table.setVisible(True)
         self._scan_btn.setEnabled(False)
         self._rank_btn.setEnabled(False)
         self._status.setText(f"Escaneando {len(items)} itens...")
@@ -513,6 +528,10 @@ class ScannerScreen(QWidget):
     def _on_item_done(self, result: dict) -> None:
         self._scan_results.append(result)
         self._scan_results.sort(key=lambda r: r["score"], reverse=True)
+        # Primeira chegada esconde o empty hero
+        if self._empty_hero.isVisible():
+            self._empty_hero.setVisible(False)
+            self._table.setVisible(True)
         self._populate()
 
     def _populate(self) -> None:

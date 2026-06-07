@@ -132,11 +132,35 @@ class ScreenRouter(QWidget):
         self._session = session
         self._account_screen.set_session(session)
         sid = session.steamid
-        self._footer.set_left(
-            "Conectado: {}...{}".format(sid[:8], sid[-4:])
-        )
+        # Tenta usar o nome do perfil em cache; cai pro steamid truncado
+        from skinvault.ui.profile_fetcher import load_cached_profile
+        try:
+            prof = load_cached_profile(sid)
+        except Exception:
+            prof = None
+        if prof and prof.get("name"):
+            label = f"Conectado como {prof['name']}"
+        else:
+            label = "Conectado: {}…{}".format(sid[:8], sid[-4:])
+        self._footer.set_left(label)
         self.sidebar_visibility_changed.emit(True)
         self.navigate(SCREEN_ACCOUNT)
+        self._maybe_show_welcome()
+
+    def _maybe_show_welcome(self) -> None:
+        """Mostra o WelcomeDialog na primeira sessao (settings.welcome_seen)."""
+        from skinvault import settings as _settings
+        s = _settings.load_settings()
+        if s.get("welcome_seen"):
+            return
+        try:
+            from skinvault.ui.welcome_dialog import WelcomeDialog
+            dlg = WelcomeDialog(self)
+            dlg.exec()
+        except Exception:
+            pass
+        s["welcome_seen"] = True
+        _settings.save_settings(s)
 
     def navigate(self, screen: str) -> None:
         mapping = {

@@ -139,18 +139,32 @@ class WatchlistScreen(QWidget):
         self.refresh()
 
     def _build(self) -> None:
+        from skinvault.ui.components import StatCard
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(12)
+        root.setSpacing(14)
 
-        # Header
-        hdr = QHBoxLayout()
+        # Header (titulo + subtitulo + CTA)
+        head_col = QVBoxLayout()
+        head_col.setSpacing(2)
         title = QLabel("Watchlist")
         title.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
         )
-        hdr.addWidget(title)
-        hdr.addStretch(1)
+        head_col.addWidget(title)
+        sub = QLabel(
+            "Monitore preços de skins selecionadas e receba alertas quando "
+            "regras forem atendidas (queda, volume anormal, oferta baixa)."
+        )
+        sub.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        head_col.addWidget(sub)
+
+        hdr = QHBoxLayout()
+        hdr.addLayout(head_col, 1)
 
         self._add_btn = QPushButton("+ Adicionar item")
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -160,8 +174,23 @@ class WatchlistScreen(QWidget):
             " a regra escolhida for satisfeita."
         )
         self._add_btn.clicked.connect(self._on_add)
-        hdr.addWidget(self._add_btn)
+        hdr.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignTop)
         root.addLayout(hdr)
+
+        # Stat cards: total + com regras + disparados + recentes 24h
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(16)
+        self._stat_total = StatCard("Itens monitorados", "0")
+        self._stat_rules = StatCard("Com regras ativas", "0",
+                                     accent=t.STEAM_BLUE)
+        self._stat_triggered = StatCard("Disparados agora", "0",
+                                         accent=t.ACCENT)
+        self._stat_recent = StatCard("Alertas em 24h", "0",
+                                       accent=t.WARN)
+        for sc in (self._stat_total, self._stat_rules,
+                   self._stat_triggered, self._stat_recent):
+            stats_row.addWidget(sc, 1)
+        root.addLayout(stats_row)
 
         # Tabela
         self._table = QTableWidget(0, 5)
@@ -190,6 +219,19 @@ class WatchlistScreen(QWidget):
                                 QHeaderView.ResizeMode.ResizeToContents)
         root.addWidget(self._table, 1)
 
+        # Empty state (mostrado quando watchlist vazia)
+        from skinvault.ui.components import EmptyState
+        self._empty_hero = EmptyState(
+            icon="☆",
+            title="Sua watchlist está vazia",
+            subtitle=("Adicione itens pra monitorar preços e receber alertas\n"
+                       "quando o mercado se mexer."),
+            cta_label="+ Adicionar item",
+            on_cta=self._on_add,
+        )
+        root.addWidget(self._empty_hero, 1)
+        self._empty_hero.setVisible(False)
+
         self._status = QLabel("")
         self._status.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
@@ -197,8 +239,25 @@ class WatchlistScreen(QWidget):
         root.addWidget(self._status)
 
     def refresh(self) -> None:
+        import time as _time
         self._items = wl.load_watchlist()
         self._alerts_log = alerts.load_alerts_log()
+        is_empty = not self._items
+        self._table.setVisible(not is_empty)
+        self._empty_hero.setVisible(is_empty)
+        # Stats
+        total = len(self._items)
+        with_rules = sum(1 for it in self._items if it.get("rules"))
+        triggered = sum(1 for it in self._items if it.get("triggered"))
+        cutoff_24h = _time.time() - 86400
+        recent = sum(1 for a in self._alerts_log
+                     if a.get("ts", 0) >= cutoff_24h)
+        self._stat_total.set_value(str(total))
+        self._stat_rules.set_value(str(with_rules))
+        self._stat_triggered.set_value(str(triggered),
+                                       accent=t.ACCENT if triggered else t.TEXT_MUTED)
+        self._stat_recent.set_value(str(recent),
+                                    accent=t.WARN if recent else t.TEXT_MUTED)
         self._populate()
 
     def _populate(self) -> None:

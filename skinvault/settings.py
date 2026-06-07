@@ -24,6 +24,7 @@ DEFAULTS = {
     "last_scenario": {},
     "sidebar_width": 220,
     "scanner_unlocked": False,
+    "welcome_seen": False,
 }
 
 

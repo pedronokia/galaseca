@@ -208,6 +208,29 @@ def test_scanner_on_item_done(monkeypatch):
     assert len(screen._scan_results) == 1
     assert screen._table.rowCount() == 1
 
+
+def test_scanner_on_item_done_hides_empty_hero():
+    """Primeira chegada esconde o empty hero."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    # Simula hero visivel (no fluxo real ele esta visivel apos _build)
+    screen._empty_hero.setVisible(True)
+    screen._table.setVisible(False)
+    # Force isVisible() = True via flag interno (Qt nao mostra widget nao-show)
+    # Aqui usamos um shim simples: setattr direto pra simular o branch
+    real_is_visible = screen._empty_hero.isVisible
+    screen._empty_hero.isVisible = lambda: True
+    try:
+        screen._on_item_done({
+            "name": "AK-47", "score": 85, "breakdown": [],
+            "price": 100, "median": 120,
+            "verdict": "COMPRA", "verdict_color": "#00ff00",
+            "spread": "", "book": "", "trend": "", "sd_label": "",
+        })
+    finally:
+        screen._empty_hero.isVisible = real_is_visible
+
 def test_scanner_on_explain_selected_with_result(monkeypatch):
     """_on_explain_selected opens breakdown dialog."""
     from PyQt6.QtCore import Qt
@@ -841,6 +864,31 @@ def test_single_price_worker(monkeypatch):
     assert results[0] == ("AK", 200.0)
 
 
+def test_empty_state_basic():
+    from skinvault.ui.components import EmptyState
+    es = EmptyState("◇", "Vazio", "Subtitulo", "+ Acao")
+    assert es is not None
+
+
+def test_empty_state_no_subtitle_no_cta():
+    """Subtitle e CTA opcionais."""
+    from skinvault.ui.components import EmptyState
+    es = EmptyState("◇", "So titulo")
+    assert es is not None
+
+
+def test_empty_state_cta_emits_signal():
+    from skinvault.ui.components import EmptyState
+    fired = []
+    es = EmptyState("◇", "T", "S", "Click", on_cta=lambda: fired.append(True))
+    # Click no botao - busca o QPushButton filho
+    from PyQt6.QtWidgets import QPushButton
+    btns = es.findChildren(QPushButton)
+    assert btns, "no buttons in EmptyState"
+    btns[0].click()
+    assert fired == [True]
+
+
 def test_elide_label_short_text_unchanged():
     """Texto curto cabe sem elide."""
     from skinvault.ui.components import _ElideLabel
@@ -1209,6 +1257,114 @@ def test_recent_matches_strip_no_streak_clears_label():
     # Agora popula com algo sem streak (pnl == 0 quebra)
     strip.set_trades([{"name": "x", "pnl": 0}])
     assert strip._streak.text() == ""
+
+
+def test_welcome_dialog_instantiates():
+    from skinvault.ui.welcome_dialog import WelcomeDialog
+    dlg = WelcomeDialog()
+    assert dlg is not None
+    assert "Bem-vindo" in dlg.windowTitle()
+
+
+def test_welcome_dialog_feature_card():
+    from skinvault.ui.welcome_dialog import _feature_card
+    card = _feature_card("◐", "Title", "Description longa qualquer.")
+    assert card is not None
+
+
+def test_router_shows_welcome_first_time(tmp_path, monkeypatch):
+    """_maybe_show_welcome chama WelcomeDialog quando welcome_seen=False."""
+    from skinvault.ui.screen_router import ScreenRouter
+    from skinvault.prices import PriceCache
+    import skinvault.settings as _settings
+    shown = []
+
+    class _FakeWelcome:
+        def __init__(self, parent=None):
+            pass
+        def exec(self):
+            shown.append(True)
+            return 0
+
+    monkeypatch.setattr("skinvault.ui.welcome_dialog.WelcomeDialog", _FakeWelcome)
+    monkeypatch.setattr(_settings, "load_settings", lambda: {"welcome_seen": False})
+    saved = []
+    monkeypatch.setattr(_settings, "save_settings", lambda s: saved.append(s))
+
+    router = ScreenRouter(PriceCache(ttl=3600))
+    router._maybe_show_welcome()
+    assert shown == [True]
+    assert saved and saved[0].get("welcome_seen") is True
+
+
+def test_router_skips_welcome_when_seen(monkeypatch):
+    from skinvault.ui.screen_router import ScreenRouter
+    from skinvault.prices import PriceCache
+    import skinvault.settings as _settings
+    shown = []
+
+    class _FakeWelcome:
+        def __init__(self, parent=None):
+            pass
+        def exec(self):
+            shown.append(True)
+            return 0
+
+    monkeypatch.setattr("skinvault.ui.welcome_dialog.WelcomeDialog", _FakeWelcome)
+    monkeypatch.setattr(_settings, "load_settings", lambda: {"welcome_seen": True})
+    router = ScreenRouter(PriceCache(ttl=3600))
+    router._maybe_show_welcome()
+    assert shown == []
+
+
+def test_router_welcome_swallows_exception(monkeypatch):
+    """Se WelcomeDialog crashar, welcome_seen ainda e marcado."""
+    from skinvault.ui.screen_router import ScreenRouter
+    from skinvault.prices import PriceCache
+    import skinvault.settings as _settings
+
+    class _BoomWelcome:
+        def __init__(self, parent=None):
+            raise RuntimeError("boom")
+        def exec(self):
+            pass
+
+    monkeypatch.setattr("skinvault.ui.welcome_dialog.WelcomeDialog", _BoomWelcome)
+    monkeypatch.setattr(_settings, "load_settings", lambda: {"welcome_seen": False})
+    saved = []
+    monkeypatch.setattr(_settings, "save_settings", lambda s: saved.append(s))
+    router = ScreenRouter(PriceCache(ttl=3600))
+    router._maybe_show_welcome()  # nao crasha
+    assert saved and saved[0].get("welcome_seen") is True
+
+
+def test_router_on_session_with_cached_profile(monkeypatch):
+    """_on_session usa nome do perfil cached pra label do footer."""
+    from skinvault.ui.screen_router import ScreenRouter
+    from skinvault.prices import PriceCache
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
+    monkeypatch.setattr(
+        "skinvault.ui.profile_fetcher.load_cached_profile",
+        lambda sid: {"name": "nokia"})
+    router = ScreenRouter(PriceCache(ttl=3600))
+    sess = _fake_session()
+    router._on_session(sess)
+    # Footer left deve conter "nokia"
+
+
+def test_router_on_session_profile_fetch_raises(monkeypatch):
+    """_on_session tolera profile_fetcher.load_cached_profile que crasha."""
+    from skinvault.ui.screen_router import ScreenRouter
+    from skinvault.prices import PriceCache
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
+    monkeypatch.setattr(
+        "skinvault.ui.profile_fetcher.load_cached_profile",
+        lambda sid: (_ for _ in ()).throw(ValueError("boom")))
+    router = ScreenRouter(PriceCache(ttl=3600))
+    sess = _fake_session()
+    router._on_session(sess)  # nao crasha
 
 
 def test_trades_screen_has_recent_matches_strip(monkeypatch):

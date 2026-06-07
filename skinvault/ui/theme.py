@@ -159,6 +159,7 @@ def table_style() -> str:
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none; padding: 8px 10px;"
         f" font-weight: 600; font-size: {FS_MUTED}; }}"
+        f"QTableWidget::item:hover {{ background: rgba(255,255,255,0.04); }}"
         f"QTableWidget::item:selected {{ background: {ACCENT_DIM};"
         f" color: {TEXT}; }}"
     )

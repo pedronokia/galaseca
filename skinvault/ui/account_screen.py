@@ -245,6 +245,19 @@ class AccountScreen(QWidget):
                     i, QHeaderView.ResizeMode.ResizeToContents)
         left_col.addWidget(self._table, 1)
 
+        # Empty state: inventario vazio (apos sync, sem itens marketable)
+        from skinvault.ui.components import EmptyState
+        self._empty_hero = EmptyState(
+            icon="○",
+            title="Inventário vazio",
+            subtitle=("Sincronize sua conta com a Steam pra puxar seu inventário\n"
+                       "ou adicione posições manualmente pelo CLI."),
+            cta_label="Sincronizar com Steam",
+            on_cta=self.request_sync.emit,
+        )
+        left_col.addWidget(self._empty_hero, 1)
+        self._empty_hero.setVisible(False)
+
         # Status
         self._status = QLabel("")
         self._status.setStyleSheet(
@@ -342,6 +355,10 @@ class AccountScreen(QWidget):
         totals = data["totals"]
         positions = data.get("positions", [])
         self._progress.setVisible(False)
+        # Toggle empty state: sem rows mostra hero
+        is_empty = not rows
+        self._table.setVisible(not is_empty)
+        self._empty_hero.setVisible(is_empty)
         # Atualiza stats
         self._stat_gross.set_value(t.brl(totals.get("market") or 0))
         self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),

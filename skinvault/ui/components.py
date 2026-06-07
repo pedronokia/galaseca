@@ -20,6 +20,62 @@ from PyQt6.QtWidgets import (
 )
 
 
+class EmptyState(QWidget):
+    """Hero centralizado pra empty states. Icone + headline + sub + CTA opcional.
+
+    Uso:
+        es = EmptyState("◇", "Nenhum item ainda",
+                         "Adicione manualmente ou sincronize.",
+                         cta_label="+ Adicionar", on_cta=callback)
+    """
+
+    cta_clicked = pyqtSignal()
+
+    def __init__(self, icon: str, title: str, subtitle: str = "",
+                 cta_label: str | None = None,
+                 on_cta=None,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        lay = QVBoxLayout(self)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(14)
+
+        ic = QLabel(icon)
+        ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ic.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: 64pt;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(ic)
+
+        ttl = QLabel(title)
+        ttl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ttl.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(ttl)
+
+        if subtitle:
+            sub = QLabel(subtitle)
+            sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            sub.setWordWrap(True)
+            sub.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY};"
+            )
+            lay.addWidget(sub)
+
+        if cta_label:
+            cta = QPushButton(cta_label)
+            cta.setCursor(Qt.CursorShape.PointingHandCursor)
+            cta.setStyleSheet(t.btn_primary(padding="12px 28px", fs=t.FS_INPUT))
+            cta.clicked.connect(self.cta_clicked.emit)
+            if on_cta is not None:
+                self.cta_clicked.connect(on_cta)
+            lay.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)
+
+
 class _ElideLabel(QLabel):
     """QLabel que aplica elide (…) automaticamente quando o texto
     nao cabe na largura disponivel. Mantem altura fixa de uma linha."""
