@@ -150,8 +150,12 @@ def test_capsules_have_year():
 
 
 def test_is_container_recognizes_capsules():
+    # Modernas (terminam com "Sticker Capsule")
     assert cases.is_container("Stockholm 2021 Legends Sticker Capsule")
-    assert cases.is_container("Katowice 2014 Challengers Sticker Capsule")
+    # Vintage (nao terminam com "Capsule" — lookup direto em _CAPSULES)
+    assert cases.is_container("EMS Katowice 2014 Legends")
+    assert cases.is_container("DreamHack 2014 Legends (Holo-Foil)")
+    assert cases.is_container("Boston 2018 Legends (Holo-Foil)")
 
 
 def test_capsules_and_cases_dont_collide():

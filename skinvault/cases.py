@@ -455,9 +455,15 @@ def is_container(name: str) -> bool:
 
     Cases respondem a sinais diferentes de skins (oferta finita vs
     geracao continua de drops). Usar essa flag pra ajustar score.
+
+    Reconhece: nome em _CASES, nome em _CAPSULES (capsulas vintage
+    pre-2020 nao terminam com 'Capsule' — terminam com 'Legends',
+    'Challengers', '(Holo-Foil)' etc), ou sufixos conhecidos.
     """
     if not name:
         return False
     if name in _CASES:
+        return True
+    if name in _CAPSULES:
         return True
     return name.endswith(_CONTAINER_SUFFIXES)

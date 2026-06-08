@@ -12,17 +12,19 @@ from pathlib import Path
 
 from skinvault._paths import DATA_DIR
 
-# EXPERIMENT 2026-06-08: vintage decade bonus — REVERTIDO.
-# Hipotese: items descontinuados ha >= 8 anos recebem +3, pra capturar
-# o piso de retorno em capsulas/caixas vintage.
-# Resultado (3 universos, n=20718 total):
-#   CAIXAS    Pearson +0.1243 -> +0.1294 (+0.0051, ganho marginal)
-#   CAPSULAS  Pearson +0.0383 -> +0.0399 (+0.0016, abaixo do criterio)
-#   SKINS     Pearson +0.0056 -> +0.0023 (-0.0033, PIORA)
-#   Bucket 85+ avg CAIU nos 3 universos (vintage moveu borderlines do
-#   70-84 pro 85+, inflando bucket de elite com marginais).
-# Decisao: REVERTIDO. Flag fica False; bloco mantido pra documentar
-# negative finding e permitir retomar com criterio diferente.
+# EXPERIMENT 2026-06-08: vintage decade bonus — REVERTIDO 2x.
+# V1 (universal): reprovado — piorou em skins, inflou bucket 85+
+# com marginais.
+# V2 (containers-only): tambem reprovado pelo criterio estrito —
+# Pearson sobe em CAIXAS (+0.0051) mas marginal em CAPSULAS (+0.0016);
+# bucket 85+ avg ainda cai (-4pp caixas, -2pp capsulas) embora N suba
+# (+86 caixas) e hit rate suba (+1pp caixas). Trade-off "mais items
+# com avg menor", nao piora pura. Bug colateral descoberto: is_container
+# nao reconhecia capsulas vintage pre-2020 — fix aplicado em cases.py.
+# Decisao: flag=False (default). Bloco gated mantido pra retomar com
+# variantes (bonus menor, fator multiplicativo, gate negativo, ou
+# usuario opt-in via setting).
+# Detalhes: memory/negative-finding-vintage-bonus.md
 _VINTAGE_BONUS_ENABLED = False
 _VINTAGE_AGE_YEARS = 8
 _VINTAGE_BONUS = 3
@@ -676,10 +678,12 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         elif case_status.get("is_rare"):
             _add("case", 3, "Caixa rara (+3)")
 
-        # EXPERIMENT 2026-06-08: vintage decade bonus (gated)
-        # Items descontinuados ha >= 8 anos recebem +3. Captura piso de
-        # retorno que score nao ve em capsulas 2014/2015 e caixas antigas.
-        if _VINTAGE_BONUS_ENABLED and case_status.get("is_discontinued"):
+        # EXPERIMENT 2026-06-08 v2: vintage decade bonus, CONTAINERS only
+        # Items descontinuados ha >= 8 anos E que sao containers recebem
+        # +3. V1 universal piorou skins; v2 restringe a containers.
+        if (_VINTAGE_BONUS_ENABLED
+                and is_container
+                and case_status.get("is_discontinued")):
             year = case_status.get("year")
             if year:
                 age = date.today().year - year
