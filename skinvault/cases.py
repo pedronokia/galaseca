@@ -96,41 +96,41 @@ _CAPSULES: dict[str, dict] = {
     "ESL One Cologne 2014 Challengers": {"status": "discontinued", "year": 2014},
     "DreamHack 2014 Legends (Holo-Foil)": {"status": "discontinued", "year": 2014},
 
-    # 2015 — formato: {Sponsor} {Location} {Year} {Tier} (Holo-Foil)
+    # 2015 — Katowice usa (Holo-Foil); Cologne so' (Foil); Cluj-Napoca prefix DreamHack
     "ESL One Katowice 2015 Legends (Holo-Foil)": {"status": "discontinued", "year": 2015},
     "ESL One Katowice 2015 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2015},
-    "ESL One Cologne 2015 Legends (Holo-Foil)": {"status": "discontinued", "year": 2015},
-    "ESL One Cologne 2015 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2015},
-    "Cluj-Napoca 2015 Legends (Holo-Foil)": {"status": "discontinued", "year": 2015},
-    "Cluj-Napoca 2015 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2015},
+    "ESL One Cologne 2015 Legends (Foil)": {"status": "discontinued", "year": 2015},
+    "ESL One Cologne 2015 Challengers (Foil)": {"status": "discontinued", "year": 2015},
+    "DreamHack Cluj-Napoca 2015 Legends (Foil)": {"status": "discontinued", "year": 2015},
+    "DreamHack Cluj-Napoca 2015 Challengers (Foil)": {"status": "discontinued", "year": 2015},
 
-    # 2016
+    # 2016 — MLG Columbus mantem prefix; Cologne 2016 NAO leva ESL One no Steam
     "MLG Columbus 2016 Legends (Holo-Foil)": {"status": "discontinued", "year": 2016},
     "MLG Columbus 2016 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2016},
-    "ESL One Cologne 2016 Legends (Holo-Foil)": {"status": "discontinued", "year": 2016},
-    "ESL One Cologne 2016 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2016},
+    "Cologne 2016 Legends (Holo-Foil)": {"status": "discontinued", "year": 2016},
+    "Cologne 2016 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2016},
 
-    # 2017
-    "ELEAGUE Atlanta 2017 Legends (Holo-Foil)": {"status": "discontinued", "year": 2017},
-    "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2017},
-    "PGL Krakow 2017 Legends (Holo-Foil)": {"status": "discontinued", "year": 2017},
-    "PGL Krakow 2017 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2017},
+    # 2017 — Atlanta/Krakow perdem sponsor prefix no Steam Market
+    "Atlanta 2017 Legends (Holo-Foil)": {"status": "discontinued", "year": 2017},
+    "Atlanta 2017 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2017},
+    "Krakow 2017 Legends (Holo-Foil)": {"status": "discontinued", "year": 2017},
+    "Krakow 2017 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2017},
 
-    # 2018 — perdeu sponsor prefix no Steam Market
-    "Boston 2018 Legends": {"status": "discontinued", "year": 2018},
-    "Boston 2018 Returning Challengers": {"status": "discontinued", "year": 2018},
-    "Boston 2018 Minor Challengers": {"status": "discontinued", "year": 2018},
-    "London 2018 Legends": {"status": "discontinued", "year": 2018},
-    "London 2018 Returning Challengers": {"status": "discontinued", "year": 2018},
-    "London 2018 Minor Challengers": {"status": "discontinued", "year": 2018},
+    # 2018 — sem sponsor prefix mas com sufixo (Holo-Foil)
+    "Boston 2018 Legends (Holo-Foil)": {"status": "discontinued", "year": 2018},
+    "Boston 2018 Returning Challengers (Holo-Foil)": {"status": "discontinued", "year": 2018},
+    "Boston 2018 Minor Challengers (Holo-Foil)": {"status": "discontinued", "year": 2018},
+    "London 2018 Legends (Holo-Foil)": {"status": "discontinued", "year": 2018},
+    "London 2018 Returning Challengers (Holo-Foil)": {"status": "discontinued", "year": 2018},
+    "London 2018 Minor Challengers (Holo-Foil)": {"status": "discontinued", "year": 2018},
 
-    # 2019
-    "Katowice 2019 Legends": {"status": "discontinued", "year": 2019},
-    "Katowice 2019 Returning Challengers": {"status": "discontinued", "year": 2019},
-    "Katowice 2019 Minor Challengers": {"status": "discontinued", "year": 2019},
-    "Berlin 2019 Legends": {"status": "discontinued", "year": 2019},
-    "Berlin 2019 Returning Challengers": {"status": "discontinued", "year": 2019},
-    "Berlin 2019 Minor Challengers": {"status": "discontinued", "year": 2019},
+    # 2019 — mesmo padrao do 2018
+    "Katowice 2019 Legends (Holo-Foil)": {"status": "discontinued", "year": 2019},
+    "Katowice 2019 Returning Challengers (Holo-Foil)": {"status": "discontinued", "year": 2019},
+    "Katowice 2019 Minor Challengers (Holo-Foil)": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Legends (Holo-Foil)": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Returning Challengers (Holo-Foil)": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Minor Challengers (Holo-Foil)": {"status": "discontinued", "year": 2019},
 
     # 2020 (RMR — sem Major presencial pela pandemia)
     "2020 RMR Legends": {"status": "discontinued", "year": 2020},
