@@ -154,6 +154,7 @@ def _cli_backtest(args: list[str]) -> None:
         except (IndexError, ValueError):
             print("--step precisa de um numero em dias.")
             return
+    min_confidence = 0.0
     if "--min-confidence" in args:
         try:
             min_confidence = float(args[args.index("--min-confidence") + 1])
