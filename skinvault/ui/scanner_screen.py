@@ -877,6 +877,22 @@ class ScannerScreen(QWidget):
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
+
+        self._hide_approx_cb = QCheckBox("Esconder order book aproximado")
+        self._hide_approx_cb.setChecked(
+            bool(_s.get("scanner_hide_approx", False))
+        )
+        self._hide_approx_cb.setToolTip(
+            "Oculta itens onde o order book veio de outro wear do mesmo"
+            " skin (aproximação). A Steam não expõe o item_nameid"
+            " necessário para o book exato deste wear."
+        )
+        self._hide_approx_cb.setStyleSheet(
+            f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; }}"
+        )
+        self._hide_approx_cb.toggled.connect(self._on_hide_approx_toggle)
+        filt_row.addWidget(self._hide_approx_cb)
         filt_row.addStretch(1)
         root.addLayout(filt_row)
 
@@ -1212,7 +1228,10 @@ class ScannerScreen(QWidget):
                         cell.setToolTip(msg)
         self._table.setSortingEnabled(was_sorting)
 
-        # Aplica filtro de baixa confiança
+        # Aplica filtro de order book approx (so esconde, nunca mostra)
+        self._apply_approx_filter()
+        # Aplica filtro de baixa confianca (roda por ultimo para nao
+        # ser sobrescrito pelo filtro de approx)
         hidden = self._apply_confidence_filter()
 
         # Stats
@@ -1264,6 +1283,33 @@ class ScannerScreen(QWidget):
             )
         else:
             self._status.setText(f"{n} itens escaneados")
+
+    def _apply_approx_filter(self) -> int:
+        """Aplica esconder order book approx. Retorna # ocultas.
+        So' esconde (nunca mostra) para nao sobrescrever conf filter."""
+        if not hasattr(self, "_hide_approx_cb"):
+            return 0
+        active = self._hide_approx_cb.isChecked()
+        hidden = 0
+        for row in range(self._table.rowCount()):
+            cell = self._table.item(row, self.COL_NAME)
+            r = cell.data(Qt.ItemDataRole.UserRole) if cell else None
+            if not isinstance(r, dict):
+                continue
+            if active and r.get("order_book_approx"):
+                self._table.setRowHidden(row, True)
+                hidden += 1
+        return hidden
+
+    def _on_hide_approx_toggle(self, checked: bool) -> None:
+        from skinvault.settings import (
+            load_settings as _ls, save_settings as _ss,
+        )
+        s = _ls()
+        s["scanner_hide_approx"] = bool(checked)
+        _ss(s)
+        if self._scan_results:
+            self._populate()
 
     def _on_progress(self, msg: str) -> None:
         if msg == "FIM":
