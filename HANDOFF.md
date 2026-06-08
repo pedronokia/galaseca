@@ -5,11 +5,10 @@ Documento auto-suficiente para continuar a sessão em outra ferramenta
 
 ## Estado atual
 
-- **1211 testes passando** (706 unit + 505 UI smoke)
+- **1231 testes passando** (726 unit + 505 UI smoke)
 - Python 3.9 compat, PyQt6 GUI, Steam-only
-- 9 commits novos hoje (06-08); branch `main` limpa
 - Catálogo de eventos da Valve ativo
-- Scanner com 4 categorias: Caixas (24), Cápsulas (58), Autographs (30), Skins
+- Scanner com 5 categorias: Caixas (24), Cápsulas (58), Autographs (30), Stickers (37), Skins
 - 3 negative findings documentados (vintage v1, vintage v2, pump_risk
   como penalty) — gated, fáceis de revisitar
 
@@ -105,11 +104,11 @@ Ver `~/.claude/projects/C--SkinVault/memory/`:
 | Arquivo | O que tem |
 |---|---|
 | `skinvault/valve_events.py` (novo) | Catálogo de 3 eventos Valve (out/2025, dez/2025, mai/2026) + helpers `events_for_category()` / `latest_regime_change()` |
-| `skinvault/cases.py` | `_CAPSULES` (58 cápsulas), `_AUTOGRAPH_CAPSULES` (30, 2021+), `case_status()` reconhece containers por nome, `is_container()` reconhece todos os 3 dicts, `list_capsules()`, `list_autograph_capsules()` |
+| `skinvault/cases.py` | `_CAPSULES` (58 cápsulas), `_AUTOGRAPH_CAPSULES` (30, 2021+), `_PREMIUM_STICKERS` (37, Majors 2014-2015), `case_status()` reconhece containers por nome, `is_container()` reconhece todos os 3 dicts, `list_capsules()`, `list_autograph_capsules()`, `list_premium_stickers()` |
 | `skinvault/signals.py` | `pump_risk()` pública; flags gated `_VINTAGE_BONUS_ENABLED=False`, `_PUMP_PENALTY_ENABLED=False` |
 | `skinvault/backtest.py` | `simulate_item` e `score_from_history` agora passam `case_status` |
-| `skinvault/ui/scanner_screen.py` | Categorias "Cápsulas" + "Autographs" no `_SCAN_BY_CATEGORY`, banner amarelo quando categoria tem evento Valve <180d |
-| `tests/test_cases.py` | 14 novos testes de Autograph Capsules (37 total) |
+| `skinvault/ui/scanner_screen.py` | Categorias "Cápsulas" + "Autographs" + "Stickers" no `_SCAN_BY_CATEGORY`, banner amarelo quando categoria tem evento Valve <180d |
+| `tests/test_cases.py` | 37 novos testes de Autograph Capsules + Premium Stickers (57 total) |
 
 ## UI completa (3 telas com Validar Score + Score column)
 
@@ -147,7 +146,7 @@ skinvault/
   __main__.py          — CLI com --backtest, --no-cache
   gui.py               — MainWindow, tray, overlay
   ui/
-    scanner_screen.py  — 4 categorias (Caixas/Cápsulas/Autographs/Skins)
+    scanner_screen.py  — 5 categorias (Caixas/Cápsulas/Autographs/Stickers/Skins)
     watchlist_screen.py
     account_screen.py
     screen_router.py
@@ -247,39 +246,34 @@ pré-requisitos. Ordenadas por valor/custo.
 - **Critério de aceite:** cobertura backtest de cápsulas sobe de 58/58
   para 70/70 (ou o máximo possível)
 
-### 5. Autograph Capsules — cobertura backtest (pós-fetch)
+### 5. Autograph Capsules — backtest agregado (pós-fetch) — DONE (negative finding)
 
 - **Hipótese:** Com 30 Autograph Capsules adicionadas (2021+), a
   cobertura e os sinais do backtest de cápsulas podem se alterar.
-- **O quê fazer:**
-  1. Forçar fetch SSR das 30 autograph capsules via `--no-cache`
-  2. Re-rodar backtest agregado com cápsulas + autographs
-  3. Documentar se Spearman/Pearson melhora, piora ou fica estável
-- **Custo:** 20min (após fetch)
-- **Pré-requisitos:** fetch inicial (rede) dos dados SSR
-- **Critério de aceite:** Spearman não piora > 0.005 vs baseline atual
+- **Resultado: NEGATIVE FINDING.** Spearman combinado caiu de +0.1034
+  para +0.0874 (Δ = -0.0160), acima do critério de -0.005. Autograph
+  capsules têm sinal mais fraco (Spearman +0.0633 standalone) e
+  diluem o ranking de sticker capsules.
+- **O quê fazer:** nada — estrutura atual já está correta. Autographs
+  são categoria própria no Scanner, não mescladas com sticker capsules
+  em análises. Apenas documentar a diluição. 30 autograph capsules
+  agora têm dados SSR em cache (1594 samples).
 
-### 6. Fase 3 — Stickers premium curados
+### 6. Stickers premium curados — DONE (estrutura + scanner, backtest pendente)
 
 - **Hipótese:** mesma tese de escassez se aplica a stickers de Majors
   antigos (Holo/Foil/Gold). Titan Holo Katowice 2014 = $73k, IBP Holo
   = $75k. Mas universo grande e exposto a pump groups (M4A1 Nightmare
   pattern).
-- **O quê fazer:**
-  1. Curar lista de ~30-50 stickers Champions Holo/Foil/Gold de
-     Katowice/Cologne 2014/2015, DreamHack 2014
-  2. Adicionar `_PREMIUM_STICKERS` em `cases.py` análogo a `_CAPSULES`
+- **Feito:**
+  1. `_PREMIUM_STICKERS` em `cases.py` com **37 stickers** Holo de
+     Katowice 2014 (16), Cologne 2014 (10), DreamHack 2014 (6),
+     Katowice 2015 (5)
+  2. `list_premium_stickers()` helper + 20 testes
   3. Categoria "Stickers" no `_SCAN_BY_CATEGORY`
-  4. Backtest agregado
-  5. Memória com achados
-- **Arquivos:** `skinvault/cases.py`, `skinvault/ui/scanner_screen.py`
-- **Critério de aceite:** Pearson positivo, cobertura > 70%, bucket
-  85+ tem N >= 10
-- **Custo:** 2h+ (pesquisa de nomes + curadoria + backtest)
-- **Pré-requisitos recomendados (não bloqueante):** #1 (coluna Risco
-  visual) OU #3 (pump_risk v2). Sem isso, stickers em pump artificial
-  podem ser sugeridos como oportunidades.
-- **Memórias:** `bucket-85-outliers`
+- **Pendente:** backtest agregado (0 stickers em cache — precisa fetch
+  SSR primeiro). Critério de aceite: Pearson positivo, cobertura > 70%,
+  bucket 85+ N >= 10.
 
 ---
 
@@ -325,8 +319,13 @@ for flag in (True, False):
 
 - **Pearson caixas:** +0.1243 (22 itens / 4301 amostras)
 - **Pearson cápsulas:** +0.0383 (58 itens / 8518 amostras)
+- **Spearman cápsulas:** +0.1034 (58 itens)
 - **Pearson skins:** +0.0056 (63 itens / 7899 amostras)
-- **Autograph capsules (2021+):** 30 itens catalogados, sem dados em cache ainda
+- **Autograph capsules (2021+):** 30 itens / 1594 amostras (cache populado 08/06/2026)
+- **Spearman autographs (standalone):** +0.0633
+- **Pearson autographs (standalone):** +0.1412
+- **Spearman cápsulas + autographs (combinado):** +0.0874 (Δ = -0.0160 vs só cápsulas — dilui)
+- **Premium stickers (Majors 2014-2015):** 37 itens catalogados, sem dados em cache
 - **Bucket 70-84 caixas:** +31.0% / 64% hit (n=1107) — sweet spot
 - **Bucket 70-84 cápsulas:** +21.3% / 64% hit (n=822) — sweet spot
 - **Bucket 85-100 caixas:** +56.0% / 71% hit (n=312)
@@ -338,18 +337,21 @@ for flag in (True, False):
 
 1. **Leia primeiro:** este arquivo + `MEMORY.md` em
    `~/.claude/projects/C--SkinVault/memory/`
-2. **Confirme estado:** `python -m pytest` (1211 esperados) e
+2. **Confirme estado:** `python -m pytest` (1231 esperados) e
     `git log --oneline -10`
 3. **Autograph Capsules** (2021+) estão em `_AUTOGRAPH_CAPSULES` em `cases.py`,
    30 itens. Pre-2020 autograph capsules excluídas (naming heterogêneo, drivers
    de demanda diferentes). Categoria "Autographs" no Scanner.
-4. **Antes de qualquer experimento de score:** confirme que `backtest`
+4. **Premium Stickers** (Majors 2014-2015) estão em `_PREMIUM_STICKERS` em
+   `cases.py`, 37 itens Holo. Categoria "Stickers" no Scanner. Backtest
+   pendente (0 itens em cache — precisa fetch SSR via rede).
+5. **Antes de qualquer experimento de score:** confirme que `backtest`
     passa `case_status` (já corrigido, mas vale verificar no diff dos
     últimos commits)
-5. **Antes de adicionar nova categoria:** pesquise updates recentes da
+6. **Antes de adicionar nova categoria:** pesquise updates recentes da
    Valve nessa categoria via WebSearch
    ([[feedback-valve-updates-influenciam-mercado]])
-6. **Sempre gate + backtest + memória.** Methodology funcionou — não
+7. **Sempre gate + backtest + memória.** Methodology funcionou — não
    pule passos
-7. **Negative findings são tão valiosos quanto positivos** — documente
+8. **Negative findings são tão valiosos quanto positivos** — documente
    sempre
