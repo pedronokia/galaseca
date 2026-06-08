@@ -1018,3 +1018,96 @@ def test_pump_risk_sem_inputs():
     assert r["level"] == "low"
     assert r["flags"] == 0
     assert r["reasons"] == []
+
+
+# === vintage v4 (containers-only, age >= 8) ===
+
+def test_enhanced_score_vintage_v4_container_old_recebe_bonus():
+    """Container descontinuado ha >= 8 anos -> bonus +2."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=True,
+    )
+    # base 50 + case_status discontinued (+5) + vintage (+2) = 57
+    assert score == 57
+    assert any(b["factor"] == "vintage" and b["delta"] == 2
+               for b in breakdown)
+
+
+def test_enhanced_score_vintage_v4_skin_nao_recebe_bonus():
+    """Skin antigo NAO recebe vintage (containers-only filter)."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=False,
+    )
+    # base 50 + case_status discontinued (+5) = 55, sem vintage
+    assert score == 55
+    assert not any(b["factor"] == "vintage" for b in breakdown)
+
+
+def test_enhanced_score_vintage_v4_container_recente_nao_recebe():
+    """Container descontinuado recente (age < 8) NAO recebe vintage."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2022},
+        is_container=True,
+    )
+    # base 50 + case_status discontinued (+5) = 55
+    assert score == 55
+    assert not any(b["factor"] == "vintage" for b in breakdown)
+
+
+def test_enhanced_score_vintage_v4_active_nao_recebe():
+    """Container ativo (nao descontinuado) NAO recebe vintage."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": False, "year": 2014},
+        is_container=True,
+    )
+    # base 50, sem case_status bonus, sem vintage
+    assert score == 50
+    assert not any(b["factor"] == "vintage" for b in breakdown)
+
+
+# === pump_risk v3 penalty (high only, -5) ===
+
+def test_enhanced_score_pump_v3_high_aplica_penalty_menos_5():
+    """pump_risk level=='high' -> penalty -5 em enhanced_score."""
+    # Reusa pattern de test_pump_risk_high_pump_pattern: gera 3 flags
+    prices = [10.0] * 30 + [20.0, 40.0, 60.0, 80.0, 100.0]
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(v, price_history=ph)
+    # at_ath via rel_ath (-10) + pump_v3 (-5) + outros fatores momentum/multi
+    pump_factor = next((b for b in breakdown if b["factor"] == "pump_risk"),
+                       None)
+    assert pump_factor is not None
+    assert pump_factor["delta"] == -5
+
+
+def test_enhanced_score_pump_v3_medium_sem_penalty():
+    """pump_risk level=='medium' (1 flag) -> sem penalty no score."""
+    # Near ATH (peso 1) mas sem rally — gera medium
+    prices = [80.0, 90.0, 100.0] + [80.0] * 30
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    v = {"verdict": "fair", "diff_pct": 0}
+    _, breakdown = signals.enhanced_score(v, price_history=ph)
+    assert not any(b["factor"] == "pump_risk" for b in breakdown)
+
+
+def test_enhanced_score_pump_v3_low_sem_penalty():
+    """pump_risk level=='low' -> sem penalty."""
+    prices = [100.0] + [30.0] * 30
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    v = {"verdict": "fair", "diff_pct": 0}
+    _, breakdown = signals.enhanced_score(v, price_history=ph)
+    assert not any(b["factor"] == "pump_risk" for b in breakdown)
