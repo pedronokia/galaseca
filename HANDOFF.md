@@ -1,57 +1,115 @@
-# SkinVault — Handoff (2026-06-07)
+# SkinVault — Handoff (2026-06-08)
 
-Documento pra continuar a sessão em outra ferramenta (OpenCode/etc).
+Documento auto-suficiente para continuar a sessão em outra ferramenta
+(OpenCode/etc).
 
 ## Estado atual
 
-- **1156 testes passando** (`python -m pytest`)
+- **1189 testes passando** (`python -m pytest`)
 - Python 3.9 compat, PyQt6 GUI, Steam-only
-- Backtest infraestrutura completa + score validado em 9996 amostras / 44 itens
-- Aggregate correlation Pearson: **+0.1173** (score atual com `rel_ath` universal)
-- Modo overlay ativo (jogar enquanto usa)
+- 8 commits novos hoje (06-08); branch `main` limpa
+- Catálogo de eventos da Valve ativo + categoria Cápsulas no Scanner
+  (58/58 cobertura)
+- 3 negative findings documentados (vintage v1, vintage v2, pump_risk
+  como penalty) — gated, fáceis de revisitar
 
 ## Filosofia (NÃO mudar)
 
-- **Nunca prever futuro; apenas descrever dados factualmente** — comentários e labels usam "tendência subiu X%", nunca "vai valorizar"
-- Tudo em `gui.py` salvo lógica pura; análise vai em `signals.py`/`cases.py`/`alerts.py`/`backtest.py`
+- **Nunca prever futuro; apenas descrever dados factualmente** — labels usam
+  "tendência subiu X%", nunca "vai valorizar"
+- Tudo em `gui.py` salvo lógica pura; análise vai em `signals.py`/
+  `cases.py`/`alerts.py`/`backtest.py`/`valve_events.py`
 - Steam-only por enquanto
+- **Updates da Valve são o maior catalyst E maior risco**
+  ([[feedback-valve-updates-influenciam-mercado]]) — pesquisar updates
+  recentes antes de recomendar investimento em uma categoria
 
 ## Score: fatores integrados (signals.enhanced_score)
 
-| Fator | Peso | Sinal |
-|---|---|---|
-| mediana (diff_pct) | ±35 | preço vs mediana histórica |
-| spread | ±25 | spread bid/ask do order book |
-| book | ±20 | dominância buy vs sell |
-| trend | ±15 | direção dos últimos preços |
-| supply_demand | ±15 | volume/sell_count |
-| multi_period | ±10 | concordância 24h/7d/30d/90d |
-| **rel_ath** | ±10 | distância ao all-time high (universal) |
-| momentum | ±5 | preço vs SMA recente |
-| liquidity | +5 | volume alto |
-| case | +5/+3 | caixa descontinuada/rara |
+| Fator | Peso | Sinal | Status |
+|---|---|---|---|
+| mediana (diff_pct) | ±35 | preço vs mediana histórica | ✓ |
+| spread | ±25 | spread bid/ask | ✓ |
+| book | ±20 | dominância buy vs sell | ✓ |
+| trend | ±15 | direção dos últimos preços | ✓ |
+| supply_demand | ±15 | volume/sell_count | ✓ |
+| multi_period | ±10 | concordância 24h/7d/30d/90d | ✓ |
+| rel_ath | ±10 | distância ao all-time high (universal) | ✓ |
+| momentum | ±5 | preço vs SMA recente | ✓ |
+| liquidity | +5 | volume alto | ✓ |
+| case | +5/+3 | caixa descontinuada/rara | ✓ |
+| **vintage** | +3 | descontinuado >= 8 anos | gated False |
+| **pump_risk** | -10 | level=='high' (combinação >= 2 flags) | gated False |
+
+## Bug fixes desta sessão (2026-06-08)
+
+1. **`backtest.simulate_item` / `score_from_history` não passavam
+   `case_status` para `enhanced_score`.** Todos os baselines empíricos
+   anteriores eram subestimativas (Pearson caixas era reportado
+   +0.1164, real +0.1243). Fix aplicado em `backtest.py`.
+2. **`cases.is_container("EMS Katowice 2014 Legends")` retornava False.**
+   Cápsulas pré-2020 não terminam com " Capsule" — terminam com
+   "Legends", "Challengers", "(Holo-Foil)" etc. Fix: lookup direto em
+   `_CAPSULES` antes do match de sufixo. Tests adicionados.
+3. **CLI `--backtest` sem `--min-confidence` quebrava com
+   UnboundLocalError.** Default `0.0` adicionado.
 
 ## Descobertas empíricas chave (memória persistida)
 
 Ver `~/.claude/projects/C--SkinVault/memory/`:
-- **score-90d-horizon.md** — score é sinal de 60-90d, não curto prazo. Bucket 70-84: +27% / hit 62%. Bucket 85-100: +50% / hit 75%.
-- **bucket-85-outliers.md** — bucket de elite é dominado por containers (Chroma 2 +80%, Spectrum +46%, Prisma +38%)
-- **clutch-case-falling-knife.md** — anti-padrão que motivou `rel_ath`. Containers em squeeze inicial (centavos) ganham; tardio (dólares) perdem.
-- **bucket-0-29-negative-finding.md** — noise heterogêneo, sem fix sistêmico (skins icônicos como Asiimov bagunçam)
+- **caixas-amplificam-bucket-alto** — 22 caixas, Pearson real **+0.1243**
+  (pós-bug-fix); bucket 85+ a +56.0% / 71% hit (n=312)
+- **capsulas-amplificam-mais-que-caixas** — 58/58 cápsulas, 8518 amostras;
+  Pearson +0.0383; bucket 70-84 é **sweet spot** (+22% / 64% hit, n=872);
+  bucket 85+ a +68.9% / 58% hit (n=48). Catálogo heterogêneo por idade
+  dilui Pearson agregado.
+- **feedback-valve-updates-influenciam-mercado** — feedback: pesquisar
+  updates Valve antes de qualquer recomendação. Catalogados:
+  out/2025 trade-up knife (-$2B), dez/2025 rare drops removidos
+  (+40-57%), mai/2026 Cologne capsule abolition.
+- **score-90d-horizon** — score é sinal de 60-90d
+- **bucket-85-outliers** — bucket 85+ dominado por cases descontinuadas
+- **clutch-case-falling-knife** — anti-padrão; squeeze tardio em dólares
+- **bucket-0-29-negative-finding** — noise heterogêneo
+
+## Negative findings ativos (fáceis de revisitar)
+
+1. **vintage v1 (universal)** — bonus +3 para descontinuado >= 8 anos
+   piorou skins (-0.0033 Pearson). Memória:
+   `negative-finding-vintage-bonus`. Variantes para revisitar
+   documentadas (multiplicativo, gate negativo).
+2. **vintage v2 (containers-only)** — Pearson sobe em caixas (+0.0051,
+   passa) mas marginal em cápsulas (+0.0016, falha). Bucket 85+ avg cai
+   (-4pp caixas, -2pp cápsulas) mas N sobe (+86 caixas) e hit +1pp.
+   Trade-off, não piora pura.
+3. **pump_risk como score penalty** — piorou cápsulas (-0.0044), não
+   pegou Clutch (rally +30%/14d estrito demais). Função pública
+   `signals.pump_risk()` mantida. Memória: `pump-risk-score-vs-ui`.
 
 ## Infraestrutura empírica
 
 **Engine:** `skinvault/backtest.py`
 - `simulate_item(name, ph, horizon_days=90, step_days=14)` — gera samples
-- `score_from_history(name, ph)` — score atual usado em watchlist/portfolio
+- `score_from_history(name, ph)` — score atual com case_status passado
 - `aggregate_by_bucket(samples)` + `correlation(samples)` + `format_report(...)`
 
 **Cache:** `skinvault/ssr_cache.py`
 - `PriceHistoryCache` TTL 24h em `data/ssr_cache.json`
-- `cached_price_history(name, cache=...)` — usa cache senão fetch
-- CLI suporta `--no-cache` pra force refresh
+- `cached_price_history(name, cache=...)`
 
-**CLI:** `python -m skinvault --backtest "<item>"` ou `--from-portfolio` (default 90d/14d)
+**CLI:** `python -m skinvault --backtest "<item>"` ou `--from-portfolio`
+(default 90d/14d). Flag `--no-cache` força refresh.
+
+## Módulos novos / atualizados nesta sessão
+
+| Arquivo | O que tem |
+|---|---|
+| `skinvault/valve_events.py` (novo) | Catálogo de 3 eventos Valve (out/2025, dez/2025, mai/2026) + helpers `events_for_category()` / `latest_regime_change()` |
+| `skinvault/cases.py` | `_CAPSULES` (58 cápsulas, 100% cobertura), `case_status()` reconhece nome direto de container, `is_container()` reconhece vintage, `list_capsules()` |
+| `skinvault/signals.py` | `pump_risk()` pública; flags gated `_VINTAGE_BONUS_ENABLED=False`, `_PUMP_PENALTY_ENABLED=False` |
+| `skinvault/backtest.py` | `simulate_item` e `score_from_history` agora passam `case_status` |
+| `skinvault/ui/scanner_screen.py` | Categoria "Cápsulas" no `_SCAN_BY_CATEGORY`, banner amarelo quando categoria tem evento Valve <180d |
+| `tests/test_valve_events.py` (novo) | 15 testes |
 
 ## UI completa (3 telas com Validar Score + Score column)
 
@@ -66,56 +124,162 @@ Tooltip mostra retorno empírico do bucket por tipo (skin vs container).
 ## Alertas score-based (end-to-end funcional)
 
 - `alerts.evaluate_item(..., current_score=N)` aceita score
-- Regra `score_above` no `_RulesDialog` (recomendado: 85 alta convicção, 70 ampla cobertura)
-- Watchlist worker chama `evaluate_item` durante "Validar Score"
-- Fluxo: `bridge.alert_fired` → `notification_requested` (signal) → router re-emit → MainWindow → `tray_icon.showMessage`
-- Respeita `settings.tray_notifications`
+- Regra `score_above` no `_RulesDialog`
+- Fluxo: `bridge.alert_fired` → `notification_requested` → router →
+  MainWindow → `tray_icon.showMessage`
 
 ## Modo overlay (CS fullscreen)
 
 - Toggle via tray menu "Modo overlay (CS fullscreen)"
 - Flags: `WindowStaysOnTopHint` + `WA_ShowWithoutActivating`
-- Setting `overlay_mode` em `settings.py` DEFAULTS
 
 ## Arquivos chave
 
 ```
 skinvault/
-  signals.py           — sinais factuais + enhanced_score + price_zscore, drawdown, data_quality, relative_to_ath
-  backtest.py          — engine de validação + score_from_history
+  signals.py           — enhanced_score + pump_risk (novo) + vintage gated
+  backtest.py          — case_status agora passado
   ssr_cache.py         — cache 24h de price_history
-  cases.py             — case_status, is_container
-  alerts.py            — engine de regras (5 tipos incl. score_above)
+  cases.py             — _CAPSULES (58), _CASES, case_status, is_container
+  valve_events.py      — catálogo updates Valve + helpers (NOVO)
+  alerts.py            — engine de regras
   __main__.py          — CLI com --backtest, --no-cache
   gui.py               — MainWindow, tray, overlay
   ui/
-    scanner_screen.py  — Scanner + Validar Score + Conf. filter + scatter
-    watchlist_screen.py — Watchlist + Score column + alerts wiring
-    account_screen.py  — Portfolio + Score column
-    screen_router.py   — sinais routing (notification_requested)
+    scanner_screen.py  — categoria Cápsulas + banner regime change
+    watchlist_screen.py
+    account_screen.py
+    screen_router.py
+memory/                — descobertas empíricas (5 novas nesta sessão)
 ```
 
-## Methodology (que funcionou)
+## Methodology (validada nesta sessão também)
 
 ```
-1. Observação: bucket X tem comportamento Y
-2. Investigação direcionada: comparar com bucket vizinho ou outliers
-3. Hipótese mecânica: explicação concreta com critério verificável
-4. Experimento: implementar com gate fácil de reverter
-5. Validação: backtest agregado COM critério de sucesso pré-acordado
-6. Decisão: keep se passa critério, revert se não
-7. Documentar: memory file pro próximo ciclo
+1. Observação: pattern X tem comportamento Y
+2. Hipótese mecânica: explicação concreta com critério verificável
+3. Implementar com gate fácil de reverter (flag de módulo + experiment block)
+4. Backtest agregado em N universos diversos (caixas + cápsulas + skins)
+5. Critério de sucesso pré-acordado (ex: Δ Pearson > +0.002 em >= 2 universos)
+6. Decidir: keep se passa, revert se não, e DOCUMENTAR ambos
+7. Negative findings também viram memória — guiam próxima iteração
 ```
 
-Resultados de 4 experimentos:
-- z-score reversion → regrediu, reverted, documented
-- drawdown → +0.0017 marginal win, kept
+Resultados de experimentos validados:
+- z-score reversion → regrediu, reverted
+- drawdown → +0.0017 marginal, kept
 - rel_ath (containers) → +37% relativo, kept
 - rel_ath (universal) → +7% adicional, kept
+- vintage v1 (universal) → reprovado (skins -0.0033)
+- vintage v2 (containers-only) → marginal, reprovado por critério estrito
+- pump_risk penalty → reprovado (cápsulas -0.0044)
 
-## Pending features
+---
 
-All 7 tasks from F12 concluídas. Nenhuma pendente no momento.
+## Próximas direções priorizadas
+
+Cada item tem hipótese, arquivos, critério de aceite, custo estimado e
+pré-requisitos. Ordenadas por valor/custo.
+
+### 1. Coluna "Risco" no Scanner — visual, sem afetar score
+
+- **Hipótese:** `pump_risk()` é útil como info pro usuário mesmo sem
+  ser score penalty. Avisar visualmente quando há sinais combinados de
+  pump-and-dump / falling knife.
+- **Arquivos:** `skinvault/ui/scanner_screen.py`
+- **O quê fazer:**
+  1. Adicionar coluna "Risco" (após "Conf.") com chip colorido
+     (low=cinza, medium=amarelo, high=vermelho)
+  2. Tooltip mostra `pr["reasons"]` joined
+  3. Chamar `signals.pump_risk(price_history, volume_history)` em
+     `_scan_item` e armazenar em result
+  4. Renderizar na tabela
+- **Custo:** 30min
+- **Pré-requisitos:** nenhum (`pump_risk()` já existe)
+- **Critério de aceite:** UI funcional, tooltip informativo, sem
+  regressão nos testes
+- **Memórias:** `pump-risk-score-vs-ui`
+
+### 2. Vintage v3 — bonus menor ou multiplicativo
+
+- **Hipótese:** v2 reprovou porque +3 movia borderlines demais pro 85+.
+  Variantes: (a) bonus +1 ou +2 em vez de +3, (b) multiplicador
+  (×1.05) em vez de aditivo, (c) gate negativo (penalizar vintage com
+  score < 30 — clutch-style)
+- **Arquivos:** `skinvault/signals.py` (ajustar `_VINTAGE_BONUS` e
+  bloco gated)
+- **Critério de aceite:** Δ Pearson > +0.002 em >= 2 dos 3 universos
+  (caixas, cápsulas, skins) E bucket 85+ avg não cai > 2pp em nenhum
+- **Custo:** 30min (mudança + backtest)
+- **Pré-requisitos:** nenhum
+- **Memórias:** `negative-finding-vintage-bonus`
+
+### 3. pump_risk v2 refinado — pode resgatar o filtro
+
+- **Hipótese:** v1 falhou porque "rally +30% em 14d" é estrito demais
+  pra falling knife. Variantes:
+  - Rally +20% em 30d (mais flexível)
+  - `at_ath` sozinho conta como flag dupla (peso 2)
+  - Exclusão por `valve_events.latest_regime_change(category) is not None`
+    (suspende filtro quando há catalyst Valve recente)
+- **Arquivos:** `skinvault/signals.py` (ajustar `pump_risk`)
+- **Critério de aceite:** Δ Pearson > +0.002 em >= 2 universos E
+  Clutch Case % no bucket 85+ cai pelo menos 50%
+- **Custo:** 1h (refinar + backtest + memória)
+- **Pré-requisitos:** nenhum
+- **Memórias:** `pump-risk-score-vs-ui`,
+  `clutch-case-falling-knife`
+
+### 4. Refinar cápsulas pré-2020 — investigar Champions
+
+- **Hipótese:** "Champions Sticker Capsule" pode existir como
+  Autograph Capsule, não como Team Sticker Capsule. Confirmar
+  empiricamente pra cobertura final.
+- **Arquivos:** `skinvault/cases.py` (`_CAPSULES`) — possível adicionar
+  Autograph Capsules como categoria separada
+- **Critério de aceite:** decisão clara documentada (incluir/excluir
+  Autograph) + cobertura backtest aumenta
+- **Custo:** 30-45min
+- **Pré-requisitos:** nenhum
+- **Memórias:** `capsulas-amplificam-mais-que-caixas` (caveat de cobertura)
+
+### 5. Spearman correlation + Pearson regional
+
+- **Hipótese:** Pearson agregado subestima sinal porque relação é
+  S-shaped (fraca no meio, forte nos extremos). Spearman ou Pearson só
+  no bucket 70+ pode dar magnitude real.
+- **Arquivos:** `skinvault/backtest.py` (adicionar `spearman_correlation`
+  e `correlation_by_bucket`)
+- **Critério de aceite:** insight analítico documentado. Se Spearman
+  for materialmente diferente de Pearson, usar Spearman como métrica
+  default em backtests futuros.
+- **Custo:** 20min
+- **Pré-requisitos:** nenhum
+- **Memórias:** `capsulas-amplificam-mais-que-caixas` (cita S-shape)
+
+### 6. Fase 3 — Stickers premium curados
+
+- **Hipótese:** mesma tese de escassez se aplica a stickers de Majors
+  antigos (Holo/Foil/Gold). Titan Holo Katowice 2014 = $73k, IBP Holo
+  = $75k. Mas universo grande e exposto a pump groups (M4A1 Nightmare
+  pattern).
+- **O quê fazer:**
+  1. Curar lista de ~30-50 stickers Champions Holo/Foil/Gold de
+     Katowice/Cologne 2014/2015, DreamHack 2014
+  2. Adicionar `_PREMIUM_STICKERS` em `cases.py` análogo a `_CAPSULES`
+  3. Categoria "Stickers" no `_SCAN_BY_CATEGORY`
+  4. Backtest agregado
+  5. Memória com achados
+- **Arquivos:** `skinvault/cases.py`, `skinvault/ui/scanner_screen.py`
+- **Critério de aceite:** Pearson positivo, cobertura > 70%, bucket
+  85+ tem N >= 10
+- **Custo:** 2h+ (pesquisa de nomes + curadoria + backtest)
+- **Pré-requisitos recomendados (não bloqueante):** #1 (coluna Risco
+  visual) OU #3 (pump_risk v2). Sem isso, stickers em pump artificial
+  podem ser sugeridos como oportunidades.
+- **Memórias:** `bucket-85-outliers`
+
+---
 
 ## Comandos úteis
 
@@ -128,23 +292,58 @@ python -m skinvault --ui
 
 # Backtest CLI
 python -m skinvault --backtest "AK-47 | Redline (Field-Tested)"
+python -m skinvault --backtest "Chroma 2 Case"
 python -m skinvault --backtest --from-portfolio
-python -m skinvault --backtest "<item>" --no-cache  # force refresh
+python -m skinvault --backtest "<item>" --no-cache
 
-# Validar mudança no score
-# 1. Implementar com gate fácil de reverter (if False and ...)
-# 2. Rodar backtest em 21+ itens diversos
-# 3. Comparar agg corr vs +0.1173 baseline
-# 4. Se passar: remover gate, atualizar _BUCKET_HISTORY_90D + memória
-# 5. Se falhar: reverter, documentar negative finding
+# Backtest agregado de uma categoria (script ad-hoc)
+python -c "
+from skinvault import cases, ssr_cache, backtest as bt
+items = cases.list_capsules()  # ou _SCAN_BY_CATEGORY['Caixas']
+cache = ssr_cache.PriceHistoryCache()
+samples = []
+for n in items:
+    ph = cache.get(n) if cache.has(n) else ssr_cache.cached_price_history(n, cache=cache)
+    if ph: samples.extend(bt.simulate_item(n, ph, horizon_days=90, step_days=14))
+buckets = bt.aggregate_by_bucket(samples)
+print(bt.format_report(buckets, correlation_value=bt.correlation(samples),
+                       horizon_days=90, total_samples=len(samples)))
+"
+
+# Comparar flag ON vs OFF em score
+python -c "
+from skinvault import signals, ssr_cache, backtest as bt, cases
+for flag in (True, False):
+    signals._VINTAGE_BONUS_ENABLED = flag   # ou _PUMP_PENALTY_ENABLED
+    # ... rodar e comparar
+"
 ```
 
-## Números chave pra referência
+## Números chave (PÓS bug fix do case_status)
 
-- **Baseline correlação:** +0.1173 (44 itens / 9996 amostras / rel_ath universal)
-- **Bucket 70-84:** +26.99% avg, 62% hit, n=1639
-- **Bucket 85-100:** +50.26% avg, 75% hit, n=186
-- **Por tipo (70-84):** skin +7.5% / container +32.9%
-- **Por tipo (85-100):** skin +21.3% / container +52.2%
+- **Pearson caixas:** +0.1243 (22 itens / 4301 amostras)
+- **Pearson cápsulas:** +0.0383 (58 itens / 8518 amostras)
+- **Pearson skins:** +0.0056 (63 itens / 7899 amostras)
+- **Bucket 70-84 caixas:** +31.0% / 64% hit (n=1107) — sweet spot
+- **Bucket 70-84 cápsulas:** +21.3% / 64% hit (n=822) — sweet spot
+- **Bucket 85-100 caixas:** +56.0% / 71% hit (n=312)
+- **Bucket 85-100 cápsulas:** +68.9% / 58% hit (n=48)
 - **Cache TTL:** 24h em `data/ssr_cache.json`
-- **Horizon padrão:** 90d (CLI + simulate_item)
+- **Horizon padrão:** 90d
+
+## Para o próximo Claude/OpenCode
+
+1. **Leia primeiro:** este arquivo + `MEMORY.md` em
+   `~/.claude/projects/C--SkinVault/memory/`
+2. **Confirme estado:** `python -m pytest` (1189 esperados) e
+   `git log --oneline -10`
+3. **Antes de qualquer experimento de score:** confirme que `backtest`
+   passa `case_status` (já corrigido, mas vale verificar no diff dos
+   últimos commits)
+4. **Antes de adicionar nova categoria:** pesquise updates recentes da
+   Valve nessa categoria via WebSearch
+   ([[feedback-valve-updates-influenciam-mercado]])
+5. **Sempre gate + backtest + memória.** Methodology funcionou — não
+   pule passos
+6. **Negative findings são tão valiosos quanto positivos** — documente
+   sempre
