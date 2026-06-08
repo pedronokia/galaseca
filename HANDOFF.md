@@ -263,25 +263,25 @@ pré-requisitos. Ordenadas por valor/custo.
   em análises. Apenas documentar a diluição. 30 autograph capsules
   agora têm dados SSR em cache (1594 samples).
 
-### 6. Stickers — UNIVERSO EXPANDIDO (2026-06-08, v2)
+### 6. Stickers — UNIVERSO COMPLETO (2026-06-08, v3 — 9892 stickers)
 
-- **Antes:** 386 stickers (Holo/Glitter de 20 Majors 2014-2024)
-- **Agora: 1603 stickers** — todas variantes + novos eventos
-  - Paper + Holo/Glitter + Foil + Gold para cada time de cada Major
-  - Geração automática via `_STICKER_PARSE_RE` + `_VARIANT_ERA` mapping
-  - Austin 2025 (72 stickers: 24 times × Paper/Holo/Gold)
-  - Budapest 2025 (72 stickers: 24 times × Paper/Holo/Gold)
-  - Cologne 2026 (96 stickers: 32 times × Paper/Holo/Gold)
-  - Coluna "Stickers" no Scanner agora usa `list_all_stickers()`
-- **API nova:** `cases.list_all_stickers()` retorna todos os 1603 itens
-- `list_premium_stickers()` mantida (386 itens, retrocompatível)
-- **Não coberto:** community/theme/operation/armory stickers (nomes de
-  mercado precisam ser verificados individualmente — trabalho futuro)
-- **Resultados anteriores (386 stickers, 17270 samples) continuam válidos:**
+- **Antes (v1):** 386 stickers (Holo/Glitter de 20 Majors 2014-2024)
+- **v2 (commit fccfd87):** 1603 stickers — Paper + Holo/Glitter + Foil + Gold + 2025-2026
+- **Agora (v3): 9892 stickers** — tudo que existe no Steam Market
+  - **Team stickers:** 1743 (todos os Majors 2014-2026, todas variantes)
+  - **Autograph stickers:** 7075 (todos os jogadores, todos os eventos)
+  - **Community stickers:** 850 (todas as cápsulas comunitárias/temáticas)
+  - **Event stickers:** 72 (logos de torneio)
+  - **Premium extra (naming diff):** 152 (stickers premium com nomes não encontrados na API)
+- **Fonte:** ByMykel/CSGO-API (dados oficiais do schema do jogo, 10441 entries)
+- **Scanner:** Stickers = 9892 itens (total no scanner: 10065)
+- **Removido:** código de geração programática (`_extract_event_data`, `_VARIANT_ERA`, team lists, etc.)
+- **Novo arquivo:** `skinvault/sticker_data.py` (auto-generated, 1MB, 9745 linhas)
+- **Resultados anteriores (386 premium stickers, 17270 samples) continuam válidos:**
   - Spearman: +0.0931 | Pearson: +0.0295
-  - Bucket 85+ N=56, Hit 73.2% | Bucket 70-84 +28.71% avg, 65.3% hit
-  - Cache SSR ~45% coverage (melhora com uso continuado)
-- 637 testes passando (era 631 — 6 novos para list_all_stickers)
+  - Bucket 85+ N=56, Hit 73.2% | Bucket 70-84 +28.31% avg, 65.3% hit
+- **Não coberto:** stickers de graffiti, patches, keychains (não são "Sticker |")
+- 641 testes passando (era 631 — 10 novos para sticker_data + categories)
 
 ---
 
@@ -323,7 +323,7 @@ for flag in (True, False):
 "
 ```
 
-## Números chave (PÓS expansão stickers v2)
+## Números chave (PÓS stickers universo completo)
 
 - **Pearson caixas:** +0.1243 (22 itens / 4301 amostras)
 - **Pearson cápsulas:** +0.0383 (58 itens / 8518 amostras)
@@ -334,7 +334,7 @@ for flag in (True, False):
 - **Pearson autographs (standalone):** +0.1412
 - **Spearman cápsulas + autographs (combinado):** +0.0874 (Δ = -0.0160 vs só cápsulas — dilui)
 - **Premium stickers (Majors 2014-2024):** 386 itens (Holo/Glitter)
-- **ALL stickers (expansão v2):** 1603 itens (todas variantes + Austin/Budapest/Cologne)
+- **ALL stickers (universo completo):** 9892 itens (Team 1743 + Autograph 7075 + Community 850 + Event 72 + Premium extras 152)
 - **Spearman stickers:** +0.0931 (PASSOU — Pearson +0.0295, bucket 85+ N=56, hit 73.2%)
 - **Bucket 70-84 caixas:** +31.0% / 64% hit (n=1107) — sweet spot
 - **Bucket 70-84 cápsulas:** +21.3% / 64% hit (n=822) — sweet spot
@@ -342,17 +342,19 @@ for flag in (True, False):
 - **Bucket 85-100 cápsulas:** +68.9% / 58% hit (n=48)
 - **Cache TTL:** 24h em `data/ssr_cache.json`
 - **Horizon padrão:** 90d
-- **Testes:** 637 passando (631 + 6 novos)
+- **Testes:** 641 passando
+- **Arquivo novo:** `skinvault/sticker_data.py` (auto-generated da API ByMykel/CSGO-API, 1MB)
 
 ## Para o próximo Claude/OpenCode
 
 1. **Leia primeiro:** este arquivo + `MEMORY.md` em
    `~/.claude/projects/C--SkinVault/memory/`
-2. **Confirme estado:** `python -m pytest` (637 esperados) e
+2. **Confirme estado:** `python -m pytest` (641 esperados) e
     `git log --oneline -10`
-3. **Autograph Capsules** (2021+) estão em `_AUTOGRAPH_CAPSULES` em `cases.py`,
-   30 itens. Pre-2020 autograph capsules excluídas (naming heterogêneo, drivers
-   de demanda diferentes). Categoria "Autographs" no Scanner.
+3. **ALL stickers** estão em `skinvault/sticker_data.py` (auto-generated via
+   ByMykel/CSGO-API). `cases.list_all_stickers()` retorna 9892 itens.
+   `cases.list_premium_stickers()` retorna 386 (subconjunto curado manualmente).
+4. **Autograph Capsules** (2021+) estão em `_AUTOGRAPH_CAPSULES` em `cases.py`,
 4. **Premium Stickers** (Majors 2014-2024) estão em `_PREMIUM_STICKERS` em
    `cases.py`, **386 itens** (Holo/Glitter de todos os 20 Majors). Gerado via
 3. **Autograph Capsules** (2021+) estão em `_AUTOGRAPH_CAPSULES` em `cases.py`,

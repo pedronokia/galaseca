@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import re
 
+from skinvault import sticker_data
+
 # Status por case
 _CASES: dict[str, dict] = {
     # === DISCONTINUED (nao dropam mais) ===
@@ -748,194 +750,19 @@ for _k, _v in [
 ]:
     _PREMIUM_STICKERS[_k] = _v
 
-# ============================================================
-# EXPANDED STICKER UNIVERSE (all variants + all events + community)
-# ============================================================
-#
-# A partir dos ~386 Holo/Glitter stickers de Majors 2014-2024,
-# geramos automaticamente variantes Paper, Foil e Gold para cada
-# sticker, expandimos para 2025-2026, e adicionamos stickers de
-# capsulas comunitarias/temáticas.
-#
-# Naming Steam Market:
-#   Paper:  Sticker | {Team} | {Event}
-#   Holo:   Sticker | {Team} (Holo) | {Event}    (2014-2019, 2024+)
-#   Glitter:Sticker | {Team} (Glitter) | {Event}  (2021-2023)
-#   Foil:   Sticker | {Team} (Foil) | {Event}     (2014-2019)
-#   Gold:   Sticker | {Team} (Gold) | {Event}     (2015+)
-#
-# Community stickers (capsulas sem evento):
-#   Sticker | {Name}                                 (paper)
-#   Sticker | {Name} (Holo) / (Foil) / (Gold)        (variants)
-
-_STICKER_PARSE_RE = re.compile(
-    r"^Sticker \| (.+?) \((Holo|Glitter)\) \| (.+)$"
-)
-
-def _extract_event_data() -> dict[str, dict]:
-    """Extrai times/eventos dos stickers premium existentes."""
-    events: dict[str, dict] = {}
-    for name, meta in _PREMIUM_STICKERS.items():
-        m = _STICKER_PARSE_RE.match(name)
-        if not m:
-            continue
-        team, _variant, event = m.group(1), m.group(2), m.group(3)
-        year = meta["year"]
-        source = meta["source"]
-        if event not in events:
-            events[event] = {"year": year, "sources": set(), "teams": set()}
-        events[event]["teams"].add(team)
-        events[event]["sources"].add(source)
-    return events
-
-_VARIANT_ERA: dict[tuple[int, int], list[str]] = {
-    (2013, 2014): ["paper", "holo", "foil"],
-    (2015, 2019): ["paper", "holo", "foil", "gold"],
-    (2021, 2023): ["paper", "glitter", "gold"],
-    (2024, 2026): ["paper", "holo", "gold"],
-}
-
-def _era_variants(year: int) -> list[str]:
-    for (lo, hi), variants in _VARIANT_ERA.items():
-        if lo <= year <= hi:
-            return variants
-    return ["paper"]
-
-_VARIANT_MAP = {
-    "paper": ("", True),
-    "holo": (" (Holo)", True),
-    "glitter": (" (Glitter)", True),
-    "foil": (" (Foil)", True),
-    "gold": (" (Gold)", True),
-}
-
-_all_sticker_data = dict(_PREMIUM_STICKERS)
-_event_teams = _extract_event_data()
-
-for event, data in _event_teams.items():
-    year = data["year"]
-    variants = _era_variants(year)
-    for team in data["teams"]:
-        for vkey in variants:
-            suffix, _is_premium_flag = _VARIANT_MAP[vkey]
-            name = f"Sticker | {team}{suffix} | {event}"
-            if name not in _all_sticker_data:
-                _all_sticker_data[name] = {
-                    "year": year,
-                    "source": next(iter(data["sources"])),
-                }
-
-# === 2025-2026 EVENTS ===
-# Austin 2025 (ESL Pro League Season 22, set-nov 2025)
-# Budapest 2025 (StarLadder Major, dez 2025)
-# Cologne 2026 (IEM Major, jun 2026)
-
-_2025_TEAMS_AUSTIN: list[str] = [
-    "Vitality", "Team Falcons", "MOUZ", "FaZe Clan",
-    "3DMAX", "Natus Vincere", "Spirit", "FURIA",
-    "The MongolZ", "G2", "HOTU", "Gentle Mates",
-    "Inner Circle", "GamerLegion", "Astralis", "ENCE",
-    "Legacy", "B8", "M80", "HEROIC",
-    "Fluxo", "Rooster", "NRG", "MIBR",
-]
-
-_2025_TEAMS_BUDAPEST: list[str] = [
-    "Vitality", "Team Falcons", "MOUZ", "FaZe Clan",
-    "Natus Vincere", "Spirit", "G2", "Astralis",
-    "The MongolZ", "FURIA", "HEROIC", "3DMAX",
-    "MIBR", "paiN Gaming", "BIG", "GamerLegion",
-    "Complexity Gaming", "FlyQuest", "9z", "Imperial Esports",
-    "B8", "Fluxo", "Legacy", "Wildcard",
-]
-
-_2026_TEAMS_COLOGNE: list[str] = [
-    "Spirit", "G2", "FaZe Clan", "Vitality",
-    "Astralis", "MOUZ", "Natus Vincere", "Team Liquid",
-    "The MongolZ", "FURIA", "paiN Gaming", "MIBR",
-    "TYLOO", "BIG", "GamerLegion", "9z",
-    "Monte", "B8", "M80", "FUT Esports",
-    "BetBoom Team", "Legacy", "FlyQuest", "NRG",
-    "Wildcard", "Sharks", "Sinners Esports", "Gaimin Gladiators",
-    "ENCE", "HEROIC", "Imperial Esports", "3DMAX",
-]
-
-_NEW_EVENTS: list[dict] = [
-    {
-        "event": "Austin 2025",
-        "year": 2025,
-        "teams": _2025_TEAMS_AUSTIN,
-        "tiers": {
-            "Legends": _2025_TEAMS_AUSTIN[:8],
-            "Challengers": _2025_TEAMS_AUSTIN[8:16],
-            "Contenders": _2025_TEAMS_AUSTIN[16:24],
-        },
-        "source_prefix": "Austin 2025",
-    },
-    {
-        "event": "Budapest 2025",
-        "year": 2025,
-        "teams": _2025_TEAMS_BUDAPEST,
-        "tiers": {
-            "Legends": _2025_TEAMS_BUDAPEST[:8],
-            "Challengers": _2025_TEAMS_BUDAPEST[8:16],
-            "Contenders": _2025_TEAMS_BUDAPEST[16:24],
-        },
-        "source_prefix": "Budapest 2025",
-    },
-    {
-        "event": "Cologne 2026",
-        "year": 2026,
-        "teams": _2026_TEAMS_COLOGNE,
-        "tiers": {
-            "Stage 3": _2026_TEAMS_COLOGNE[:8],
-            "Stage 2": _2026_TEAMS_COLOGNE[8:16],
-            "Stage 1": _2026_TEAMS_COLOGNE[16:24],
-            "Play-In": _2026_TEAMS_COLOGNE[24:32],
-        },
-        "source_prefix": "Cologne 2026",
-    },
-]
-
-_EVENT_TIER_NAMES: dict[str, str] = {
-    "Legends": "Legends Sticker Capsule",
-    "Challengers": "Challengers Sticker Capsule",
-    "Contenders": "Contenders Sticker Capsule",
-    "Stage 3": "Stage 3 Sticker Capsule",
-    "Stage 2": "Stage 2 Sticker Capsule",
-    "Stage 1": "Stage 1 Sticker Capsule",
-    "Play-In": "Play-In Sticker Capsule",
-}
-
-_2025_VARIANTS = ["paper", "holo", "gold"]
-
-for ev in _NEW_EVENTS:
-    event = ev["event"]
-    year = ev["year"]
-    for tier_name, tier_teams in ev["tiers"].items():
-        suffix = _EVENT_TIER_NAMES.get(tier_name, f"{tier_name} Sticker Capsule")
-        source = f"{ev['source_prefix']} {suffix}"
-        for team in tier_teams:
-            for vkey in _2025_VARIANTS:
-                variant_suffix, _ = _VARIANT_MAP[vkey]
-                name = f"Sticker | {team}{variant_suffix} | {event}"
-                if name not in _all_sticker_data:
-                    _all_sticker_data[name] = {"year": year, "source": source}
-
-# === DEDUPLICATE ===
-# Remove any duplicates (same name, different source), keep first occurrence
-_ALL_STICKERS: dict[str, dict] = {}
-for _k, _v in _all_sticker_data.items():
+_ALL_STICKERS: dict[str, dict] = dict(sticker_data._ALL_STICKERS)
+# Merge premium stickers not in API data (naming differences between events)
+for _k, _v in _PREMIUM_STICKERS.items():
     if _k not in _ALL_STICKERS:
         _ALL_STICKERS[_k] = _v
 
 
 def list_all_stickers() -> list[str]:
-    """Retorna TODOS os stickers individuais conhecidos.
+    """Retorna TODOS os stickers individuais conhecidos (9892).
 
-    Inclui:
-    - Tournament stickers: Paper + Holo/Glitter + Foil + Gold
-    - Majors 2014-2026 (todos os eventos com stickers de time)
-    - Times dos 3 primeiros não-Majors (Austin/Budapest/Cologne)
+    Fonte primaria: ByMykel/CSGO-API (dados oficiais do schema do jogo).
+    Inclui tournament (Team), autograph, community e event stickers.
+    + Premium stickers com nomes nao encontrados na API.
     """
     return list(_ALL_STICKERS.keys())
 

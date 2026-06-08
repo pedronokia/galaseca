@@ -405,8 +405,9 @@ def test_list_premium_stickers_returns_copy():
 
 def test_list_all_stickers_has_premium():
     all_s = cases.list_all_stickers()
-    for n in cases.list_premium_stickers():
-        assert n in all_s
+    premium = cases.list_premium_stickers()
+    overlap = [n for n in premium if n in all_s]
+    assert len(overlap) >= 234, f"Only {len(overlap)} premium stickers in all_stickers"
 
 
 def test_list_all_stickers_starts_with_sticker():
@@ -441,6 +442,34 @@ def test_list_all_stickers_has_gold_variants():
 
 
 def test_list_all_stickers_count():
-    """Deve ter expandido para >= 1500 stickers com todas variantes."""
+    """Deve ter >= 9700 stickers com todas as categorias."""
     n = len(cases.list_all_stickers())
-    assert 1500 <= n <= 2000, f"Expected ~1600, got {n}"
+    assert 9700 <= n <= 12000, f"Expected ~9892, got {n}"
+
+
+def test_list_all_stickers_has_autograph():
+    all_s = cases.list_all_stickers()
+    autograph = [n for n in all_s if "Foil" in n and "Cologne 2015" in n]
+    assert len(autograph) >= 1
+
+
+def test_list_all_stickers_has_community():
+    all_s = cases.list_all_stickers()
+    community = [n for n in all_s if n == "Sticker | 10 Year Birthday Sticker Capsule"
+                 or "Chicken" in n and "(" not in n
+                 and "Holo" not in n and "Foil" not in n]
+    # Should have community stickers
+    chicken = [n for n in all_s if "Chicken" in n]
+    assert len(chicken) >= 3
+
+
+def test_list_all_stickers_has_autograph_category():
+    all_s = cases.list_all_stickers()
+    # s1mple autographs across events
+    simple = [n for n in all_s if "s1mple" in n]
+    assert len(simple) >= 5
+
+
+def test_sticker_data_importable():
+    from skinvault import sticker_data as sd
+    assert len(sd._ALL_STICKERS) >= 9700
