@@ -767,6 +767,38 @@ def list_all_stickers() -> list[str]:
     return list(_ALL_STICKERS.keys())
 
 
+def list_stickers_by_category(category: str) -> list[str]:
+    """Retorna stickers de uma categoria especifica.
+
+    Categorias: 'Team' (1743), 'Autograph' (7075), 'Community' (850), 'Event' (72).
+    Premium extras sao tratados como 'Team' (origem mais comum).
+    """
+    return sorted(
+        k for k, v in _ALL_STICKERS.items()
+        if v.get("category", "Team") == category
+    )
+
+
+def list_tournament_stickers() -> list[str]:
+    """Stickers de time/torneio (Team). 1743 itens."""
+    return list_stickers_by_category("Team")
+
+
+def list_autograph_stickers() -> list[str]:
+    """Stickers de autografo de jogador (Autograph). 7075 itens."""
+    return list_stickers_by_category("Autograph")
+
+
+def list_community_stickers() -> list[str]:
+    """Stickers tematicos/comunitarios/operacao (Community). 850 itens."""
+    return list_stickers_by_category("Community")
+
+
+def list_event_stickers() -> list[str]:
+    """Stickers de logo de evento (Event). 72 itens."""
+    return list_stickers_by_category("Event")
+
+
 # skin name (sem wear) -> case name
 # Foco em itens populares e liquidos.
 _SKIN_TO_CASE: dict[str, str] = {

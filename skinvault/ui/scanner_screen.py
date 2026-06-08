@@ -740,7 +740,10 @@ _SCAN_BY_CATEGORY = {
     ],
     "Cápsulas": cases.list_capsules(),
     "Autographs": cases.list_autograph_capsules(),
-    "Stickers": cases.list_all_stickers(),
+    "Stickers (Tournament)": cases.list_tournament_stickers(),
+    "Stickers (Autograph)": cases.list_autograph_stickers(),
+    "Stickers (Community)": cases.list_community_stickers(),
+    "Stickers (Event)": cases.list_event_stickers(),
 }
 
 

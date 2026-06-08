@@ -473,3 +473,56 @@ def test_list_all_stickers_has_autograph_category():
 def test_sticker_data_importable():
     from skinvault import sticker_data as sd
     assert len(sd._ALL_STICKERS) >= 9700
+
+
+def test_list_stickers_by_category_team():
+    team = cases.list_tournament_stickers()
+    assert len(team) >= 1700
+    assert all("Sticker | " in n for n in team[:100])
+    assert any("Titan" in n for n in team)
+    assert any("Natus Vincere" in n for n in team) or any("NaVi" in n for n in team)
+
+
+def test_list_stickers_by_category_autograph():
+    auto = cases.list_autograph_stickers()
+    assert 7000 <= len(auto) <= 7200
+    assert any("s1mple" in n for n in auto)
+    assert any("Foil" in n or "Gold" in n or "Glitter" in n for n in auto)
+
+
+def test_list_stickers_by_category_community():
+    comm = cases.list_community_stickers()
+    assert 800 <= len(comm) <= 900
+    assert any("Chicken" in n for n in comm)
+    assert any("Birthday" in n for n in comm) or any("Bomb" in n for n in comm)
+
+
+def test_list_stickers_by_category_event():
+    ev = cases.list_event_stickers()
+    assert 60 <= len(ev) <= 80
+    assert any("BLAST" in n or "IEM" in n or "ESL" in n for n in ev)
+
+
+def test_list_stickers_by_category_sum_matches_all():
+    total = len(cases.list_all_stickers())
+    team = len(cases.list_tournament_stickers())
+    auto = len(cases.list_autograph_stickers())
+    comm = len(cases.list_community_stickers())
+    ev = len(cases.list_event_stickers())
+    # Sum must be >= total (some premium extras may overlap categories)
+    assert team + auto + comm + ev >= total
+
+
+def test_sticker_categories_no_duplicates():
+    """Cada sticker aparece exatamente em uma categoria."""
+    team = set(cases.list_tournament_stickers())
+    auto = set(cases.list_autograph_stickers())
+    comm = set(cases.list_community_stickers())
+    ev = set(cases.list_event_stickers())
+    # No overlap between categories
+    assert team.isdisjoint(auto)
+    assert team.isdisjoint(comm)
+    assert team.isdisjoint(ev)
+    assert auto.isdisjoint(comm)
+    assert auto.isdisjoint(ev)
+    assert comm.isdisjoint(ev)
