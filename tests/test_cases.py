@@ -90,3 +90,87 @@ def test_normalize_handles_extra_whitespace():
     assert cases._normalize_skin_name(
         "  AK-47 | Redline (Field-Tested)  "
     ) == "AK-47 | Redline"
+
+
+# === Container input direto (caixa ou capsula) ===
+
+def test_case_status_direct_case_name():
+    r = cases.case_status("Chroma 2 Case")
+    assert r["case"] == "Chroma 2 Case"
+    assert r["status"] == "discontinued"
+    assert r["is_discontinued"] is True
+    assert r["year"] == 2015
+
+
+def test_case_status_direct_active_case():
+    r = cases.case_status("Fever Case")
+    assert r["case"] == "Fever Case"
+    assert r["status"] == "active"
+    assert r["is_discontinued"] is False
+
+
+def test_case_status_capsule_legends():
+    r = cases.case_status("Stockholm 2021 Legends Sticker Capsule")
+    assert r["case"] == "Stockholm 2021 Legends Sticker Capsule"
+    assert r["status"] == "discontinued"
+    assert r["is_discontinued"] is True
+    assert r["year"] == 2021
+    assert "descontinuada" in r["label"]
+
+
+def test_case_status_capsule_katowice_2014():
+    r = cases.case_status("Katowice 2014 Legends Sticker Capsule")
+    assert r["status"] == "discontinued"
+    assert r["year"] == 2014
+
+
+def test_case_status_capsule_unknown_returns_unknown():
+    r = cases.case_status("Fake 9999 Legends Sticker Capsule")
+    assert r["case"] is None
+    assert r["status"] == "unknown"
+
+
+def test_all_capsules_are_discontinued_after_cologne_2026():
+    """Apos IEM Cologne 2026 (22/05/2026), TODAS as capsulas viraram supply-fixa."""
+    non_disc = [
+        name for name, meta in cases._CAPSULES.items()
+        if meta.get("status") != "discontinued"
+    ]
+    assert not non_disc, f"Capsulas nao descontinuadas: {non_disc}"
+
+
+def test_capsules_have_year():
+    no_year = [
+        name for name, meta in cases._CAPSULES.items()
+        if "year" not in meta
+    ]
+    assert not no_year, f"Capsulas sem year: {no_year}"
+
+
+def test_is_container_recognizes_capsules():
+    assert cases.is_container("Stockholm 2021 Legends Sticker Capsule")
+    assert cases.is_container("Katowice 2014 Challengers Sticker Capsule")
+
+
+def test_capsules_and_cases_dont_collide():
+    """Nenhum nome deve aparecer em ambos _CASES e _CAPSULES."""
+    collisions = set(cases._CASES) & set(cases._CAPSULES)
+    assert not collisions, f"Nomes colidem: {collisions}"
+
+
+def test_capsule_count_minimum():
+    """Catalogo deve cobrir >= 50 capsulas (todos os Majors documentados)."""
+    assert len(cases._CAPSULES) >= 50
+
+
+def test_list_capsules_returns_all():
+    result = cases.list_capsules()
+    assert len(result) == len(cases._CAPSULES)
+    assert "Stockholm 2021 Legends Sticker Capsule" in result
+
+
+def test_list_capsules_returns_list_not_view():
+    """Mutar o retorno nao deve afetar _CAPSULES."""
+    result = cases.list_capsules()
+    result.append("FAKE")
+    assert "FAKE" not in cases._CAPSULES

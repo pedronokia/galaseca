@@ -77,6 +77,109 @@ _CASES: dict[str, dict] = {
     "The St. Marc Collection": {"status": "collection", "year": 2023},
 }
 
+
+# Cápsulas de Major (sticker capsules)
+#
+# Status: TODAS sao 'discontinued' por consequencia do update IEM Cologne 2026
+# (22/05/2026), que aboliu o sistema de capsulas — stickers de Major agora sao
+# vendidas direto via Major Shop com tokens. Cápsulas pré-Cologne 2026 viraram
+# supply-fixa permanente. Ver skinvault/valve_events.py (capsule_abolition_2026_05).
+#
+# Cápsulas pre-2024 ja estavam descontinuadas ha anos (drop cessava ~6-12 meses
+# pos-Major). Austin 2025 e Budapest 2025 foram afetadas pelo update Cologne 2026.
+_CAPSULES: dict[str, dict] = {
+    # 2014
+    "Katowice 2014 Legends Sticker Capsule": {"status": "discontinued", "year": 2014},
+    "Katowice 2014 Challengers Sticker Capsule": {"status": "discontinued", "year": 2014},
+    "Cologne 2014 Legends Sticker Capsule": {"status": "discontinued", "year": 2014},
+    "Cologne 2014 Challengers Sticker Capsule": {"status": "discontinued", "year": 2014},
+    "DreamHack 2014 Legends Sticker Capsule": {"status": "discontinued", "year": 2014},
+    "DreamHack 2014 Challengers Sticker Capsule": {"status": "discontinued", "year": 2014},
+
+    # 2015
+    "Katowice 2015 Legends Sticker Capsule": {"status": "discontinued", "year": 2015},
+    "Katowice 2015 Challengers Sticker Capsule": {"status": "discontinued", "year": 2015},
+    "ESL One Cologne 2015 Legends Sticker Capsule": {"status": "discontinued", "year": 2015},
+    "ESL One Cologne 2015 Challengers Sticker Capsule": {"status": "discontinued", "year": 2015},
+    "Cluj-Napoca 2015 Legends Sticker Capsule": {"status": "discontinued", "year": 2015},
+    "Cluj-Napoca 2015 Challengers Sticker Capsule": {"status": "discontinued", "year": 2015},
+
+    # 2016
+    "MLG Columbus 2016 Legends Sticker Capsule": {"status": "discontinued", "year": 2016},
+    "MLG Columbus 2016 Challengers Sticker Capsule": {"status": "discontinued", "year": 2016},
+    "ESL One Cologne 2016 Legends Sticker Capsule": {"status": "discontinued", "year": 2016},
+    "ESL One Cologne 2016 Challengers Sticker Capsule": {"status": "discontinued", "year": 2016},
+
+    # 2017
+    "Atlanta 2017 Legends Sticker Capsule": {"status": "discontinued", "year": 2017},
+    "Atlanta 2017 Challengers Sticker Capsule": {"status": "discontinued", "year": 2017},
+    "Krakow 2017 Legends Sticker Capsule": {"status": "discontinued", "year": 2017},
+    "Krakow 2017 Challengers Sticker Capsule": {"status": "discontinued", "year": 2017},
+
+    # 2018
+    "Boston 2018 Legends Sticker Capsule": {"status": "discontinued", "year": 2018},
+    "Boston 2018 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
+    "Boston 2018 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
+    "London 2018 Legends Sticker Capsule": {"status": "discontinued", "year": 2018},
+    "London 2018 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
+    "London 2018 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
+
+    # 2019
+    "Katowice 2019 Legends Sticker Capsule": {"status": "discontinued", "year": 2019},
+    "Katowice 2019 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
+    "Katowice 2019 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Legends Sticker Capsule": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
+
+    # 2020 (RMR — sem Major presencial)
+    "2020 RMR Legends": {"status": "discontinued", "year": 2020},
+    "2020 RMR Challengers": {"status": "discontinued", "year": 2020},
+    "2020 RMR Contenders": {"status": "discontinued", "year": 2020},
+
+    # 2021
+    "Stockholm 2021 Legends Sticker Capsule": {"status": "discontinued", "year": 2021},
+    "Stockholm 2021 Challengers Sticker Capsule": {"status": "discontinued", "year": 2021},
+    "Stockholm 2021 Contenders Sticker Capsule": {"status": "discontinued", "year": 2021},
+    "Stockholm 2021 Champions Sticker Capsule": {"status": "discontinued", "year": 2021},
+
+    # 2022
+    "Antwerp 2022 Legends Sticker Capsule": {"status": "discontinued", "year": 2022},
+    "Antwerp 2022 Challengers Sticker Capsule": {"status": "discontinued", "year": 2022},
+    "Antwerp 2022 Contenders Sticker Capsule": {"status": "discontinued", "year": 2022},
+    "Antwerp 2022 Champions Sticker Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Legends Sticker Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Challengers Sticker Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Contenders Sticker Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Champions Sticker Capsule": {"status": "discontinued", "year": 2022},
+
+    # 2023
+    "Paris 2023 Legends Sticker Capsule": {"status": "discontinued", "year": 2023},
+    "Paris 2023 Challengers Sticker Capsule": {"status": "discontinued", "year": 2023},
+    "Paris 2023 Contenders Sticker Capsule": {"status": "discontinued", "year": 2023},
+    "Paris 2023 Champions Sticker Capsule": {"status": "discontinued", "year": 2023},
+
+    # 2024
+    "Copenhagen 2024 Legends Sticker Capsule": {"status": "discontinued", "year": 2024},
+    "Copenhagen 2024 Challengers Sticker Capsule": {"status": "discontinued", "year": 2024},
+    "Copenhagen 2024 Contenders Sticker Capsule": {"status": "discontinued", "year": 2024},
+    "Copenhagen 2024 Champions Sticker Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Legends Sticker Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Challengers Sticker Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Contenders Sticker Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Champions Sticker Capsule": {"status": "discontinued", "year": 2024},
+
+    # 2025
+    "Austin 2025 Legends Sticker Capsule": {"status": "discontinued", "year": 2025},
+    "Austin 2025 Challengers Sticker Capsule": {"status": "discontinued", "year": 2025},
+    "Austin 2025 Contenders Sticker Capsule": {"status": "discontinued", "year": 2025},
+    "Austin 2025 Champions Sticker Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Legends Sticker Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Challengers Sticker Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Contenders Sticker Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Champions Sticker Capsule": {"status": "discontinued", "year": 2025},
+}
+
 # skin name (sem wear) -> case name
 # Foco em itens populares e liquidos.
 _SKIN_TO_CASE: dict[str, str] = {
@@ -254,21 +357,35 @@ def _normalize_skin_name(name: str) -> str:
 
 
 def case_status(name: str) -> dict:
-    """Retorna informacoes de caixa/colecao para o item.
+    """Retorna informacoes de caixa/colecao/capsula para o item.
 
     Output:
     {
-      "case": str | None,           # nome da caixa/colecao
+      "case": str | None,           # nome da caixa/colecao/capsula
       "status": str,                # active | discontinued | rare | collection | unknown
       "is_discontinued": bool,
       "is_rare": bool,
       "year": int | None,
       "label": str,                 # texto curto pra UI
     }
+
+    Aceita 3 tipos de input:
+    1. Nome de skin (ex: "AK-47 | Redline (Field-Tested)") -> mapeia via _SKIN_TO_CASE
+    2. Nome direto de caixa (ex: "Chroma 2 Case") -> lookup em _CASES
+    3. Nome direto de capsula (ex: "Stockholm 2021 Legends Sticker Capsule")
+       -> lookup em _CAPSULES
     """
     skin = _normalize_skin_name(name)
 
-    # Match exato primeiro
+    # (2) Match direto em _CASES (input e' o nome de uma caixa)
+    if skin in _CASES:
+        return _container_status_dict(skin, _CASES[skin])
+
+    # (3) Match direto em _CAPSULES (input e' o nome de uma capsula)
+    if skin in _CAPSULES:
+        return _container_status_dict(skin, _CAPSULES[skin])
+
+    # (1) Match skin -> case via _SKIN_TO_CASE
     case_name = _SKIN_TO_CASE.get(skin)
 
     # Match parcial: skin name pode ser substring (gloves variants etc)
@@ -289,6 +406,11 @@ def case_status(name: str) -> dict:
         }
 
     meta = _CASES.get(case_name, {})
+    return _container_status_dict(case_name, meta)
+
+
+def _container_status_dict(container_name: str, meta: dict) -> dict:
+    """Constroi o dict de retorno de case_status a partir do meta do container."""
     status = meta.get("status", "unknown")
     year = meta.get("year")
 
@@ -296,17 +418,17 @@ def case_status(name: str) -> dict:
     is_rare = status == "rare"
 
     if status == "discontinued":
-        label = f"{case_name} (descontinuada"
+        label = f"{container_name} (descontinuada"
         if year:
             label += f", {year}"
         label += ")"
     elif status == "active":
-        label = f"{case_name} (ativa)"
+        label = f"{container_name} (ativa)"
     else:
-        label = f"{case_name}"
+        label = f"{container_name}"
 
     return {
-        "case": case_name,
+        "case": container_name,
         "status": status,
         "is_discontinued": is_disc,
         "is_rare": is_rare,
@@ -318,6 +440,15 @@ def case_status(name: str) -> dict:
 def list_cases_by_status(status: str) -> list[str]:
     """Lista nomes de cases por status."""
     return [name for name, meta in _CASES.items() if meta.get("status") == status]
+
+
+def list_capsules() -> list[str]:
+    """Lista todas as capsulas catalogadas.
+
+    Apos IEM Cologne 2026 (22/05/2026), todas as capsulas legacy viraram
+    supply-fixa permanente. Usada como categoria 'Cápsulas' no Scanner.
+    """
+    return list(_CAPSULES.keys())
 
 
 _CONTAINER_SUFFIXES = (

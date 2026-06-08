@@ -30,7 +30,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import backtest, cases, ranking, signals, ssr_cache, steam_api
+from skinvault import (
+    backtest, cases, ranking, signals, ssr_cache, steam_api, valve_events,
+)
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
@@ -702,6 +704,7 @@ _SCAN_BY_CATEGORY = {
         "Revolution Case", "Kilowatt Case",
         "Gallery Case", "Fever Case",
     ],
+    "Cápsulas": cases.list_capsules(),
 }
 
 
@@ -770,6 +773,7 @@ class ScannerScreen(QWidget):
         for cat in _SCAN_BY_CATEGORY:
             self._cat_combo.addItem(cat)
         self._cat_combo.addItem("Todas as categorias")
+        self._cat_combo.currentTextChanged.connect(self._refresh_regime_banner)
         hdr.addWidget(self._cat_combo)
 
         self._scan_btn = QPushButton("Escanear")
@@ -838,6 +842,18 @@ class ScannerScreen(QWidget):
         filt_row.addWidget(self._hide_low_conf_cb)
         filt_row.addStretch(1)
         root.addLayout(filt_row)
+
+        # Banner de aviso quando update recente da Valve afetou a categoria
+        self._regime_banner = QLabel()
+        self._regime_banner.setWordWrap(True)
+        self._regime_banner.setStyleSheet(
+            "background: #2a2410; border: 1px solid #6b5a1a;"
+            " color: #d8c267; border-radius: 8px;"
+            f" padding: 10px 14px; font-size: {t.FS_INPUT};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        self._regime_banner.setVisible(False)
+        root.addWidget(self._regime_banner)
 
         # Stats
         stats_row = QHBoxLayout()
@@ -908,6 +924,29 @@ class ScannerScreen(QWidget):
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
         )
         root.addWidget(self._status)
+
+        # Reflete categoria inicial no banner (ja apos widgets prontos)
+        self._refresh_regime_banner(self._cat_combo.currentText())
+
+    def _refresh_regime_banner(self, category: str) -> None:
+        """Mostra aviso amarelo quando update recente da Valve mudou regime."""
+        ev = valve_events.latest_regime_change(category)
+        if ev is None:
+            self._regime_banner.setVisible(False)
+            return
+        from datetime import date as _date
+        days_ago = (_date.today() - ev["date"]).days
+        if days_ago > 180:
+            self._regime_banner.setVisible(False)
+            return
+        when = ev["date"].strftime("%d/%m/%Y")
+        self._regime_banner.setText(
+            f"Aviso — update recente da Valve afetou {category}: "
+            f"{ev['title']} ({when}, ha {days_ago} dias). "
+            f"Regime de mercado pode ter mudado; interprete o score com cautela."
+        )
+        self._regime_banner.setToolTip(ev["summary"])
+        self._regime_banner.setVisible(True)
 
     def _on_scan(self) -> None:
         cat = self._cat_combo.currentText()
