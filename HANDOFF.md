@@ -335,7 +335,7 @@ for flag in (True, False):
 - **Spearman cápsulas + autographs (combinado):** +0.0874 (Δ = -0.0160 vs só cápsulas — dilui)
 - **Premium stickers (Majors 2014-2024):** 386 itens (Holo/Glitter)
 - **ALL stickers (universo completo):** 9892 itens (Team 1743 + Autograph 7075 + Community 850 + Event 72 + Premium extras 152)
-- **Spearman stickers:** +0.0931 (PASSOU — Pearson +0.0295, bucket 85+ N=56, hit 73.2%)
+- **Spearman stickers (386 premium c/ cache quente):** +0.0931 (17270 samples) — mesmo baseline, cache frio para 9506 novos itens
 - **Bucket 70-84 caixas:** +31.0% / 64% hit (n=1107) — sweet spot
 - **Bucket 70-84 cápsulas:** +21.3% / 64% hit (n=822) — sweet spot
 - **Bucket 85-100 caixas:** +56.0% / 71% hit (n=312)

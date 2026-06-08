@@ -232,7 +232,7 @@ def _cli_backtest(args: list[str]) -> None:
     corr = backtest_mod.correlation(all_samples)
     print()
     print(backtest_mod.format_report(
-        buckets, correlation_value=corr,
+        buckets, spearman_value=corr,
         horizon_days=horizon, total_samples=len(all_samples),
     ))
 
