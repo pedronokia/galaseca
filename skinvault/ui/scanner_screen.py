@@ -856,6 +856,17 @@ class ScannerScreen(QWidget):
         )
         self._clear_cache_btn.clicked.connect(self._on_clear_ssr_cache)
         hdr.addWidget(self._clear_cache_btn)
+
+        self._export_btn = QPushButton("Exportar CSV")
+        self._export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._export_btn.setStyleSheet(t.btn_ghost())
+        self._export_btn.setToolTip(
+            "Exporta os resultados do scan atual para CSV."
+            " Abre dialogo para escolher nome e pasta."
+        )
+        self._export_btn.clicked.connect(self._on_export_csv)
+        self._export_btn.setEnabled(False)
+        hdr.addWidget(self._export_btn)
         root.addLayout(hdr)
 
         # Filtros sob o header
@@ -1316,6 +1327,7 @@ class ScannerScreen(QWidget):
             self._scan_btn.setEnabled(True)
             self._rank_btn.setEnabled(True)
             self._validate_btn.setEnabled(True)
+            self._export_btn.setEnabled(True)
             self._status.setText(
                 f"Scan concluido: {len(self._scan_results)} itens"
             )
@@ -1411,6 +1423,59 @@ class ScannerScreen(QWidget):
             return
         cache.clear()
         self._status.setText("Cache SSR limpo. Dados serão baixados na próxima consulta.")
+
+    def _on_export_csv(self) -> None:
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        if not self._scan_results:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Exportar CSV", "scan_results.csv",
+            "CSV (*.csv);;Todos (*)",
+        )
+        if not path:
+            return
+        import csv, io
+        cols = [
+            "Item", "Score", "Veredito", "Preco", "Justo",
+            "Spread", "Book", "Tendencia", "S/D",
+            "Confianca", "Categoria", "Risco",
+        ]
+        try:
+            with io.open(path, "w", newline="", encoding="utf-8-sig") as f:
+                w = csv.writer(f)
+                w.writerow(cols)
+                for r in self._scan_results:
+                    dq = r.get("data_quality") or {}
+                    pr = r.get("pump_risk") or {}
+                    risk = pr.get("level", "")
+                    case_label = r.get("case_label", "")
+                    price_val = r.get("price", "")
+                    med_val = r.get("median", "")
+                    if isinstance(price_val, (int, float)):
+                        price_s = f"{price_val:.2f}"
+                    else:
+                        price_s = str(price_val)
+                    if isinstance(med_val, (int, float)):
+                        med_s = f"{med_val:.2f}"
+                    else:
+                        med_s = str(med_val)
+                    w.writerow([
+                        r.get("name", ""),
+                        r.get("score", ""),
+                        r.get("verdict", ""),
+                        price_s,
+                        med_s,
+                        r.get("spread", ""),
+                        r.get("book", ""),
+                        r.get("trend", ""),
+                        r.get("sd_label", ""),
+                        dq.get("level", ""),
+                        case_label,
+                        risk,
+                    ])
+            self._status.setText(f"Exportado: {path}")
+        except Exception as e:
+            QMessageBox.warning(self, "Erro ao exportar", str(e))
 
     # ── validacao do score (backtest ao vivo) ────────────
     def _on_validate_score(self) -> None:
