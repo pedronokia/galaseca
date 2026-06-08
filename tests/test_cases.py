@@ -180,3 +180,221 @@ def test_list_capsules_returns_list_not_view():
     result = cases.list_capsules()
     result.append("FAKE")
     assert "FAKE" not in cases._CAPSULES
+
+
+# === Autograph Capsules ===
+
+def test_case_status_autograph_capsule():
+    r = cases.case_status("Antwerp 2022 Champions Autograph Capsule")
+    assert r["case"] == "Antwerp 2022 Champions Autograph Capsule"
+    assert r["status"] == "discontinued"
+    assert r["is_discontinued"] is True
+    assert r["year"] == 2022
+    assert "descontinuada" in r["label"]
+
+
+def test_case_status_autograph_stockholm():
+    r = cases.case_status("Stockholm 2021 Champions Autograph Capsule")
+    assert r["status"] == "discontinued"
+    assert r["year"] == 2021
+
+
+def test_case_status_autograph_budapest():
+    r = cases.case_status("Budapest 2025 Contenders Autograph Capsule")
+    assert r["status"] == "discontinued"
+    assert r["year"] == 2025
+
+
+def test_case_status_autograph_unknown():
+    r = cases.case_status("Fake 9999 Autograph Capsule")
+    assert r["case"] is None
+    assert r["status"] == "unknown"
+
+
+def test_is_container_autograph():
+    assert cases.is_container("Antwerp 2022 Champions Autograph Capsule")
+    assert cases.is_container("Paris 2023 Legends Autograph Capsule")
+
+
+def test_list_autograph_capsules_returns_all():
+    result = cases.list_autograph_capsules()
+    assert len(result) == len(cases._AUTOGRAPH_CAPSULES)
+    assert "Stockholm 2021 Champions Autograph Capsule" in result
+
+
+def test_list_autograph_capsules_returns_list_not_view():
+    result = cases.list_autograph_capsules()
+    result.append("FAKE")
+    assert "FAKE" not in cases._AUTOGRAPH_CAPSULES
+
+
+def test_autograph_capsules_have_year():
+    no_year = [
+        name for name, meta in cases._AUTOGRAPH_CAPSULES.items()
+        if "year" not in meta
+    ]
+    assert not no_year, f"Autograph capsules sem year: {no_year}"
+
+
+def test_autograph_capsules_all_discontinued():
+    non_disc = [
+        name for name, meta in cases._AUTOGRAPH_CAPSULES.items()
+        if meta.get("status") != "discontinued"
+    ]
+    assert not non_disc, f"Autograph capsules nao descontinuadas: {non_disc}"
+
+
+def test_autograph_capsules_dont_collide_with_cases():
+    collisions = set(cases._AUTOGRAPH_CAPSULES) & set(cases._CASES)
+    assert not collisions, f"Colisao _AUTOGRAPH_CAPSULES x _CASES: {collisions}"
+
+
+def test_autograph_capsules_dont_collide_with_sticker_capsules():
+    collisions = set(cases._AUTOGRAPH_CAPSULES) & set(cases._CAPSULES)
+    assert not collisions, f"Colisao _AUTOGRAPH_CAPSULES x _CAPSULES: {collisions}"
+
+
+def test_autograph_count_minimum():
+    assert len(cases._AUTOGRAPH_CAPSULES) >= 28
+
+
+# --- Premium Stickers ---
+
+def test_premium_stickers_count():
+    """37 stickers curados de Majors 2014-2015."""
+    assert len(cases._PREMIUM_STICKERS) == 37
+
+
+def test_premium_stickers_have_year():
+    no_year = [
+        name for name, meta in cases._PREMIUM_STICKERS.items()
+        if "year" not in meta
+    ]
+    assert not no_year, f"Premium stickers sem year: {no_year}"
+
+
+def test_premium_stickers_have_source():
+    no_src = [
+        name for name, meta in cases._PREMIUM_STICKERS.items()
+        if "source" not in meta
+    ]
+    assert not no_src, f"Premium stickers sem source: {no_src}"
+
+
+def test_premium_stickers_katowice_2014_titan():
+    r = cases.case_status("Sticker | Titan (Holo) | Katowice 2014")
+    # Stickers individuais nao tem container mapping -> unknown
+    assert r["status"] == "unknown"
+    assert r["case"] is None
+
+
+def test_premium_stickers_cologne_2014_cloud9():
+    r = cases.case_status("Sticker | Cloud9 (Holo) | Cologne 2014")
+    assert r["status"] == "unknown"
+
+
+def test_premium_stickers_all_start_with_sticker():
+    bad = [
+        n for n in cases._PREMIUM_STICKERS
+        if not n.startswith("Sticker | ")
+    ]
+    assert not bad, f"Nomes sem prefixo 'Sticker | ': {bad}"
+
+
+def test_premium_stickers_no_colon_fallback():
+    """Certifies that sticker names with (Holo) in middle position
+    are NOT handled by worn/colon fallback case_status mapping.
+    The variant (Holo) is NOT at the end, so it's not stripped
+    by _normalize_skin_name."""
+    r = cases.case_status("Sticker | iBUYPOWER (Holo) | Katowice 2014")
+    assert r["status"] == "unknown"
+    assert r["case"] is None
+
+
+def test_premium_stickers_all_have_premium_prefix():
+    """All premium stickers must have "Sticker | " prefix (market standard)."""
+    for name in cases._PREMIUM_STICKERS:
+        assert name.startswith("Sticker | "), f"Bad prefix: {name}"
+
+
+def test_premium_stickers_katowice_2014_has_16():
+    """16 Katowice 2014 stickers (8 Legends + 8 Challengers)."""
+    kato_2014 = [
+        n for n in cases._PREMIUM_STICKERS
+        if "Katowice 2014" in n
+    ]
+    assert len(kato_2014) == 16, f"Expected 16, got {len(kato_2014)}"
+
+
+def test_premium_stickers_cologne_2014_has_10():
+    cologne_2014 = [
+        n for n in cases._PREMIUM_STICKERS
+        if "Cologne 2014" in n
+    ]
+    assert len(cologne_2014) == 10
+
+
+def test_premium_stickers_dreamhack_2014_has_6():
+    dh = [
+        n for n in cases._PREMIUM_STICKERS
+        if "DreamHack 2014" in n
+    ]
+    assert len(dh) == 6
+
+
+def test_premium_stickers_katowice_2015_has_5():
+    kato_2015 = [
+        n for n in cases._PREMIUM_STICKERS
+        if "Katowice 2015" in n
+    ]
+    assert len(kato_2015) == 5
+
+
+def test_premium_stickers_all_have_year_2014_or_2015():
+    bad = [
+        n for n, meta in cases._PREMIUM_STICKERS.items()
+        if meta.get("year") not in (2014, 2015)
+    ]
+    assert not bad, f"Stickers com year fora 2014/2015: {bad}"
+
+
+def test_premium_stickers_all_year_in_name():
+    """Verifica que o ano no nome do sticker bate com o meta year."""
+    bad = []
+    for name, meta in cases._PREMIUM_STICKERS.items():
+        if str(meta["year"]) not in name:
+            bad.append(name)
+    assert not bad, f"Ano do nome diferente do meta year: {bad}"
+
+
+def test_premium_stickers_no_collision_with_cases():
+    cols = set(cases._PREMIUM_STICKERS) & set(cases._CASES)
+    assert not cols, f"Colisao _PREMIUM_STICKERS x _CASES: {cols}"
+
+
+def test_premium_stickers_no_collision_with_capsules():
+    cols = set(cases._PREMIUM_STICKERS) & set(cases._CAPSULES)
+    assert not cols, f"Colisao _PREMIUM_STICKERS x _CAPSULES: {cols}"
+
+
+def test_premium_stickers_no_collision_with_autograph():
+    cols = set(cases._PREMIUM_STICKERS) & set(cases._AUTOGRAPH_CAPSULES)
+    assert not cols, f"Colisao _PREMIUM_STICKERS x _AUTOGRAPH_CAPSULES: {cols}"
+
+
+def test_premium_stickers_not_containers():
+    """Stickers individuais nao sao containers."""
+    name = "Sticker | Titan (Holo) | Katowice 2014"
+    assert not cases.is_container(name)
+
+
+def test_list_premium_stickers_returns_all():
+    result = cases.list_premium_stickers()
+    assert len(result) == len(cases._PREMIUM_STICKERS)
+    assert "Sticker | Titan (Holo) | Katowice 2014" in result
+
+
+def test_list_premium_stickers_returns_copy():
+    result = cases.list_premium_stickers()
+    result.append("FAKE")
+    assert "FAKE" not in cases._PREMIUM_STICKERS

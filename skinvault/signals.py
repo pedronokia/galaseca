@@ -12,36 +12,30 @@ from pathlib import Path
 
 from skinvault._paths import DATA_DIR
 
-# EXPERIMENT 2026-06-08: vintage decade bonus — REVERTIDO 2x.
-# V1 (universal): reprovado — piorou em skins, inflou bucket 85+
-# com marginais.
-# V2 (containers-only): tambem reprovado pelo criterio estrito —
-# Pearson sobe em CAIXAS (+0.0051) mas marginal em CAPSULAS (+0.0016);
-# bucket 85+ avg ainda cai (-4pp caixas, -2pp capsulas) embora N suba
-# (+86 caixas) e hit rate suba (+1pp caixas). Trade-off "mais items
-# com avg menor", nao piora pura. Bug colateral descoberto: is_container
-# nao reconhecia capsulas vintage pre-2020 — fix aplicado em cases.py.
-# Decisao: flag=False (default). Bloco gated mantido pra retomar com
-# variantes (bonus menor, fator multiplicativo, gate negativo, ou
-# usuario opt-in via setting).
+# EXPERIMENT 2026-06-08: vintage bonus — REVERTIDO 3x.
+# V1 (universal +3): reprovado — piorou skins, inflou bucket 85+.
+# V2 (containers-only +3): reprovado — Pearson +0.0051 caixas, +0.0016
+# capsulas (falha); bucket 85+ avg cai -4pp caixas, -2pp capsulas.
+# V3 (containers-only +1): reprovado — Pearson +0.0018 caixas, +0.0006
+# capsulas, ambos abaixo do criterio (+0.002). Bucket 85+ avg cai -1.89pp
+# caixas, -0.55pp capsulas — menos dano que v2 mas ainda nao passa.
+# V3 confirmou que Spearman e 2.7x maior que Pearson em capsulas
+# (S-shaped), motivando migracao de metrica default.
 # Detalhes: memory/negative-finding-vintage-bonus.md
 _VINTAGE_BONUS_ENABLED = False
 _VINTAGE_AGE_YEARS = 8
 _VINTAGE_BONUS = 3
 
-# EXPERIMENT 2026-06-08: pump_risk penalty (gated) — REPROVADO COMO SCORE.
-# Hipotese: combinacao >= 2 red flags (near ATH + rally 14d + volume
-# 7d) penaliza pump-and-dump / falling knife.
-# Resultado backtest:
-#   CAIXAS    +0.1243 -> +0.1241 (neutro)
-#   CAPSULAS  +0.0383 -> +0.0339 (PIORA -0.0044 — penaliza vintage
-#             em rally legitimo pos-Cologne 2026)
-#   SKINS     +0.0056 -> +0.0079 (+0.0023 marginal)
-#   Clutch Case: 27/206 sims no 85+ identico ON/OFF — criterio "rally
-#   +30% em 14d" estrito demais pra falling knife que sobe devagar.
-# Decisao: NAO penalizar score. Mas `pump_risk()` continua util como
-# flag UI (coluna "Risco" no Scanner) — info ao usuario sem afetar
-# bucket. Ver memory/pump-risk-score-vs-ui.md.
+# EXPERIMENT 2026-06-08: pump_risk penalty (gated) — REPROVADO 2x.
+# V1 (rally +30%/14d): reprovado — CAIXAS neutro, CAPSULAS -0.0044,
+#   SKINS +0.0023. Clutch Case nao pego (criterio estrito demais).
+# V2 (rally +20%/30d, at_ath peso 2, valve_events exclusion):
+#   CAIXAS -0.0037 Spearman (PIORA), CAPSULAS +0.0037 (PASSA),
+#   SKINS +0.0081 (PASSA). 2/3 universos passam Spearman, mas
+#   Clutch Case ainda tem 27/206 (13.1%) no 85+ — zero melhora.
+# Decisao: flag=False (default). Funcao pump_risk() mantida publica
+# pra uso visual (coluna Risco no Scanner).
+# Detalhes: memory/pump-risk-score-vs-ui.md
 _PUMP_PENALTY_ENABLED = False
 _PUMP_HIGH_PENALTY = -10
 
@@ -433,57 +427,61 @@ def relative_to_ath(price_history: list[dict]) -> dict:
 
 
 def pump_risk(price_history: list[dict] | None = None,
-              volume_history: list[dict] | None = None) -> dict:
+              volume_history: list[dict] | None = None,
+              category: str | None = None) -> dict:
     """Detecta combinacao de red flags de pump-and-dump / falling knife.
 
-    Combina 3 sinais factuais:
-      1. Near/at ATH (rel_ath band) — topo historico, upside limitado
-      2. Rally recente >= +30% em 14d — subida rapida sem catalyst conhecido
+    Combina 3 sinais factuais (v2, 2026-06-08):
+      1. Near/at ATH (rel_ath band) — at_ath conta como 2 flags
+      2. Rally recente >= +20% em 30d — mais flexivel que v1 (+30%/14d)
       3. Volume sustentado 7d >= 2x media 30d — atividade anormal
+
+    Se category e' fornecida e valve_events.latest_regime_change(category)
+    retornar um evento < 180d atras, as flags ATH e rally sao suspensas
+    (movimento tem catalyst legitimo conhecido). Apenas volume anomaly
+    ainda conta.
 
     Output:
       {level: 'low'|'medium'|'high', flags: int, reasons: list[str]}
 
     level = 'low' se 0 flags, 'medium' se 1, 'high' se 2+.
-
-    Filosofia honesta: descreve combinacao de sinais, nao preve.
-    Items com level='high' historicamente tem upside limitado e
-    downside grande — ver memoria clutch-case-falling-knife (squeeze
-    tardio em containers vintage) e M4A1 Nightmare pump
-    $115->$400 dez/2025 (memoria feedback-valve-updates).
-
-    Caveat: nao distingue pump artificial de catalyst genuino
-    (ex: capsulas Stockholm 2021 pos-update Cologne 2026 podem
-    aparecer como 'high' por motivo legitimo). Combinar com
-    valve_events.latest_regime_change ao interpretar.
     """
     reasons: list[str] = []
     flags = 0
 
-    # Flag 1: near/at ATH
+    # Valve events exclusion: se categoria tem regime change recente,
+    # suspende flags ATH e rally (movimento e' catalyst legitimo)
+    from skinvault.valve_events import latest_regime_change
+    regime_change = (latest_regime_change(category)
+                     if category else None)
+    regime_recent = (regime_change
+                     and (date.today() - regime_change["date"]).days < 180)
+
+    # Flag 1: near/at ATH (at_ath peso 2)
     if price_history and len(price_history) >= 10:
         rta = relative_to_ath(price_history)
         band = rta.get("band") if rta else None
-        if band in ("near_ath", "at_ath"):
-            flags += 1
+        if band in ("near_ath", "at_ath") and not regime_recent:
+            peso = 2 if band == "at_ath" else 1
+            flags += peso
             pct = rta.get("pct_of_ath", 0) * 100
-            reasons.append(f"{pct:.0f}% do ATH ({band})")
+            reasons.append(f"{pct:.0f}% do ATH ({band}, peso {peso})")
 
-    # Flag 2: rally recente >= +30% em 14d
-    if price_history and len(price_history) >= 14:
+    # Flag 2: rally recente >= +20% em 30d (v1 era +30%/14d)
+    if price_history and len(price_history) >= 30 and not regime_recent:
         try:
             sorted_h = sorted(price_history, key=lambda x: x["time"])
         except (KeyError, TypeError):
             sorted_h = list(price_history)
         prices = [p["price_median"] for p in sorted_h]
-        if len(prices) >= 14:
+        if len(prices) >= 30:
             recent = prices[-1]
-            earlier = prices[-14]
+            earlier = prices[-30]
             if earlier > 0:
                 pct_change = (recent - earlier) / earlier
-                if pct_change >= 0.30:
+                if pct_change >= 0.20:
                     flags += 1
-                    reasons.append(f"Rally +{pct_change*100:.0f}% em 14d")
+                    reasons.append(f"Rally +{pct_change*100:.0f}% em 30d")
 
     # Flag 3: volume sustentado 7d vs 30d
     if volume_history and len(volume_history) >= 30:

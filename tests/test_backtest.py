@@ -290,18 +290,121 @@ def test_correlation_zero_variance():
     assert backtest.correlation(samples) is None
 
 
+# ---------- spearman_correlation ----------
+
+def test_spearman_positiva_perfeita():
+    samples = [
+        {"item": "X", "ts": 0, "score": s, "return_pct": float(s),
+         "breakdown_count": 0}
+        for s in [10, 20, 30, 40, 50, 60, 70, 80, 90]
+    ]
+    s = backtest.spearman_correlation(samples)
+    assert s == 1.0
+
+
+def test_spearman_insufficient():
+    assert backtest.spearman_correlation([]) is None
+    assert backtest.spearman_correlation([
+        {"item": "X", "ts": 0, "score": 50, "return_pct": 5.0,
+         "breakdown_count": 0}]) is None
+
+
+def test_spearman_robusto_a_outlier():
+    """Spearman é menos sensível a outlier extremo que Pearson."""
+    samples = [
+        {"item": "X", "ts": 0, "score": 10, "return_pct": 1.0,
+         "breakdown_count": 0},
+        {"item": "X", "ts": 0, "score": 20, "return_pct": 2.0,
+         "breakdown_count": 0},
+        {"item": "X", "ts": 0, "score": 30, "return_pct": 3.0,
+         "breakdown_count": 0},
+        {"item": "X", "ts": 0, "score": 40, "return_pct": 4.0,
+         "breakdown_count": 0},
+        {"item": "X", "ts": 0, "score": 50, "return_pct": 500.0,
+         "breakdown_count": 0},
+    ]
+    p = backtest.pearson_correlation(samples)
+    s = backtest.spearman_correlation(samples)
+    assert p is not None and s is not None
+    assert abs(s) > abs(p)  # Spearman menos distorcido pelo outlier
+
+
+def test_spearman_igual_pearson_monotono_linear():
+    """Em dados perfeitamente lineares, Spearman == Pearson."""
+    samples = [
+        {"item": "X", "ts": 0, "score": s, "return_pct": float(s * 2 + 5),
+         "breakdown_count": 0}
+        for s in [10, 20, 30, 40, 50, 55, 60, 70, 80, 90]
+    ]
+    p = backtest.correlation(samples)
+    s = backtest.spearman_correlation(samples)
+    assert p is not None and s is not None
+    assert p == 1.0
+    assert s == 1.0
+
+
+# ---------- _rank ----------
+
+def test_rank_no_ties():
+    r = backtest._rank([10.0, 30.0, 20.0])
+    assert r == [0.0, 2.0, 1.0]
+
+
+def test_rank_with_ties():
+    r = backtest._rank([10.0, 20.0, 20.0, 30.0])
+    assert r == [0.0, 1.5, 1.5, 3.0]
+
+
+def test_rank_all_same():
+    r = backtest._rank([5.0, 5.0, 5.0])
+    assert r == [1.0, 1.0, 1.0]
+
+
+# ---------- correlation_by_bucket ----------
+
+def test_correlation_by_bucket_70plus():
+    samples = [
+        {"item": "X", "ts": 0, "score": s, "return_pct": float(s),
+         "breakdown_count": 0}
+        for s in [20, 40, 60, 75, 80, 85, 90]
+    ]
+    out = backtest.correlation_by_bucket(samples, 70, 101)
+    assert out["n"] == 4
+    assert out["pearson"] == 1.0
+    assert out["spearman"] == 1.0
+
+
+def test_correlation_by_bucket_insufficient():
+    out = backtest.correlation_by_bucket([], 70, 101)
+    assert out["n"] == 0
+    assert out["pearson"] is None
+    assert out["spearman"] is None
+
+
 # ---------- format_report ----------
 
 def test_format_report_basico():
     buckets = backtest.aggregate_by_bucket([])
-    out = backtest.format_report(buckets, correlation_value=0.1234,
+    out = backtest.format_report(buckets, spearman_value=0.1150,
                                   horizon_days=30, total_samples=0)
     assert "Backtest enhanced_score" in out
     assert "Bucket" in out
+    assert "0.1150" in out
+
+
+def test_format_report_com_spearman():
+    buckets = backtest.aggregate_by_bucket([])
+    out = backtest.format_report(buckets, spearman_value=0.1150,
+                                  pearson_value=0.1234,
+                                  horizon_days=30, total_samples=0)
+    assert "Pearson" in out
+    assert "Spearman" in out
     assert "0.1234" in out
+    assert "0.1150" in out
 
 
 def test_format_report_sem_correlacao():
     buckets = backtest.aggregate_by_bucket([])
     out = backtest.format_report(buckets, horizon_days=30, total_samples=0)
-    assert "Correlacao" not in out
+    assert "Pearson" not in out
+    assert "Spearman" not in out

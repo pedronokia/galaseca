@@ -138,7 +138,8 @@ _CAPSULES: dict[str, dict] = {
     "2020 RMR Contenders": {"status": "discontinued", "year": 2020},
 
     # 2021+ — passou a usar "Sticker Capsule" no sufixo.
-    # Champions Capsule deixou de existir como Team Capsule (so' Autograph).
+    # Champions Autograph Capsules foram movidas para _AUTOGRAPH_CAPSULES
+    # (assinatura de jogadores, mercado diferente).
     "Stockholm 2021 Legends Sticker Capsule": {"status": "discontinued", "year": 2021},
     "Stockholm 2021 Challengers Sticker Capsule": {"status": "discontinued", "year": 2021},
     "Stockholm 2021 Contenders Sticker Capsule": {"status": "discontinued", "year": 2021},
@@ -171,6 +172,121 @@ _CAPSULES: dict[str, dict] = {
     "Budapest 2025 Legends Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Budapest 2025 Challengers Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Budapest 2025 Contenders Sticker Capsule": {"status": "discontinued", "year": 2025},
+}
+
+# === AUTOGRAPH CAPSULES (assinatura de jogadores, nao logos de times)
+#
+# Autograph Capsules contem stickers de assinatura de jogadores em vez de logos
+# de times. Compartilham a tese de escassez estrutural (todas discontinued pos-
+# Cologne 2026), mas o driver de demanda e' diferente (performance do player /
+# nostalgia vs sticker de time).
+#
+# Cobertura: 2021+ apenas (naming consistente).
+# Pre-2020 excluido: naming heterogeneo (3 formatos), drivers atrelados a
+# performance individual, muitos itens com liquidez baixa.
+#
+# Naming: "{Event} {Tier} Autograph Capsule" (mesmo padrao das Sticker Capsules)
+_AUTOGRAPH_CAPSULES: dict[str, dict] = {
+    # 2021 — Stockholm teve 2 tiers (Champions + Finalists)
+    "Stockholm 2021 Champions Autograph Capsule": {"status": "discontinued", "year": 2021},
+    "Stockholm 2021 Finalists Autograph Capsule": {"status": "discontinued", "year": 2021},
+
+    # 2022
+    "Antwerp 2022 Champions Autograph Capsule": {"status": "discontinued", "year": 2022},
+    "Antwerp 2022 Legends Autograph Capsule": {"status": "discontinued", "year": 2022},
+    "Antwerp 2022 Challengers Autograph Capsule": {"status": "discontinued", "year": 2022},
+    "Antwerp 2022 Contenders Autograph Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Champions Autograph Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Legends Autograph Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Challengers Autograph Capsule": {"status": "discontinued", "year": 2022},
+    "Rio 2022 Contenders Autograph Capsule": {"status": "discontinued", "year": 2022},
+
+    # 2023
+    "Paris 2023 Champions Autograph Capsule": {"status": "discontinued", "year": 2023},
+    "Paris 2023 Legends Autograph Capsule": {"status": "discontinued", "year": 2023},
+    "Paris 2023 Challengers Autograph Capsule": {"status": "discontinued", "year": 2023},
+    "Paris 2023 Contenders Autograph Capsule": {"status": "discontinued", "year": 2023},
+
+    # 2024
+    "Copenhagen 2024 Champions Autograph Capsule": {"status": "discontinued", "year": 2024},
+    "Copenhagen 2024 Legends Autograph Capsule": {"status": "discontinued", "year": 2024},
+    "Copenhagen 2024 Challengers Autograph Capsule": {"status": "discontinued", "year": 2024},
+    "Copenhagen 2024 Contenders Autograph Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Champions Autograph Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Legends Autograph Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Challengers Autograph Capsule": {"status": "discontinued", "year": 2024},
+    "Shanghai 2024 Contenders Autograph Capsule": {"status": "discontinued", "year": 2024},
+
+    # 2025
+    "Austin 2025 Champions Autograph Capsule": {"status": "discontinued", "year": 2025},
+    "Austin 2025 Legends Autograph Capsule": {"status": "discontinued", "year": 2025},
+    "Austin 2025 Challengers Autograph Capsule": {"status": "discontinued", "year": 2025},
+    "Austin 2025 Contenders Autograph Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Champions Autograph Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Legends Autograph Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Challengers Autograph Capsule": {"status": "discontinued", "year": 2025},
+    "Budapest 2025 Contenders Autograph Capsule": {"status": "discontinued", "year": 2025},
+}
+
+# === PREMIUM STICKERS (tournament Holo/Foil/Gold de Majors antigos)
+#
+# Stickers individuais de alto valor de Majors passados. Diferente de capsulas
+# (que sao containers), stickers sao items individuais no Steam Market. A tese
+# de escassez estrutural se aplica: oferta fixa (capsulas foram descontinuadas),
+# demanda organica por nostalgia e colecao.
+#
+# Perigo: stickers sao alvo de pump groups (M4A1 Nightmare pattern). A coluna
+# Risco visual + pump_risk() ajudam a mitigar.
+#
+# Naming: "Sticker | {Team} ({Variant}) | {Event}"
+# Foco em Holo (mais valioso e liquido) dos Majors 2014-2015.
+_PREMIUM_STICKERS: dict[str, dict] = {
+    # === EMS Katowice 2014 Legends (8 teams, Holo) ===
+    "Sticker | Titan (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+    "Sticker | Natus Vincere (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+    "Sticker | Fnatic (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+    "Sticker | Ninjas in Pyjamas (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+    "Sticker | compLexity Gaming (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+    "Sticker | LGB eSports (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+    "Sticker | Team Dignitas (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+    "Sticker | Team LDLC.com (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+
+    # === EMS Katowice 2014 Challengers (8 teams, Holo) ===
+    "Sticker | iBUYPOWER (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+    "Sticker | Reason Gaming (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+    "Sticker | HellRaisers (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+    "Sticker | Virtus.Pro (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+    "Sticker | 3DMAX (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+    "Sticker | Clan-Mystik (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+    "Sticker | mousesports (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+    "Sticker | Vox Eminor (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+
+    # === ESL One Cologne 2014 (top Holo stickers) ===
+    "Sticker | Team Dignitas (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
+    "Sticker | iBUYPOWER (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
+    "Sticker | Titan (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
+    "Sticker | Team LDLC.com (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
+    "Sticker | Natus Vincere (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
+    "Sticker | Fnatic (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
+    "Sticker | Ninjas in Pyjamas (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
+    "Sticker | Virtus.Pro (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
+    "Sticker | Cloud9 (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
+    "Sticker | HellRaisers (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
+
+    # === DreamHack 2014 (Holo, only Legends capsule) ===
+    "Sticker | Cloud9 (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
+    "Sticker | Fnatic (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
+    "Sticker | Natus Vincere (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
+    "Sticker | Virtus.Pro (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
+    "Sticker | Ninjas in Pyjamas (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
+    "Sticker | Team Dignitas (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
+
+    # === ESL One Katowice 2015 (Holo) ===
+    "Sticker | Titan (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Legends (Holo-Foil)"},
+    "Sticker | Vox Eminor (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Challengers (Holo-Foil)"},
+    "Sticker | Fnatic (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Legends (Holo-Foil)"},
+    "Sticker | Natus Vincere (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Legends (Holo-Foil)"},
+    "Sticker | Virtus.Pro (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Challengers (Holo-Foil)"},
 }
 
 # skin name (sem wear) -> case name
@@ -362,11 +478,13 @@ def case_status(name: str) -> dict:
       "label": str,                 # texto curto pra UI
     }
 
-    Aceita 3 tipos de input:
+    Aceita 4 tipos de input:
     1. Nome de skin (ex: "AK-47 | Redline (Field-Tested)") -> mapeia via _SKIN_TO_CASE
     2. Nome direto de caixa (ex: "Chroma 2 Case") -> lookup em _CASES
-    3. Nome direto de capsula (ex: "Stockholm 2021 Legends Sticker Capsule")
+    3. Nome direto de sticker capsula (ex: "Stockholm 2021 Legends Sticker Capsule")
        -> lookup em _CAPSULES
+    4. Nome direto de autograph capsula (ex: "Antwerp 2022 Champions Autograph Capsule")
+       -> lookup em _AUTOGRAPH_CAPSULES
     """
     skin = _normalize_skin_name(name)
 
@@ -374,9 +492,13 @@ def case_status(name: str) -> dict:
     if skin in _CASES:
         return _container_status_dict(skin, _CASES[skin])
 
-    # (3) Match direto em _CAPSULES (input e' o nome de uma capsula)
+    # (3) Match direto em _CAPSULES (input e' o nome de uma sticker capsula)
     if skin in _CAPSULES:
         return _container_status_dict(skin, _CAPSULES[skin])
+
+    # (4) Match direto em _AUTOGRAPH_CAPSULES (input e' o nome de uma autograph capsula)
+    if skin in _AUTOGRAPH_CAPSULES:
+        return _container_status_dict(skin, _AUTOGRAPH_CAPSULES[skin])
 
     # (1) Match skin -> case via _SKIN_TO_CASE
     case_name = _SKIN_TO_CASE.get(skin)
@@ -444,6 +566,31 @@ def list_capsules() -> list[str]:
     return list(_CAPSULES.keys())
 
 
+def list_autograph_capsules() -> list[str]:
+    """Lista todas as Autograph Capsules catalogadas (2021+).
+
+    Assinaturas de jogadores em vez de logos de times. Mesma tese de
+    escassez estrutural das Sticker Capsules pos-Cologne 2026.
+    """
+    return list(_AUTOGRAPH_CAPSULES.keys())
+
+
+def list_premium_stickers() -> list[str]:
+    """Lista stickers premium curados (Holo/Foil/Gold de Majors 2014-2015).
+
+    Stickers individuais sao items de score puramente baseado em price_history
+    e signals (nao tem case_status como containers). A coluna Risco visual
+    ajuda a mitigar pump groups.
+
+    37 stickers atualmente:
+    - 16x Katowice 2014 (8 Legends + 8 Challengers, Holo)
+    - 10x Cologne 2014 (Holo)
+    - 6x DreamHack 2014 (Holo)
+    - 5x Katowice 2015 (Holo)
+    """
+    return list(_PREMIUM_STICKERS.keys())
+
+
 _CONTAINER_SUFFIXES = (
     " Case", " Capsule", " Package", " Pin", " Music Kit",
     " Sticker Capsule", " Patch Pack",
@@ -458,12 +605,15 @@ def is_container(name: str) -> bool:
 
     Reconhece: nome em _CASES, nome em _CAPSULES (capsulas vintage
     pre-2020 nao terminam com 'Capsule' — terminam com 'Legends',
-    'Challengers', '(Holo-Foil)' etc), ou sufixos conhecidos.
+    'Challengers', '(Holo-Foil)' etc), nome em _AUTOGRAPH_CAPSULES,
+    ou sufixos conhecidos.
     """
     if not name:
         return False
     if name in _CASES:
         return True
     if name in _CAPSULES:
+        return True
+    if name in _AUTOGRAPH_CAPSULES:
         return True
     return name.endswith(_CONTAINER_SUFFIXES)

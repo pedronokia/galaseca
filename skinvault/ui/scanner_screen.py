@@ -541,7 +541,9 @@ class _BacktestResultDialog(QDialog):
             return
 
         buckets = backtest.aggregate_by_bucket(self._samples)
-        corr = backtest.correlation(self._samples)
+        spearman_corr = backtest.correlation(self._samples)
+        pearson_corr = backtest.pearson_correlation(self._samples)
+        bucket70 = backtest.correlation_by_bucket(self._samples, 70, 101)
 
         # Tabela de buckets
         bucket_table = QTableWidget(len(buckets), 4)
@@ -588,25 +590,57 @@ class _BacktestResultDialog(QDialog):
         scatter = _ScatterPlot(self._samples)
         layout.addWidget(scatter)
 
-        # Correlação agregada
-        if corr is not None:
-            corr_color = (t.ACCENT if corr > 0.05 else
-                          (t.WARN if corr > 0 else t.DANGER))
-            corr_lbl = QLabel(
-                f"<b>Correlação Pearson (score × retorno):</b> "
-                f"<span style='color:{corr_color}'>{corr:+.4f}</span>"
+        # Correlação agregada (Spearman é default desde 2026-06-08)
+        if spearman_corr is not None:
+            scolor = (t.ACCENT if spearman_corr > 0.05 else
+                      (t.WARN if spearman_corr > 0 else t.DANGER))
+            s_lbl = QLabel(
+                f"<b>Spearman (score × retorno) — default:</b> "
+                f"<span style='color:{scolor}'>{spearman_corr:+.4f}</span>"
             )
-            corr_lbl.setTextFormat(Qt.TextFormat.RichText)
-            corr_lbl.setStyleSheet(
+            s_lbl.setTextFormat(Qt.TextFormat.RichText)
+            s_lbl.setStyleSheet(
                 f"color: {t.TEXT}; font-size: {t.FS_BODY};"
                 f" font-family: {t.FONT_FAMILY}; padding: 4px 0;"
             )
-            layout.addWidget(corr_lbl)
+            layout.addWidget(s_lbl)
 
+        if pearson_corr is not None:
+            pcolor = (t.ACCENT if pearson_corr > 0.05 else
+                      (t.WARN if pearson_corr > 0 else t.DANGER))
+            p_lbl = QLabel(
+                f"<b>Pearson (score × retorno):</b> "
+                f"<span style='color:{pcolor}'>{pearson_corr:+.4f}</span>"
+            )
+            p_lbl.setTextFormat(Qt.TextFormat.RichText)
+            p_lbl.setStyleSheet(
+                f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY}; padding: 2px 0;"
+            )
+            layout.addWidget(p_lbl)
+
+        if bucket70["n"] >= 3:
+            b70_text = (
+                f"<b>Bucket 70+ (n={bucket70['n']}):</b> "
+                f"Spearman {bucket70['spearman']:+.4f}, "
+                f"Pearson {bucket70['pearson']:+.4f}"
+            )
+            b70_lbl = QLabel(b70_text)
+            b70_lbl.setTextFormat(Qt.TextFormat.RichText)
+            b70_lbl.setStyleSheet(
+                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+                f" font-family: {t.FONT_FAMILY}; padding: 2px 0;"
+            )
+            layout.addWidget(b70_lbl)
+
+        if spearman_corr is not None or pearson_corr is not None:
             interp = QLabel(
                 "Valores > 0 indicam que score maior se associa a "
                 "retorno maior — o score está prevendo. < 0 seria "
-                "anti-sinal. Valores entre ±0.05 são fracos."
+                "anti-sinal. Valores entre ±0.05 são fracos. "
+                "Spearman é a métrica default desde 08/06/2026 — "
+                "mais robusto que Pearson quando a relação é "
+                "S-shaped (fraca no meio, forte nos extremos)."
             )
             interp.setStyleSheet(
                 f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
@@ -705,6 +739,8 @@ _SCAN_BY_CATEGORY = {
         "Gallery Case", "Fever Case",
     ],
     "Cápsulas": cases.list_capsules(),
+    "Autographs": cases.list_autograph_capsules(),
+    "Stickers": cases.list_premium_stickers(),
 }
 
 
@@ -732,7 +768,8 @@ class ScannerScreen(QWidget):
     COL_TREND = 7
     COL_SD = 8
     COL_SCORE = 9
-    COL_CONFIDENCE = 10
+    COL_RISCO = 10
+    COL_CONFIDENCE = 11
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -866,10 +903,10 @@ class ScannerScreen(QWidget):
         root.addLayout(stats_row)
 
         # Tabela
-        self._table = QTableWidget(0, 11)
+        self._table = QTableWidget(0, 12)
         self._table.setHorizontalHeaderLabels([
             "Item", "Sinal", "Preco", "Preco justo", "Veredito",
-            "Spread", "Book", "Tendencia", "S/D", "Score", "Conf.",
+            "Spread", "Book", "Tendencia", "S/D", "Score", "Risco", "Conf.",
         ])
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(
@@ -883,7 +920,7 @@ class ScannerScreen(QWidget):
         self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        for i in range(1, 11):
+        for i in range(1, 12):
             hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         self._table.doubleClicked.connect(
             lambda _idx: self._on_explain_selected()
@@ -1031,6 +1068,17 @@ class ScannerScreen(QWidget):
             page.get("price_history") if page else []
         )
 
+        # Deriva categoria para valve_events exclusion no pump_risk
+        _item_cat = next(
+            (c for c, items in _SCAN_BY_CATEGORY.items() if name in items),
+            None,
+        )
+        pr = signals.pump_risk(
+            price_history=page.get("price_history") if page else None,
+            volume_history=signals.load_item_volume(name),
+            category=_item_cat,
+        )
+
         ob_approx = bool(page.get("order_book_approx")) if page else False
         approx_suffix = " ~" if ob_approx else ""
         return {
@@ -1054,6 +1102,7 @@ class ScannerScreen(QWidget):
             "sd_label": signals.supply_demand_ratio(volume, supply).get("label", ""),
             "score_tooltip": signals.format_breakdown(breakdown),
             "case_label": cs.get("label", ""),
+            "pump_risk": pr,
             "order_book_approx": ob_approx,
         }
 
@@ -1096,6 +1145,12 @@ class ScannerScreen(QWidget):
             }
             dq_color = _dq_color_map.get(dq_level, t.TEXT_MUTED)
             dq_label = _dq_label_map.get(dq_level, "—")
+            pr = r.get("pump_risk") or {"level": "low", "reasons": []}
+            risk_level = pr.get("level", "low")
+            risk_colors = {"low": t.TEXT_MUTED, "medium": t.WARN, "high": t.DANGER}
+            risk_labels = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
+            risk_color = risk_colors.get(risk_level, t.TEXT_MUTED)
+            risk_label = risk_labels.get(risk_level, "—")
             cells = [
                 (_ln(r["name"]), None),
                 (label, score_color),
@@ -1107,6 +1162,7 @@ class ScannerScreen(QWidget):
                 (r["trend"], None),
                 (r["sd_label"], None),
                 (str(score), score_color),
+                (risk_label, risk_color),
                 (dq_label, dq_color),
             ]
             for col, (val, color) in enumerate(cells):
@@ -1120,6 +1176,17 @@ class ScannerScreen(QWidget):
             tip = r.get("score_tooltip", "")
             if tip:
                 self._table.item(i, self.COL_SCORE).setToolTip(tip)
+            # Tooltip do risco
+            if pr.get("reasons"):
+                risco_tip = (
+                    f"Risco: {risk_level.upper()}\n"
+                    + "\n".join(f"• {m}" for m in pr["reasons"])
+                    + "\n\nCombinação de sinais factuais de pump-and-dump / "
+                    "falling knife. NÃO é penalidade no score — "
+                    "apenas informação visual.\n"
+                    "Alto = 2+ flags combinadas (ATH + rally + volume)."
+                )
+                self._table.item(i, self.COL_RISCO).setToolTip(risco_tip)
             # Tooltip da confidence
             if dq:
                 conf_tip = (

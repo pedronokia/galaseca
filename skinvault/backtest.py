@@ -241,26 +241,94 @@ def aggregate_by_bucket(
     return out
 
 
-def correlation(samples: list[dict]) -> float | None:
-    """Correlacao de Pearson entre score e return_pct. None se < 3 samples."""
+def _pearson_raw(x: list[float], y: list[float]) -> float | None:
+    """Pearson bruto entre duas listas. None se < 3 ou variancia zero."""
+    if len(x) < 3 or len(y) < 3:
+        return None
+    n = len(x)
+    mean_x = sum(x) / n
+    mean_y = sum(y) / n
+    num = sum((x[i] - mean_x) * (y[i] - mean_y) for i in range(n))
+    den_x = sum((v - mean_x) ** 2 for v in x) ** 0.5
+    den_y = sum((v - mean_y) ** 2 for v in y) ** 0.5
+    if den_x == 0 or den_y == 0:
+        return None
+    return num / (den_x * den_y)
+
+
+def _rank(values: list[float]) -> list[float]:
+    """Rank transform com average para ties."""
+    indexed = [(v, i) for i, v in enumerate(values)]
+    indexed.sort(key=lambda x: x[0])
+    ranks = [0.0] * len(values)
+    i = 0
+    while i < len(indexed):
+        j = i
+        while j < len(indexed) and indexed[j][0] == indexed[i][0]:
+            j += 1
+        avg_rank = (i + j - 1) / 2.0  # average rank (0-indexed)
+        for k in range(i, j):
+            ranks[indexed[k][1]] = avg_rank
+        i = j
+    return ranks
+
+
+def correlation(samples: list[dict],
+                method: str = "spearman") -> float | None:
+    """Correlacao entre score e return_pct. None se < 3 samples.
+
+    method='spearman' (default) — rank-based, robusto a relacao S-shaped.
+    method='pearson' — linear, sensivel a outliers.
+    """
     if len(samples) < 3:
         return None
-    scores = [s["score"] for s in samples]
+    scores = [float(s["score"]) for s in samples]
     returns = [s["return_pct"] for s in samples]
-    n = len(scores)
-    mean_s = sum(scores) / n
-    mean_r = sum(returns) / n
-    num = sum((scores[i] - mean_s) * (returns[i] - mean_r) for i in range(n))
-    den_s = sum((s - mean_s) ** 2 for s in scores) ** 0.5
-    den_r = sum((r - mean_r) ** 2 for r in returns) ** 0.5
-    if den_s == 0 or den_r == 0:
-        return None
-    return round(num / (den_s * den_r), 4)
+    if method == "spearman":
+        r = _pearson_raw(_rank(scores), _rank(returns))
+    else:
+        r = _pearson_raw(scores, returns)
+    return round(r, 4) if r is not None else None
 
 
-def format_report(buckets: list[dict], correlation_value: float | None = None,
-                  horizon_days: int = 30, total_samples: int = 0) -> str:
-    """Formata relatorio textual do backtest pra terminal."""
+def pearson_correlation(samples: list[dict]) -> float | None:
+    """Correlacao de Pearson (linear) entre score e return_pct.
+    Mantida como atalho para comparacoes; prefira correlation() default."""
+    return correlation(samples, method="pearson")
+
+
+def spearman_correlation(samples: list[dict]) -> float | None:
+    """Correlacao de Spearman (rank-based) entre score e return_pct.
+    Atalho para correlation(method='spearman')."""
+    return correlation(samples, method="spearman")
+
+
+def correlation_by_bucket(samples: list[dict],
+                           bucket_lo: int = 70,
+                           bucket_hi: int = 101) -> dict:
+    """Pearson + Spearman limitado a amostras com score em [lo, hi).
+
+    Retorna {'pearson': float|None, 'spearman': float|None, 'n': int}.
+    Util para medir se a correlacao e' mais forte nos buckets altos
+    (onde o score supostamente tem mais poder preditivo).
+    """
+    filtered = [s for s in samples
+                if bucket_lo <= s["score"] < bucket_hi]
+    if len(filtered) < 3:
+        return {"pearson": None, "spearman": None, "n": len(filtered)}
+    p = pearson_correlation(filtered)
+    s = spearman_correlation(filtered)
+    return {"pearson": p, "spearman": s, "n": len(filtered)}
+
+
+def format_report(buckets: list[dict], spearman_value: float | None = None,
+                  horizon_days: int = 30, total_samples: int = 0,
+                  pearson_value: float | None = None) -> str:
+    """Formata relatorio textual do backtest pra terminal.
+
+    spearman_value e' a metrica principal (default).
+    pearson_value e' exibido se fornecido para comparacao.
+    """
     lines = [
         f"Backtest enhanced_score (horizonte: {horizon_days}d, "
         f"n={total_samples})",
@@ -275,9 +343,12 @@ def format_report(buckets: list[dict], correlation_value: float | None = None,
         lines.append(
             f"{b['bucket']:<10} {b['n']:>6} {avg:>10} {med:>10} {hit:>10}"
         )
-    if correlation_value is not None:
+    if spearman_value is not None:
         lines.append("")
-        lines.append(f"Correlacao Pearson(score, return): {correlation_value:+.4f}")
+        lines.append(f"Spearman(score, return): {spearman_value:+.4f} (default)")
+    if pearson_value is not None:
+        lines.append(f"Pearson(score, return):  {pearson_value:+.4f}")
+    if spearman_value is not None or pearson_value is not None:
         lines.append(
             "  > 0 => score maior se associa a retorno maior (sinal valido)"
         )

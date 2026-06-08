@@ -36,7 +36,7 @@ skinvault/
 ├── steam_login_dialog.py
 ├── sync.py         # orquestrador F10
 ├── signals.py      # tendência, anomaly, multi_trend, enhanced_score
-├── cases.py        # ~50 cases + ~100 skins mapeadas
+├── cases.py        # ~50 cases + ~100 skins mapeadas, 58 sticker capsules, 30 autograph capsules
 ├── alerts.py       # engine de regras (price_below, drop_pct, etc.)
 ├── ranking.py      # snapshots Top 20 com ΔPos
 ├── prices.py       # PriceCache TTL + persistência

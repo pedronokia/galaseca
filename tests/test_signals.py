@@ -968,25 +968,25 @@ def test_pump_risk_low_estavel():
 
 
 def test_pump_risk_high_pump_pattern():
-    # Preço subiu de 10 -> 100 nos ultimos 14d (rally +900%) e está no ATH
-    prices = [10.0] * 15 + [20.0, 40.0, 60.0, 80.0, 100.0]
+    # Preço subiu de 10 -> 100 em 30d (rally +900%) e está no ATH
+    prices = [10.0] * 30 + [20.0, 40.0, 60.0, 80.0, 100.0]
     ph = [{"time": i, "price_median": p, "purchases": 1}
           for i, p in enumerate(prices)]
     r = signals.pump_risk(ph, volume_history=None)
-    # ATH (1 flag) + Rally +30% (1 flag) -> high
+    # at_ath (peso 2) + Rally +20% em 30d (1 flag) -> high
     assert r["level"] == "high"
-    assert r["flags"] == 2
+    assert r["flags"] == 3
     assert any("ATH" in reason for reason in r["reasons"])
     assert any("Rally" in reason for reason in r["reasons"])
 
 
 def test_pump_risk_medium_near_ath_sem_rally():
-    # No ATH mas sem rally recente (estável há tempo)
-    prices = [100.0] * 20
+    # Near ATH (pct 80%, peso 1) mas sem rally recente — estável há tempo
+    prices = [80.0, 90.0, 100.0] + [80.0] * 30
     ph = [{"time": i, "price_median": p, "purchases": 1}
           for i, p in enumerate(prices)]
     r = signals.pump_risk(ph, volume_history=None)
-    # at_ath (1 flag) — sem rally (mesma faixa)
+    # ATH=100, last=80 -> 80% -> near_ath (peso 1) -> medium
     assert r["level"] == "medium"
     assert r["flags"] == 1
 

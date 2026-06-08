@@ -280,15 +280,19 @@ def test_scanner_filtro_status_mostra_ocultos(monkeypatch):
 
 
 def test_scanner_tabela_tem_coluna_conf():
-    """Tabela do Scanner tem 11 colunas, sendo a 11a 'Conf.'."""
+    """Tabela do Scanner tem 12 colunas, sendo a 12a 'Conf.' e a 11a 'Risco'."""
     from skinvault.prices import PriceCache
     from skinvault.ui.scanner_screen import ScannerScreen
     screen = ScannerScreen(PriceCache(ttl=3600))
-    assert screen._table.columnCount() == 11
-    assert screen.COL_CONFIDENCE == 10
-    hdr = screen._table.horizontalHeaderItem(10)
+    assert screen._table.columnCount() == 12
+    assert screen.COL_CONFIDENCE == 11
+    assert screen.COL_RISCO == 10
+    hdr = screen._table.horizontalHeaderItem(11)
     assert hdr is not None
     assert hdr.text() == "Conf."
+    risco_hdr = screen._table.horizontalHeaderItem(10)
+    assert risco_hdr is not None
+    assert risco_hdr.text() == "Risco"
 
 
 def test_scanner_populate_preenche_confianca_alta():
@@ -491,7 +495,7 @@ def test_backtest_result_dialog_com_samples():
     assert tables[0].rowCount() == 5  # 5 buckets
     # Texto de correlação presente
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
-    assert any("Correlação Pearson" in t for t in texts)
+    assert any("Pearson" in t for t in texts)
 
 
 def test_backtest_result_dialog_title_inclui_contagem():
