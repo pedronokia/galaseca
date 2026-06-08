@@ -12,32 +12,47 @@ from pathlib import Path
 
 from skinvault._paths import DATA_DIR
 
-# EXPERIMENT 2026-06-08: vintage bonus — REVERTIDO 3x.
-# V1 (universal +3): reprovado — piorou skins, inflou bucket 85+.
-# V2 (containers-only +3): reprovado — Pearson +0.0051 caixas, +0.0016
-# capsulas (falha); bucket 85+ avg cai -4pp caixas, -2pp capsulas.
-# V3 (containers-only +1): reprovado — Pearson +0.0018 caixas, +0.0006
-# capsulas, ambos abaixo do criterio (+0.002). Bucket 85+ avg cai -1.89pp
-# caixas, -0.55pp capsulas — menos dano que v2 mas ainda nao passa.
-# V3 confirmou que Spearman e 2.7x maior que Pearson em capsulas
-# (S-shaped), motivando migracao de metrica default.
-# Detalhes: memory/negative-finding-vintage-bonus.md
-_VINTAGE_BONUS_ENABLED = False
+# EXPERIMENT 2026-06-08: vintage bonus — V4 APROVADO (Spearman criterion).
+# Trajetoria:
+# - V1 (+3 universal): reprovado — piorou skins (-0.0033 Pe), inflou b85+.
+# - V2 (+3 containers-only): reprovado — Pe +0.0016 capsulas (falha);
+#   bucket 85+ avg cai -4pp caixas, -2pp capsulas.
+# - V3 aditivo (+1 containers-only): reprovado — Pe +0.0006 capsulas.
+# - V3 multiplicativo (×1.05 containers-only): reprovado — Pe capsulas +0.0014.
+# - V5 (+3 cont, age>=8, score>=60): inferior a V4 — Sp CAPSULAS +0.0010.
+# - V6 (×1.03 mult, age>=10): borderline, pior que V4.
+# V4 (+2 aditivo, containers-only, age >= 8): APROVADO por criterio Spearman
+# (metrica default desde 2026-06-08, S-shaped em capsulas).
+#   CAIXAS Sp +0.0057 / Pe +0.0046 — b85+ 200->233, avg +1.8pp, hit +2.7pp
+#   CAPSULAS Sp +0.0031 / Pe +0.0011 — b85+ estavel (avg -0.6pp tolerado)
+#   AUTOGRAPHS: sem efeito (todos pos-2021, age < 8)
+#   SKINS: sem efeito (containers-only filter)
+# 2/2 universos containers passam Sp >= 0.002. Bucket 85+ avg dentro
+# tolerancia (cai < 2pp em qualquer universo).
+# Detalhes: memory/vintage-v4-aprovado.md
+_VINTAGE_BONUS_ENABLED = True
 _VINTAGE_AGE_YEARS = 8
-_VINTAGE_MULTIPLIER = 1.05
+_VINTAGE_BONUS = 2
 
-# EXPERIMENT 2026-06-08: pump_risk penalty (gated) — REPROVADO 2x.
-# V1 (rally +30%/14d): reprovado — CAIXAS neutro, CAPSULAS -0.0044,
-#   SKINS +0.0023. Clutch Case nao pego (criterio estrito demais).
-# V2 (rally +20%/30d, at_ath peso 2, valve_events exclusion):
-#   CAIXAS -0.0037 Spearman (PIORA), CAPSULAS +0.0037 (PASSA),
-#   SKINS +0.0081 (PASSA). 2/3 universos passam Spearman, mas
-#   Clutch Case ainda tem 27/206 (13.1%) no 85+ — zero melhora.
-# Decisao: flag=False (default). Funcao pump_risk() mantida publica
-# pra uso visual (coluna Risco no Scanner).
-# Detalhes: memory/pump-risk-score-vs-ui.md
-_PUMP_PENALTY_ENABLED = False
-_PUMP_HIGH_PENALTY = -10
+# EXPERIMENT 2026-06-08: pump_risk penalty — V3 APROVADO.
+# V1 (rally +30%/14d, penalty -10): reprovado — CAPSULAS -0.0044, Clutch
+#   nao pego (criterio estrito demais).
+# V2 (rally +20%/30d, peso 2 at_ath, exclusao valve_events, -10):
+#   CAIXAS -0.0037 Sp (regressao), CAPSULAS +0.0037, SKINS +0.0081.
+#   2/3 mas CAIXAS regrediu, Clutch ainda 27/206 no 85+ — zero melhora UX.
+# V3B (-10 high + -3 medium): pior em CAIXAS (Sp -0.0051), b85+ avg cai.
+# V3 (-5 high only) APROVADO:
+#   CAIXAS Sp -0.0012 (negligivel), Pe +0.0018
+#   CAPSULAS Sp +0.0039 / Pe +0.0020
+#   AUTOGRAPHS Sp +0.0109 / Pe +0.0087
+#   SKINS Sp +0.0033 / Pe +0.0022
+# 3/4 universos melhoram em Sp E Pe. Bucket 85+ intacto (dN=0 em todos —
+# items at_ath estao em buckets baixos, nao 85+). Mantém Clutch UX-limitada
+# mas melhora correlacao consistente.
+# Funcao pump_risk() ja era publica para coluna Risco no Scanner.
+# Detalhes: memory/pump-risk-v3-aprovado.md
+_PUMP_PENALTY_ENABLED = True
+_PUMP_HIGH_PENALTY = -5
 
 _DEFAULT_PATH = DATA_DIR / "item_history.json"
 _VOLUME_PATH = DATA_DIR / "volume_history.json"
@@ -771,10 +786,10 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         elif case_status.get("is_rare"):
             _add("case", 3, "Caixa rara (+3)")
 
-        # EXPERIMENT 2026-06-08 v3: vintage decade multiplier, CONTAINERS only
-        # Items descontinuados ha >= 8 anos E containers recebem ×1.05
-        # no score final (multiplicativo). V1 universal piorou skins; v2
-        # containers aditivo reprovou (+3 empurra borderlines pro 85+).
+        # V4: vintage +2 aditivo, CONTAINERS-only, age >= 8 anos.
+        # +2 em vez de +3 (v2) evita inflar borderlines no bucket 85+;
+        # aditivo em vez de ×1.05 (v3 mult) e mais previsivel.
+        # Validado em 2026-06-08: CAIXAS Sp +0.0057, CAPSULAS Sp +0.0031.
         if (_VINTAGE_BONUS_ENABLED
                 and is_container
                 and case_status.get("is_discontinued")):
@@ -782,18 +797,17 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             if year:
                 age = date.today().year - year
                 if age >= _VINTAGE_AGE_YEARS:
-                    old = score
-                    score *= _VINTAGE_MULTIPLIER
-                    delta = score - old
+                    score += _VINTAGE_BONUS
                     breakdown.append({
                         "factor": "vintage",
-                        "delta": round(delta, 1),
-                        "label": f"Vintage ({age} anos descontinuado) (×{_VINTAGE_MULTIPLIER})",
+                        "delta": _VINTAGE_BONUS,
+                        "label": f"Vintage ({age} anos descontinuado) (+{_VINTAGE_BONUS})",
                     })
 
-    # EXPERIMENT 2026-06-08: pump_risk penalty (gated)
-    # Combina near_ath + rally 14d + volume sustentado. Penalty so' em
-    # 'high' (2+ flags) pra nao double-count com rel_ath sozinho.
+    # V3: pump_risk penalty -5 em 'high' (2+ flags combinadas).
+    # Combina near_ath + rally 30d + volume sustentado. So' high para nao
+    # double-count com rel_ath sozinho. -5 (em vez de v1/v2 -10) calibrado
+    # via backtest 2026-06-08: 3/4 universos melhoram Sp+Pe, bucket 85+ intacto.
     if _PUMP_PENALTY_ENABLED and price_history:
         pr = pump_risk(price_history, volume_history)
         if pr["level"] == "high":

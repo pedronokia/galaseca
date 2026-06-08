@@ -1,16 +1,18 @@
-# SkinVault — Handoff (2026-06-08)
+# SkinVault — Handoff (2026-06-08, sessão 2)
 
 Documento auto-suficiente para continuar a sessão em outra ferramenta
 (OpenCode/etc).
 
 ## Estado atual
 
-- **1231 testes passando** (726 unit + 505 UI smoke)
+- **1247 testes passando** (sem regressão pós-V4+V3)
 - Python 3.9 compat, PyQt6 GUI, Steam-only
 - Catálogo de eventos da Valve ativo
-- Scanner com 5 categorias: Caixas (24), Cápsulas (58), Autographs (30), Stickers (386), Skins
-- 3 negative findings documentados (vintage v1, vintage v2, pump_risk
-  como penalty) — gated, fáceis de revisitar
+- Scanner com categorias completas: Caixas, Cápsulas (58), Autographs (30),
+  Stickers Tournament/Autograph/Community/Event (~9892), Skins (Rifles/Pistolas/Facas/Luvas/SMGs)
+- **Coluna Risco no Scanner ativa** (visual, usa pump_risk public function)
+- **2 sinais novos aprovados nesta sessão:** vintage v4 (+2 aditivo containers),
+  pump_risk v3 (penalty -5 high) — flags `True`
 
 ## Filosofia (NÃO mudar)
 
@@ -37,8 +39,8 @@ Documento auto-suficiente para continuar a sessão em outra ferramenta
 | momentum | ±5 | preço vs SMA recente | ✓ |
 | liquidity | +5 | volume alto | ✓ |
 | case | +5/+3 | caixa descontinuada/rara | ✓ |
-| **vintage** | +3 | descontinuado >= 8 anos | gated False |
-| **pump_risk** | -10 | level=='high' (combinação >= 2 flags) | gated False |
+| **vintage v4** | +2 | descontinuado >= 8 anos, containers-only | **enabled** |
+| **pump_risk v3** | -5 | level=='high' (combinação >= 2 flags) | **enabled** |
 
 ## Bug fixes desta sessão (2026-06-08)
 
@@ -71,23 +73,31 @@ Ver `~/.claude/projects/C--SkinVault/memory/`:
 - **clutch-case-falling-knife** — anti-padrão; squeeze tardio em dólares
 - **bucket-0-29-negative-finding** — noise heterogêneo
 
-## Negative findings ativos (fáceis de revisitar)
+## Findings nesta sessão
 
-1. **vintage v1 (universal)** — bonus +3 para descontinuado >= 8 anos
-   piorou skins (-0.0033 Pearson). Memória:
-   `negative-finding-vintage-bonus`. Variantes para revisitar
-   documentadas (multiplicativo, gate negativo).
-2. **vintage v2 (containers-only)** — Pearson sobe em caixas (+0.0051,
-   passa) mas marginal em cápsulas (+0.0016, falha). Bucket 85+ avg cai
-   (-4pp caixas, -2pp cápsulas) mas N sobe (+86 caixas) e hit +1pp.
-   Trade-off, não piora pura.
-3. **vintage v3 (containers-only multiplicativo ×1.05)** — Caixas
-   +0.0053/+0.0057 (PASSOU), Cápsulas Spearman +0.0040 (OK) mas Pearson
-   +0.0014 (abaixo do critério 0.002). 1/5 universos (precisa >=2).
-   Melhor que v2 mas ainda não passa. Código mantido (flag False).
-4. **pump_risk como score penalty** — piorou cápsulas (-0.0044), não
-   pegou Clutch (rally +30%/14d estrito demais). Função pública
-   `signals.pump_risk()` mantida. Memória: `pump-risk-score-vs-ui`.
+### APROVADOS
+
+1. **vintage v4 (+2 aditivo containers-only age>=8)** —
+   CAIXAS Sp +0.0057, CAPSULAS Sp +0.0031; bucket 85+ CAIXAS
+   200→233 (+33 items) com avg +1.8pp e hit +2.7pp. Memória:
+   `vintage-v4-aprovado`. **Flag `_VINTAGE_BONUS_ENABLED=True`**.
+2. **pump_risk v3 (penalty -5 high only)** — 3/4 universos
+   melhoram Sp+Pe (CAPSULAS Sp +0.0039, AUTOGRAPHS +0.0109, SKINS
+   +0.0033), CAIXAS Sp -0.0012 negligível. Bucket 85+ totalmente
+   intacto. Não pega Clutch (UX visual cobre via coluna Risco).
+   Memória: `pump-risk-v3-aprovado`. **Flag `_PUMP_PENALTY_ENABLED=True`**.
+
+### REPROVADOS (mantidos como guia)
+
+3. **vintage v5 (+3 cont, score>=60):** CAPSULAS Sp +0.0010
+   (insuficiente). Score já filtra naturalmente.
+4. **vintage v6 (×1.03 mult age>=10):** numericamente similar a v4
+   mas mais complexo. Preferido v4 (additivo simples).
+5. **pump v3B (-10 high, -3 medium):** CAIXAS Sp -0.0051 (regressão),
+   medium é flag única demasiado leve para penalty consistente.
+6. **vintage v1/v2/v3 anteriores:** documentados em
+   `negative-finding-vintage-bonus`. Trajetória de 6 variantes até v4.
+7. **pump v1/v2 anteriores:** documentados em `pump-risk-score-vs-ui`.
 
 ## Infraestrutura empírica
 
