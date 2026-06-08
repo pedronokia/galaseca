@@ -29,6 +29,22 @@ _VINTAGE_BONUS_ENABLED = False
 _VINTAGE_AGE_YEARS = 8
 _VINTAGE_BONUS = 3
 
+# EXPERIMENT 2026-06-08: pump_risk penalty (gated) — REPROVADO COMO SCORE.
+# Hipotese: combinacao >= 2 red flags (near ATH + rally 14d + volume
+# 7d) penaliza pump-and-dump / falling knife.
+# Resultado backtest:
+#   CAIXAS    +0.1243 -> +0.1241 (neutro)
+#   CAPSULAS  +0.0383 -> +0.0339 (PIORA -0.0044 — penaliza vintage
+#             em rally legitimo pos-Cologne 2026)
+#   SKINS     +0.0056 -> +0.0079 (+0.0023 marginal)
+#   Clutch Case: 27/206 sims no 85+ identico ON/OFF — criterio "rally
+#   +30% em 14d" estrito demais pra falling knife que sobe devagar.
+# Decisao: NAO penalizar score. Mas `pump_risk()` continua util como
+# flag UI (coluna "Risco" no Scanner) — info ao usuario sem afetar
+# bucket. Ver memory/pump-risk-score-vs-ui.md.
+_PUMP_PENALTY_ENABLED = False
+_PUMP_HIGH_PENALTY = -10
+
 _DEFAULT_PATH = DATA_DIR / "item_history.json"
 _VOLUME_PATH = DATA_DIR / "volume_history.json"
 _SUPPLY_PATH = DATA_DIR / "supply_history.json"
@@ -416,6 +432,83 @@ def relative_to_ath(price_history: list[dict]) -> dict:
     }
 
 
+def pump_risk(price_history: list[dict] | None = None,
+              volume_history: list[dict] | None = None) -> dict:
+    """Detecta combinacao de red flags de pump-and-dump / falling knife.
+
+    Combina 3 sinais factuais:
+      1. Near/at ATH (rel_ath band) — topo historico, upside limitado
+      2. Rally recente >= +30% em 14d — subida rapida sem catalyst conhecido
+      3. Volume sustentado 7d >= 2x media 30d — atividade anormal
+
+    Output:
+      {level: 'low'|'medium'|'high', flags: int, reasons: list[str]}
+
+    level = 'low' se 0 flags, 'medium' se 1, 'high' se 2+.
+
+    Filosofia honesta: descreve combinacao de sinais, nao preve.
+    Items com level='high' historicamente tem upside limitado e
+    downside grande — ver memoria clutch-case-falling-knife (squeeze
+    tardio em containers vintage) e M4A1 Nightmare pump
+    $115->$400 dez/2025 (memoria feedback-valve-updates).
+
+    Caveat: nao distingue pump artificial de catalyst genuino
+    (ex: capsulas Stockholm 2021 pos-update Cologne 2026 podem
+    aparecer como 'high' por motivo legitimo). Combinar com
+    valve_events.latest_regime_change ao interpretar.
+    """
+    reasons: list[str] = []
+    flags = 0
+
+    # Flag 1: near/at ATH
+    if price_history and len(price_history) >= 10:
+        rta = relative_to_ath(price_history)
+        band = rta.get("band") if rta else None
+        if band in ("near_ath", "at_ath"):
+            flags += 1
+            pct = rta.get("pct_of_ath", 0) * 100
+            reasons.append(f"{pct:.0f}% do ATH ({band})")
+
+    # Flag 2: rally recente >= +30% em 14d
+    if price_history and len(price_history) >= 14:
+        try:
+            sorted_h = sorted(price_history, key=lambda x: x["time"])
+        except (KeyError, TypeError):
+            sorted_h = list(price_history)
+        prices = [p["price_median"] for p in sorted_h]
+        if len(prices) >= 14:
+            recent = prices[-1]
+            earlier = prices[-14]
+            if earlier > 0:
+                pct_change = (recent - earlier) / earlier
+                if pct_change >= 0.30:
+                    flags += 1
+                    reasons.append(f"Rally +{pct_change*100:.0f}% em 14d")
+
+    # Flag 3: volume sustentado 7d vs 30d
+    if volume_history and len(volume_history) >= 30:
+        recent_7 = volume_history[-7:]
+        baseline_window = volume_history[-30:-7]
+        if recent_7 and baseline_window:
+            avg_7 = sum(e.get("value", 0) for e in recent_7) / len(recent_7)
+            avg_baseline = (sum(e.get("value", 0) for e in baseline_window)
+                            / len(baseline_window))
+            if avg_baseline > 0 and avg_7 / avg_baseline >= 2.0:
+                flags += 1
+                reasons.append(
+                    f"Volume 7d {avg_7 / avg_baseline:.1f}x acima media 30d"
+                )
+
+    if flags >= 2:
+        level = "high"
+    elif flags == 1:
+        level = "medium"
+    else:
+        level = "low"
+
+    return {"level": level, "flags": flags, "reasons": reasons}
+
+
 def data_quality(price_history: list[dict],
                   now: float | None = None) -> dict:
     """Estima confianca do sinal baseado em tamanho e recencia.
@@ -522,7 +615,9 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                    multi_trend: dict | None = None,
                    price_history: list[dict] | None = None,
                    case_status: dict | None = None,
-                   is_container: bool = False) -> tuple[int, list[dict]]:
+                   is_container: bool = False,
+                   volume_history: list[dict] | None = None,
+                   ) -> tuple[int, list[dict]]:
     """Score 0-100 + breakdown com contribuicao de cada fator.
 
     Retorna (score_final, breakdown) onde breakdown e lista de
@@ -690,6 +785,16 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                 if age >= _VINTAGE_AGE_YEARS:
                     _add("vintage", _VINTAGE_BONUS,
                          f"Vintage ({age} anos descontinuado) (+{_VINTAGE_BONUS})")
+
+    # EXPERIMENT 2026-06-08: pump_risk penalty (gated)
+    # Combina near_ath + rally 14d + volume sustentado. Penalty so' em
+    # 'high' (2+ flags) pra nao double-count com rel_ath sozinho.
+    if _PUMP_PENALTY_ENABLED and price_history:
+        pr = pump_risk(price_history, volume_history)
+        if pr["level"] == "high":
+            reason_short = ", ".join(pr["reasons"][:2]) or "multiplas flags"
+            _add("pump_risk", _PUMP_HIGH_PENALTY,
+                 f"Risco alto: {reason_short} ({_PUMP_HIGH_PENALTY})")
 
     final = max(0, min(100, int(round(score))))
     breakdown.sort(key=lambda b: abs(b["delta"]), reverse=True)

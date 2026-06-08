@@ -953,3 +953,68 @@ def test_score_age_text_days():
     ts = time.time() - 5 * 86400  # 5d
     txt = signals.score_age_text(ts)
     assert "d" in txt
+
+
+# === pump_risk ===
+
+def test_pump_risk_low_estavel():
+    # Preço estável em ~30% do ATH (midrange), sem rally, sem volume anômalo
+    prices = [100.0] + [30.0] * 19
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    r = signals.pump_risk(ph, volume_history=None)
+    assert r["level"] == "low"
+    assert r["flags"] == 0
+
+
+def test_pump_risk_high_pump_pattern():
+    # Preço subiu de 10 -> 100 nos ultimos 14d (rally +900%) e está no ATH
+    prices = [10.0] * 15 + [20.0, 40.0, 60.0, 80.0, 100.0]
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    r = signals.pump_risk(ph, volume_history=None)
+    # ATH (1 flag) + Rally +30% (1 flag) -> high
+    assert r["level"] == "high"
+    assert r["flags"] == 2
+    assert any("ATH" in reason for reason in r["reasons"])
+    assert any("Rally" in reason for reason in r["reasons"])
+
+
+def test_pump_risk_medium_near_ath_sem_rally():
+    # No ATH mas sem rally recente (estável há tempo)
+    prices = [100.0] * 20
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    r = signals.pump_risk(ph, volume_history=None)
+    # at_ath (1 flag) — sem rally (mesma faixa)
+    assert r["level"] == "medium"
+    assert r["flags"] == 1
+
+
+def test_pump_risk_high_com_volume():
+    # Near ATH + volume sustentado 7d 3x acima da media 30d
+    prices = [50.0] * 15 + [55.0, 60.0, 70.0, 80.0, 90.0]
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    # 30 entries de volume: baseline ~100, recent 7d ~300
+    vol = [{"ts": i, "value": 100.0} for i in range(23)]
+    vol += [{"ts": i + 23, "value": 300.0} for i in range(7)]
+    r = signals.pump_risk(ph, volume_history=vol)
+    # rally (90/50 = +80%) + at_ath + volume = 3 flags -> high
+    assert r["level"] == "high"
+    assert r["flags"] >= 2
+
+
+def test_pump_risk_historico_curto_retorna_low():
+    ph = [{"time": i, "price_median": 50.0, "purchases": 1}
+          for i in range(5)]
+    r = signals.pump_risk(ph, volume_history=None)
+    assert r["level"] == "low"
+    assert r["flags"] == 0
+
+
+def test_pump_risk_sem_inputs():
+    r = signals.pump_risk(None, None)
+    assert r["level"] == "low"
+    assert r["flags"] == 0
+    assert r["reasons"] == []
