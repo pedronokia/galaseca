@@ -1049,15 +1049,24 @@ class ScannerScreen(QWidget):
     def _scan_item(self, name: str) -> dict | None:
         try:
             overview = steam_api.get_market_overview(name)
+            time.sleep(1.0)  # rate-limit entre endpoints
             page = steam_api.get_market_page_data(name)
         except Exception:
             return None
-        if not overview:
-            return None
 
-        lowest = overview.get("lowest")
-        median = overview.get("median")
-        volume = overview.get("volume")
+        lowest = overview.get("lowest") if overview else None
+        median = overview.get("median") if overview else None
+        volume = overview.get("volume") if overview else None
+        derived_price = False
+
+        if lowest is None and page and page.get("price_history"):
+            ph = page["price_history"]
+            last = ph[-1]
+            price_val = last.get("price_median")
+            if price_val and price_val > 0:
+                lowest = price_val
+                derived_price = True
+
         if lowest is None:
             return None
 
@@ -1108,9 +1117,11 @@ class ScannerScreen(QWidget):
 
         ob_approx = bool(page.get("order_book_approx")) if page else False
         approx_suffix = " ~" if ob_approx else ""
+        price_str = f"{lowest:.2f}{' *' if derived_price else ''}"
         return {
             "name": name,
             "price": lowest,
+            "price_str": price_str,
             "median": median,
             "score": score,
             "breakdown": breakdown,
@@ -1131,6 +1142,7 @@ class ScannerScreen(QWidget):
             "case_label": cs.get("label", ""),
             "pump_risk": pr,
             "order_book_approx": ob_approx,
+            "derived_price": derived_price,
         }
 
     def _on_item_done(self, result: dict) -> None:
@@ -1181,7 +1193,7 @@ class ScannerScreen(QWidget):
             cells = [
                 (_ln(r["name"]), None),
                 (label, score_color),
-                (t.brl(r["price"]), None),
+                (r.get("price_str", t.brl(r["price"])), None),
                 (t.brl(r["median"]), None),
                 (r["verdict"], r["verdict_color"]),
                 (r["spread"], None),
@@ -1237,6 +1249,16 @@ class ScannerScreen(QWidget):
                     if cell is not None and cell.text():
                         cell.setForeground(QBrush(QColor(t.WARN)))
                         cell.setToolTip(msg)
+            # Tooltip para preco derivado do historico (sem overview)
+            if r.get("derived_price"):
+                prec_cell = self._table.item(i, self.COL_PRECO)
+                if prec_cell is not None:
+                    prec_cell.setForeground(QBrush(QColor(t.WARN)))
+                    prec_cell.setToolTip(
+                        "Preço atual indisponível no Steam Market Overview."
+                        " Valor aproximado do último ponto do histórico SSR."
+                        " Pode diferir do preço real de listagem."
+                    )
         self._table.setSortingEnabled(was_sorting)
 
         # Aplica filtro de order book approx (so esconde, nunca mostra)
