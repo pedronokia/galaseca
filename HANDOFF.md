@@ -81,7 +81,11 @@ Ver `~/.claude/projects/C--SkinVault/memory/`:
    passa) mas marginal em cápsulas (+0.0016, falha). Bucket 85+ avg cai
    (-4pp caixas, -2pp cápsulas) mas N sobe (+86 caixas) e hit +1pp.
    Trade-off, não piora pura.
-3. **pump_risk como score penalty** — piorou cápsulas (-0.0044), não
+3. **vintage v3 (containers-only multiplicativo ×1.05)** — Caixas
+   +0.0053/+0.0057 (PASSOU), Cápsulas Spearman +0.0040 (OK) mas Pearson
+   +0.0014 (abaixo do critério 0.002). 1/5 universos (precisa >=2).
+   Melhor que v2 mas ainda não passa. Código mantido (flag False).
+4. **pump_risk como score penalty** — piorou cápsulas (-0.0044), não
    pegou Clutch (rally +30%/14d estrito demais). Função pública
    `signals.pump_risk()` mantida. Memória: `pump-risk-score-vs-ui`.
 
@@ -105,7 +109,7 @@ Ver `~/.claude/projects/C--SkinVault/memory/`:
 |---|---|
 | `skinvault/valve_events.py` (novo) | Catálogo de 3 eventos Valve (out/2025, dez/2025, mai/2026) + helpers `events_for_category()` / `latest_regime_change()` |
 | `skinvault/cases.py` | `_CAPSULES` (58 cápsulas), `_AUTOGRAPH_CAPSULES` (30, 2021+), `_PREMIUM_STICKERS` (37, Majors 2014-2015), `case_status()` reconhece containers por nome, `is_container()` reconhece todos os 3 dicts, `list_capsules()`, `list_autograph_capsules()`, `list_premium_stickers()` |
-| `skinvault/signals.py` | `pump_risk()` pública; flags gated `_VINTAGE_BONUS_ENABLED=False`, `_PUMP_PENALTY_ENABLED=False` |
+| `skinvault/signals.py` | `pump_risk()` pública; flags gated `_VINTAGE_BONUS_ENABLED=False` (v3 multiplicativo ×1.05), `_PUMP_PENALTY_ENABLED=False` |
 | `skinvault/backtest.py` | `simulate_item` e `score_from_history` agora passam `case_status` |
 | `skinvault/ui/scanner_screen.py` | Categorias "Cápsulas" + "Autographs" + "Stickers" no `_SCAN_BY_CATEGORY`, banner amarelo quando categoria tem evento Valve <180d |
 | `tests/test_cases.py` | 37 novos testes de Autograph Capsules + Premium Stickers (57 total) |

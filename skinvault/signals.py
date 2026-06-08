@@ -24,7 +24,7 @@ from skinvault._paths import DATA_DIR
 # Detalhes: memory/negative-finding-vintage-bonus.md
 _VINTAGE_BONUS_ENABLED = False
 _VINTAGE_AGE_YEARS = 8
-_VINTAGE_BONUS = 3
+_VINTAGE_MULTIPLIER = 1.05
 
 # EXPERIMENT 2026-06-08: pump_risk penalty (gated) — REPROVADO 2x.
 # V1 (rally +30%/14d): reprovado — CAIXAS neutro, CAPSULAS -0.0044,
@@ -771,9 +771,10 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         elif case_status.get("is_rare"):
             _add("case", 3, "Caixa rara (+3)")
 
-        # EXPERIMENT 2026-06-08 v2: vintage decade bonus, CONTAINERS only
-        # Items descontinuados ha >= 8 anos E que sao containers recebem
-        # +3. V1 universal piorou skins; v2 restringe a containers.
+        # EXPERIMENT 2026-06-08 v3: vintage decade multiplier, CONTAINERS only
+        # Items descontinuados ha >= 8 anos E containers recebem ×1.05
+        # no score final (multiplicativo). V1 universal piorou skins; v2
+        # containers aditivo reprovou (+3 empurra borderlines pro 85+).
         if (_VINTAGE_BONUS_ENABLED
                 and is_container
                 and case_status.get("is_discontinued")):
@@ -781,8 +782,14 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             if year:
                 age = date.today().year - year
                 if age >= _VINTAGE_AGE_YEARS:
-                    _add("vintage", _VINTAGE_BONUS,
-                         f"Vintage ({age} anos descontinuado) (+{_VINTAGE_BONUS})")
+                    old = score
+                    score *= _VINTAGE_MULTIPLIER
+                    delta = score - old
+                    breakdown.append({
+                        "factor": "vintage",
+                        "delta": round(delta, 1),
+                        "label": f"Vintage ({age} anos descontinuado) (×{_VINTAGE_MULTIPLIER})",
+                    })
 
     # EXPERIMENT 2026-06-08: pump_risk penalty (gated)
     # Combina near_ath + rally 14d + volume sustentado. Penalty so' em
