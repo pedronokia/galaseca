@@ -259,21 +259,24 @@ pré-requisitos. Ordenadas por valor/custo.
   em análises. Apenas documentar a diluição. 30 autograph capsules
   agora têm dados SSR em cache (1594 samples).
 
-### 6. Stickers premium curados — DONE (estrutura + scanner, backtest pendente)
+### 6. Stickers premium curados — DONE
 
 - **Hipótese:** mesma tese de escassez se aplica a stickers de Majors
   antigos (Holo/Foil/Gold). Titan Holo Katowice 2014 = $73k, IBP Holo
   = $75k. Mas universo grande e exposto a pump groups (M4A1 Nightmare
   pattern).
 - **Feito:**
-  1. `_PREMIUM_STICKERS` em `cases.py` com **37 stickers** Holo de
-     Katowice 2014 (16), Cologne 2014 (10), DreamHack 2014 (6),
-     Katowice 2015 (5)
+  1. `_PREMIUM_STICKERS` em `cases.py` com **37 stickers** Holo
   2. `list_premium_stickers()` helper + 20 testes
-  3. Categoria "Stickers" no `_SCAN_BY_CATEGORY`
-- **Pendente:** backtest agregado (0 stickers em cache — precisa fetch
-  SSR primeiro). Critério de aceite: Pearson positivo, cobertura > 70%,
-  bucket 85+ N >= 10.
+  3. Categoria "Stickers" no Scanner
+  4. Backtest agregado: **PASSOU** todos os 3 critérios
+- **Resultados:**
+  - Spearman: +0.0710 (Pearson: +0.0478)
+  - Cobertura: 97.3% (36/37 — só Virtus.Pro Kato 2015 sem SSR)
+  - Bucket 85-100: N=27 (PASSA >=10), AvgRet=+75880.86% (outliers extremos)
+  - Bucket 50-69: +29.13% avg, 67.6% hit — sticker é a classe de maior retorno
+  - Outliers no 85+: Vox Eminor Katowice 2015 Holo (+2M%), VP DreamHack 2014 Holo (+23k%) — reais (equipes extintas)
+  - Memória: `stickers-maior-retorno-empírico`
 
 ---
 
@@ -325,7 +328,8 @@ for flag in (True, False):
 - **Spearman autographs (standalone):** +0.0633
 - **Pearson autographs (standalone):** +0.1412
 - **Spearman cápsulas + autographs (combinado):** +0.0874 (Δ = -0.0160 vs só cápsulas — dilui)
-- **Premium stickers (Majors 2014-2015):** 37 itens catalogados, sem dados em cache
+- **Premium stickers (Majors 2014-2015):** 37 itens catalogados, 36/37 com dados SSR (só Virtus.Pro Kato 2015 sem SSR), 6320 samples
+- **Spearman stickers:** +0.0710 (PASSOU — Pearson +0.0478, cobertura 97.3%, bucket 85+ N=27)
 - **Bucket 70-84 caixas:** +31.0% / 64% hit (n=1107) — sweet spot
 - **Bucket 70-84 cápsulas:** +21.3% / 64% hit (n=822) — sweet spot
 - **Bucket 85-100 caixas:** +56.0% / 71% hit (n=312)
@@ -344,7 +348,9 @@ for flag in (True, False):
    de demanda diferentes). Categoria "Autographs" no Scanner.
 4. **Premium Stickers** (Majors 2014-2015) estão em `_PREMIUM_STICKERS` em
    `cases.py`, 37 itens Holo. Categoria "Stickers" no Scanner. Backtest
-   pendente (0 itens em cache — precisa fetch SSR via rede).
+   **PASSOU** (Spearman +0.0710, Pearson +0.0478, cobertura 97.3%, bucket 85+ N=27).
+   Virtus.Pro Katowice 2015 Holo é o único sticker sem SSR data (Steam SSR
+   não retorna).
 5. **Antes de qualquer experimento de score:** confirme que `backtest`
     passa `case_status` (já corrigido, mas vale verificar no diff dos
     últimos commits)
