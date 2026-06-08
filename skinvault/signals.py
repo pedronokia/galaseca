@@ -7,9 +7,25 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import date
 from pathlib import Path
 
 from skinvault._paths import DATA_DIR
+
+# EXPERIMENT 2026-06-08: vintage decade bonus — REVERTIDO.
+# Hipotese: items descontinuados ha >= 8 anos recebem +3, pra capturar
+# o piso de retorno em capsulas/caixas vintage.
+# Resultado (3 universos, n=20718 total):
+#   CAIXAS    Pearson +0.1243 -> +0.1294 (+0.0051, ganho marginal)
+#   CAPSULAS  Pearson +0.0383 -> +0.0399 (+0.0016, abaixo do criterio)
+#   SKINS     Pearson +0.0056 -> +0.0023 (-0.0033, PIORA)
+#   Bucket 85+ avg CAIU nos 3 universos (vintage moveu borderlines do
+#   70-84 pro 85+, inflando bucket de elite com marginais).
+# Decisao: REVERTIDO. Flag fica False; bloco mantido pra documentar
+# negative finding e permitir retomar com criterio diferente.
+_VINTAGE_BONUS_ENABLED = False
+_VINTAGE_AGE_YEARS = 8
+_VINTAGE_BONUS = 3
 
 _DEFAULT_PATH = DATA_DIR / "item_history.json"
 _VOLUME_PATH = DATA_DIR / "volume_history.json"
@@ -659,6 +675,17 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             _add("case", 5, "Caixa descontinuada (+5)")
         elif case_status.get("is_rare"):
             _add("case", 3, "Caixa rara (+3)")
+
+        # EXPERIMENT 2026-06-08: vintage decade bonus (gated)
+        # Items descontinuados ha >= 8 anos recebem +3. Captura piso de
+        # retorno que score nao ve em capsulas 2014/2015 e caixas antigas.
+        if _VINTAGE_BONUS_ENABLED and case_status.get("is_discontinued"):
+            year = case_status.get("year")
+            if year:
+                age = date.today().year - year
+                if age >= _VINTAGE_AGE_YEARS:
+                    _add("vintage", _VINTAGE_BONUS,
+                         f"Vintage ({age} anos descontinuado) (+{_VINTAGE_BONUS})")
 
     final = max(0, min(100, int(round(score))))
     breakdown.sort(key=lambda b: abs(b["delta"]), reverse=True)

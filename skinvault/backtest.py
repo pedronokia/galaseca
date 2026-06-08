@@ -25,7 +25,7 @@ def score_from_history(name: str,
 
     Reconstroi verdict via _mock_verdict_from_history e roda enhanced_score.
     Sem dados de order book (nao temos historico) — so' sinais de preco +
-    multi_trend + rel_ath + caso container.
+    multi_trend + rel_ath + caso container + vintage.
 
     Util para watchlist/portfolio: "qual o score do meu item AGORA?"
     """
@@ -37,9 +37,11 @@ def score_from_history(name: str,
     mt = signals.multi_trend(price_history)
     vol = _volume_at(price_history, window_days=1)
     is_container = cases.is_container(name)
+    cs = cases.case_status(name)
     score, _ = signals.enhanced_score(
         verdict, volume=vol, multi_trend=mt,
         price_history=price_history,
+        case_status=cs,
         is_container=is_container,
     )
     return int(score)
@@ -171,8 +173,10 @@ def simulate_item(name: str, price_history: list[dict],
         mt = signals.multi_trend(prefix)
         vol = _volume_at(prefix, window_days=1)
         is_container = cases.is_container(name)
+        cs = cases.case_status(name)
         score, breakdown = signals.enhanced_score(
             verdict, volume=vol, multi_trend=mt, price_history=prefix,
+            case_status=cs,
             is_container=is_container,
         )
         ret = _future_return(sorted_hist, t, horizon_days)
