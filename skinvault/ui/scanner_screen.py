@@ -689,6 +689,19 @@ _SCAN_BY_CATEGORY = {
         "UMP-45 | Minotaur's Labyrinth (Field-Tested)",
         "MP7 | Neon Ply (Factory New)",
     ],
+    "Caixas": [
+        "CS:GO Weapon Case", "CS:GO Weapon Case 2", "CS:GO Weapon Case 3",
+        "Operation Bravo Case", "Winter Offensive Weapon Case",
+        "Operation Phoenix Weapon Case",
+        "Chroma 2 Case", "Chroma 3 Case",
+        "Spectrum Case", "Spectrum 2 Case",
+        "Glove Case", "Clutch Case",
+        "Prisma Case", "Prisma 2 Case",
+        "Fracture Case", "Snakebite Case",
+        "Dreams & Nightmares Case", "Recoil Case",
+        "Revolution Case", "Kilowatt Case",
+        "Gallery Case", "Fever Case",
+    ],
 }
 
 
