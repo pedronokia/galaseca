@@ -740,7 +740,7 @@ _SCAN_BY_CATEGORY = {
     ],
     "Cápsulas": cases.list_capsules(),
     "Autographs": cases.list_autograph_capsules(),
-    "Stickers": cases.list_premium_stickers(),
+    "Stickers": cases.list_all_stickers(),
 }
 
 

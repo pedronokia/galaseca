@@ -263,26 +263,25 @@ pré-requisitos. Ordenadas por valor/custo.
   em análises. Apenas documentar a diluição. 30 autograph capsules
   agora têm dados SSR em cache (1594 samples).
 
-### 6. Stickers premium curados — EXPANDIDO (2026-06-08)
+### 6. Stickers — UNIVERSO EXPANDIDO (2026-06-08, v2)
 
-- **Hipótese:** mesma tese de escassez se aplica a stickers de Majors
-  antigos (Holo/Foil/Gold). Titan Holo Katowice 2014 = $73k, IBP Holo
-  = $75k. Mas universo grande e exposto a pump groups (M4A1 Nightmare
-  pattern).
-- **Feito:**
-  1. `_PREMIUM_STICKERS` em `cases.py` expandido de 37 para **~386
-     stickers** (todos os 20 Majors 2014-2024, Holo/Glitter)
-  2. Helper `_s()` para geracao limpa via for loop
-  3. Cobre Legends + Challengers + Contenders de cada Major
-  4. Variante Holo (2014-2019, 2024+) e Glitter (2021-2023)
-- **Resultados (386 stickers, 17270 samples):**
-  - Spearman: **+0.0931** (era +0.0710 com 37) — MELHOROU com expansao
-  - Pearson: +0.0295 (era +0.0478 — queda esperada, mais ruido Late era)
-  - Cobertura: ~45% dos itens com SSR data (cache frio, melhora com uso)
-  - Bucket 85-100: N=56 (PASSA >=10), Hit Rate 73.2%
-  - Bucket 70-84: +28.71% avg, 65.3% hit — sweet spot consistente
-  - Bucket 50-69: +25.24% avg, 62.6% hit — classe de alto retorno
-  - Memória atualizada: `stickers-expandido-386`
+- **Antes:** 386 stickers (Holo/Glitter de 20 Majors 2014-2024)
+- **Agora: 1603 stickers** — todas variantes + novos eventos
+  - Paper + Holo/Glitter + Foil + Gold para cada time de cada Major
+  - Geração automática via `_STICKER_PARSE_RE` + `_VARIANT_ERA` mapping
+  - Austin 2025 (72 stickers: 24 times × Paper/Holo/Gold)
+  - Budapest 2025 (72 stickers: 24 times × Paper/Holo/Gold)
+  - Cologne 2026 (96 stickers: 32 times × Paper/Holo/Gold)
+  - Coluna "Stickers" no Scanner agora usa `list_all_stickers()`
+- **API nova:** `cases.list_all_stickers()` retorna todos os 1603 itens
+- `list_premium_stickers()` mantida (386 itens, retrocompatível)
+- **Não coberto:** community/theme/operation/armory stickers (nomes de
+  mercado precisam ser verificados individualmente — trabalho futuro)
+- **Resultados anteriores (386 stickers, 17270 samples) continuam válidos:**
+  - Spearman: +0.0931 | Pearson: +0.0295
+  - Bucket 85+ N=56, Hit 73.2% | Bucket 70-84 +28.71% avg, 65.3% hit
+  - Cache SSR ~45% coverage (melhora com uso continuado)
+- 637 testes passando (era 631 — 6 novos para list_all_stickers)
 
 ---
 
@@ -324,7 +323,7 @@ for flag in (True, False):
 "
 ```
 
-## Números chave (PÓS bug fix do case_status)
+## Números chave (PÓS expansão stickers v2)
 
 - **Pearson caixas:** +0.1243 (22 itens / 4301 amostras)
 - **Pearson cápsulas:** +0.0383 (58 itens / 8518 amostras)
@@ -334,7 +333,8 @@ for flag in (True, False):
 - **Spearman autographs (standalone):** +0.0633
 - **Pearson autographs (standalone):** +0.1412
 - **Spearman cápsulas + autographs (combinado):** +0.0874 (Δ = -0.0160 vs só cápsulas — dilui)
-- **Premium stickers (Majors 2014-2024, expandido):** 386 itens catalogados, ~45% com dados SSR em cache frio, 17270 samples
+- **Premium stickers (Majors 2014-2024):** 386 itens (Holo/Glitter)
+- **ALL stickers (expansão v2):** 1603 itens (todas variantes + Austin/Budapest/Cologne)
 - **Spearman stickers:** +0.0931 (PASSOU — Pearson +0.0295, bucket 85+ N=56, hit 73.2%)
 - **Bucket 70-84 caixas:** +31.0% / 64% hit (n=1107) — sweet spot
 - **Bucket 70-84 cápsulas:** +21.3% / 64% hit (n=822) — sweet spot
@@ -342,13 +342,19 @@ for flag in (True, False):
 - **Bucket 85-100 cápsulas:** +68.9% / 58% hit (n=48)
 - **Cache TTL:** 24h em `data/ssr_cache.json`
 - **Horizon padrão:** 90d
+- **Testes:** 637 passando (631 + 6 novos)
 
 ## Para o próximo Claude/OpenCode
 
 1. **Leia primeiro:** este arquivo + `MEMORY.md` em
    `~/.claude/projects/C--SkinVault/memory/`
-2. **Confirme estado:** `python -m pytest` (1231 esperados) e
+2. **Confirme estado:** `python -m pytest` (637 esperados) e
     `git log --oneline -10`
+3. **Autograph Capsules** (2021+) estão em `_AUTOGRAPH_CAPSULES` em `cases.py`,
+   30 itens. Pre-2020 autograph capsules excluídas (naming heterogêneo, drivers
+   de demanda diferentes). Categoria "Autographs" no Scanner.
+4. **Premium Stickers** (Majors 2014-2024) estão em `_PREMIUM_STICKERS` em
+   `cases.py`, **386 itens** (Holo/Glitter de todos os 20 Majors). Gerado via
 3. **Autograph Capsules** (2021+) estão em `_AUTOGRAPH_CAPSULES` em `cases.py`,
    30 itens. Pre-2020 autograph capsules excluídas (naming heterogêneo, drivers
    de demanda diferentes). Categoria "Autographs" no Scanner.

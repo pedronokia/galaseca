@@ -399,3 +399,48 @@ def test_list_premium_stickers_returns_copy():
     result = cases.list_premium_stickers()
     result.append("FAKE")
     assert "FAKE" not in cases._PREMIUM_STICKERS
+
+
+# --- ALL Stickers (expanded universe) ---
+
+def test_list_all_stickers_has_premium():
+    all_s = cases.list_all_stickers()
+    for n in cases.list_premium_stickers():
+        assert n in all_s
+
+
+def test_list_all_stickers_starts_with_sticker():
+    bad = [n for n in cases.list_all_stickers() if not n.startswith("Sticker | ")]
+    assert not bad
+
+
+def test_list_all_stickers_has_new_events():
+    all_s = cases.list_all_stickers()
+    austin = [n for n in all_s if "Austin 2025" in n]
+    budapest = [n for n in all_s if "Budapest 2025" in n]
+    cologne = [n for n in all_s if "Cologne 2026" in n]
+    assert len(austin) >= 48, f"Austin 2025: {len(austin)}"
+    assert len(budapest) >= 48, f"Budapest 2025: {len(budapest)}"
+    assert len(cologne) >= 48, f"Cologne 2026: {len(cologne)}"
+
+
+def test_list_all_stickers_has_paper_variants():
+    all_s = cases.list_all_stickers()
+    premium = cases.list_premium_stickers()
+    # Paper = in all but NOT premium nor variant-suffixed
+    paper = [n for n in all_s if n not in premium
+             and "(Holo)" not in n and "(Glitter)" not in n
+             and "(Foil)" not in n and "(Gold)" not in n]
+    assert len(paper) >= 100
+
+
+def test_list_all_stickers_has_gold_variants():
+    all_s = cases.list_all_stickers()
+    gold = [n for n in all_s if "(Gold)" in n]
+    assert len(gold) >= 100
+
+
+def test_list_all_stickers_count():
+    """Deve ter expandido para >= 1500 stickers com todas variantes."""
+    n = len(cases.list_all_stickers())
+    assert 1500 <= n <= 2000, f"Expected ~1600, got {n}"
