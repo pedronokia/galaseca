@@ -228,66 +228,525 @@ _AUTOGRAPH_CAPSULES: dict[str, dict] = {
     "Budapest 2025 Contenders Autograph Capsule": {"status": "discontinued", "year": 2025},
 }
 
-# === PREMIUM STICKERS (tournament Holo/Foil/Gold de Majors antigos)
+# === PREMIUM STICKERS (tournament Holo/Glitter de todos os Majors 2014-2024)
 #
-# Stickers individuais de alto valor de Majors passados. Diferente de capsulas
-# (que sao containers), stickers sao items individuais no Steam Market. A tese
-# de escassez estrutural se aplica: oferta fixa (capsulas foram descontinuadas),
+# Stickers individuais de todos os 20 Majors. Diferente de capsulas (que sao
+# containers), stickers sao items individuais no Steam Market. A tese de
+# escassez estrutural se aplica: oferta fixa (capsulas foram descontinuadas),
 # demanda organica por nostalgia e colecao.
 #
 # Perigo: stickers sao alvo de pump groups (M4A1 Nightmare pattern). A coluna
 # Risco visual + pump_risk() ajudam a mitigar.
 #
+# Cobre Legends + Challengers + Contenders de cada Major (~386 stickers).
 # Naming: "Sticker | {Team} ({Variant}) | {Event}"
-# Foco em Holo (mais valioso e liquido) dos Majors 2014-2015.
-_PREMIUM_STICKERS: dict[str, dict] = {
-    # === EMS Katowice 2014 Legends (8 teams, Holo) ===
-    "Sticker | Titan (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
-    "Sticker | Natus Vincere (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
-    "Sticker | Fnatic (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
-    "Sticker | Ninjas in Pyjamas (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
-    "Sticker | compLexity Gaming (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
-    "Sticker | LGB eSports (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
-    "Sticker | Team Dignitas (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
-    "Sticker | Team LDLC.com (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Legends"},
+# Variante Holo (2014-2019, 2024+) e Glitter (2021-2023).
+# Gerado via _s() helper + for loop para consistencia.
 
-    # === EMS Katowice 2014 Challengers (8 teams, Holo) ===
-    "Sticker | iBUYPOWER (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
-    "Sticker | Reason Gaming (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
-    "Sticker | HellRaisers (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
-    "Sticker | Virtus.Pro (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
-    "Sticker | 3DMAX (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
-    "Sticker | Clan-Mystik (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
-    "Sticker | mousesports (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
-    "Sticker | Vox Eminor (Holo) | Katowice 2014": {"year": 2014, "source": "EMS Katowice 2014 Challengers"},
+def _s(team: str, variant: str, event: str, year: int, source: str) -> tuple[str, dict]:
+    return (f"Sticker | {team} ({variant}) | {event}", {"year": year, "source": source})
 
-    # === ESL One Cologne 2014 (top Holo stickers) ===
-    "Sticker | Team Dignitas (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
-    "Sticker | iBUYPOWER (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
-    "Sticker | Titan (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
-    "Sticker | Team LDLC.com (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
-    "Sticker | Natus Vincere (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
-    "Sticker | Fnatic (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
-    "Sticker | Ninjas in Pyjamas (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
-    "Sticker | Virtus.Pro (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Challengers"},
-    "Sticker | Cloud9 (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
-    "Sticker | HellRaisers (Holo) | Cologne 2014": {"year": 2014, "source": "ESL One Cologne 2014 Legends"},
+_PREMIUM_STICKERS: dict[str, dict] = {}
+for _k, _v in [
+    # ===== 2014 MAJORS =====
+    # --- EMS Katowice 2014 Legends (8 teams, Holo) ---
+    _s("Titan", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
+    _s("Natus Vincere", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
+    _s("Fnatic", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
+    _s("Ninjas in Pyjamas", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
+    _s("compLexity Gaming", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
+    _s("LGB eSports", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
+    _s("Team Dignitas", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
+    _s("Team LDLC.com", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Legends"),
 
-    # === DreamHack 2014 (Holo, only Legends capsule) ===
-    "Sticker | Cloud9 (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
-    "Sticker | Fnatic (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
-    "Sticker | Natus Vincere (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
-    "Sticker | Virtus.Pro (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
-    "Sticker | Ninjas in Pyjamas (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
-    "Sticker | Team Dignitas (Holo) | DreamHack 2014": {"year": 2014, "source": "DreamHack 2014 Legends (Holo-Foil)"},
+    # --- EMS Katowice 2014 Challengers (8 teams, Holo) ---
+    _s("iBUYPOWER", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
+    _s("Reason Gaming", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
+    _s("HellRaisers", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
+    _s("Virtus.Pro", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
+    _s("3DMAX", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
+    _s("Clan-Mystik", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
+    _s("mousesports", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
+    _s("Vox Eminor", "Holo", "Katowice 2014", 2014, "EMS Katowice 2014 Challengers"),
 
-    # === ESL One Katowice 2015 (Holo) ===
-    "Sticker | Titan (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Legends (Holo-Foil)"},
-    "Sticker | Vox Eminor (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Challengers (Holo-Foil)"},
-    "Sticker | Fnatic (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Legends (Holo-Foil)"},
-    "Sticker | Natus Vincere (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Legends (Holo-Foil)"},
-    "Sticker | Virtus.Pro (Holo) | Katowice 2015": {"year": 2015, "source": "ESL One Katowice 2015 Challengers (Holo-Foil)"},
-}
+    # --- ESL One Cologne 2014 Legends (8 teams, Holo) ---
+    _s("Team Dignitas", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+    _s("Natus Vincere", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+    _s("Fnatic", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+    _s("Ninjas in Pyjamas", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+    _s("Cloud9", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+    _s("HellRaisers", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+    _s("Team LDLC.com", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+    _s("Virtus.Pro", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Legends"),
+
+    # --- ESL One Cologne 2014 Challengers (8 teams, Holo) ---
+    _s("iBUYPOWER", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+    _s("Titan", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+    _s("compLexity Gaming", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+    _s("mousesports", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+    _s("London Conspiracy", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+    _s("Na`Vi", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+    _s("Epsilon eSports", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+    _s("PENTA Sports", "Holo", "Cologne 2014", 2014, "ESL One Cologne 2014 Challengers"),
+
+    # --- DreamHack 2014 Legends (6 teams, Holo-Foil, only 1 capsule) ---
+    _s("Cloud9", "Holo", "DreamHack 2014", 2014, "DreamHack 2014 Legends (Holo-Foil)"),
+    _s("Fnatic", "Holo", "DreamHack 2014", 2014, "DreamHack 2014 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "DreamHack 2014", 2014, "DreamHack 2014 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "DreamHack 2014", 2014, "DreamHack 2014 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "DreamHack 2014", 2014, "DreamHack 2014 Legends (Holo-Foil)"),
+    _s("Team Dignitas", "Holo", "DreamHack 2014", 2014, "DreamHack 2014 Legends (Holo-Foil)"),
+
+    # ===== 2015 MAJORS =====
+    # --- ESL One Katowice 2015 Legends (8 teams, Holo-Foil) ---
+    _s("Fnatic", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+    _s("Titan", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+    _s("Team Dignitas", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+    _s("HellRaisers", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+    _s("LDLC.com", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Legends (Holo-Foil)"),
+
+    # --- ESL One Katowice 2015 Challengers (8 teams, Holo-Foil) ---
+    _s("Vox Eminor", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+    _s("Keyd Stars", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+    _s("PENTA Sports", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+    _s("Team SoloMid", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+    _s("Counter Logic Gaming", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+    _s("3DMAX", "Holo", "Katowice 2015", 2015, "ESL One Katowice 2015 Challengers (Holo-Foil)"),
+
+    # --- ESL One Cologne 2015 Legends (8 teams, Holo-Foil) ---
+    _s("Fnatic", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+    _s("Team SoloMid", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+    _s("EnVyUs", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+    _s("Team Dignitas", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+    _s("HellRaisers", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Legends (Holo-Foil)"),
+
+    # --- ESL One Cologne 2015 Challengers (8 teams, Holo-Foil) ---
+    _s("Cloud9", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+    _s("Luminosity Gaming", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+    _s("Titan", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+    _s("mousesports", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+    _s("Counter Logic Gaming", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+    _s("eBettle", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+    _s("Renegades", "Holo", "Cologne 2015", 2015, "ESL One Cologne 2015 Challengers (Holo-Foil)"),
+
+    # --- DreamHack Cluj-Napoca 2015 Legends (8 teams, Holo-Foil) ---
+    _s("Fnatic", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+    _s("EnVyUs", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+    _s("Team SoloMid", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Legends (Holo-Foil)"),
+
+    # --- DreamHack Cluj-Napoca 2015 Challengers (8 teams, Holo-Foil) ---
+    _s("Luminosity Gaming", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+    _s("Titan", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+    _s("mousesports", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+    _s("Dignitas", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+    _s("Counter Logic Gaming", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+    _s("Vexed Gaming", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+    _s("Team YP", "Holo", "Cluj-Napoca 2015", 2015, "DreamHack Cluj-Napoca 2015 Challengers (Holo-Foil)"),
+
+    # ===== 2016 MAJORS =====
+    # --- MLG Columbus 2016 Legends (8 teams, Holo-Foil) ---
+    _s("Fnatic", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+    _s("Luminosity Gaming", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+    _s("Astralis", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+    _s("EnVyUs", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Legends (Holo-Foil)"),
+
+    # --- MLG Columbus 2016 Challengers (8 teams, Holo-Foil) ---
+    _s("Cloud9", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+    _s("mousesports", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+    _s("Splyce", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+    _s("Gambit Gaming", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+    _s("Renegades", "Holo", "Columbus 2016", 2016, "MLG Columbus 2016 Challengers (Holo-Foil)"),
+
+    # --- ESL One Cologne 2016 Legends (8 teams, Holo-Foil) ---
+    _s("SK Gaming", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+    _s("Fnatic", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+    _s("Astralis", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Legends (Holo-Foil)"),
+
+    # --- ESL One Cologne 2016 Challengers (8 teams, Holo-Foil) ---
+    _s("mousesports", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+    _s("Team Dignitas", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+    _s("OpTic Gaming", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+    _s("Gambit Gaming", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+    _s("EnVyUs", "Holo", "Cologne 2016", 2016, "ESL One Cologne 2016 Challengers (Holo-Foil)"),
+
+    # ===== 2017 MAJORS =====
+    # --- ELEAGUE Atlanta 2017 Legends (8 teams, Holo-Foil) ---
+    _s("Astralis", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+    _s("SK Gaming", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+    _s("Gambit Gaming", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+    _s("Fnatic", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+    _s("EnVyUs", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Legends (Holo-Foil)"),
+
+    # --- ELEAGUE Atlanta 2017 Challengers (8 teams, Holo-Foil) ---
+    _s("FaZe Clan", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+    _s("OpTic Gaming", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+    _s("mousesports", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+    _s("HellRaisers", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Atlanta 2017", 2017, "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)"),
+
+    # --- PGL Krakow 2017 Legends (8 teams, Holo-Foil) ---
+    _s("Gambit Gaming", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+    _s("Astralis", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+    _s("SK Gaming", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+    _s("Fnatic", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Legends (Holo-Foil)"),
+
+    # --- PGL Krakow 2017 Challengers (8 teams, Holo-Foil) ---
+    _s("Immortals", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+    _s("mousesports", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+    _s("PENTA Sports", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+    _s("BIG", "Holo", "Krakow 2017", 2017, "PGL Krakow 2017 Challengers (Holo-Foil)"),
+
+    # ===== 2018 MAJORS =====
+    # --- ELEAGUE Boston 2018 Legends (8 teams, Holo-Foil) ---
+    _s("Cloud9", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+    _s("SK Gaming", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+    _s("Astralis", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+    _s("Gambit Gaming", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+    _s("mousesports", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Legends (Holo-Foil)"),
+
+    # --- ELEAGUE Boston 2018 Challengers (8 teams, Holo-Foil) ---
+    _s("Team Liquid", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+    _s("Fnatic", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+    _s("Gambit Gaming", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+    _s("Vega Squadron", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+    _s("BIG", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+    _s("Space Soldiers", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+    _s("AVANGAR", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Challengers (Holo-Foil)"),
+
+    # --- ELEAGUE Boston 2018 Contenders (8 teams, Holo-Foil) ---
+    _s("Virtus.Pro", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+    _s("Renegades", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+    _s("EnVyUs", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+    _s("HellRaisers", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+    _s("FlipSid3 Tactics", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+    _s("Sprout", "Holo", "Boston 2018", 2018, "ELEAGUE Boston 2018 Contenders (Holo-Foil)"),
+
+    # --- FACEIT London 2018 Legends (8 teams, Holo-Foil) ---
+    _s("Astralis", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+    _s("mousesports", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+    _s("HellRaisers", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+    _s("Fnatic", "Holo", "London 2018", 2018, "FACEIT London 2018 Legends (Holo-Foil)"),
+
+    # --- FACEIT London 2018 Challengers (8 teams, Holo-Foil) ---
+    _s("G2 Esports", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+    _s("Cloud9", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+    _s("BIG", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+    _s("Gambit Gaming", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+    _s("Vega Squadron", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+    _s("Renegades", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+    _s("TyLoo", "Holo", "London 2018", 2018, "FACEIT London 2018 Challengers (Holo-Foil)"),
+
+    # --- FACEIT London 2018 Contenders (8 teams, Holo-Foil) ---
+    _s("Space Soldiers", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+    _s("OpTic Gaming", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+    _s("compLexity Gaming", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+    _s("NRG Esports", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+    _s("Winstrike Team", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+    _s("AVANGAR", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+    _s("Rogue", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+    _s("Team Spirit", "Holo", "London 2018", 2018, "FACEIT London 2018 Contenders (Holo-Foil)"),
+
+    # ===== 2019 MAJORS =====
+    # --- IEM Katowice 2019 Legends (8 teams, Holo-Foil) ---
+    _s("Astralis", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+    _s("mousesports", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+    _s("HellRaisers", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+    _s("BIG", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Legends (Holo-Foil)"),
+
+    # --- IEM Katowice 2019 Challengers (8 teams, Holo-Foil) ---
+    _s("Cloud9", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+    _s("ENCE", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+    _s("Renegades", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+    _s("Fnatic", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+    _s("Gambit Gaming", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+    _s("compLexity Gaming", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+    _s("Vega Squadron", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Challengers (Holo-Foil)"),
+
+    # --- IEM Katowice 2019 Contenders (8 teams, Holo-Foil) ---
+    _s("AVANGAR", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+    _s("OpTic Gaming", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+    _s("Team Vitality", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+    _s("Tyloo", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+    _s("NRG Esports", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+    _s("Winstrike Team", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+    _s("Grayhound Gaming", "Holo", "Katowice 2019", 2019, "IEM Katowice 2019 Contenders (Holo-Foil)"),
+
+    # --- StarLadder Berlin 2019 Legends (8 teams, Holo-Foil) ---
+    _s("Astralis", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+    _s("Team Vitality", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+    _s("ENCE", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+    _s("NRG Esports", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+    _s("mousesports", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Legends (Holo-Foil)"),
+
+    # --- StarLadder Berlin 2019 Challengers (8 teams, Holo-Foil) ---
+    _s("G2 Esports", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+    _s("AVANGAR", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+    _s("HellRaisers", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+    _s("CR4ZY", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+    _s("Fnatic", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+    _s("Vitality", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+    _s("Renegades", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Challengers (Holo-Foil)"),
+
+    # --- StarLadder Berlin 2019 Contenders (8 teams, Holo-Foil) ---
+    _s("BIG", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+    _s("North", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+    _s("compLexity Gaming", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+    _s("DreamEaters", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+    _s("TyLoo", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+    _s("Grayhound Gaming", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+    _s("Syman Gaming", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+    _s("forZe", "Holo", "Berlin 2019", 2019, "StarLadder Berlin 2019 Contenders (Holo-Foil)"),
+
+    # ===== 2021 MAJOR (Glitter era) =====
+    # --- PGL Stockholm 2021 Legends (8 teams, Glitter) ---
+    _s("Natus Vincere", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+    _s("Gambit Gaming", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+    _s("Astralis", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+    _s("Team Vitality", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Legends (Holo-Foil)"),
+
+    # --- PGL Stockholm 2021 Challengers (8 teams, Glitter) ---
+    _s("mousesports", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+    _s("Team Liquid", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+    _s("NIP", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+    _s("Fnatic", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+    _s("Copenhagen Flames", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+    _s("Heroic", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+    _s("BIG", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+    _s("ENCE", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Challengers (Holo-Foil)"),
+
+    # --- PGL Stockholm 2021 Contenders (8 teams, Glitter) ---
+    _s("Entropiq", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+    _s("Evil Geniuses", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+    _s("Team Spirit", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+    _s("Renegades", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+    _s("paiN Gaming", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+    _s("Sharks Esports", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+    _s("Tyloo", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+    _s("Godsent", "Glitter", "Stockholm 2021", 2021, "PGL Stockholm 2021 Contenders (Holo-Foil)"),
+
+    # ===== 2022 MAJORS (Glitter era) =====
+    # --- PGL Antwerp 2022 Legends (8 teams, Glitter) ---
+    _s("FaZe Clan", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+    _s("Team Spirit", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+    _s("ENCE", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+    _s("Heroic", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Legends (Holo-Foil)"),
+
+    # --- PGL Antwerp 2022 Challengers (8 teams, Glitter) ---
+    _s("Copenhagen Flames", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+    _s("Team Liquid", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+    _s("Fnatic", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+    _s("Astralis", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+    _s("BIG", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+    _s("Imperial Esports", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+    _s("Evil Geniuses", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+    _s("Cloud9", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Challengers (Holo-Foil)"),
+
+    # --- PGL Antwerp 2022 Contenders (8 teams, Glitter) ---
+    _s("G2 Esports", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+    _s("Sangal Esports", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+    _s("Renegades", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+    _s("forZe", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+    _s("Eternal Fire", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+    _s("9z", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+    _s("TeamOne", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+    _s("IHC Esports", "Glitter", "Antwerp 2022", 2022, "PGL Antwerp 2022 Contenders (Holo-Foil)"),
+
+    # --- IEM Rio 2022 Legends (8 teams, Glitter) ---
+    _s("FaZe Clan", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+    _s("Virtus.Pro", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+    _s("Cloud9", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+    _s("Heroic", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+    _s("Team Liquid", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+    _s("ENCE", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Legends (Holo-Foil)"),
+
+    # --- IEM Rio 2022 Challengers (8 teams, Glitter) ---
+    _s("Sprout", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+    _s("Fnatic", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+    _s("BIG", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+    _s("MOUZ", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+    _s("GamerLegion", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+    _s("9z", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+    _s("Evil Geniuses", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+    _s("Grayhound Gaming", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Challengers (Holo-Foil)"),
+
+    # --- IEM Rio 2022 Contenders (8 teams, Glitter) ---
+    _s("Team Spirit", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+    _s("Imperial Esports", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+    _s("FURIA", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+    _s("00NATION", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+    _s("Bad News Eagles", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+    _s("G2 Esports", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+    _s("IHC Esports", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+    _s("paiN Gaming", "Glitter", "Rio 2022", 2022, "IEM Rio 2022 Contenders (Holo-Foil)"),
+
+    # ===== 2023 MAJOR (Glitter era) =====
+    # --- BLAST Paris 2023 Legends (8 teams, Glitter) ---
+    _s("Team Vitality", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+    _s("GamerLegion", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+    _s("Heroic", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+    _s("Monte", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+    _s("Team Liquid", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+    _s("Apeks", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+    _s("Ninjas in Pyjamas", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Legends (Holo-Foil)"),
+
+    # --- BLAST Paris 2023 Challengers (8 teams, Glitter) ---
+    _s("G2 Esports", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+    _s("Fnatic", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+    _s("Natus Vincere", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+    _s("Into the Breach", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+    _s("BIG", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+    _s("MOUZ", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+    _s("ENCE", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+    _s("Grayhound Gaming", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Challengers (Holo-Foil)"),
+
+    # --- BLAST Paris 2023 Contenders (8 teams, Glitter) ---
+    _s("Cloud9", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+    _s("9z", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+    _s("FURIA", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+    _s("Fluxo", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+    _s("paiN Gaming", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+    _s("TheMongolZ", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+    _s("Complexity Gaming", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+    _s("Team Spirit", "Glitter", "Paris 2023", 2023, "BLAST Paris 2023 Contenders (Holo-Foil)"),
+
+    # ===== 2024 MAJORS (CS2, Holo era de volta) =====
+    # --- PGL Copenhagen 2024 Legends (8 teams, Holo) ---
+    _s("Natus Vincere", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+    _s("Team Vitality", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+    _s("Astralis", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+    _s("MOUZ", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+    _s("Spirit", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Legends (Holo-Foil)"),
+
+    # --- PGL Copenhagen 2024 Challengers (8 teams, Holo) ---
+    _s("Heroic", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+    _s("Eternal Fire", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+    _s("Virtus.Pro", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+    _s("Complexity Gaming", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+    _s("FURIA", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+    _s("Imperial Esports", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+    _s("TheMongolZ", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+    _s("ECSTATIC", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Challengers (Holo-Foil)"),
+
+    # --- PGL Copenhagen 2024 Contenders (8 teams, Holo) ---
+    _s("AMKAL ESPORTS", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+    _s("paiN Gaming", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+    _s("Sangal Esports", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+    _s("Lynn Vision", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+    _s("9z", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+    _s("SAW", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+    _s("Legacy", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+    _s("Guild Eagles", "Holo", "Copenhagen 2024", 2024, "PGL Copenhagen 2024 Contenders (Holo-Foil)"),
+
+    # --- Perfect World Shanghai 2024 Legends (8 teams, Holo) ---
+    _s("Team Spirit", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+    _s("FaZe Clan", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+    _s("G2 Esports", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+    _s("Natus Vincere", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+    _s("Team Vitality", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+    _s("MOUZ", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+    _s("Heroic", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+    _s("Team Liquid", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Legends (Holo-Foil)"),
+
+    # --- Perfect World Shanghai 2024 Challengers (8 teams, Holo) ---
+    _s("Virtus.Pro", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+    _s("Cloud9", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+    _s("3DMAX", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+    _s("FURIA", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+    _s("TheMongolZ", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+    _s("paiN Gaming", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+    _s("Complexity Gaming", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+    _s("BIG", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Challengers (Holo-Foil)"),
+
+    # --- Perfect World Shanghai 2024 Contenders (8 teams, Holo) ---
+    _s("FlyQuest", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+    _s("GamerLegion", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+    _s("Imperial Esports", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+    _s("Rare Atom", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+    _s("MIBR", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+    _s("Alter Ego", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+    _s("Passion UA", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+    _s("Team Falcons", "Holo", "Shanghai 2024", 2024, "Perfect World Shanghai 2024 Contenders (Holo-Foil)"),
+]:
+    _PREMIUM_STICKERS[_k] = _v
 
 # skin name (sem wear) -> case name
 # Foco em itens populares e liquidos.
@@ -576,17 +1035,16 @@ def list_autograph_capsules() -> list[str]:
 
 
 def list_premium_stickers() -> list[str]:
-    """Lista stickers premium curados (Holo/Foil/Gold de Majors 2014-2015).
+    """Lista stickers premium curados (Holo/Glitter de Majors 2014-2024).
 
     Stickers individuais sao items de score puramente baseado em price_history
     e signals (nao tem case_status como containers). A coluna Risco visual
     ajuda a mitigar pump groups.
 
-    37 stickers atualmente:
-    - 16x Katowice 2014 (8 Legends + 8 Challengers, Holo)
-    - 10x Cologne 2014 (Holo)
-    - 6x DreamHack 2014 (Holo)
-    - 5x Katowice 2015 (Holo)
+    ~386 stickers de todos os 20 Majors 2014-2024:
+    - Variante Holo para 2014-2019 e 2024+
+    - Variante Glitter para 2021-2023 (Valorant-style)
+    - Legends + Challengers + Contenders por Major
     """
     return list(_PREMIUM_STICKERS.keys())
 

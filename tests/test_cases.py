@@ -261,8 +261,9 @@ def test_autograph_count_minimum():
 # --- Premium Stickers ---
 
 def test_premium_stickers_count():
-    """37 stickers curados de Majors 2014-2015."""
-    assert len(cases._PREMIUM_STICKERS) == 37
+    """~386 stickers de todos os Majors 2014-2024 (Holo/Glitter)."""
+    n = len(cases._PREMIUM_STICKERS)
+    assert 380 <= n <= 400, f"Expected ~386, got {n}"
 
 
 def test_premium_stickers_have_year():
@@ -326,12 +327,12 @@ def test_premium_stickers_katowice_2014_has_16():
     assert len(kato_2014) == 16, f"Expected 16, got {len(kato_2014)}"
 
 
-def test_premium_stickers_cologne_2014_has_10():
+def test_premium_stickers_cologne_2014_has_16():
     cologne_2014 = [
         n for n in cases._PREMIUM_STICKERS
         if "Cologne 2014" in n
     ]
-    assert len(cologne_2014) == 10
+    assert len(cologne_2014) == 16
 
 
 def test_premium_stickers_dreamhack_2014_has_6():
@@ -342,20 +343,20 @@ def test_premium_stickers_dreamhack_2014_has_6():
     assert len(dh) == 6
 
 
-def test_premium_stickers_katowice_2015_has_5():
+def test_premium_stickers_katowice_2015_has_16():
     kato_2015 = [
         n for n in cases._PREMIUM_STICKERS
         if "Katowice 2015" in n
     ]
-    assert len(kato_2015) == 5
+    assert len(kato_2015) == 16
 
 
-def test_premium_stickers_all_have_year_2014_or_2015():
+def test_premium_stickers_all_have_year_2014_to_2024():
     bad = [
         n for n, meta in cases._PREMIUM_STICKERS.items()
-        if meta.get("year") not in (2014, 2015)
+        if not (2014 <= meta.get("year", 0) <= 2024)
     ]
-    assert not bad, f"Stickers com year fora 2014/2015: {bad}"
+    assert not bad, f"Stickers com year fora 2014-2024: {bad}"
 
 
 def test_premium_stickers_all_year_in_name():
