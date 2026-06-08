@@ -119,7 +119,9 @@ def test_case_status_capsule_legends():
 
 
 def test_case_status_capsule_katowice_2014():
-    r = cases.case_status("Katowice 2014 Legends Sticker Capsule")
+    # Pre-2020 sao "EMS Katowice 2014 Legends" no Steam Market (sem
+    # "Sticker Capsule" no nome).
+    r = cases.case_status("EMS Katowice 2014 Legends")
     assert r["status"] == "discontinued"
     assert r["year"] == 2014
 

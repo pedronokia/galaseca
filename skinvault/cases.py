@@ -88,96 +88,89 @@ _CASES: dict[str, dict] = {
 # Cápsulas pre-2024 ja estavam descontinuadas ha anos (drop cessava ~6-12 meses
 # pos-Major). Austin 2025 e Budapest 2025 foram afetadas pelo update Cologne 2026.
 _CAPSULES: dict[str, dict] = {
-    # 2014
-    "Katowice 2014 Legends Sticker Capsule": {"status": "discontinued", "year": 2014},
-    "Katowice 2014 Challengers Sticker Capsule": {"status": "discontinued", "year": 2014},
-    "Cologne 2014 Legends Sticker Capsule": {"status": "discontinued", "year": 2014},
-    "Cologne 2014 Challengers Sticker Capsule": {"status": "discontinued", "year": 2014},
-    "DreamHack 2014 Legends Sticker Capsule": {"status": "discontinued", "year": 2014},
-    "DreamHack 2014 Challengers Sticker Capsule": {"status": "discontinued", "year": 2014},
+    # 2014 — formato Steam Market: {Sponsor} {Location} {Year} {Tier}
+    # (sem "Sticker Capsule" no nome). DreamHack so' teve Legends.
+    "EMS Katowice 2014 Legends": {"status": "discontinued", "year": 2014},
+    "EMS Katowice 2014 Challengers": {"status": "discontinued", "year": 2014},
+    "ESL One Cologne 2014 Legends": {"status": "discontinued", "year": 2014},
+    "ESL One Cologne 2014 Challengers": {"status": "discontinued", "year": 2014},
+    "DreamHack 2014 Legends (Holo-Foil)": {"status": "discontinued", "year": 2014},
 
-    # 2015
-    "Katowice 2015 Legends Sticker Capsule": {"status": "discontinued", "year": 2015},
-    "Katowice 2015 Challengers Sticker Capsule": {"status": "discontinued", "year": 2015},
-    "ESL One Cologne 2015 Legends Sticker Capsule": {"status": "discontinued", "year": 2015},
-    "ESL One Cologne 2015 Challengers Sticker Capsule": {"status": "discontinued", "year": 2015},
-    "Cluj-Napoca 2015 Legends Sticker Capsule": {"status": "discontinued", "year": 2015},
-    "Cluj-Napoca 2015 Challengers Sticker Capsule": {"status": "discontinued", "year": 2015},
+    # 2015 — formato: {Sponsor} {Location} {Year} {Tier} (Holo-Foil)
+    "ESL One Katowice 2015 Legends (Holo-Foil)": {"status": "discontinued", "year": 2015},
+    "ESL One Katowice 2015 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2015},
+    "ESL One Cologne 2015 Legends (Holo-Foil)": {"status": "discontinued", "year": 2015},
+    "ESL One Cologne 2015 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2015},
+    "Cluj-Napoca 2015 Legends (Holo-Foil)": {"status": "discontinued", "year": 2015},
+    "Cluj-Napoca 2015 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2015},
 
     # 2016
-    "MLG Columbus 2016 Legends Sticker Capsule": {"status": "discontinued", "year": 2016},
-    "MLG Columbus 2016 Challengers Sticker Capsule": {"status": "discontinued", "year": 2016},
-    "ESL One Cologne 2016 Legends Sticker Capsule": {"status": "discontinued", "year": 2016},
-    "ESL One Cologne 2016 Challengers Sticker Capsule": {"status": "discontinued", "year": 2016},
+    "MLG Columbus 2016 Legends (Holo-Foil)": {"status": "discontinued", "year": 2016},
+    "MLG Columbus 2016 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2016},
+    "ESL One Cologne 2016 Legends (Holo-Foil)": {"status": "discontinued", "year": 2016},
+    "ESL One Cologne 2016 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2016},
 
     # 2017
-    "Atlanta 2017 Legends Sticker Capsule": {"status": "discontinued", "year": 2017},
-    "Atlanta 2017 Challengers Sticker Capsule": {"status": "discontinued", "year": 2017},
-    "Krakow 2017 Legends Sticker Capsule": {"status": "discontinued", "year": 2017},
-    "Krakow 2017 Challengers Sticker Capsule": {"status": "discontinued", "year": 2017},
+    "ELEAGUE Atlanta 2017 Legends (Holo-Foil)": {"status": "discontinued", "year": 2017},
+    "ELEAGUE Atlanta 2017 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2017},
+    "PGL Krakow 2017 Legends (Holo-Foil)": {"status": "discontinued", "year": 2017},
+    "PGL Krakow 2017 Challengers (Holo-Foil)": {"status": "discontinued", "year": 2017},
 
-    # 2018
-    "Boston 2018 Legends Sticker Capsule": {"status": "discontinued", "year": 2018},
-    "Boston 2018 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
-    "Boston 2018 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
-    "London 2018 Legends Sticker Capsule": {"status": "discontinued", "year": 2018},
-    "London 2018 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
-    "London 2018 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2018},
+    # 2018 — perdeu sponsor prefix no Steam Market
+    "Boston 2018 Legends": {"status": "discontinued", "year": 2018},
+    "Boston 2018 Returning Challengers": {"status": "discontinued", "year": 2018},
+    "Boston 2018 Minor Challengers": {"status": "discontinued", "year": 2018},
+    "London 2018 Legends": {"status": "discontinued", "year": 2018},
+    "London 2018 Returning Challengers": {"status": "discontinued", "year": 2018},
+    "London 2018 Minor Challengers": {"status": "discontinued", "year": 2018},
 
     # 2019
-    "Katowice 2019 Legends Sticker Capsule": {"status": "discontinued", "year": 2019},
-    "Katowice 2019 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
-    "Katowice 2019 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
-    "Berlin 2019 Legends Sticker Capsule": {"status": "discontinued", "year": 2019},
-    "Berlin 2019 Returning Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
-    "Berlin 2019 Minor Challengers Sticker Capsule": {"status": "discontinued", "year": 2019},
+    "Katowice 2019 Legends": {"status": "discontinued", "year": 2019},
+    "Katowice 2019 Returning Challengers": {"status": "discontinued", "year": 2019},
+    "Katowice 2019 Minor Challengers": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Legends": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Returning Challengers": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Minor Challengers": {"status": "discontinued", "year": 2019},
 
-    # 2020 (RMR — sem Major presencial)
+    # 2020 (RMR — sem Major presencial pela pandemia)
     "2020 RMR Legends": {"status": "discontinued", "year": 2020},
     "2020 RMR Challengers": {"status": "discontinued", "year": 2020},
     "2020 RMR Contenders": {"status": "discontinued", "year": 2020},
 
-    # 2021
+    # 2021+ — passou a usar "Sticker Capsule" no sufixo.
+    # Champions Capsule deixou de existir como Team Capsule (so' Autograph).
     "Stockholm 2021 Legends Sticker Capsule": {"status": "discontinued", "year": 2021},
     "Stockholm 2021 Challengers Sticker Capsule": {"status": "discontinued", "year": 2021},
     "Stockholm 2021 Contenders Sticker Capsule": {"status": "discontinued", "year": 2021},
-    "Stockholm 2021 Champions Sticker Capsule": {"status": "discontinued", "year": 2021},
 
     # 2022
     "Antwerp 2022 Legends Sticker Capsule": {"status": "discontinued", "year": 2022},
     "Antwerp 2022 Challengers Sticker Capsule": {"status": "discontinued", "year": 2022},
     "Antwerp 2022 Contenders Sticker Capsule": {"status": "discontinued", "year": 2022},
-    "Antwerp 2022 Champions Sticker Capsule": {"status": "discontinued", "year": 2022},
     "Rio 2022 Legends Sticker Capsule": {"status": "discontinued", "year": 2022},
     "Rio 2022 Challengers Sticker Capsule": {"status": "discontinued", "year": 2022},
     "Rio 2022 Contenders Sticker Capsule": {"status": "discontinued", "year": 2022},
-    "Rio 2022 Champions Sticker Capsule": {"status": "discontinued", "year": 2022},
 
     # 2023
     "Paris 2023 Legends Sticker Capsule": {"status": "discontinued", "year": 2023},
     "Paris 2023 Challengers Sticker Capsule": {"status": "discontinued", "year": 2023},
     "Paris 2023 Contenders Sticker Capsule": {"status": "discontinued", "year": 2023},
-    "Paris 2023 Champions Sticker Capsule": {"status": "discontinued", "year": 2023},
 
     # 2024
     "Copenhagen 2024 Legends Sticker Capsule": {"status": "discontinued", "year": 2024},
     "Copenhagen 2024 Challengers Sticker Capsule": {"status": "discontinued", "year": 2024},
     "Copenhagen 2024 Contenders Sticker Capsule": {"status": "discontinued", "year": 2024},
-    "Copenhagen 2024 Champions Sticker Capsule": {"status": "discontinued", "year": 2024},
     "Shanghai 2024 Legends Sticker Capsule": {"status": "discontinued", "year": 2024},
     "Shanghai 2024 Challengers Sticker Capsule": {"status": "discontinued", "year": 2024},
     "Shanghai 2024 Contenders Sticker Capsule": {"status": "discontinued", "year": 2024},
-    "Shanghai 2024 Champions Sticker Capsule": {"status": "discontinued", "year": 2024},
 
     # 2025
     "Austin 2025 Legends Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Austin 2025 Challengers Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Austin 2025 Contenders Sticker Capsule": {"status": "discontinued", "year": 2025},
-    "Austin 2025 Champions Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Budapest 2025 Legends Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Budapest 2025 Challengers Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Budapest 2025 Contenders Sticker Capsule": {"status": "discontinued", "year": 2025},
-    "Budapest 2025 Champions Sticker Capsule": {"status": "discontinued", "year": 2025},
 }
 
 # skin name (sem wear) -> case name
