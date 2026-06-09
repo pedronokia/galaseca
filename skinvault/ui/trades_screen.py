@@ -452,6 +452,37 @@ class TradesScreen(QWidget):
                     item.setData(Qt.ItemDataRole.UserRole,
                                  self._trades.index(tr))
                 self._table.setItem(i, col, item)
+        # Alinhamento por coluna estilo trading-app (Win11 dark):
+        # - Qtd e dinheiro (Compra, Venda, P&L, ROI) → direita
+        # - Data e Origem → centralizado
+        right_cols = {
+            self.COL_QTY, self.COL_COST, self.COL_SELL,
+            self.COL_PNL, self.COL_ROI,
+        }
+        center_cols = {self.COL_DATE, self.COL_SOURCE}
+        for i in range(self._table.rowCount()):
+            for c in range(self._table.columnCount()):
+                cell = self._table.item(i, c)
+                if cell is None:
+                    continue
+                if c in right_cols:
+                    cell.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight
+                        | Qt.AlignmentFlag.AlignVCenter,
+                    )
+                elif c in center_cols:
+                    cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        for c in right_cols:
+            hi = self._table.horizontalHeaderItem(c)
+            if hi is not None:
+                hi.setTextAlignment(
+                    Qt.AlignmentFlag.AlignRight
+                    | Qt.AlignmentFlag.AlignVCenter,
+                )
+        for c in center_cols:
+            hi = self._table.horizontalHeaderItem(c)
+            if hi is not None:
+                hi.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self._table.setSortingEnabled(was_sorting)
 
         # Stats sobre o filtrado
