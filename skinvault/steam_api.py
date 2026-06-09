@@ -521,6 +521,7 @@ class MarketEvent:
     date_str: str              # data crua do HTML (ex.: '15 Mar')
     listing_id: str | None     # id da listagem, quando disponivel
     appid: str | None = None   # appid do jogo (730 = CS2), None se nao extraido
+    icon_url: str | None = None  # hash do icone Steam CDN, p/ render visual
 
 
 @dataclass
@@ -628,6 +629,12 @@ _PRICE_RE = re.compile(
 _DATE_RE = re.compile(
     r'market_listing_listed_date(?![_a-z])[^>]*>\s*(?P<date>[^<]+?)\s*<',
 )
+# Steam usa CDN community.cloudflare.steamstatic.com/economy/image/<hash>/<size>
+# O `<hash>` e' base64-url-safe + dois pontos. Aceita qualquer caracter nao
+# espaco/aspas. Capturamos so o hash pra montar a URL com tamanho ideal depois.
+_ICON_RE = re.compile(
+    r'/economy/image/(?P<hash>[^/\s"\']+)/',
+)
 
 
 def parse_market_history_html(results_html: str,
@@ -660,6 +667,7 @@ def parse_market_history_html(results_html: str,
         price_m = _PRICE_RE.search(body)
         date_m = _DATE_RE.search(body)
         id_m = _ROW_ID_RE.search(anchor_text)
+        icon_m = _ICON_RE.search(body)
         sign = (sign_m.group("sign") if sign_m else " ").strip()
         if sign == "+":
             side = "buy"
@@ -674,6 +682,7 @@ def parse_market_history_html(results_html: str,
             date_str=date_m.group("date").strip() if date_m else "",
             listing_id=id_m.group("lid") if id_m else None,
             appid=default_appid,
+            icon_url=icon_m.group("hash") if icon_m else None,
         ))
     return events
 

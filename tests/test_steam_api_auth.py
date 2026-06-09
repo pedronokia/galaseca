@@ -76,6 +76,28 @@ MARKET_HISTORY_ROW_SELL = '''
 </div>
 '''
 
+MARKET_HISTORY_ROW_WITH_ICON = '''
+<div class="market_listing_row market_recent_listing_row" id="history_row_730_99887_event">
+    <div class="market_listing_left_cell market_listing_gainorloss_cell">
+        <div class="market_listing_gainorloss">-</div>
+    </div>
+    <div class="market_listing_left_cell market_listing_item_img_container">
+        <img class="market_listing_item_img" src="https://community.cloudflare.steamstatic.com/economy/image/abc123def456:ghi789/62fx62f" />
+    </div>
+    <div class="market_listing_right_cell market_listing_my_price">
+        <span class="market_table_value">
+            <span class="market_listing_price">R$ 4,19</span>
+        </span>
+        <div class="market_listing_listed_date_combined">
+            <div class="market_listing_listed_date">9 Oct</div>
+        </div>
+    </div>
+    <div class="market_listing_item_name_block">
+        <span class="market_listing_item_name">Kilowatt Case</span>
+    </div>
+</div>
+'''
+
 MARKET_HISTORY_ROW_LISTED = '''
 <div class="market_listing_row market_recent_listing_row" id="history_row_listing_99_event">
     <div class="market_listing_left_cell market_listing_gainorloss_cell">
@@ -168,6 +190,17 @@ class TestParseMarketHistory:
     def test_response_wrapper_invalid(self):
         assert parse_market_history_response(None) == []
         assert parse_market_history_response({}) == []
+
+    def test_parses_icon_url_from_html(self):
+        """Quando o HTML traz <img src=.../economy/image/<hash>/...>, captura."""
+        events = parse_market_history_html(MARKET_HISTORY_ROW_WITH_ICON)
+        assert len(events) == 1
+        assert events[0].icon_url == "abc123def456:ghi789"
+
+    def test_icon_url_none_quando_html_sem_img(self):
+        """Sem <img economy/image/...>, icon_url fica None (compat antigo)."""
+        events = parse_market_history_html(MARKET_HISTORY_ROW_BUY)
+        assert events[0].icon_url is None
 
 
 # ── Tests: parse_trade_history_html ----------------------------------

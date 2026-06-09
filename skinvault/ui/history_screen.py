@@ -13,8 +13,8 @@ from __future__ import annotations
 import time
 from typing import Callable
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
+from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor, QIcon, QKeySequence, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import portfolio, sync, trade_matcher, trades, watchlist
+from skinvault import icons, portfolio, sync, trade_matcher, trades, watchlist
 from skinvault.prices import PriceCache
 from skinvault.settings import load_settings, save_settings
 from skinvault.ui import theme as t
@@ -358,6 +358,32 @@ def _side_label(side: str | None) -> str:
     return side or "—"
 
 
+class _IconPrefetcher(QThread):
+    """Thread que baixa em batch os icones faltantes do Steam CDN.
+
+    Emite `finished_with_count(n_baixados)` quando termina (Qt signal nativo
+    `finished` continua disponivel sem argumento). UI deve re-refresh apos
+    fim pra exibir os icones (que agora estao em cache local).
+    """
+
+    finished_with_count = pyqtSignal(int)
+
+    def __init__(self, hashes: list[str], parent=None) -> None:
+        super().__init__(parent)
+        self._hashes = hashes
+
+    def run(self) -> None:
+        downloaded = 0
+        for h in self._hashes:
+            if self.isInterruptionRequested():
+                break
+            if icons.local_path(h) is not None:
+                continue
+            if icons.fetch(h) is not None:
+                downloaded += 1
+        self.finished_with_count.emit(downloaded)
+
+
 # ── Tela 2 ───────────────────────────────────────────────────
 class HistoryScreen(QWidget):
     """Tela 2 -- Historico unificado + Watchlist + Simulador."""
@@ -548,7 +574,7 @@ class HistoryScreen(QWidget):
     def refresh(self) -> None:
         self._persist_state()
         seg = self._current_segment
-        side_meta = None
+        row_meta = None
         if seg == "trades":
             headers, rows, count, pnl_col, pnl_vals = self._load_trades()
         elif seg == "matched":
@@ -556,7 +582,7 @@ class HistoryScreen(QWidget):
         elif seg == "open":
             headers, rows, count, pnl_col, pnl_vals = self._load_open()
         elif seg == "market":
-            headers, rows, count, pnl_col, pnl_vals, side_meta = (
+            headers, rows, count, pnl_col, pnl_vals, row_meta = (
                 self._load_market()
             )
         elif seg == "offers":
@@ -564,11 +590,11 @@ class HistoryScreen(QWidget):
         elif seg == "watchlist":
             headers, rows, count, pnl_col, pnl_vals = self._load_watchlist()
         else:
-            headers, rows, count, pnl_col, pnl_vals, side_meta = (
+            headers, rows, count, pnl_col, pnl_vals, row_meta = (
                 self._load_all()
             )
         self._populate(headers, rows, pnl_col=pnl_col, pnl_vals=pnl_vals,
-                       side_meta=side_meta)
+                       row_meta=row_meta)
         if seg == "matched":
             s = trade_matcher.summarize(self._matched_cache or [])
             self._status.setText(
@@ -682,6 +708,7 @@ class HistoryScreen(QWidget):
         )
         rows = []
         side_vals: list[str | None] = []
+        icon_hashes: list[str | None] = []
         periodo = self._filter_panel.periodo
         tipo = self._filter_panel.tipo
         for ev in sorted_data:
@@ -700,10 +727,14 @@ class HistoryScreen(QWidget):
                 ev.get("listing_id") or "—",
             ])
             side_vals.append(side)
-        side_meta = {"op_col": 2, "price_col": 3, "vals": side_vals}
+            icon_hashes.append(ev.get("icon_url"))
+        row_meta = {
+            "op_col": 2, "price_col": 3, "side_vals": side_vals,
+            "icon_col": 1, "icon_hashes": icon_hashes,
+        }
         return (
             ["Data", "Item", "Operação", "Preço", "Listing ID"],
-            rows, len(rows), None, None, side_meta,
+            rows, len(rows), None, None, row_meta,
         )
 
     def _load_offers(self):
@@ -753,8 +784,10 @@ class HistoryScreen(QWidget):
 
     def _load_all(self):
         """Timeline cronologica de tudo (trades + market + offers)."""
-        # Cada tupla: (ts, row, pnl, side)
-        events: list[tuple[float, list, float | None, str | None]] = []
+        # Cada tupla: (ts, row, pnl, side, icon_hash)
+        events: list[
+            tuple[float, list, float | None, str | None, str | None]
+        ] = []
         periodo = self._filter_panel.periodo
         for tr in trades.load_trades():
             ts = tr.get("sell_ts", 0)
@@ -769,7 +802,7 @@ class HistoryScreen(QWidget):
                 tr.get("name", "—"),
                 t.brl(pnl),
                 self._fmt_source(tr.get("source", "manual")),
-            ], pnl, None))
+            ], pnl, None, None))
         for ev in sync.load_market_events():
             ts = self._event_ts(ev)
             if not _in_period(ts, periodo):
@@ -783,7 +816,7 @@ class HistoryScreen(QWidget):
                 ev.get("name", "—"),
                 t.brl(ev.get("price")),
                 "Steam",
-            ], None, side))
+            ], None, side, ev.get("icon_url")))
         for of in sync.load_trade_offers():
             ts = self._event_ts(of)
             if not _in_period(ts, periodo):
@@ -797,17 +830,22 @@ class HistoryScreen(QWidget):
                 given or "—",
                 "—",
                 "Steam",
-            ], None, None))
+            ], None, None, None))
         events.sort(key=lambda x: x[0], reverse=True)
         rows = [e[1] for e in events]
         pnl_vals = [e[2] for e in events]
         side_vals = [e[3] for e in events]
+        icon_hashes = [e[4] for e in events]
         # Coluna 1 = "Tipo" (Market (Compra)/Market (Venda)/Trade/Trade Offer)
+        # Coluna 2 = "Item" — icone aqui.
         # Coluna 3 = "Valor" — colorir baseado em side quando market event.
-        side_meta = {"op_col": 1, "price_col": 3, "vals": side_vals}
+        row_meta = {
+            "op_col": 1, "price_col": 3, "side_vals": side_vals,
+            "icon_col": 2, "icon_hashes": icon_hashes,
+        }
         return (
             ["Data", "Tipo", "Item", "Valor", "Origem"],
-            rows, len(rows), 3, pnl_vals, side_meta,
+            rows, len(rows), 3, pnl_vals, row_meta,
         )
 
     # ── helpers ──────────────────────────────────────────
@@ -840,7 +878,7 @@ class HistoryScreen(QWidget):
     def _populate(self, headers: list[str], rows: list[list[str]],
                    pnl_col: int | None = None,
                    pnl_vals: list[float | None] | None = None,
-                   side_meta: dict | None = None) -> None:
+                   row_meta: dict | None = None) -> None:
         from skinvault.localization import localize_name as _ln
         # Desativa sort durante o populate (recomendacao Qt)
         was_sorting = self._table.isSortingEnabled()
@@ -854,15 +892,25 @@ class HistoryScreen(QWidget):
             i for i, h in enumerate(headers)
             if h in ("Item", "Itens")
         }
-        # Side-aware coloring (estilo Steam: vermelho compra, verde venda).
-        side_op_col = side_meta.get("op_col") if side_meta else None
-        side_price_col = side_meta.get("price_col") if side_meta else None
-        side_vals_list = side_meta.get("vals") if side_meta else None
+        # Side-aware coloring + icone (estilo Steam).
+        rm = row_meta or {}
+        side_op_col = rm.get("op_col")
+        side_price_col = rm.get("price_col")
+        side_vals_list = rm.get("side_vals")
+        icon_col = rm.get("icon_col")
+        icon_hashes = rm.get("icon_hashes")
+        # Tamanho dos icones na linha
+        if icon_col is not None:
+            self._table.setIconSize(QSize(32, 32))
         for i, row in enumerate(rows):
             self._table.insertRow(i)
             row_side = (
                 side_vals_list[i]
                 if side_vals_list and i < len(side_vals_list) else None
+            )
+            row_icon_hash = (
+                icon_hashes[i]
+                if icon_hashes and i < len(icon_hashes) else None
             )
             for c, val in enumerate(row):
                 if c in name_cols:
@@ -892,7 +940,18 @@ class HistoryScreen(QWidget):
                         it.setBackground(QBrush(bg))
                     elif c == side_price_col:
                         it.setForeground(QBrush(color))
+                # Icone do Steam CDN (cache local) — coluna Item
+                if c == icon_col and row_icon_hash:
+                    p = icons.local_path(row_icon_hash)
+                    if p is not None:
+                        px = QPixmap(str(p))
+                        if not px.isNull():
+                            it.setIcon(QIcon(px))
                 self._table.setItem(i, c, it)
+        # Ajusta altura das linhas pro icone caber
+        if icon_col is not None:
+            for i in range(self._table.rowCount()):
+                self._table.setRowHeight(i, 38)
         hh = self._table.horizontalHeader()
         for i in range(self._table.columnCount()):
             hh.setSectionResizeMode(
@@ -901,3 +960,30 @@ class HistoryScreen(QWidget):
                 else QHeaderView.ResizeMode.ResizeToContents,
             )
         self._table.setSortingEnabled(was_sorting)
+
+        # Background prefetch dos icones faltantes — UI ja' populada,
+        # apos download um re-refresh exibe os icones.
+        if icon_hashes:
+            missing = [
+                h for h in icon_hashes
+                if h and icons.local_path(h) is None
+            ]
+            if missing:
+                self._start_icon_prefetch(missing)
+
+    def _start_icon_prefetch(self, hashes: list[str]) -> None:
+        """Spawna QThread pra baixar icones; ao fim, re-refresh."""
+        # Cancela prefetcher anterior, se existir
+        old = getattr(self, "_icon_prefetcher", None)
+        if old is not None and old.isRunning():
+            old.requestInterruption()
+        self._icon_prefetcher = _IconPrefetcher(hashes, self)
+        self._icon_prefetcher.finished_with_count.connect(
+            self._on_icons_downloaded,
+        )
+        self._icon_prefetcher.start()
+
+    def _on_icons_downloaded(self, n: int) -> None:
+        """Callback do prefetcher — re-refresh se baixou algo."""
+        if n > 0:
+            self.refresh()
