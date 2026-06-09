@@ -29,7 +29,6 @@ from PyQt6.QtWidgets import (
     QDialog,
     QDockWidget,
     QFileDialog,
-    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -57,7 +56,7 @@ except ImportError:
 from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
 from skinvault._paths import DATA_DIR
 from skinvault.settings import DEFAULTS, load_settings, save_settings
-from skinvault.ui.components import Sidebar
+from skinvault.ui.components import FormRow, Sidebar, Toast
 
 _BG = "#0E0E12"
 _SURFACE = "#16161C"
@@ -181,19 +180,15 @@ class SettingsDialog(QDialog):
         title.setStyleSheet(f"color: {_TEXT}; font-size: 13pt; font-weight: 700;")
         layout.addWidget(title)
 
-        form = QFormLayout()
-        form.setSpacing(8)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-
         self._cache_ttl = QLineEdit(str(self._settings.get("cache_ttl_hours", 6)))
         self._cache_ttl.setPlaceholderText("Horas")
         self._cache_ttl.setStyleSheet(_input_style())
-        form.addRow("Cache TTL (h):", self._cache_ttl)
+        layout.addWidget(FormRow("Cache TTL (h):", self._cache_ttl))
 
         self._fee_rate = QLineEdit(str(self._settings.get("fee_rate", 0.15)))
         self._fee_rate.setPlaceholderText("Ex.: 0.15")
         self._fee_rate.setStyleSheet(_input_style())
-        form.addRow("Taxa Steam:", self._fee_rate)
+        layout.addWidget(FormRow("Taxa Steam:", self._fee_rate))
 
         self._auto_backup = QCheckBox("Ativar backup automatico")
         self._auto_backup.setChecked(self._settings.get("auto_backup", True))
@@ -201,17 +196,17 @@ class SettingsDialog(QDialog):
             f"QCheckBox {{ color: {_TEXT}; font-size: 10pt; font-family: 'Segoe UI'; }}"
             f"QCheckBox::indicator {{ width: 18px; height: 18px; }}"
         )
-        form.addRow("Backup auto:", self._auto_backup)
+        layout.addWidget(self._auto_backup)
 
         self._keep_backups = QLineEdit(str(self._settings.get("keep_backups", 10)))
         self._keep_backups.setPlaceholderText("Numero de backups")
         self._keep_backups.setStyleSheet(_input_style())
-        form.addRow("Manter backups:", self._keep_backups)
+        layout.addWidget(FormRow("Manter backups:", self._keep_backups))
 
         self._sidebar_width = QLineEdit(str(self._settings.get("sidebar_width", 220)))
         self._sidebar_width.setPlaceholderText("Largura em px")
         self._sidebar_width.setStyleSheet(_input_style())
-        form.addRow("Largura sidebar:", self._sidebar_width)
+        layout.addWidget(FormRow("Largura sidebar:", self._sidebar_width))
 
         self._theme_combo = QComboBox()
         self._theme_combo.addItems(["Escuro", "Claro"])
@@ -225,7 +220,7 @@ class SettingsDialog(QDialog):
             f"QComboBox QAbstractItemView {{ background: {_SURFACE};"
             f" color: {_TEXT}; selection-background-color: #2A2A33; }}"
         )
-        form.addRow("Tema:", self._theme_combo)
+        layout.addWidget(FormRow("Tema:", self._theme_combo))
 
         self._start_min = QCheckBox("Iniciar minimizado (na bandeja)")
         self._start_min.setChecked(self._settings.get("start_minimized", False))
@@ -233,7 +228,7 @@ class SettingsDialog(QDialog):
             f"QCheckBox {{ color: {_TEXT}; font-size: 10pt; font-family: 'Segoe UI'; }}"
             f"QCheckBox::indicator {{ width: 18px; height: 18px; }}"
         )
-        form.addRow("", self._start_min)
+        layout.addWidget(self._start_min)
 
         self._min_to_tray = QCheckBox(
             "Minimizar para bandeja ao fechar (X nao encerra o app)"
@@ -242,9 +237,8 @@ class SettingsDialog(QDialog):
             self._settings.get("minimize_to_tray_on_close", True)
         )
         self._min_to_tray.setStyleSheet(self._start_min.styleSheet())
-        form.addRow("", self._min_to_tray)
+        layout.addWidget(self._min_to_tray)
 
-        layout.addLayout(form)
         layout.addStretch()
 
         btn_row = QHBoxLayout()
@@ -385,10 +379,9 @@ class BackupDialog(QDialog):
             return
         count = backup.restore_backup(path)
         if count:
-            QMessageBox.information(self, "Restaurado",
-                                    f"{count} arquivo(s) restaurados com sucesso.")
+            Toast.show_toast(self, f"{count} arquivo(s) restaurados com sucesso.", "success")
         else:
-            QMessageBox.warning(self, "Erro", "Falha ao restaurar backup.")
+            Toast.show_toast(self, "Falha ao restaurar backup.", "error")
 
     def _delete(self) -> None:
         path = self._selected_path()
@@ -404,7 +397,7 @@ class BackupDialog(QDialog):
         if backup.delete_backup(path):
             self._refresh()
         else:
-            QMessageBox.warning(self, "Erro", "Falha ao deletar backup.")
+            Toast.show_toast(self, "Falha ao deletar backup.", "error")
 
 
 # ── Steam Sync (F10) ────────────────────────────────────────────

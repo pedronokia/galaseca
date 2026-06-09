@@ -36,7 +36,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, StatCard
+from skinvault.ui.components import Card, SectionHeader, StatCard, Toast, Toolbar
 
 
 _MAX_FACTOR_DELTA = 35.0  # peso maximo de qualquer fator no enhanced_score
@@ -794,13 +794,11 @@ class ScannerScreen(QWidget):
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(12)
 
-        hdr = QHBoxLayout()
-        title = QLabel("Scanner")
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
+        tb = Toolbar()
+        tb.add_left(
+            SectionHeader("Scanner", "Análise multi-fator — score 0-100",
+                          title_fs=t.FS_TITLE)
         )
-        hdr.addWidget(title)
-        hdr.addStretch(1)
 
         self._cat_combo = QComboBox()
         self._cat_combo.setStyleSheet(
@@ -814,7 +812,7 @@ class ScannerScreen(QWidget):
             self._cat_combo.addItem(cat)
         self._cat_combo.addItem("Todas as categorias")
         self._cat_combo.currentTextChanged.connect(self._refresh_regime_banner)
-        hdr.addWidget(self._cat_combo)
+        tb.add_left(self._cat_combo)
 
         self._scan_btn = QPushButton("Escanear")
         self._scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -824,7 +822,7 @@ class ScannerScreen(QWidget):
             " e veredito (COMPRA / ATENCAO / EVITAR)."
         )
         self._scan_btn.clicked.connect(self._on_scan)
-        hdr.addWidget(self._scan_btn)
+        tb.add_right(self._scan_btn)
 
         self._rank_btn = QPushButton("Ranking Top 20")
         self._rank_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -835,7 +833,7 @@ class ScannerScreen(QWidget):
             " scores. Demora vários minutos pelo rate-limit do Steam."
         )
         self._rank_btn.clicked.connect(self._on_ranking)
-        hdr.addWidget(self._rank_btn)
+        tb.add_right(self._rank_btn)
 
         self._validate_btn = QPushButton("Validar Score")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -847,7 +845,7 @@ class ScannerScreen(QWidget):
             " Demora ~2s por item pelo rate-limit do Steam."
         )
         self._validate_btn.clicked.connect(self._on_validate_score)
-        hdr.addWidget(self._validate_btn)
+        tb.add_right(self._validate_btn)
 
         self._clear_cache_btn = QPushButton("Limpar cache SSR")
         self._clear_cache_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -858,7 +856,7 @@ class ScannerScreen(QWidget):
             " consulta. O cache expira automaticamente em 24h."
         )
         self._clear_cache_btn.clicked.connect(self._on_clear_ssr_cache)
-        hdr.addWidget(self._clear_cache_btn)
+        tb.add_right(self._clear_cache_btn)
 
         self._export_btn = QPushButton("Exportar CSV")
         self._export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -869,8 +867,8 @@ class ScannerScreen(QWidget):
         )
         self._export_btn.clicked.connect(self._on_export_csv)
         self._export_btn.setEnabled(False)
-        hdr.addWidget(self._export_btn)
-        root.addLayout(hdr)
+        tb.add_right(self._export_btn)
+        root.addWidget(tb)
 
         # Filtros sob o header
         from skinvault.settings import load_settings as _load
@@ -1455,7 +1453,7 @@ class ScannerScreen(QWidget):
         if mb.exec() != QMessageBox.StandardButton.Yes:
             return
         cache.clear()
-        self._status.setText("Cache SSR limpo. Dados serão baixados na próxima consulta.")
+        Toast.show_toast(self, "Cache SSR limpo. Dados serão baixados na próxima consulta.", "info")
 
     def _on_export_csv(self) -> None:
         from PyQt6.QtWidgets import QFileDialog, QMessageBox
@@ -1506,14 +1504,14 @@ class ScannerScreen(QWidget):
                         case_label,
                         risk,
                     ])
-            self._status.setText(f"Exportado: {path}")
+            Toast.show_toast(self, f"Exportado: {path}", "success")
         except Exception as e:
-            QMessageBox.warning(self, "Erro ao exportar", str(e))
+            Toast.show_toast(self, f"Erro ao exportar: {e}", "error")
 
     # ── validacao do score (backtest ao vivo) ────────────
     def _on_validate_score(self) -> None:
         if not self._scan_results:
-            self._status.setText("Escaneie itens antes de validar.")
+            Toast.show_toast(self, "Escaneie itens antes de validar.", "warning")
             return
         names = [r["name"] for r in self._scan_results]
         self._validate_samples = []

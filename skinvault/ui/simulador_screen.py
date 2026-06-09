@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import portfolio
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, StatCard
+from skinvault.ui.components import Card, SectionHeader, StatCard
 
 
 _HIST_CAP = 5
@@ -92,24 +92,15 @@ class SimuladorScreen(QWidget):
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(14)
 
-        title = QLabel("Simulador de Trade")
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
+        root.addWidget(
+            SectionHeader(
+                "Simulador de Trade",
+                "Simule uma compra e venda no Steam Community Market e veja o "
+                "lucro real após a taxa de 15%. O \"preço mínimo de venda\" "
+                "mostra por quanto você precisa listar para empatar.",
+                title_fs=t.FS_TITLE,
+            )
         )
-        root.addWidget(title)
-
-        desc = QLabel(
-            "Simule uma compra e venda no Steam Community Market e veja o "
-            "lucro real após a taxa de 15%. O \"preço mínimo de venda\" "
-            "mostra por quanto você precisa listar para empatar."
-        )
-        desc.setWordWrap(True)
-        desc.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        root.addWidget(desc)
 
         # ── Card de inputs ────────────────────────────────
         card = Card(self, padding=(20, 18, 20, 18))

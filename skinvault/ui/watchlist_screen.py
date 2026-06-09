@@ -43,6 +43,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
+from skinvault.ui.components import FormRow, SectionHeader
 
 
 class _RulesDialog(QDialog):
@@ -62,16 +63,13 @@ class _RulesDialog(QDialog):
         layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(14)
 
-        form = QFormLayout()
-        form.setSpacing(10)
-
         # Price below target
         self._below_target = QDoubleSpinBox()
         self._below_target.setRange(0, 99999)
         self._below_target.setPrefix("R$ ")
         self._below_target.setValue(rules.get("price_below", 0))
         self._below_target.setStyleSheet(t.input_style())
-        form.addRow("Alerta abaixo de:", self._below_target)
+        layout.addWidget(FormRow("Alerta abaixo de:", self._below_target))
 
         # Drop %
         self._drop_pct = QDoubleSpinBox()
@@ -79,7 +77,7 @@ class _RulesDialog(QDialog):
         self._drop_pct.setSuffix(" %")
         self._drop_pct.setValue(rules.get("price_drop_pct", 0))
         self._drop_pct.setStyleSheet(t.input_style())
-        form.addRow("Queda percentual:", self._drop_pct)
+        layout.addWidget(FormRow("Queda percentual:", self._drop_pct))
 
         # Volume spike
         self._volume_spike = QDoubleSpinBox()
@@ -87,7 +85,7 @@ class _RulesDialog(QDialog):
         self._volume_spike.setValue(rules.get("volume_spike", 0))
         self._volume_spike.setSpecialValueText("Desligado")
         self._volume_spike.setStyleSheet(t.input_style())
-        form.addRow("Volume anomalia (x):", self._volume_spike)
+        layout.addWidget(FormRow("Volume anomalia (x):", self._volume_spike))
 
         # Supply drop
         qb = QGroupBox("Supply drop")
@@ -106,7 +104,7 @@ class _RulesDialog(QDialog):
         self._supply_drop.setStyleSheet(t.input_style())
         qb_lay.addWidget(QLabel("Limiar de queda na oferta:"))
         qb_lay.addWidget(self._supply_drop)
-        form.addRow(qb)
+        layout.addWidget(qb)
 
         # Score above (validado empiricamente: 85+ retorna +50% em 90d)
         self._score_above = QSpinBox()
@@ -119,9 +117,7 @@ class _RulesDialog(QDialog):
             " Empíricamente: score >=85 retorna +50% em 90d (containers)."
             " Recomendado: 85 pra alta convicção, 70 pra ampla cobertura."
         )
-        form.addRow("Score atingir:", self._score_above)
-
-        layout.addLayout(form)
+        layout.addWidget(FormRow("Score atingir:", self._score_above))
 
         self._rules_instr = QLabel(
             "Regras com valor 0 ou 'Desligado' ficam inativas."
@@ -221,27 +217,17 @@ class WatchlistScreen(QWidget):
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(14)
 
-        # Header (titulo + subtitulo + CTA)
-        head_col = QVBoxLayout()
-        head_col.setSpacing(2)
-        title = QLabel("Watchlist")
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        head_col.addWidget(title)
-        sub = QLabel(
-            "Monitore preços de skins selecionadas e receba alertas quando "
-            "regras forem atendidas (queda, volume anormal, oferta baixa)."
-        )
-        sub.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        head_col.addWidget(sub)
-
+        # Header: SectionHeader + acoes
         hdr = QHBoxLayout()
-        hdr.addLayout(head_col, 1)
+        hdr.addWidget(
+            SectionHeader(
+                "Watchlist",
+                "Monitore preços de skins selecionadas e receba alertas quando "
+                "regras forem atendidas (queda, volume anormal, oferta baixa).",
+                title_fs=t.FS_TITLE,
+            ),
+            1,
+        )
 
         self._add_btn = QPushButton("+ Adicionar item")
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)

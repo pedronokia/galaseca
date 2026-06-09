@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QDoubleSpinBox,
-    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -30,7 +29,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import trades as trades_mod
 from skinvault.ui import theme as t
-from skinvault.ui.components import RecentMatchesStrip, SegmentedControl, StatCard
+from skinvault.ui.components import FormRow, RecentMatchesStrip, SectionHeader, SegmentedControl, StatCard, Toast
 
 
 _PERIODS = [
@@ -79,40 +78,36 @@ class _TradeDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(14)
-        form = QFormLayout()
-        form.setSpacing(10)
 
         self._name_inp = QLineEdit(tr.get("name", ""))
         self._name_inp.setPlaceholderText("AK-47 | Redline (Field-Tested)")
         self._name_inp.setStyleSheet(t.input_style())
-        form.addRow("Item:", self._name_inp)
+        layout.addWidget(FormRow("Item:", self._name_inp))
 
         self._buy_inp = QDoubleSpinBox()
         self._buy_inp.setRange(0, 999999)
         self._buy_inp.setPrefix("R$ ")
         self._buy_inp.setValue(tr.get("buy_cost", 0))
         self._buy_inp.setStyleSheet(t.input_style())
-        form.addRow("Preço de compra (unitário):", self._buy_inp)
+        layout.addWidget(FormRow("Preço de compra (unitário):", self._buy_inp))
 
         self._sell_inp = QDoubleSpinBox()
         self._sell_inp.setRange(0, 999999)
         self._sell_inp.setPrefix("R$ ")
         self._sell_inp.setValue(tr.get("sell_price", 0))
         self._sell_inp.setStyleSheet(t.input_style())
-        form.addRow("Preço de venda (unitário, bruto):", self._sell_inp)
+        layout.addWidget(FormRow("Preço de venda (unitário, bruto):", self._sell_inp))
 
         self._qty_inp = QSpinBox()
         self._qty_inp.setRange(1, 999)
         self._qty_inp.setValue(tr.get("quantity", 1))
         self._qty_inp.setStyleSheet(t.input_style())
-        form.addRow("Quantidade:", self._qty_inp)
+        layout.addWidget(FormRow("Quantidade:", self._qty_inp))
 
         self._notes_inp = QLineEdit(tr.get("notes", ""))
         self._notes_inp.setPlaceholderText("Opcional")
         self._notes_inp.setStyleSheet(t.input_style())
-        form.addRow("Notas:", self._notes_inp)
-
-        layout.addLayout(form)
+        layout.addWidget(FormRow("Notas:", self._notes_inp))
 
         btn_row = QHBoxLayout()
         cancel = QPushButton("Cancelar")
@@ -166,27 +161,17 @@ class TradesScreen(QWidget):
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(14)
 
-        # Header: titulo + subtitulo + acoes
+        # Header: SectionHeader + acoes
         hdr = QHBoxLayout()
-        col = QVBoxLayout()
-        col.setSpacing(2)
-        title = QLabel("Histórico de Trades")
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
+        hdr.addWidget(
+            SectionHeader(
+                "Histórico de Trades",
+                "P&L líquido após a taxa de 15% da Steam, com filtros por "
+                "período e resultado.",
+                title_fs=t.FS_TITLE,
+            ),
+            1,
         )
-        subtitle = QLabel(
-            "P&L líquido após a taxa de 15% da Steam, com filtros por "
-            "período e resultado."
-        )
-        subtitle.setWordWrap(True)
-        subtitle.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        col.addWidget(title)
-        col.addWidget(subtitle)
-        hdr.addLayout(col, 1)
 
         self._add_btn = QPushButton("Adicionar trade")
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -531,7 +516,7 @@ class TradesScreen(QWidget):
     def _on_edit_selected(self) -> None:
         idx = self._selected_index()
         if idx is None:
-            self._status.setText("Selecione um trade para editar.")
+            Toast.show_toast(self, "Selecione um trade para editar.", "warning")
             return
         trade = self._trades[idx]
         if trade.get("source") not in (None, "manual"):
@@ -548,8 +533,7 @@ class TradesScreen(QWidget):
             return
         data = dlg.get_data()
         if not data["name"]:
-            QMessageBox.warning(self, "Trade",
-                                "O nome do item é obrigatório.")
+            Toast.show_toast(self, "O nome do item é obrigatório.", "error")
             return
         trades_mod.update_trade(
             idx,
@@ -564,7 +548,7 @@ class TradesScreen(QWidget):
     def _on_remove_selected(self) -> None:
         idx = self._selected_index()
         if idx is None:
-            self._status.setText("Selecione um trade para remover.")
+            Toast.show_toast(self, "Selecione um trade para remover.", "warning")
             return
         trade = self._trades[idx]
         r = QMessageBox.question(
@@ -579,7 +563,7 @@ class TradesScreen(QWidget):
 
     def _on_clear(self) -> None:
         if not self._trades:
-            self._status.setText("Nenhum trade para remover.")
+            Toast.show_toast(self, "Nenhum trade para remover.", "warning")
             return
         r = QMessageBox.question(
             self, "Limpar todos os trades",

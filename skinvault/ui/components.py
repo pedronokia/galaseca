@@ -832,8 +832,11 @@ class Toast(QWidget):
         for tst in self._stack:
             if tst is self:
                 break
-            if tst.isVisible():
-                y = tst.y() + tst.height() + t.SPACE_SM
+            try:
+                if tst.isVisible():
+                    y = tst.y() + tst.height() + t.SPACE_SM
+            except RuntimeError:
+                pass  # objeto C++ deletado, ignorar
         x = max(margin, parent.width() - self.width() - margin)
         self.move(x, y)
 
@@ -851,8 +854,11 @@ class Toast(QWidget):
         self.deleteLater()
         # Reposiciona toasts remanescentes
         for tst in list(self._stack):
-            if tst.isVisible():
-                tst._reposition()
+            try:
+                if tst.isVisible():
+                    tst._reposition()
+            except RuntimeError:
+                pass  # objeto C++ deletado, ignorar
 
 
 # ── LoadingState ─────────────────────────────────────────────
@@ -913,6 +919,7 @@ class SectionHeader(QWidget):
 
     def __init__(self, title: str, subtitle: str = "",
                  action: QPushButton | None = None,
+                 title_fs: str = t.FS_TITLE_SM,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         outer = QHBoxLayout(self)
@@ -925,7 +932,7 @@ class SectionHeader(QWidget):
 
         self._title = QLabel(title)
         self._title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f"color: {t.TEXT}; font-size: {title_fs};"
             f" font-weight: 600; font-family: {t.FONT_FAMILY};"
         )
         stack.addWidget(self._title)

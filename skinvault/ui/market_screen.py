@@ -26,7 +26,7 @@ from skinvault import cases, signals, steam_api
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, StatCard
+from skinvault.ui.components import Card, SectionHeader, StatCard, Toast, Toolbar
 from skinvault.ui.widgets import DepthChart, MiniSparkline
 
 
@@ -93,27 +93,17 @@ class MarketScreen(QWidget):
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(14)
 
-        title = QLabel("Consulta de Mercado")
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
+        root.addWidget(
+            SectionHeader(
+                "Consulta de Mercado",
+                "Análise de fair value, histórico de preços e profundidade do "
+                "livro de ofertas no Steam Community Market.",
+                title_fs=t.FS_TITLE,
+            )
         )
-        root.addWidget(title)
 
-        subtitle = QLabel(
-            "Análise de fair value, histórico de preços e profundidade do "
-            "livro de ofertas no Steam Community Market."
-        )
-        subtitle.setWordWrap(True)
-        subtitle.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        root.addWidget(subtitle)
-
-        # ── Search row ────────────────────────────────────
-        search_row = QHBoxLayout()
-        search_row.setSpacing(8)
+        # ── Search row (Toolbar) ──────────────────────────
+        tb = Toolbar()
 
         self._search_inp = QLineEdit()
         self._search_inp.setPlaceholderText(
@@ -121,7 +111,7 @@ class MarketScreen(QWidget):
         )
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.returnPressed.connect(self._on_search)
-        search_row.addWidget(self._search_inp, 1)
+        tb.add_left(self._search_inp)
 
         self._recent_btn = QPushButton("Buscas recentes ▾")
         self._recent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -131,7 +121,7 @@ class MarketScreen(QWidget):
         self._recent_menu = QMenu(self._recent_btn)
         self._recent_btn.setMenu(self._recent_menu)
         self._recent_btn.setEnabled(False)
-        search_row.addWidget(self._recent_btn)
+        tb.add_right(self._recent_btn)
 
         self._clear_btn = QPushButton("Limpar")
         self._clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -139,7 +129,7 @@ class MarketScreen(QWidget):
                                                   fs=t.FS_BODY))
         self._clear_btn.setToolTip("Limpa a busca e o resultado atual.")
         self._clear_btn.clicked.connect(self._on_clear)
-        search_row.addWidget(self._clear_btn)
+        tb.add_right(self._clear_btn)
 
         self._search_btn = QPushButton("Consultar item")
         self._search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -149,9 +139,9 @@ class MarketScreen(QWidget):
             "ofertas.\nRespeita o rate-limit do Steam (~2s por consulta)."
         )
         self._search_btn.clicked.connect(self._on_search)
-        search_row.addWidget(self._search_btn)
+        tb.add_right(self._search_btn)
 
-        root.addLayout(search_row)
+        root.addWidget(tb)
 
         hint = QLabel(
             "Cole o nome exatamente como aparece no Steam Market — incluindo "
@@ -410,9 +400,11 @@ class MarketScreen(QWidget):
         elapsed = time.time() - self._started_at if self._started_at else 0.0
 
         if not overview and not page:
-            self._status.setText(
+            Toast.show_toast(
+                self,
                 f"Não foi possível obter dados de “{name}”. "
-                "Verifique o nome (wear, StatTrak, espaços) ou tente novamente."
+                "Verifique o nome (wear, StatTrak, espaços) ou tente novamente.",
+                "error",
             )
             return
 

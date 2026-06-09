@@ -19,7 +19,6 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFileDialog,
-    QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -38,7 +37,7 @@ from skinvault.prices import PriceCache
 from skinvault.settings import load_settings, save_settings
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import BatchPriceWorker
-from skinvault.ui.components import Card, SegmentedControl
+from skinvault.ui.components import Card, FormRow, SectionHeader, SegmentedControl, Toolbar
 
 
 # ── Dialog: simular trade ────────────────────────────────────
@@ -57,24 +56,9 @@ class SimulateTradeDialog(QDialog):
         root.setContentsMargins(20, 18, 20, 18)
         root.setSpacing(14)
 
-        title = QLabel("Simulador de lucro")
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        root.addWidget(title)
+        root.addWidget(SectionHeader("Simulador de lucro",
+                                      "Veja o lucro real depois da taxa de 15% da Steam."))
 
-        cap = QLabel(
-            "Veja o lucro real depois da taxa de 15% da Steam."
-        )
-        cap.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        root.addWidget(cap)
-
-        form = QFormLayout()
-        form.setSpacing(10)
         self._buy = QLineEdit()
         self._buy.setPlaceholderText("0,00")
         self._buy.setStyleSheet(t.input_style())
@@ -85,10 +69,12 @@ class SimulateTradeDialog(QDialog):
         self._qty.setStyleSheet(t.input_style())
         for w in (self._buy, self._sell, self._qty):
             w.returnPressed.connect(self._calc)
-        form.addRow("Compra (R$):", self._buy)
-        form.addRow("Venda (R$):", self._sell)
-        form.addRow("Qtd:", self._qty)
-        root.addLayout(form)
+        for row_data in (
+            ("Compra (R$):", self._buy),
+            ("Venda (R$):", self._sell),
+            ("Qtd:", self._qty),
+        ):
+            root.addWidget(FormRow(*row_data))
 
         btn = QPushButton("Calcular")
         btn.setStyleSheet(t.btn_primary())
@@ -446,12 +432,12 @@ class HistoryScreen(QWidget):
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(14)
 
-        top = QHBoxLayout()
+        tb = Toolbar()
         self._seg = SegmentedControl(self)
         for key, label in self.SEGMENTS:
             self._seg.add(key, label)
         self._seg.segment_changed.connect(self._on_segment)
-        top.addWidget(self._seg, 1)
+        tb.add_left(self._seg)
 
         self._update_prices_btn = QPushButton("Atualizar precos")
         self._update_prices_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -464,21 +450,21 @@ class HistoryScreen(QWidget):
         )
         self._update_prices_btn.clicked.connect(self._on_update_prices)
         self._update_prices_btn.setVisible(False)
-        top.addWidget(self._update_prices_btn)
+        tb.add_right(self._update_prices_btn)
 
         reload_btn = QPushButton("Recarregar")
         reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         reload_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         reload_btn.setToolTip("Recarrega os dados do segmento atual do disco.")
         reload_btn.clicked.connect(self.refresh)
-        top.addWidget(reload_btn)
+        tb.add_right(reload_btn)
 
         export_btn = QPushButton("Exportar CSV")
         export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         export_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         export_btn.setToolTip("Salva o conteudo da tabela atual em arquivo CSV.")
         export_btn.clicked.connect(self._on_export_csv)
-        top.addWidget(export_btn)
+        tb.add_right(export_btn)
 
         self._backfill_icons_btn = QPushButton("Buscar ícones")
         self._backfill_icons_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -491,16 +477,16 @@ class HistoryScreen(QWidget):
             " ~2s entre cada. Roda em background — pode demorar varios minutos."
         )
         self._backfill_icons_btn.clicked.connect(self._on_backfill_icons)
-        top.addWidget(self._backfill_icons_btn)
+        tb.add_right(self._backfill_icons_btn)
 
         sim_btn = QPushButton("Simular trade")
         sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         sim_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         sim_btn.setToolTip("Calcula lucro real apos taxa Steam de 15%.")
         sim_btn.clicked.connect(self._open_simulator)
-        top.addWidget(sim_btn)
+        tb.add_right(sim_btn)
 
-        root.addLayout(top)
+        root.addWidget(tb)
 
         # Barra horizontal de filtros (acima da tabela)
         self._filter_panel = _FilterBar(self)
