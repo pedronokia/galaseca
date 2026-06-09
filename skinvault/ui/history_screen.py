@@ -1001,28 +1001,10 @@ class HistoryScreen(QWidget):
                     i, QHeaderView.ResizeMode.ResizeToContents,
                 )
         # Alinhamento por coluna
-        for i in range(self._table.rowCount()):
-            for c in range(self._table.columnCount()):
-                cell = self._table.item(i, c)
-                if cell is None:
-                    continue
-                if c in money_cols:
-                    cell.setTextAlignment(
-                        Qt.AlignmentFlag.AlignRight
-                        | Qt.AlignmentFlag.AlignVCenter,
-                    )
-                elif c == side_op_col and headers[c] in ("Operação", "Tipo"):
-                    cell.setTextAlignment(
-                        Qt.AlignmentFlag.AlignCenter,
-                    )
-        # Header tambem precisa alinhar pra bater com cells
-        for c in money_cols:
-            hi = self._table.horizontalHeaderItem(c)
-            if hi is not None:
-                hi.setTextAlignment(
-                    Qt.AlignmentFlag.AlignRight
-                    | Qt.AlignmentFlag.AlignVCenter,
-                )
+        center_cols: set[int] = set()
+        if side_op_col is not None and headers[side_op_col] in ("Operação", "Tipo"):
+            center_cols.add(side_op_col)
+        t.align_table_columns(self._table, right=money_cols, center=center_cols)
         self._table.setSortingEnabled(was_sorting)
 
         # Background prefetch dos icones faltantes — UI ja' populada,

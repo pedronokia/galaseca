@@ -453,34 +453,10 @@ class WatchlistScreen(QWidget):
 
             # Acoes (context menu via botoes na ultima coluna ou botoes inline)
             # Usa botoes simples: Editar e Remover
-        # Alinhamento por coluna estilo trading-app (Win11 dark):
-        # - dinheiro (Preco alvo, Preco atual) → direita
-        # - status/score (Status, Score, Confiança) → centralizados
+        # Alinhamento por coluna: preco → direita, status → centro
         right_cols = {self.COL_TARGET, self.COL_PRICE}
         center_cols = {self.COL_STATUS, self.COL_SCORE, self.COL_CONFIDENCE}
-        for i in range(self._table.rowCount()):
-            for c in range(self._table.columnCount()):
-                cell = self._table.item(i, c)
-                if cell is None:
-                    continue
-                if c in right_cols:
-                    cell.setTextAlignment(
-                        Qt.AlignmentFlag.AlignRight
-                        | Qt.AlignmentFlag.AlignVCenter,
-                    )
-                elif c in center_cols:
-                    cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        for c in right_cols:
-            hi = self._table.horizontalHeaderItem(c)
-            if hi is not None:
-                hi.setTextAlignment(
-                    Qt.AlignmentFlag.AlignRight
-                    | Qt.AlignmentFlag.AlignVCenter,
-                )
-        for c in center_cols:
-            hi = self._table.horizontalHeaderItem(c)
-            if hi is not None:
-                hi.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        t.align_table_columns(self._table, right=right_cols, center=center_cols)
         self._table.setSortingEnabled(was_sorting)
         self._status.setText(
             f"{len(self._items)} itens • "

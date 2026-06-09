@@ -6,6 +6,8 @@ sync/conta.
 """
 from __future__ import annotations
 
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QTableWidget
 
 # ── Paleta ───────────────────────────────────────────────────
 BG          = "#0E0E12"   # fundo principal
@@ -172,3 +174,42 @@ def card_style(radius: int = 10) -> str:
         f"QWidget#Card {{ background: {BG_ELEVATED};"
         f" border: 1px solid {BORDER}; border-radius: {radius}px; }}"
     )
+
+
+def align_table_columns(
+    table: QTableWidget,
+    right: set[int] | None = None,
+    center: set[int] | None = None,
+) -> None:
+    """Aplica alinhamento por coluna estilo trading-app (Win11 dark).
+
+    Colunas em `right`: AlignRight | AlignVCenter (dinheiro, numeros).
+    Colunas em `center`: AlignCenter (status, categoricos).
+    Headers tambem alinham pra bater com cells.
+    Deve ser chamado no fim do _populate(), apos inserir todos os rows.
+    """
+    right = right or set()
+    center = center or set()
+    for i in range(table.rowCount()):
+        for c in range(table.columnCount()):
+            cell = table.item(i, c)
+            if cell is None:
+                continue
+            if c in right:
+                cell.setTextAlignment(
+                    Qt.AlignmentFlag.AlignRight
+                    | Qt.AlignmentFlag.AlignVCenter,
+                )
+            elif c in center:
+                cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+    for c in right:
+        hi = table.horizontalHeaderItem(c)
+        if hi is not None:
+            hi.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight
+                | Qt.AlignmentFlag.AlignVCenter,
+            )
+    for c in center:
+        hi = table.horizontalHeaderItem(c)
+        if hi is not None:
+            hi.setTextAlignment(Qt.AlignmentFlag.AlignCenter)

@@ -1262,41 +1262,14 @@ class ScannerScreen(QWidget):
                         " Valor aproximado do último ponto do histórico SSR."
                         " Pode diferir do preço real de listagem."
                     )
-        # Alinhamento por coluna estilo trading-app (Win11 dark):
-        # - dinheiro/número (Preco, Preco justo, Score) → direita
-        # - status/categoricos (Sinal, Veredito, Spread, Book, Tendencia,
-        #   S/D, Risco, Conf.) → centralizados
-        # - Item segue padrão (esquerda)
+        # Alinhamento por coluna: dinheiro → direita, status → centro
         right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_SCORE}
         center_cols = {
             self.COL_SINAL, self.COL_VEREDITO, self.COL_SPREAD,
             self.COL_BOOK, self.COL_TREND, self.COL_SD,
             self.COL_RISCO, self.COL_CONFIDENCE,
         }
-        for i in range(self._table.rowCount()):
-            for c in range(self._table.columnCount()):
-                cell = self._table.item(i, c)
-                if cell is None:
-                    continue
-                if c in right_cols:
-                    cell.setTextAlignment(
-                        Qt.AlignmentFlag.AlignRight
-                        | Qt.AlignmentFlag.AlignVCenter,
-                    )
-                elif c in center_cols:
-                    cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Headers também alinham pra bater com cells
-        for c in right_cols:
-            hi = self._table.horizontalHeaderItem(c)
-            if hi is not None:
-                hi.setTextAlignment(
-                    Qt.AlignmentFlag.AlignRight
-                    | Qt.AlignmentFlag.AlignVCenter,
-                )
-        for c in center_cols:
-            hi = self._table.horizontalHeaderItem(c)
-            if hi is not None:
-                hi.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        t.align_table_columns(self._table, right=right_cols, center=center_cols)
         self._table.setSortingEnabled(was_sorting)
 
         # Aplica filtro de order book approx (so esconde, nunca mostra)
