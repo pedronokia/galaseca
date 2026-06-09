@@ -1,6 +1,9 @@
-"""Gera screenshots de cada aba do SkinVault pra validacao."""
-import sys
+"""Gera screenshots de cada tela do SkinVault pra validacao.
+
+Atualizado pos-F11: navega via ScreenRouter em vez de QTabWidget.
+"""
 import os
+import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -14,24 +17,26 @@ OUT.mkdir(exist_ok=True)
 
 def shoot():
     from skinvault.gui import MainWindow
+    from skinvault.ui import screen_router as sr
 
     app = QApplication([])
     win = MainWindow()
     win.show()
     app.processEvents()
 
-    tabs = [
-        (0, "01-inventario"),
-        (1, "02-portfolio"),
-        (2, "03-market-browser"),
-        (3, "04-watchlist"),
-        (4, "05-trade-analyzer"),
-        (5, "06-simulador"),
+    screens = [
+        (sr.SCREEN_ACCOUNT, "01-account"),
+        (sr.SCREEN_HISTORY, "02-history"),
+        (sr.SCREEN_SCANNER, "03-scanner"),
+        (sr.SCREEN_MARKET, "04-market"),
+        (sr.SCREEN_TRADES, "05-trades"),
+        (sr.SCREEN_SIMULADOR, "06-simulador"),
+        (sr.SCREEN_WATCHLIST, "07-watchlist"),
     ]
 
     def capture():
-        for idx, name in tabs:
-            win.setCurrentIndex(idx)
+        for screen, name in screens:
+            win._router.navigate(screen)
             app.processEvents()
             pix = win.grab()
             pix.save(str(OUT / f"{name}.png"))
