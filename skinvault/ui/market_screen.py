@@ -26,7 +26,15 @@ from skinvault import cases, signals, steam_api
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, SectionHeader, StatCard, Toast, Toolbar
+from skinvault.ui.components import (
+    Card,
+    EmptyState,
+    LoadingState,
+    SectionHeader,
+    StatCard,
+    Toast,
+    Toolbar,
+)
 from skinvault.ui.widgets import DepthChart, MiniSparkline
 
 
@@ -154,6 +162,17 @@ class MarketScreen(QWidget):
         )
         root.addWidget(hint)
 
+        self._loading = LoadingState("Consultando item…")
+        self._loading.setVisible(False)
+        self._loading.setMinimumHeight(180)
+        root.addWidget(self._loading)
+
+        # ── Content area (shown/hidden as a unit) ──────────
+        self._content = QWidget()
+        content_lay = QVBoxLayout(self._content)
+        content_lay.setContentsMargins(0, 0, 0, 0)
+        content_lay.setSpacing(14)
+
         # ── Stat cards ────────────────────────────────────
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
@@ -178,7 +197,7 @@ class MarketScreen(QWidget):
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict):
             stats_row.addWidget(sc, 1)
-        root.addLayout(stats_row)
+        content_lay.addLayout(stats_row)
 
         # ── Charts ────────────────────────────────────────
         charts_row = QHBoxLayout()
@@ -238,7 +257,7 @@ class MarketScreen(QWidget):
         depth_card.layout().addLayout(depth_lay)
         charts_row.addWidget(depth_card, 1)
 
-        root.addLayout(charts_row)
+        content_lay.addLayout(charts_row)
 
         # ── Detail card ───────────────────────────────────
         detail_card = Card(self, padding=(20, 18, 20, 18))
@@ -279,7 +298,7 @@ class MarketScreen(QWidget):
         detail_lay.addLayout(self._detail_form)
 
         detail_card.layout().addLayout(detail_lay)
-        root.addWidget(detail_card)
+        content_lay.addWidget(detail_card)
 
         # ── Status ────────────────────────────────────────
         self._status = QLabel(
@@ -289,7 +308,17 @@ class MarketScreen(QWidget):
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY};"
         )
-        root.addWidget(self._status)
+        content_lay.addWidget(self._status)
+
+        root.addWidget(self._content)
+
+        self._empty = EmptyState(
+            "◇", "Nada encontrado",
+            "Nenhum dado disponível para este item. Verifique o nome "
+            "exato (wear, StatTrak, acentos) ou tente novamente.",
+        )
+        self._empty.setVisible(False)
+        root.addWidget(self._empty, 1)
 
         QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(
             self._search_inp.setFocus
@@ -350,6 +379,9 @@ class MarketScreen(QWidget):
         from skinvault.localization import localize_name as _ln
         self._status.setText(f"Consultando {_ln(name)}…{cache_msg}")
         self._search_btn.setEnabled(False)
+        self._content.setVisible(False)
+        self._empty.setVisible(False)
+        self._loading.setVisible(True)
         self._started_at = time.time()
 
         def _worker():
@@ -368,6 +400,9 @@ class MarketScreen(QWidget):
     def _on_clear(self) -> None:
         self._search_inp.clear()
         self._search_inp.setFocus()
+        self._loading.setVisible(False)
+        self._empty.setVisible(False)
+        self._content.setVisible(True)
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict):
             sc.set_value("—", accent=t.TEXT)
@@ -394,12 +429,15 @@ class MarketScreen(QWidget):
 
     def _on_data(self, data: dict) -> None:
         self._search_btn.setEnabled(True)
+        self._loading.setVisible(False)
         name = data.get("name", "")
         overview = data.get("overview")
         page = data.get("page")
         elapsed = time.time() - self._started_at if self._started_at else 0.0
 
         if not overview and not page:
+            self._content.setVisible(False)
+            self._empty.setVisible(True)
             Toast.show_toast(
                 self,
                 f"Não foi possível obter dados de “{name}”. "
@@ -407,6 +445,9 @@ class MarketScreen(QWidget):
                 "error",
             )
             return
+
+        self._empty.setVisible(False)
+        self._content.setVisible(True)
 
         # Stats
         verdict: dict = {}

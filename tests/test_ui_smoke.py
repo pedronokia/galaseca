@@ -289,7 +289,7 @@ def test_scanner_tabela_tem_coluna_conf():
     assert screen.COL_RISCO == 10
     hdr = screen._table.horizontalHeaderItem(11)
     assert hdr is not None
-    assert hdr.text() == "Conf."
+    assert hdr.text() == "Confiança"
     risco_hdr = screen._table.horizontalHeaderItem(10)
     assert risco_hdr is not None
     assert risco_hdr.text() == "Risco"

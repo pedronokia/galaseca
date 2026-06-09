@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -37,7 +38,15 @@ from skinvault.prices import PriceCache
 from skinvault.settings import load_settings, save_settings
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import BatchPriceWorker
-from skinvault.ui.components import Card, FormRow, SectionHeader, SegmentedControl, Toolbar
+from skinvault.ui.components import (
+    Card,
+    EmptyState,
+    FormRow,
+    LoadingState,
+    SectionHeader,
+    SegmentedControl,
+    Toolbar,
+)
 
 
 # ── Dialog: simular trade ────────────────────────────────────
@@ -493,6 +502,11 @@ class HistoryScreen(QWidget):
         self._filter_panel.filters_changed.connect(self.refresh)
         root.addWidget(self._filter_panel)
 
+        self._loading = LoadingState("Carregando…")
+        self._loading.setVisible(False)
+        self._loading.setMinimumHeight(160)
+        root.addWidget(self._loading)
+
         self._table = QTableWidget(0, 0)
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(
@@ -504,7 +518,18 @@ class HistoryScreen(QWidget):
         self._table.setAlternatingRowColors(True)
         self._table.setSortingEnabled(True)
         self._table.setStyleSheet(t.table_style())
-        root.addWidget(self._table, 1)
+
+        self._empty = EmptyState(
+            "◇", "Nenhum registro",
+            "Nenhum dado encontrado para o segmento e filtros atuais. "
+            "Tente alterar o período ou o tipo de evento.",
+        )
+        self._empty.setVisible(False)
+
+        self._stack = QStackedWidget()
+        self._stack.addWidget(self._table)   # page 0
+        self._stack.addWidget(self._empty)   # page 1
+        root.addWidget(self._stack, 1)
 
         # Atalhos: Ctrl+F foca search, Esc limpa search/filtros
         find_sc = QShortcut(QKeySequence("Ctrl+F"), self)
@@ -572,11 +597,14 @@ class HistoryScreen(QWidget):
             return
         self._update_prices_btn.setEnabled(False)
         self._update_prices_btn.setText("Atualizando...")
+        self._loading.set_label("Atualizando precos…")
+        self._loading.setVisible(True)
         self._price_worker.start(names_missing)
 
     def _on_prices_updated(self) -> None:
         self._update_prices_btn.setEnabled(True)
         self._update_prices_btn.setText("Atualizar precos")
+        self._loading.setVisible(False)
         if self._current_segment == "open":
             self.refresh()
 
@@ -612,8 +640,15 @@ class HistoryScreen(QWidget):
             headers, rows, count, pnl_col, pnl_vals, row_meta = (
                 self._load_all()
             )
-        self._populate(headers, rows, pnl_col=pnl_col, pnl_vals=pnl_vals,
-                       row_meta=row_meta)
+
+        if not rows:
+            self._stack.setCurrentIndex(1)
+            self._table.setRowCount(0)
+        else:
+            self._stack.setCurrentIndex(0)
+            self._populate(headers, rows, pnl_col=pnl_col, pnl_vals=pnl_vals,
+                           row_meta=row_meta)
+
         if seg == "matched":
             s = trade_matcher.summarize(self._matched_cache or [])
             self._status.setText(
@@ -1018,6 +1053,7 @@ class HistoryScreen(QWidget):
     def _on_icons_downloaded(self, n: int) -> None:
         """Callback do prefetcher — re-refresh se baixou algo."""
         if n > 0:
+            self._loading.setVisible(False)
             self.refresh()
 
     def _on_backfill_icons(self) -> None:
@@ -1029,6 +1065,8 @@ class HistoryScreen(QWidget):
             return
         self._backfill_icons_btn.setEnabled(False)
         self._backfill_icons_btn.setText("Buscando ícones...")
+        self._loading.set_label("Buscando ícones…")
+        self._loading.setVisible(True)
         self._backfill_thread = _IconBackfillThread(self)
         self._backfill_thread.progress.connect(self._on_backfill_progress)
         self._backfill_thread.finished_with_result.connect(
@@ -1045,6 +1083,7 @@ class HistoryScreen(QWidget):
     def _on_backfill_done(self, result: dict) -> None:
         self._backfill_icons_btn.setEnabled(True)
         self._backfill_icons_btn.setText("Buscar ícones")
+        self._loading.setVisible(False)
         upd = result.get("events_updated", 0)
         fetched = result.get("fetched", 0)
         names = result.get("names_resolved", 0)
