@@ -165,8 +165,8 @@ def test_capsules_and_cases_dont_collide():
 
 
 def test_capsule_count_minimum():
-    """Catalogo deve cobrir >= 50 capsulas (todos os Majors documentados)."""
-    assert len(cases._CAPSULES) >= 50
+    """Catalogo deve cobrir >= 66 capsulas (Majors + comunidade)."""
+    assert len(cases._CAPSULES) >= 66
 
 
 def test_list_capsules_returns_all():
@@ -255,7 +255,7 @@ def test_autograph_capsules_dont_collide_with_sticker_capsules():
 
 
 def test_autograph_count_minimum():
-    assert len(cases._AUTOGRAPH_CAPSULES) >= 28
+    assert len(cases._AUTOGRAPH_CAPSULES) >= 32
 
 
 # --- Premium Stickers ---

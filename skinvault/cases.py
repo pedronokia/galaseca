@@ -174,6 +174,16 @@ _CAPSULES: dict[str, dict] = {
     "Budapest 2025 Legends Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Budapest 2025 Challengers Sticker Capsule": {"status": "discontinued", "year": 2025},
     "Budapest 2025 Contenders Sticker Capsule": {"status": "discontinued", "year": 2025},
+
+    # === COMMUNITY / SPECIAL CAPSULES (nao vinculadas a um Major) ===
+    "Sticker Capsule 2": {"status": "discontinued", "year": 2014},
+    "CS20 Sticker Capsule": {"status": "discontinued", "year": 2019},
+    "Perfect World Sticker Capsule 1": {"status": "discontinued", "year": 2020},
+    "Perfect World Sticker Capsule 2": {"status": "discontinued", "year": 2020},
+    "Ambush Sticker Capsule": {"status": "discontinued", "year": 2021},
+    "Enfu Sticker Capsule": {"status": "discontinued", "year": 2021},
+    "Espionage Sticker Capsule": {"status": "discontinued", "year": 2021},
+    "10 Year Birthday Sticker Capsule": {"status": "discontinued", "year": 2023},
 }
 
 # === AUTOGRAPH CAPSULES (assinatura de jogadores, nao logos de times)
@@ -183,12 +193,23 @@ _CAPSULES: dict[str, dict] = {
 # Cologne 2026), mas o driver de demanda e' diferente (performance do player /
 # nostalgia vs sticker de time).
 #
-# Cobertura: 2021+ apenas (naming consistente).
-# Pre-2020 excluido: naming heterogeneo (3 formatos), drivers atrelados a
-# performance individual, muitos itens com liquidez baixa.
+# Cobertura: Krakow 2017+ (naming consistente moderno).
+# Krakow 2017, Katowice 2019 e Berlin 2019 usam o formato moderno
+# "{Event} {Tier} Autograph Capsule" — mesmo padrao pos-2021.
+#
+# Pre-2017 excluido: naming heterogeneo (~3 formatos diferentes),
+# drivers atrelados a performance individual, muitos itens com liquidez baixa.
 #
 # Naming: "{Event} {Tier} Autograph Capsule" (mesmo padrao das Sticker Capsules)
 _AUTOGRAPH_CAPSULES: dict[str, dict] = {
+    # 2017 — Krakow teve 2 tiers (Challengers + Legends)
+    "Krakow 2017 Challengers Autograph Capsule": {"status": "discontinued", "year": 2017},
+    "Krakow 2017 Legends Autograph Capsule": {"status": "discontinued", "year": 2017},
+
+    # 2019 — Katowice e Berlin so' tiveram Legends
+    "Katowice 2019 Legends Autograph Capsule": {"status": "discontinued", "year": 2019},
+    "Berlin 2019 Legends Autograph Capsule": {"status": "discontinued", "year": 2019},
+
     # 2021 — Stockholm teve 2 tiers (Champions + Finalists)
     "Stockholm 2021 Champions Autograph Capsule": {"status": "discontinued", "year": 2021},
     "Stockholm 2021 Finalists Autograph Capsule": {"status": "discontinued", "year": 2021},
