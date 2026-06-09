@@ -43,7 +43,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import FormRow, SectionHeader
+from skinvault.ui.components import FormRow, LoadingState, SectionHeader
 
 
 class _RulesDialog(QDialog):
@@ -293,6 +293,11 @@ class WatchlistScreen(QWidget):
         filt_row.addStretch(1)
         root.addLayout(filt_row)
 
+        # Loading state (mostrado durante validacao)
+        self._loading = LoadingState(parent=self)
+        self._loading.setVisible(False)
+        root.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
+
         # Tabela
         self._table = QTableWidget(0, 7)
         self._table.setHorizontalHeaderLabels(
@@ -490,6 +495,8 @@ class WatchlistScreen(QWidget):
         self._validate_btn.setEnabled(False)
         self._refresh_btn.setEnabled(False)
         self._add_btn.setEnabled(False)
+        self._loading.set_label(f"Validando {len(names)} itens...")
+        self._loading.setVisible(True)
         bridge = self._validate_bridge
         cache = ssr_cache.PriceHistoryCache()
         items_snapshot = items_full  # pra salvar de volta depois
@@ -569,6 +576,7 @@ class WatchlistScreen(QWidget):
         threading.Thread(target=_worker, daemon=True).start()
 
     def _on_validate_progress(self, msg: str) -> None:
+        self._loading.set_label(msg)
         self._status.setText(msg)
 
     def _on_validate_samples(self, samples: list) -> None:
@@ -630,6 +638,7 @@ class WatchlistScreen(QWidget):
 
     def _on_validate_finished(self) -> None:
         self._validating = False
+        self._loading.setVisible(False)
         self._validate_btn.setEnabled(True)
         self._refresh_btn.setEnabled(True)
         self._add_btn.setEnabled(True)

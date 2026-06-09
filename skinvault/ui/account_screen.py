@@ -36,7 +36,7 @@ from skinvault import portfolio as portfolio_mod
 from skinvault import prices, signals, ssr_cache, steam_session
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
-from skinvault.ui.components import Avatar, Card, StatCard
+from skinvault.ui.components import Avatar, Card, LoadingState, StatCard
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
     load_avatar_bytes,
@@ -265,6 +265,11 @@ class AccountScreen(QWidget):
         )
         left_col.addWidget(self._progress)
 
+        # Loading state (mostrado durante validacao)
+        self._loading = LoadingState(parent=self)
+        self._loading.setVisible(False)
+        left_col.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
+
         # Tabela
         self._table = QTableWidget(0, 8)
         self._table.setHorizontalHeaderLabels([
@@ -415,6 +420,8 @@ class AccountScreen(QWidget):
         self._validate_btn.setEnabled(False)
         self._refresh_btn.setEnabled(False)
         self._sync_btn.setEnabled(False)
+        self._loading.set_label(f"Validando {len(names)} itens...")
+        self._loading.setVisible(True)
         bridge = self._validate_bridge
         cache = ssr_cache.PriceHistoryCache()
         positions_snapshot = positions
@@ -466,6 +473,7 @@ class AccountScreen(QWidget):
         threading.Thread(target=_worker, daemon=True).start()
 
     def _on_validate_progress(self, msg: str) -> None:
+        self._loading.set_label(msg)
         self._status.setText(msg)
 
     def _on_validate_samples(self, samples: list) -> None:
@@ -473,6 +481,7 @@ class AccountScreen(QWidget):
 
     def _on_validate_finished(self) -> None:
         self._validating = False
+        self._loading.setVisible(False)
         self._validate_btn.setEnabled(True)
         self._refresh_btn.setEnabled(True)
         self._sync_btn.setEnabled(True)

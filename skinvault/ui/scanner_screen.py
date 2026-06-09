@@ -36,7 +36,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, SectionHeader, StatCard, Toast, Toolbar
+from skinvault.ui.components import Card, LoadingState, SectionHeader, StatCard, Toast, Toolbar
 
 
 _MAX_FACTOR_DELTA = 35.0  # peso maximo de qualquer fator no enhanced_score
@@ -930,6 +930,11 @@ class ScannerScreen(QWidget):
             stats_row.addWidget(sc, 1)
         root.addLayout(stats_row)
 
+        # Loading state (mostrado durante scan/validacao)
+        self._loading = LoadingState(parent=self)
+        self._loading.setVisible(False)
+        root.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
+
         # Tabela
         self._table = QTableWidget(0, 12)
         self._table.setHorizontalHeaderLabels([
@@ -1033,6 +1038,8 @@ class ScannerScreen(QWidget):
         self._rank_btn.setEnabled(False)
         self._validate_btn.setEnabled(False)
         self._status.setText(f"Escaneando {len(items)} itens...")
+        self._loading.set_label(f"Escaneando {len(items)} itens...")
+        self._loading.setVisible(True)
 
         def _worker():
             for i, name in enumerate(items):
@@ -1359,10 +1366,13 @@ class ScannerScreen(QWidget):
             self._rank_btn.setEnabled(True)
             self._validate_btn.setEnabled(True)
             self._export_btn.setEnabled(True)
+            self._loading.setVisible(False)
             self._status.setText(
                 f"Scan concluido: {len(self._scan_results)} itens"
             )
         else:
+            self._loading.setVisible(True)
+            self._loading.set_label(msg)
             self._status.setText(msg)
 
     # ── explicabilidade ─────────────────────────────────
@@ -1518,6 +1528,8 @@ class ScannerScreen(QWidget):
         self._scan_btn.setEnabled(False)
         self._rank_btn.setEnabled(False)
         self._validate_btn.setEnabled(False)
+        self._loading.set_label(f"Validando {len(names)} itens...")
+        self._loading.setVisible(True)
         bridge = self._validate_bridge
         cache = ssr_cache.PriceHistoryCache()
 
@@ -1559,6 +1571,7 @@ class ScannerScreen(QWidget):
         self._scan_btn.setEnabled(True)
         self._rank_btn.setEnabled(True)
         self._validate_btn.setEnabled(True)
+        self._loading.setVisible(False)
         items_count = len(self._scan_results)
         n = len(self._validate_samples)
         self._status.setText(
