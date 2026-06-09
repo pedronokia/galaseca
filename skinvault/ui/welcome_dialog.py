@@ -55,7 +55,7 @@ class WelcomeDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Bem-vindo ao SkinVault")
         self.setMinimumWidth(760)
-        self.setStyleSheet(f"background: {t.BG};")
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(40, 36, 40, 32)

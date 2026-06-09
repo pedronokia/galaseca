@@ -51,13 +51,16 @@ class _RulesDialog(QDialog):
     def __init__(self, item: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Editar regras - " + item["name"])
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(420)
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
         self._item = item
         self._build()
 
     def _build(self) -> None:
         rules = self._item.get("rules") or {}
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(14)
 
         form = QFormLayout()
         form.setSpacing(10)
@@ -67,6 +70,7 @@ class _RulesDialog(QDialog):
         self._below_target.setRange(0, 99999)
         self._below_target.setPrefix("R$ ")
         self._below_target.setValue(rules.get("price_below", 0))
+        self._below_target.setStyleSheet(t.input_style())
         form.addRow("Alerta abaixo de:", self._below_target)
 
         # Drop %
@@ -74,6 +78,7 @@ class _RulesDialog(QDialog):
         self._drop_pct.setRange(0, 100)
         self._drop_pct.setSuffix(" %")
         self._drop_pct.setValue(rules.get("price_drop_pct", 0))
+        self._drop_pct.setStyleSheet(t.input_style())
         form.addRow("Queda percentual:", self._drop_pct)
 
         # Volume spike
@@ -81,15 +86,24 @@ class _RulesDialog(QDialog):
         self._volume_spike.setRange(0, 100)
         self._volume_spike.setValue(rules.get("volume_spike", 0))
         self._volume_spike.setSpecialValueText("Desligado")
+        self._volume_spike.setStyleSheet(t.input_style())
         form.addRow("Volume anomalia (x):", self._volume_spike)
 
         # Supply drop
         qb = QGroupBox("Supply drop")
+        qb.setStyleSheet(
+            f"QGroupBox {{ color: {t.TEXT}; font-family: {t.FONT_FAMILY};"
+            f" font-size: {t.FS_BODY}; border: 1px solid {t.BORDER};"
+            f" border-radius: 8px; margin-top: 12px; padding: 14px 12px 10px; }}"
+            f"QGroupBox::title {{ subcontrol-origin: margin;"
+            f" left: 12px; padding: 0 6px; }}"
+        )
         qb_lay = QVBoxLayout(qb)
         self._supply_drop = QDoubleSpinBox()
         self._supply_drop.setRange(0, 100)
         self._supply_drop.setValue(rules.get("supply_drop", 0))
         self._supply_drop.setSpecialValueText("Desligado")
+        self._supply_drop.setStyleSheet(t.input_style())
         qb_lay.addWidget(QLabel("Limiar de queda na oferta:"))
         qb_lay.addWidget(self._supply_drop)
         form.addRow(qb)
@@ -99,6 +113,7 @@ class _RulesDialog(QDialog):
         self._score_above.setRange(0, 100)
         self._score_above.setValue(int(rules.get("score_above", 0)))
         self._score_above.setSpecialValueText("Desligado")
+        self._score_above.setStyleSheet(t.input_style())
         self._score_above.setToolTip(
             "Dispara quando o enhanced_score atingir o valor (0-100)."
             " Empíricamente: score >=85 retorna +50% em 90d (containers)."
@@ -113,16 +128,23 @@ class _RulesDialog(QDialog):
         )
         self._rules_instr.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
         )
         layout.addWidget(self._rules_instr)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        btn_row = QHBoxLayout()
+        cancel = QPushButton("Cancelar")
+        cancel.setStyleSheet(t.btn_ghost())
+        cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel.clicked.connect(self.reject)
+        ok = QPushButton("Salvar")
+        ok.setStyleSheet(t.btn_primary())
+        ok.setCursor(Qt.CursorShape.PointingHandCursor)
+        ok.clicked.connect(self.accept)
+        btn_row.addStretch()
+        btn_row.addWidget(cancel)
+        btn_row.addWidget(ok)
+        layout.addLayout(btn_row)
 
     def get_rules(self) -> dict:
         rules = {}

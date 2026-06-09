@@ -35,6 +35,7 @@ from skinvault.steam_session import (
     extract_steamid_from_cookie,
     merge_cookies,
 )
+from skinvault.ui import theme as t
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,8 @@ class SteamLoginDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Conectar conta Steam")
-        self.resize(520, 320)
+        self.setMinimumWidth(420)
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
         self.session: Optional[SteamSession] = None
         self._chrome_proc: Optional[subprocess.Popen] = None
         self._ws: Optional["websocket.WebSocket"] = None  # noqa: F821
@@ -95,10 +97,13 @@ class SteamLoginDialog(QDialog):
     def _build(self) -> None:
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
-        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setContentsMargins(20, 18, 20, 18)
 
         title = QLabel("Conectar conta Steam")
-        title.setStyleSheet("font-size: 14pt; font-weight: 700;")
+        title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: 14pt; font-weight: 700;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
         layout.addWidget(title)
 
         self._status = QLabel(
@@ -107,13 +112,16 @@ class SteamLoginDialog(QDialog):
             "A janela fechará automaticamente após o login."
         )
         self._status.setWordWrap(True)
-        self._status.setStyleSheet("color: #9D9DA8; font-size: 10pt;")
+        self._status.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
         layout.addWidget(self._status, 1)
 
         btn_row = QHBoxLayout()
         self._cancel_btn = QPushButton("Cancelar")
         self._cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._cancel_btn.setStyleSheet(self._btn_ghost())
+        self._cancel_btn.setStyleSheet(t.btn_ghost())
         self._cancel_btn.clicked.connect(self._on_cancel)
         btn_row.addStretch()
         btn_row.addWidget(self._cancel_btn)
@@ -342,12 +350,7 @@ class SteamLoginDialog(QDialog):
         self._cleanup()
         self._manual_btn = QPushButton("Colar cookies manualmente")
         self._manual_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._manual_btn.setStyleSheet(
-            "QPushButton { background: #2A2A35; color: #E6E6EA;"
-            " border: 1px solid #40404D; border-radius: 6px;"
-            " font-size: 10pt; padding: 10px 20px; }"
-            "QPushButton:hover { background: #333340; }"
-        )
+        self._manual_btn.setStyleSheet(t.btn_secondary())
         self._manual_btn.clicked.connect(self._switch_to_manual)
         self.layout().insertWidget(2, self._manual_btn)
 
@@ -370,8 +373,9 @@ class SteamLoginDialog(QDialog):
             '[{"domain":"steamcommunity.com","name":"steamLoginSecure",...}]'
         )
         self._cookie_input.setStyleSheet(
-            "background: #1E1E28; color: #E6E6EA; border: 1px solid #40404D;"
-            " border-radius: 6px; padding: 10px; font-size: 9pt;"
+            f"background: {t.SURFACE}; color: {t.TEXT};"
+            f" border: 1px solid {t.BORDER}; border-radius: 6px;"
+            f" padding: 10px; font-size: 9pt;"
             " font-family: 'Consolas', monospace;"
         )
         self._cookie_input.setMinimumHeight(160)
@@ -379,12 +383,7 @@ class SteamLoginDialog(QDialog):
 
         self._confirm_btn = QPushButton("Validar cookies")
         self._confirm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._confirm_btn.setStyleSheet(
-            "QPushButton { background: #22C55E; color: #09090B;"
-            " border: none; border-radius: 6px; font-size: 10pt;"
-            " font-weight: 600; padding: 10px 24px; }"
-            "QPushButton:hover { background: #1DA34F; }"
-        )
+        self._confirm_btn.setStyleSheet(t.btn_primary())
         self._confirm_btn.clicked.connect(self._process_manual_cookies)
         self.layout().insertWidget(3, self._confirm_btn)
 
@@ -429,15 +428,6 @@ class SteamLoginDialog(QDialog):
     def showEvent(self, event) -> None:
         super().showEvent(event)
         QTimer.singleShot(100, self._launch_chrome)
-
-    @staticmethod
-    def _btn_ghost() -> str:
-        return (
-            "QPushButton { background: transparent; color: #9D9DA8;"
-            " border: none; font-size: 10pt; padding: 8px 16px; }"
-            "QPushButton:hover { color: #E6E6EA; }"
-        )
-
 
 def build_steam_login_dialog(
     parent: QWidget | None = None,

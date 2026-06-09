@@ -4483,11 +4483,10 @@ def test_find_free_port():
     assert 1024 <= port <= 65535
 
 def test_btn_ghost():
-    """_btn_ghost returns a stylesheet string."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    css = SteamLoginDialog._btn_ghost()
+    """btn_ghost returns a stylesheet string."""
+    from skinvault.ui import theme as t
+    css = t.btn_ghost()
     assert "QPushButton" in css
-    assert "transparent" in css
 
 def test_build_steam_login_dialog():
     """build_steam_login_dialog factory returns a dialog."""

@@ -12,7 +12,6 @@ from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
-    QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
@@ -71,49 +70,63 @@ class _TradeDialog(QDialog):
             "Editar trade" if trade else "Adicionar trade"
         )
         self.setMinimumWidth(420)
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
         self._trade = trade
         self._build()
 
     def _build(self) -> None:
         tr = self._trade or {}
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(14)
         form = QFormLayout()
         form.setSpacing(10)
 
         self._name_inp = QLineEdit(tr.get("name", ""))
         self._name_inp.setPlaceholderText("AK-47 | Redline (Field-Tested)")
+        self._name_inp.setStyleSheet(t.input_style())
         form.addRow("Item:", self._name_inp)
 
         self._buy_inp = QDoubleSpinBox()
         self._buy_inp.setRange(0, 999999)
         self._buy_inp.setPrefix("R$ ")
         self._buy_inp.setValue(tr.get("buy_cost", 0))
+        self._buy_inp.setStyleSheet(t.input_style())
         form.addRow("Preço de compra (unitário):", self._buy_inp)
 
         self._sell_inp = QDoubleSpinBox()
         self._sell_inp.setRange(0, 999999)
         self._sell_inp.setPrefix("R$ ")
         self._sell_inp.setValue(tr.get("sell_price", 0))
+        self._sell_inp.setStyleSheet(t.input_style())
         form.addRow("Preço de venda (unitário, bruto):", self._sell_inp)
 
         self._qty_inp = QSpinBox()
         self._qty_inp.setRange(1, 999)
         self._qty_inp.setValue(tr.get("quantity", 1))
+        self._qty_inp.setStyleSheet(t.input_style())
         form.addRow("Quantidade:", self._qty_inp)
 
         self._notes_inp = QLineEdit(tr.get("notes", ""))
         self._notes_inp.setPlaceholderText("Opcional")
+        self._notes_inp.setStyleSheet(t.input_style())
         form.addRow("Notas:", self._notes_inp)
 
         layout.addLayout(form)
 
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel
-        )
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        layout.addWidget(buttons)
+        btn_row = QHBoxLayout()
+        cancel = QPushButton("Cancelar")
+        cancel.setStyleSheet(t.btn_ghost())
+        cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel.clicked.connect(self.reject)
+        ok = QPushButton("Salvar")
+        ok.setStyleSheet(t.btn_primary())
+        ok.setCursor(Qt.CursorShape.PointingHandCursor)
+        ok.clicked.connect(self.accept)
+        btn_row.addStretch()
+        btn_row.addWidget(cancel)
+        btn_row.addWidget(ok)
+        layout.addLayout(btn_row)
 
     def get_data(self) -> dict:
         return {

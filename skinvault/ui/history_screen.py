@@ -48,8 +48,8 @@ class SimulateTradeDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Simular trade")
-        self.setStyleSheet(f"background: {t.BG};")
-        self.resize(420, 360)
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
+        self.setMinimumWidth(420)
         self._build()
 
     def _build(self) -> None:
