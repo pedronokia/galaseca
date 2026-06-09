@@ -660,11 +660,15 @@ class HistoryScreen(QWidget):
 
     def _load_market(self):
         data = sync.load_market_events()
+        # Lista ordenada por data REAL do evento (desc) — não por synced_at.
+        sorted_data = sorted(
+            data, key=lambda e: self._event_ts(e), reverse=True,
+        )
         rows = []
         periodo = self._filter_panel.periodo
         tipo = self._filter_panel.tipo
-        for ev in data:
-            if not _in_period(ev.get("synced_at", 0), periodo):
+        for ev in sorted_data:
+            if not _in_period(self._event_ts(ev), periodo):
                 continue
             side = ev.get("side", "").lower()
             if tipo != "all" and side != tipo:
@@ -672,7 +676,7 @@ class HistoryScreen(QWidget):
             if not self._match_search(ev.get("name", "")):
                 continue
             rows.append([
-                ev.get("date_str", "—"),
+                self._fmt_event_date(ev),
                 ev.get("name", "—"),
                 ev.get("side", "—"),
                 t.brl(ev.get("price")),
@@ -685,16 +689,19 @@ class HistoryScreen(QWidget):
 
     def _load_offers(self):
         data = sync.load_trade_offers()
+        sorted_data = sorted(
+            data, key=lambda e: self._event_ts(e), reverse=True,
+        )
         rows = []
         periodo = self._filter_panel.periodo
-        for of in data:
-            if not _in_period(of.get("synced_at", 0), periodo):
+        for of in sorted_data:
+            if not _in_period(self._event_ts(of), periodo):
                 continue
             given = ", ".join(of.get("items_given") or [])
             if not self._match_search(given):
                 continue
             rows.append([
-                of.get("date_str", "—"),
+                self._fmt_event_date(of),
                 of.get("partner_steamid") or "—",
                 given or "—",
                 of.get("tradeofferid") or "—",
@@ -746,21 +753,21 @@ class HistoryScreen(QWidget):
                 self._fmt_source(tr.get("source", "manual")),
             ]))
         for ev in sync.load_market_events():
-            ts = ev.get("synced_at", 0)
+            ts = self._event_ts(ev)
             if not _in_period(ts, periodo):
                 continue
             if not self._match_search(ev.get("name", "")):
                 continue
             pnl_vals.append(None)
             events.append((ts, [
-                ev.get("date_str", "—"),
+                self._fmt_event_date(ev),
                 f"Market ({ev.get('side', '—')})",
                 ev.get("name", "—"),
                 t.brl(ev.get("price")),
                 "Steam",
             ]))
         for of in sync.load_trade_offers():
-            ts = of.get("synced_at", 0)
+            ts = self._event_ts(of)
             if not _in_period(ts, periodo):
                 continue
             given = ", ".join(of.get("items_given") or [])
@@ -768,7 +775,7 @@ class HistoryScreen(QWidget):
                 continue
             pnl_vals.append(None)
             events.append((ts, [
-                of.get("date_str", "—"),
+                self._fmt_event_date(of),
                 "Trade Offer",
                 given or "—",
                 "—",
@@ -789,6 +796,24 @@ class HistoryScreen(QWidget):
 
     def _fmt_source(self, src: str) -> str:
         return "Steam" if src in ("steam", "steam_sync") else "Manual"
+
+    def _event_ts(self, ev: dict) -> float:
+        """Timestamp real do evento (parse Steam date_str), fallback synced_at.
+
+        Steam omite ano no date_str pro ano corrente — `parse_steam_date`
+        recua 1 ano se cair no futuro. Importante usar isso ao invés de
+        `synced_at`: sync recente traz eventos antigos como mesmo ts.
+        """
+        from skinvault.trade_matcher import parse_steam_date
+        ts = parse_steam_date(ev.get("date_str", "") or "")
+        return ts if ts is not None else float(ev.get("synced_at", 0) or 0)
+
+    def _fmt_event_date(self, ev: dict) -> str:
+        """Data normalizada DD/MM/YY a partir do date_str (com ano resolvido)."""
+        ts = self._event_ts(ev)
+        if not ts:
+            return ev.get("date_str", "—") or "—"
+        return time.strftime("%d/%m/%y", time.localtime(ts))
 
     def _populate(self, headers: list[str], rows: list[list[str]],
                    pnl_col: int | None = None,

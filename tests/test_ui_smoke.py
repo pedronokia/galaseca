@@ -3607,6 +3607,52 @@ def test_in_period_unknown():
     assert _in_period(time.time() + 1000, "xyz") is True
 
 
+# ── HistoryScreen._event_ts / _fmt_event_date ─────────────
+
+
+def test_event_ts_usa_date_str_parsado():
+    """_event_ts prefere parse de date_str sobre synced_at."""
+    from skinvault.ui.history_screen import HistoryScreen
+    screen = HistoryScreen()
+    # synced_at=999999999, date_str valido -> deve usar date_str
+    ev = {"date_str": "15 Mar", "synced_at": 0}
+    ts = screen._event_ts(ev)
+    assert ts > 0  # parse succeeded
+
+
+def test_event_ts_fallback_synced_at():
+    """_event_ts cai pra synced_at se date_str nao parseia."""
+    from skinvault.ui.history_screen import HistoryScreen
+    screen = HistoryScreen()
+    ev = {"date_str": "garbage", "synced_at": 12345.0}
+    assert screen._event_ts(ev) == 12345.0
+
+
+def test_event_ts_sem_dados():
+    """_event_ts retorna 0 quando ambos faltam."""
+    from skinvault.ui.history_screen import HistoryScreen
+    screen = HistoryScreen()
+    assert screen._event_ts({}) == 0.0
+    assert screen._event_ts({"date_str": "", "synced_at": None}) == 0.0
+
+
+def test_fmt_event_date_formato_brasileiro():
+    """_fmt_event_date retorna DD/MM/YY consistente, com ano resolvido."""
+    import re
+    from skinvault.ui.history_screen import HistoryScreen
+    screen = HistoryScreen()
+    out = screen._fmt_event_date({"date_str": "15 Mar"})
+    # DD/MM/YY com 2 digitos de ano em todos os campos
+    assert re.fullmatch(r"\d{2}/\d{2}/\d{2}", out), out
+
+
+def test_fmt_event_date_sem_dados_retorna_dash():
+    """_fmt_event_date retorna '—' quando date_str e synced_at faltam."""
+    from skinvault.ui.history_screen import HistoryScreen
+    screen = HistoryScreen()
+    assert screen._fmt_event_date({}) == "—"
+
+
 class TestFilterBar:
     """Testes do _FilterBar."""
 
