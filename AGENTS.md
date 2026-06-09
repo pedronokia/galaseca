@@ -146,6 +146,18 @@ de hashear.
 "AK-47 | Redline (Field-Tested)" também. Em geral OK, mas cuidado
 com nomes que são prefixos uns dos outros.
 
+### 5a. Naming `(Holo-Foil)` com hífen é o correto
+
+Verificado em 2026-06-09 contra SSR real: o Steam Market **preserva
+o formato** que você passa na URL. `(Holo-Foil)` com hífen retorna
+pricehistory + orderbook + description com dados completos.
+`(Holo/Foil)` com barra retorna apenas description sem dados.
+Portanto:
+
+- `_CAPSULES` mantém hífen (já está correto desde F1).
+- **Não "corrija"** para barra — quebra SSR data.
+- Search page exibe `/` mas listing page preserva `-`.
+
 ### 6. `restore_backup` faz whitelist
 
 Aceita só entries em `_DATA_FILES`. Se for adicionar arquivo novo a

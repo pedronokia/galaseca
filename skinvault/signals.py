@@ -447,12 +447,12 @@ def pump_risk(price_history: list[dict] | None = None,
     """Detecta combinacao de red flags de pump-and-dump / falling knife.
 
     Combina 3 sinais factuais (v2, 2026-06-08):
-      1. Near/at ATH (rel_ath band) — at_ath conta como 2 flags
-      2. Rally recente >= +20% em 30d — mais flexivel que v1 (+30%/14d)
-      3. Volume sustentado 7d >= 2x media 30d — atividade anormal
+       1. Near/at ATH (rel_ath band) — at_ath conta como 2 flags
+       2. Rally recente >= +20% em 30d — mais flexivel que v1 (+30%/14d)
+       3. Volume sustentado 7d >= 2x media 30d — atividade anormal
 
     Se category e' fornecida e valve_events.latest_regime_change(category)
-    retornar um evento < 180d atras, as flags ATH e rally sao suspensas
+    retornar um evento < 30d atras, as flags ATH e rally sao suspensas
     (movimento tem catalyst legitimo conhecido). Apenas volume anomaly
     ainda conta.
 
@@ -470,7 +470,7 @@ def pump_risk(price_history: list[dict] | None = None,
     regime_change = (latest_regime_change(category)
                      if category else None)
     regime_recent = (regime_change
-                     and (date.today() - regime_change["date"]).days < 180)
+                     and (date.today() - regime_change["date"]).days < 30)
 
     # Flag 1: near/at ATH (at_ath peso 2)
     if price_history and len(price_history) >= 10:
@@ -804,10 +804,13 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                         "label": f"Vintage ({age} anos descontinuado) (+{_VINTAGE_BONUS})",
                     })
 
-    # V3: pump_risk penalty -5 em 'high' (2+ flags combinadas).
+    # V3/V4: pump_risk penalty -5 em 'high' (2+ flags combinadas).
     # Combina near_ath + rally 30d + volume sustentado. So' high para nao
     # double-count com rel_ath sozinho. -5 (em vez de v1/v2 -10) calibrado
     # via backtest 2026-06-08: 3/4 universos melhoram Sp+Pe, bucket 85+ intacto.
+    # V4 (2026-06-09): regime change window 180d -> 30d, para suspender flags
+    # apenas em catalisadores muito recentes. Efeito apenas live (backtest
+    # nao passa category para pump_risk).
     if _PUMP_PENALTY_ENABLED and price_history:
         pr = pump_risk(price_history, volume_history)
         if pr["level"] == "high":
