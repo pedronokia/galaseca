@@ -36,7 +36,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, LoadingState, SectionHeader, StatCard, Toast, Toolbar
+from skinvault.ui.components import Card, EmptyState, LoadingState, SectionHeader, StatCard, Toast, Toolbar
 
 
 _MAX_FACTOR_DELTA = 35.0  # peso maximo de qualquer fator no enhanced_score
@@ -796,7 +796,7 @@ class ScannerScreen(QWidget):
 
         tb = Toolbar()
         tb.add_left(
-            SectionHeader("Scanner", "Análise multi-fator — score 0-100",
+            SectionHeader("Scanner de Oportunidades", "Análise multi-fator — score 0-100",
                           title_fs=t.FS_TITLE)
         )
 
@@ -814,7 +814,7 @@ class ScannerScreen(QWidget):
         self._cat_combo.currentTextChanged.connect(self._refresh_regime_banner)
         tb.add_left(self._cat_combo)
 
-        self._scan_btn = QPushButton("Escanear")
+        self._scan_btn = QPushButton("Escanear categoria")
         self._scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scan_btn.setStyleSheet(t.btn_primary(padding="10px 24px"))
         self._scan_btn.setToolTip(
@@ -912,8 +912,8 @@ class ScannerScreen(QWidget):
         self._regime_banner = QLabel()
         self._regime_banner.setWordWrap(True)
         self._regime_banner.setStyleSheet(
-            "background: #2a2410; border: 1px solid #6b5a1a;"
-            " color: #d8c267; border-radius: 8px;"
+            f"background: {t.WARN_BG}; border: 1px solid {t.WARN_BORDER};"
+            f" color: {t.WARN_TEXT}; border-radius: 8px;"
             f" padding: 10px 14px; font-size: {t.FS_INPUT};"
             f" font-family: {t.FONT_FAMILY};"
         )
@@ -939,7 +939,7 @@ class ScannerScreen(QWidget):
         self._table = QTableWidget(0, 12)
         self._table.setHorizontalHeaderLabels([
             "Item", "Sinal", "Preco", "Preco justo", "Veredito",
-            "Spread", "Book", "Tendencia", "S/D", "Score", "Risco", "Conf.",
+            "Spread", "Book", "Tendencia", "Oferta/Demanda", "Score", "Risco", "Confiança",
         ])
         self._table.verticalHeader().setVisible(False)
         self._table.setEditTriggers(
@@ -965,7 +965,6 @@ class ScannerScreen(QWidget):
         root.addWidget(self._table, 1)
 
         # Empty state: ainda nao escaneou nenhum item
-        from skinvault.ui.components import EmptyState
         self._empty_hero = EmptyState(
             icon="◎",
             title="Pronto pra escanear",
@@ -1478,7 +1477,7 @@ class ScannerScreen(QWidget):
         import csv, io
         cols = [
             "Item", "Score", "Veredito", "Preco", "Justo",
-            "Spread", "Book", "Tendencia", "S/D",
+            "Spread", "Book", "Tendencia", "Oferta/Demanda",
             "Confianca", "Categoria", "Risco",
         ]
         try:

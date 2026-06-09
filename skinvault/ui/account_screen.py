@@ -36,7 +36,7 @@ from skinvault import portfolio as portfolio_mod
 from skinvault import prices, signals, ssr_cache, steam_session
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
-from skinvault.ui.components import Avatar, Card, LoadingState, StatCard
+from skinvault.ui.components import ActivityFeed, Avatar, Card, EmptyState, LoadingState, StatCard
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
     load_avatar_bytes,
@@ -295,7 +295,6 @@ class AccountScreen(QWidget):
         left_col.addWidget(self._table, 1)
 
         # Empty state: inventario vazio (apos sync, sem itens marketable)
-        from skinvault.ui.components import EmptyState
         self._empty_hero = EmptyState(
             icon="○",
             title="Inventário vazio",
@@ -318,7 +317,6 @@ class AccountScreen(QWidget):
         split.addLayout(left_col, 1)
 
         # Coluna direita: Activity Feed
-        from skinvault.ui.components import ActivityFeed
         self._activity_feed = ActivityFeed(self)
         split.addWidget(self._activity_feed, 0)
 

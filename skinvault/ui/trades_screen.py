@@ -328,46 +328,16 @@ class TradesScreen(QWidget):
         )
 
     def _build_empty_hero(self) -> QWidget:
-        from PyQt6.QtCore import Qt as _Qt
-        from PyQt6.QtWidgets import QFrame, QVBoxLayout
-        w = QFrame(self)
-        lay = QVBoxLayout(w)
-        lay.setAlignment(_Qt.AlignmentFlag.AlignCenter)
-        lay.setSpacing(14)
-
-        icon = QLabel("◇")
-        icon.setAlignment(_Qt.AlignmentFlag.AlignCenter)
-        icon.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: 64pt;"
-            f" font-family: {t.FONT_FAMILY};"
+        from skinvault.ui.components import EmptyState
+        es = EmptyState(
+            icon="◇",
+            title="Nenhum trade ainda",
+            subtitle=("Adicione um trade manualmente ou sincronize com a Steam\n"
+                       "pra ver seu histórico de operações aparecer aqui."),
+            cta_label="+ Adicionar trade",
+            on_cta=self._on_add,
         )
-        lay.addWidget(icon)
-
-        title = QLabel("Nenhum trade ainda")
-        title.setAlignment(_Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
-            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
-        )
-        lay.addWidget(title)
-
-        sub = QLabel(
-            "Adicione um trade manualmente ou sincronize com a Steam\n"
-            "pra ver seu histórico de operações aparecer aqui."
-        )
-        sub.setAlignment(_Qt.AlignmentFlag.AlignCenter)
-        sub.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        lay.addWidget(sub)
-
-        cta = QPushButton("+ Adicionar trade")
-        cta.setCursor(_Qt.CursorShape.PointingHandCursor)
-        cta.setStyleSheet(t.btn_primary(padding="12px 28px", fs=t.FS_INPUT))
-        cta.clicked.connect(self._on_add)
-        lay.addWidget(cta, 0, _Qt.AlignmentFlag.AlignCenter)
-        return w
+        return es
 
     # ── filtros ───────────────────────────────────────────
     def refresh(self) -> None:

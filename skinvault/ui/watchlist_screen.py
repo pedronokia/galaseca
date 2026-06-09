@@ -43,7 +43,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import FormRow, LoadingState, SectionHeader
+from skinvault.ui.components import EmptyState, FormRow, LoadingState, SectionHeader, StatCard
 
 
 class _RulesDialog(QDialog):
@@ -212,7 +212,6 @@ class WatchlistScreen(QWidget):
         self._start_schedule()
 
     def _build(self) -> None:
-        from skinvault.ui.components import StatCard
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
         root.setSpacing(14)
@@ -221,7 +220,7 @@ class WatchlistScreen(QWidget):
         hdr = QHBoxLayout()
         hdr.addWidget(
             SectionHeader(
-                "Watchlist",
+                "Watchlist e Alertas",
                 "Monitore preços de skins selecionadas e receba alertas quando "
                 "regras forem atendidas (queda, volume anormal, oferta baixa).",
                 title_fs=t.FS_TITLE,
@@ -331,7 +330,6 @@ class WatchlistScreen(QWidget):
         root.addWidget(self._table, 1)
 
         # Empty state (mostrado quando watchlist vazia)
-        from skinvault.ui.components import EmptyState
         self._empty_hero = EmptyState(
             icon="☆",
             title="Sua watchlist está vazia",

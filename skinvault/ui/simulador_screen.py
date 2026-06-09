@@ -139,7 +139,7 @@ class SimuladorScreen(QWidget):
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
-        self._simular_btn = QPushButton("Simular")
+        self._simular_btn = QPushButton("Simular trade")
         self._simular_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._simular_btn.setStyleSheet(t.btn_primary(padding="12px 32px"))
         self._simular_btn.setToolTip(
