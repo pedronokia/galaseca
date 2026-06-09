@@ -975,17 +975,54 @@ class HistoryScreen(QWidget):
                         if not px.isNull():
                             it.setIcon(QIcon(px))
                 self._table.setItem(i, c, it)
-        # Ajusta altura das linhas — compacto estilo trader
+        # Ajusta altura das linhas — compacto estilo trader Win11
         if icon_col is not None:
             for i in range(self._table.rowCount()):
                 self._table.setRowHeight(i, 30)
+        # Layout das colunas estilo trading app:
+        # - "Item" (ou "Itens") stretcha pra preencher o resto
+        # - Demais colunas tem largura fixa pelo conteudo
+        # - Colunas numericas alinhadas a direita
         hh = self._table.horizontalHeader()
+        item_col = next(
+            (i for i, h in enumerate(headers) if h in ("Item", "Itens")),
+            -1,
+        )
+        money_cols = {
+            i for i, h in enumerate(headers)
+            if h in ("Valor", "Preço", "Preco", "P&L", "Preco atual",
+                     "P&L se vender hoje", "Preco de compra")
+        }
         for i in range(self._table.columnCount()):
-            hh.setSectionResizeMode(
-                i,
-                QHeaderView.ResizeMode.Stretch if i == 1
-                else QHeaderView.ResizeMode.ResizeToContents,
-            )
+            if i == item_col:
+                hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+            else:
+                hh.setSectionResizeMode(
+                    i, QHeaderView.ResizeMode.ResizeToContents,
+                )
+        # Alinhamento por coluna
+        for i in range(self._table.rowCount()):
+            for c in range(self._table.columnCount()):
+                cell = self._table.item(i, c)
+                if cell is None:
+                    continue
+                if c in money_cols:
+                    cell.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight
+                        | Qt.AlignmentFlag.AlignVCenter,
+                    )
+                elif c == side_op_col and headers[c] in ("Operação", "Tipo"):
+                    cell.setTextAlignment(
+                        Qt.AlignmentFlag.AlignCenter,
+                    )
+        # Header tambem precisa alinhar pra bater com cells
+        for c in money_cols:
+            hi = self._table.horizontalHeaderItem(c)
+            if hi is not None:
+                hi.setTextAlignment(
+                    Qt.AlignmentFlag.AlignRight
+                    | Qt.AlignmentFlag.AlignVCenter,
+                )
         self._table.setSortingEnabled(was_sorting)
 
         # Background prefetch dos icones faltantes — UI ja' populada,
