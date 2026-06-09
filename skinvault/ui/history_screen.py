@@ -348,6 +348,16 @@ def _in_period(ts: float, period: str) -> bool:
     return ts >= cutoff
 
 
+def _side_label(side: str | None) -> str:
+    """Normaliza 'buy'/'sell' pra rotulo em pt-BR (estilo Steam)."""
+    s = (side or "").lower()
+    if s == "buy":
+        return "Compra"
+    if s == "sell":
+        return "Venda"
+    return side or "—"
+
+
 # ── Tela 2 ───────────────────────────────────────────────────
 class HistoryScreen(QWidget):
     """Tela 2 -- Historico unificado + Watchlist + Simulador."""
@@ -538,6 +548,7 @@ class HistoryScreen(QWidget):
     def refresh(self) -> None:
         self._persist_state()
         seg = self._current_segment
+        side_meta = None
         if seg == "trades":
             headers, rows, count, pnl_col, pnl_vals = self._load_trades()
         elif seg == "matched":
@@ -545,14 +556,19 @@ class HistoryScreen(QWidget):
         elif seg == "open":
             headers, rows, count, pnl_col, pnl_vals = self._load_open()
         elif seg == "market":
-            headers, rows, count, pnl_col, pnl_vals = self._load_market()
+            headers, rows, count, pnl_col, pnl_vals, side_meta = (
+                self._load_market()
+            )
         elif seg == "offers":
             headers, rows, count, pnl_col, pnl_vals = self._load_offers()
         elif seg == "watchlist":
             headers, rows, count, pnl_col, pnl_vals = self._load_watchlist()
         else:
-            headers, rows, count, pnl_col, pnl_vals = self._load_all()
-        self._populate(headers, rows, pnl_col=pnl_col, pnl_vals=pnl_vals)
+            headers, rows, count, pnl_col, pnl_vals, side_meta = (
+                self._load_all()
+            )
+        self._populate(headers, rows, pnl_col=pnl_col, pnl_vals=pnl_vals,
+                       side_meta=side_meta)
         if seg == "matched":
             s = trade_matcher.summarize(self._matched_cache or [])
             self._status.setText(
@@ -665,6 +681,7 @@ class HistoryScreen(QWidget):
             data, key=lambda e: self._event_ts(e), reverse=True,
         )
         rows = []
+        side_vals: list[str | None] = []
         periodo = self._filter_panel.periodo
         tipo = self._filter_panel.tipo
         for ev in sorted_data:
@@ -678,13 +695,15 @@ class HistoryScreen(QWidget):
             rows.append([
                 self._fmt_event_date(ev),
                 ev.get("name", "—"),
-                ev.get("side", "—"),
+                _side_label(side),
                 t.brl(ev.get("price")),
                 ev.get("listing_id") or "—",
             ])
+            side_vals.append(side)
+        side_meta = {"op_col": 2, "price_col": 3, "vals": side_vals}
         return (
             ["Data", "Item", "Operação", "Preço", "Listing ID"],
-            rows, len(rows), None, None,
+            rows, len(rows), None, None, side_meta,
         )
 
     def _load_offers(self):
@@ -734,8 +753,8 @@ class HistoryScreen(QWidget):
 
     def _load_all(self):
         """Timeline cronologica de tudo (trades + market + offers)."""
-        events: list[tuple[float, list]] = []
-        pnl_vals: list[float | None] = []
+        # Cada tupla: (ts, row, pnl, side)
+        events: list[tuple[float, list, float | None, str | None]] = []
         periodo = self._filter_panel.periodo
         for tr in trades.load_trades():
             ts = tr.get("sell_ts", 0)
@@ -744,28 +763,27 @@ class HistoryScreen(QWidget):
             if not self._match_search(tr.get("name", "")):
                 continue
             pnl = tr.get("pnl")
-            pnl_vals.append(pnl)
             events.append((ts, [
                 self._fmt_ts(ts),
                 "Trade",
                 tr.get("name", "—"),
                 t.brl(pnl),
                 self._fmt_source(tr.get("source", "manual")),
-            ]))
+            ], pnl, None))
         for ev in sync.load_market_events():
             ts = self._event_ts(ev)
             if not _in_period(ts, periodo):
                 continue
             if not self._match_search(ev.get("name", "")):
                 continue
-            pnl_vals.append(None)
+            side = (ev.get("side") or "").lower()
             events.append((ts, [
                 self._fmt_event_date(ev),
-                f"Market ({ev.get('side', '—')})",
+                f"Market ({_side_label(side)})",
                 ev.get("name", "—"),
                 t.brl(ev.get("price")),
                 "Steam",
-            ]))
+            ], None, side))
         for of in sync.load_trade_offers():
             ts = self._event_ts(of)
             if not _in_period(ts, periodo):
@@ -773,19 +791,23 @@ class HistoryScreen(QWidget):
             given = ", ".join(of.get("items_given") or [])
             if not self._match_search(given):
                 continue
-            pnl_vals.append(None)
             events.append((ts, [
                 self._fmt_event_date(of),
                 "Trade Offer",
                 given or "—",
                 "—",
                 "Steam",
-            ]))
+            ], None, None))
         events.sort(key=lambda x: x[0], reverse=True)
-        rows = [row for _, row in events]
+        rows = [e[1] for e in events]
+        pnl_vals = [e[2] for e in events]
+        side_vals = [e[3] for e in events]
+        # Coluna 1 = "Tipo" (Market (Compra)/Market (Venda)/Trade/Trade Offer)
+        # Coluna 3 = "Valor" — colorir baseado em side quando market event.
+        side_meta = {"op_col": 1, "price_col": 3, "vals": side_vals}
         return (
             ["Data", "Tipo", "Item", "Valor", "Origem"],
-            rows, len(rows), 3, pnl_vals,
+            rows, len(rows), 3, pnl_vals, side_meta,
         )
 
     # ── helpers ──────────────────────────────────────────
@@ -817,7 +839,8 @@ class HistoryScreen(QWidget):
 
     def _populate(self, headers: list[str], rows: list[list[str]],
                    pnl_col: int | None = None,
-                   pnl_vals: list[float | None] | None = None) -> None:
+                   pnl_vals: list[float | None] | None = None,
+                   side_meta: dict | None = None) -> None:
         from skinvault.localization import localize_name as _ln
         # Desativa sort durante o populate (recomendacao Qt)
         was_sorting = self._table.isSortingEnabled()
@@ -831,8 +854,16 @@ class HistoryScreen(QWidget):
             i for i, h in enumerate(headers)
             if h in ("Item", "Itens")
         }
+        # Side-aware coloring (estilo Steam: vermelho compra, verde venda).
+        side_op_col = side_meta.get("op_col") if side_meta else None
+        side_price_col = side_meta.get("price_col") if side_meta else None
+        side_vals_list = side_meta.get("vals") if side_meta else None
         for i, row in enumerate(rows):
             self._table.insertRow(i)
+            row_side = (
+                side_vals_list[i]
+                if side_vals_list and i < len(side_vals_list) else None
+            )
             for c, val in enumerate(row):
                 if c in name_cols:
                     val = _ln(val)
@@ -847,6 +878,20 @@ class HistoryScreen(QWidget):
                 elif (headers[c] == "Origem"
                         and val.strip().lower() == "steam"):
                     it.setForeground(QBrush(QColor(t.STEAM_BLUE)))
+                # Side coloring (Operação + Preço/Valor) — só pra buy/sell.
+                # rgba(*, 0.16) → QColor(R, G, B, 41) (16% alpha = 41/255).
+                if row_side in ("buy", "sell"):
+                    if row_side == "buy":
+                        color = QColor(t.DANGER)
+                        bg = QColor(239, 68, 68, 41)
+                    else:
+                        color = QColor(t.ACCENT)
+                        bg = QColor(34, 197, 94, 41)
+                    if c == side_op_col:
+                        it.setForeground(QBrush(color))
+                        it.setBackground(QBrush(bg))
+                    elif c == side_price_col:
+                        it.setForeground(QBrush(color))
                 self._table.setItem(i, c, it)
         hh = self._table.horizontalHeader()
         for i in range(self._table.columnCount()):

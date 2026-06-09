@@ -3653,6 +3653,22 @@ def test_fmt_event_date_sem_dados_retorna_dash():
     assert screen._fmt_event_date({}) == "—"
 
 
+def test_side_label_buy_sell():
+    """_side_label normaliza 'buy'/'sell' em pt-BR."""
+    from skinvault.ui.history_screen import _side_label
+    assert _side_label("buy") == "Compra"
+    assert _side_label("BUY") == "Compra"
+    assert _side_label("sell") == "Venda"
+
+
+def test_side_label_outros_e_none():
+    """_side_label devolve original quando nao for buy/sell."""
+    from skinvault.ui.history_screen import _side_label
+    assert _side_label(None) == "—"
+    assert _side_label("") == "—"
+    assert _side_label("listed") == "listed"
+
+
 class TestFilterBar:
     """Testes do _FilterBar."""
 
