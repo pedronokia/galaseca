@@ -27,6 +27,47 @@ DANGER_DIM  = "rgba(239,68,68,0.16)"
 DANGER_HOV  = "rgba(239,68,68,0.26)"
 WARN        = "#F59E0B"
 
+# Warning palette (extraido do regime banner do scanner)
+WARN_BG     = "#2A2410"
+WARN_BORDER = "#6B5A1A"
+WARN_TEXT   = "#D8C267"
+
+# Hover surface (row-hover, item:hover)
+SURFACE_HOV = "#23232D"
+
+# Overlay (LockOverlay, modals semi-transparentes)
+BG_OVERLAY  = "rgba(14, 14, 18, 0.88)"
+
+# ── Spacing scale ────────────────────────────────────────────
+# Use em setContentsMargins() e setSpacing() ao inves de magic numbers
+SPACE_XS  = 4
+SPACE_SM  = 8
+SPACE_MD  = 12
+SPACE_LG  = 16
+SPACE_XL  = 24
+SPACE_2XL = 32
+
+# ── Size tokens ──────────────────────────────────────────────
+# Use em setFixedHeight/setFixedWidth/setMinimumHeight
+SIZE_INPUT_H    = 32
+SIZE_BTN_H      = 34
+SIZE_ICON_SM    = 14
+SIZE_ICON_MD    = 18
+SIZE_ICON_LG    = 22
+SIZE_AVATAR     = 72
+SIZE_PROGRESS_H = 6
+SIZE_SEPARATOR  = 1
+SIZE_CHART_H    = 120
+SIZE_SIDEBAR_W  = 220
+SIZE_HEADER_H   = 40
+SIZE_FOOTER_H   = 32
+
+# ── Radius ───────────────────────────────────────────────────
+# Consolida o param `radius=...` espalhado em Card/StatCard/etc
+RADIUS_SM = 6
+RADIUS_MD = 10
+RADIUS_LG = 14
+
 # Alias backward compat com gui.py legado
 _BG = BG
 _SURFACE = BG_ELEVATED
@@ -163,7 +204,7 @@ def table_style() -> str:
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER}; padding: 10px 12px;"
         f" font-weight: 600; font-size: {FS_MUTED}; }}"
-        f"QTableWidget::item:hover {{ background: rgba(255,255,255,0.04); }}"
+        f"QTableWidget::item:hover {{ background: {SURFACE_HOV}; }}"
         f"QTableWidget::item:selected {{ background: {ACCENT_DIM};"
         f" color: {TEXT}; }}"
     )

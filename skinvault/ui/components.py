@@ -6,10 +6,18 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import (
+    QEasingCurve,
+    QPoint,
+    QPropertyAnimation,
+    Qt,
+    QTimer,
+    pyqtSignal,
+)
 from PyQt6.QtGui import QFont, QFontMetrics, QPixmap
 from PyQt6.QtWidgets import (
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLayout,
@@ -731,3 +739,273 @@ class RecentMatchesStrip(Card):
             )
         else:
             self._streak.setText("")
+
+
+# ── Toast ────────────────────────────────────────────────────
+class Toast(QWidget):
+    """Notificacao nao-bloqueante, top-right do parent, auto-dismiss.
+
+    Variants: 'info' (accent), 'success' (accent), 'warning' (warn),
+    'error' (danger). Auto-stack quando ha multiplos visiveis.
+    Uso: Toast.show_toast(parent, "Sincronizado.", "success").
+    """
+
+    _VARIANT_BORDER = {
+        "info":    "ACCENT",
+        "success": "ACCENT",
+        "warning": "WARN",
+        "error":   "DANGER",
+    }
+    _stack: list["Toast"] = []
+
+    def __init__(self, parent: QWidget, text: str,
+                 variant: str = "info",
+                 duration_ms: int = 3000) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.setObjectName("Toast")
+        border_attr = self._VARIANT_BORDER.get(variant, "ACCENT")
+        border_color = getattr(t, border_attr, t.ACCENT)
+        self.setStyleSheet(
+            f"QWidget#Toast {{ background: {t.SURFACE};"
+            f" border: 1px solid {border_color};"
+            f" border-left: 4px solid {border_color};"
+            f" border-radius: {t.RADIUS_MD}px; }}"
+        )
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(t.SPACE_LG, t.SPACE_MD, t.SPACE_LG, t.SPACE_MD)
+        lay.setSpacing(t.SPACE_MD)
+        lbl = QLabel(text)
+        lbl.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY}; background: transparent;"
+            f" border: none;"
+        )
+        lbl.setWordWrap(True)
+        lay.addWidget(lbl)
+        self.adjustSize()
+        # Min/max width pra nao ficar gigante
+        self.setMinimumWidth(240)
+        self.setMaximumWidth(420)
+
+        self._opacity = QGraphicsOpacityEffect(self)
+        self._opacity.setOpacity(0.0)
+        self.setGraphicsEffect(self._opacity)
+
+        self._duration_ms = duration_ms
+        self._fade_in = QPropertyAnimation(self._opacity, b"opacity", self)
+        self._fade_in.setDuration(200)
+        self._fade_in.setStartValue(0.0)
+        self._fade_in.setEndValue(1.0)
+        self._fade_in.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._fade_out = QPropertyAnimation(self._opacity, b"opacity", self)
+        self._fade_out.setDuration(200)
+        self._fade_out.setStartValue(1.0)
+        self._fade_out.setEndValue(0.0)
+        self._fade_out.setEasingCurve(QEasingCurve.Type.InCubic)
+        self._fade_out.finished.connect(self._on_faded_out)
+
+    @classmethod
+    def show_toast(cls, parent: QWidget, text: str,
+                   variant: str = "info",
+                   duration_ms: int = 3000) -> "Toast":
+        """Cria, posiciona e exibe. Auto-stack se ja houver toasts."""
+        target = parent.window() if parent is not None else None
+        if target is None:
+            target = parent
+        toast = cls(target, text, variant, duration_ms)
+        cls._stack.append(toast)
+        toast._reposition()
+        toast.show()
+        toast._fade_in.start()
+        QTimer.singleShot(duration_ms, toast._begin_dismiss)
+        return toast
+
+    def _reposition(self) -> None:
+        parent = self.parentWidget()
+        if parent is None:
+            return
+        margin = t.SPACE_LG
+        # Empilha verticalmente: cada toast 6px abaixo do anterior visivel
+        y = margin
+        for tst in self._stack:
+            if tst is self:
+                break
+            if tst.isVisible():
+                y = tst.y() + tst.height() + t.SPACE_SM
+        x = max(margin, parent.width() - self.width() - margin)
+        self.move(x, y)
+
+    def _begin_dismiss(self) -> None:
+        if not self.isVisible():
+            return
+        self._fade_out.start()
+
+    def _on_faded_out(self) -> None:
+        try:
+            self._stack.remove(self)
+        except ValueError:
+            pass
+        self.hide()
+        self.deleteLater()
+        # Reposiciona toasts remanescentes
+        for tst in list(self._stack):
+            if tst.isVisible():
+                tst._reposition()
+
+
+# ── LoadingState ─────────────────────────────────────────────
+class LoadingState(QWidget):
+    """Spinner simples + label. Use como placeholder durante async."""
+
+    _FRAMES = ["◴", "◷", "◶", "◵"]
+
+    def __init__(self, label: str = "Carregando…",
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        lay = QVBoxLayout(self)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(t.SPACE_SM)
+
+        self._spin = QLabel(self._FRAMES[0])
+        self._spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._spin.setStyleSheet(
+            f"color: {t.ACCENT}; font-size: 28pt;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(self._spin)
+
+        self._lbl = QLabel(label)
+        self._lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(self._lbl)
+
+        self._idx = 0
+        self._timer = QTimer(self)
+        self._timer.setInterval(120)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start()
+
+    def _tick(self) -> None:
+        self._idx = (self._idx + 1) % len(self._FRAMES)
+        self._spin.setText(self._FRAMES[self._idx])
+
+    def set_label(self, text: str) -> None:
+        self._lbl.setText(text)
+
+    def hideEvent(self, ev) -> None:
+        self._timer.stop()
+        super().hideEvent(ev)
+
+    def showEvent(self, ev) -> None:
+        if not self._timer.isActive():
+            self._timer.start()
+        super().showEvent(ev)
+
+
+# ── SectionHeader ────────────────────────────────────────────
+class SectionHeader(QWidget):
+    """Cabecalho de secao: titulo + subtitulo opcional + acao trailing."""
+
+    def __init__(self, title: str, subtitle: str = "",
+                 action: QPushButton | None = None,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(t.SPACE_MD)
+
+        stack = QVBoxLayout()
+        stack.setContentsMargins(0, 0, 0, 0)
+        stack.setSpacing(t.SPACE_XS // 2)
+
+        self._title = QLabel(title)
+        self._title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        stack.addWidget(self._title)
+
+        self._sub = QLabel(subtitle)
+        self._sub.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        self._sub.setVisible(bool(subtitle))
+        stack.addWidget(self._sub)
+
+        outer.addLayout(stack, 1)
+
+        self._action: QPushButton | None = None
+        if action is not None:
+            self.set_action(action)
+
+    def set_title(self, text: str) -> None:
+        self._title.setText(text)
+
+    def set_subtitle(self, text: str) -> None:
+        self._sub.setText(text)
+        self._sub.setVisible(bool(text))
+
+    def set_action(self, btn: QPushButton) -> None:
+        if self._action is not None:
+            self._action.setParent(None)
+        self._action = btn
+        self.layout().addWidget(btn, 0, Qt.AlignmentFlag.AlignRight)
+
+
+# ── Toolbar ──────────────────────────────────────────────────
+class Toolbar(QWidget):
+    """Barra horizontal: widgets a esquerda, spacer, widgets a direita."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._lay = QHBoxLayout(self)
+        self._lay.setContentsMargins(0, 0, 0, 0)
+        self._lay.setSpacing(t.SPACE_SM)
+        self._spacer_idx = 0
+        self._lay.addStretch(1)
+        self._spacer_idx = 0  # tudo antes do stretch = "left"
+
+    def add_left(self, w: QWidget) -> None:
+        # Insere antes do stretch
+        self._lay.insertWidget(self._spacer_idx, w)
+        self._spacer_idx += 1
+
+    def add_right(self, w: QWidget) -> None:
+        self._lay.addWidget(w)
+
+    def add_left_layout(self, layout: QLayout) -> None:
+        self._lay.insertLayout(self._spacer_idx, layout)
+        self._spacer_idx += 1
+
+
+# ── FormRow ──────────────────────────────────────────────────
+class FormRow(QWidget):
+    """Label muted em cima, field embaixo. Espacamento consistente."""
+
+    def __init__(self, label: str, field: QWidget,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(t.SPACE_XS)
+
+        self._lbl = QLabel(label)
+        self._lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        lay.addWidget(self._lbl)
+        lay.addWidget(field)
+        self._field = field
+
+    def field(self) -> QWidget:
+        return self._field
+
+    def set_label(self, text: str) -> None:
+        self._lbl.setText(text)
