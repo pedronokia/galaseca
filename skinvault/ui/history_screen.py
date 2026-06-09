@@ -31,7 +31,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import icons, portfolio, sync, trade_matcher, trades, watchlist
+from skinvault import (
+    icon_backfill, icons, portfolio, sync, trade_matcher, trades, watchlist,
+)
 from skinvault.prices import PriceCache
 from skinvault.settings import load_settings, save_settings
 from skinvault.ui import theme as t
@@ -384,6 +386,24 @@ class _IconPrefetcher(QThread):
         self.finished_with_count.emit(downloaded)
 
 
+class _IconBackfillThread(QThread):
+    """Thread pra rodar icon_backfill.backfill_market_events sem travar UI.
+
+    Emite progress(i, total, name) durante e finished_with_result(dict)
+    quando termina.
+    """
+
+    progress = pyqtSignal(int, int, str)
+    finished_with_result = pyqtSignal(dict)
+
+    def run(self) -> None:
+        result = icon_backfill.backfill_market_events(
+            on_progress=lambda i, n, name: self.progress.emit(i, n, name),
+            interruption_check=self.isInterruptionRequested,
+        )
+        self.finished_with_result.emit(result)
+
+
 # ── Tela 2 ───────────────────────────────────────────────────
 class HistoryScreen(QWidget):
     """Tela 2 -- Historico unificado + Watchlist + Simulador."""
@@ -459,6 +479,19 @@ class HistoryScreen(QWidget):
         export_btn.setToolTip("Salva o conteudo da tabela atual em arquivo CSV.")
         export_btn.clicked.connect(self._on_export_csv)
         top.addWidget(export_btn)
+
+        self._backfill_icons_btn = QPushButton("Buscar ícones")
+        self._backfill_icons_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._backfill_icons_btn.setStyleSheet(
+            t.btn_ghost(padding="8px 14px", fs=t.FS_BODY),
+        )
+        self._backfill_icons_btn.setToolTip(
+            "Busca os icones PNG dos eventos do Steam Market antigos"
+            " (sincronizados antes da Phase B). Uma chamada por nome unico,"
+            " ~2s entre cada. Roda em background — pode demorar varios minutos."
+        )
+        self._backfill_icons_btn.clicked.connect(self._on_backfill_icons)
+        top.addWidget(self._backfill_icons_btn)
 
         sim_btn = QPushButton("Simular trade")
         sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -899,9 +932,9 @@ class HistoryScreen(QWidget):
         side_vals_list = rm.get("side_vals")
         icon_col = rm.get("icon_col")
         icon_hashes = rm.get("icon_hashes")
-        # Tamanho dos icones na linha
+        # Tamanho dos icones na linha (24x24 — estilo trader compacto)
         if icon_col is not None:
-            self._table.setIconSize(QSize(32, 32))
+            self._table.setIconSize(QSize(24, 24))
         for i, row in enumerate(rows):
             self._table.insertRow(i)
             row_side = (
@@ -926,19 +959,13 @@ class HistoryScreen(QWidget):
                 elif (headers[c] == "Origem"
                         and val.strip().lower() == "steam"):
                     it.setForeground(QBrush(QColor(t.STEAM_BLUE)))
-                # Side coloring (Operação + Preço/Valor) — só pra buy/sell.
-                # rgba(*, 0.16) → QColor(R, G, B, 41) (16% alpha = 41/255).
+                # Side coloring — estilo Future/Bloomberg: só texto colorido,
+                # sem background cheio. Visual minimalista de plataforma
+                # profissional de trade.
                 if row_side in ("buy", "sell"):
-                    if row_side == "buy":
-                        color = QColor(t.DANGER)
-                        bg = QColor(239, 68, 68, 41)
-                    else:
-                        color = QColor(t.ACCENT)
-                        bg = QColor(34, 197, 94, 41)
-                    if c == side_op_col:
-                        it.setForeground(QBrush(color))
-                        it.setBackground(QBrush(bg))
-                    elif c == side_price_col:
+                    color = (QColor(t.DANGER) if row_side == "buy"
+                             else QColor(t.ACCENT))
+                    if c == side_op_col or c == side_price_col:
                         it.setForeground(QBrush(color))
                 # Icone do Steam CDN (cache local) — coluna Item
                 if c == icon_col and row_icon_hash:
@@ -948,10 +975,10 @@ class HistoryScreen(QWidget):
                         if not px.isNull():
                             it.setIcon(QIcon(px))
                 self._table.setItem(i, c, it)
-        # Ajusta altura das linhas pro icone caber
+        # Ajusta altura das linhas — compacto estilo trader
         if icon_col is not None:
             for i in range(self._table.rowCount()):
-                self._table.setRowHeight(i, 38)
+                self._table.setRowHeight(i, 30)
         hh = self._table.horizontalHeader()
         for i in range(self._table.columnCount()):
             hh.setSectionResizeMode(
@@ -987,3 +1014,44 @@ class HistoryScreen(QWidget):
         """Callback do prefetcher — re-refresh se baixou algo."""
         if n > 0:
             self.refresh()
+
+    def _on_backfill_icons(self) -> None:
+        """Inicia thread de backfill (icon_url em eventos antigos)."""
+        # Cancela thread anterior, se rodando
+        old = getattr(self, "_backfill_thread", None)
+        if old is not None and old.isRunning():
+            old.requestInterruption()
+            return
+        self._backfill_icons_btn.setEnabled(False)
+        self._backfill_icons_btn.setText("Buscando ícones...")
+        self._backfill_thread = _IconBackfillThread(self)
+        self._backfill_thread.progress.connect(self._on_backfill_progress)
+        self._backfill_thread.finished_with_result.connect(
+            self._on_backfill_done,
+        )
+        self._backfill_thread.start()
+
+    def _on_backfill_progress(self, i: int, total: int, name: str) -> None:
+        self._status.setText(
+            f"Buscando ícones {i}/{total} — {name[:50]}"
+        )
+        self._backfill_icons_btn.setText(f"Buscando ícones... {i}/{total}")
+
+    def _on_backfill_done(self, result: dict) -> None:
+        self._backfill_icons_btn.setEnabled(True)
+        self._backfill_icons_btn.setText("Buscar ícones")
+        upd = result.get("events_updated", 0)
+        fetched = result.get("fetched", 0)
+        names = result.get("names_resolved", 0)
+        if upd > 0:
+            self._status.setText(
+                f"Backfill: {upd} eventos atualizados em {names} nomes"
+                f" (de {fetched} consultados). Recarregando..."
+            )
+            # Refresh dispara prefetch dos novos icon_url
+            self.refresh()
+        else:
+            self._status.setText(
+                f"Backfill: {fetched} nomes consultados, nenhum icone novo"
+                f" (Steam pode estar bloqueando ou nomes nao retornaram dados)."
+            )
