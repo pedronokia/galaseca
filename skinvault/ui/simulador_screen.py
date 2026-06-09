@@ -58,17 +58,6 @@ class SimuladorScreen(QWidget):
         self._history: list[dict] = []
         self._build()
 
-    def _style_spin(self, s: QDoubleSpinBox | QSpinBox) -> None:
-        s.setMinimum(0)
-        s.setMaximum(9999999)
-        s.setStyleSheet(
-            f"QDoubleSpinBox, QSpinBox {{ background: {t.SURFACE};"
-            f" border: 1px solid {t.BORDER}; border-radius: 8px;"
-            f" padding: 10px 12px; font-size: {t.FS_INPUT}; color: {t.TEXT};"
-            f" font-family: {t.FONT_FAMILY}; }}"
-            f":focus {{ border: 1px solid {t.ACCENT}; }}"
-        )
-
     def _labeled(self, text: str, w: QWidget,
                  tooltip: str = "") -> QWidget:
         wrap = QWidget()
@@ -110,13 +99,15 @@ class SimuladorScreen(QWidget):
         row1 = QHBoxLayout()
         row1.setSpacing(16)
         self._buy_inp.setPrefix("R$ ")
-        self._style_spin(self._buy_inp)
+        self._buy_inp.setRange(0, 9999999)
+        self._buy_inp.setStyleSheet(t.input_style())
         row1.addWidget(self._labeled(
             "Preço de compra (unitário)", self._buy_inp,
             tooltip="Quanto você paga por cada unidade ao comprar.",
         ))
         self._sell_inp.setPrefix("R$ ")
-        self._style_spin(self._sell_inp)
+        self._sell_inp.setRange(0, 9999999)
+        self._sell_inp.setStyleSheet(t.input_style())
         row1.addWidget(self._labeled(
             "Preço de venda (unitário, listagem)", self._sell_inp,
             tooltip="Preço pelo qual você lista cada unidade.\nA Steam cobra "
@@ -128,7 +119,7 @@ class SimuladorScreen(QWidget):
         row2.setSpacing(16)
         self._qty_inp.setMinimum(1)
         self._qty_inp.setMaximum(999)
-        self._style_spin(self._qty_inp)
+        self._qty_inp.setStyleSheet(t.input_style())
         row2.addWidget(self._labeled(
             "Quantidade (listagens)", self._qty_inp,
             tooltip="Cada unidade vira uma listagem separada. A taxa de 15% "

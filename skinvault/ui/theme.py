@@ -125,10 +125,12 @@ def brl(v: float | None) -> str:
 # ── Stylesheet helpers ───────────────────────────────────────
 def input_style() -> str:
     return (
-        f"QLineEdit {{ background: {SURFACE}; border: 1px solid {BORDER};"
+        f"QLineEdit, QDoubleSpinBox, QSpinBox"
+        f" {{ background: {SURFACE}; border: 1px solid {BORDER};"
         f" border-radius: 8px; padding: 10px 12px; font-size: {FS_INPUT};"
         f" color: {TEXT}; font-family: {FONT_FAMILY}; }}"
-        f"QLineEdit:focus {{ border: 1px solid {ACCENT}; }}"
+        f"QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus"
+        f" {{ border: 1px solid {ACCENT}; }}"
     )
 
 
