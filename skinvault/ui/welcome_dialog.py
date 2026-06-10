@@ -23,7 +23,7 @@ def _feature_card(icon: str, title: str, desc: str) -> Card:
     icn = QLabel(icon)
     icn.setAlignment(Qt.AlignmentFlag.AlignCenter)
     icn.setStyleSheet(
-        f"color: {t.ACCENT}; font-size: 32pt;"
+        f"color: {t.ACCENT}; font-size: {t.FS_ICON_MD};"
         f" font-family: {t.FONT_FAMILY};"
     )
     card.layout().addWidget(icn)

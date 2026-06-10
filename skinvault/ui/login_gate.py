@@ -54,7 +54,7 @@ class LoginGate(QWidget):
         title = QLabel("SkinVault")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: 48pt; font-weight: 700;"
+            f"color: {t.TEXT}; font-size: {t.FS_ICON_LG}; font-weight: 700;"
             f" font-family: {t.FONT_FAMILY}; letter-spacing: -1px;"
         )
         hero.addWidget(title)

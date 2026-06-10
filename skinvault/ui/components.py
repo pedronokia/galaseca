@@ -51,7 +51,7 @@ class EmptyState(QWidget):
         ic = QLabel(icon)
         ic.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ic.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: 64pt;"
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_ICON_HERO};"
             f" font-family: {t.FONT_FAMILY};"
         )
         lay.addWidget(ic)
@@ -355,7 +355,7 @@ class Avatar(QLabel):
         # Placeholder
         self.setText("?")
         self.setStyleSheet(self.styleSheet() +
-                           f"color: {t.TEXT_MUTED}; font-size: 22pt;"
+                           f"color: {t.TEXT_MUTED}; font-size: {t.FS_ICON_SM};"
                            f" font-family: {t.FONT_FAMILY};")
 
     def set_image(self, data: bytes | str | None) -> None:
@@ -399,7 +399,7 @@ class LockOverlay(QWidget):
         icon = QLabel("🔒")
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon.setStyleSheet(
-            f"color: {t.STEAM_BLUE}; font-size: 48pt;"
+            f"color: {t.STEAM_BLUE}; font-size: {t.FS_ICON_LG};"
         )
         lay.addWidget(icon)
 

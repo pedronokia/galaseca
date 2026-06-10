@@ -125,6 +125,13 @@ FS_STAT = "18pt"
 FS_TITLE = "24pt"
 FS_HERO = "28pt"   # hero title (welcome dialog, large modals)
 
+# Icon / display font sizes (mais raros, semanticos)
+FS_ICON_HERO = "64pt"   # EmptyState glyph
+FS_ICON_LG   = "48pt"   # Avatar / OverlayLock / LoginGate hero
+FS_DISPLAY   = "36pt"   # Big number (score display)
+FS_ICON_MD   = "32pt"   # Welcome feature card icon
+FS_ICON_SM   = "22pt"   # Avatar fallback
+
 
 # ── Helpers de formato ──────────────────────────────────────
 def brl(v: float | None) -> str:

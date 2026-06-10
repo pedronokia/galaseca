@@ -170,7 +170,7 @@ class _ScoreBreakdownDialog(QDialog):
 
         score_lbl = QLabel(str(score))
         score_lbl.setStyleSheet(
-            f"color: {vcolor}; font-size: 36pt; font-weight: 700;"
+            f"color: {vcolor}; font-size: {t.FS_DISPLAY}; font-weight: 700;"
             f" font-family: {t.FONT_FAMILY};"
         )
         score_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
