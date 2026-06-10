@@ -284,14 +284,16 @@ FS_DISPLAY   = "36pt"   # Big number (score)
 
 Os outros (28, 16, 14, 12pt) ficam inline com comentário — single-use ou contexto muito específico.
 
-### Frente F — Tabela polish avançado (esforço: 1–2h, impact: alto)
+~~### Frente F — Tabela polish avançado (esforço: 1–2h, impact: alto)~~ ✅ parcial `05a7512`
 
-Várias melhorias possíveis em `table_style()`:
+~~Várias melhorias possíveis em `table_style()`:~~
 
-1. **Sort indicator** mais visível. Atualmente Qt usa default ↑↓ no header — quase invisível no tema dark. Customizar via `::up-arrow` e `::down-arrow` selectors com SVG inline ou unicode.
-2. **Hover row** (não só cell). Atualmente `::item:hover` ilumina só a cell hovered. UX trading-app: hover ilumina a row inteira. Precisa override em `mouseMoveEvent` ou stylesheet com `QTableView::item:hover { background: SURFACE_HOV; }` + atenção ao bug Qt6 com :hover em rows.
-3. **Frozen first column** (item name) ao scroll horizontal. Útil em Scanner e Account (muitas colunas, items grandes). `QHeaderView.setSectionResizeMode(0, Fixed)` + custom scroll handler.
-4. **Striped rows mais visíveis**. Alt color atual é `SURFACE` (#1C1C24) vs base `BG_ELEVATED` (#16161C) — delta 6/canal, quase imperceptível. Tentar `rgba(255,255,255,0.025)` overlay ou subir alt para #1A1A22.
+- ~~**Sort indicator** mais visível. Atualmente Qt usa default ↑↓ no header — quase invisível no tema dark. Customizar via `::up-arrow` e `::down-arrow` selectors com SVG inline ou unicode.~~ ✅
+- ~~**Hover row** (não só cell). Atualmente `::item:hover` ilumina só a cell hovered. UX trading-app: hover ilumina a row inteira. Precisa override em `mouseMoveEvent` ou stylesheet com `QTableView::item:hover { background: SURFACE_HOV; }` + atenção ao bug Qt6 com :hover em rows.~~ ✅
+- **Frozen first column** (item name) ao scroll horizontal. Útil em Scanner e Account (muitas colunas, items grandes). Requer container com 2× QTableWidget sincronizadas — foge de CSS polish. **Adiado**.
+- ~~**Striped rows mais visíveis**. Alt color atual é `SURFACE` (#1C1C24) vs base `BG_ELEVATED` (#16161C) — delta 6/canal, quase imperceptível. Subido para `#21212B` (delta 11/canal).~~ ✅
+
+**Resultado**: `table_style()` ganhou `::up-arrow`/`::down-arrow` (8px, subcontrol-position), `::item:selected:hover` com `ACCENT_HOV`, e alt-color `#21212B`. `05a7512`.
 
 ### Frente G — Welcome dialog redesign (esforço: 1h, impact: médio)
 
