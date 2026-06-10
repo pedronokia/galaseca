@@ -298,10 +298,7 @@ class TradesScreen(QWidget):
         self._empty_hero.setVisible(False)
 
         self._status = QLabel("")
-        self._status.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._status.setStyleSheet(t.label_caption())
         root.addWidget(self._status)
 
         # Atalhos

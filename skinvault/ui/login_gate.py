@@ -100,10 +100,7 @@ class LoginGate(QWidget):
             "Desconecte quando quiser"
         )
         footnote.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        footnote.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        footnote.setStyleSheet(t.label_caption())
         outer.addWidget(footnote, 0, Qt.AlignmentFlag.AlignCenter)
 
     def _on_connect(self) -> None:

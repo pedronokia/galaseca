@@ -121,10 +121,7 @@ class _RulesDialog(QDialog):
         self._rules_instr = QLabel(
             "Regras com valor 0 ou 'Desligado' ficam inativas."
         )
-        self._rules_instr.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._rules_instr.setStyleSheet(t.label_caption())
         layout.addWidget(self._rules_instr)
 
         btn_row = QHBoxLayout()

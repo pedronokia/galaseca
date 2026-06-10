@@ -156,10 +156,7 @@ class MarketScreen(QWidget):
             "wear e StatTrak/Souvenir quando aplicável. Atalho: Ctrl+L."
         )
         hint.setWordWrap(True)
-        hint.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        hint.setStyleSheet(t.label_caption())
         root.addWidget(hint)
 
         self._loading = LoadingState("Consultando item…")
@@ -304,10 +301,7 @@ class MarketScreen(QWidget):
         self._status = QLabel(
             "Pronto. Cole o nome de um item e clique em Consultar."
         )
-        self._status.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._status.setStyleSheet(t.label_caption())
         content_lay.addWidget(self._status)
 
         root.addWidget(self._content)
@@ -353,10 +347,7 @@ class MarketScreen(QWidget):
     def _add_detail(self, label: str, value: str,
                     color: str | None = None) -> None:
         lbl = QLabel(label)
-        lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        lbl.setStyleSheet(t.label_caption())
         val = QLabel(value)
         val.setStyleSheet(
             f"color: {color or t.TEXT}; font-size: {t.FS_BODY};"

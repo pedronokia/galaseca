@@ -164,10 +164,7 @@ class _ScoreBreakdownDialog(QDialog):
             f"Base 50  {'+' if delta_sum >= 0 else '−'} "
             f"{abs(delta_sum):.0f} contribuições  =  {score}"
         )
-        formula.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        formula.setStyleSheet(t.label_caption())
         info_col.addWidget(formula)
         hdr.addLayout(info_col, 1)
 
@@ -364,10 +361,7 @@ class _ScoreBreakdownDialog(QDialog):
             "pontos do score.\n"
             "  •  Lista ordenada do fator mais impactante ao menos."
         )
-        legend.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        legend.setStyleSheet(t.label_caption())
         legend.setWordWrap(True)
         layout.addWidget(legend)
 
@@ -642,10 +636,7 @@ class _BacktestResultDialog(QDialog):
                 "mais robusto que Pearson quando a relação é "
                 "S-shaped (fraca no meio, forte nos extremos)."
             )
-            interp.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+            interp.setStyleSheet(t.label_caption())
             interp.setWordWrap(True)
             layout.addWidget(interp)
 
@@ -972,10 +963,7 @@ class ScannerScreen(QWidget):
             "opções."
         )
         hint.setWordWrap(True)
-        hint.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        hint.setStyleSheet(t.label_caption())
         root.addWidget(hint)
 
         # Progress/status

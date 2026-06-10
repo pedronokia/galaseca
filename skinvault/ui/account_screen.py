@@ -125,10 +125,7 @@ class AccountScreen(QWidget):
         sub_row.setSpacing(8)
 
         self._sub = QLabel("Conecte sua conta para sincronizar.")
-        self._sub.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._sub.setStyleSheet(t.label_caption())
         sub_row.addWidget(self._sub)
 
         self._profile_link = QLabel("")
@@ -179,10 +176,7 @@ class AccountScreen(QWidget):
                           Qt.AlignmentFlag.AlignRight)
 
         self._last_sync_lbl = QLabel("")
-        self._last_sync_lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._last_sync_lbl.setStyleSheet(t.label_caption())
         btn_col.addWidget(self._last_sync_lbl, 0, Qt.AlignmentFlag.AlignRight)
 
         hlay.addLayout(btn_col, 0)
@@ -298,10 +292,7 @@ class AccountScreen(QWidget):
 
         # Status
         self._status = QLabel("")
-        self._status.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._status.setStyleSheet(t.label_caption())
         left_col.addWidget(self._status)
 
         split.addLayout(left_col, 1)

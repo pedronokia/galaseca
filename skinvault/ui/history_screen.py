@@ -99,10 +99,7 @@ class SimulateTradeDialog(QDialog):
         )
         body.addWidget(self._pnl_lbl)
         self._detail = QLabel("")
-        self._detail.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._detail.setStyleSheet(t.label_caption())
         self._detail.setWordWrap(True)
         body.addWidget(self._detail)
         root.addWidget(self._result)
@@ -528,10 +525,7 @@ class HistoryScreen(QWidget):
         esc_sc.activated.connect(self._filter_panel.clear_search)
 
         self._status = QLabel("")
-        self._status.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._status.setStyleSheet(t.label_caption())
         root.addWidget(self._status)
 
     def _open_simulator(self) -> None:
