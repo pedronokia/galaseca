@@ -213,17 +213,19 @@ watchlist_screen.py:283 QCheckBox{}             (esconder baixa confiança)
 
 **Ação**: passar adicionando `# Outlier: <razão> — não migrar p/ helper` acima de cada um. Documentação > extração.
 
-### Frente B — Empty state coverage para Simulador (esforço: 30min, impact: médio)
+~~### Frente B — Empty state coverage para Simulador (esforço: 30min, impact: médio)~~ ✅ `90c6c92`
 
-Simulador (`skinvault/ui/simulador_screen.py`) tem 2 "empty states" ainda em prosa, fora do padrão `EmptyState`:
+~~Simulador (`skinvault/ui/simulador_screen.py`) tem 2 "empty states" ainda em prosa, fora do padrão `EmptyState`:~~
 
-1. **Result card antes do primeiro Simular**: linha 142–148. Texto `"Preencha os valores e clique em Simular."` + 4 StatCards mostrando `—`. Visualmente OK mas inconsistente.
+~~1. **Result card antes do primeiro Simular**: linha 142–148. Texto `"Preencha os valores e clique em Simular."` + 4 StatCards mostrando `—`. Visualmente OK mas inconsistente.~~
 
-2. **Simulações recentes vazias**: linhas 178–186 e 271–275 (em `_rebuild_history`). Mostra `"As últimas 5 simulações desta sessão aparecem aqui."` como caption muted abaixo do label.
+~~2. **Simulações recentes vazias**: linhas 178–186 e 271–275 (em `_rebuild_history`). Mostra `"As últimas 5 simulações desta sessão aparecem aqui."` como caption muted abaixo do label.~~
 
-**Sugestões concretas**:
-- (1) Trocar a `QLabel` de result_detail por um inline mini-`EmptyState` (sem hero icon) — só title + subtitle. Ou manter mas migrar texto pra `t.label_body_muted()` (já está? confirmar).
-- (2) **Esconder a seção "Simulações recentes" inteira até a primeira simulação**. Quando `len(self._history) == 0`, `hist_lbl.setVisible(False)` + `self._hist_row` collapsed. Reaparece com a primeira simulação. Mais limpo que mostrar placeholder.
+~~**Sugestões concretas**:~~
+~~- (1) Trocar a `QLabel` de result_detail por um inline mini-`EmptyState` (sem hero icon) — só title + subtitle. Ou manter mas migrar texto pra `t.label_body_muted()` (já está? confirmar).~~
+~~- (2) **Esconder a seção "Simulações recentes" inteira até a primeira simulação**. Quando `len(self._history) == 0`, `hist_lbl.setVisible(False)` + `self._hist_row` collapsed. Reaparece com a primeira simulação. Mais limpo que mostrar placeholder.~~
+
+**Resultado**: item (1) já estava resolvido (`t.label_body_muted()` desde sessão anterior). Item (2) implementado: `hist_lbl` → `self._hist_lbl`, inicia oculto, `_rebuild_history` vazio só esconde label e retorna, populado mostra label + chips. Placeholder `"As últimas 5 simulações..."` removido. `90c6c92`.
 
 ### Frente C — Focus rings / acessibilidade keyboard (esforço: 1h, impact: alto)
 
