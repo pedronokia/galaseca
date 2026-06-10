@@ -509,6 +509,7 @@ class HistoryScreen(QWidget):
 
         self._table = QTableWidget(0, 0)
         self._table.verticalHeader().setVisible(False)
+        self._table.verticalHeader().setDefaultSectionSize(t.SIZE_ROW_H)
         self._table.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
         )

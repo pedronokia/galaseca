@@ -277,6 +277,7 @@ class AccountScreen(QWidget):
             "P&L", "Origem", "Score",
         ])
         self._table.verticalHeader().setVisible(False)
+        self._table.verticalHeader().setDefaultSectionSize(t.SIZE_ROW_H)
         self._table.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
         )

@@ -942,6 +942,7 @@ class ScannerScreen(QWidget):
             "Spread", "Book", "Tendencia", "Oferta/Demanda", "Score", "Risco", "Confiança",
         ])
         self._table.verticalHeader().setVisible(False)
+        self._table.verticalHeader().setDefaultSectionSize(t.SIZE_ROW_H)
         self._table.setEditTriggers(
             QAbstractItemView.EditTrigger.NoEditTriggers
         )

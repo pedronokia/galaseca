@@ -51,6 +51,7 @@ SPACE_2XL = 32
 # Use em setFixedHeight/setFixedWidth/setMinimumHeight
 SIZE_INPUT_H    = 32
 SIZE_BTN_H      = 34
+SIZE_ROW_H      = 32   # altura de linha em QTableWidget (Win11 density)
 SIZE_ICON_SM    = 14
 SIZE_ICON_MD    = 18
 SIZE_ICON_LG    = 22
@@ -201,7 +202,10 @@ def table_style() -> str:
         f" gridline-color: transparent; border: 1px solid {BORDER};"
         f" border-radius: 10px; color: {TEXT}; font-size: {FS_BODY};"
         f" font-family: {FONT_FAMILY}; }}"
-        f"QTableWidget::item {{ padding: 4px 12px; }}"
+        # Item padding 8px (era 4px): rows mais respiraveis (~30px de
+        # altura), padrao Win11 trading-app. Alt zebra fica mais visivel
+        # com mais area por linha.
+        f"QTableWidget::item {{ padding: 8px 12px; }}"
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER}; padding: 10px 12px;"

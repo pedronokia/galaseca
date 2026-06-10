@@ -1,37 +1,66 @@
 """Gera screenshots de cada tela do SkinVault pra validacao.
 
 Atualizado pos-F11: navega via ScreenRouter em vez de QTabWidget.
-Renderiza com WA_DontShowOnScreen — widgets ficam ativos e geram
-pixels normais, mas nao aparece janela nem entrada no taskbar.
-Nao atrapalha o jogo/foco do usuario.
+
+NAO usar win.show() em hipotese alguma: WA_DontShowOnScreen esconde
+o widget mas Qt ainda cria HWND nativo no Windows, e a criacao do
+HWND rouba foco de jogos fullscreen exclusive (CS2, etc). Em vez
+disso: resize() + processEvents() + grab() — Qt nem cria janela
+nativa, zero risco de roubar foco.
+
+Guard de seguranca: aborta se cs2.exe estiver rodando.
 
 (Nao usar QT_QPA_PLATFORM=offscreen: quebra fontes do sistema no
 Windows, sai tudo como tofu boxes.)
 """
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QApplication
 
 OUT = Path(__file__).parent / "prints"
 OUT.mkdir(exist_ok=True)
 
+# Tamanho usado pra layout (aproximadamente maximized em 1920x1080).
+TARGET_SIZE = QSize(1920, 1200)
+
+
+def _abort_if_gaming() -> None:
+    """Se cs2.exe estiver rodando, aborta antes de mexer no Qt."""
+    if sys.platform != "win32":
+        return
+    try:
+        out = subprocess.check_output(
+            ["tasklist", "/FI", "IMAGENAME eq cs2.exe", "/NH"],
+            stderr=subprocess.DEVNULL, text=True, timeout=5,
+        )
+    except Exception:
+        return
+    if "cs2.exe" in out.lower():
+        print("ABORT: cs2.exe esta rodando. Saia do jogo antes de rodar.")
+        sys.exit(2)
+
 
 def shoot():
+    _abort_if_gaming()
+
     from skinvault.gui import MainWindow
     from skinvault.ui import screen_router as sr
 
     app = QApplication([])
     win = MainWindow()
-    # Renderiza sem mostrar: widget vive, processa eventos, gera pixels,
-    # mas Qt nao chama showWindow() na plataforma — zero footprint visual.
-    win.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
-    win.show()
+
+    # CRITICO: NAO chamar win.show(). resize() + processEvents() faz
+    # o Qt computar o layout sem criar HWND nativo. grab() renderiza
+    # a arvore de widgets direto pra QPixmap em memoria.
+    win.resize(TARGET_SIZE)
     app.processEvents()
+    app.processEvents()  # 2x: deixa layout assentar
 
     screens = [
         (sr.SCREEN_ACCOUNT, "01-account"),
@@ -43,18 +72,14 @@ def shoot():
         (sr.SCREEN_WATCHLIST, "07-watchlist"),
     ]
 
-    def capture():
-        for screen, name in screens:
-            win._router.navigate(screen)
-            app.processEvents()
-            pix = win.grab()
-            pix.save(str(OUT / f"{name}.png"))
-            print(f"  salvo: prints/{name}.png")
-        print("Prontos em prints/")
-        app.quit()
-
-    QTimer.singleShot(500, capture)
-    app.exec()
+    for screen, name in screens:
+        win._router.navigate(screen)
+        app.processEvents()
+        app.processEvents()
+        pix = win.grab()
+        pix.save(str(OUT / f"{name}.png"))
+        print(f"  salvo: prints/{name}.png")
+    print("Prontos em prints/")
 
 
 if __name__ == "__main__":
