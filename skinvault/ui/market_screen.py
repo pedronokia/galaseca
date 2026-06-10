@@ -205,15 +205,11 @@ class MarketScreen(QWidget):
         spark_lay.setSpacing(8)
         spark_hdr = QHBoxLayout()
         spark_lbl = QLabel("Histórico de preços")
-        spark_lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-        )
+        spark_lbl.setStyleSheet(t.label_caption())
         spark_hdr.addWidget(spark_lbl)
         spark_hdr.addStretch(1)
         self._spark_meta = QLabel("")
-        self._spark_meta.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-        )
+        self._spark_meta.setStyleSheet(t.label_caption())
         spark_hdr.addWidget(self._spark_meta)
         spark_lay.addLayout(spark_hdr)
         self._sparkline = MiniSparkline(parent=spark_card)
@@ -232,15 +228,11 @@ class MarketScreen(QWidget):
         depth_lay.setSpacing(8)
         depth_hdr = QHBoxLayout()
         depth_lbl = QLabel("Livro de ofertas")
-        depth_lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-        )
+        depth_lbl.setStyleSheet(t.label_caption())
         depth_hdr.addWidget(depth_lbl)
         depth_hdr.addStretch(1)
         self._depth_meta = QLabel("")
-        self._depth_meta.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-        )
+        self._depth_meta.setStyleSheet(t.label_caption())
         depth_hdr.addWidget(self._depth_meta)
         depth_lay.addLayout(depth_hdr)
         self._depth = DepthChart(parent=depth_card)

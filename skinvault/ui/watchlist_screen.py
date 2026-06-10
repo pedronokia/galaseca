@@ -329,9 +329,7 @@ class WatchlistScreen(QWidget):
         self._empty_hero.setVisible(False)
 
         self._status = QLabel("")
-        self._status.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-        )
+        self._status.setStyleSheet(t.label_caption())
         root.addWidget(self._status)
 
     def refresh(self) -> None:
