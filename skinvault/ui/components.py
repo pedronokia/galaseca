@@ -123,7 +123,7 @@ class Card(QFrame):
     inserir conteudo."""
 
     def __init__(self, parent: QWidget | None = None,
-                 padding: tuple[int, int, int, int] = (16, 14, 16, 14),
+                 padding: tuple[int, int, int, int] = (20, 18, 20, 18),
                  radius: int = 14) -> None:
         super().__init__(parent)
         self.setObjectName("Card")
@@ -146,7 +146,7 @@ class StatCard(Card):
     def __init__(self, label: str, value: str = "—",
                  accent: str = t.TEXT,
                  parent: QWidget | None = None) -> None:
-        super().__init__(parent, padding=(20, 16, 20, 16), radius=22)
+        super().__init__(parent, padding=(20, 16, 20, 16), radius=t.RADIUS_LG)
         self.layout().setSpacing(4)
         self._label = QLabel(label)
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -188,12 +188,14 @@ class _SidebarItem(QPushButton):
     def _style_idle(self) -> str:
         return (
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
-            f" border: none; text-align: left; padding-left: 14px;"
+            f" border: none; text-align: left; padding-left: 11px;"
+            f" border-left: 3px solid transparent;"
             f" font-size: {t.FS_BODY}; font-weight: 500;"
             f" font-family: {t.FONT_FAMILY}; }}"
             f"QPushButton:hover {{ color: {t.TEXT}; background: {t.SURFACE}; }}"
-            f"QPushButton:checked {{ color: {t.TEXT}; background: {t.SURFACE};"
-            f" border-left: 3px solid {t.ACCENT}; padding-left: 11px; }}"
+            f"QPushButton:checked {{ color: {t.ACCENT}; background: {t.SURFACE};"
+            f" font-weight: 700;"
+            f" border-left: 3px solid {t.ACCENT}; }}"
         )
 
     def _on_toggled(self, checked: bool) -> None:

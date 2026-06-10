@@ -19,7 +19,7 @@ from skinvault.ui.components import Card
 
 
 def _feature_card(icon: str, title: str, desc: str) -> Card:
-    card = Card(padding=(20, 18, 20, 18), radius=14)
+    card = Card()
     icn = QLabel(icon)
     icn.setAlignment(Qt.AlignmentFlag.AlignCenter)
     icn.setStyleSheet(

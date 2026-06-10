@@ -92,7 +92,7 @@ class SimuladorScreen(QWidget):
         )
 
         # ── Card de inputs ────────────────────────────────
-        card = Card(self, padding=(20, 18, 20, 18))
+        card = Card(self)
         params = QVBoxLayout()
         params.setSpacing(12)
 
@@ -153,7 +153,7 @@ class SimuladorScreen(QWidget):
         root.addWidget(card)
 
         # ── Card de resultado ─────────────────────────────
-        result_card = Card(self, padding=(20, 18, 20, 18))
+        result_card = Card(self)
         rl = QVBoxLayout()
         rl.setSpacing(8)
 

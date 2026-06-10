@@ -103,10 +103,10 @@ class AccountScreen(QWidget):
     def _build(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(16)
+        root.setSpacing(14)
 
         # Header card
-        header = Card(self, padding=(20, 18, 20, 18))
+        header = Card(self)
         hlay = QHBoxLayout()
         hlay.setSpacing(18)
 

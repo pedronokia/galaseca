@@ -203,7 +203,7 @@ class MarketScreen(QWidget):
         charts_row = QHBoxLayout()
         charts_row.setSpacing(12)
 
-        spark_card = Card(self, padding=(20, 18, 20, 18))
+        spark_card = Card(self)
         spark_lay = QVBoxLayout()
         spark_lay.setSpacing(8)
         spark_hdr = QHBoxLayout()
@@ -230,7 +230,7 @@ class MarketScreen(QWidget):
         spark_card.layout().addLayout(spark_lay)
         charts_row.addWidget(spark_card, 1)
 
-        depth_card = Card(self, padding=(20, 18, 20, 18))
+        depth_card = Card(self)
         depth_lay = QVBoxLayout()
         depth_lay.setSpacing(8)
         depth_hdr = QHBoxLayout()
@@ -260,7 +260,7 @@ class MarketScreen(QWidget):
         content_lay.addLayout(charts_row)
 
         # ── Detail card ───────────────────────────────────
-        detail_card = Card(self, padding=(20, 18, 20, 18))
+        detail_card = Card(self)
         detail_lay = QVBoxLayout()
         detail_lay.setSpacing(10)
 

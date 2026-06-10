@@ -792,7 +792,7 @@ class ScannerScreen(QWidget):
     def _build(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(12)
+        root.setSpacing(14)
 
         tb = Toolbar()
         tb.add_left(

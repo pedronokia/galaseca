@@ -215,7 +215,9 @@ def table_style() -> str:
 def card_style(radius: int = 10) -> str:
     return (
         f"QWidget#Card {{ background: {BG_ELEVATED};"
-        f" border: 1px solid {BORDER}; border-radius: {radius}px; }}"
+        f" border: 1px solid {BORDER};"
+        f" border-top: 1px solid #30303A;"
+        f" border-radius: {radius}px; }}"
     )
 
 
