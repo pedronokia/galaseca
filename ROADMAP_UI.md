@@ -192,7 +192,7 @@ t.align_table_columns(
 
 ## 2. Frentes priorizadas (impact × effort)
 
-> Ordenação: **A** > B > C > … por valor de UX percebido / ROI de esforço.
+> Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **C** > **H** > **J** > **K** > **L** (restantes)
 
 ### Frente A — Migração final de label outliers (esforço: ~30min, impact: baixo, polish: alto)
 
@@ -238,12 +238,12 @@ Atualmente os widgets têm pouco indicador visual de focus além do `:focus` do 
 
 **Caveat**: Qt6 `outline` em stylesheets é flaky. Pode ser preciso usar `border` com mudança de cor no `:focus` + `:hover`. Testar com `WA_DontShowOnScreen` no `_screenshot.py` capturando estados (precisa de `setFocus()` programático).
 
-### Frente D — DepthChart RGB → tokens (esforço: 15min, impact: baixo)
+~~### Frente D — DepthChart RGB → tokens (esforço: 15min, impact: baixo)~~ ✅ `fb38216`
 
-`widgets.py:298-319` usa `QColor(34, 197, 94, 40)` e `QColor(239, 68, 68, 40)` em `paintEvent`. São ACCENT e DANGER hardcoded como RGB tuples.
+~~`widgets.py:298-319` usa `QColor(34, 197, 94, 40)` e `QColor(239, 68, 68, 40)` em `paintEvent`. São ACCENT e DANGER hardcoded como RGB tuples.~~
 
-**Ação**:
-```python
+~~**Ação**:~~
+~~```python
 # Antes:
 p.fillPath(bid_path, QColor(34, 197, 94, 40))
 bid_pen = QPen(QColor(34, 197, 94))
@@ -253,36 +253,40 @@ bid_fill = QColor(t.ACCENT)
 bid_fill.setAlpha(40)
 p.fillPath(bid_path, bid_fill)
 bid_pen = QPen(QColor(t.ACCENT))
-```
+```~~
 
-Idem para `ask_path` com `t.DANGER`. 4 locais ao total. Visual idêntico, intent explícito.
+~~Idem para `ask_path` com `t.DANGER`. 4 locais ao total. Visual idêntico, intent explícito.~~
 
-### Frente E — FS_ICON tokens (esforço: 30min, impact: baixo, polish: médio)
+**Resultado**: 4 locais migrados. `fb38216`.
 
-12 sites com `font-size: NN pt` hardcoded para glifos de ícone. Listagem em `git log` rodando audit. Distribuição:
+~~### Frente E — FS_ICON tokens (esforço: 30min, impact: baixo, polish: médio)~~ ✅ `649a132`
 
-| Valor | Sites | Onde |
+~~12 sites com `font-size: NN pt` hardcoded para glifos de ícone. Listagem em `git log` rodando audit. Distribuição:~~
+
+~~| Valor | Sites | Onde |
 |---|---|---|
-| 64pt | 1 | `components.py:54` (EmptyState icon hero) |
-| 48pt | 2 | `login_gate.py:57` (hero text "SkinVault"), `components.py:402` (LockOverlay 🔒) |
-| 36pt | 1 | `scanner_screen.py:173` (score number display) |
-| 32pt | 1 | `welcome_dialog.py:26` (feature card icon) |
-| 28pt | 1 | `components.py:857` (LoadingState spinner glyph) |
-| 22pt | 1 | `components.py:358` (Avatar fallback `?`) |
-| 16pt | 2 | `history_screen.py:97,131` (P&L number display) |
-| 14pt | 2 | `components.py:219` (Sidebar brand "SkinVault"), `login_gate.py:65` (tagline) |
-| 12pt | 1 | `components.py:458` (badge "Premium") |
+~~| 64pt | 1 | `components.py:54` (EmptyState icon hero) |~~
+~~| 48pt | 2 | `login_gate.py:57` (hero text "SkinVault"), `components.py:402` (LockOverlay 🔒) |~~
+~~| 36pt | 1 | `scanner_screen.py:173` (score number display) |~~
+~~| 32pt | 1 | `welcome_dialog.py:26` (feature card icon) |~~
+~~| 28pt | 1 | `components.py:857` (LoadingState spinner glyph) |~~
+~~| 22pt | 1 | `components.py:358` (Avatar fallback `?`) |~~
+~~| 16pt | 2 | `history_screen.py:97,131` (P&L number display) |~~
+~~| 14pt | 2 | `components.py:219` (Sidebar brand "SkinVault"), `login_gate.py:65` (tagline) |~~
+~~| 12pt | 1 | `components.py:458` (badge "Premium") |~~
 
-**Sugestão** (introduzir 4 tokens semanticamente nomeados):
-```python
+~~**Sugestão** (introduzir 4 tokens semanticamente nomeados):~~
+~~```python
 FS_ICON_HERO = "64pt"   # EmptyState glyph
 FS_ICON_LG   = "48pt"   # Avatar / OverlayLock
 FS_ICON_MD   = "32pt"   # Welcome feature
 FS_ICON_SM   = "22pt"   # Avatar fallback
 FS_DISPLAY   = "36pt"   # Big number (score)
-```
+```~~
 
-Os outros (28, 16, 14, 12pt) ficam inline com comentário — single-use ou contexto muito específico.
+~~Os outros (28, 16, 14, 12pt) ficam inline com comentário — single-use ou contexto muito específico.~~
+
+**Resultado**: 5 tokens adicionados (`FS_ICON_HERO`, `FS_ICON_LG`, `FS_DISPLAY`, `FS_ICON_MD`, `FS_ICON_SM`), 6 sites migrados. 28/16/14/12pt mantidos inline. `649a132`.
 
 ~~### Frente F — Tabela polish avançado (esforço: 1–2h, impact: alto)~~ ✅ parcial `05a7512`
 
@@ -295,15 +299,17 @@ Os outros (28, 16, 14, 12pt) ficam inline com comentário — single-use ou cont
 
 **Resultado**: `table_style()` ganhou `::up-arrow`/`::down-arrow` (8px, subcontrol-position), `::item:selected:hover` com `ACCENT_HOV`, e alt-color `#21212B`. `05a7512`.
 
-### Frente G — Welcome dialog redesign (esforço: 1h, impact: médio)
+~~### Frente G — Welcome dialog redesign (esforço: 1h, impact: médio)~~ ✅ `0b1417f`
 
-Atual (`welcome_dialog.py`): hero + subtitle + 3 feature cards horizontais + CTA. Funcional mas visualmente plano.
+~~Atual (`welcome_dialog.py`): hero + subtitle + 3 feature cards horizontais + CTA. Funcional mas visualmente plano.~~
 
-**Ideias** (escolher 1):
-- **Background gradient** sutil (`qlineargradient` de BG_ELEVATED → BG) no QDialog para hierarquia.
-- **Animated counter** no CTA "Vamos lá" mostrando "começar em 5… 4…" se usuário não interagir (UX questionável, mas curioso).
-- **Feature cards com hover lift**: QGraphicsDropShadowEffect on hover (cuidado com perf, vide histórico — descartado em cards normais por baixo ROI no dark theme; talvez OK aqui pq é evento de hover, não permanente).
-- **Replace ícones glifo (◐ ◎ ★)** por **SVG do projeto** ou **emojis nativos** mais bonitos. Glifos atuais são abstratos demais.
+~~**Ideias** (escolher 1):~~
+~~- **Background gradient** sutil (`qlineargradient` de BG_ELEVATED → BG) no QDialog para hierarquia.~~
+~~- **Animated counter** no CTA "Vamos lá" mostrando "começar em 5… 4…" se usuário não interagir (UX questionável, mas curioso).~~
+~~- **Feature cards com hover lift**: QGraphicsDropShadowEffect on hover (cuidado com perf, vide histórico — descartado em cards normais por baixo ROI no dark theme; talvez OK aqui pq é evento de hover, não permanente).~~
+~~- **Replace ícones glifo (◐ ◎ ★)** por **SVG do projeto** ou **emojis nativos** mais bonitos. Glifos atuais são abstratos demais.~~
+
+**Resultado**: 3 ideias implementadas (bg gradient, hover lift via WA_Hover + border-color, emojis nativos). O animated counter foi descartado — poluição visual desnecessária. `0b1417f`.
 
 ### Frente H — Charts polish (esforço: 2h, impact: alto)
 
@@ -317,11 +323,13 @@ Atual (`welcome_dialog.py`): hero + subtitle + 3 feature cards horizontais + CTA
 
 Cada um é um sub-feature. Mapear cada `paintEvent` e adicionar `mouseMoveEvent` para hover, `mousePressEvent` para click. **Não usar bibliotecas de chart** (PyQtGraph etc.) — viola a regra `Preferir QPainter custom widgets a bibliotecas de charting` em CLAUDE.md.
 
-### Frente I — Inputs polish (esforço: 30min, impact: médio)
+~~### Frente I — Inputs polish (esforço: 30min, impact: médio)~~ ✅ `fa05e94`
 
-- **Placeholder mais descritivo** em vários `QLineEdit`. Audit nas screens: `setPlaceholderText(...)` em cada input importante.
-- **Validation feedback inline** — atualmente erros aparecem como `QLabel(DANGER)` separado. Ideia: `_input_style_error()` que pinta borda em DANGER quando validação falha. Reset on focus.
-- **Clear button** (X) dentro de QLineEdit pra resetar busca. `QLineEdit.addAction(QIcon, TrailingPosition)`.
+~~- **Placeholder mais descritivo** em vários `QLineEdit`. Audit nas screens: `setPlaceholderText(...)` em cada input importante.~~
+~~- **Validation feedback inline** — atualmente erros aparecem como `QLabel(DANGER)` separado. Ideia: `_input_style_error()` que pinta borda em DANGER quando validação falha. Reset on focus.~~
+~~- **Clear button** (X) dentro de QLineEdit pra resetar busca. `QLineEdit.addAction(QIcon, TrailingPosition)`.~~
+
+**Resultado**: history_screen placeholders melhorados ('0,00' → descritivo), `input_style_error()` helper em theme.py com :focus reset, validation aplicada em history_screen _calc (inputs ficam com borda DANGER até foco), market_screen ganhou clear button (os outros 3 inputs já tinham via `setClearButtonEnabled` de sessão anterior). `fa05e94`.
 
 ### Frente J — Animations / transitions (esforço: 2–3h, impact: médio)
 
