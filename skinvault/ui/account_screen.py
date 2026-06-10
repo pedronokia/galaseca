@@ -145,6 +145,10 @@ class AccountScreen(QWidget):
         self._sync_btn = QPushButton("Sincronizar com Steam")
         self._sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._sync_btn.setStyleSheet(t.btn_steam())
+        self._sync_btn.setToolTip(
+            "Puxa seu inventario, market history, listings ativas e trade "
+            "offers da Steam. Usa cookies salvos da sessao."
+        )
         self._sync_btn.clicked.connect(self.request_sync.emit)
         btn_col.addWidget(self._sync_btn, 0, Qt.AlignmentFlag.AlignRight)
 

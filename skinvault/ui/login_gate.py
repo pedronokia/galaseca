@@ -88,6 +88,10 @@ class LoginGate(QWidget):
         connect_btn.setMinimumHeight(64)
         connect_btn.setFixedWidth(400)
         connect_btn.setStyleSheet(t.btn_steam(padding="18px 44px", fs="14pt"))
+        connect_btn.setToolTip(
+            "Abre o login do Steam no Chrome. Sua sessao fica salva no "
+            "PC — voce so faz login uma vez."
+        )
         connect_btn.clicked.connect(self._on_connect)
         btn_row.addWidget(connect_btn)
 

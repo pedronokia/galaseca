@@ -87,6 +87,10 @@ class SimulateTradeDialog(QDialog):
         btn = QPushButton("Calcular")
         btn.setStyleSheet(t.btn_primary())
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setToolTip(
+            "Calcula P&L liquido apos taxa Steam de 15% e o preco minimo "
+            "de venda para empatar."
+        )
         btn.clicked.connect(self._calc)
         root.addWidget(btn)
 
@@ -250,6 +254,9 @@ class _FilterBar(QWidget):
 
         clear_btn = QPushButton("Limpar")
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        clear_btn.setToolTip(
+            "Reseta o filtro de busca por nome/nota (Esc tambem funciona)."
+        )
         clear_btn.setStyleSheet(
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
             f" border: 1px solid {t.BORDER}; border-radius: 6px;"
