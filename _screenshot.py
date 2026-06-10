@@ -31,7 +31,12 @@ TARGET_SIZE = QSize(1920, 1200)
 
 
 def _abort_if_gaming() -> None:
-    """Se cs2.exe estiver rodando, aborta antes de mexer no Qt."""
+    """Se cs2.exe estiver rodando, aborta antes de mexer no Qt.
+
+    Bypass: SKIP_GAME_GUARD=1 (usar so quando souber que o jogo nao
+    esta em foco/fullscreen exclusive)."""
+    if os.environ.get("SKIP_GAME_GUARD") == "1":
+        return
     if sys.platform != "win32":
         return
     try:
@@ -43,6 +48,7 @@ def _abort_if_gaming() -> None:
         return
     if "cs2.exe" in out.lower():
         print("ABORT: cs2.exe esta rodando. Saia do jogo antes de rodar.")
+        print("(bypass: SKIP_GAME_GUARD=1 python _screenshot.py)")
         sys.exit(2)
 
 
