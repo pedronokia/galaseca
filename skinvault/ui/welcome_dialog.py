@@ -20,6 +20,11 @@ from skinvault.ui.components import Card
 
 def _feature_card(icon: str, title: str, desc: str) -> Card:
     card = Card()
+    card.setAttribute(Qt.WidgetAttribute.WA_Hover)
+    card.setStyleSheet(
+        card.styleSheet() +
+        f"QWidget#Card:hover {{ border-color: {t.ACCENT_DIM}; }}"
+    )
     icn = QLabel(icon)
     icn.setAlignment(Qt.AlignmentFlag.AlignCenter)
     icn.setStyleSheet(
@@ -49,7 +54,11 @@ class WelcomeDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Bem-vindo ao SkinVault")
         self.setMinimumWidth(760)
-        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
+        self.setStyleSheet(
+            "QDialog { background: qlineargradient("
+            " x1:0 y1:0, x2:0 y2:1,"
+            f" stop:0 {t.BG_ELEVATED}, stop:1 {t.BG}); }}"
+        )
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(40, 36, 40, 32)
@@ -74,19 +83,19 @@ class WelcomeDialog(QDialog):
         row = QHBoxLayout()
         row.setSpacing(16)
         row.addWidget(_feature_card(
-            "◐",
+            "📦",
             "Conta + Inventário",
             "Sincronize com a Steam e veja seu inventário avaliado "
             "ao preço de mercado (já com a taxa de 15% descontada)."
         ), 1)
         row.addWidget(_feature_card(
-            "◎",
+            "📊",
             "Scanner de Skins",
             "Score 0–100 por item baseado em spread, tendência, volume "
             "e oferta. Saiba o que comprar e o que evitar."
         ), 1)
         row.addWidget(_feature_card(
-            "★",
+            "🔔",
             "Watchlist + Alertas",
             "Defina alvos de preço, anomalias de volume e quedas de "
             "oferta. Notificações na bandeja quando a regra dispara."
