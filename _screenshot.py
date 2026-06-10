@@ -1,6 +1,12 @@
 """Gera screenshots de cada tela do SkinVault pra validacao.
 
 Atualizado pos-F11: navega via ScreenRouter em vez de QTabWidget.
+Renderiza com WA_DontShowOnScreen — widgets ficam ativos e geram
+pixels normais, mas nao aparece janela nem entrada no taskbar.
+Nao atrapalha o jogo/foco do usuario.
+
+(Nao usar QT_QPA_PLATFORM=offscreen: quebra fontes do sistema no
+Windows, sai tudo como tofu boxes.)
 """
 import os
 import sys
@@ -8,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication
 
 OUT = Path(__file__).parent / "prints"
@@ -21,6 +27,9 @@ def shoot():
 
     app = QApplication([])
     win = MainWindow()
+    # Renderiza sem mostrar: widget vive, processa eventos, gera pixels,
+    # mas Qt nao chama showWindow() na plataforma — zero footprint visual.
+    win.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
     win.show()
     app.processEvents()
 
