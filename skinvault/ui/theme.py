@@ -209,21 +209,28 @@ def btn_ghost(padding: str = "6px 14px", fs: str = FS_MUTED) -> str:
 def table_style() -> str:
     return (
         f"QTableWidget {{ background: {BG_ELEVATED};"
-        f" alternate-background-color: {SURFACE};"
+        f" alternate-background-color: #21212B;"
         f" gridline-color: transparent; border: 1px solid {BORDER};"
         f" border-radius: 10px; color: {TEXT}; font-size: {FS_BODY};"
         f" font-family: {FONT_FAMILY}; }}"
-        # Item padding 8px (era 4px): rows mais respiraveis (~30px de
-        # altura), padrao Win11 trading-app. Alt zebra fica mais visivel
-        # com mais area por linha.
         f"QTableWidget::item {{ padding: 8px 12px; }}"
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none;"
-        f" border-bottom: 1px solid {BORDER}; padding: 10px 12px;"
+        f" border-bottom: 1px solid {BORDER};"
+        f" padding: 10px 16px 10px 12px;"
         f" font-weight: 600; font-size: {FS_MUTED}; }}"
+        f"QHeaderView::down-arrow {{ width: 8px; height: 8px;"
+        f" subcontrol-origin: padding;"
+        f" subcontrol-position: center right;"
+        f" padding-right: 4px; }}"
+        f"QHeaderView::up-arrow {{ width: 8px; height: 8px;"
+        f" subcontrol-origin: padding;"
+        f" subcontrol-position: center right;"
+        f" padding-right: 4px; }}"
         f"QTableWidget::item:hover {{ background: {SURFACE_HOV}; }}"
         f"QTableWidget::item:selected {{ background: {ACCENT_DIM};"
         f" color: {TEXT}; }}"
+        f"QTableView::item:selected:hover {{ background: {ACCENT_HOV}; }}"
     )
 
 
