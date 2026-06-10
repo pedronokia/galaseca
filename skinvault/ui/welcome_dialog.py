@@ -30,19 +30,13 @@ def _feature_card(icon: str, title: str, desc: str) -> Card:
 
     ttl = QLabel(title)
     ttl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    ttl.setStyleSheet(
-        f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
-        f" font-weight: 600; font-family: {t.FONT_FAMILY};"
-    )
+    ttl.setStyleSheet(t.label_section())
     card.layout().addWidget(ttl)
 
     d = QLabel(desc)
     d.setAlignment(Qt.AlignmentFlag.AlignCenter)
     d.setWordWrap(True)
-    d.setStyleSheet(
-        f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-        f" font-family: {t.FONT_FAMILY};"
-    )
+    d.setStyleSheet(t.label_body_muted())
     card.layout().addWidget(d)
     card.setMinimumWidth(220)
     return card
@@ -76,10 +70,7 @@ class WelcomeDialog(QDialog):
         )
         sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sub.setWordWrap(True)
-        sub.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        sub.setStyleSheet(t.label_body_muted())
         outer.addWidget(sub)
 
         # 3 feature cards

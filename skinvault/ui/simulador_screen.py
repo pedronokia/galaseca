@@ -140,20 +140,14 @@ class SimuladorScreen(QWidget):
         rl.setSpacing(8)
 
         self._result_title = QLabel("Resultado")
-        self._result_title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._result_title.setStyleSheet(t.label_section())
         rl.addWidget(self._result_title)
 
         self._result_detail = QLabel(
             "Preencha os valores e clique em Simular."
         )
         self._result_detail.setWordWrap(True)
-        self._result_detail.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._result_detail.setStyleSheet(t.label_body_muted())
         rl.addWidget(self._result_detail)
 
         stats_row = QHBoxLayout()
@@ -188,10 +182,7 @@ class SimuladorScreen(QWidget):
 
         # ── Historico de simulacoes ───────────────────────
         hist_lbl = QLabel("Simulações recentes")
-        hist_lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        hist_lbl.setStyleSheet(t.label_caption())
         hist_lbl.setToolTip(
             "Clique em uma para repor os campos com aqueles valores."
         )
@@ -202,10 +193,7 @@ class SimuladorScreen(QWidget):
         self._hist_empty = QLabel(
             "As últimas 5 simulações desta sessão aparecem aqui."
         )
-        self._hist_empty.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._hist_empty.setStyleSheet(t.label_caption())
         self._hist_row.addWidget(self._hist_empty)
         self._hist_row.addStretch(1)
         root.addLayout(self._hist_row)
@@ -286,10 +274,7 @@ class SimuladorScreen(QWidget):
         self._result_detail.setText(
             "Preencha os valores e clique em Simular."
         )
-        self._result_detail.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._result_detail.setStyleSheet(t.label_body_muted())
 
     # ── historico ─────────────────────────────────────────
     def _push_history(self, snap: dict) -> None:
@@ -309,10 +294,7 @@ class SimuladorScreen(QWidget):
             self._hist_empty = QLabel(
                 "As últimas 5 simulações desta sessão aparecem aqui."
             )
-            self._hist_empty.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+            self._hist_empty.setStyleSheet(t.label_caption())
             self._hist_row.addWidget(self._hist_empty)
             self._hist_row.addStretch(1)
             return

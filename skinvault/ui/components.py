@@ -150,10 +150,7 @@ class StatCard(Card):
         self.layout().setSpacing(4)
         self._label = QLabel(label)
         self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._label.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._label.setStyleSheet(t.label_caption())
         self._value = QLabel(value)
         self._value.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._value.setStyleSheet(
@@ -263,10 +260,7 @@ class Breadcrumb(QWidget):
         lay.addWidget(self._label, 1)
 
         self._right = QLabel("")
-        self._right.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._right.setStyleSheet(t.label_caption())
         lay.addWidget(self._right)
 
     def set_path(self, *parts: str) -> None:
@@ -292,10 +286,7 @@ class Footer(QWidget):
         self._left = QLabel("")
         self._right = QLabel("")
         for lbl in (self._left, self._right):
-            lbl.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+            lbl.setStyleSheet(t.label_caption())
         lay.addWidget(self._left, 1)
         lay.addWidget(self._right)
 
@@ -499,10 +490,7 @@ class _ActivityRow(QWidget):
         self.setFixedHeight(44)
 
         ts_label = QLabel(_act.format_relative_ts(event.get("ts", 0)))
-        ts_label.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        ts_label.setStyleSheet(t.label_caption())
         lay.addWidget(ts_label, 0, Qt.AlignmentFlag.AlignTop)
 
 
@@ -706,10 +694,7 @@ class RecentMatchesStrip(Card):
         outer.addWidget(self._streak)
 
         self._empty = QLabel("Nenhum trade fechado ainda.")
-        self._empty.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._empty.setStyleSheet(t.label_caption())
         self._chip_lay.addWidget(self._empty)
 
         self.layout().addLayout(outer)
@@ -886,10 +871,7 @@ class LoadingState(QWidget):
 
         self._lbl = QLabel(label)
         self._lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._lbl.setStyleSheet(t.label_caption())
         lay.addWidget(self._lbl)
 
         self._idx = 0
@@ -940,10 +922,7 @@ class SectionHeader(QWidget):
         stack.addWidget(self._title)
 
         self._sub = QLabel(subtitle)
-        self._sub.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._sub.setStyleSheet(t.label_caption())
         self._sub.setVisible(bool(subtitle))
         stack.addWidget(self._sub)
 

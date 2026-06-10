@@ -264,6 +264,35 @@ def align_table_columns(
             hi.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
 
 
+# ── Label style helpers ─────────────────────────────────────
+# Consolida os 3 patterns inline mais comuns de QLabel.setStyleSheet.
+# Para variantes raras (ACCENT, DANGER, text-decoration, etc.) manter
+# inline.
+
+def label_caption() -> str:
+    """Caption/helper text: muted pequeno (FS_MUTED)."""
+    return (
+        f"color: {TEXT_MUTED}; font-size: {FS_MUTED};"
+        f" font-family: {FONT_FAMILY};"
+    )
+
+
+def label_body_muted() -> str:
+    """Body text muted: FS_BODY com cor TEXT_MUTED."""
+    return (
+        f"color: {TEXT_MUTED}; font-size: {FS_BODY};"
+        f" font-family: {FONT_FAMILY};"
+    )
+
+
+def label_section() -> str:
+    """Section title: TEXT + FS_TITLE_SM + weight 600."""
+    return (
+        f"color: {TEXT}; font-size: {FS_TITLE_SM}; font-weight: 600;"
+        f" font-family: {FONT_FAMILY};"
+    )
+
+
 def configure_table(table: QTableWidget) -> None:
     """Aplica os defaults visuais Win11 trading-app a uma QTableWidget.
 
