@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import portfolio
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, SectionHeader, StatCard
+from skinvault.ui.components import Card, FormRow, SectionHeader, StatCard
 
 
 _HIST_CAP = 5
@@ -58,24 +58,6 @@ class SimuladorScreen(QWidget):
         self._history: list[dict] = []
         self._build()
 
-    def _labeled(self, text: str, w: QWidget,
-                 tooltip: str = "") -> QWidget:
-        wrap = QWidget()
-        lay = QVBoxLayout(wrap)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(4)
-        lbl = QLabel(text)
-        lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        if tooltip:
-            lbl.setToolTip(tooltip)
-            w.setToolTip(tooltip)
-        lay.addWidget(lbl)
-        lay.addWidget(w)
-        return wrap
-
     def _build(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(24, 20, 24, 20)
@@ -101,14 +83,14 @@ class SimuladorScreen(QWidget):
         self._buy_inp.setPrefix("R$ ")
         self._buy_inp.setRange(0, 9999999)
         self._buy_inp.setStyleSheet(t.input_style())
-        row1.addWidget(self._labeled(
+        row1.addWidget(FormRow(
             "Preço de compra (unitário)", self._buy_inp,
             tooltip="Quanto você paga por cada unidade ao comprar.",
         ))
         self._sell_inp.setPrefix("R$ ")
         self._sell_inp.setRange(0, 9999999)
         self._sell_inp.setStyleSheet(t.input_style())
-        row1.addWidget(self._labeled(
+        row1.addWidget(FormRow(
             "Preço de venda (unitário, listagem)", self._sell_inp,
             tooltip="Preço pelo qual você lista cada unidade.\nA Steam cobra "
                     "15% sobre este valor.",
@@ -120,7 +102,7 @@ class SimuladorScreen(QWidget):
         self._qty_inp.setMinimum(1)
         self._qty_inp.setMaximum(999)
         self._qty_inp.setStyleSheet(t.input_style())
-        row2.addWidget(self._labeled(
+        row2.addWidget(FormRow(
             "Quantidade (listagens)", self._qty_inp,
             tooltip="Cada unidade vira uma listagem separada. A taxa de 15% "
                     "aplica sobre cada listagem.",

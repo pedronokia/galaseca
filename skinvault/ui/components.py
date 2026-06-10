@@ -995,9 +995,13 @@ class Toolbar(QWidget):
 
 # ── FormRow ──────────────────────────────────────────────────
 class FormRow(QWidget):
-    """Label muted em cima, field embaixo. Espacamento consistente."""
+    """Label muted em cima, field embaixo. Espacamento consistente.
+
+    Se tooltip for fornecido, aplica em label + field (acessibilidade).
+    """
 
     def __init__(self, label: str, field: QWidget,
+                 tooltip: str = "",
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         lay = QVBoxLayout(self)
@@ -1009,6 +1013,9 @@ class FormRow(QWidget):
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-weight: 600; font-family: {t.FONT_FAMILY};"
         )
+        if tooltip:
+            self._lbl.setToolTip(tooltip)
+            field.setToolTip(tooltip)
         lay.addWidget(self._lbl)
         lay.addWidget(field)
         self._field = field
