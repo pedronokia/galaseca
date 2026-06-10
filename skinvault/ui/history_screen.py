@@ -165,10 +165,7 @@ class _FilterBar(QWidget):
 
         # Periodo
         p_label = QLabel("Periodo:")
-        p_label.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        p_label.setStyleSheet(t.label_caption_bold())
         root.addWidget(p_label)
         _periodo_tips = {
             "7d": "Ultimos 7 dias",
@@ -201,10 +198,7 @@ class _FilterBar(QWidget):
 
         # Tipo
         t_label = QLabel("Tipo:")
-        t_label.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        t_label.setStyleSheet(t.label_caption_bold())
         root.addWidget(t_label)
         self._tipo_widgets.append(t_label)
         _tipo_tips = {

@@ -678,10 +678,7 @@ class RecentMatchesStrip(Card):
         outer.addStretch(1)
 
         self._streak = QLabel("")
-        self._streak.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
-        )
+        self._streak.setStyleSheet(t.label_caption_bold())
         outer.addWidget(self._streak)
 
         self._empty = QLabel("Nenhum trade fechado ainda.")
@@ -979,10 +976,7 @@ class FormRow(QWidget):
         lay.setSpacing(t.SPACE_XS)
 
         self._lbl = QLabel(label)
-        self._lbl.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
-        )
+        self._lbl.setStyleSheet(t.label_caption_bold())
         if tooltip:
             self._lbl.setToolTip(tooltip)
             field.setToolTip(tooltip)

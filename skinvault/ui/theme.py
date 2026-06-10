@@ -293,6 +293,15 @@ def label_section() -> str:
     )
 
 
+def label_caption_bold() -> str:
+    """Caption pequeno em bold: TEXT_MUTED + FS_MUTED + weight 600.
+    Usado em headers de chip-row, eyebrows e badge labels."""
+    return (
+        f"color: {TEXT_MUTED}; font-size: {FS_MUTED}; font-weight: 600;"
+        f" font-family: {FONT_FAMILY};"
+    )
+
+
 def configure_table(table: QTableWidget) -> None:
     """Aplica os defaults visuais Win11 trading-app a uma QTableWidget.
 
