@@ -58,10 +58,7 @@ class WelcomeDialog(QDialog):
         # Hero
         title = QLabel("Bem-vindo ao SkinVault")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: 28pt; font-weight: 700;"
-            f" font-family: {t.FONT_FAMILY}; letter-spacing: -0.5px;"
-        )
+        title.setStyleSheet(t.label_hero())
         outer.addWidget(title)
 
         sub = QLabel(

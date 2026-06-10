@@ -119,6 +119,7 @@ FS_INPUT = "11pt"
 FS_TITLE_SM = "13pt"
 FS_STAT = "18pt"
 FS_TITLE = "24pt"
+FS_HERO = "28pt"   # hero title (welcome dialog, large modals)
 
 
 # ── Helpers de formato ──────────────────────────────────────
@@ -305,6 +306,15 @@ def label_caption_bold() -> str:
     return (
         f"color: {TEXT_MUTED}; font-size: {FS_MUTED}; font-weight: 600;"
         f" font-family: {FONT_FAMILY};"
+    )
+
+
+def label_hero() -> str:
+    """Hero title: TEXT + FS_HERO + weight 700 + letter-spacing -0.5px.
+    Usado em modals de boas-vindas e telas de destaque."""
+    return (
+        f"color: {TEXT}; font-size: {FS_HERO}; font-weight: 700;"
+        f" font-family: {FONT_FAMILY}; letter-spacing: -0.5px;"
     )
 
 
