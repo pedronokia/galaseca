@@ -181,21 +181,16 @@ class SimuladorScreen(QWidget):
         root.addWidget(result_card)
 
         # ── Historico de simulacoes ───────────────────────
-        hist_lbl = QLabel("Simulações recentes")
-        hist_lbl.setStyleSheet(t.label_caption())
-        hist_lbl.setToolTip(
+        self._hist_lbl = QLabel("Simulações recentes")
+        self._hist_lbl.setStyleSheet(t.label_caption())
+        self._hist_lbl.setToolTip(
             "Clique em uma para repor os campos com aqueles valores."
         )
-        root.addWidget(hist_lbl)
+        root.addWidget(self._hist_lbl)
+        self._hist_lbl.setVisible(False)
 
         self._hist_row = QHBoxLayout()
         self._hist_row.setSpacing(8)
-        self._hist_empty = QLabel(
-            "As últimas 5 simulações desta sessão aparecem aqui."
-        )
-        self._hist_empty.setStyleSheet(t.label_caption())
-        self._hist_row.addWidget(self._hist_empty)
-        self._hist_row.addStretch(1)
         root.addLayout(self._hist_row)
 
         root.addStretch(1)
@@ -291,14 +286,10 @@ class SimuladorScreen(QWidget):
                 w.deleteLater()
 
         if not self._history:
-            self._hist_empty = QLabel(
-                "As últimas 5 simulações desta sessão aparecem aqui."
-            )
-            self._hist_empty.setStyleSheet(t.label_caption())
-            self._hist_row.addWidget(self._hist_empty)
-            self._hist_row.addStretch(1)
+            self._hist_lbl.setVisible(False)
             return
 
+        self._hist_lbl.setVisible(True)
         for snap in self._history:
             chip = _HistoryChip(snap, self)
             chip.clicked.connect(

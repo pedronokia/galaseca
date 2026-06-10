@@ -2886,12 +2886,23 @@ def test_simulador_screen_loss():
 
 
 def test_simulador_screen_rebuild_empty():
-    """_rebuild_history com historico vazio mostra placeholder."""
+    """_rebuild_history com historico vazio esconde seção."""
     from skinvault.ui.simulador_screen import SimuladorScreen
     screen = SimuladorScreen()
     screen._history = []
     screen._rebuild_history()
-    assert "aparecem aqui" in screen._hist_empty.text()
+    assert screen._hist_lbl.isVisible() is False
+
+
+def test_simulador_screen_rebuild_populated():
+    """_rebuild_history com historico preenchido mostra label."""
+    from skinvault.ui.simulador_screen import SimuladorScreen
+    screen = SimuladorScreen()
+    screen.show()  # necessário para isVisible() considerar hierarquia
+    screen._history = [{"pnl": 50, "buy_price": 100, "sell_price": 130,
+                        "quantity": 1}]
+    screen._rebuild_history()
+    assert screen._hist_lbl.isVisible() is True
 
 
 def test_simulador_screen_break_even():
