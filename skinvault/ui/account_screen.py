@@ -197,7 +197,7 @@ class AccountScreen(QWidget):
         root.addWidget(header)
 
         # Portfolio breakdown card
-        breakdown_card = Card(self, padding=(16, 14, 16, 14))
+        breakdown_card = Card(self, padding=t.CARD_PAD_MD)
         bd_lay = QVBoxLayout()
         bd_lay.setSpacing(8)
         bd_title = QLabel("Desempenho da carteira")

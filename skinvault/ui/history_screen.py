@@ -90,7 +90,7 @@ class SimulateTradeDialog(QDialog):
         btn.clicked.connect(self._calc)
         root.addWidget(btn)
 
-        self._result = Card(self, padding=(16, 14, 16, 14))
+        self._result = Card(self, padding=t.CARD_PAD_MD)
         body = self._result.layout()
         self._pnl_lbl = QLabel("—")
         self._pnl_lbl.setStyleSheet(

@@ -120,7 +120,7 @@ class Card(QFrame):
     inserir conteudo."""
 
     def __init__(self, parent: QWidget | None = None,
-                 padding: tuple[int, int, int, int] = (20, 18, 20, 18),
+                 padding: tuple[int, int, int, int] = t.CARD_PAD_LG,
                  radius: int = 14) -> None:
         super().__init__(parent)
         self.setObjectName("Card")
@@ -143,6 +143,8 @@ class StatCard(Card):
     def __init__(self, label: str, value: str = "—",
                  accent: str = t.TEXT,
                  parent: QWidget | None = None) -> None:
+        # Padding (20, 16) e ligeiramente mais compacto que CARD_PAD_LG (20, 18)
+        # — StatCard mostra apenas label + numero, nao precisa respiro extra.
         super().__init__(parent, padding=(20, 16, 20, 16), radius=t.RADIUS_LG)
         self.layout().setSpacing(4)
         self._label = QLabel(label)
@@ -501,7 +503,7 @@ class ActivityFeed(Card):
     ]
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent, padding=(16, 14, 16, 14))
+        super().__init__(parent, padding=t.CARD_PAD_MD)
         self.setMinimumWidth(280)
         self.setMaximumWidth(380)
 
@@ -656,7 +658,7 @@ class RecentMatchesStrip(Card):
     coloridos pros ultimos trades + streak indicator a direita."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent, padding=(14, 10, 14, 10))
+        super().__init__(parent, padding=t.CARD_PAD_SM)
 
         outer = QHBoxLayout()
         outer.setContentsMargins(0, 0, 0, 0)

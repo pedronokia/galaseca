@@ -69,6 +69,12 @@ RADIUS_SM = 6
 RADIUS_MD = 10
 RADIUS_LG = 14
 
+# Padding interno de Card por densidade visual.
+# LG = default (Card init); MD = cards compactos; SM = chips/strips.
+CARD_PAD_SM = (14, 10, 14, 10)
+CARD_PAD_MD = (16, 14, 16, 14)
+CARD_PAD_LG = (20, 18, 20, 18)
+
 # Alias backward compat com gui.py legado
 _BG = BG
 _SURFACE = BG_ELEVATED
