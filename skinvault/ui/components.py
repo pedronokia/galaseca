@@ -68,10 +68,7 @@ class EmptyState(QWidget):
             sub = QLabel(subtitle)
             sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
             sub.setWordWrap(True)
-            sub.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+            sub.setStyleSheet(t.label_body_muted())
             lay.addWidget(sub)
 
         if cta_label:
@@ -253,10 +250,7 @@ class Breadcrumb(QWidget):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(20, 0, 20, 0)
         self._label = QLabel("")
-        self._label.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._label.setStyleSheet(t.label_body_muted())
         lay.addWidget(self._label, 1)
 
         self._right = QLabel("")
@@ -420,10 +414,7 @@ class LockOverlay(QWidget):
             "oportunidades de compra antes da valorização."
         )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        desc.setStyleSheet(t.label_body_muted())
         lay.addWidget(desc)
 
         cta = QPushButton("Quero ser avisado quando lançar")

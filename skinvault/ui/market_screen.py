@@ -283,10 +283,7 @@ class MarketScreen(QWidget):
             "profundidade do livro."
         )
         self._detail_msg.setWordWrap(True)
-        self._detail_msg.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._detail_msg.setStyleSheet(t.label_body_muted())
         detail_lay.addWidget(self._detail_msg)
 
         self._detail_form = QFormLayout()
@@ -408,10 +405,7 @@ class MarketScreen(QWidget):
             "Consulte um item para ver fair value, spread, tendência e "
             "profundidade do livro."
         )
-        self._detail_msg.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._detail_msg.setStyleSheet(t.label_body_muted())
         self._case_badge.setVisible(False)
         self._clear_detail_form()
         self._status.setText(
@@ -532,10 +526,7 @@ class MarketScreen(QWidget):
             )
         else:
             self._detail_msg.setText("Dados insuficientes para um veredito.")
-            self._detail_msg.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+            self._detail_msg.setStyleSheet(t.label_body_muted())
 
         self._clear_detail_form()
         if overview:

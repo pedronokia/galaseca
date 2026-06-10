@@ -115,10 +115,7 @@ class AccountScreen(QWidget):
         ident = QVBoxLayout()
         ident.setSpacing(2)
         self._name = QLabel("—")
-        self._name.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
+        self._name.setStyleSheet(t.label_section())
         ident.addWidget(self._name)
 
         sub_row = QHBoxLayout()

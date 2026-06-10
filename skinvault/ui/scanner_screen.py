@@ -235,10 +235,7 @@ class _ScoreBreakdownDialog(QDialog):
             empty = QLabel(
                 "Sem fatores relevantes — score ficou na base neutra (50)."
             )
-            empty.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+            empty.setStyleSheet(t.label_body_muted())
             layout.addWidget(empty)
         else:
             for b in breakdown:
@@ -525,10 +522,7 @@ class _BacktestResultDialog(QDialog):
                 "Nenhuma amostra gerada. Itens podem ter histórico curto demais "
                 "ou Steam não respondeu."
             )
-            empty.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_BODY};"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+            empty.setStyleSheet(t.label_body_muted())
             empty.setWordWrap(True)
             layout.addWidget(empty)
             self._add_close(layout)
