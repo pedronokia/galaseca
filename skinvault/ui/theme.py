@@ -7,7 +7,7 @@ sync/conta.
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QTableWidget
+from PyQt6.QtWidgets import QAbstractItemView, QTableWidget
 
 # ── Paleta ───────────────────────────────────────────────────
 BG          = "#0E0E12"   # fundo principal
@@ -262,3 +262,25 @@ def align_table_columns(
         hi = table.horizontalHeaderItem(c)
         if hi is not None:
             hi.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+
+
+def configure_table(table: QTableWidget) -> None:
+    """Aplica os defaults visuais Win11 trading-app a uma QTableWidget.
+
+    Consolida ~7 linhas de boilerplate duplicadas em todas as telas com
+    tabela (account, history, scanner, trades, watchlist). Ponto unico
+    de controle pra futuros polishes (ex: setShowGrid, focus row).
+
+    Configuracoes especificas (sort, header resize modes, selection mode
+    custom) continuam inline na tela.
+    """
+    h = table.verticalHeader()
+    h.setVisible(False)
+    h.setDefaultSectionSize(SIZE_ROW_H)
+    table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+    table.setSelectionBehavior(
+        QAbstractItemView.SelectionBehavior.SelectRows
+    )
+    table.setAlternatingRowColors(True)
+    table.setSortingEnabled(True)
+    table.setStyleSheet(table_style())

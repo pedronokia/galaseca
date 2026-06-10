@@ -17,7 +17,6 @@ import time
 from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QDesktopServices
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -276,17 +275,7 @@ class AccountScreen(QWidget):
             "Item", "Qtd", "Preço atual", "Subtotal", "Recebido (-15%)",
             "P&L", "Origem", "Score",
         ])
-        self._table.verticalHeader().setVisible(False)
-        self._table.verticalHeader().setDefaultSectionSize(t.SIZE_ROW_H)
-        self._table.setEditTriggers(
-            QAbstractItemView.EditTrigger.NoEditTriggers
-        )
-        self._table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        self._table.setAlternatingRowColors(True)
-        self._table.setSortingEnabled(True)
-        self._table.setStyleSheet(t.table_style())
+        t.configure_table(self._table)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for i in range(max(self.COL_QTY, self.COL_SCORE + 1)):

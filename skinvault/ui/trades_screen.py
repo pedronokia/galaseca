@@ -274,20 +274,10 @@ class TradesScreen(QWidget):
             ["Data", "Item", "Qtd", "Compra", "Venda",
              "P&L líquido", "ROI", "Origem", "Notas"]
         )
-        self._table.verticalHeader().setVisible(False)
-        self._table.verticalHeader().setDefaultSectionSize(t.SIZE_ROW_H)
-        self._table.setEditTriggers(
-            QAbstractItemView.EditTrigger.NoEditTriggers
-        )
-        self._table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
-        )
+        t.configure_table(self._table)
         self._table.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )
-        self._table.setAlternatingRowColors(True)
-        self._table.setSortingEnabled(True)
-        self._table.setStyleSheet(t.table_style())
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for i in (self.COL_DATE, self.COL_QTY, self.COL_COST, self.COL_SELL,

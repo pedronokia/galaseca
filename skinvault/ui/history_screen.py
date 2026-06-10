@@ -16,7 +16,6 @@ from typing import Callable
 from PyQt6.QtCore import QSize, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QIcon, QKeySequence, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -508,17 +507,7 @@ class HistoryScreen(QWidget):
         root.addWidget(self._loading)
 
         self._table = QTableWidget(0, 0)
-        self._table.verticalHeader().setVisible(False)
-        self._table.verticalHeader().setDefaultSectionSize(t.SIZE_ROW_H)
-        self._table.setEditTriggers(
-            QAbstractItemView.EditTrigger.NoEditTriggers
-        )
-        self._table.setSelectionBehavior(
-            QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        self._table.setAlternatingRowColors(True)
-        self._table.setSortingEnabled(True)
-        self._table.setStyleSheet(t.table_style())
+        t.configure_table(self._table)
 
         self._empty = EmptyState(
             "◇", "Nenhum registro",
