@@ -117,6 +117,7 @@ class MarketScreen(QWidget):
         self._search_inp.setPlaceholderText(
             "Ex: AK-47 | Redline (Field-Tested)  •  Karambit | Doppler (Factory New)"
         )
+        self._search_inp.setClearButtonEnabled(True)
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.returnPressed.connect(self._on_search)
         tb.add_left(self._search_inp)

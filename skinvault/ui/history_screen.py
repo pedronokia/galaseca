@@ -68,10 +68,10 @@ class SimulateTradeDialog(QDialog):
                                       "Veja o lucro real depois da taxa de 15% da Steam."))
 
         self._buy = QLineEdit()
-        self._buy.setPlaceholderText("0,00")
+        self._buy.setPlaceholderText("Preço de compra (R$)")
         self._buy.setStyleSheet(t.input_style())
         self._sell = QLineEdit()
-        self._sell.setPlaceholderText("0,00")
+        self._sell.setPlaceholderText("Preço de venda (R$)")
         self._sell.setStyleSheet(t.input_style())
         self._qty = QLineEdit("1")
         self._qty.setStyleSheet(t.input_style())
@@ -126,7 +126,11 @@ class SimulateTradeDialog(QDialog):
         if buy is None or sell is None:
             self._pnl_lbl.setText("Valores invalidos")
             self._detail.setText("Preencha compra e venda.")
+            self._buy.setStyleSheet(t.input_style_error())
+            self._sell.setStyleSheet(t.input_style_error())
             return
+        self._buy.setStyleSheet(t.input_style())
+        self._sell.setStyleSheet(t.input_style())
         r = portfolio.simulate_trade(buy, sell, qty)
         color = t.ACCENT if r["is_profit"] else (
             t.DANGER if r["is_loss"] else t.TEXT

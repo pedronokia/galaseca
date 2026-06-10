@@ -153,6 +153,22 @@ def input_style() -> str:
     )
 
 
+def input_style_error() -> str:
+    """Input com borda DANGER para feedback de validacao.
+
+    O :focus volta ao ACCENT padrao — o usuario recebe feedback
+    visual do erro ate interagir com o campo.
+    """
+    return (
+        f"QLineEdit, QDoubleSpinBox, QSpinBox"
+        f" {{ background: {SURFACE}; border: 1px solid {DANGER};"
+        f" border-radius: 8px; padding: 10px 12px; font-size: {FS_INPUT};"
+        f" color: {TEXT}; font-family: {FONT_FAMILY}; }}"
+        f"QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus"
+        f" {{ border: 1px solid {ACCENT}; }}"
+    )
+
+
 def btn_primary(padding: str = "10px 22px", fs: str = FS_INPUT,
                 disabled: bool = False) -> str:
     s = (
