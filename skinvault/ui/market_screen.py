@@ -263,9 +263,7 @@ class MarketScreen(QWidget):
 
         detail_hdr = QHBoxLayout()
         self._detail_title = QLabel("Detalhes do item")
-        self._detail_title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
-        )
+        self._detail_title.setStyleSheet(t.label_section())
         detail_hdr.addWidget(self._detail_title)
         detail_hdr.addStretch(1)
         self._case_badge = QLabel("")

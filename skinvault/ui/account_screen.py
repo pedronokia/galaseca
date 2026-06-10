@@ -205,9 +205,7 @@ class AccountScreen(QWidget):
         bd_lay = QVBoxLayout()
         bd_lay.setSpacing(8)
         bd_title = QLabel("Desempenho da carteira")
-        bd_title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
-        )
+        bd_title.setStyleSheet(t.label_section())
         bd_lay.addWidget(bd_title)
 
         bd_row = QHBoxLayout()
