@@ -295,9 +295,11 @@ class DepthChart(QWidget):
                 bid_path.lineTo(_x_bid(cum_qty), _y(price))
             bid_path.lineTo(mid_x, _y(self._bid_points[-1][1]))
             bid_path.closeSubpath()
-            p.fillPath(bid_path, QColor(34, 197, 94, 40))
+            bid_fill = QColor(t.ACCENT)
+            bid_fill.setAlpha(40)
+            p.fillPath(bid_path, bid_fill)
 
-            bid_pen = QPen(QColor(34, 197, 94))
+            bid_pen = QPen(QColor(t.ACCENT))
             bid_pen.setWidthF(1.5)
             p.setPen(bid_pen)
             prev = None
@@ -314,9 +316,11 @@ class DepthChart(QWidget):
                 ask_path.lineTo(_x_ask(cum_qty), _y(price))
             ask_path.lineTo(mid_x, _y(self._ask_points[-1][1]))
             ask_path.closeSubpath()
-            p.fillPath(ask_path, QColor(239, 68, 68, 40))
+            ask_fill = QColor(t.DANGER)
+            ask_fill.setAlpha(40)
+            p.fillPath(ask_path, ask_fill)
 
-            ask_pen = QPen(QColor(239, 68, 68))
+            ask_pen = QPen(QColor(t.DANGER))
             ask_pen.setWidthF(1.5)
             p.setPen(ask_pen)
             prev = None
