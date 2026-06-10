@@ -142,7 +142,7 @@ class MiniSparkline(QWidget):
             return int(4 + i * ((w - 8) / (n - 1)))
 
         if self._sr:
-            sr_pen = QPen(QColor("#FACC15"))
+            sr_pen = QPen(QColor(t.CHART_YELLOW))
             sr_pen.setStyle(Qt.PenStyle.DashLine)
             sr_pen.setWidthF(1)
             p.setPen(sr_pen)
@@ -170,7 +170,7 @@ class MiniSparkline(QWidget):
             prev = (x, y)
 
         if self._sma:
-            sma_pen = QPen(QColor("#818CF8"))
+            sma_pen = QPen(QColor(t.CHART_INDIGO))
             sma_pen.setWidthF(1)
             p.setPen(sma_pen)
             prev = None
@@ -327,7 +327,7 @@ class DepthChart(QWidget):
                 prev = pt
 
         if self._best_bid is not None and self._best_ask is not None:
-            spread_pen = QPen(QColor("#FACC15"))
+            spread_pen = QPen(QColor(t.CHART_YELLOW))
             spread_pen.setStyle(Qt.PenStyle.DashLine)
             spread_pen.setWidthF(1)
             p.setPen(spread_pen)

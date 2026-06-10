@@ -27,6 +27,10 @@ DANGER_DIM  = "rgba(239,68,68,0.16)"
 DANGER_HOV  = "rgba(239,68,68,0.26)"
 WARN        = "#F59E0B"
 
+# Chart overlays (technical analysis)
+CHART_YELLOW = "#FACC15"  # support/resistance, spread
+CHART_INDIGO = "#818CF8"  # SMA, moving averages
+
 # Warning palette (extraido do regime banner do scanner)
 WARN_BG     = "#2A2410"
 WARN_BORDER = "#6B5A1A"
