@@ -1414,6 +1414,80 @@ def test_empty_state_cta_emits_signal():
     assert fired == [True]
 
 
+# ── Animations (Frente J) ───────────────────────────────────
+
+def test_fade_in_attaches_effect_and_runs():
+    """fade_in instala QGraphicsOpacityEffect e inicia a animacao."""
+    from PyQt6.QtCore import QAbstractAnimation
+    from PyQt6.QtWidgets import QWidget
+    from skinvault.ui.components import fade_in
+    w = QWidget()
+    w.resize(100, 50)
+    fade_in(w)
+    eff = w.graphicsEffect()
+    assert eff is not None
+    anims = eff.findChildren(QAbstractAnimation)
+    assert anims and anims[0].state() == QAbstractAnimation.State.Running
+
+
+def test_router_navigate_hidden_stack_no_fade(monkeypatch):
+    """navigate() sem janela visivel nao instala effect (grab/screenshot
+    e tests dependem de render deterministico)."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    from skinvault.ui import screen_router as sr
+    router = _make_router()
+    router.navigate(sr.SCREEN_SCANNER)
+    assert router._scanner_screen.graphicsEffect() is None
+
+
+def test_router_navigate_visible_stack_fades(monkeypatch):
+    """Com stack visivel, navegar para outra tela instala o fade."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    from skinvault.ui import screen_router as sr
+    router = _make_router()
+    monkeypatch.setattr(router._stack, "isVisible", lambda: True)
+    router.navigate(sr.SCREEN_SCANNER)
+    assert router._scanner_screen.graphicsEffect() is not None
+
+
+def test_router_navigate_same_screen_no_refade(monkeypatch):
+    """Navegar pra tela ja atual nao re-dispara fade."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    from skinvault.ui import screen_router as sr
+    calls = []
+    monkeypatch.setattr("skinvault.ui.screen_router.fade_in",
+                        lambda w, **k: calls.append(w))
+    router = _make_router()
+    monkeypatch.setattr(router._stack, "isVisible", lambda: True)
+    router.navigate(sr.SCREEN_SCANNER)
+    router.navigate(sr.SCREEN_SCANNER)
+    assert len(calls) == 1
+
+
+def test_loadingstate_hidden_window_no_fade():
+    """LoadingState em janela nao-mostrada aparece sem effect."""
+    from PyQt6.QtWidgets import QWidget
+    from skinvault.ui.components import LoadingState
+    host = QWidget()
+    ls = LoadingState(parent=host)
+    ls.setVisible(True)
+    assert ls.graphicsEffect() is None
+
+
+def test_toast_slide_animation_runs():
+    """show_toast inicia slide-in de 8px em paralelo com o fade."""
+    from PyQt6.QtCore import QAbstractAnimation
+    from PyQt6.QtWidgets import QWidget
+    from skinvault.ui.components import Toast
+    host = QWidget()
+    host.resize(800, 600)
+    toast = Toast.show_toast(host, "msg", "info", duration_ms=50)
+    assert toast._slide.state() == QAbstractAnimation.State.Running
+    end = toast._slide.endValue()
+    start = toast._slide.startValue()
+    assert end.y() - start.y() == 8
+
+
 def test_elide_label_short_text_unchanged():
     """Texto curto cabe sem elide."""
     from skinvault.ui.components import _ElideLabel

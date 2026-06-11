@@ -28,6 +28,33 @@ from PyQt6.QtWidgets import (
 )
 
 
+def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
+    """Fade-in suave de um widget via QGraphicsOpacityEffect.
+
+    O effect e removido ao final: render com effect tem custo (todo
+    paint passa por buffer offscreen — pesa em telas com tabela grande).
+    A remocao e deferida com singleShot(0) porque setGraphicsEffect(None)
+    deleta o effect, e a anim e filha dele — deletar dentro da emissao
+    de finished derrubaria o objeto no meio do proprio sinal.
+    """
+    eff = QGraphicsOpacityEffect(widget)
+    widget.setGraphicsEffect(eff)
+    anim = QPropertyAnimation(eff, b"opacity", eff)
+    anim.setDuration(duration_ms)
+    anim.setStartValue(0.0)
+    anim.setEndValue(1.0)
+    anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+    def _cleanup() -> None:
+        try:
+            widget.setGraphicsEffect(None)
+        except RuntimeError:
+            pass  # objeto C++ deletado, ignorar
+
+    anim.finished.connect(lambda: QTimer.singleShot(0, _cleanup))
+    anim.start()
+
+
 class EmptyState(QWidget):
     """Hero centralizado pra empty states. Icone + headline + sub + CTA opcional.
 
@@ -805,6 +832,15 @@ class Toast(QWidget):
         cls._stack.append(toast)
         toast._reposition()
         toast.show()
+        # Slide-in sutil (8px de cima) em paralelo com o fade
+        end = toast.pos()
+        toast.move(end.x(), end.y() - 8)
+        toast._slide = QPropertyAnimation(toast, b"pos", toast)
+        toast._slide.setDuration(200)
+        toast._slide.setStartValue(toast.pos())
+        toast._slide.setEndValue(end)
+        toast._slide.setEasingCurve(QEasingCurve.Type.OutCubic)
+        toast._slide.start()
         toast._fade_in.start()
         QTimer.singleShot(duration_ms, toast._begin_dismiss)
         return toast
@@ -894,6 +930,11 @@ class LoadingState(QWidget):
     def showEvent(self, ev) -> None:
         if not self._timer.isActive():
             self._timer.start()
+        # Spinner surge com fade (crossfade barato, sem tocar as telas).
+        # Guard: so anima dentro de janela visivel — mantem _screenshot.py
+        # e tests (que nunca dao show() na janela) deterministicos.
+        if self.window() is not self and self.window().isVisible():
+            fade_in(self, duration_ms=150)
         super().showEvent(ev)
 
 

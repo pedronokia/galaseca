@@ -22,7 +22,7 @@ from skinvault import steam_session
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.account_screen import AccountScreen
-from skinvault.ui.components import Breadcrumb, Footer
+from skinvault.ui.components import Breadcrumb, Footer, fade_in
 from skinvault.ui.history_screen import HistoryScreen
 from skinvault.ui.login_gate import LoginGate
 from skinvault.ui.market_screen import MarketScreen
@@ -126,7 +126,10 @@ class ScreenRouter(QWidget):
         self._show_login()
 
     def _show_login(self) -> None:
+        changed = self._login_gate is not self._stack.currentWidget()
         self._stack.setCurrentWidget(self._login_gate)
+        if changed and self._stack.isVisible():
+            fade_in(self._login_gate)
         self._breadcrumb.set_path("Bem-vindo")
         self._footer.set_left("Nao conectado")
         self._footer.set_right("")
@@ -179,7 +182,12 @@ class ScreenRouter(QWidget):
         widget, label = mapping.get(screen, (None, ""))
         if widget is None:
             return
+        changed = widget is not self._stack.currentWidget()
         self._stack.setCurrentWidget(widget)
+        # Fade so em troca real de tela e com a janela visivel — grab()
+        # do _screenshot.py e tests navegam sem show() e nao devem animar
+        if changed and self._stack.isVisible():
+            fade_in(widget)
         self._breadcrumb.set_path("SkinVault", label)
 
         if screen == SCREEN_HISTORY:
