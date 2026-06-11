@@ -4,6 +4,7 @@ from __future__ import annotations
 from skinvault.ui.theme import (
     brl,
     btn_danger,
+    btn_ghost,
     btn_primary,
     btn_secondary,
     btn_steam,
@@ -42,3 +43,14 @@ def test_btn_secondary_returns_string():
 
 def test_btn_danger_returns_string():
     assert "QPushButton" in btn_danger()
+
+
+def test_all_btn_helpers_have_focus_ring():
+    # Acessibilidade keyboard (Frente C): todo botao sinaliza foco
+    for style in (btn_primary(), btn_steam(), btn_secondary(),
+                  btn_danger(), btn_ghost()):
+        assert ":focus" in style
+
+
+def test_input_style_has_focus_ring():
+    assert ":focus" in input_style()

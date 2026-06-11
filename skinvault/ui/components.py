@@ -192,6 +192,10 @@ class _SidebarItem(QPushButton):
             f"QPushButton:checked {{ color: {t.ACCENT}; background: {t.SURFACE};"
             f" font-weight: 700;"
             f" border-left: 3px solid {t.ACCENT}; }}"
+            f"QPushButton:focus {{ color: {t.TEXT}; background: {t.SURFACE};"
+            f" border-left: 3px solid {t.TEXT_MUTED}; }}"
+            f"QPushButton:checked:focus {{ color: {t.ACCENT};"
+            f" border-left: 3px solid {t.FOCUS_GREEN}; }}"
         )
 
     def _on_toggled(self, checked: bool) -> None:
@@ -336,6 +340,9 @@ class SegmentedControl(QWidget):
             f"QPushButton:hover {{ color: {t.TEXT}; }}"
             f"QPushButton:checked {{ color: {t.TEXT}; background: {t.SURFACE};"
             f" border: 1px solid {t.ACCENT}; }}"
+            f"QPushButton:focus {{ color: {t.TEXT};"
+            f" border: 1px solid {t.TEXT_MUTED}; }}"
+            f"QPushButton:checked:focus {{ border: 1px solid {t.FOCUS_GREEN}; }}"
         )
 
 
@@ -558,6 +565,9 @@ class ActivityFeed(Card):
             f"QPushButton:hover {{ color: {t.TEXT}; }}"
             f"QPushButton:checked {{ color: {t.TEXT}; background: {t.SURFACE};"
             f" border: 1px solid {t.ACCENT}; }}"
+            f"QPushButton:focus {{ color: {t.TEXT};"
+            f" border: 1px solid {t.TEXT_MUTED}; }}"
+            f"QPushButton:checked:focus {{ border: 1px solid {t.FOCUS_GREEN}; }}"
         )
 
     def _set_filter(self, key: str) -> None:

@@ -790,6 +790,7 @@ class ScannerScreen(QWidget):
             f"QComboBox {{ background: {t.SURFACE}; border: 1px solid {t.BORDER};"
             f" border-radius: 8px; padding: 8px 12px; color: {t.TEXT};"
             f" font-size: {t.FS_INPUT}; min-width: 160px; }}"
+            f"QComboBox:focus {{ border: 1px solid {t.ACCENT}; }}"
             f"QComboBox:drop-down {{ border: none; }}"
             f"QComboBox:down-arrow {{ color: {t.TEXT_MUTED}; }}"
         )
@@ -871,6 +872,7 @@ class ScannerScreen(QWidget):
         self._hide_low_conf_cb.setStyleSheet(
             f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY}; }}"
+            f"QCheckBox:focus {{ color: {t.TEXT}; }}"
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
@@ -887,6 +889,7 @@ class ScannerScreen(QWidget):
         self._hide_approx_cb.setStyleSheet(
             f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY}; }}"
+            f"QCheckBox:focus {{ color: {t.TEXT}; }}"
         )
         self._hide_approx_cb.toggled.connect(self._on_hide_approx_toggle)
         filt_row.addWidget(self._hide_approx_cb)

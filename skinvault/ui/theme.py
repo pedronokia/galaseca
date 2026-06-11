@@ -27,6 +27,14 @@ DANGER_DIM  = "rgba(239,68,68,0.16)"
 DANGER_HOV  = "rgba(239,68,68,0.26)"
 WARN        = "#F59E0B"
 
+# Focus ring (navegacao por teclado) — versao clareada da cor base de
+# cada familia de botao. Qt6 QSS nao suporta `outline`; o focus e
+# sinalizado trocando a cor da borda 1px ja reservada (zero layout
+# shift) + bg igual ao hover.
+FOCUS_GREEN = "#4ADE80"   # ACCENT clareado
+FOCUS_STEAM = "#8FD3F8"   # STEAM_BLUE clareado
+FOCUS_RED   = "#F87171"   # DANGER clareado
+
 # Chart overlays (technical analysis)
 CHART_YELLOW = "#FACC15"  # support/resistance, spread
 CHART_INDIGO = "#818CF8"  # SMA, moving averages
@@ -177,6 +185,8 @@ def btn_primary(padding: str = "10px 22px", fs: str = FS_INPUT,
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {ACCENT_HOV}; }}"
+        f"QPushButton:focus {{ border: 1px solid {FOCUS_GREEN};"
+        f" background: {ACCENT_HOV}; }}"
     )
     if disabled:
         s += (
@@ -193,6 +203,8 @@ def btn_steam(padding: str = "10px 22px", fs: str = FS_INPUT) -> str:
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {STEAM_HOV}; }}"
+        f"QPushButton:focus {{ border: 1px solid {FOCUS_STEAM};"
+        f" background: {STEAM_HOV}; }}"
     )
 
 
@@ -204,6 +216,8 @@ def btn_secondary(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         "QPushButton:hover { background: rgba(255,255,255,0.12); }"
+        f"QPushButton:focus {{ border: 1px solid {TEXT_MUTED};"
+        " background: rgba(255,255,255,0.12); }"
     )
 
 
@@ -214,6 +228,8 @@ def btn_danger(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {DANGER_HOV}; }}"
+        f"QPushButton:focus {{ border: 1px solid {FOCUS_RED};"
+        f" background: {DANGER_HOV}; }}"
     )
 
 
@@ -226,6 +242,8 @@ def btn_ghost(padding: str = "6px 14px", fs: str = FS_MUTED) -> str:
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ color: {TEXT}; background: {SURFACE};"
         f" border: 1px solid {BORDER}; }}"
+        f"QPushButton:focus {{ color: {TEXT}; background: {SURFACE};"
+        f" border: 1px solid {TEXT_MUTED}; }}"
     )
 
 

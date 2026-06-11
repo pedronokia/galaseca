@@ -282,6 +282,7 @@ class WatchlistScreen(QWidget):
         self._hide_low_conf_cb.setStyleSheet(
             f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY}; }}"
+            f"QCheckBox:focus {{ color: {t.TEXT}; }}"
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
