@@ -192,7 +192,7 @@ t.align_table_columns(
 
 ## 2. Frentes priorizadas (impact × effort)
 
-> Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **H** > **J** > **K** > **L** (restantes)
+> Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **J** > **K** > **L** (restantes)
 
 ### Frente A — Migração final de label outliers (esforço: ~30min, impact: baixo, polish: alto)
 
@@ -315,17 +315,24 @@ FS_DISPLAY   = "36pt"   # Big number (score)
 
 **Resultado**: 3 ideias implementadas (bg gradient, hover lift via WA_Hover + border-color, emojis nativos). O animated counter foi descartado — poluição visual desnecessária. `0b1417f`.
 
-### Frente H — Charts polish (esforço: 2h, impact: alto)
+~~### Frente H — Charts polish (esforço: 2h, impact: alto)~~ ✅ (charts vivos) — `30e7617`
 
-`widgets.py` tem 4 charts custom (`MiniSparkline`, `DepthChart`, `MonthBarChart`, `ValueChart`). Todos QPainter raw, sem tooltips ou hover interactivity.
+~~`widgets.py` tem 4 charts custom (`MiniSparkline`, `DepthChart`, `MonthBarChart`, `ValueChart`). Todos QPainter raw, sem tooltips ou hover interactivity.~~
 
-**Sugestões**:
-- **Hover tooltip** em MiniSparkline mostrando preço + data no ponto.
-- **DepthChart**: mostrar best_bid/best_ask como labels nas pontas, não só linha dashed.
-- **MonthBarChart**: clicar numa barra abre filter da History naquele mês.
-- **ValueChart**: animação de transição quando série atualiza (interpolate paths).
+~~**Sugestões**:~~
+~~- **Hover tooltip** em MiniSparkline mostrando preço + data no ponto.~~ ✅
+~~- **DepthChart**: mostrar best_bid/best_ask como labels nas pontas, não só linha dashed.~~ ✅
+- **MonthBarChart**: clicar numa barra abre filter da History naquele mês. **Bloqueado: widget órfão** (vide abaixo).
+- **ValueChart**: animação de transição quando série atualiza. **Bloqueado: widget órfão**.
 
-Cada um é um sub-feature. Mapear cada `paintEvent` e adicionar `mouseMoveEvent` para hover, `mousePressEvent` para click. **Não usar bibliotecas de chart** (PyQtGraph etc.) — viola a regra `Preferir QPainter custom widgets a bibliotecas de charting` em CLAUDE.md.
+**Resultado**:
+- **Bug encontrado e corrigido**: `market_screen` lia `x["price"]` do price_history, mas o formato SSR é `{time, price_median, purchases}` — o sparkline do Market **nunca renderizou dados** (sempre "Sem historico" com meta dizendo "5000 pontos"). O mock do teste usava o formato errado e mascarava o bug. Fix + regression test.
+- **MiniSparkline**: `set_series(values, timestamps=None)`, mouse tracking, `_hover_index_at()` (inverso da geometria de `_x`), guia vertical dashed + dot no ponto, `QToolTip` com `brl(preço) — dd/mm/aaaa`. Tooltip estático de ajuda migrou pro label "Histórico de preços" do header (senão brigaria com o dinâmico).
+- **DepthChart**: preços best bid/ask em `brl()` colorido (ACCENT/DANGER) ancorados nas pontas dos ticks dashed, com clamp na área útil; legendas "Bids"/"Asks" coloridas nos cantos; spread agora em `brl()`.
+- **Caps de altura removidos** (sparkline max 50, depth max 160): Market é o único consumidor real e os caps empurravam o espaço sobrando pro header do card — era isso que centralizava o label no meio do card nos prints antigos.
+- 5 tests novos; suíte 1292.
+
+**⚠️ Descoberta — MonthBarChart e ValueChart são órfãos**: nenhuma tela monta os dois desde a migração tabs→screens (F11); só os smoke tests os referenciam. O import de MiniSparkline no account_screen também era morto (removido). Click-filter e animação não foram implementados — seria feature em código morto. **Decisão pendente (Pedro)**: montar MonthBarChart na History (P&L mensal) e ValueChart na Account (evolução do valor), ou deletar ambos + seus 10 smoke tests.
 
 ~~### Frente I — Inputs polish (esforço: 30min, impact: médio)~~ ✅ `fa05e94`
 
