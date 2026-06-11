@@ -34,7 +34,7 @@ skinvault/ui/
 
 | Categoria | Tokens |
 |---|---|
-| Paleta | `BG`, `BG_ELEVATED`, `SURFACE`, `SURFACE_HOV`, `BORDER`, `TEXT`, `TEXT_MUTED`, `ACCENT`, `ACCENT_DIM`, `ACCENT_HOV`, `STEAM_BLUE`, `STEAM_DIM`, `STEAM_HOV`, `DANGER`, `DANGER_DIM`, `DANGER_HOV`, `WARN`, `WARN_BG`, `WARN_BORDER`, `WARN_TEXT`, `BG_OVERLAY` |
+| Paleta | `BG`, `BG_ELEVATED`, `SURFACE`, `SURFACE_HOV`, `BORDER`, `TEXT`, `TEXT_MUTED`, `ACCENT`, `ACCENT_DIM`, `ACCENT_HOV`, `STEAM_BLUE`, `STEAM_DIM`, `STEAM_HOV`, `DANGER`, `DANGER_DIM`, `DANGER_HOV`, `WARN`, `WARN_BG`, `WARN_BORDER`, `WARN_TEXT`, `BG_OVERLAY`, `FOCUS_GREEN`, `FOCUS_STEAM`, `FOCUS_RED` |
 | Charts | `CHART_YELLOW` (SR/spread), `CHART_INDIGO` (SMA) |
 | Spacing | `SPACE_XS=4`, `SPACE_SM=8`, `SPACE_MD=12`, `SPACE_LG=16`, `SPACE_XL=24`, `SPACE_2XL=32` |
 | Size | `SIZE_INPUT_H=32`, `SIZE_BTN_H=34`, `SIZE_ROW_H=32`, `SIZE_ICON_SM/MD/LG=14/18/22`, `SIZE_AVATAR=72`, `SIZE_PROGRESS_H=6`, `SIZE_SEPARATOR=1`, `SIZE_CHART_H=120`, `SIZE_SIDEBAR_W=220`, `SIZE_HEADER_H=40`, `SIZE_FOOTER_H=32` |
@@ -192,7 +192,7 @@ t.align_table_columns(
 
 ## 2. Frentes priorizadas (impact × effort)
 
-> Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **C** > **H** > **J** > **K** > **L** (restantes)
+> Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **H** > **J** > **K** > **L** (restantes)
 
 ### Frente A — Migração final de label outliers (esforço: ~30min, impact: baixo, polish: alto)
 
@@ -227,16 +227,20 @@ watchlist_screen.py:283 QCheckBox{}             (esconder baixa confiança)
 
 **Resultado**: item (1) já estava resolvido (`t.label_body_muted()` desde sessão anterior). Item (2) implementado: `hist_lbl` → `self._hist_lbl`, inicia oculto, `_rebuild_history` vazio só esconde label e retorna, populado mostra label + chips. Placeholder `"As últimas 5 simulações..."` removido. `90c6c92`.
 
-### Frente C — Focus rings / acessibilidade keyboard (esforço: 1h, impact: alto)
+~~### Frente C — Focus rings / acessibilidade keyboard (esforço: 1h, impact: alto)~~ ✅
 
-Atualmente os widgets têm pouco indicador visual de focus além do `:focus` do `input_style()` (border ACCENT). Botões e segments NÃO mostram foco.
+~~Atualmente os widgets têm pouco indicador visual de focus além do `:focus` do `input_style()` (border ACCENT). Botões e segments NÃO mostram foco.~~
 
-**Ação**:
-- Adicionar `:focus` selector em `btn_primary/steam/secondary/danger/ghost` em `theme.py` com `outline: 2px solid {ACCENT_HOV}; outline-offset: 2px;` (Qt 6 não suporta `outline` direto em QSS — usar `border` ou `QGraphicsDropShadowEffect`, validar).
-- Verificar tab order em cada screen (ordem de criação dos widgets). Documentar order em screens críticas (Scanner, Watchlist).
-- Validar com `Tab` + `Enter` no inventário e simulador.
+~~**Ação**:~~
+~~- Adicionar `:focus` selector em `btn_primary/steam/secondary/danger/ghost` em `theme.py` com `outline: 2px solid {ACCENT_HOV}; outline-offset: 2px;` (Qt 6 não suporta `outline` direto em QSS — usar `border` ou `QGraphicsDropShadowEffect`, validar).~~
+~~- Verificar tab order em cada screen (ordem de criação dos widgets). Documentar order em screens críticas (Scanner, Watchlist).~~
+~~- Validar com `Tab` + `Enter` no inventário e simulador.~~
 
-**Caveat**: Qt6 `outline` em stylesheets é flaky. Pode ser preciso usar `border` com mudança de cor no `:focus` + `:hover`. Testar com `WA_DontShowOnScreen` no `_screenshot.py` capturando estados (precisa de `setFocus()` programático).
+**Resultado**: implementado via mudança de cor da borda 1px já reservada (zero layout shift) + bg igual ao hover — `outline` descartado (Qt6 QSS não suporta). 3 tokens novos: `FOCUS_GREEN/STEAM/RED` (versão -400 da cor base de cada família). Cobertura: 5 btn helpers, `SegmentedControl`, chips do `ActivityFeed`, `_SidebarItem` (com `:checked:focus` reassertando cor pra não apagar o estado ativo), QComboBox do scanner (ACCENT, igual inputs) e 3 QCheckBox (label clareia pra TEXT).
+
+**Tab order auditado** (focus chain programática, sem show): Scanner = combo categoria → Escanear → Ranking → Validar → Limpar cache → 2 checkboxes (Exportar CSV inicia disabled, tabela inicia oculta — entram no fim quando ativos); Watchlist = Adicionar → Validar → Atualizar → checkbox → tabela. Ambos batem com a ordem visual; `setTabOrder` manual não foi necessário.
+
+**Validação**: QSS parse sem warnings (handler de mensagens Qt em todos os styles tocados), 1287 tests, screenshots sem regressão no estado default. **Pendente humano**: um passe manual de `Tab`/`Enter` no app real — o ring usa o mesmo mecanismo `:focus` do `input_style()` (comprovado em produção), mas estado focado não é capturável via `grab()` sem janela ativa.
 
 ~~### Frente D — DepthChart RGB → tokens (esforço: 15min, impact: baixo)~~ ✅ `fb38216`
 
