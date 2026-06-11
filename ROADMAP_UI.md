@@ -192,7 +192,7 @@ t.align_table_columns(
 
 ## 2. Frentes priorizadas (impact × effort)
 
-> Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **J** > **K** > **L** (restantes)
+> Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **K** > **L** (restantes)
 
 ### Frente A — Migração final de label outliers (esforço: ~30min, impact: baixo, polish: alto)
 
@@ -342,15 +342,17 @@ FS_DISPLAY   = "36pt"   # Big number (score)
 
 **Resultado**: history_screen placeholders melhorados ('0,00' → descritivo), `input_style_error()` helper em theme.py com :focus reset, validation aplicada em history_screen _calc (inputs ficam com borda DANGER até foco), market_screen ganhou clear button (os outros 3 inputs já tinham via `setClearButtonEnabled` de sessão anterior). `fa05e94`.
 
-### Frente J — Animations / transitions (esforço: 2–3h, impact: médio)
+~~### Frente J — Animations / transitions (esforço: 2–3h, impact: médio)~~ ✅ `1b75bac`
 
-App é estático demais. Pequenas animações dariam vida:
-- **Screen transitions**: fade entre QStackedWidget pages. Já existe `QGraphicsOpacityEffect` import em `components.py` — usar.
-- **Loading state crossfade**: ao terminar load, fade out spinner + fade in conteúdo (em vez de hide/show abrupto).
-- **Toast slide-in** (atual `Toast` já tem? Verificar).
-- **Sidebar item ripple** on click. Subtle.
+~~App é estático demais. Pequenas animações dariam vida:~~
+~~- **Screen transitions**: fade entre QStackedWidget pages. Já existe `QGraphicsOpacityEffect` import em `components.py` — usar.~~ ✅
+~~- **Loading state crossfade**: ao terminar load, fade out spinner + fade in conteúdo (em vez de hide/show abrupto).~~ ✅ (via fade do spinner)
+~~- **Toast slide-in** (atual `Toast` já tem? Verificar).~~ ✅ (tinha só fade; slide 8px adicionado)
+- **Sidebar item ripple** on click. **Descartado** — anti-distração (vide Cuidado abaixo); hover/checked/focus já dão feedback.
 
 **Cuidado**: animação demais distrai. Manter sub-200ms e prefer linear/ease-out.
+
+**Resultado**: helper central `fade_in(widget, duration_ms=150)` em `components.py` (OutCubic; effect removido ao final com `singleShot(0)` — deletar dentro do `finished` mata a anim filha durante a emissão). Router faz fade na tela entrante apenas em troca real e com stack visível — **guard crítico**: `_screenshot.py` e tests navegam sem `show()` e precisam de render determinístico. LoadingState faz fade de si mesmo no `showEvent` (mesmo guard), cobrindo os 26 sites de `setVisible` sem tocar as telas — o "crossfade" do roadmap virou fade só do spinner: atrasar o conteúdo com fade-in seria anti-UX (usuário quer o dado na hora). Toast ganhou slide-in de 8px paralelo ao fade existente. 6 tests novos.
 
 ### Frente K — Settings / preferências (esforço: 2h, impact: médio)
 
