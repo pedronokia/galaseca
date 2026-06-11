@@ -2222,7 +2222,11 @@ class TestMarketScreen:
             "name": "AWP",
             "overview": {"lowest": 200, "median": 220, "volume": 30},
             "page": {
-                "price_history": [{"price": 210}, {"price": 215}],
+                # Formato real do SSR: time/price_median/purchases
+                "price_history": [
+                    {"time": 1700000000, "price_median": 210, "purchases": 3},
+                    {"time": 1700086400, "price_median": 215, "purchases": 5},
+                ],
                 "order_book": {"buy_count": 20, "sell_count": 8,
                                "spread": 0.03},
             },
@@ -2230,6 +2234,10 @@ class TestMarketScreen:
         screen._on_data(data)
         assert "AWP" in screen._detail_title.text()
         assert screen._detail_form.rowCount() > 0
+        # Regressao: a serie do sparkline deve ser extraida de price_median
+        # (bug antigo lia x["price"], que nao existe no SSR -> chart vazio)
+        assert screen._sparkline._values == [210, 215]
+        assert screen._sparkline._timestamps == [1700000000, 1700086400]
 
     def test_on_data_page_approx(self, monkeypatch):
         from skinvault.prices import PriceCache
@@ -5391,6 +5399,50 @@ def test_minisparkline_down():
     pix = w.grab()
     assert not pix.isNull()
 
+def test_minisparkline_with_timestamps():
+    """MiniSparkline aceita timestamps opcionais para o hover tooltip."""
+    from skinvault.ui.widgets import MiniSparkline
+    w = MiniSparkline()
+    w.resize(200, 50)
+    w.set_series([100.0, 110.0, 95.0],
+                 timestamps=[1700000000, 1700086400, 1700172800])
+    assert w._timestamps == [1700000000, 1700086400, 1700172800]
+    pix = w.grab()
+    assert not pix.isNull()
+
+def test_minisparkline_set_series_resets_hover():
+    """set_series limpa hover_idx (evita indice stale de serie anterior)."""
+    from skinvault.ui.widgets import MiniSparkline
+    w = MiniSparkline()
+    w.resize(200, 50)
+    w.set_series([100.0] * 50)
+    w._hover_idx = 49
+    w.set_series([100.0, 110.0])
+    assert w._hover_idx is None
+
+def test_minisparkline_hover_index_clamps():
+    """_hover_index_at mapeia x para indice e clampa nas bordas."""
+    from skinvault.ui.widgets import MiniSparkline
+    w = MiniSparkline()
+    w.resize(200, 50)
+    w.set_series([100.0, 110.0, 95.0, 105.0, 120.0])
+    assert w._hover_index_at(-50) == 0
+    assert w._hover_index_at(4) == 0
+    assert w._hover_index_at(w.width() - 4) == 4
+    assert w._hover_index_at(w.width() + 50) == 4
+    mid = w._hover_index_at(w.width() / 2)
+    assert 1 <= mid <= 3
+
+def test_minisparkline_hover_marker_paints():
+    """Paint com hover_idx ativo desenha guia + marcador sem crash."""
+    from skinvault.ui.widgets import MiniSparkline
+    w = MiniSparkline()
+    w.resize(200, 50)
+    w.set_series([100.0, 110.0, 95.0, 105.0, 120.0])
+    w._hover_idx = 2
+    pix = w.grab()
+    assert not pix.isNull()
+
 def test_depthchart_init():
     """DepthChart paints empty state without crashing."""
     from skinvault.ui.widgets import DepthChart
@@ -5514,6 +5566,23 @@ def test_depthchart_no_best_bid_ask():
     assert w._best_bid is None
     assert w._best_ask is None
     assert w._spread is None
+    pix = w.grab()
+    assert not pix.isNull()
+
+def test_depthchart_best_price_outside_range_clamps():
+    """Label de best price fora do range pintado clampa sem crash
+    (ask side sem pontos mas best_ask presente)."""
+    from skinvault.ui.widgets import DepthChart
+    w = DepthChart()
+    w.resize(300, 140)
+    w.set_data({
+        "buy_orders": [10000, 5, 9900, 10],
+        "sell_orders": [],
+        "best_bid": 10000,
+        "best_ask": 99999,
+    })
+    assert w._ask_points == []
+    assert w._best_ask == 999.99
     pix = w.grab()
     assert not pix.isNull()
 

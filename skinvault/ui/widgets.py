@@ -5,9 +5,11 @@ cores agora vem do tema (skinvault.ui.theme).
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
-from PyQt6.QtWidgets import QWidget
+from PyQt6.QtWidgets import QToolTip, QWidget
 
 from skinvault.ui import theme as t
 
@@ -97,20 +99,29 @@ class ValueChart(QWidget):
 
 
 class MiniSparkline(QWidget):
-    """Sparkline com overlay opcional de SMA + suporte/resistencia."""
+    """Sparkline com overlay opcional de SMA + suporte/resistencia.
+
+    Hover: marcador no ponto mais proximo + tooltip com preco (e data,
+    quando timestamps unix foram passados em set_series).
+    """
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self._values: list[float] = []
+        self._timestamps: list[float | None] | None = None
         self._sma: list[float | None] | None = None
         self._sr: dict | None = None
+        self._hover_idx: int | None = None
         self.setMinimumHeight(50)
-        self.setMaximumHeight(50)
+        self.setMouseTracking(True)
 
-    def set_series(self, values: list[float]) -> None:
+    def set_series(self, values: list[float],
+                   timestamps: list[float | None] | None = None) -> None:
         self._values = list(values)
+        self._timestamps = list(timestamps) if timestamps else None
         self._sma = None
         self._sr = None
+        self._hover_idx = None
         self.update()
 
     def set_sma(self, sma_data: list[float | None]) -> None:
@@ -120,6 +131,37 @@ class MiniSparkline(QWidget):
     def set_sr(self, sr_data: dict) -> None:
         self._sr = sr_data
         self.update()
+
+    def _hover_index_at(self, x: float) -> int:
+        """Indice do ponto mais proximo de uma coordenada x do widget.
+        Assume len(self._values) >= 2 (caller garante)."""
+        n = len(self._values)
+        step = (self.width() - 8) / (n - 1)
+        idx = round((x - 4) / step) if step > 0 else 0
+        return max(0, min(n - 1, int(idx)))
+
+    def mouseMoveEvent(self, evt) -> None:  # noqa: N802
+        if len(self._values) < 2:
+            super().mouseMoveEvent(evt)
+            return
+        idx = self._hover_index_at(evt.position().x())
+        if idx != self._hover_idx:
+            self._hover_idx = idx
+            self.update()
+        txt = t.brl(self._values[idx])
+        ts = None
+        if self._timestamps and idx < len(self._timestamps):
+            ts = self._timestamps[idx]
+        if ts:
+            txt += datetime.fromtimestamp(ts).strftime(" — %d/%m/%Y")
+        QToolTip.showText(evt.globalPosition().toPoint(), txt, self)
+        super().mouseMoveEvent(evt)
+
+    def leaveEvent(self, evt) -> None:  # noqa: N802
+        if self._hover_idx is not None:
+            self._hover_idx = None
+            self.update()
+        super().leaveEvent(evt)
 
     def paintEvent(self, _evt) -> None:  # noqa: N802
         p = QPainter(self)
@@ -184,6 +226,18 @@ class MiniSparkline(QWidget):
                     p.drawLine(int(prev[0]), int(prev[1]), x, y)
                 prev = (x, y)
 
+        if self._hover_idx is not None and self._hover_idx < len(self._values):
+            hx = _x(self._hover_idx)
+            hy = _y(self._values[self._hover_idx])
+            guide = QPen(QColor(t.TEXT_MUTED))
+            guide.setStyle(Qt.PenStyle.DashLine)
+            guide.setWidthF(1)
+            p.setPen(guide)
+            p.drawLine(hx, 2, hx, h - 2)
+            p.setBrush(QColor(t.ACCENT if up else t.DANGER))
+            p.setPen(QPen(QColor(t.BG), 1.5))
+            p.drawEllipse(hx - 4, hy - 4, 8, 8)
+
         p.end()
 
 
@@ -198,7 +252,6 @@ class DepthChart(QWidget):
         self._best_ask: float | None = None
         self._spread: float | None = None
         self.setMinimumHeight(100)
-        self.setMaximumHeight(160)
 
     def set_data(self, order_book: dict | None) -> None:
         self._bid_points = []
@@ -340,22 +393,44 @@ class DepthChart(QWidget):
             p.drawLine(mid_x - 4, y_bid, mid_x + 4, y_bid)
             p.drawLine(mid_x - 4, y_ask, mid_x + 4, y_ask)
 
-        p.setPen(QColor(t.TEXT_MUTED))
         font = p.font()
         font.setPointSize(7)
         p.setFont(font)
-        if self._best_bid:
+
+        def _label_y(price: float) -> int:
+            # Centraliza no tick, clampado dentro da area util
+            return max(margin, min(h - margin - 12, _y(price) - 6))
+
+        if self._best_bid is not None:
+            p.setPen(QColor(t.ACCENT))
+            p.drawText(margin, _label_y(self._best_bid),
+                       mid_x - 8 - margin, 12,
+                       Qt.AlignmentFlag.AlignRight
+                       | Qt.AlignmentFlag.AlignVCenter,
+                       t.brl(self._best_bid))
+        if self._best_ask is not None:
+            p.setPen(QColor(t.DANGER))
+            p.drawText(mid_x + 8, _label_y(self._best_ask),
+                       mid_x - 8 - margin, 12,
+                       Qt.AlignmentFlag.AlignLeft
+                       | Qt.AlignmentFlag.AlignVCenter,
+                       t.brl(self._best_ask))
+
+        if self._bid_points:
+            p.setPen(QColor(t.ACCENT))
             p.drawText(margin, margin, mid_x - margin, 14,
                        Qt.AlignmentFlag.AlignLeft
                        | Qt.AlignmentFlag.AlignVCenter,
-                       f"Bids {self._best_bid:.2f}")
-        if self._best_ask:
+                       "Bids")
+        if self._ask_points:
+            p.setPen(QColor(t.DANGER))
             p.drawText(mid_x, margin, mid_x - margin, 14,
                        Qt.AlignmentFlag.AlignRight
                        | Qt.AlignmentFlag.AlignVCenter,
-                       f"Asks {self._best_ask:.2f}")
+                       "Asks")
         if self._spread is not None:
-            spread_text = f"Spread R$ {self._spread:.2f}"
+            p.setPen(QColor(t.TEXT_MUTED))
+            spread_text = f"Spread {t.brl(self._spread)}"
             text_w = p.fontMetrics().horizontalAdvance(spread_text)
             p.drawText(mid_x - text_w // 2, h - margin - 14, text_w, 14,
                        Qt.AlignmentFlag.AlignCenter, spread_text)

@@ -207,6 +207,14 @@ class MarketScreen(QWidget):
         spark_hdr = QHBoxLayout()
         spark_lbl = QLabel("Histórico de preços")
         spark_lbl.setStyleSheet(t.label_caption())
+        # Tooltip de ajuda fica no label do header — o chart em si mostra
+        # tooltip dinâmico (preço + data) ao passar o mouse nos pontos.
+        spark_lbl.setToolTip(
+            "Últimos ~100 pontos do preço mediano.\n"
+            "Linha tracejada = SMA 7 dias. Linhas horizontais = suporte e "
+            "resistência aproximados.\n"
+            "Passe o mouse sobre o gráfico para ver preço e data por ponto."
+        )
         spark_hdr.addWidget(spark_lbl)
         spark_hdr.addStretch(1)
         self._spark_meta = QLabel("")
@@ -215,11 +223,6 @@ class MarketScreen(QWidget):
         spark_lay.addLayout(spark_hdr)
         self._sparkline = MiniSparkline(parent=spark_card)
         self._sparkline.setMinimumHeight(140)
-        self._sparkline.setToolTip(
-            "Últimos ~100 pontos do preço mediano.\n"
-            "Linha tracejada = SMA 7 dias. Linhas horizontais = suporte e "
-            "resistência aproximados."
-        )
         spark_lay.addWidget(self._sparkline, 1)
         spark_card.layout().addLayout(spark_lay)
         charts_row.addWidget(spark_card, 1)
@@ -470,11 +473,17 @@ class MarketScreen(QWidget):
             order_book = page.get("order_book")
 
             if price_history:
-                prices_list = [x["price"] for x in price_history
-                               if "price" in x]
-                if prices_list:
-                    self._sparkline.set_series(prices_list[-100:])
-                    sma_vals = signals.sma(prices_list, period=7)
+                # Entries SSR: {time: unix, price_median: float, purchases}
+                series = [(x.get("time"), x["price_median"])
+                          for x in price_history if "price_median" in x]
+                if series:
+                    recent = series[-100:]
+                    self._sparkline.set_series(
+                        [pr for _, pr in recent],
+                        timestamps=[ts for ts, _ in recent],
+                    )
+                    sma_vals = signals.sma([pr for _, pr in series],
+                                           period=7)
                     if sma_vals:
                         self._sparkline.set_sma(sma_vals[-100:])
                     sr = signals.find_support_resistance(price_history[-100:])

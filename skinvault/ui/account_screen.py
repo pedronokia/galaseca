@@ -41,7 +41,6 @@ from skinvault.ui.profile_fetcher import (
     load_avatar_bytes,
     load_cached_profile,
 )
-from skinvault.ui.widgets import MiniSparkline
 
 
 class _AccountBridge(QObject):
