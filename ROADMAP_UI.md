@@ -398,7 +398,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 >
  > **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
  >
- > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**, ✅**U**, ✅**R**. Próximas: S, T, V.
+ > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**, ✅**U**, ✅**R**, ✅**T**. Próximas: S, V.
 
  ~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
 
@@ -541,7 +541,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Validação**: §4.3. Commit: `ui: sidebar com icones de linha QPainter + chip de sessao no rodape`.
 
-### Frente T — Scanner: cada controle no seu lugar (esforço: 2h, impact: médio) [deps: N]
+### Frente T — Scanner: cada controle no seu lugar (esforço: 2h, impact: médio) [deps: N] ✅
 
 **Problema** (print 03): combo de categoria dentro do título; checkboxes de filtro soltos entre header e KPIs; a dica mais importante ("duplo-clique explica o score") enterrada em caption de rodapé; "Limpar cache SSR"/"Exportar CSV" desalinhados dos botões.
 
@@ -556,6 +556,8 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 **Aceite**: print do Scanner com header limpo, filtros junto da tabela, rodapé com ≤1 caption; tab order coerente.
 
 **Validação**: §4.3. Commit: `ui: scanner — controles agrupados por contexto, dica de score na coluna`.
+
+**Resultado**: layout reordenado: regime_banner + stats_row agora vêm antes da toolbar ghost (Limpar cache SSR / Exportar CSV) e da linha de filtros com checkboxes, que ficam imediatamente acima da tabela. Dica de duplo-clique removida do rodapé e migrada para tooltip do header da coluna Score. Rodapé consolidado em única linha de status (`_status`). Tab order preservado (criação = visual). 1 smoke test de validação de layout. 1322 tests verdes.
 
 ### Frente U — Market: busca protagonista + detalhes em grid (esforço: 2-3h, impact: médio) [deps: N, Q] ✅
 

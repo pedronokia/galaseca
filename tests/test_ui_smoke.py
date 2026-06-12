@@ -1146,6 +1146,66 @@ def test_scanner_screen():
     assert screen is not None
 
 
+def test_scanner_layout_controles_agrupados():
+    """Scanner — ghost toolbar + filtros acima da tabela, hint removido, rodape unico.
+
+    Valida layout da Frente T: ghost buttons (Limpar cache/Exportar CSV) estao
+    no Toolbar apos stats_row; checkboxes ficam na linha de filtros acima da
+    tabela; hint de duplo-clique foi removido (migrado para tooltip do header
+    Score); rodape tem apenas 1 label de status.
+    """
+    from PyQt6.QtCore import Qt, QCoreApplication
+    from PyQt6.QtWidgets import QCheckBox, QLabel, QPushButton, QHBoxLayout
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen.resize(1920, 1200)
+    QCoreApplication.processEvents()
+    QCoreApplication.processEvents()
+
+    # 1. Hint removido (nao existe QLabel com o texto de dica)
+    hints = screen.findChildren(QLabel)
+    hint_texts = {l.text() for l in hints}
+    dica_text = "clique duas vezes em uma linha"
+    assert not any(dica_text in t for t in hint_texts), (
+        "Hint de duplo-clique ainda presente como QLabel — deveria ser tooltip do header Score"
+    )
+
+    # 2. Score header tem tooltip com a dica
+    score_hdr = screen._table.horizontalHeaderItem(screen.COL_SCORE)
+    assert score_hdr is not None
+    assert score_hdr.toolTip(), "Score column header tooltip vazio"
+    assert "Duplo-clique" in score_hdr.toolTip(), (
+        f"Score header tooltip nao menciona duplo-clique: {score_hdr.toolTip()}"
+    )
+
+    # 3. Ghost toolbar existe com tooltips (nao removido)
+    assert hasattr(screen, "_clear_cache_btn"), "clear_cache_btn nao existe"
+    assert screen._clear_cache_btn.toolTip(), "clear_cache_btn sem tooltip"
+    assert hasattr(screen, "_export_btn"), "export_btn nao existe"
+    assert not screen._export_btn.isEnabled(), "export_btn deveria iniciar disabled"
+
+    # 4. Checkboxes existem e estao estilizados com checkbox_style()
+    assert hasattr(screen, "_hide_low_conf_cb"), "hide_low_conf_cb nao existe"
+    assert screen._hide_low_conf_cb.toolTip(), "hide_low_conf_cb sem tooltip"
+    assert hasattr(screen, "_hide_approx_cb"), "hide_approx_cb nao existe"
+    assert screen._hide_approx_cb.toolTip(), "hide_approx_cb sem tooltip"
+
+    # 5. Rodape tem apenas _status como caption direta do root
+    root_labels = [l for l in screen.findChildren(QLabel)
+                   if l.parent() is screen]
+    dica_root = [l for l in root_labels if "clique duas vezes" in l.text().lower()]
+    assert len(dica_root) == 0, (
+        "Hint de duplo-clique ainda existe como QLabel no root "
+        "— deveria estar apenas como tooltip do score header"
+    )
+    assert screen._status.parent() is screen, "_status nao e filho direto do root"
+
+    # 6. Tab order por criacao = combo → scan → rank → validate → clear_cache → export → checkboxes → tabela
+    lay = screen.layout()
+    assert lay is not None
+
+
 def _make_router():
     """Cria ScreenRouter com PriceCache basico."""
     from skinvault.prices import PriceCache

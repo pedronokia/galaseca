@@ -834,7 +834,33 @@ class ScannerScreen(QWidget):
             actions=[self._cat_combo, self._scan_btn, self._rank_btn, self._validate_btn],
         ))
 
-        # Ghost buttons (Limpar cache SSR, Exportar CSV) — abaixo do header
+        # Banner de aviso quando update recente da Valve afetou a categoria
+        self._regime_banner = QLabel()
+        self._regime_banner.setWordWrap(True)
+        self._regime_banner.setStyleSheet(
+            f"background: {t.WARN_BG}; border: 1px solid {t.WARN_BORDER};"
+            f" color: {t.WARN_TEXT}; border-radius: 8px;"
+            f" padding: 10px 14px; font-size: {t.FS_INPUT};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        self._regime_banner.setVisible(False)
+        root.addWidget(self._regime_banner)
+
+        # Stats
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(16)
+        self._stat_count = StatCard("Itens escaneados", "0")
+        self._stat_count.setMaximumWidth(300)
+        self._stat_best = StatCard("Melhor score", "—")
+        self._stat_best.setMaximumWidth(300)
+        self._stat_avg = StatCard("Score medio", "—")
+        self._stat_avg.setMaximumWidth(300)
+        for sc in (self._stat_count, self._stat_best, self._stat_avg):
+            stats_row.addWidget(sc)
+        stats_row.addStretch(1)
+        root.addLayout(stats_row)
+
+        # Ghost buttons (Limpar cache SSR, Exportar CSV) — acima da tabela
         ghost_tb = Toolbar()
         self._clear_cache_btn = QPushButton("Limpar cache SSR")
         self._clear_cache_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -860,7 +886,7 @@ class ScannerScreen(QWidget):
 
         root.addWidget(ghost_tb)
 
-        # Filtros sob o header
+        # Filtros acima da tabela
         from skinvault.settings import load_settings as _load
         _s = _load()
         filt_row = QHBoxLayout()
@@ -892,32 +918,6 @@ class ScannerScreen(QWidget):
         filt_row.addStretch(1)
         root.addLayout(filt_row)
 
-        # Banner de aviso quando update recente da Valve afetou a categoria
-        self._regime_banner = QLabel()
-        self._regime_banner.setWordWrap(True)
-        self._regime_banner.setStyleSheet(
-            f"background: {t.WARN_BG}; border: 1px solid {t.WARN_BORDER};"
-            f" color: {t.WARN_TEXT}; border-radius: 8px;"
-            f" padding: 10px 14px; font-size: {t.FS_INPUT};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        self._regime_banner.setVisible(False)
-        root.addWidget(self._regime_banner)
-
-        # Stats
-        stats_row = QHBoxLayout()
-        stats_row.setSpacing(16)
-        self._stat_count = StatCard("Itens escaneados", "0")
-        self._stat_count.setMaximumWidth(300)
-        self._stat_best = StatCard("Melhor score", "—")
-        self._stat_best.setMaximumWidth(300)
-        self._stat_avg = StatCard("Score medio", "—")
-        self._stat_avg.setMaximumWidth(300)
-        for sc in (self._stat_count, self._stat_best, self._stat_avg):
-            stats_row.addWidget(sc)
-        stats_row.addStretch(1)
-        root.addLayout(stats_row)
-
         # Loading state (mostrado durante scan/validacao)
         self._loading = LoadingState(parent=self)
         self._loading.setVisible(False)
@@ -930,6 +930,13 @@ class ScannerScreen(QWidget):
             "Spread", "Book", "Tendencia", "Oferta/Demanda", "Score", "Risco", "Confiança",
         ])
         t.configure_table(self._table)
+        score_hdr = self._table.horizontalHeaderItem(self.COL_SCORE)
+        if score_hdr:
+            score_hdr.setToolTip(
+                "Duplo-clique numa linha para ver o breakdown completo"
+                " do score por fator (mediana, spread, book, tendência,"
+                " oferta/demanda, etc.)."
+            )
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for i in range(1, 12):
@@ -956,15 +963,6 @@ class ScannerScreen(QWidget):
         root.addWidget(self._empty_hero, 1)
         # Estado inicial: hero visivel, tabela escondida
         self._table.setVisible(False)
-
-        hint = QLabel(
-            "Dica: clique duas vezes em uma linha para ver \"Por que esse "
-            "score?\" — breakdown visual por fator. Botão direito abre mais "
-            "opções."
-        )
-        hint.setWordWrap(True)
-        hint.setStyleSheet(t.label_caption())
-        root.addWidget(hint)
 
         # Progress/status
         self._status = QLabel("Pronto. Selecione uma categoria e clique em Escanear.")
