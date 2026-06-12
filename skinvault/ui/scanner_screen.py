@@ -787,6 +787,11 @@ class ScannerScreen(QWidget):
             f"QComboBox:focus {{ border: 1px solid {t.ACCENT}; }}"
             f"QComboBox:drop-down {{ border: none; }}"
             f"QComboBox:down-arrow {{ color: {t.TEXT_MUTED}; }}"
+            f"QComboBox QAbstractItemView"
+            f" {{ background: {t.BG_ELEVATED}; border: 1px solid {t.BORDER};"
+            f" selection-background-color: {t.SURFACE_HOV}; color: {t.TEXT}; }}"
+            f"QComboBox QAbstractItemView::item"
+            f" {{ padding: 6px 12px; }}"
         )
         for cat in _SCAN_BY_CATEGORY:
             self._cat_combo.addItem(cat)
@@ -868,11 +873,7 @@ class ScannerScreen(QWidget):
             "Oculta itens onde data_quality é 'low' ou 'very_low'."
             " Empiricamente esses scores são anti-preditivos (corr -0.14)."
         )
-        self._hide_low_conf_cb.setStyleSheet(
-            f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY}; }}"
-            f"QCheckBox:focus {{ color: {t.TEXT}; }}"
-        )
+        self._hide_low_conf_cb.setStyleSheet(t.checkbox_style())
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
 
@@ -885,11 +886,7 @@ class ScannerScreen(QWidget):
             " skin (aproximação). A Steam não expõe o item_nameid"
             " necessário para o book exato deste wear."
         )
-        self._hide_approx_cb.setStyleSheet(
-            f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY}; }}"
-            f"QCheckBox:focus {{ color: {t.TEXT}; }}"
-        )
+        self._hide_approx_cb.setStyleSheet(t.checkbox_style())
         self._hide_approx_cb.toggled.connect(self._on_hide_approx_toggle)
         filt_row.addWidget(self._hide_approx_cb)
         filt_row.addStretch(1)

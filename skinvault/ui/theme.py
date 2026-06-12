@@ -47,6 +47,10 @@ WARN_TEXT   = "#D8C267"
 # Hover surface (row-hover, item:hover)
 SURFACE_HOV = "#23232D"
 
+# Scrollbar (global, fina)
+SCROLL_THUMB    = "#2E2E38"
+SCROLL_THUMB_HOV = "#3A3A46"
+
 # Overlay (LockOverlay, modals semi-transparentes)
 BG_OVERLAY  = "rgba(14, 14, 18, 0.88)"
 
@@ -245,6 +249,54 @@ def btn_ghost(padding: str = "6px 14px", fs: str = FS_MUTED) -> str:
         f" border: 1px solid {BORDER}; }}"
         f"QPushButton:focus {{ color: {TEXT}; background: {SURFACE};"
         f" border: 1px solid {TEXT_MUTED}; }}"
+    )
+
+
+def spin_style() -> str:
+    """QDoubleSpinBox / QSpinBox com setas escuras (no place do chrome nativo).
+
+    Up/down buttons tem 18px de largura, separados por border-left, setas
+    via pseudo-elementos up-arrow/down-arrow (triangulo CSS).
+    """
+    return (
+        f"QDoubleSpinBox, QSpinBox"
+        f" {{ background: {SURFACE}; border: 1px solid {BORDER};"
+        f" border-radius: {RADIUS_SM}px; padding: 6px 10px;"
+        f" font-size: {FS_INPUT}; color: {TEXT};"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QDoubleSpinBox:focus, QSpinBox:focus"
+        f" {{ border: 1px solid {ACCENT}; }}"
+        f"QDoubleSpinBox::up-button, QSpinBox::up-button"
+        f" {{ width: 18px; height: 14px; border-left: 1px solid {BORDER};"
+        f" border-bottom: 1px solid {BORDER};"
+        f" subcontrol-position: top right; bi: center top; }}"
+        f"QDoubleSpinBox::down-button, QSpinBox::down-button"
+        f" {{ width: 18px; height: 14px; border-left: 1px solid {BORDER};"
+        f" subcontrol-position: bottom right; bi: center bottom; }}"
+        f"QDoubleSpinBox::up-arrow, QSpinBox::up-arrow"
+        f" {{ width: 6px; height: 4px; }}"
+        f"QDoubleSpinBox::down-arrow, QSpinBox::down-arrow"
+        f" {{ width: 6px; height: 4px; }}"
+    )
+
+
+def checkbox_style() -> str:
+    """QCheckBox com indicator escuro 16x16, checked accent verde.
+
+    Indicador unchecked: bg SURFACE, border BORDER, radius 4.
+    Indicador checked:  bg ACCENT, border ACCENT.
+    Focus: borda ACCENT (mesmo padrao Frente C).
+    """
+    return (
+        f"QCheckBox {{ color: {TEXT_MUTED}; font-size: {FS_MUTED};"
+        f" font-family: {FONT_FAMILY}; spacing: 8px; }}"
+        f"QCheckBox:focus {{ color: {TEXT}; }}"
+        f"QCheckBox::indicator {{ width: 16px; height: 16px;"
+        f" border: 1px solid {BORDER}; border-radius: 4px;"
+        f" background: {SURFACE}; }}"
+        f"QCheckBox::indicator:checked {{ background: {ACCENT};"
+        f" border-color: {ACCENT}; }}"
+        f"QCheckBox:focus::indicator {{ border: 1px solid {ACCENT}; }}"
     )
 
 

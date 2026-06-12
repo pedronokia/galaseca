@@ -398,7 +398,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 >
  > **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
  >
- > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**, ✅**U**. Próximas: R, S, T, V.
+ > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**, ✅**U**, ✅**R**. Próximas: S, T, V.
 
  ~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
 
@@ -503,7 +503,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Resultado**: EmptyState ganhou param `steps` (círculo 20px ACCENT_DIM + número + `label_body_muted`), aplicado em Scanner, Trades e Watchlist com onboarding de 3 passos cada. Market: chart cards trocaram stretch por `setFixedHeight(300)`, liberando espaço pro card "Detalhes do item". Market EmptyState ganhou CTA "Tentar novamente" conectado a `_on_search`. Consistência revisada: todos os 6 EmptyStates usam glifo geométrico, título curto e CTA onde há ação óbvia (Account sync, Watchlist add, Trades add, Market retry; Scanner e History sem CTA porque a ação primária está no PageHeader/toolbar). Extra: P&L líquido em trades_screen.py mostra `t.TEXT` (neutro) quando não há trades no filtro (antes ACCENT verde para R$ 0,00). 1313 tests verdes. Screenshots regenerados.
 
-### Frente R — Despir o Qt cru: spinbox, checkbox, combo popup, scrollbar (esforço: 2-3h, impact: médio-alto) [deps: M]
+### Frente R — Despir o Qt cru: spinbox, checkbox, combo popup, scrollbar (esforço: 2-3h, impact: médio-alto) [deps: M] ✅
 
 **Problema**: 4 controles ainda com chrome nativo claro no dark theme: QDoubleSpinBox do Simulador (setas nativas, print 06); QCheckBox indicator branco (Scanner/Watchlist, prints 03/07); popup do QComboBox do Scanner (QAbstractItemView nativo); QScrollBar nativo (History/Activity feed).
 
@@ -518,6 +518,8 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 **Aceite**: varredura visual dos prints novos sem nenhum chrome nativo claro; helpers listados no §0; smoke test de instanciação por helper.
 
 **Validação**: §4.3. Commit: `ui: estiliza spinbox/checkbox/combo-popup/scrollbar — fim do chrome Qt nativo`.
+
+**Resultado**: (1) `spin_style()` criado em theme.py com up/down buttons 18px e setas triangulares; aplicado nos 2 QDoubleSpinBox do Simulador (trocou `t.input_style()` por `t.spin_style()` — o `input_style()` incluía QDoubleSpinBox mas não estilizava os botões). Alternativa QLineEdit+validator descartada — spinbox agrega step por teclado/seta e prefix "R$". (2) `checkbox_style()` criado: indicator 16x16 SURFACE+BORDER, checked ACCENT, focus ACCENT. Aplicado nos 3 QCheckBox (Scanner 2x + Watchlist 1x), substituindo o style inline que só mexia na label. (3) Popup do QComboBox estilizado com `QAbstractItemView` BG_ELEVATED + SURFACE_HOV selection + item padding. (4) Scrollbar global adicionado ao `_apply_stylesheet` em gui.py: vertical/horizontal 10px, handle SCROLL_THUMB 5px radius min 32px, sem add/sub-line. Tokens `SCROLL_THUMB`/`SCROLL_THUMB_HOV` adicionados em theme.py. Bônus: EmptyState steps container centralizado via AlignHCenter (fix do Q hotfix que estava pendente). 1316 tests verdes. Screenshots regenerados.
 
 ### Frente S — Sidebar: ícones de linha QPainter + sessão no rodapé (esforço: 3-4h, impact: alto — assinatura visual) [deps: M]
 

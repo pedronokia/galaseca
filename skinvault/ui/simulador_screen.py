@@ -79,14 +79,14 @@ class SimuladorScreen(QWidget):
         row1.setSpacing(16)
         self._buy_inp.setPrefix("R$ ")
         self._buy_inp.setRange(0, 9999999)
-        self._buy_inp.setStyleSheet(t.input_style())
+        self._buy_inp.setStyleSheet(t.spin_style())
         row1.addWidget(FormRow(
             "Preço de compra (unitário)", self._buy_inp,
             tooltip="Quanto você paga por cada unidade ao comprar.",
         ))
         self._sell_inp.setPrefix("R$ ")
         self._sell_inp.setRange(0, 9999999)
-        self._sell_inp.setStyleSheet(t.input_style())
+        self._sell_inp.setStyleSheet(t.spin_style())
         row1.addWidget(FormRow(
             "Preço de venda (unitário, listagem)", self._sell_inp,
             tooltip="Preço pelo qual você lista cada unidade.\nA Steam cobra "

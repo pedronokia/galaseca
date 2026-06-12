@@ -106,7 +106,7 @@ class EmptyState(QWidget):
             steps_w = QWidget()
             steps_lay = QVBoxLayout(steps_w)
             steps_lay.setSpacing(8)
-            steps_lay.setContentsMargins(40, 0, 40, 0)
+            steps_lay.setContentsMargins(0, 0, 0, 0)
             for i, step in enumerate(steps, 1):
                 row = QHBoxLayout()
                 row.setSpacing(10)
@@ -124,8 +124,7 @@ class EmptyState(QWidget):
                 txt.setStyleSheet(t.label_body_muted())
                 row.addWidget(txt, 1)
                 steps_lay.addLayout(row)
-            steps_lay.addStretch(1)
-            lay.addWidget(steps_w)
+            lay.addWidget(steps_w, 0, Qt.AlignmentFlag.AlignHCenter)
 
         if cta_label:
             cta = QPushButton(cta_label)

@@ -629,10 +629,29 @@ class MainWindow(QMainWindow):
             self._dark_titlebar_set = True
 
     def _apply_stylesheet(self) -> None:
+        from skinvault.ui.theme import (
+            BG, BG_ELEVATED, BORDER, TEXT, TEXT_MUTED,
+            FONT_FAMILY, SCROLL_THUMB, SCROLL_THUMB_HOV,
+        )
         self.setStyleSheet(
-            f"QMainWindow {{ background: {_BG}; }}"
-            f"* {{ color: {_TEXT};"
-            f" font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui; }}"
+            f"QMainWindow {{ background: {BG}; }}"
+            f"* {{ color: {TEXT};"
+            f" font-family: '{FONT_FAMILY}', 'Segoe UI', system-ui; }}"
+            # ── Scrollbar global fina ──
+            f"QScrollBar:vertical {{ width: 10px;"
+            f" background: transparent; margin: 0; }}"
+            f"QScrollBar::handle:vertical {{ background: {SCROLL_THUMB};"
+            f" border-radius: 5px; min-height: 32px; }}"
+            f"QScrollBar::handle:vertical:hover {{ background: {SCROLL_THUMB_HOV}; }}"
+            f"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical"
+            f" {{ height: 0; }}"
+            f"QScrollBar:horizontal {{ height: 10px;"
+            f" background: transparent; margin: 0; }}"
+            f"QScrollBar::handle:horizontal {{ background: {SCROLL_THUMB};"
+            f" border-radius: 5px; min-width: 32px; }}"
+            f"QScrollBar::handle:horizontal:hover {{ background: {SCROLL_THUMB_HOV}; }}"
+            f"QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal"
+            f" {{ width: 0; }}"
         )
 
     def _apply_overlay_flags(self, enable: bool) -> None:

@@ -274,11 +274,7 @@ class WatchlistScreen(QWidget):
             "Oculta itens onde a confianca dos dados e 'low' ou 'very_low'."
             " Disponivel apenas apos 'Validar Score'."
         )
-        self._hide_low_conf_cb.setStyleSheet(
-            f"QCheckBox {{ color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY}; }}"
-            f"QCheckBox:focus {{ color: {t.TEXT}; }}"
-        )
+        self._hide_low_conf_cb.setStyleSheet(t.checkbox_style())
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
         filt_row.addStretch(1)
