@@ -193,6 +193,8 @@ t.align_table_columns(
 ## 2. Frentes priorizadas (impact × effort)
 
 > Ordenação: ~~**A** > B > C > D > E > F > G > H > I~~ > **K** > **L** (restantes)
+>
+> **Fase 2 (jun/2026)**: **M** primeiro (sozinha — muda o baseline visual global), depois **N / O / P / Q / R / S** em paralelo, **T / U** depois de N, **V** por último. Specs na seção 2.6.
 
 ### Frente A — Migração final de label outliers (esforço: ~30min, impact: baixo, polish: alto)
 
@@ -374,6 +376,209 @@ Criar `docs/STYLEGUIDE.md` com:
 - Decision log: por que ACCENT é verde, por que rows são 32px, por que descartamos shadows.
 
 Ajuda futuro agente / contribuidor a entender o design system rapidamente.
+
+---
+
+## 2.6 Fase 2 — Refinamento fino (análise jun/2026)
+
+> Análise feita sobre `prints/*.png` de 12/06/2026 (1920×1200, estado default) + auditoria de `theme.py`, `components.py`, `gui.py`. Objetivo: tirar o app de "Qt bem-arrumado" e levar a "produto fino" — menos ruído visual, hierarquia mais clara, microdetalhes Win11, dados que se explicam sozinhos.
+>
+> **Diagnóstico resumido (top ofensores, em ordem de dano):**
+> 1. **QSS global sem seletor** (`gui.py::_apply_stylesheet`) propaga `background` pra todo QLabel → "tarjas" escuras atrás de cada texto em cada card de cada tela. Um fix, app inteiro muda. → Frente M
+> 2. **H1 de 24pt + chrome vertical** consome ~90px antes do primeiro dado; Account nem tem header; combo dentro do título no Scanner. → Frentes N, T
+> 3. **Chrome Qt nativo claro** (spinbox, checkbox, popup de combo, scrollbar) gritando no dark theme. → Frente R
+> 4. **Estados vazios = deserto** (Scanner/Trades/Market 70% viewport vazio; Market com 2 charts-oceano de 600px). → Frente Q
+> 5. **Cor semântica errada em estado neutro** ("0% (0W/0L)" VERMELHO com zero trades — vermelho é perda, não ausência) + KPI esticado sem contexto. → Frente O
+> 6. **Tabelas sem zebra/hover, headers truncando** ("'reco alvo" na Watchlist), Watchlist com "OK" verde pra item sem regra e sem distância ao alvo. → Frente P
+> 7. **Sidebar com glifos abstratos** (∴ ◈ ○ ⇄) de pesos inconsistentes + sessão ("Conectado como…") ocupando barra full-width. → Frente S
+> 8. Busca do Market coadjuvante (placeholder truncado, recentes no canto oposto, detalhes em prosa). → Frente U
+> 9. Sem atalho de poder: 7 telas + ~10 ações e nenhum acesso rápido global. → Frente V (Ctrl+K)
+>
+> **Para agentes executando estas frentes**: cada frente é autocontida (contexto → ação → não-fazer → aceite). Antes de QUALQUER edição, leia §1 (padrões), §3 (outliers — não tocar), §4 (workflow/validação/commit). Regras inegociáveis: Python 3.9, PyQt6, gráficos/ícones só com QPainter custom (nunca lib externa), cores/tamanhos via tokens `t.*` de `theme.py` (nunca hex inline novo — se precisar, adicione token), tooltip em todo botão, commit pt-BR sem Co-Authored-By, **1 frente = 1 commit**, e ao concluir marcar a frente com ✅ + parágrafo de resultado aqui no roadmap (padrão das frentes A-J).
+>
+> **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
+
+### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]
+
+**Problema**: `gui.py::MainWindow._apply_stylesheet` (grep `def _apply_stylesheet`) aplica `self.setStyleSheet(f"background: {_BG}; color: {_TEXT}; font-family: ...")` **sem seletor**. QSS sem seletor propaga a TODOS os descendentes: cada `QLabel` da aplicação herda `background: #0E0E12` e pinta uma tarja escura atrás do texto — sobre cards `#16161C` isso cria as faixas visíveis em TODOS os StatCards, títulos de seção e captions de TODAS as telas (qualquer print em `prints/` mostra). É o maior ofensor visual do app. Mesmo bug em `SettingsDialog.__init__` e `BackupsDialog.__init__` (grep `setStyleSheet(f"background: {_BG}` em `gui.py` — 3 sites no total).
+
+**Ação**:
+1. Nos 3 sites, restringir o background ao container e manter cor/fonte como herança intencional:
+   ```python
+   # MainWindow:
+   self.setStyleSheet(
+       f"QMainWindow {{ background: {_BG}; }}"
+       f"* {{ color: {_TEXT}; font-family: 'Segoe UI Variable Display',"
+       f" 'Segoe UI', system-ui; }}"
+   )
+   # Dialogs: QDialog {{ background: {_BG}; }} + mesmo bloco *
+   ```
+   `* {{ color/font }}` é propagação desejada (texto padrão do app); widgets com setStyleSheet próprio (label_caption etc.) vencem por especificidade — comportamento atual preservado. `background` NÃO pode estar no `*`.
+2. Auditar band-aids que só existiam pra anular a herança: `grep -n "background: transparent" skinvault/ skinvault/ui/` — remover um a um validando por screenshot (alguns são legítimos, ex. btn_ghost idle).
+3. Bônus de janela (mesma frente): titlebar escura no Windows via DWM, em `MainWindow.__init__` (e nos QDialogs de Settings/Backups):
+   ```python
+   try:  # Win11/10 1809+; falha silenciosa em SOs antigos
+       import ctypes
+       hwnd = int(self.winId())
+       for attr in (20, 19):  # DWMWA_USE_IMMERSIVE_DARK_MODE (20; 19 em builds antigos)
+           if ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                   hwnd, attr, ctypes.byref(ctypes.c_int(1)),
+                   ctypes.sizeof(ctypes.c_int)) == 0:
+               break
+   except Exception:
+       pass
+   ```
+4. Conferir `theme._reload_palette` / `gui.set_theme`: o stylesheet novo precisa ser reaplicado no live-reload de tema (grep `set_theme` em gui.py).
+
+**Não fazer**: não trocar nenhum token/cor; não "consertar" labels individualmente (o fix é na raiz); não usar QPalette pra background (QSS é o mecanismo da casa).
+
+**Aceite**: screenshots novos das 7 telas sem NENHUMA tarja atrás de label (comparar 01/05/06 antes/depois — os mais afetados); botões/inputs/tabelas visualmente idênticos ao estado anterior; titlebar escura; suíte 100% verde.
+
+**Validação**: §4.3 completo + regenerar TODOS os prints (novo baseline). Commit: `ui: QSS com seletor no root — fim das tarjas atras de labels + titlebar dark`.
+
+### Frente N — PageHeader compacto e consistente nas 7 telas (esforço: 2-3h, impact: alto) [deps: M]
+
+**Problema**: H1 avulso de 24pt (`FS_TITLE`) consome ~90px verticais antes do primeiro dado (prints 03-07). Account é a ÚNICA tela sem título de página — quebra o padrão de cabeçalho explicativo (Athenas). No Scanner o QComboBox de categoria está montado NA LINHA do H1. Na Account, 3 botões empilhados à direita do card de perfil com larguras desalinhadas.
+
+**Ação**:
+1. Novo componente `PageHeader(title, subtitle="", actions: list[QWidget] | None = None)` em `components.py`: HBox = VBox(título 16pt semibold + subtítulo `label_caption()`) + stretch + actions à direita; altura total ≤ 56px. Adicionar token `FS_TITLE_MD = "16pt"` em theme.py (entre FS_TITLE_SM 13pt e FS_TITLE 24pt).
+2. Migrar as 7 telas: título/subtítulo existentes entram no PageHeader; ações primárias da tela (ex.: combo categoria + "Escanear categoria" no Scanner; "Consultar item" no Market; "Adicionar trade" no Trades) viram `actions`.
+3. Account ganha header: "Minha Conta" / "Inventário, desempenho da carteira e sincronização Steam." — Sincronizar/Validar/Atualizar scores saem do card de perfil e viram actions (corrige o desalinhamento).
+4. Padronizar root das telas: `setContentsMargins(24, 16, 24, 16)`, `setSpacing(12)`.
+
+**Não fazer**: não tocar no breadcrumb; não mudar `label_section()` (títulos DENTRO de cards ficam).
+
+**Aceite**: 7 telas com PageHeader; `grep -n "FS_TITLE\b" skinvault/ui/*_screen.py` → 0 hits; Account com header e ações alinhadas; ~40px verticais recuperados por tela.
+
+**Validação**: §4.3. Commit: `ui: PageHeader compacto nas 7 telas — hierarquia consistente`.
+
+### Frente O — StatCards inteligentes: delta, contexto, estado neutro (esforço: 2h, impact: médio-alto) [deps: M]
+
+**Problema**: (1) KPIs mostram número seco sem variação nem contexto. (2) Cor semântica errada em estado neutro: Trades exibe "0% (0W / 0L)" em DANGER com zero trades (print 05) — vermelho significa perda, não ausência de dado. (3) Em 1920px os StatCards esticam igualmente (~450px pra um número de 8 chars — prints 03/05).
+
+**Ação**:
+1. `StatCard.set_delta(pct: float | None, label: str = "")` em components.py: linha FS_MUTED sob o valor — `▲ +2,4% {label}` (ACCENT), `▼ -1,1%` (DANGER), `— {label}` (TEXT_MUTED); `None` esconde. Setas unicode ▲▼, nunca emoji.
+2. Ligar onde já há dado: Account "Valor bruto" → % vs penúltimo ponto de `history.load_history()` (a tela já carrega a série — grep `_reload_value_series` em account_screen.py); Trades "P&L líquido" → vs mês anterior via `trades.monthly_pnl()`; Watchlist "Alertas em 24h" → label "último: HH:MM" do alerts_log (sem %).
+3. Estado neutro: auditar `grep -n "set_value" skinvault/ui/*_screen.py` — valor zero-sem-dados usa `t.TEXT`/`t.TEXT_MUTED`, NUNCA DANGER/ACCENT. Pior ofensor: taxa de acerto do trades_screen.
+4. Proporção: `setMaximumWidth(300)` no StatCard + `addStretch(1)` no fim das KPI rows (Scanner, Trades, Watchlist, Market, Account) — cards alinham à esquerda em monitor largo.
+
+**Não fazer**: NÃO animar números (animated counter descartado na Frente F); sem sparkline dentro de StatCard (escopo).
+
+**Aceite**: zero DANGER em estado sem dados; ≥3 cards com delta real funcionando; cards ≤300px nas 5 telas; smoke tests de `set_delta` (3 estados).
+
+**Validação**: §4.3. Commit: `ui: StatCard com delta contextual + estado neutro sem cor semantica`.
+
+### Frente P — Tabelas: zebra sutil, hover, headers íntegros, Watchlist legível (esforço: 2-3h, impact: alto) [deps: M]
+
+**Problema**: (1) Headers truncam — print 07 mostra "Preco alvo"→"'reco alvo" (sort indicator + padding comem o texto em ResizeToContents). (2) Sem zebra nem hover — History com 416 rows cansa. (3) Watchlist: "OK" verde pra item SEM regra (sem regra ≠ saudável); Regras/Score/Confiança cheios de "—"; falta o dado mais útil: distância ao preço-alvo (AWP R$898 vs alvo R$700 = +28%).
+
+**Ação**:
+1. Em `theme.py::configure_table`: `table.setAlternatingRowColors(True)` + QSS `alternate-background-color: rgba(255,255,255,0.018)`; hover `QTableWidget::item:hover {{ background: {SURFACE_HOV}; }}` (hover é por célula — se ficar "quadriculado" no uso real, descartar e registrar no §3); `hh.setMinimumSectionSize(96)` + revisar padding da `QHeaderView::section` até o print da Watchlist mostrar os headers completos.
+2. `watchlist_screen.py`: Status com 3 estados — "Sem regras" (TEXT_MUTED) / "Monitorando" (STEAM_BLUE) / "Disparado" (WARN); grep `"OK"` pra achar o site. Nova coluna "Distância ao alvo": `(atual-alvo)/alvo` como `+28,3%` — ACCENT quando atual ≤ alvo (favorável pra compra), DANGER quando acima; tooltip explicando a leitura (§1.6). Colunas Score/Confiança 100% "—" → `setColumnHidden(True)` até existir dado (aparecem pós "Validar Score").
+3. Zebra/hover valem automaticamente pra todas as telas com tabela (1 helper).
+
+**Não fazer**: não mexer em larguras por tela (Stretch do Item é o padrão §1.5); sem paginação.
+
+**Aceite**: print 07 com headers completos, status 3-estados e coluna de distância; zebra sutil (alpha ≤0.02 — não pode "listrar"); History com 416 rows fluida.
+
+**Validação**: §4.3, atenção aos prints 02/07. Commit: `ui: tabelas com zebra e headers integros; watchlist com status real e distancia ao alvo`.
+
+### Frente Q — Empty states acionáveis + fim dos charts-oceano (esforço: 2-3h, impact: alto) [deps: M]
+
+**Problema**: estado vazio = 70% viewport deserto (prints 03/04/05). Market é o pior: 2 cards de chart com stretch infinito (~600px) pra exibir "Sem historico" no centro.
+
+**Ação**:
+1. `EmptyState` (components.py) ganha param opcional `steps: list[str]`: lista numerada compacta (círculo 20px ACCENT_DIM com o número + `label_body_muted`) renderizada sob o subtítulo — onboarding no lugar do vazio.
+2. Aplicar: Scanner (1. Escolha uma categoria 2. Clique em Escanear 3. Duplo-clique numa linha explica o score), Trades (1. Adicione manualmente ou sincronize 2. Acompanhe P&L e taxa de acerto 3. Clique numa barra do P&L mensal pra filtrar), Watchlist vazia (1. Adicionar item 2. Editar regras 3. Receber alertas nativos).
+3. Market: charts Histórico/Livro com `setFixedHeight(300)` em vez de stretch (grep `Histórico de preços` em market_screen.py); o espaço liberado vai pro card "Detalhes do item".
+4. Revisar consistência dos EmptyState existentes (glifo geométrico, título curto, CTA quando há ação óbvia).
+
+**Não fazer**: sem ilustrações/imagens externas; sem cards fake; manter os glifos hero atuais (◇ ○ ◎ — assinatura).
+
+**Aceite**: prints 03/05 com onboarding numerado; Market sem charts-oceano (300px) e Detalhes com presença; todo EmptyState com CTA onde existe ação óbvia.
+
+**Validação**: §4.3. Commit: `ui: empty states com passos acionaveis; market sem charts-oceano`.
+
+### Frente R — Despir o Qt cru: spinbox, checkbox, combo popup, scrollbar (esforço: 2-3h, impact: médio-alto) [deps: M]
+
+**Problema**: 4 controles ainda com chrome nativo claro no dark theme: QDoubleSpinBox do Simulador (setas nativas, print 06); QCheckBox indicator branco (Scanner/Watchlist, prints 03/07); popup do QComboBox do Scanner (QAbstractItemView nativo); QScrollBar nativo (History/Activity feed).
+
+**Ação** (helpers novos em theme.py + aplicar nos sites):
+1. `spin_style()`: bg SURFACE, border BORDER radius 6, `::up-button/::down-button` 18px com border-left BORDER, setas via `::up-arrow/::down-arrow` (triângulo CSS, sem imagem). Aplicar no Simulador (grep `SpinBox` em simulador_screen.py). Alternativa aceitável: migrar pra QLineEdit + QDoubleValidator se o spin não agrega (documentar a escolha).
+2. `checkbox_style()`: `QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {BORDER}; border-radius: 4px; background: {SURFACE}; }}` + `::indicator:checked {{ background: {ACCENT}; border-color: {ACCENT}; }}` + `:focus` consistente com Frente C. NOTA: o outlier da §3 sobre esses QCheckBox é do styling de LABEL — o indicator é novo escopo; helper centraliza.
+3. Popup de combo: `QComboBox QAbstractItemView {{ background: {BG_ELEVATED}; border: 1px solid {BORDER}; selection-background-color: {SURFACE_HOV}; color: {TEXT}; }}` — integrar ao estilo existente do combo do Scanner.
+4. Scrollbar global fina no stylesheet do MainWindow (coordenar com M — mesmo bloco QSS): track transparente 10px, handle radius 5 min-height 32, sem add/sub-line. Tokens novos `SCROLL_THUMB = "#2E2E38"` / `SCROLL_THUMB_HOV = "#3A3A46"` em theme.py.
+
+**Não fazer**: não trocar QComboBox por widget custom; não esconder scrollbar quando há overflow.
+
+**Aceite**: varredura visual dos prints novos sem nenhum chrome nativo claro; helpers listados no §0; smoke test de instanciação por helper.
+
+**Validação**: §4.3. Commit: `ui: estiliza spinbox/checkbox/combo-popup/scrollbar — fim do chrome Qt nativo`.
+
+### Frente S — Sidebar: ícones de linha QPainter + sessão no rodapé (esforço: 3-4h, impact: alto — assinatura visual) [deps: M]
+
+**Problema**: (1) `_SidebarItem` embute glifos unicode no texto (`setText(f"  {icon}    {label}")` em components.py) — ∴ ◈ ○ ★ ⇄ ▭ ≡ têm pesos/larguras inconsistentes e não comunicam. (2) "Conectado como {nome}" ocupa barra full-width na base da janela inteira.
+
+**Ação**:
+1. `class LineIcon(QWidget)` (em components.py): ícone 18×18 desenhado com QPainter, stroke 1.5px, `QPen.setCapStyle(RoundCap)`, SEM fill (linguagem Fluent/Lucide). `set_color(str)` pra acompanhar estado. Ícones por nome: `user` (círculo + arco ombros), `history` (relógio: círculo + 2 ponteiros), `radar` (2 arcos concêntricos + dot), `chart` (polyline 3 segmentos), `swap` (2 setas opostas), `calc` (rect + grid 2×2 de dots), `eye` (2 arcos + pupila), `gear` (círculo + 6 ticks radiais), `info` (círculo + i), `archive` (rect + tampa). Nome inválido → círculo (fallback).
+2. `_SidebarItem` muda de texto-com-glifo pra HBox: LineIcon + QLabel, preservando os estados QSS atuais (:hover/:checked/:focus — Frente C); checked pinta o ícone com `set_color(t.ACCENT)` (conectar no toggled).
+3. Chip de sessão no rodapé da SIDEBAR substituindo a barra global: dot 8px ACCENT + nome TEXT + "Steam" caption; tooltip com SteamID; clique navega pra Minha Conta. Localizar a barra atual com grep `Conectado como` (gui.py) — remover ou reduzir o footer global ao que sobrar de responsabilidade (avaliar e documentar).
+4. Smoke tests: LineIcon paint por nome (grab não-nulo) + fallback.
+
+**Não fazer**: NUNCA emoji/PNG/SVG (regra: QPainter); não mudar SIZE_SIDEBAR_W; sem collapse de sidebar nesta frente.
+
+**Aceite**: sidebar com 7 itens + 3 inferiores usando ícones de linha consistentes (mesmo stroke/peso óptico); checked em ACCENT; sessão no rodapé da sidebar; barra inferior global removida/reduzida; prints das 7 telas ok.
+
+**Validação**: §4.3. Commit: `ui: sidebar com icones de linha QPainter + chip de sessao no rodape`.
+
+### Frente T — Scanner: cada controle no seu lugar (esforço: 2h, impact: médio) [deps: N]
+
+**Problema** (print 03): combo de categoria dentro do título; checkboxes de filtro soltos entre header e KPIs; a dica mais importante ("duplo-clique explica o score") enterrada em caption de rodapé; "Limpar cache SSR"/"Exportar CSV" desalinhados dos botões.
+
+**Ação**:
+1. Com o PageHeader (N): combo + "Escanear categoria" (primário) + "Ranking Top 20" + "Validar Score" como actions; "Limpar cache SSR"/"Exportar CSV" descem pra toolbar ghost acima da tabela (tooltips §1.2).
+2. Checkboxes "Esconder baixa confiança"/"Esconder order book aproximado" → linha de filtros imediatamente acima da tabela (visual da _FilterBar da History).
+3. Dica do duplo-clique → tooltip do header da coluna Score (`horizontalHeaderItem(col).setToolTip(...)`) + consolidar o rodapé em UMA linha de caption (hoje 2-3 empilhadas).
+4. Conferir tab order pós-reorganização (Frente C documentou a ordem — manter coerência com a visual).
+
+**Não fazer**: não tocar na lógica de scan/ranking/score; não esconder KPIs.
+
+**Aceite**: print do Scanner com header limpo, filtros junto da tabela, rodapé com ≤1 caption; tab order coerente.
+
+**Validação**: §4.3. Commit: `ui: scanner — controles agrupados por contexto, dica de score na coluna`.
+
+### Frente U — Market: busca protagonista + detalhes em grid (esforço: 2-3h, impact: médio) [deps: N, Q]
+
+**Problema** (print 04): input de busca pequeno (placeholder trunca: "Ex: AK-47 | Redli..."); botão "Consultar item" no extremo oposto do input; "Buscas recentes" como dropdown deslocado; "Detalhes do item" em prosa espremida na base.
+
+**Ação**:
+1. Linha de busca protagonista: input `setMinimumWidth(420)` + "Consultar item" (primário) COLADO à direita do input; garantir `returnPressed` → consultar.
+2. "Buscas recentes" vira popup do próprio input: ao focar (ou ao digitar), menu flutuante com as últimas N — os dados já existem (grep `Buscas recentes` em market_screen.py); remover o dropdown solto.
+3. "Detalhes do item" vira QGridLayout 2 colunas chave→valor (`label_caption_bold` + valor TEXT; Veredito com cor semântica ACCENT/WARN/DANGER) — usar os campos que a tela já calcula.
+4. Conferir charts a 300px fixos (se Q já rodou; senão aplicar a spec da Q item 3 aqui).
+
+**Não fazer**: não tocar em SSR/parse/rate-limit; sem autocomplete remoto.
+
+**Aceite**: print do Market com busca em destaque + CTA junto, recentes acessíveis pelo input, detalhes em grid; charts 300px.
+
+**Validação**: §4.3. Commit: `ui: market — busca protagonista, recentes no input, detalhes em grid`.
+
+### Frente V — Command palette Ctrl+K (esforço: 4-6h, impact: alto; AMBICIOSA — por último) [deps: M-U]
+
+**Oportunidade**: 7 telas + ~10 ações frequentes e nenhum acesso rápido global. Command palette (padrão VS Code/Raycast/Linear) é o selo de produto moderno — e o usuário é power user.
+
+**Ação**:
+1. Novo `skinvault/ui/palette.py`: função pura `palette_rank(query: str, items: list[dict]) -> list[dict]` — fuzzy por subsequência case-insensitive com score (match no início > contíguo > espalhado). SEM dependência de GUI (testável com pytest puro).
+2. `CommandPalette(QDialog)`: frameless, 560px, top 20%, bg BG_ELEVATED border BORDER radius 12; QLineEdit FS_INPUT + lista de resultados (LineIcon da Frente S se disponível + label + categoria muted). Sombra permitida AQUI (modal único, perf não-recorrente — exceção documentada à regra anti-shadow).
+3. Registro estático no MainWindow: 7 navegações ("Ir: Scanner"…) + ações ("Consultar item no Market", "Adicionar trade", "Adicionar à watchlist", "Sincronizar com Steam", "Backup agora", "Exportar CSV da tela atual"). Ações com input navegam e focam o campo (grep `def focus_` em skinvault/ui/ — vários já existem).
+4. `QShortcut(Ctrl+K)` global; Esc fecha, Enter executa, ↑↓ navegam.
+5. Tests: `palette_rank` puro (≥5 casos: prefixo vence, case-insensitive, sem match → vazio, ordenação estável) + smoke de abrir/executar navegação.
+
+**Não fazer**: não indexar dados dinâmicos (inventário/preços) nesta versão; se uma ação não tiver foco programático, degradar pra navegação simples.
+
+**Aceite**: Ctrl+K abre em qualquer tela; "scan"+Enter navega pro Scanner; "trade" lista ≥2 ações; visual 100% tokens; testes verdes.
+
+**Validação**: §4.3. Commit: `ui: command palette Ctrl+K — navegacao e acoes globais com fuzzy match`.
 
 ---
 
