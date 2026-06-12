@@ -485,7 +485,9 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 ~~**Aceite**: print 07 com headers completos, status 3-estados e coluna de distância; zebra sutil (alpha ≤0.02 — não pode "listrar"); History com 416 rows fluida.~~
 
-**Resultado**: `configure_table` ganhou `hh.setMinimumSectionSize(96)` para headers íntegros. Watchlist: 3 estados de status (Sem regras/Monitorando/Disparado) com cores TEXT_MUTED/STEAM_BLUE/WARN e tooltips descritivos; nova coluna "Distância ao alvo" após o preço-alvo com cor ACCENT (favorável) ou DANGER (acima do alvo) e tooltip explicativa; colunas Score e Confiança ocultas inicialmente (reveladas após "Validar Score"). 1309 tests verdes. Screenshots regenerados com todos os headers completos.
+**Resultado**: `configure_table` ganhou `hh.setMinimumSectionSize(96)` para headers íntegros. Watchlist: 3 estados de status (Sem regras/Monitorando/Disparado) com cores TEXT_MUTED/STEAM_BLUE/WARN e tooltips descritivos; nova coluna "Distância ao alvo" após o preço-alvo com cor ACCENT (favorável) ou DANGER (acima do alvo) e tooltip explicativa; colunas Score e Confiança ocultas inicialmente (reveladas após "Validar Score"). 1309 tests verdes. Screenshots regenerados.
+
+**Hotfix 2** (`ecfba84..HEAD`): headers AINDA truncavam no print real — causa raiz: padding de `QHeaderView::section` (28px horizontal) não contabilizado no sizeHint do `ResizeToContents`/`Interactive`. Corrigido via (a) redução do padding QSS de `10px 16px 10px 12px` para `8px 10px 8px 10px`; (b) `setMinimumSectionSize(120)`; (c) nova função `_ensure_header_width()` que força `resizeSection` com folga de 50px; (d) Watchlist migrou de `ResizeToContents` para `Interactive` (evita que Qt sobrescreva o resize). Smoke test `test_table_headers_nao_truncam` valida que colunas com texto longo (> que cabe no mínimo) recebem espaço extra. 1310 tests verdes.
 
 ### Frente Q — Empty states acionáveis + fim dos charts-oceano (esforço: 2-3h, impact: alto) [deps: M]
 

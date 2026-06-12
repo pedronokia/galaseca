@@ -259,7 +259,7 @@ def table_style() -> str:
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER};"
-        f" padding: 10px 16px 10px 12px;"
+         f" padding: 8px 10px 8px 10px;"
         f" font-weight: 600; font-size: {FS_MUTED}; }}"
         f"QHeaderView::down-arrow {{ width: 8px; height: 8px;"
         f" subcontrol-origin: padding;"
@@ -283,6 +283,27 @@ def card_style(radius: int = 10) -> str:
         f" border-top: 1px solid #30303A;"
         f" border-radius: {radius}px; }}"
     )
+
+
+def _ensure_header_width(table: QTableWidget, hh: QHeaderView) -> None:
+    """Compensa o padding QSS que QHeaderView ignora no sizeHint.
+
+    O padding declarado em QHeaderView::section (QSS) nao e considerado
+    no calculo de ResizeToContents, entao headers com muito texto e
+    alinhamento a direita truncam o primeiro caractere.  Esta funcao
+    calcula o espaco necessario via fontMetrics e garante sectionSize
+    >= text_width + padding_h + sort_indicator_room (~50px).
+    """
+    fm = table.fontMetrics()
+    padding_room = 50
+    for col in range(table.columnCount()):
+        item = table.horizontalHeaderItem(col)
+        if item is None:
+            continue
+        text_w = fm.horizontalAdvance(item.text())
+        needed = max(text_w + padding_room, 120)
+        if hh.sectionSize(col) < needed:
+            hh.resizeSection(col, needed)
 
 
 def align_table_columns(
@@ -392,4 +413,4 @@ def configure_table(table: QTableWidget) -> None:
     table.setSortingEnabled(True)
     table.setStyleSheet(table_style())
     hh = table.horizontalHeader()
-    hh.setMinimumSectionSize(96)
+    hh.setMinimumSectionSize(120)

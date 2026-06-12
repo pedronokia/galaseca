@@ -301,7 +301,9 @@ class WatchlistScreen(QWidget):
         for col in (self.COL_TARGET, self.COL_DISTANCE, self.COL_PRICE,
                     self.COL_STATUS, self.COL_RULES):
             hh.setSectionResizeMode(col,
-                                    QHeaderView.ResizeMode.ResizeToContents)
+                                    QHeaderView.ResizeMode.Interactive)
+        # Garante que padding QSS ignorado no sizeHint nao trunque headers
+        t._ensure_header_width(self._table, hh)
         # Score e Confianca: ocultos ate Validar Score
         self._table.setColumnHidden(self.COL_SCORE, True)
         self._table.setColumnHidden(self.COL_CONFIDENCE, True)

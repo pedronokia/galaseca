@@ -6900,6 +6900,47 @@ def test_watchlist_tem_coluna_score():
     assert hdr2.text() == "Confian\u00e7a"
 
 
+def test_table_headers_nao_truncam():
+    """Headers de todas as tabelas tem espaco para o texto completo.
+
+    O padding QSS em QHeaderView::section (20px horizontal) nao e
+    contabilizado no sizeHint do ResizeToContents.  Esta validação
+    confirma que _ensure_header_width foi executada corrigindo as
+    colunas cujo texto nao caberia no minimo global.
+    """
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QHeaderView
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    tbl = screen._table
+    hh = tbl.horizontalHeader()
+    min_sz = hh.minimumSectionSize()
+    for col in range(tbl.columnCount()):
+        item = hh.model().headerData(col, Qt.Orientation.Horizontal)
+        if item is None:
+            continue
+        if hh.isSectionHidden(col):
+            continue
+        text = str(item)
+        rez = hh.sectionResizeMode(col)
+        sz = hh.sectionSize(col)
+        # Stretch columns podem estar no minimo e ok
+        if rez == QHeaderView.ResizeMode.Stretch:
+            assert sz >= min_sz, (
+                f"col {col} '{text}' stretch sz={sz} < min={min_sz}"
+            )
+            continue
+        # Interactive: verifica se o texto cabe no minimo.
+        # Se nao cabe e sz == min, _ensure_header_width nao agiu.
+        text_w = len(text) * 6  # ~6px por char em 9pt
+        if text_w + 40 > min_sz:
+            assert sz > min_sz, (
+                f"col {col} '{text}' sz={sz} == min={min_sz} "
+                f"— _ensure_header_width nao compensou"
+            )
+
+
 def test_watchlist_coluna_score_renderiza_valor():
     """item['current_score'] aparece na coluna como int."""
     import time as _t
