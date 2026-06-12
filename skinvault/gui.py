@@ -71,6 +71,23 @@ THEMES = {
 }
 
 
+def _set_dark_titlebar(window: QWidget) -> None:
+    """Escurece a titlebar no Windows 11/10 via DWM.
+
+    Falha silenciosa em SOs antigos ou sem ctypes.
+    """
+    try:
+        import ctypes
+        hwnd = int(window.winId())
+        for attr in (20, 19):
+            if ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd, attr, ctypes.byref(ctypes.c_int(1)),
+                    ctypes.sizeof(ctypes.c_int)) == 0:
+                break
+    except Exception:
+        pass
+
+
 def _brl(v: float) -> str:
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -167,8 +184,11 @@ class SettingsDialog(QDialog):
         self._settings = load_settings()
         self.setWindowTitle("Configuracoes")
         self.resize(420, 300)
-        self.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                           " font-family: 'Segoe UI';")
+        self.setStyleSheet(
+            f"QDialog {{ background: {_BG}; }}"
+            f"* {{ color: {_TEXT}; font-family: 'Segoe UI'; }}"
+        )
+        _set_dark_titlebar(self)
         self._build()
 
     def _build(self) -> None:
@@ -298,8 +318,11 @@ class BackupDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Gerenciar Backups")
         self.resize(520, 360)
-        self.setStyleSheet(f"background: {_BG}; color: {_TEXT};"
-                           " font-family: 'Segoe UI';")
+        self.setStyleSheet(
+            f"QDialog {{ background: {_BG}; }}"
+            f"* {{ color: {_TEXT}; font-family: 'Segoe UI'; }}"
+        )
+        _set_dark_titlebar(self)
         self._build()
 
     def _build(self) -> None:
@@ -549,6 +572,7 @@ class MainWindow(QMainWindow):
             self._center_on_screen()
 
         self._apply_stylesheet()
+        _set_dark_titlebar(self)
         # Modo overlay: nao rouba foco de jogos fullscreen (CS2, etc).
         # Combina stays-on-top + WA_ShowWithoutActivating pra que a
         # janela apareca sobre o jogo sem minimiza-lo.
@@ -591,8 +615,9 @@ class MainWindow(QMainWindow):
 
     def _apply_stylesheet(self) -> None:
         self.setStyleSheet(
-            f"background: {_BG}; color: {_TEXT};"
-            "font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui;"
+            f"QMainWindow {{ background: {_BG}; }}"
+            f"* {{ color: {_TEXT};"
+            f" font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui; }}"
         )
 
     def _apply_overlay_flags(self, enable: bool) -> None:

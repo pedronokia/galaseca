@@ -398,7 +398,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 >
 > **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
 
-### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]
+~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
 
 **Problema**: `gui.py::MainWindow._apply_stylesheet` (grep `def _apply_stylesheet`) aplica `self.setStyleSheet(f"background: {_BG}; color: {_TEXT}; font-family: ...")` **sem seletor**. QSS sem seletor propaga a TODOS os descendentes: cada `QLabel` da aplicação herda `background: #0E0E12` e pinta uma tarja escura atrás do texto — sobre cards `#16161C` isso cria as faixas visíveis em TODOS os StatCards, títulos de seção e captions de TODAS as telas (qualquer print em `prints/` mostra). É o maior ofensor visual do app. Mesmo bug em `SettingsDialog.__init__` e `BackupsDialog.__init__` (grep `setStyleSheet(f"background: {_BG}` em `gui.py` — 3 sites no total).
 
@@ -435,6 +435,8 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 **Aceite**: screenshots novos das 7 telas sem NENHUMA tarja atrás de label (comparar 01/05/06 antes/depois — os mais afetados); botões/inputs/tabelas visualmente idênticos ao estado anterior; titlebar escura; suíte 100% verde.
 
 **Validação**: §4.3 completo + regenerar TODOS os prints (novo baseline). Commit: `ui: QSS com seletor no root — fim das tarjas atras de labels + titlebar dark`.
+
+**Resultado**: 3 sites (MainWindow `_apply_stylesheet`, SettingsDialog, BackupDialog) migrados para QSS com seletor — `background` restrito ao container (`QMainWindow`/`QDialog`), `color+font` via `*` universal. Toast label band-aid `background: transparent` removido (components.py:796). Titlebar escura via DWM adicionada nas 3 janelas via `_set_dark_titlebar()`. Live theme reload conferido — `_on_theme_changed` reaplica o stylesheet normalmente, sidebar dock sem regressão. Audit de `background: transparent` nos 8 sites: 7 legítimos (btn_ghost, chips, sidebar items, segmented control, history clear, simulador chip), 1 band-aid removido (Toast). 1309 tests verdes. Screenshots regenerados como novo baseline — conferência visual pendente (agente não suporta imagem).
 
 ### Frente N — PageHeader compacto e consistente nas 7 telas (esforço: 2-3h, impact: alto) [deps: M]
 

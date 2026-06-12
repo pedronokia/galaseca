@@ -793,8 +793,7 @@ class Toast(QWidget):
         lbl = QLabel(text)
         lbl.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY}; background: transparent;"
-            f" border: none;"
+            f" font-family: {t.FONT_FAMILY};"
         )
         lbl.setWordWrap(True)
         lay.addWidget(lbl)
