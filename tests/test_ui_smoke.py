@@ -1451,6 +1451,82 @@ def test_market_charts_fixed_height():
     )
 
 
+def test_market_kpi_row_nao_infla():
+    """StatCards da KPI row tem height <= 130 apos resize(1920,1200)."""
+    from PyQt6.QtCore import Qt, QCoreApplication
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    screen = MarketScreen(PriceCache(ttl=3600))
+    screen.resize(1920, 1200)
+    QCoreApplication.processEvents()
+    QCoreApplication.processEvents()  # 2x: deixa layout assentar
+    for sc in (screen._stat_lowest, screen._stat_median,
+               screen._stat_volume, screen._stat_verdict):
+        assert sc.height() <= 130, (
+            f"StatCard height={sc.height()} > 130 — KPI row inflado"
+        )
+
+
+def test_empty_state_steps_centralizado():
+    """Container de steps centralizado via AlignHCenter no layout."""
+    from PyQt6.QtCore import Qt
+    from skinvault.ui.components import EmptyState
+    es = EmptyState("◇", "Titulo", steps=["Passo A", "Passo B"])
+    # Verifica que o layout pai centraliza o container de steps
+    lay = es.layout()
+    assert lay is not None
+    found = False
+    for i in range(lay.count()):
+        item = lay.itemAt(i)
+        if item.widget() is not None and item.alignment() == Qt.AlignmentFlag.AlignHCenter:
+            w = item.widget()
+            from PyQt6.QtWidgets import QLabel
+            labels = w.findChildren(QLabel)
+            texts = {l.text() for l in labels}
+            if "Passo A" in texts:
+                found = True
+                break
+    assert found, "Steps container not found with AlignHCenter alignment"
+
+
+def test_empty_state_cta_contiguo_aos_steps():
+    """CTA fica no layout imediatamente apos steps, sem stretch no meio."""
+    from PyQt6.QtCore import Qt
+    from skinvault.ui.components import EmptyState
+    from PyQt6.QtWidgets import QPushButton
+    es = EmptyState("◇", "T", steps=["1", "2"], cta_label="Botao")
+    lay = es.layout()
+    assert lay is not None
+    # Find index of steps_w and cta in the layout
+    steps_idx = -1
+    cta_idx = -1
+    for i in range(lay.count()):
+        item = lay.itemAt(i)
+        if item.widget() is not None and isinstance(item.widget(), QPushButton):
+            cta_idx = i
+        elif item.widget() is not None and item.widget().findChildren(QPushButton):
+            # steps_w might have no children that are QPushButtons
+            pass
+    # Simpler: check that steps_w is right before cta
+    # Steps_w is the first AlignHCenter widget, CTA is the first AlignCenter button
+    found_steps = False
+    found_cta = False
+    for i in range(lay.count()):
+        item = lay.itemAt(i)
+        if item.widget() is not None:
+            w = item.widget()
+            if isinstance(w, QPushButton) and found_steps:
+                found_cta = True
+                break
+            elif not found_steps:
+                from PyQt6.QtWidgets import QLabel
+                # Check if this is the steps container (has numbered labels)
+                if w.findChildren(QLabel) and any("1" == l.text() for l in w.findChildren(QLabel)):
+                    found_steps = True
+    assert found_steps, "Steps container not found in layout"
+    assert found_cta, "CTA not immediately after steps in layout"
+
+
 # ── Animations (Frente J) ───────────────────────────────────
 
 def test_fade_in_attaches_effect_and_runs():
@@ -2140,20 +2216,22 @@ class TestMarketScreen:
         )
         _save_recent(["AK"])  # nao crasha
 
-    def test_clear_detail_form_with_rows(self):
+    def test_clear_detail_grid_with_rows(self):
         from skinvault.prices import PriceCache
         from skinvault.ui.market_screen import MarketScreen
         screen = MarketScreen(PriceCache(ttl=3600))
-        screen._add_detail("Label", "Value")
-        assert screen._detail_form.rowCount() > 0
-        screen._clear_detail_form()
-        assert screen._detail_form.rowCount() == 0
+        screen._add_detail_row("Label", "Value")
+        before = screen._detail_grid.count()
+        assert before > 0
+        screen._clear_detail_grid()
+        screen._search_inp.setText("")  # force layout invalidation
+        assert screen._detail_grid.count() == 0
 
     def test_rebuild_recent_empty(self):
         from skinvault.prices import PriceCache
         from skinvault.ui.market_screen import MarketScreen
         screen = MarketScreen(PriceCache(ttl=3600))
-        assert not screen._recent_btn.isEnabled()
+        assert not screen._recent_act.isVisible()
 
     def test_rebuild_recent_with_items(self, monkeypatch):
         from skinvault.prices import PriceCache
@@ -2161,7 +2239,7 @@ class TestMarketScreen:
         screen = MarketScreen(PriceCache(ttl=3600))
         screen._recent = ["AK-47", "AWP"]
         screen._rebuild_recent_menu()
-        assert screen._recent_btn.isEnabled()
+        assert screen._recent_act.isVisible()
         assert len(screen._recent_menu.actions()) == 2
 
     def test_push_recent_new(self, monkeypatch):
@@ -2194,18 +2272,18 @@ class TestMarketScreen:
         assert screen._search_inp.text() == "AK-47"
         assert calls == [True]
 
-    def test_clear_detail_form_empty(self):
+    def test_clear_detail_grid_empty(self):
         from skinvault.prices import PriceCache
         from skinvault.ui.market_screen import MarketScreen
         screen = MarketScreen(PriceCache(ttl=3600))
-        screen._clear_detail_form()  # nao crasha
+        screen._clear_detail_grid()  # nao crasha
 
-    def test_add_detail(self):
+    def test_add_detail_row(self):
         from skinvault.prices import PriceCache
         from skinvault.ui.market_screen import MarketScreen
         screen = MarketScreen(PriceCache(ttl=3600))
-        screen._add_detail("Label", "R$ 100")
-        assert screen._detail_form.rowCount() >= 1
+        screen._add_detail_row("Label", "R$ 100")
+        assert screen._detail_grid.count() >= 2
 
     def test_on_search_empty(self):
         from skinvault.prices import PriceCache
@@ -2352,7 +2430,7 @@ class TestMarketScreen:
         }
         screen._on_data(data)
         assert "AWP" in screen._detail_title.text()
-        assert screen._detail_form.rowCount() > 0
+        assert screen._detail_grid.count() > 0
         # Regressao: a serie do sparkline deve ser extraida de price_median
         # (bug antigo lia x["price"], que nao existe no SSR -> chart vazio)
         assert screen._sparkline._values == [210, 215]
@@ -2383,7 +2461,7 @@ class TestMarketScreen:
             },
         }
         screen._on_data(data)
-        assert screen._detail_form.rowCount() > 0
+        assert screen._detail_grid.count() > 0
 
     def test_on_data_volume_anomaly(self, monkeypatch):
         from skinvault.prices import PriceCache

@@ -398,7 +398,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 >
  > **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
  >
- > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**. Próximas: R, S, T, U, V.
+ > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**, ✅**U**. Próximas: R, S, T, V.
 
  ~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
 
@@ -551,7 +551,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Validação**: §4.3. Commit: `ui: scanner — controles agrupados por contexto, dica de score na coluna`.
 
-### Frente U — Market: busca protagonista + detalhes em grid (esforço: 2-3h, impact: médio) [deps: N, Q]
+### Frente U — Market: busca protagonista + detalhes em grid (esforço: 2-3h, impact: médio) [deps: N, Q] ✅
 
 **Problema** (print 04): input de busca pequeno (placeholder trunca: "Ex: AK-47 | Redli..."); botão "Consultar item" no extremo oposto do input; "Buscas recentes" como dropdown deslocado; "Detalhes do item" em prosa espremida na base.
 
@@ -566,6 +566,8 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 **Aceite**: print do Market com busca em destaque + CTA junto, recentes acessíveis pelo input, detalhes em grid; charts 300px.
 
 **Validação**: §4.3. Commit: `ui: market — busca protagonista, recentes no input, detalhes em grid`.
+
+**Resultado**: (1) Input `setMinimumWidth(420)` + botão "Consultar item" colado à direita numa HBox dedicada — saiu do PageHeader e do Toolbar; `returnPressed` continua consultando. (2) "Buscas recentes" removido como botão solto; vira `QAction("▾")` no trailing do input, exibe o mesmo `_recent_menu` via `_show_recent_menu()` que executa o menu ancorado no bottomLeft do input. (3) Detalhes migraram de `QFormLayout` + `label_caption()` para `QGridLayout` 2 colunas com labels em `label_caption_bold()` e valores em `FS_BODY` semibold; `_add_detail` → `_add_detail_row`, `_clear_detail_form` → `_clear_detail_grid`. (4) Charts mantêm `setFixedHeight(300)` da Frente Q. `Toolbar` removido dos imports. 1316 tests verdes.
 
 ### Frente V — Command palette Ctrl+K (esforço: 4-6h, impact: alto; AMBICIOSA — por último) [deps: M-U]
 

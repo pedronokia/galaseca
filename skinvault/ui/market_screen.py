@@ -10,9 +10,9 @@ import time
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
-    QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -34,7 +34,6 @@ from skinvault.ui.components import (
     SectionHeader,
     StatCard,
     Toast,
-    Toolbar,
 )
 from skinvault.ui.widgets import DepthChart, MiniSparkline
 
@@ -102,6 +101,26 @@ class MarketScreen(QWidget):
         root.setContentsMargins(24, 16, 24, 16)
         root.setSpacing(12)
 
+        root.addWidget(PageHeader(
+            "Consulta de Mercado",
+            "Análise de fair value, histórico de preços e profundidade do "
+            "livro de ofertas no Steam Community Market.",
+        ))
+
+        # ── Search protagonist line ────────────────────────
+        search_row = QHBoxLayout()
+        search_row.setSpacing(8)
+
+        self._search_inp = QLineEdit()
+        self._search_inp.setMinimumWidth(420)
+        self._search_inp.setPlaceholderText(
+            "Ex: AK-47 | Redline (Field-Tested)  •  Karambit | Doppler (Factory New)"
+        )
+        self._search_inp.setClearButtonEnabled(True)
+        self._search_inp.setStyleSheet(t.input_style())
+        self._search_inp.returnPressed.connect(self._on_search)
+        search_row.addWidget(self._search_inp, 1)
+
         self._search_btn = QPushButton("Consultar item")
         self._search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._search_btn.setStyleSheet(t.btn_primary())
@@ -110,45 +129,17 @@ class MarketScreen(QWidget):
             "ofertas.\nRespeita o rate-limit do Steam (~2s por consulta)."
         )
         self._search_btn.clicked.connect(self._on_search)
+        search_row.addWidget(self._search_btn)
 
-        root.addWidget(PageHeader(
-            "Consulta de Mercado",
-            "Análise de fair value, histórico de preços e profundidade do "
-            "livro de ofertas no Steam Community Market.",
-            actions=[self._search_btn],
-        ))
+        self._recent_act = QAction("▾", self._search_inp)
+        self._recent_act.triggered.connect(self._show_recent_menu)
+        self._search_inp.addAction(self._recent_act,
+                                   QLineEdit.ActionPosition.TrailingPosition)
 
-        # ── Search row (Toolbar) ──────────────────────────
-        tb = Toolbar()
+        self._recent_menu = QMenu(self)
+        self._recent_act.setVisible(False)
 
-        self._search_inp = QLineEdit()
-        self._search_inp.setPlaceholderText(
-            "Ex: AK-47 | Redline (Field-Tested)  •  Karambit | Doppler (Factory New)"
-        )
-        self._search_inp.setClearButtonEnabled(True)
-        self._search_inp.setStyleSheet(t.input_style())
-        self._search_inp.returnPressed.connect(self._on_search)
-        tb.add_left(self._search_inp)
-
-        self._recent_btn = QPushButton("Buscas recentes ▾")
-        self._recent_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._recent_btn.setStyleSheet(t.btn_ghost(padding="10px 14px",
-                                                   fs=t.FS_BODY))
-        self._recent_btn.setToolTip("Repete uma consulta recente desta sessão.")
-        self._recent_menu = QMenu(self._recent_btn)
-        self._recent_btn.setMenu(self._recent_menu)
-        self._recent_btn.setEnabled(False)
-        tb.add_right(self._recent_btn)
-
-        self._clear_btn = QPushButton("Limpar")
-        self._clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._clear_btn.setStyleSheet(t.btn_ghost(padding="10px 14px",
-                                                  fs=t.FS_BODY))
-        self._clear_btn.setToolTip("Limpa a busca e o resultado atual.")
-        self._clear_btn.clicked.connect(self._on_clear)
-        tb.add_right(self._clear_btn)
-
-        root.addWidget(tb)
+        root.addLayout(search_row)
 
         hint = QLabel(
             "Cole o nome exatamente como aparece no Steam Market — incluindo "
@@ -193,6 +184,7 @@ class MarketScreen(QWidget):
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict):
             sc.setMaximumWidth(280)
+            sc.setMaximumHeight(110)
             stats_row.addWidget(sc)
         stats_row.addStretch(1)
         content_lay.addLayout(stats_row)
@@ -282,10 +274,9 @@ class MarketScreen(QWidget):
         self._detail_msg.setStyleSheet(t.label_body_muted())
         detail_lay.addWidget(self._detail_msg)
 
-        self._detail_form = QFormLayout()
-        self._detail_form.setSpacing(6)
-        self._detail_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        detail_lay.addLayout(self._detail_form)
+        self._detail_grid = QGridLayout()
+        self._detail_grid.setSpacing(6)
+        detail_lay.addLayout(self._detail_grid)
 
         detail_card.layout().addLayout(detail_lay)
         content_lay.addWidget(detail_card)
@@ -297,7 +288,10 @@ class MarketScreen(QWidget):
         self._status.setStyleSheet(t.label_caption())
         content_lay.addWidget(self._status)
 
-        root.addWidget(self._content)
+        # Stretch final: spare space goes to bottom, not into cards
+        content_lay.addStretch(1)
+
+        root.addWidget(self._content, 1)
 
         self._empty = EmptyState(
             "◇", "Nada encontrado",
@@ -321,7 +315,14 @@ class MarketScreen(QWidget):
             act.triggered.connect(
                 lambda _checked=False, nm=n: self._search_and_run(nm)
             )
-        self._recent_btn.setEnabled(bool(self._recent))
+        self._recent_act.setVisible(bool(self._recent))
+
+    def _show_recent_menu(self) -> None:
+        if self._recent:
+            inp = self._search_inp
+            self._recent_menu.exec(
+                inp.mapToGlobal(inp.geometry().bottomLeft())
+            )
 
     def _push_recent(self, name: str) -> None:
         if name in self._recent:
@@ -335,20 +336,42 @@ class MarketScreen(QWidget):
         self._search_inp.setText(name)
         self._on_search()
 
-    def _clear_detail_form(self) -> None:
-        while self._detail_form.rowCount() > 0:
-            self._detail_form.removeRow(0)
+    def _clear_detail_grid(self) -> None:
+        while self._detail_grid.count() > 0:
+            item = self._detail_grid.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+                w.deleteLater()
+            else:
+                sub = item.layout()
+                if sub is not None:
+                    while sub.count():
+                        child = sub.takeAt(0)
+                        cw = child.widget()
+                        if cw is not None:
+                            cw.setParent(None)
+                            cw.deleteLater()
 
-    def _add_detail(self, label: str, value: str,
-                    color: str | None = None) -> None:
+    def _add_detail_row(self, label: str, value: str,
+                        color: str | None = None) -> None:
+        """Adiciona linha ao grid de detalhes: label_caption_bold | valor."""
+        row = self._detail_grid.rowCount()
         lbl = QLabel(label)
-        lbl.setStyleSheet(t.label_caption())
+        lbl.setStyleSheet(t.label_caption_bold())
         val = QLabel(value)
-        val.setStyleSheet(
-            f"color: {color or t.TEXT}; font-size: {t.FS_BODY};"
-            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
-        )
-        self._detail_form.addRow(lbl, val)
+        if color:
+            val.setStyleSheet(
+                f"color: {color}; font-size: {t.FS_BODY};"
+                f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+            )
+        else:
+            val.setStyleSheet(
+                f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+                f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+            )
+        self._detail_grid.addWidget(lbl, row, 0)
+        self._detail_grid.addWidget(val, row, 1)
 
     # ── acoes ─────────────────────────────────────────────
     def _on_search(self) -> None:
@@ -405,7 +428,7 @@ class MarketScreen(QWidget):
         )
         self._detail_msg.setStyleSheet(t.label_body_muted())
         self._case_badge.setVisible(False)
-        self._clear_detail_form()
+        self._clear_detail_grid()
         self._status.setText(
             "Pronto. Cole o nome de um item e clique em Consultar."
         )
@@ -532,21 +555,21 @@ class MarketScreen(QWidget):
             self._detail_msg.setText("Dados insuficientes para um veredito.")
             self._detail_msg.setStyleSheet(t.label_body_muted())
 
-        self._clear_detail_form()
+        self._clear_detail_grid()
         if overview:
-            self._add_detail("Menor listagem",
+            self._add_detail_row("Menor listagem",
                              t.brl(overview.get("lowest")))
-            self._add_detail("Mediana 24h",
+            self._add_detail_row("Mediana 24h",
                              t.brl(overview.get("median")))
             vol = overview.get("volume")
-            self._add_detail("Volume 24h",
+            self._add_detail_row("Volume 24h",
                              str(vol) if vol else "—")
             diff = verdict.get("diff_pct")
             if diff is not None:
                 color = t.ACCENT if diff <= 0 else (
                     t.WARN if diff <= 20 else t.DANGER
                 )
-                self._add_detail("Diferença vs mediana",
+                self._add_detail_row("Diferença vs mediana",
                                  f"{diff:+.1f}%", color=color)
         if page:
             ob = page.get("order_book") or {}
@@ -554,20 +577,20 @@ class MarketScreen(QWidget):
             sells = ob.get("sell_count") or 0
             approx = bool(page.get("order_book_approx"))
             approx_tag = "  (aprox. — outro wear)" if approx else ""
-            self._add_detail("Ordens de compra",
+            self._add_detail_row("Ordens de compra",
                              f"{buys}{approx_tag}",
                              color=t.WARN if approx else None)
-            self._add_detail("Listagens à venda",
+            self._add_detail_row("Listagens à venda",
                              f"{sells}{approx_tag}",
                              color=t.WARN if approx else None)
             if verdict.get("spread_verdict"):
-                self._add_detail("Spread",
+                self._add_detail_row("Spread",
                                  verdict.get("spread_verdict", "—"))
             if verdict.get("book_verdict"):
-                self._add_detail("Pressão do book",
+                self._add_detail_row("Pressão do book",
                                  verdict.get("book_verdict", "—"))
             if verdict.get("trend_verdict"):
-                self._add_detail("Tendência recente",
+                self._add_detail_row("Tendência recente",
                                  verdict.get("trend_verdict", "—"))
 
         if name:
