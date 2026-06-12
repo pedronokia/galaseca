@@ -98,7 +98,7 @@ class SimuladorScreen(QWidget):
         row2.setSpacing(16)
         self._qty_inp.setMinimum(1)
         self._qty_inp.setMaximum(999)
-        self._qty_inp.setStyleSheet(t.input_style())
+        self._qty_inp.setStyleSheet(t.spin_style())
         row2.addWidget(FormRow(
             "Quantidade (listagens)", self._qty_inp,
             tooltip="Cada unidade vira uma listagem separada. A taxa de 15% "

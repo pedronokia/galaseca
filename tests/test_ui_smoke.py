@@ -7450,3 +7450,65 @@ def test_overlay_mode_persiste_settings(monkeypatch):
     assert written and written[-1].get("overlay_mode") is True
     win.set_overlay_mode(False)
     assert written[-1].get("overlay_mode") is False
+
+
+# ── Frente R: helpers QSS (F11) ──────────────────────────────
+
+def test_checkbox_style_no_border_on_root():
+    """checkbox_style() nao tem 'border' no bloco do seletor raiz
+    'QCheckBox {' — a borda vive apenas no ::indicator."""
+    from skinvault.ui.theme import checkbox_style
+    qss = checkbox_style()
+    start = qss.index("QCheckBox {") + len("QCheckBox {")
+    brace = 1
+    i = start
+    while i < len(qss) and brace > 0:
+        if qss[i] == "{":
+            brace += 1
+        elif qss[i] == "}":
+            brace -= 1
+        i += 1
+    root_block = qss[start:i-1].strip()
+    assert "border" not in root_block, (
+        f"Root QCheckBox block should not contain 'border', got: {root_block}"
+    )
+    assert "::indicator" in qss, "checkbox_style() must style ::indicator"
+
+
+def test_checkbox_style_has_focus_green():
+    """Focus do indicator usa FOCUS_GREEN (nao ACCENT)."""
+    from skinvault.ui.theme import checkbox_style, FOCUS_GREEN
+    qss = checkbox_style()
+    assert f"border: 1px solid {FOCUS_GREEN}" in qss
+
+
+def test_spin_style_has_up_arrow_triangle():
+    """spin_style() usa border-triangle em ::up-arrow (width/height 0)."""
+    from skinvault.ui.theme import spin_style
+    qss = spin_style()
+    assert "border-left: 4px solid transparent" in qss, (
+        "::up-arrow should use CSS border triangle (transparent sides)"
+    )
+    assert "width: 0" in qss or "height: 0" in qss
+
+
+def test_spin_style_no_invalid_bi():
+    """spin_style() nao contem a propriedade invalida 'bi:' (removida)."""
+    from skinvault.ui.theme import spin_style
+    qss = spin_style()
+    assert "bi:" not in qss, "The invalid 'bi:' property was removed"
+
+
+def test_simulador_qspinbox_uses_spin_style():
+    """O QSpinBox de Quantidade no Simulador usa spin_style(), nao input_style()."""
+    from skinvault.ui.simulador_screen import SimuladorScreen
+    from PyQt6.QtWidgets import QSpinBox
+    screen = SimuladorScreen()
+    qty = screen.findChild(QSpinBox)
+    assert qty is not None, "SimuladorScreen deve ter um QSpinBox"
+    ss = qty.styleSheet()
+    assert ss != "", "QSpinBox deve ter styleSheet nao-vazio"
+    assert "up-button" in ss or "up-arrow" in ss, (
+        "styleSheet deve conter up-button/up-arrow de spin_style(), "
+        f"got: {ss[:200]}"
+    )

@@ -253,10 +253,11 @@ def btn_ghost(padding: str = "6px 14px", fs: str = FS_MUTED) -> str:
 
 
 def spin_style() -> str:
-    """QDoubleSpinBox / QSpinBox com setas escuras (no place do chrome nativo).
+    """QDoubleSpinBox / QSpinBox com setas triangulares CSS.
 
-    Up/down buttons tem 18px de largura, separados por border-left, setas
-    via pseudo-elementos up-arrow/down-arrow (triangulo CSS).
+    Up/down buttons tem 18px de largura, separados por border-left.
+    Setas via border-triangle (up-arrow = border-bottom, down-arrow =
+    border-top) com width/height 0.
     """
     return (
         f"QDoubleSpinBox, QSpinBox"
@@ -268,24 +269,33 @@ def spin_style() -> str:
         f" {{ border: 1px solid {ACCENT}; }}"
         f"QDoubleSpinBox::up-button, QSpinBox::up-button"
         f" {{ width: 18px; height: 14px; border-left: 1px solid {BORDER};"
-        f" border-bottom: 1px solid {BORDER};"
-        f" subcontrol-position: top right; bi: center top; }}"
+        f" subcontrol-position: top right; }}"
         f"QDoubleSpinBox::down-button, QSpinBox::down-button"
         f" {{ width: 18px; height: 14px; border-left: 1px solid {BORDER};"
-        f" subcontrol-position: bottom right; bi: center bottom; }}"
+        f" subcontrol-position: bottom right; }}"
         f"QDoubleSpinBox::up-arrow, QSpinBox::up-arrow"
-        f" {{ width: 6px; height: 4px; }}"
+        f" {{ width: 0; height: 0;"
+        f" border-left: 4px solid transparent;"
+        f" border-right: 4px solid transparent;"
+        f" border-bottom: 5px solid {TEXT_MUTED}; }}"
         f"QDoubleSpinBox::down-arrow, QSpinBox::down-arrow"
-        f" {{ width: 6px; height: 4px; }}"
+        f" {{ width: 0; height: 0;"
+        f" border-left: 4px solid transparent;"
+        f" border-right: 4px solid transparent;"
+        f" border-top: 5px solid {TEXT_MUTED}; }}"
+        f"QDoubleSpinBox::up-arrow:hover, QSpinBox::up-arrow:hover"
+        f" {{ border-bottom-color: {TEXT}; }}"
+        f"QDoubleSpinBox::down-arrow:hover, QSpinBox::down-arrow:hover"
+        f" {{ border-top-color: {TEXT}; }}"
     )
 
 
 def checkbox_style() -> str:
     """QCheckBox com indicator escuro 16x16, checked accent verde.
 
-    Indicador unchecked: bg SURFACE, border BORDER, radius 4.
-    Indicador checked:  bg ACCENT, border ACCENT.
-    Focus: borda ACCENT (mesmo padrao Frente C).
+    Root QCheckBox tem apenas color/font/spacing — SEM border, SEM
+    background. A borda vive apenas no ::indicator. Focus usa FOCUS_GREEN
+    (Frente C).
     """
     return (
         f"QCheckBox {{ color: {TEXT_MUTED}; font-size: {FS_MUTED};"
@@ -296,7 +306,7 @@ def checkbox_style() -> str:
         f" background: {SURFACE}; }}"
         f"QCheckBox::indicator:checked {{ background: {ACCENT};"
         f" border-color: {ACCENT}; }}"
-        f"QCheckBox:focus::indicator {{ border: 1px solid {ACCENT}; }}"
+        f"QCheckBox:focus::indicator {{ border: 1px solid {FOCUS_GREEN}; }}"
     )
 
 
