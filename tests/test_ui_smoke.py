@@ -1547,7 +1547,15 @@ def test_components_instantiation():
         StatCard, SegmentedControl, LockOverlay, ActivityFeed,
     )
     assert Card() is not None
-    assert StatCard("label", "value") is not None
+    sc = StatCard("label", "value")
+    assert sc is not None
+    sc.set_delta(5.5, "teste")
+    assert not sc._delta.isHidden()
+    assert "▲" in sc._delta.text()
+    sc.set_delta(-3.2, "perda")
+    assert "▼" in sc._delta.text()
+    sc.set_delta(None)
+    assert sc._delta.isHidden()
     assert Sidebar() is not None
     assert Breadcrumb() is not None
     assert Footer() is not None

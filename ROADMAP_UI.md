@@ -456,21 +456,19 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Resultado**: `PageHeader` implementado em `components.py` (52px, HBox=VBox(title+subtitle) + stretch + actions). Token `FS_TITLE_MD = "16pt"` adicionado. Todas as 7 telas migradas: Account (header "Minha Conta" + sync/validate/refresh viram actions no PageHeader — saíram do card de perfil), History ("Histórico" + subtitle), Scanner (title + combo + Escanear/Ranking/Validar como actions), Market ("Consulta de Mercado" + Consultar item como action), Trades ("Histórico de Trades" + Adicionar trade + "⋯" como actions), Simulador, Watchlist. Root margins padronizados para `(24, 16, 24, 16)` com spacing 12. `FS_TITLE` eliminado das screens (`grep` 0 hits). 1309 tests verdes. Screenshots regenerados.
 
-### Frente O — StatCards inteligentes: delta, contexto, estado neutro (esforço: 2h, impact: médio-alto) [deps: M]
+~~### Frente O — StatCards inteligentes: delta, contexto, estado neutro (esforço: 2h, impact: médio-alto) [deps: M]~~
 
-**Problema**: (1) KPIs mostram número seco sem variação nem contexto. (2) Cor semântica errada em estado neutro: Trades exibe "0% (0W / 0L)" em DANGER com zero trades (print 05) — vermelho significa perda, não ausência de dado. (3) Em 1920px os StatCards esticam igualmente (~450px pra um número de 8 chars — prints 03/05).
+~~**Problema**: (1) KPIs mostram número seco sem variação nem contexto. (2) Cor semântica errada em estado neutro: Trades exibe "0% (0W / 0L)" em DANGER com zero trades (print 05) — vermelho significa perda, não ausência de dado. (3) Em 1920px os StatCards esticam igualmente (~450px pra um número de 8 chars — prints 03/05).~~
 
-**Ação**:
-1. `StatCard.set_delta(pct: float | None, label: str = "")` em components.py: linha FS_MUTED sob o valor — `▲ +2,4% {label}` (ACCENT), `▼ -1,1%` (DANGER), `— {label}` (TEXT_MUTED); `None` esconde. Setas unicode ▲▼, nunca emoji.
-2. Ligar onde já há dado: Account "Valor bruto" → % vs penúltimo ponto de `history.load_history()` (a tela já carrega a série — grep `_reload_value_series` em account_screen.py); Trades "P&L líquido" → vs mês anterior via `trades.monthly_pnl()`; Watchlist "Alertas em 24h" → label "último: HH:MM" do alerts_log (sem %).
-3. Estado neutro: auditar `grep -n "set_value" skinvault/ui/*_screen.py` — valor zero-sem-dados usa `t.TEXT`/`t.TEXT_MUTED`, NUNCA DANGER/ACCENT. Pior ofensor: taxa de acerto do trades_screen.
-4. Proporção: `setMaximumWidth(300)` no StatCard + `addStretch(1)` no fim das KPI rows (Scanner, Trades, Watchlist, Market, Account) — cards alinham à esquerda em monitor largo.
+~~**Ação**:~~
+~~1. `StatCard.set_delta(pct: float | None, label: str = "")` em components.py: linha FS_MUTED sob o valor — `▲ +2,4% {label}` (ACCENT), `▼ -1,1%` (DANGER), `— {label}` (TEXT_MUTED); `None` esconde. Setas unicode ▲▼, nunca emoji.~~
+~~2. Ligar onde já há dado: Account "Valor bruto" → % vs penúltimo ponto de `history.load_history()` (a tela já carrega a série — grep `_reload_value_series` em account_screen.py); Trades "P&L líquido" → vs mês anterior via `trades.monthly_pnl()`; Watchlist "Alertas em 24h" → label "último: HH:MM" do alerts_log (sem %).~~
+~~3. Estado neutro: auditar `grep -n "set_value" skinvault/ui/*_screen.py` — valor zero-sem-dados usa `t.TEXT`/`t.TEXT_MUTED`, NUNCA DANGER/ACCENT. Pior ofensor: taxa de acerto do trades_screen.~~
+~~4. Proporção: `setMaximumWidth(300)` no StatCard + `addStretch(1)` no fim das KPI rows (Scanner, Trades, Watchlist, Market, Account) — cards alinham à esquerda em monitor largo.~~
 
-**Não fazer**: NÃO animar números (animated counter descartado na Frente F); sem sparkline dentro de StatCard (escopo).
+~~**Não fazer**: NÃO animar números (animated counter descartado na Frente F); sem sparkline dentro de StatCard (escopo).~~
 
-**Aceite**: zero DANGER em estado sem dados; ≥3 cards com delta real funcionando; cards ≤300px nas 5 telas; smoke tests de `set_delta` (3 estados).
-
-**Validação**: §4.3. Commit: `ui: StatCard com delta contextual + estado neutro sem cor semantica`.
+**Resultado**: `StatCard.set_delta()` implementado em components.py com 3 estados (▲ ACCENT, ▼ DANGER, — TEXT_MUTED) + `pct=None` para texto contextual. Dados ligados: Account "Valor bruto" → % vs penúltimo ponto do history; Trades "P&L líquido" → vs mês anterior via `monthly_pnl()`; Watchlist "Alertas em 24h" → timestamp do último alerta. Estado neutro fixado: `_stat_winrate` de trades usa `TEXT_MUTED` quando total=0 (antes DANGER). `setMaximumWidth(300)` + `addStretch(1)` aplicados nas 5 telas com KPI rows (Account: 2 rows, Scanner, Trades, Market, Watchlist). Smoke tests de `set_delta` (3 estados) adicionados. 1309 tests verdes. Screenshots regenerados.
 
 ### Frente P — Tabelas: zebra sutil, hover, headers íntegros, Watchlist legível (esforço: 2-3h, impact: alto) [deps: M]
 

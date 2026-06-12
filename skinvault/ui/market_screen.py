@@ -192,7 +192,9 @@ class MarketScreen(QWidget):
         )
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict):
-            stats_row.addWidget(sc, 1)
+            sc.setMaximumWidth(280)
+            stats_row.addWidget(sc)
+        stats_row.addStretch(1)
         content_lay.addLayout(stats_row)
 
         # ── Charts ────────────────────────────────────────

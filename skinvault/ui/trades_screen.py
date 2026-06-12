@@ -197,24 +197,29 @@ class TradesScreen(QWidget):
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
         self._stat_total = StatCard("Trades no filtro", "0")
+        self._stat_total.setMaximumWidth(200)
         self._stat_total.setToolTip(
             "Quantidade de trades que casam com o filtro atual."
         )
         self._stat_pnl = StatCard("P&L líquido", "—")
+        self._stat_pnl.setMaximumWidth(300)
         self._stat_pnl.setToolTip(
             "Lucro/prejuízo total já descontada a taxa Steam de 15%."
         )
         self._stat_winrate = StatCard("Taxa de acerto", "—")
+        self._stat_winrate.setMaximumWidth(300)
         self._stat_winrate.setToolTip(
             "% de trades com P&L positivo (winning trades / total)."
         )
         self._stat_fees = StatCard("Taxas pagas", "—")
+        self._stat_fees.setMaximumWidth(200)
         self._stat_fees.setToolTip(
             "Soma das taxas Steam (15%) pagas pelos trades no filtro."
         )
         for sc in (self._stat_total, self._stat_pnl, self._stat_winrate,
                    self._stat_fees):
-            stats_row.addWidget(sc, 1)
+            stats_row.addWidget(sc)
+        stats_row.addStretch(1)
         root.addLayout(stats_row)
 
         # Recent Matches strip — chips W/L horizontais
@@ -417,10 +422,29 @@ class TradesScreen(QWidget):
         pnl = stats["pnl_total"]
         pnl_c = t.ACCENT if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_c)
+        # Delta vs mes anterior
+        _monthly = trades_mod.monthly_pnl(trades=self._trades)
+        if len(_monthly) >= 2:
+            _prev_pnl = _monthly[-2]["pnl"]
+            _curr_pnl = _monthly[-1]["pnl"]
+            if _prev_pnl:
+                _dp = (_curr_pnl - _prev_pnl) / abs(_prev_pnl) * 100
+                self._stat_pnl.set_delta(_dp, "vs mês anterior")
+            else:
+                self._stat_pnl.set_delta(None)
+        else:
+            self._stat_pnl.set_delta(None)
 
         # win_rate ja vem em 0-100
         wr = stats.get("win_rate", 0) or 0
-        wr_c = t.ACCENT if wr >= 50 else (t.WARN if wr >= 30 else t.DANGER)
+        if stats["total"] == 0:
+            wr_c = t.TEXT_MUTED
+        elif wr >= 50:
+            wr_c = t.ACCENT
+        elif wr >= 30:
+            wr_c = t.WARN
+        else:
+            wr_c = t.DANGER
         wr_extra = f"  ({stats['win_count']}W / {stats['loss_count']}L)"
         self._stat_winrate.set_value(f"{wr:.0f}%{wr_extra}", accent=wr_c)
 

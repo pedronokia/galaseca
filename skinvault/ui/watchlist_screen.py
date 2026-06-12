@@ -261,7 +261,9 @@ class WatchlistScreen(QWidget):
                                        accent=t.WARN)
         for sc in (self._stat_total, self._stat_rules,
                    self._stat_triggered, self._stat_recent):
-            stats_row.addWidget(sc, 1)
+            sc.setMaximumWidth(280)
+            stats_row.addWidget(sc)
+        stats_row.addStretch(1)
         root.addLayout(stats_row)
 
         # Filtro de confianca (mesmo padrao do Scanner)
@@ -345,6 +347,18 @@ class WatchlistScreen(QWidget):
                                        accent=t.ACCENT if triggered else t.TEXT_MUTED)
         self._stat_recent.set_value(str(recent),
                                     accent=t.WARN if recent else t.TEXT_MUTED)
+        # Contexto: timestamp do ultimo alerta
+        if self._alerts_log:
+            _last_ts = self._alerts_log[-1].get("ts", 0)
+            if _last_ts:
+                _last_str = time.strftime("%H:%M",
+                                          time.localtime(_last_ts))
+                self._stat_recent.set_delta(None,
+                                            label=f"último: {_last_str}")
+            else:
+                self._stat_recent.set_delta(None)
+        else:
+            self._stat_recent.set_delta(None)
         self._populate()
 
     def _populate(self) -> None:

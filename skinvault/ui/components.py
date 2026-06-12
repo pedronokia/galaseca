@@ -185,7 +185,43 @@ class StatCard(Card):
         )
         self.layout().addWidget(self._label)
         self.layout().addWidget(self._value)
+        self._delta = QLabel("")
+        self._delta.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._delta.setVisible(False)
+        self.layout().addWidget(self._delta)
         self.setMinimumWidth(120)
+
+    def set_delta(self, pct: float | None,
+                  label: str = "") -> None:
+        """Mostra variacao sob o valor: ▲ +X,X% {label} ou ▼ -X,X% {label}.
+        pct=None + label vazio = esconde. pct=None + label preenchido =
+        mostra apenas o label (contexto textual, sem delta)."""
+        if pct is None and not label:
+            self._delta.setVisible(False)
+            return
+        self._delta.setVisible(True)
+        if pct is None:
+            self._delta.setText(label)
+            self._delta.setStyleSheet(t.label_caption())
+            return
+        if pct > 0:
+            prefix = chr(9650)  # ▲
+            color = t.ACCENT
+            formatted = f"+{pct:.1f}%".replace(".", ",")
+        elif pct < 0:
+            prefix = chr(9660)  # ▼
+            color = t.DANGER
+            formatted = f"{pct:.1f}%".replace(".", ",")
+        else:
+            prefix = chr(8212)  # —
+            color = t.TEXT_MUTED
+            formatted = "0,0%"
+        suffix = f" {label}" if label else ""
+        self._delta.setText(f"{prefix} {formatted}{suffix}")
+        self._delta.setStyleSheet(
+            f"color: {color}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
+        )
 
     def set_value(self, value: str, accent: str | None = None) -> None:
         self._value.setText(value)

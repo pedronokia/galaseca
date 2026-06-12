@@ -193,13 +193,18 @@ class AccountScreen(QWidget):
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
         self._stat_gross = StatCard("Valor bruto (Market)", "—")
+        self._stat_gross.setMaximumWidth(300)
         self._stat_net = StatCard("Valor líquido (-15%)", "—",
                                   accent=t.STEAM_BLUE)
+        self._stat_net.setMaximumWidth(300)
         self._stat_pnl = StatCard("P&L total", "—")
+        self._stat_pnl.setMaximumWidth(300)
         self._stat_items = StatCard("Total de itens", "0")
+        self._stat_items.setMaximumWidth(300)
         for sc in (self._stat_gross, self._stat_net, self._stat_pnl,
                    self._stat_items):
-            stats_row.addWidget(sc, 1)
+            stats_row.addWidget(sc)
+        stats_row.addStretch(1)
         header.layout().addLayout(stats_row)
 
         root.addWidget(header)
@@ -215,15 +220,21 @@ class AccountScreen(QWidget):
         bd_row = QHBoxLayout()
         bd_row.setSpacing(20)
         self._bd_invested = StatCard("Total investido", "—")
+        self._bd_invested.setMaximumWidth(300)
         self._bd_profit_count = StatCard("Itens no lucro", "—",
                                          accent=t.ACCENT)
+        self._bd_profit_count.setMaximumWidth(300)
         self._bd_loss_count = StatCard("Itens no prejuizo", "—",
                                        accent=t.DANGER)
+        self._bd_loss_count.setMaximumWidth(300)
         self._bd_best = StatCard("Melhor P&L", "—")
+        self._bd_best.setMaximumWidth(300)
         self._bd_worst = StatCard("Pior P&L", "—", accent=t.DANGER)
+        self._bd_worst.setMaximumWidth(300)
         for sc in (self._bd_invested, self._bd_profit_count,
                    self._bd_loss_count, self._bd_best, self._bd_worst):
-            bd_row.addWidget(sc, 1)
+            bd_row.addWidget(sc)
+        bd_row.addStretch(1)
         bd_lay.addLayout(bd_row)
 
         vc_lbl = QLabel("Evolução do valor bruto — cada avaliação grava um ponto")
@@ -547,6 +558,18 @@ class AccountScreen(QWidget):
         self._empty_hero.setVisible(is_empty)
         # Atualiza stats
         self._stat_gross.set_value(t.brl(totals.get("market") or 0))
+        # Delta do valor bruto vs penultimo ponto do historico
+        _series = history.load_history()
+        if len(_series) >= 2:
+            _prev = _series[-2].get("total", 0) or 0
+            _curr = _series[-1].get("total", 0) or 0
+            if _prev and _curr:
+                self._stat_gross.set_delta(
+                    (_curr - _prev) / _prev * 100)
+            else:
+                self._stat_gross.set_delta(None)
+        else:
+            self._stat_gross.set_delta(None)
         self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
                                  accent=t.STEAM_BLUE)
         pnl = totals.get("pnl") or 0

@@ -911,10 +911,14 @@ class ScannerScreen(QWidget):
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
         self._stat_count = StatCard("Itens escaneados", "0")
+        self._stat_count.setMaximumWidth(300)
         self._stat_best = StatCard("Melhor score", "—")
+        self._stat_best.setMaximumWidth(300)
         self._stat_avg = StatCard("Score medio", "—")
+        self._stat_avg.setMaximumWidth(300)
         for sc in (self._stat_count, self._stat_best, self._stat_avg):
-            stats_row.addWidget(sc, 1)
+            stats_row.addWidget(sc)
+        stats_row.addStretch(1)
         root.addLayout(stats_row)
 
         # Loading state (mostrado durante scan/validacao)
