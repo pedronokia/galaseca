@@ -46,6 +46,7 @@ from skinvault.ui.components import (
     SegmentedControl,
     Toolbar,
 )
+from skinvault.ui.widgets import MonthBarChart, month_label_full
 
 
 # ── Dialog: simular trade ────────────────────────────────────
@@ -422,6 +423,7 @@ class HistoryScreen(QWidget):
         self._initial_periodo = settings.get("history_last_periodo", "all")
         self._matched_cache: list[trade_matcher.ClosedTrade] | None = None
         self._open_cache: list[trade_matcher.OpenBuy] | None = None
+        self._month_filter: str | None = None
         self._price_cache = cache or PriceCache()
         self._price_worker = BatchPriceWorker(self._price_cache, self)
         self._price_worker.batch_done.connect(self._on_prices_updated)
@@ -503,6 +505,19 @@ class HistoryScreen(QWidget):
         self._filter_panel.filters_changed.connect(self.refresh)
         root.addWidget(self._filter_panel)
 
+        # Card P&L mensal — visivel apenas no segmento Trades
+        self._month_card = Card(self, padding=t.CARD_PAD_MD)
+        self._month_card.layout().addWidget(SectionHeader(
+            "P&L mensal",
+            "Clique numa barra pra filtrar a tabela naquele mês;"
+            " clique de novo pra limpar.",
+        ))
+        self._month_chart = MonthBarChart()
+        self._month_chart.month_clicked.connect(self._on_month_clicked)
+        self._month_card.layout().addWidget(self._month_chart)
+        self._month_card.setVisible(False)
+        root.addWidget(self._month_card)
+
         self._loading = LoadingState("Carregando…")
         self._loading.setVisible(False)
         self._loading.setMinimumHeight(160)
@@ -571,8 +586,23 @@ class HistoryScreen(QWidget):
         self._current_segment = key
         self._filter_panel.set_tipo_visible(key == "market")
         self._update_prices_btn.setVisible(key == "open")
+        self._month_card.setVisible(key == "trades")
+        if self._month_filter is not None:
+            self._month_filter = None
+            self._month_chart.set_selected(None)
         self._persist_state()
         self.refresh()
+
+    def _on_month_clicked(self, key: str) -> None:
+        """Toggle do filtro de mes vindo do MonthBarChart."""
+        self._month_filter = None if key == self._month_filter else key
+        self._month_chart.set_selected(self._month_filter)
+        self.refresh()
+
+    def _match_month(self, ts: float) -> bool:
+        if not self._month_filter:
+            return True
+        return trades._month_key(ts) == self._month_filter
 
     def _on_update_prices(self) -> None:
         opens = self._open_cache or []
@@ -612,6 +642,10 @@ class HistoryScreen(QWidget):
         seg = self._current_segment
         row_meta = None
         if seg == "trades":
+            # Chart sempre com todos os meses — o filtro de mes age na tabela
+            self._month_chart.set_months(
+                trades.monthly_pnl(trades.load_trades())
+            )
             headers, rows, count, pnl_col, pnl_vals = self._load_trades()
         elif seg == "matched":
             headers, rows, count, pnl_col, pnl_vals = self._load_matched()
@@ -652,7 +686,11 @@ class HistoryScreen(QWidget):
                 f"{len(opens)} compras abertas • {t.brl(total)} investido"
             )
         else:
-            self._status.setText(f"{count} registro(s)")
+            txt = f"{count} registro(s)"
+            if seg == "trades" and self._month_filter:
+                txt += (f" • mês: {month_label_full(self._month_filter)}"
+                        " (clique na barra de novo pra limpar)")
+            self._status.setText(txt)
 
     # ── loaders ──────────────────────────────────────────
     def _load_trades(self):
@@ -664,6 +702,8 @@ class HistoryScreen(QWidget):
                          reverse=True):
             ts = tr.get("sell_ts", 0)
             if not _in_period(ts, periodo):
+                continue
+            if not self._match_month(ts):
                 continue
             if not self._match_search(tr.get("name", "")):
                 continue

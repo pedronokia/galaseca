@@ -5397,6 +5397,176 @@ def test_valuechart_flat():
     pix = w.grab()
     assert not pix.isNull()
 
+def test_month_label_pt_br():
+    """month_label converte '%Y-%m' pra mes curto pt-BR (fix do '202')."""
+    from skinvault.ui.widgets import month_label, month_label_full
+    assert month_label("2025-01") == "Jan"
+    assert month_label("2024-12") == "Dez"
+    # fallback: key fora do formato mantem comportamento antigo ([:3])
+    assert month_label("Janeiro") == "Jan"
+    assert month_label_full("2025-03") == "Março 2025"
+    assert month_label_full("Janeiro") == "Janeiro"
+
+def test_monthbar_click_emite_mes():
+    """Clique numa barra emite month_clicked com a key '%Y-%m'."""
+    from PyQt6.QtCore import QPoint, Qt
+    from PyQt6.QtTest import QTest
+    from skinvault.ui.widgets import MonthBarChart
+    w = MonthBarChart()
+    w.resize(400, 120)
+    w.set_months([
+        {"month": "2025-01", "pnl": 100.0},
+        {"month": "2025-02", "pnl": -50.0},
+        {"month": "2025-03", "pnl": 75.0},
+    ])
+    received = []
+    w.month_clicked.connect(received.append)
+    bar_w = w._bar_w()
+    x = 10 + 1 * (bar_w + 4) + bar_w // 2  # centro da 2a coluna
+    QTest.mouseClick(w, Qt.MouseButton.LeftButton,
+                     Qt.KeyboardModifier.NoModifier, QPoint(x, 60))
+    assert received == ["2025-02"]
+
+def test_monthbar_click_fora_nao_emite():
+    """Clique fora das colunas (margens) nao emite signal."""
+    from PyQt6.QtCore import QPoint, Qt
+    from PyQt6.QtTest import QTest
+    from skinvault.ui.widgets import MonthBarChart
+    w = MonthBarChart()
+    w.resize(400, 120)
+    w.set_months([{"month": "2025-01", "pnl": 100.0}])
+    received = []
+    w.month_clicked.connect(received.append)
+    # margem esquerda (x<10) e depois da unica coluna
+    QTest.mouseClick(w, Qt.MouseButton.LeftButton,
+                     Qt.KeyboardModifier.NoModifier, QPoint(2, 60))
+    QTest.mouseClick(w, Qt.MouseButton.LeftButton,
+                     Qt.KeyboardModifier.NoModifier, QPoint(398, 60))
+    assert received == []
+
+def test_monthbar_selected_destaca_e_reseta():
+    """set_selected destaca a barra; set_months sem o mes limpa selecao."""
+    from skinvault.ui.widgets import MonthBarChart
+    w = MonthBarChart()
+    w.resize(400, 120)
+    w.set_months([
+        {"month": "2025-01", "pnl": 100.0},
+        {"month": "2025-02", "pnl": -50.0},
+    ])
+    w.set_selected("2025-01")
+    assert w._selected == "2025-01"
+    pix = w.grab()
+    assert not pix.isNull()
+    # serie nova sem o mes selecionado reseta a selecao
+    w.set_months([{"month": "2025-04", "pnl": 10.0}])
+    assert w._selected is None
+    w.set_selected(None)
+    assert w._selected is None
+
+
+# ── MonthBarChart na HistoryScreen + ValueChart na AccountScreen ──
+
+def _trade_fake(name, sell_ts, pnl):
+    return {"name": name, "sell_ts": sell_ts, "buy_ts": sell_ts - 86400,
+            "quantity": 1, "buy_cost": 10.0, "sell_price": 12.0,
+            "net_received": 10.2, "pnl": pnl, "source": "manual"}
+
+
+def _history_screen_com_trades(monkeypatch):
+    import calendar
+    from skinvault.ui.history_screen import HistoryScreen
+    ts_jan = calendar.timegm((2025, 1, 15, 12, 0, 0))
+    ts_fev = calendar.timegm((2025, 2, 15, 12, 0, 0))
+    data = [_trade_fake("Item Jan", ts_jan, 5.0),
+            _trade_fake("Item Fev", ts_fev, -2.0)]
+    monkeypatch.setattr("skinvault.trades.load_trades",
+                        lambda *a, **kw: list(data))
+    monkeypatch.setattr("skinvault.ui.history_screen.load_settings",
+                        lambda: {})
+    monkeypatch.setattr("skinvault.ui.history_screen.save_settings",
+                        lambda s: None)
+    return HistoryScreen()
+
+
+def test_history_month_chart_alimentado_no_segmento_trades(monkeypatch):
+    """Segmento trades alimenta o chart com trade_stats()['monthly']."""
+    screen = _history_screen_com_trades(monkeypatch)
+    screen._on_segment("trades")
+    assert [m["month"] for m in screen._month_chart._months] == \
+        ["2025-01", "2025-02"]
+    assert not screen._month_card.isHidden()
+
+
+def test_history_filtro_mes_toggle(monkeypatch):
+    """Clique na barra filtra a tabela no mes; clique de novo limpa."""
+    screen = _history_screen_com_trades(monkeypatch)
+    screen._on_segment("trades")
+    assert screen._table.rowCount() == 2
+    screen._on_month_clicked("2025-01")
+    assert screen._month_filter == "2025-01"
+    assert screen._table.rowCount() == 1
+    assert screen._table.item(0, 1).text() == "Item Jan"
+    assert "Janeiro 2025" in screen._status.text()
+    # toggle: clicar no mesmo mes limpa o filtro
+    screen._on_month_clicked("2025-01")
+    assert screen._month_filter is None
+    assert screen._table.rowCount() == 2
+
+
+def test_history_trocar_segmento_limpa_filtro_mes(monkeypatch):
+    """Filtro de mes e' efemero: trocar de segmento reseta e esconde card."""
+    screen = _history_screen_com_trades(monkeypatch)
+    screen._on_segment("trades")
+    screen._on_month_clicked("2025-02")
+    assert screen._month_filter == "2025-02"
+    screen._on_segment("all")
+    assert screen._month_filter is None
+    assert screen._month_card.isHidden()
+    screen._on_segment("trades")
+    assert not screen._month_card.isHidden()
+
+
+def test_account_grava_snapshot_com_dedup(monkeypatch):
+    """_on_eval grava snapshot do valor bruto; total repetido nao regrava."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    stored = [{"ts": 1.0, "total": 50.0}]
+    recorded = []
+    monkeypatch.setattr("skinvault.history.load_history",
+                        lambda *a, **kw: list(stored))
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda total, *a, **kw: recorded.append(total))
+    screen = AccountScreen(PriceCache(ttl=3600))
+    row = {"name": "AK Fake", "quantity": 1, "price": 100.0,
+           "market": 100.0, "net_if_sold": 85.0, "pnl": 10.0,
+           "cost_total": 90.0}
+    payload = {"rows": [row],
+               "totals": {"market": 100.0, "net_if_sold": 85.0, "pnl": 10.0},
+               "positions": [{"name": "AK Fake", "source": "manual"}]}
+    screen._on_eval(payload)
+    assert recorded == [100.0]
+    # simula o ponto gravado; mesmo total de novo -> dedup pula
+    stored.append({"ts": 2.0, "total": 100.0})
+    screen._on_eval(payload)
+    assert recorded == [100.0]
+    # serie chegou no grafico
+    assert screen._value_chart._values == [50.0, 100.0]
+
+
+def test_account_sem_rows_nao_grava_snapshot(monkeypatch):
+    """Inventario vazio nao polui history.json com zeros."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    recorded = []
+    monkeypatch.setattr("skinvault.history.load_history",
+                        lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda total, *a, **kw: recorded.append(total))
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": [], "totals": {}, "positions": []})
+    assert recorded == []
+
+
 def test_minisparkline_init():
     """MiniSparkline paints empty state."""
     from skinvault.ui.widgets import MiniSparkline

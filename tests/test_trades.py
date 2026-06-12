@@ -219,3 +219,28 @@ def test_filter_trades_pnl_loss(tmp_path):
     r = trades.filter_trades(pnl="loss", path=p)
     assert len(r) == 1
     assert r[0]["name"] == "B"
+
+
+def test_monthly_pnl_agrupa_e_ordena():
+    """monthly_pnl agrega por mes gmtime, ordenado, com count e soma."""
+    import calendar
+    ts_jan = calendar.timegm((2025, 1, 10, 0, 0, 0))
+    ts_fev = calendar.timegm((2025, 2, 10, 0, 0, 0))
+    data = [
+        {"sell_ts": ts_fev, "pnl": -3.0},
+        {"sell_ts": ts_jan, "pnl": 10.0},
+        {"sell_ts": ts_jan, "pnl": 2.5},
+    ]
+    out = trades.monthly_pnl(data)
+    assert out == [
+        {"month": "2025-01", "trades": 2, "pnl": 12.5},
+        {"month": "2025-02", "trades": 1, "pnl": -3.0},
+    ]
+
+
+def test_monthly_pnl_tolera_trade_legado():
+    """Trade sem net_received/buy_ts nao quebra (so usa sell_ts/pnl)."""
+    out = trades.monthly_pnl([{"sell_ts": 0, "pnl": 1.0}, {}])
+    assert out[0]["month"] == "1970-01"
+    assert out[0]["trades"] == 2
+    assert out[0]["pnl"] == 1.0

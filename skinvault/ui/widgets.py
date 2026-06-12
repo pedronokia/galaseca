@@ -7,24 +7,124 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QToolTip, QWidget
 
 from skinvault.ui import theme as t
 
+_MES_CURTO = {
+    "01": "Jan", "02": "Fev", "03": "Mar", "04": "Abr",
+    "05": "Mai", "06": "Jun", "07": "Jul", "08": "Ago",
+    "09": "Set", "10": "Out", "11": "Nov", "12": "Dez",
+}
+_MES_LONGO = {
+    "01": "Janeiro", "02": "Fevereiro", "03": "Março", "04": "Abril",
+    "05": "Maio", "06": "Junho", "07": "Julho", "08": "Agosto",
+    "09": "Setembro", "10": "Outubro", "11": "Novembro", "12": "Dezembro",
+}
+
+
+def month_label(key: str) -> str:
+    """Label curto pt-BR pra key '%Y-%m' ('2025-01' -> 'Jan').
+
+    Keys fora do formato (ex.: 'Janeiro') caem no comportamento
+    antigo: primeiros 3 caracteres."""
+    if len(key) == 7 and key[4] == "-":
+        nome = _MES_CURTO.get(key[5:7])
+        if nome:
+            return nome
+    return key[:3]
+
+
+def month_label_full(key: str) -> str:
+    """'2025-01' -> 'Janeiro 2025' (fallback: a propria key)."""
+    if len(key) == 7 and key[4] == "-":
+        nome = _MES_LONGO.get(key[5:7])
+        if nome:
+            return f"{nome} {key[:4]}"
+    return key
+
 
 class MonthBarChart(QWidget):
-    """Barras do P&L mensal (custom paint)."""
+    """Barras do P&L mensal (custom paint).
+
+    Clique numa barra emite month_clicked com a key do mes ('%Y-%m') --
+    a tela dona decide o que fazer (ex.: filtrar a tabela naquele mes).
+    set_selected() destaca a barra do filtro ativo; as demais esmaecem.
+    """
+
+    month_clicked = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self._months: list[dict] = []
+        self._selected: str | None = None
+        self._hover_idx: int | None = None
         self.setMinimumHeight(120)
+        self.setMouseTracking(True)
 
     def set_months(self, months: list[dict]) -> None:
         self._months = list(months)
+        if self._selected is not None and not any(
+                m.get("month") == self._selected for m in self._months):
+            self._selected = None
+        self._hover_idx = None
         self.update()
+
+    def set_selected(self, key: str | None) -> None:
+        self._selected = key or None
+        self.update()
+
+    def _bar_w(self) -> int:
+        return max(8, (self.width() - 20) // len(self._months) - 4)
+
+    def _bar_index_at(self, x: float) -> int | None:
+        """Indice da barra na coordenada x (coluna inteira, incl. gap)."""
+        if not self._months:
+            return None
+        idx = int((x - 10) // (self._bar_w() + 4))
+        if idx < 0 or idx >= len(self._months):
+            return None
+        return idx
+
+    def mouseMoveEvent(self, evt) -> None:  # noqa: N802
+        idx = self._bar_index_at(evt.position().x())
+        if idx != self._hover_idx:
+            self._hover_idx = idx
+            self.update()
+        if idx is not None:
+            m = self._months[idx]
+            key = m.get("month", "")
+            txt = f"{month_label_full(key)} — P&L {t.brl(m.get('pnl', 0))}"
+            n_trades = m.get("trades")
+            if n_trades:
+                plural = "s" if n_trades != 1 else ""
+                txt += f" ({n_trades} trade{plural})"
+            if key and key == self._selected:
+                txt += "\nClique de novo pra limpar o filtro."
+            else:
+                txt += "\nClique pra filtrar o historico neste mes."
+            QToolTip.showText(evt.globalPosition().toPoint(), txt, self)
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        else:
+            self.setCursor(Qt.CursorShape.ArrowCursor)
+        super().mouseMoveEvent(evt)
+
+    def leaveEvent(self, evt) -> None:  # noqa: N802
+        if self._hover_idx is not None:
+            self._hover_idx = None
+            self.update()
+        super().leaveEvent(evt)
+
+    def mousePressEvent(self, evt) -> None:  # noqa: N802
+        if evt.button() == Qt.MouseButton.LeftButton:
+            idx = self._bar_index_at(evt.position().x())
+            if idx is not None:
+                key = self._months[idx].get("month", "")
+                if key:
+                    self.month_clicked.emit(key)
+        super().mousePressEvent(evt)
 
     def paintEvent(self, _evt) -> None:  # noqa: N802
         p = QPainter(self)
@@ -36,26 +136,46 @@ class MonthBarChart(QWidget):
                        "Sem dados mensais")
             p.end()
             return
-        bar_w = max(8, (w - 20) // len(self._months) - 4)
+        bar_w = self._bar_w()
         all_pnl = [m["pnl"] for m in self._months]
-        mx = max(abs(v) for v in all_pnl) or 1
+        # Baseline dinamica: meses negativos descem a partir do zero
+        # (o paint antigo fixava o zero no fundo e clipava as barras
+        # negativas e os labels — nunca visto porque o widget era orfao)
+        max_pos = max(0.0, max(all_pnl))
+        max_neg = max(0.0, -min(all_pnl))
+        rng = (max_pos + max_neg) or 1.0
+        top = 4
+        bottom = h - 12  # 12px reservados pros labels dos meses
+        usable = max(1, bottom - top)
+        baseline = top + (max_pos / rng) * usable
         p.setFont(QFont("Segoe UI", 7))
+
+        base_pen = QPen(QColor(t.BORDER))
+        base_pen.setWidthF(1)
+        p.setPen(base_pen)
+        p.drawLine(10, int(baseline), w - 10, int(baseline))
+
         for i, m in enumerate(self._months):
             pnl = m["pnl"]
-            bar_h = int((abs(pnl) / mx) * (h - 24))
+            key = m.get("month", "")
+            is_selected = self._selected is not None and key == self._selected
+            bar_h = max(1, int((abs(pnl) / rng) * usable))
             x = 10 + i * (bar_w + 4)
-            if pnl >= 0:
-                y = h - 12 - bar_h
-                p.setBrush(QColor(t.ACCENT))
+            fill = QColor(t.ACCENT if pnl >= 0 else t.DANGER)
+            if self._selected is not None and not is_selected:
+                fill.setAlpha(90)
+            y = int(baseline) - bar_h if pnl >= 0 else int(baseline)
+            p.setBrush(fill)
+            if is_selected:
+                p.setPen(QPen(QColor(t.TEXT), 1.5))
+            elif i == self._hover_idx:
+                p.setPen(QPen(QColor(t.TEXT_MUTED), 1))
             else:
-                y = h - 12
-                p.setBrush(QColor(t.DANGER))
-            p.setPen(Qt.PenStyle.NoPen)
-            p.drawRoundedRect(x, y, bar_w, max(bar_h, 1), 2, 2)
-            p.setPen(QColor(t.TEXT_MUTED))
-            month_short = m["month"][:3]
-            p.drawText(x, h - 1, bar_w, 10,
-                       Qt.AlignmentFlag.AlignCenter, month_short)
+                p.setPen(Qt.PenStyle.NoPen)
+            p.drawRoundedRect(x, y, bar_w, bar_h, 2, 2)
+            p.setPen(QColor(t.TEXT if is_selected else t.TEXT_MUTED))
+            p.drawText(x, h - 11, bar_w, 10,
+                       Qt.AlignmentFlag.AlignCenter, month_label(key))
         p.end()
 
 

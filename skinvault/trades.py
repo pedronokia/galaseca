@@ -148,17 +148,7 @@ def trade_stats(trades: list[dict] | None = None,
         for t in trades if t["sell_ts"] > t["buy_ts"]
     ]
     avg_days = round(sum(days_list) / len(days_list), 1) if days_list else 0
-    monthly: dict[str, list] = {}
-    for t in trades:
-        key = _month_key(t.get("sell_ts", t.get("buy_ts", 0)))
-        monthly.setdefault(key, []).append(t)
-    monthly_stats = [
-        {
-            "month": k, "trades": len(v),
-            "pnl": round(sum(t["pnl"] for t in v), 2),
-        }
-        for k, v in sorted(monthly.items())
-    ]
+    monthly_stats = monthly_pnl(trades)
     return {
         "total": total,
         "pnl_total": round(pnl_total, 2),
@@ -172,6 +162,24 @@ def trade_stats(trades: list[dict] | None = None,
         "fees_total": round(fees_total, 2),
         "avg_days": avg_days,
     }
+
+
+def monthly_pnl(trades: list[dict]) -> list[dict]:
+    """Agrega P&L por mes. Cada item: {month: '%Y-%m', trades: n, pnl: x}.
+
+    So exige sell_ts/buy_ts e pnl — tolera trades legados sem as demais
+    chaves (alimenta o MonthBarChart da History)."""
+    monthly: dict[str, list] = {}
+    for t in trades:
+        key = _month_key(t.get("sell_ts", t.get("buy_ts", 0)))
+        monthly.setdefault(key, []).append(t)
+    return [
+        {
+            "month": k, "trades": len(v),
+            "pnl": round(sum(t.get("pnl", 0) for t in v), 2),
+        }
+        for k, v in sorted(monthly.items())
+    ]
 
 
 def _month_key(ts: float) -> str:

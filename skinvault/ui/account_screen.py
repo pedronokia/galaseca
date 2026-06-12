@@ -32,10 +32,11 @@ from PyQt6.QtWidgets import (
 
 from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
-from skinvault import prices, signals, ssr_cache, steam_session
+from skinvault import history, prices, signals, ssr_cache, steam_session
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
 from skinvault.ui.components import ActivityFeed, Avatar, Card, EmptyState, LoadingState, StatCard
+from skinvault.ui.widgets import ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
     load_avatar_bytes,
@@ -220,6 +221,14 @@ class AccountScreen(QWidget):
                    self._bd_loss_count, self._bd_best, self._bd_worst):
             bd_row.addWidget(sc, 1)
         bd_lay.addLayout(bd_row)
+
+        vc_lbl = QLabel("Evolução do valor bruto — cada avaliação grava um ponto")
+        vc_lbl.setStyleSheet(t.label_caption())
+        bd_lay.addWidget(vc_lbl)
+        self._value_chart = ValueChart()
+        bd_lay.addWidget(self._value_chart)
+        self._reload_value_series()
+
         breakdown_card.layout().addLayout(bd_lay)
         self._breakdown_card = breakdown_card
         root.addWidget(breakdown_card)
@@ -372,6 +381,22 @@ class AccountScreen(QWidget):
         except Exception:
             events = []
         self._activity_feed.set_events(events)
+
+    def _reload_value_series(self) -> None:
+        """Recarrega data/history.json no grafico de evolucao do valor."""
+        series = history.load_history()
+        self._value_chart.set_series(
+            [p.get("total", 0.0) for p in series]
+        )
+
+    def _record_value_snapshot(self, total: float) -> None:
+        """Grava ponto de valor — pula se igual ao ultimo (o schedule de
+        30min re-avalia com cache; sem o dedup o arquivo encheria de
+        pontos repetidos)."""
+        series = history.load_history()
+        if series and series[-1].get("total") == float(total):
+            return
+        history.record_snapshot(total)
 
     def _on_eval_progress(self, done: int, total: int) -> None:
         self._status.setText(f"Avaliando inventario... {done}/{total}")
@@ -553,6 +578,13 @@ class AccountScreen(QWidget):
             accent=t.DANGER
         )
         self._bd_worst.setToolTip(_ln(worst.get("name", "")) if worst else "")
+
+        # Evolucao do valor: grava snapshot (GUI alimenta o mesmo
+        # history.json do CLI) e re-renderiza a serie
+        total_market = totals.get("market")
+        if rows and total_market:
+            self._record_value_snapshot(total_market)
+        self._reload_value_series()
 
         # Atualiza tabela
         self._populate_table(rows, data["positions"])

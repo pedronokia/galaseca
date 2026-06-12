@@ -322,8 +322,8 @@ FS_DISPLAY   = "36pt"   # Big number (score)
 ~~**Sugestões**:~~
 ~~- **Hover tooltip** em MiniSparkline mostrando preço + data no ponto.~~ ✅
 ~~- **DepthChart**: mostrar best_bid/best_ask como labels nas pontas, não só linha dashed.~~ ✅
-- **MonthBarChart**: clicar numa barra abre filter da History naquele mês. **Bloqueado: widget órfão** (vide abaixo).
-- **ValueChart**: animação de transição quando série atualiza. **Bloqueado: widget órfão**.
+~~- **MonthBarChart**: clicar numa barra abre filter da History naquele mês.~~ ✅ (montado na History — vide decisão abaixo)
+- **ValueChart**: animação de transição quando série atualiza. (Desbloqueado — widget montado na Account; animação segue como ideia futura.)
 
 **Resultado**:
 - **Bug encontrado e corrigido**: `market_screen` lia `x["price"]` do price_history, mas o formato SSR é `{time, price_median, purchases}` — o sparkline do Market **nunca renderizou dados** (sempre "Sem historico" com meta dizendo "5000 pontos"). O mock do teste usava o formato errado e mascarava o bug. Fix + regression test.
@@ -332,7 +332,11 @@ FS_DISPLAY   = "36pt"   # Big number (score)
 - **Caps de altura removidos** (sparkline max 50, depth max 160): Market é o único consumidor real e os caps empurravam o espaço sobrando pro header do card — era isso que centralizava o label no meio do card nos prints antigos.
 - 5 tests novos; suíte 1292.
 
-**⚠️ Descoberta — MonthBarChart e ValueChart são órfãos**: nenhuma tela monta os dois desde a migração tabs→screens (F11); só os smoke tests os referenciam. O import de MiniSparkline no account_screen também era morto (removido). Click-filter e animação não foram implementados — seria feature em código morto. **Decisão pendente (Pedro)**: montar MonthBarChart na History (P&L mensal) e ValueChart na Account (evolução do valor), ou deletar ambos + seus 10 smoke tests.
+**⚠️ Descoberta — MonthBarChart e ValueChart eram órfãos**: nenhuma tela montava os dois desde a migração tabs→screens (F11); só os smoke tests os referenciavam. O import de MiniSparkline no account_screen também era morto (removido). **Decisão (Pedro, jun/2026): MONTAR os dois.** Resultado:
+- **MonthBarChart** montado na History: card "P&L mensal" visível só no segmento Trades, alimentado por `trades.monthly_pnl()` (agregação mensal extraída de `trade_stats()` — a tela não exige as chaves de fees/days que o stats completo requer). Clique numa barra filtra a tabela naquele mês via `month_clicked` (pyqtSignal; toggle — clicar de novo ou trocar de segmento limpa); hover tooltip com mês completo + P&L + nº de trades; barra do filtro destacada, demais esmaecidas.
+- **Bugs herdados corrigidos na montagem** (nunca vistos porque era código morto): labels dos meses eram pintados em `y=h-1` (clipados pra fora do widget) e barras negativas desciam de `h-12` com só 12px de espaço (amputadas). Paint refeito com baseline dinâmica + linha de zero; label `[:3]` renderizava "202" para keys `%Y-%m` — agora `month_label()` pt-BR (Jan...Dez).
+- **ValueChart** montado na Account, no card "Desempenho da carteira": a GUI agora grava `history.record_snapshot(valor bruto)` a cada avaliação (mesmo `history.json` do CLI), com dedup vs último ponto pra não poluir com o schedule de 30min.
+- +8 tests (click emite key, click fora não emite, selected destaca/reseta, labels, filtro toggle na History, segmento limpa filtro, snapshot com dedup, inventário vazio não grava).
 
 ~~### Frente I — Inputs polish (esforço: 30min, impact: médio)~~ ✅ `fa05e94`
 
