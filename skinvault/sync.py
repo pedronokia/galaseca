@@ -126,13 +126,32 @@ def sync_market_history(session: SteamSession,
     Dedupe via market_event_key. `appid` default 730 (CS2); passe None
     para sincronizar todos os jogos.
 
-    Retorna {fetched, new, total}.
+    Migracao de listing_id: eventos antigos armazenados SEM listing_id
+    (antes do fix de _ROW_ID_RE) tinham dedup colapsado por composite
+    key (name|side|date|price). Ao re-sincronizar, eventos novos COM
+    listing_id que correspondem a um armazenado sem listing_id pelo
+    composite key sao ATUALIZADOS in-place (recebem o listing_id);
+    ocorrencias extras do mesmo composite (que estavam perdidas pelo
+    colapso) entram como registros novos.
+
+    Retorna {fetched, new, total, migrated}.
     """
     p = Path(path)
     stored = _load_json_list(p)
     known_keys = {market_event_key(e) for e in stored}
 
+    # --- Migracao: indice de stored events sem listing_id por composite key
+    # Usado para casar eventos novos COM listing_id com registros antigos
+    # que nao tinham (e estavam colapsados).
+    _composite_index: dict[str, list[int]] = {}
+    for idx, ev in enumerate(stored):
+        if not ev.get("listing_id"):
+            # Forca chave composite mesmo que o dict tenha listing_id=None
+            _key = market_event_key(dict(ev, listing_id=None))
+            _composite_index.setdefault(_key, []).append(idx)
+
     new_events: list[dict] = []
+    migrated = 0
     fetched = 0
     for page in range(max_pages):
         resp = steam_api.fetch_market_history(
@@ -147,28 +166,40 @@ def sync_market_history(session: SteamSession,
         fetched += len(parsed)
         if not parsed:
             break
-        added_this_page = 0
         for ev in parsed:
             d = dataclasses.asdict(ev)
             d["synced_at"] = time.time()
             key = market_event_key(d)
             if key in known_keys:
                 continue
+            # Tenta migrar: evento com listing_id que corresponde a um
+            # stored sem listing_id pelo composite key
+            if ev.listing_id:
+                comp_key = market_event_key(dict(d, listing_id=None))
+                candidates = _composite_index.get(comp_key)
+                if candidates:
+                    idx = candidates.pop(0)
+                    stored[idx]["listing_id"] = ev.listing_id
+                    known_keys.add(key)
+                    migrated += 1
+                    continue
             known_keys.add(key)
             new_events.append(d)
-            added_this_page += 1
         total_count = int(resp.get("total_count", 0))
         if (page + 1) * _HISTORY_PAGE_SIZE >= total_count:
             break
         # Throttle conservador
         time.sleep(_HISTORY_THROTTLE_S)
 
+    if migrated:
+        # Salva stored alterado (listing_ids atualizados)
+        _save_json_list(p, stored)
     if new_events:
         # Eventos mais novos primeiro
         stored = new_events + stored
         _save_json_list(p, stored)
     return {"fetched": fetched, "new": len(new_events),
-            "total": len(stored)}
+            "migrated": migrated, "total": len(stored)}
 
 
 def sync_listings(session: SteamSession,

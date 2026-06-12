@@ -714,7 +714,7 @@ def test_parse_market_history_html_no_name_div_skips_row():
 
 def test_parse_market_history_html_with_name_but_no_price():
     html = (
-        '<div class="market_listing_row" id="history_row_lid1_lid1_">'
+        '<div class="market_listing_row" id="history_row_lid1_lid1">'
         '<div class="market_listing_gainorloss">+</div>'
         '<div class="market_listing_item_name">AK-47</div>'
         '<div class="market_listing_listed_date">1 Jan</div>'
@@ -730,7 +730,7 @@ def test_parse_market_history_html_with_name_but_no_price():
 def test_parse_market_history_html_gainloss_minus():
     """Sinal '-' marca como sell."""
     html = (
-        '<div class="market_listing_row" id="history_row_lid1_lid1_">'
+        '<div class="market_listing_row" id="history_row_lid1_lid1">'
         '<div class="market_listing_gainorloss">-</div>'
         '<div class="market_listing_item_name">AWP</div>'
         '<div class="market_listing_listed_date">5 Jan</div>'
@@ -781,3 +781,33 @@ def test_parse_trade_history_html_with_date_and_time():
     assert len(result) == 1
     assert result[0].tradeofferid == "12345"
     assert "12:30" in result[0].date_str
+
+
+# ── Fixture real: myhistory_sample.html ──────────────────────────────
+
+def test_parse_myhistory_fixture():
+    """Parseia fixture sintetica com formato real de IDs (sem trailing _).
+
+    O fixture tem 5 rows, cada uma com listing_id diferente, para
+    validar que _ROW_ID_RE captura corretamente o ID sem exigir
+    underscore final.
+    """
+    import pathlib
+    fixture_path = pathlib.Path(__file__).resolve().parent / "fixtures" / "myhistory_sample.html"
+    html = fixture_path.read_text(encoding="utf-8")
+    events = steam_api.parse_market_history_html(html)
+    assert len(events) == 5, f"Esperado 5, parseou {len(events)}"
+    for i, ev in enumerate(events):
+        assert ev.listing_id is not None, (
+            f"Evento {i} ({ev.name}): listing_id=None"
+        )
+        assert "_" in ev.listing_id, (
+            f"Evento {i}: listing_id '{ev.listing_id}' sem underscore"
+        )
+    # Verifica dedup: 3 Kilowatt Case no mesmo dia/preco com IDs distintos
+    kilowatts = [ev for ev in events if "Kilowatt" in ev.name]
+    assert len(kilowatts) == 3
+    lids = {ev.listing_id for ev in kilowatts}
+    assert len(lids) == 3, (
+        f"3 Kilowatt Case com listing_ids colapsados: {lids}"
+    )

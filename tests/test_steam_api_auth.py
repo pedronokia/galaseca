@@ -39,7 +39,7 @@ def _session() -> SteamSession:
 # ── Fixtures de HTML --------------------------------------------------
 
 MARKET_HISTORY_ROW_BUY = '''
-<div class="market_listing_row market_recent_listing_row" id="history_row_730_2147483647_event">
+<div class="market_listing_row market_recent_listing_row" id="history_row_730_2147483647">
     <div class="market_listing_left_cell market_listing_gainorloss_cell">
         <div class="market_listing_gainorloss">+</div>
     </div>
@@ -58,7 +58,7 @@ MARKET_HISTORY_ROW_BUY = '''
 '''
 
 MARKET_HISTORY_ROW_SELL = '''
-<div class="market_listing_row market_recent_listing_row" id="history_row_730_42_event">
+<div class="market_listing_row market_recent_listing_row" id="history_row_730_42">
     <div class="market_listing_left_cell market_listing_gainorloss_cell">
         <div class="market_listing_gainorloss">-</div>
     </div>
@@ -77,7 +77,7 @@ MARKET_HISTORY_ROW_SELL = '''
 '''
 
 MARKET_HISTORY_ROW_WITH_ICON = '''
-<div class="market_listing_row market_recent_listing_row" id="history_row_730_99887_event">
+<div class="market_listing_row market_recent_listing_row" id="history_row_730_99887">
     <div class="market_listing_left_cell market_listing_gainorloss_cell">
         <div class="market_listing_gainorloss">-</div>
     </div>
@@ -99,7 +99,7 @@ MARKET_HISTORY_ROW_WITH_ICON = '''
 '''
 
 MARKET_HISTORY_ROW_LISTED = '''
-<div class="market_listing_row market_recent_listing_row" id="history_row_listing_99_event">
+<div class="market_listing_row market_recent_listing_row" id="history_row_listing_99">
     <div class="market_listing_left_cell market_listing_gainorloss_cell">
         <div class="market_listing_gainorloss"> </div>
     </div>

@@ -378,7 +378,7 @@ class TestSyncListings:
     def test_success_with_html_listings(self, monkeypatch, tmp_path):
         """_extract_listings_from_response extrai do results_html."""
         html = (
-            '<div class="market_listing_row" id="history_row_l1_l1_">'
+            '<div class="market_listing_row" id="history_row_l1_l1">'
             '<div class="market_listing_gainorloss">+</div>'
             '<div class="market_listing_item_name">AK-47</div>'
             '<div class="market_listing_listed_date">1 Jan</div>'
@@ -477,3 +477,140 @@ class TestSyncAll:
 
         result = sync.sync_all(_session(), progress_cb=progress_cb)
         assert result["inventory"]["status"] == "ok"
+
+
+# ── Dedup com listing_id ────────────────────────────────────────────
+
+
+class TestMarketHistoryDedupComListingId:
+    """3 eventos mesmo name/side/date/price com listing_ids distintos → 3 registros."""
+
+    def test_distinct_listing_ids_keeps_all(self, tmp_path: Path, monkeypatch):
+        events_path = tmp_path / "events.json"
+
+        def mock_fetch(session, start=0, count=100, appid=None):
+            if start == 0:
+                return {"success": True, "total_count": 3,
+                        "results_html": "_dummy_"}
+            return None
+
+        # 3 Kilowatt Case compras no mesmo dia/preco, listing_ids distintos
+        sample = [
+            MarketEvent("Kilowatt Case", "buy", 4.19, "7 Jun", "730_100"),
+            MarketEvent("Kilowatt Case", "buy", 4.19, "7 Jun", "730_101"),
+            MarketEvent("Kilowatt Case", "buy", 4.19, "7 Jun", "730_102"),
+        ]
+        monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
+        monkeypatch.setattr(steam_api, "parse_market_history_response",
+                            lambda r, default_appid=None: sample)
+        monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
+
+        result = sync.sync_market_history(_session(), path=events_path, max_pages=1)
+        assert result["new"] == 3, f"new={result['new']}, esperado 3"
+        assert result["total"] == 3, f"total={result['total']}, esperado 3"
+        stored = json.loads(events_path.read_text(encoding="utf-8"))
+        assert len(stored) == 3
+        lids = {e["listing_id"] for e in stored}
+        assert lids == {"730_100", "730_101", "730_102"}
+
+
+# ── Migracao: eventos antigos sem listing_id ────────────────────────
+
+
+class TestMarketHistoryMigration:
+    """Evento armazenado sem listing_id recebe listing_id no resync."""
+
+    def test_migrates_existing_events(self, tmp_path: Path, monkeypatch):
+        events_path = tmp_path / "events.json"
+        # Pre-popula com evento SEM listing_id (como os que existiam antes do fix)
+        events_path.write_text(json.dumps([
+            {"name": "Kilowatt Case", "side": "buy", "price": 4.19,
+             "date_str": "7 Jun", "listing_id": None, "synced_at": 1000},
+        ]), encoding="utf-8")
+
+        def mock_fetch(session, start=0, count=100, appid=None):
+            if start == 0:
+                return {"success": True, "total_count": 1,
+                        "results_html": "_dummy_"}
+            return None
+
+        sample = [
+            MarketEvent("Kilowatt Case", "buy", 4.19, "7 Jun", "730_100"),
+        ]
+        monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
+        monkeypatch.setattr(steam_api, "parse_market_history_response",
+                            lambda r, default_appid=None: sample)
+        monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
+
+        result = sync.sync_market_history(_session(), path=events_path, max_pages=1)
+        assert result["new"] == 0, f"new={result['new']}, esperado 0 (migrado)"
+        assert result["migrated"] == 1, f"migrated={result['migrated']}, esperado 1"
+        assert result["total"] == 1, f"total={result['total']}, esperado 1"
+        stored = json.loads(events_path.read_text(encoding="utf-8"))
+        assert len(stored) == 1
+        assert stored[0]["listing_id"] == "730_100", (
+            f"listing_id nao atualizado: {stored[0]['listing_id']}"
+        )
+
+    def test_migration_extra_events_added(self, tmp_path: Path, monkeypatch):
+        """Eventos extras do mesmo composite (que estavam colapsados)
+        sao adicionados como novos apos migrar o primeiro."""
+        events_path = tmp_path / "events.json"
+        # Pre-popula com 1 evento SEM listing_id
+        events_path.write_text(json.dumps([
+            {"name": "Kilowatt Case", "side": "buy", "price": 4.19,
+             "date_str": "7 Jun", "listing_id": None, "synced_at": 1000},
+        ]), encoding="utf-8")
+
+        def mock_fetch(session, start=0, count=100, appid=None):
+            if start == 0:
+                return {"success": True, "total_count": 3,
+                        "results_html": "_dummy_"}
+            return None
+
+        # 3 compras com listing_ids distintos — 1 migra, 2 sao novos
+        sample = [
+            MarketEvent("Kilowatt Case", "buy", 4.19, "7 Jun", "730_100"),
+            MarketEvent("Kilowatt Case", "buy", 4.19, "7 Jun", "730_101"),
+            MarketEvent("Kilowatt Case", "buy", 4.19, "7 Jun", "730_102"),
+        ]
+        monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
+        monkeypatch.setattr(steam_api, "parse_market_history_response",
+                            lambda r, default_appid=None: sample)
+        monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
+
+        result = sync.sync_market_history(_session(), path=events_path, max_pages=1)
+        assert result["migrated"] == 1, f"migrated={result['migrated']}"
+        assert result["new"] == 2, f"new={result['new']}, esperado 2"
+        assert result["total"] == 3, f"total={result['total']}, esperado 3"
+        stored = json.loads(events_path.read_text(encoding="utf-8"))
+        assert len(stored) == 3
+        lids = {e["listing_id"] for e in stored}
+        assert lids == {"730_100", "730_101", "730_102"}
+
+    def test_migration_ignores_exact_dup(self, tmp_path: Path, monkeypatch):
+        """Evento ja armazenado COM listing_id nao e' migrado nem duplicado."""
+        events_path = tmp_path / "events.json"
+        events_path.write_text(json.dumps([
+            {"name": "AK-47", "side": "buy", "price": 25.0,
+             "date_str": "15 Mar", "listing_id": "730_1", "synced_at": 1000},
+        ]), encoding="utf-8")
+
+        def mock_fetch(session, start=0, count=100, appid=None):
+            if start == 0:
+                return {"success": True, "total_count": 1,
+                        "results_html": "_dummy_"}
+            return None
+
+        sample = [
+            MarketEvent("AK-47", "buy", 25.0, "15 Mar", "730_1"),
+        ]
+        monkeypatch.setattr(steam_api, "fetch_market_history", mock_fetch)
+        monkeypatch.setattr(steam_api, "parse_market_history_response",
+                            lambda r, default_appid=None: sample)
+        monkeypatch.setattr("skinvault.sync.time.sleep", lambda s: None)
+
+        result = sync.sync_market_history(_session(), path=events_path, max_pages=1)
+        assert result["new"] == 0, f"new={result['new']}"
+        assert result["migrated"] == 0, f"migrated={result['migrated']}"
+        assert result["total"] == 1, f"total={result['total']}"

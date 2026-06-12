@@ -695,7 +695,17 @@ Exemplos da sessão:
 
 ## 5. Bug tracker / débito conhecido
 
-Não detectado nesta sessão, mas potencial:
+### B1 — `_ROW_ID_RE` com trailing underscore colapsava listing_id (2026-06-12) ✅
+
+**Causa raiz**: `skinvault/steam_api.py:619` — `_ROW_ID_RE = r'id="history_row_(?P<lid>[^"_]+_[^"_]+)_'` exigia um `_` final que o HTML real de `/market/myhistory/render/` não tem (o formato real é `id="history_row_{listingid}_{eventid}"` sem sufixo). Resultado: `listing_id=None` em 100% dos eventos reais.
+
+**Impacto**: em `sync.py::market_event_key`, sem listing_id a chave de dedup caía para o composite `name|side|date|price`, que COLAPSAVA múltiplas compras do mesmo item/dia/preço. Ex.: 10 compras de Kilowatt Case em 07/06 viravam 3 registros.
+
+**Fix**: (a) regex alterado para `r'id="history_row_(?P<lid>[^"]+)"'` (tolerante — captura tudo entre `history_row_` e `"`). (b) `sync_market_history` ganhou lógica de migração: ao processar evento novo com `listing_id`, se existir armazenado sem `listing_id` cujo composite key seja igual, ATUALIZA esse armazenado in-place (atribui o listing_id) em vez de criar registro novo; ocorrências extras do mesmo composite entram como registros novos. (c) Fixtures atualizadas para o formato real (removido trailing `_` e `_event`). (d) Testes: fixture real `myhistory_sample.html` com 5 rows parseando listing_id != None; dedup com 3 eventos mesmo composite e listing_ids distintos → 3 registros; migração com 3 cenários (migra 1, extra vira new, dup ignorado).
+
+**Validação**: resync de validação requer sessão Steam (não disponível na execução do fix). Critério de aceite: total local ~614, spot-check 07/06 com ~10 eventos de Kilowatt Case.
+
+Outros débitos:
 
 - **history_screen scrollbar custom** linha 511. Pode ter inconsistência de cor com tema. Validar quando houver muitas rows.
 - **Toast positioning** em multi-monitor. Não testado.

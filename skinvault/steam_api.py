@@ -616,7 +616,7 @@ def fetch_trade_history_html(session: "SteamSession",
 # regex para nao introduzir nova dependencia (bs4).
 
 _ROW_ANCHOR_RE = re.compile(r'<div class="market_listing_row[^>]*>')
-_ROW_ID_RE = re.compile(r'id="history_row_(?P<lid>[^"_]+_[^"_]+)_')
+_ROW_ID_RE = re.compile(r'id="history_row_(?P<lid>[^"]+)"')
 _GAINLOSS_RE = re.compile(
     r'market_listing_gainorloss(?![_a-z])[^>]*>\s*(?P<sign>[+\-\s])\s*<',
 )
