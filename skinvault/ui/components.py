@@ -238,7 +238,8 @@ class Sidebar(QWidget):
     def __init__(self, width: int = 220, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedWidth(width)
-        self.setStyleSheet(f"background: {t.BG_ELEVATED};")
+        self.setObjectName("Sidebar")
+        self.setStyleSheet(f"QWidget#Sidebar {{ background: {t.BG_ELEVATED}; }}")
         self._items: dict[str, _SidebarItem] = {}
         self._lay = QVBoxLayout(self)
         self._lay.setContentsMargins(8, 16, 8, 16)
@@ -425,7 +426,8 @@ class LockOverlay(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet(f"background: rgba(14,14,18,0.88);")
+        self.setObjectName("LockOverlay")
+        self.setStyleSheet(f"QWidget#LockOverlay {{ background: rgba(14,14,18,0.88); }}")
         lay = QVBoxLayout(self)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setSpacing(14)

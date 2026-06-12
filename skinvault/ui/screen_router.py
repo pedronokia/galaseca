@@ -71,7 +71,8 @@ class ScreenRouter(QWidget):
         self._check_session()
 
     def _build(self) -> None:
-        self.setStyleSheet(f"background: {t.BG};")
+        self.setObjectName("ScreenRouter")
+        self.setStyleSheet(f"QWidget#ScreenRouter {{ background: {t.BG}; }}")
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)

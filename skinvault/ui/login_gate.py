@@ -28,7 +28,8 @@ class LoginGate(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setStyleSheet(f"background: {t.BG};")
+        self.setObjectName("LoginGate")
+        self.setStyleSheet(f"QWidget#LoginGate {{ background: {t.BG}; }}")
         self._build()
 
     def _build(self) -> None:

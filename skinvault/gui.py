@@ -188,8 +188,13 @@ class SettingsDialog(QDialog):
             f"QDialog {{ background: {_BG}; }}"
             f"* {{ color: {_TEXT}; font-family: 'Segoe UI'; }}"
         )
-        _set_dark_titlebar(self)
         self._build()
+
+    def showEvent(self, evt) -> None:  # noqa: N802
+        super().showEvent(evt)
+        if not hasattr(self, '_dark_titlebar_set'):
+            _set_dark_titlebar(self)
+            self._dark_titlebar_set = True
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
@@ -322,8 +327,13 @@ class BackupDialog(QDialog):
             f"QDialog {{ background: {_BG}; }}"
             f"* {{ color: {_TEXT}; font-family: 'Segoe UI'; }}"
         )
-        _set_dark_titlebar(self)
         self._build()
+
+    def showEvent(self, evt) -> None:  # noqa: N802
+        super().showEvent(evt)
+        if not hasattr(self, '_dark_titlebar_set'):
+            _set_dark_titlebar(self)
+            self._dark_titlebar_set = True
 
     def _build(self) -> None:
         layout = QVBoxLayout(self)
@@ -572,7 +582,6 @@ class MainWindow(QMainWindow):
             self._center_on_screen()
 
         self._apply_stylesheet()
-        _set_dark_titlebar(self)
         # Modo overlay: nao rouba foco de jogos fullscreen (CS2, etc).
         # Combina stays-on-top + WA_ShowWithoutActivating pra que a
         # janela apareca sobre o jogo sem minimiza-lo.
@@ -612,6 +621,12 @@ class MainWindow(QMainWindow):
         fg = self.frameGeometry()
         fg.moveCenter(center)
         self.move(fg.topLeft())
+
+    def showEvent(self, evt) -> None:  # noqa: N802
+        super().showEvent(evt)
+        if not hasattr(self, '_dark_titlebar_set'):
+            _set_dark_titlebar(self)
+            self._dark_titlebar_set = True
 
     def _apply_stylesheet(self) -> None:
         self.setStyleSheet(
