@@ -175,11 +175,12 @@ class WatchlistScreen(QWidget):
 
     COL_NAME = 0
     COL_TARGET = 1
-    COL_PRICE = 2
-    COL_STATUS = 3
-    COL_RULES = 4
-    COL_SCORE = 5
-    COL_CONFIDENCE = 6
+    COL_DISTANCE = 2
+    COL_PRICE = 3
+    COL_STATUS = 4
+    COL_RULES = 5
+    COL_SCORE = 6
+    COL_CONFIDENCE = 7
 
     # Sinal emitido quando um alerta dispara durante Validar Score.
     # (title, body, severity). Router conecta -> MainWindow conecta -> tray.
@@ -289,26 +290,21 @@ class WatchlistScreen(QWidget):
         root.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Tabela
-        self._table = QTableWidget(0, 7)
+        self._table = QTableWidget(0, 8)
         self._table.setHorizontalHeaderLabels(
-            ["Item", "Preco alvo", "Preco atual", "Status", "Regras",
-             "Score", "Confiança"]
+            ["Item", "Preco alvo", "Distância ao alvo", "Preco atual",
+             "Status", "Regras", "Score", "Confiança"]
         )
         t.configure_table(self._table)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        hh.setSectionResizeMode(self.COL_TARGET,
-                                QHeaderView.ResizeMode.ResizeToContents)
-        hh.setSectionResizeMode(self.COL_PRICE,
-                                QHeaderView.ResizeMode.ResizeToContents)
-        hh.setSectionResizeMode(self.COL_STATUS,
-                                QHeaderView.ResizeMode.ResizeToContents)
-        hh.setSectionResizeMode(self.COL_RULES,
-                                QHeaderView.ResizeMode.ResizeToContents)
-        hh.setSectionResizeMode(self.COL_SCORE,
-                                QHeaderView.ResizeMode.ResizeToContents)
-        hh.setSectionResizeMode(self.COL_CONFIDENCE,
-                                QHeaderView.ResizeMode.ResizeToContents)
+        for col in (self.COL_TARGET, self.COL_DISTANCE, self.COL_PRICE,
+                    self.COL_STATUS, self.COL_RULES):
+            hh.setSectionResizeMode(col,
+                                    QHeaderView.ResizeMode.ResizeToContents)
+        # Score e Confianca: ocultos ate Validar Score
+        self._table.setColumnHidden(self.COL_SCORE, True)
+        self._table.setColumnHidden(self.COL_CONFIDENCE, True)
         root.addWidget(self._table, 1)
 
         # Empty state (mostrado quando watchlist vazia)
@@ -381,23 +377,59 @@ class WatchlistScreen(QWidget):
             self._table.setItem(i, self.COL_TARGET,
                                 QTableWidgetItem(t.brl(target) if target else "—"))
 
+            # Distancia ao alvo
+            price_curr = self._cache.get(name)
+            if target and price_curr:
+                dist_pct = (price_curr - target) / target * 100
+                dist_txt = f"{dist_pct:+.1f}%".replace(".", ",")
+                dist_item = QTableWidgetItem(dist_txt)
+                if price_curr <= target:
+                    # Favoravel pra compra (atual <= alvo)
+                    dist_item.setForeground(QBrush(QColor(t.ACCENT)))
+                else:
+                    dist_item.setForeground(QBrush(QColor(t.DANGER)))
+                dist_item.setToolTip(
+                    "Distância percentual entre o preço atual e o alvo.\n"
+                    "Valores negativos ou zero = item abaixo do alvo "
+                    "(favorável pra compra).\n"
+                    "Valores positivos = item acima do alvo."
+                )
+            else:
+                dist_item = QTableWidgetItem("—")
+                dist_item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+            self._table.setItem(i, self.COL_DISTANCE, dist_item)
+
             # Preco atual (try cache)
-            price = self._cache.get(name)
             price_item = QTableWidgetItem(
-                t.brl(price) if price else "Consultando…"
+                t.brl(price_curr) if price_curr else "Consultando…"
             )
-            if price:
-                color = t.DANGER if price <= target else t.ACCENT
-                price_item.setForeground(Qt.GlobalColor.white)
+            if price_curr:
+                price_item.setForeground(QBrush(QColor(t.TEXT)))
             self._table.setItem(i, self.COL_PRICE, price_item)
 
-            # Status
-            status_txt = "Alerta!" if triggered else "OK"
-            st = QTableWidgetItem(status_txt)
+            # Status (3 estados)
             if triggered:
-                st.setForeground(QBrush(QColor(t.DANGER)))
+                status_txt = "Disparado"
+                st = QTableWidgetItem(status_txt)
+                st.setForeground(QBrush(QColor(t.WARN)))
+                st.setToolTip(
+                    "Regra(s) disparada(s). Verifique o log de alertas."
+                )
+            elif not rules:
+                status_txt = "Sem regras"
+                st = QTableWidgetItem(status_txt)
+                st.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+                st.setToolTip(
+                    "Sem regras configuradas. Edite o item para definir "
+                    "alertas de preço, queda ou volume."
+                )
             else:
-                st.setForeground(QBrush(QColor(t.ACCENT)))
+                status_txt = "Monitorando"
+                st = QTableWidgetItem(status_txt)
+                st.setForeground(QBrush(QColor(t.STEAM_BLUE)))
+                st.setToolTip(
+                    "Regras ativas e dentro do esperado."
+                )
             self._table.setItem(i, self.COL_STATUS, st)
 
             # Regras summary
@@ -457,8 +489,8 @@ class WatchlistScreen(QWidget):
             # Acoes (context menu via botoes na ultima coluna ou botoes inline)
             # Usa botoes simples: Editar e Remover
         # Alinhamento por coluna: preco → direita, status → centro
-        right_cols = {self.COL_TARGET, self.COL_PRICE}
-        center_cols = {self.COL_STATUS, self.COL_SCORE, self.COL_CONFIDENCE}
+        right_cols = {self.COL_TARGET, self.COL_DISTANCE, self.COL_PRICE}
+        center_cols = {self.COL_STATUS}
         t.align_table_columns(self._table, right=right_cols, center=center_cols)
         self._table.setSortingEnabled(was_sorting)
         self._status.setText(

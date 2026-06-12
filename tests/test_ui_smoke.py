@@ -3296,8 +3296,8 @@ def test_watchlist_screen_with_items(monkeypatch, tmp_path):
     names = [screen._table.item(r, 0).text()
              for r in range(screen._table.rowCount())]
     assert names == ["AK-47", "AWP"]
-    assert screen._table.item(0, 1).text() == "R$ 100,00"
-    assert screen._table.item(1, 1).text() == "—"
+    assert screen._table.item(0, screen.COL_TARGET).text() == "R$ 100,00"
+    assert screen._table.item(1, screen.COL_TARGET).text() == "—"
     assert "2 itens" in screen._status.text()
 
 def test_watchlist_screen_triggered(monkeypatch, tmp_path):
@@ -3306,7 +3306,7 @@ def test_watchlist_screen_triggered(monkeypatch, tmp_path):
     from skinvault.prices import PriceCache
     from PyQt6.QtCore import Qt
     from skinvault.ui.watchlist_screen import WatchlistScreen
-    from skinvault.ui.theme import DANGER
+    from skinvault.ui.theme import WARN
     monkeypatch.setattr(
         "skinvault.watchlist.load_watchlist",
         lambda: [{"name": "AK-47", "target": 100, "triggered": True}])
@@ -3314,9 +3314,9 @@ def test_watchlist_screen_triggered(monkeypatch, tmp_path):
         "skinvault.alerts.load_alerts_log", lambda: [])
     screen = WatchlistScreen(PriceCache(tmp_path / "prices.json", ttl=3600))
     screen._table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-    st_item = screen._table.item(0, 3)
-    assert st_item.text() == "Alerta!"
-    assert st_item.foreground().color() == QColor(DANGER)
+    st_item = screen._table.item(0, screen.COL_STATUS)
+    assert st_item.text() == "Disparado"
+    assert st_item.foreground().color() == QColor(WARN)
 
 def test_watchlist_screen_no_price(monkeypatch, tmp_path):
     """WatchlistScreen shows 'Consultando...' when price not cached."""
@@ -3331,7 +3331,7 @@ def test_watchlist_screen_no_price(monkeypatch, tmp_path):
     cache = PriceCache(tmp_path / "prices.json", ttl=3600)
     screen = WatchlistScreen(cache)
     screen._table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-    assert screen._table.item(0, 2).text() == "Consultando…"
+    assert screen._table.item(0, screen.COL_PRICE).text() == "Consultando…"
 
 def test_watchlist_on_add_cancelled(monkeypatch):
     """_on_add returns early when dialog is cancelled."""
@@ -6885,16 +6885,18 @@ def test_account_coluna_score_tooltip_age():
 
 
 def test_watchlist_tem_coluna_score():
-    """Tabela tem 7 colunas com 'Score' na penultima e 'Confianca' na ultima."""
+    """Tabela tem 8 colunas com 'Score' e 'Confianca' ocultas inicialmente."""
     from skinvault.prices import PriceCache
     from skinvault.ui.watchlist_screen import WatchlistScreen
     screen = WatchlistScreen(PriceCache(ttl=3600))
-    assert screen._table.columnCount() == 7
-    assert screen.COL_SCORE == 5
-    assert screen.COL_CONFIDENCE == 6
-    hdr = screen._table.horizontalHeaderItem(5)
+    assert screen._table.columnCount() == 8
+    assert screen.COL_SCORE == 6
+    assert screen.COL_CONFIDENCE == 7
+    assert screen._table.isColumnHidden(screen.COL_SCORE)
+    assert screen._table.isColumnHidden(screen.COL_CONFIDENCE)
+    hdr = screen._table.horizontalHeaderItem(6)
     assert hdr.text() == "Score"
-    hdr2 = screen._table.horizontalHeaderItem(6)
+    hdr2 = screen._table.horizontalHeaderItem(7)
     assert hdr2.text() == "Confian\u00e7a"
 
 
@@ -6939,8 +6941,8 @@ def test_watchlist_coluna_score_tooltip_age(monkeypatch):
     screen._populate()
     row_fresh = _watchlist_row_by_name(screen, "Fresh")
     row_old = _watchlist_row_by_name(screen, "Old1d")
-    assert "agora" in screen._table.item(row_fresh, 5).toolTip()
-    assert "3d" in screen._table.item(row_old, 5).toolTip()
+    assert "agora" in screen._table.item(row_fresh, screen.COL_SCORE).toolTip()
+    assert "3d" in screen._table.item(row_old, screen.COL_SCORE).toolTip()
 
 
 def test_watchlist_alert_fired_emite_notification(monkeypatch):

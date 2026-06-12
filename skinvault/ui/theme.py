@@ -391,3 +391,5 @@ def configure_table(table: QTableWidget) -> None:
     table.setAlternatingRowColors(True)
     table.setSortingEnabled(True)
     table.setStyleSheet(table_style())
+    hh = table.horizontalHeader()
+    hh.setMinimumSectionSize(96)

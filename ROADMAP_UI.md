@@ -9,7 +9,7 @@
 
 ## 0. Snapshot do estado atual
 
-**Última sessão fechou em commit `7065198`.** 16 commits sequenciais (`f2668bd` → `7065198`) consolidam um sistema de design tokens + helpers visuais.
+**Última sessão fechou em commit `7065198`.** 16 commits sequenciais (`f2668bd` → `7065198`) consolidam um sistema de design tokens + helpers visuais. Frente P (tabelas/headers/Watchlist) adicionada em sessão seguinte — ver §2.6.
 
 ### Arquivos chave da UI
 
@@ -389,16 +389,18 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 > 3. **Chrome Qt nativo claro** (spinbox, checkbox, popup de combo, scrollbar) gritando no dark theme. → Frente R
 > 4. **Estados vazios = deserto** (Scanner/Trades/Market 70% viewport vazio; Market com 2 charts-oceano de 600px). → Frente Q
 > 5. **Cor semântica errada em estado neutro** ("0% (0W/0L)" VERMELHO com zero trades — vermelho é perda, não ausência) + KPI esticado sem contexto. → Frente O
-> 6. **Tabelas sem zebra/hover, headers truncando** ("'reco alvo" na Watchlist), Watchlist com "OK" verde pra item sem regra e sem distância ao alvo. → Frente P
+> 6. ~~Tabelas sem zebra/hover, headers truncando ("'reco alvo" na Watchlist), Watchlist com "OK" verde pra item sem regra e sem distância ao alvo.~~ → **Frente P ✅**
 > 7. **Sidebar com glifos abstratos** (∴ ◈ ○ ⇄) de pesos inconsistentes + sessão ("Conectado como…") ocupando barra full-width. → Frente S
 > 8. Busca do Market coadjuvante (placeholder truncado, recentes no canto oposto, detalhes em prosa). → Frente U
 > 9. Sem atalho de poder: 7 telas + ~10 ações e nenhum acesso rápido global. → Frente V (Ctrl+K)
 >
 > **Para agentes executando estas frentes**: cada frente é autocontida (contexto → ação → não-fazer → aceite). Antes de QUALQUER edição, leia §1 (padrões), §3 (outliers — não tocar), §4 (workflow/validação/commit). Regras inegociáveis: Python 3.9, PyQt6, gráficos/ícones só com QPainter custom (nunca lib externa), cores/tamanhos via tokens `t.*` de `theme.py` (nunca hex inline novo — se precisar, adicione token), tooltip em todo botão, commit pt-BR sem Co-Authored-By, **1 frente = 1 commit**, e ao concluir marcar a frente com ✅ + parágrafo de resultado aqui no roadmap (padrão das frentes A-J).
 >
-> **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
+ > **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
+ >
+ > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**. Próximas: Q, R, S, T, U, V.
 
-~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
+ ~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
 
 **Problema**: `gui.py::MainWindow._apply_stylesheet` (grep `def _apply_stylesheet`) aplica `self.setStyleSheet(f"background: {_BG}; color: {_TEXT}; font-family: ...")` **sem seletor**. QSS sem seletor propaga a TODOS os descendentes: cada `QLabel` da aplicação herda `background: #0E0E12` e pinta uma tarja escura atrás do texto — sobre cards `#16161C` isso cria as faixas visíveis em TODOS os StatCards, títulos de seção e captions de TODAS as telas (qualquer print em `prints/` mostra). É o maior ofensor visual do app. Mesmo bug em `SettingsDialog.__init__` e `BackupsDialog.__init__` (grep `setStyleSheet(f"background: {_BG}` em `gui.py` — 3 sites no total).
 
@@ -470,20 +472,20 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Resultado**: `StatCard.set_delta()` implementado em components.py com 3 estados (▲ ACCENT, ▼ DANGER, — TEXT_MUTED) + `pct=None` para texto contextual. Dados ligados: Account "Valor bruto" → % vs penúltimo ponto do history; Trades "P&L líquido" → vs mês anterior via `monthly_pnl()`; Watchlist "Alertas em 24h" → timestamp do último alerta. Estado neutro fixado: `_stat_winrate` de trades usa `TEXT_MUTED` quando total=0 (antes DANGER). `setMaximumWidth(300)` + `addStretch(1)` aplicados nas 5 telas com KPI rows (Account: 2 rows, Scanner, Trades, Market, Watchlist). Smoke tests de `set_delta` (3 estados) adicionados. 1309 tests verdes. Screenshots regenerados.
 
-### Frente P — Tabelas: zebra sutil, hover, headers íntegros, Watchlist legível (esforço: 2-3h, impact: alto) [deps: M]
+~~### Frente P — Tabelas: zebra sutil, hover, headers íntegros, Watchlist legível (esforço: 2-3h, impact: alto) [deps: M]~~ ✅
 
-**Problema**: (1) Headers truncam — print 07 mostra "Preco alvo"→"'reco alvo" (sort indicator + padding comem o texto em ResizeToContents). (2) Sem zebra nem hover — History com 416 rows cansa. (3) Watchlist: "OK" verde pra item SEM regra (sem regra ≠ saudável); Regras/Score/Confiança cheios de "—"; falta o dado mais útil: distância ao preço-alvo (AWP R$898 vs alvo R$700 = +28%).
+~~**Problema**: (1) Headers truncam — print 07 mostra "Preco alvo"→"'reco alvo" (sort indicator + padding comem o texto em ResizeToContents). (2) Sem zebra nem hover — History com 416 rows cansa. (3) Watchlist: "OK" verde pra item SEM regra (sem regra ≠ saudável); Regras/Score/Confiança cheios de "—"; falta o dado mais útil: distância ao preço-alvo (AWP R$898 vs alvo R$700 = +28%).~~
 
-**Ação**:
+~~**Ação**:
 1. Em `theme.py::configure_table`: `table.setAlternatingRowColors(True)` + QSS `alternate-background-color: rgba(255,255,255,0.018)`; hover `QTableWidget::item:hover {{ background: {SURFACE_HOV}; }}` (hover é por célula — se ficar "quadriculado" no uso real, descartar e registrar no §3); `hh.setMinimumSectionSize(96)` + revisar padding da `QHeaderView::section` até o print da Watchlist mostrar os headers completos.
 2. `watchlist_screen.py`: Status com 3 estados — "Sem regras" (TEXT_MUTED) / "Monitorando" (STEAM_BLUE) / "Disparado" (WARN); grep `"OK"` pra achar o site. Nova coluna "Distância ao alvo": `(atual-alvo)/alvo` como `+28,3%` — ACCENT quando atual ≤ alvo (favorável pra compra), DANGER quando acima; tooltip explicando a leitura (§1.6). Colunas Score/Confiança 100% "—" → `setColumnHidden(True)` até existir dado (aparecem pós "Validar Score").
-3. Zebra/hover valem automaticamente pra todas as telas com tabela (1 helper).
+3. Zebra/hover valem automaticamente pra todas as telas com tabela (1 helper).~~
 
-**Não fazer**: não mexer em larguras por tela (Stretch do Item é o padrão §1.5); sem paginação.
+~~**Não fazer**: não mexer em larguras por tela (Stretch do Item é o padrão §1.5); sem paginação.~~
 
-**Aceite**: print 07 com headers completos, status 3-estados e coluna de distância; zebra sutil (alpha ≤0.02 — não pode "listrar"); History com 416 rows fluida.
+~~**Aceite**: print 07 com headers completos, status 3-estados e coluna de distância; zebra sutil (alpha ≤0.02 — não pode "listrar"); History com 416 rows fluida.~~
 
-**Validação**: §4.3, atenção aos prints 02/07. Commit: `ui: tabelas com zebra e headers integros; watchlist com status real e distancia ao alvo`.
+**Resultado**: `configure_table` ganhou `hh.setMinimumSectionSize(96)` para headers íntegros. Watchlist: 3 estados de status (Sem regras/Monitorando/Disparado) com cores TEXT_MUTED/STEAM_BLUE/WARN e tooltips descritivos; nova coluna "Distância ao alvo" após o preço-alvo com cor ACCENT (favorável) ou DANGER (acima do alvo) e tooltip explicativa; colunas Score e Confiança ocultas inicialmente (reveladas após "Validar Score"). 1309 tests verdes. Screenshots regenerados com todos os headers completos.
 
 ### Frente Q — Empty states acionáveis + fim dos charts-oceano (esforço: 2-3h, impact: alto) [deps: M]
 
@@ -637,7 +639,7 @@ Output em `prints/`:
 python -m pytest tests/ -x -q
 ```
 
-Suíte completa: ~196s, 1284 testes (estado em `7065198`). Após mudanças de UI, sempre rodar antes de commit — mesmo polishes "puro CSS" porque podem mexer em imports.
+Suíte completa: ~185s, 1309 testes (estado atual). Após mudanças de UI, sempre rodar antes de commit — mesmo polishes "puro CSS" porque podem mexer em imports.
 
 Para subset rápido (sem GUI):
 ```bash
