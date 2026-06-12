@@ -523,6 +523,8 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Hotfix (follow-up)**: (a) checkbox_style() — `QCheckBox:focus::indicator` mudou de ACCENT para FOCUS_GREEN; root `QCheckBox` sem border/background. (b) spin_style() — setas trocadas de `width/height` sem glifo para CSS border-triangle (`border-left/right: transparent` + `border-bottom/top`), com `:hover` clareando; removida propriedade inválida `bi:`. (c) QSpinBox de Quantidade no Simulador migrado de `input_style()` para `spin_style()` — antes usava style genérico sem estilizar botões de spin. 5 novos testes de validação QSS. 1321 tests, screenshots.
 
+**Fix final (validação visual externa)**: a borda verde em volta do checkbox INTEIRO persistia mesmo após o hotfix — causa raiz era a **ordem do seletor de focus**, não a cor: `QCheckBox:focus::indicator` (estado antes do subcontrol) é malformado e o parser QSS do Qt aplica a `border` ao widget raiz, incondicionalmente. Confirmado por A/B empírico (dois checkboxes lado a lado, só a ordem do seletor diferindo). Forma canônica `QCheckBox::indicator:focus` resolve. **Pitfall registrado no docstring do helper** — em QSS, sempre subcontrol primeiro, estados depois.
+
 ### Frente S — Sidebar: ícones de linha QPainter + sessão no rodapé (esforço: 3-4h, impact: alto — assinatura visual) [deps: M]
 
 **Problema**: (1) `_SidebarItem` embute glifos unicode no texto (`setText(f"  {icon}    {label}")` em components.py) — ∴ ◈ ○ ★ ⇄ ▭ ≡ têm pesos/larguras inconsistentes e não comunicam. (2) "Conectado como {nome}" ocupa barra full-width na base da janela inteira.

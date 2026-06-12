@@ -296,6 +296,11 @@ def checkbox_style() -> str:
     Root QCheckBox tem apenas color/font/spacing — SEM border, SEM
     background. A borda vive apenas no ::indicator. Focus usa FOCUS_GREEN
     (Frente C).
+
+    CUIDADO: a ordem do seletor de focus precisa ser subcontrol primeiro
+    ('::indicator:focus'). A forma ':focus::indicator' e' malformada e o
+    parser do Qt aplica a borda ao widget INTEIRO, incondicionalmente
+    (verificado empiricamente em 12/06/2026).
     """
     return (
         f"QCheckBox {{ color: {TEXT_MUTED}; font-size: {FS_MUTED};"
@@ -306,7 +311,7 @@ def checkbox_style() -> str:
         f" background: {SURFACE}; }}"
         f"QCheckBox::indicator:checked {{ background: {ACCENT};"
         f" border-color: {ACCENT}; }}"
-        f"QCheckBox:focus::indicator {{ border: 1px solid {FOCUS_GREEN}; }}"
+        f"QCheckBox::indicator:focus {{ border: 1px solid {FOCUS_GREEN}; }}"
     )
 
 
