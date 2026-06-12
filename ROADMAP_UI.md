@@ -438,21 +438,23 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Resultado**: 7 sites total (3 gui.py + 2 components.py + screen_router.py + login_gate.py) migrados para QSS com seletor. Toast band-aid removido. Titlebar escura nas 3 janelas, adiada para `showEvent` (chamar `winId()` + DWM no `__init__` causava crash SIGSEGV em modo grab). Lição: **QSS sem seletor em QUALQUER ancestral reintroduz a propagação — mesmo que a raiz tenha seletor, filhos podem propagar de volta**. Audit completo dos 7 sites: MainWindow `_apply_stylesheet`, SettingsDialog, BackupDialog, ScreenRouter, Sidebar, LockOverlay, LoginGate. `background: transparent` auditado: 1 band-aid removido (Toast label), 7 legítimos. 1309 tests verdes. Screenshots regenerados como novo baseline — tamanhos reduzidos (especialmente 02-history: -2480B, consistente com menos ruído de tarja).
 
-### Frente N — PageHeader compacto e consistente nas 7 telas (esforço: 2-3h, impact: alto) [deps: M]
+**Hotfix pós-M (a0db650)**: a remoção das tarjas revelou um overlap latente no `ActivityFeed` — o título "Atividade recente" colidia com o primeiro item da lista porque o rótulo vazio usava `AlignCenter` (vertical + horizontal), centralizando o texto na vertical e sobrepondo-o ao título quando o layout do Card não dava altura suficiente ao `_list_lay`. Fix: `AlignCenter` → `AlignHCenter` (vertical centering removido) + `title.setWordWrap(False)` no título. O bug sempre existiu, mas o background opaco herdado do QSS global escondia a colisão.
 
-**Problema**: H1 avulso de 24pt (`FS_TITLE`) consome ~90px verticais antes do primeiro dado (prints 03-07). Account é a ÚNICA tela sem título de página — quebra o padrão de cabeçalho explicativo (Athenas). No Scanner o QComboBox de categoria está montado NA LINHA do H1. Na Account, 3 botões empilhados à direita do card de perfil com larguras desalinhadas.
+~~### Frente N — PageHeader compacto e consistente nas 7 telas (esforço: 2-3h, impact: alto) [deps: M]~~
 
-**Ação**:
-1. Novo componente `PageHeader(title, subtitle="", actions: list[QWidget] | None = None)` em `components.py`: HBox = VBox(título 16pt semibold + subtítulo `label_caption()`) + stretch + actions à direita; altura total ≤ 56px. Adicionar token `FS_TITLE_MD = "16pt"` em theme.py (entre FS_TITLE_SM 13pt e FS_TITLE 24pt).
-2. Migrar as 7 telas: título/subtítulo existentes entram no PageHeader; ações primárias da tela (ex.: combo categoria + "Escanear categoria" no Scanner; "Consultar item" no Market; "Adicionar trade" no Trades) viram `actions`.
-3. Account ganha header: "Minha Conta" / "Inventário, desempenho da carteira e sincronização Steam." — Sincronizar/Validar/Atualizar scores saem do card de perfil e viram actions (corrige o desalinhamento).
-4. Padronizar root das telas: `setContentsMargins(24, 16, 24, 16)`, `setSpacing(12)`.
+~~**Problema**: H1 avulso de 24pt (`FS_TITLE`) consome ~90px verticais antes do primeiro dado (prints 03-07). Account é a ÚNICA tela sem título de página — quebra o padrão de cabeçalho explicativo (Athenas). No Scanner o QComboBox de categoria está montado NA LINHA do H1. Na Account, 3 botões empilhados à direita do card de perfil com larguras desalinhadas.~~
 
-**Não fazer**: não tocar no breadcrumb; não mudar `label_section()` (títulos DENTRO de cards ficam).
+~~**Ação**:~~
+~~1. Novo componente `PageHeader(title, subtitle="", actions: list[QWidget] | None = None)` em `components.py`: HBox = VBox(título 16pt semibold + subtítulo `label_caption()`) + stretch + actions à direita; altura total ≤ 56px. Adicionar token `FS_TITLE_MD = "16pt"` em theme.py (entre FS_TITLE_SM 13pt e FS_TITLE 24pt).~~
+~~2. Migrar as 7 telas: título/subtítulo existentes entram no PageHeader; ações primárias da tela (ex.: combo categoria + "Escanear categoria" no Scanner; "Consultar item" no Market; "Adicionar trade" no Trades) viram `actions`.~~
+~~3. Account ganha header: "Minha Conta" / "Inventário, desempenho da carteira e sincronização Steam." — Sincronizar/Validar/Atualizar scores saem do card de perfil e viram actions (corrige o desalinhamento).~~
+~~4. Padronizar root das telas: `setContentsMargins(24, 16, 24, 16)`, `setSpacing(12)`.~~
 
-**Aceite**: 7 telas com PageHeader; `grep -n "FS_TITLE\b" skinvault/ui/*_screen.py` → 0 hits; Account com header e ações alinhadas; ~40px verticais recuperados por tela.
+~~**Não fazer**: não tocar no breadcrumb; não mudar `label_section()` (títulos DENTRO de cards ficam).~~
 
-**Validação**: §4.3. Commit: `ui: PageHeader compacto nas 7 telas — hierarquia consistente`.
+~~**Aceite**: 7 telas com PageHeader; `grep -n "FS_TITLE\b" skinvault/ui/*_screen.py` → 0 hits; Account com header e ações alinhadas; ~40px verticais recuperados por tela.~~
+
+**Resultado**: `PageHeader` implementado em `components.py` (52px, HBox=VBox(title+subtitle) + stretch + actions). Token `FS_TITLE_MD = "16pt"` adicionado. Todas as 7 telas migradas: Account (header "Minha Conta" + sync/validate/refresh viram actions no PageHeader — saíram do card de perfil), History ("Histórico" + subtitle), Scanner (title + combo + Escanear/Ranking/Validar como actions), Market ("Consulta de Mercado" + Consultar item como action), Trades ("Histórico de Trades" + Adicionar trade + "⋯" como actions), Simulador, Watchlist. Root margins padronizados para `(24, 16, 24, 16)` com spacing 12. `FS_TITLE` eliminado das screens (`grep` 0 hits). 1309 tests verdes. Screenshots regenerados.
 
 ### Frente O — StatCards inteligentes: delta, contexto, estado neutro (esforço: 2h, impact: médio-alto) [deps: M]
 

@@ -35,7 +35,7 @@ from skinvault import portfolio as portfolio_mod
 from skinvault import history, prices, signals, ssr_cache, steam_session
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
-from skinvault.ui.components import ActivityFeed, Avatar, Card, EmptyState, LoadingState, StatCard
+from skinvault.ui.components import ActivityFeed, Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
 from skinvault.ui.widgets import ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
@@ -101,10 +101,58 @@ class AccountScreen(QWidget):
     # ── construcao do layout ──────────────────────────────
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(24, 16, 24, 16)
+        root.setSpacing(12)
 
-        # Header card
+        # PageHeader
+        self._last_sync_lbl = QLabel("")
+        self._last_sync_lbl.setStyleSheet(t.label_caption())
+        act_lbl = QHBoxLayout()
+        act_lbl.setContentsMargins(0, 0, 0, 0)
+        act_lbl.setSpacing(t.SPACE_SM)
+        act_lbl.addWidget(self._last_sync_lbl)
+
+        self._sync_btn = QPushButton("Sincronizar com Steam")
+        self._sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._sync_btn.setStyleSheet(t.btn_steam())
+        self._sync_btn.setToolTip(
+            "Puxa seu inventario, market history, listings ativas e trade "
+            "offers da Steam. Usa cookies salvos da sessao."
+        )
+        self._sync_btn.clicked.connect(self.request_sync.emit)
+        act_lbl.addWidget(self._sync_btn)
+
+        self._validate_btn = QPushButton("Validar Score do Portfolio")
+        self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._validate_btn.setStyleSheet(t.btn_secondary(padding="8px 14px",
+                                                          fs=t.FS_INPUT))
+        self._validate_btn.setToolTip(
+            "Roda backtest histórico (90d) nos itens do seu portfolio."
+            " Mostra se o score realmente prediz retornos pros itens"
+            " que você possui. Usa cache 24h, então reruns são rápidos."
+        )
+        self._validate_btn.clicked.connect(self._on_validate_portfolio)
+        act_lbl.addWidget(self._validate_btn)
+
+        self._refresh_btn = QPushButton("Atualizar scores")
+        self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._refresh_btn.setStyleSheet(t.btn_ghost())
+        self._refresh_btn.setToolTip(
+            "Recomputa scores de todos os itens usando dados do cache."
+            " Mais rápido que Validar Score — não mostra dialog de backtest."
+        )
+        self._refresh_btn.clicked.connect(self._on_refresh_scores)
+        act_lbl.addWidget(self._refresh_btn)
+
+        act_w = QWidget()
+        act_w.setLayout(act_lbl)
+        root.addWidget(PageHeader(
+            "Minha Conta",
+            "Inventário, desempenho da carteira e sincronização Steam.",
+            actions=[act_w],
+        ))
+
+        # Header card (avatar + ident, sem botoes)
         header = Card(self)
         hlay = QHBoxLayout()
         hlay.setSpacing(18)
@@ -139,50 +187,6 @@ class AccountScreen(QWidget):
         ident.addStretch(1)
         hlay.addLayout(ident, 1)
 
-        btn_col = QVBoxLayout()
-        btn_col.setSpacing(4)
-
-        self._sync_btn = QPushButton("Sincronizar com Steam")
-        self._sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._sync_btn.setStyleSheet(t.btn_steam())
-        self._sync_btn.setToolTip(
-            "Puxa seu inventario, market history, listings ativas e trade "
-            "offers da Steam. Usa cookies salvos da sessao."
-        )
-        self._sync_btn.clicked.connect(self.request_sync.emit)
-        btn_col.addWidget(self._sync_btn, 0, Qt.AlignmentFlag.AlignRight)
-
-        self._validate_btn = QPushButton("Validar Score do Portfolio")
-        self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._validate_btn.setStyleSheet(t.btn_secondary(padding="8px 14px",
-                                                          fs=t.FS_INPUT))
-        self._validate_btn.setToolTip(
-            "Roda backtest histórico (90d) nos itens do seu portfolio."
-            " Mostra se o score realmente prediz retornos pros itens"
-            " que você possui. Usa cache 24h, então reruns são rápidos."
-        )
-        self._validate_btn.clicked.connect(self._on_validate_portfolio)
-        btn_col.addWidget(self._validate_btn, 0,
-                          Qt.AlignmentFlag.AlignRight)
-
-        self._refresh_btn = QPushButton("Atualizar scores")
-        self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._refresh_btn.setStyleSheet(t.btn_ghost())
-        self._refresh_btn.setToolTip(
-            "Recomputa scores de todos os itens usando dados do cache."
-            " Mais rápido que Validar Score — não mostra dialog de backtest."
-        )
-        self._refresh_btn.clicked.connect(self._on_refresh_scores)
-        btn_col.addWidget(self._refresh_btn, 0,
-                          Qt.AlignmentFlag.AlignRight)
-
-        self._last_sync_lbl = QLabel("")
-        self._last_sync_lbl.setStyleSheet(t.label_caption())
-        btn_col.addWidget(self._last_sync_lbl, 0, Qt.AlignmentFlag.AlignRight)
-
-        hlay.addLayout(btn_col, 0)
-
-        # Substituir layout default do card
         header.layout().addLayout(hlay)
 
         # Stat cards row

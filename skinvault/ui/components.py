@@ -940,6 +940,57 @@ class LoadingState(QWidget):
         super().showEvent(ev)
 
 
+# ── PageHeader ───────────────────────────────────────────────
+class PageHeader(QWidget):
+    """Cabecalho de pagina: titulo 16pt + subtitulo + acoes a direita.
+
+    Altura total ~52px. Substitui SectionHeader no topo das telas
+    (pagina), mas nao substitui SectionHeader dentro de cards.
+    """
+
+    def __init__(self, title: str, subtitle: str = "",
+                 actions: list[QWidget] | None = None,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(52)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(t.SPACE_SM)
+
+        text_col = QVBoxLayout()
+        text_col.setContentsMargins(0, 0, 0, 0)
+        text_col.setSpacing(2)
+
+        self._title_lbl = QLabel(title)
+        self._title_lbl.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_MD};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+        )
+        text_col.addWidget(self._title_lbl)
+
+        self._sub_lbl = QLabel(subtitle)
+        self._sub_lbl.setStyleSheet(t.label_caption())
+        self._sub_lbl.setVisible(bool(subtitle))
+        text_col.addWidget(self._sub_lbl)
+
+        lay.addLayout(text_col, 1)
+
+        if actions:
+            acts = QHBoxLayout()
+            acts.setContentsMargins(0, 0, 0, 0)
+            acts.setSpacing(t.SPACE_SM)
+            for w in actions:
+                acts.addWidget(w)
+            lay.addLayout(acts)
+
+    def set_title(self, text: str) -> None:
+        self._title_lbl.setText(text)
+
+    def set_subtitle(self, text: str) -> None:
+        self._sub_lbl.setText(text)
+        self._sub_lbl.setVisible(bool(text))
+
+
 # ── SectionHeader ────────────────────────────────────────────
 class SectionHeader(QWidget):
     """Cabecalho de secao: titulo + subtitulo opcional + acao trailing."""

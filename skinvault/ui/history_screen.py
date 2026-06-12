@@ -42,6 +42,7 @@ from skinvault.ui.components import (
     EmptyState,
     FormRow,
     LoadingState,
+    PageHeader,
     SectionHeader,
     SegmentedControl,
     Toolbar,
@@ -441,8 +442,13 @@ class HistoryScreen(QWidget):
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(24, 16, 24, 16)
+        root.setSpacing(12)
+
+        root.addWidget(PageHeader(
+            "Histórico",
+            "Trades, pareamentos, eventos do Steam Market e alertas da watchlist.",
+        ))
 
         tb = Toolbar()
         self._seg = SegmentedControl(self)

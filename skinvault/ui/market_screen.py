@@ -30,6 +30,7 @@ from skinvault.ui.components import (
     Card,
     EmptyState,
     LoadingState,
+    PageHeader,
     SectionHeader,
     StatCard,
     Toast,
@@ -98,17 +99,24 @@ class MarketScreen(QWidget):
     # ── construcao ────────────────────────────────────────
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(24, 16, 24, 16)
+        root.setSpacing(12)
 
-        root.addWidget(
-            SectionHeader(
-                "Consulta de Mercado",
-                "Análise de fair value, histórico de preços e profundidade do "
-                "livro de ofertas no Steam Community Market.",
-                title_fs=t.FS_TITLE,
-            )
+        self._search_btn = QPushButton("Consultar item")
+        self._search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._search_btn.setStyleSheet(t.btn_primary())
+        self._search_btn.setToolTip(
+            "Busca menor preço, mediana, volume 24h, histórico e livro de "
+            "ofertas.\nRespeita o rate-limit do Steam (~2s por consulta)."
         )
+        self._search_btn.clicked.connect(self._on_search)
+
+        root.addWidget(PageHeader(
+            "Consulta de Mercado",
+            "Análise de fair value, histórico de preços e profundidade do "
+            "livro de ofertas no Steam Community Market.",
+            actions=[self._search_btn],
+        ))
 
         # ── Search row (Toolbar) ──────────────────────────
         tb = Toolbar()
@@ -139,16 +147,6 @@ class MarketScreen(QWidget):
         self._clear_btn.setToolTip("Limpa a busca e o resultado atual.")
         self._clear_btn.clicked.connect(self._on_clear)
         tb.add_right(self._clear_btn)
-
-        self._search_btn = QPushButton("Consultar item")
-        self._search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._search_btn.setStyleSheet(t.btn_primary())
-        self._search_btn.setToolTip(
-            "Busca menor preço, mediana, volume 24h, histórico e livro de "
-            "ofertas.\nRespeita o rate-limit do Steam (~2s por consulta)."
-        )
-        self._search_btn.clicked.connect(self._on_search)
-        tb.add_right(self._search_btn)
 
         root.addWidget(tb)
 

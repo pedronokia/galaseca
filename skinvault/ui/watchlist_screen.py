@@ -42,7 +42,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import EmptyState, FormRow, LoadingState, SectionHeader, StatCard
+from skinvault.ui.components import EmptyState, FormRow, LoadingState, PageHeader, SectionHeader, StatCard
 
 
 class _RulesDialog(QDialog):
@@ -209,21 +209,10 @@ class WatchlistScreen(QWidget):
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(24, 16, 24, 16)
+        root.setSpacing(12)
 
-        # Header: SectionHeader + acoes
-        hdr = QHBoxLayout()
-        hdr.addWidget(
-            SectionHeader(
-                "Watchlist e Alertas",
-                "Monitore preços de skins selecionadas e receba alertas quando "
-                "regras forem atendidas (queda, volume anormal, oferta baixa).",
-                title_fs=t.FS_TITLE,
-            ),
-            1,
-        )
-
+        # Header: PageHeader + acoes
         self._add_btn = QPushButton("+ Adicionar item")
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.setStyleSheet(t.btn_primary())
@@ -232,7 +221,6 @@ class WatchlistScreen(QWidget):
             " a regra escolhida for satisfeita."
         )
         self._add_btn.clicked.connect(self._on_add)
-        hdr.addWidget(self._add_btn, 0, Qt.AlignmentFlag.AlignTop)
 
         self._validate_btn = QPushButton("Validar Score")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -244,7 +232,6 @@ class WatchlistScreen(QWidget):
             " Usa cache 24h, então reruns são rápidos."
         )
         self._validate_btn.clicked.connect(self._on_validate_watchlist)
-        hdr.addWidget(self._validate_btn, 0, Qt.AlignmentFlag.AlignTop)
 
         self._refresh_btn = QPushButton("Atualizar scores+alertas")
         self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -254,8 +241,13 @@ class WatchlistScreen(QWidget):
             " dados do cache. Mais rápido que Validar Score — sem dialog."
         )
         self._refresh_btn.clicked.connect(self._on_refresh_scores)
-        hdr.addWidget(self._refresh_btn, 0, Qt.AlignmentFlag.AlignTop)
-        root.addLayout(hdr)
+
+        root.addWidget(PageHeader(
+            "Watchlist e Alertas",
+            "Monitore preços de skins selecionadas e receba alertas quando "
+            "regras forem atendidas (queda, volume anormal, oferta baixa).",
+            actions=[self._add_btn, self._validate_btn, self._refresh_btn],
+        ))
 
         # Stat cards: total + com regras + disparados + recentes 24h
         stats_row = QHBoxLayout()

@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import trades as trades_mod
 from skinvault.ui import theme as t
-from skinvault.ui.components import FormRow, RecentMatchesStrip, SectionHeader, SegmentedControl, StatCard, Toast
+from skinvault.ui.components import FormRow, PageHeader, RecentMatchesStrip, SectionHeader, SegmentedControl, StatCard, Toast
 
 
 _PERIODS = [
@@ -158,21 +158,10 @@ class TradesScreen(QWidget):
     # ── construcao ────────────────────────────────────────
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
+        root.setContentsMargins(24, 16, 24, 16)
+        root.setSpacing(12)
 
-        # Header: SectionHeader + acoes
-        hdr = QHBoxLayout()
-        hdr.addWidget(
-            SectionHeader(
-                "Histórico de Trades",
-                "P&L líquido após a taxa de 15% da Steam, com filtros por "
-                "período e resultado.",
-                title_fs=t.FS_TITLE,
-            ),
-            1,
-        )
-
+        # Header: PageHeader + acoes
         self._add_btn = QPushButton("Adicionar trade")
         self._add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._add_btn.setStyleSheet(t.btn_primary())
@@ -181,7 +170,6 @@ class TradesScreen(QWidget):
             "Atalho: Ctrl+N."
         )
         self._add_btn.clicked.connect(self._on_add)
-        hdr.addWidget(self._add_btn)
 
         self._more_btn = QPushButton("⋯")
         self._more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -197,8 +185,13 @@ class TradesScreen(QWidget):
         self._act_clear = self._more_menu.addAction("Limpar tudo…")
         self._act_clear.triggered.connect(self._on_clear)
         self._more_btn.setMenu(self._more_menu)
-        hdr.addWidget(self._more_btn)
-        root.addLayout(hdr)
+
+        root.addWidget(PageHeader(
+            "Histórico de Trades",
+            "P&L líquido após a taxa de 15% da Steam, com filtros por "
+            "período e resultado.",
+            actions=[self._add_btn, self._more_btn],
+        ))
 
         # Stats
         stats_row = QHBoxLayout()

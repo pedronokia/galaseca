@@ -36,7 +36,7 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, EmptyState, LoadingState, SectionHeader, StatCard, Toast, Toolbar
+from skinvault.ui.components import Card, EmptyState, LoadingState, PageHeader, SectionHeader, StatCard, Toast, Toolbar
 
 
 _MAX_FACTOR_DELTA = 35.0  # peso maximo de qualquer fator no enhanced_score
@@ -776,14 +776,8 @@ class ScannerScreen(QWidget):
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(14)
-
-        tb = Toolbar()
-        tb.add_left(
-            SectionHeader("Scanner de Oportunidades", "Análise multi-fator — score 0-100",
-                          title_fs=t.FS_TITLE)
-        )
+        root.setContentsMargins(24, 16, 24, 16)
+        root.setSpacing(12)
 
         self._cat_combo = QComboBox()
         self._cat_combo.setStyleSheet(
@@ -798,7 +792,6 @@ class ScannerScreen(QWidget):
             self._cat_combo.addItem(cat)
         self._cat_combo.addItem("Todas as categorias")
         self._cat_combo.currentTextChanged.connect(self._refresh_regime_banner)
-        tb.add_left(self._cat_combo)
 
         self._scan_btn = QPushButton("Escanear categoria")
         self._scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -808,7 +801,6 @@ class ScannerScreen(QWidget):
             " e veredito (COMPRA / ATENCAO / EVITAR)."
         )
         self._scan_btn.clicked.connect(self._on_scan)
-        tb.add_right(self._scan_btn)
 
         self._rank_btn = QPushButton("Ranking Top 20")
         self._rank_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -819,7 +811,6 @@ class ScannerScreen(QWidget):
             " scores. Demora vários minutos pelo rate-limit do Steam."
         )
         self._rank_btn.clicked.connect(self._on_ranking)
-        tb.add_right(self._rank_btn)
 
         self._validate_btn = QPushButton("Validar Score")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -831,8 +822,15 @@ class ScannerScreen(QWidget):
             " Demora ~2s por item pelo rate-limit do Steam."
         )
         self._validate_btn.clicked.connect(self._on_validate_score)
-        tb.add_right(self._validate_btn)
 
+        root.addWidget(PageHeader(
+            "Scanner de Oportunidades",
+            "Análise multi-fator — score 0-100.",
+            actions=[self._cat_combo, self._scan_btn, self._rank_btn, self._validate_btn],
+        ))
+
+        # Ghost buttons (Limpar cache SSR, Exportar CSV) — abaixo do header
+        ghost_tb = Toolbar()
         self._clear_cache_btn = QPushButton("Limpar cache SSR")
         self._clear_cache_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._clear_cache_btn.setStyleSheet(t.btn_ghost())
@@ -842,7 +840,7 @@ class ScannerScreen(QWidget):
             " consulta. O cache expira automaticamente em 24h."
         )
         self._clear_cache_btn.clicked.connect(self._on_clear_ssr_cache)
-        tb.add_right(self._clear_cache_btn)
+        ghost_tb.add_right(self._clear_cache_btn)
 
         self._export_btn = QPushButton("Exportar CSV")
         self._export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -853,8 +851,9 @@ class ScannerScreen(QWidget):
         )
         self._export_btn.clicked.connect(self._on_export_csv)
         self._export_btn.setEnabled(False)
-        tb.add_right(self._export_btn)
-        root.addWidget(tb)
+        ghost_tb.add_right(self._export_btn)
+
+        root.addWidget(ghost_tb)
 
         # Filtros sob o header
         from skinvault.settings import load_settings as _load

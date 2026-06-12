@@ -129,6 +129,7 @@ FS_MUTED = "9pt"
 FS_BODY = "10pt"
 FS_INPUT = "11pt"
 FS_TITLE_SM = "13pt"
+FS_TITLE_MD = "16pt"   # PageHeader title (compacto, entre FS_TITLE_SM e FS_TITLE)
 FS_STAT = "18pt"
 FS_TITLE = "24pt"
 FS_HERO = "28pt"   # hero title (welcome dialog, large modals)
