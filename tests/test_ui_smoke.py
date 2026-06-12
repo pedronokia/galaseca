@@ -1414,6 +1414,43 @@ def test_empty_state_cta_emits_signal():
     assert fired == [True]
 
 
+def test_empty_state_with_steps():
+    """EmptyState com steps cria QLabels numerados."""
+    from skinvault.ui.components import EmptyState
+    from PyQt6.QtWidgets import QLabel
+    steps = ["Primeiro passo", "Segundo passo", "Terceiro passo"]
+    es = EmptyState("◇", "Titulo", steps=steps)
+    labels = [ch for ch in es.findChildren(QLabel)
+              if ch.text() in steps]
+    assert len(labels) == 3
+    # Verifica os numeros 1-3
+    nums = [ch for ch in es.findChildren(QLabel)
+            if ch.text() in ("1", "2", "3")]
+    assert len(nums) == 3
+
+
+def test_empty_state_steps_no_cta():
+    """Steps sem CTA e sem subtitle funciona."""
+    from skinvault.ui.components import EmptyState
+    es = EmptyState("◇", "So steps", steps=["Unico passo"])
+    assert es is not None
+
+
+def test_market_charts_fixed_height():
+    """Charts do Market tem FixedHeight(300) em vez de stretch."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    from skinvault.ui.components import Card
+    screen = MarketScreen(PriceCache(ttl=3600))
+    cards = screen.findChildren(Card)
+    # O Market tem 2 chart cards (spark + depth) + detail card
+    chart_cards = [c for c in cards
+                   if c.minimumHeight() == 300 and c.maximumHeight() == 300]
+    assert len(chart_cards) >= 2, (
+        f"Expected >=2 chart cards with FixedHeight(300), got {len(chart_cards)}"
+    )
+
+
 # ── Animations (Frente J) ───────────────────────────────────
 
 def test_fade_in_attaches_effect_and_runs():

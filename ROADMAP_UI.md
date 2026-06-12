@@ -398,7 +398,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 >
  > **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
  >
- > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**. Próximas: Q, R, S, T, U, V.
+ > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**. Próximas: R, S, T, U, V.
 
  ~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
 
@@ -489,21 +489,19 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Hotfix 2** (`ecfba84..HEAD`): headers AINDA truncavam no print real — causa raiz: padding de `QHeaderView::section` (28px horizontal) não contabilizado no sizeHint do `ResizeToContents`/`Interactive`. Corrigido via (a) redução do padding QSS de `10px 16px 10px 12px` para `8px 10px 8px 10px`; (b) `setMinimumSectionSize(120)`; (c) nova função `_ensure_header_width()` que força `resizeSection` com folga de 50px; (d) Watchlist migrou de `ResizeToContents` para `Interactive` (evita que Qt sobrescreva o resize). Smoke test `test_table_headers_nao_truncam` valida que colunas com texto longo (> que cabe no mínimo) recebem espaço extra. 1310 tests verdes.
 
-### Frente Q — Empty states acionáveis + fim dos charts-oceano (esforço: 2-3h, impact: alto) [deps: M]
+~~### Frente Q — Empty states acionáveis + fim dos charts-oceano (esforço: 2-3h, impact: alto) [deps: M]~~ ✅
 
-**Problema**: estado vazio = 70% viewport deserto (prints 03/04/05). Market é o pior: 2 cards de chart com stretch infinito (~600px) pra exibir "Sem historico" no centro.
+~~**Problema**: estado vazio = 70% viewport deserto (prints 03/04/05). Market é o pior: 2 cards de chart com stretch infinito (~600px) pra exibir "Sem historico" no centro.~~
 
-**Ação**:
+~~**Ação**:
 1. `EmptyState` (components.py) ganha param opcional `steps: list[str]`: lista numerada compacta (círculo 20px ACCENT_DIM com o número + `label_body_muted`) renderizada sob o subtítulo — onboarding no lugar do vazio.
 2. Aplicar: Scanner (1. Escolha uma categoria 2. Clique em Escanear 3. Duplo-clique numa linha explica o score), Trades (1. Adicione manualmente ou sincronize 2. Acompanhe P&L e taxa de acerto 3. Clique numa barra do P&L mensal pra filtrar), Watchlist vazia (1. Adicionar item 2. Editar regras 3. Receber alertas nativos).
 3. Market: charts Histórico/Livro com `setFixedHeight(300)` em vez de stretch (grep `Histórico de preços` em market_screen.py); o espaço liberado vai pro card "Detalhes do item".
-4. Revisar consistência dos EmptyState existentes (glifo geométrico, título curto, CTA quando há ação óbvia).
+4. Revisar consistência dos EmptyState existentes (glifo geométrico, título curto, CTA quando há ação óbvia).~~
 
-**Não fazer**: sem ilustrações/imagens externas; sem cards fake; manter os glifos hero atuais (◇ ○ ◎ — assinatura).
+~~**Não fazer**: sem ilustrações/imagens externas; sem cards fake; manter os glifos hero atuais (◇ ○ ◎ — assinatura).~~
 
-**Aceite**: prints 03/05 com onboarding numerado; Market sem charts-oceano (300px) e Detalhes com presença; todo EmptyState com CTA onde existe ação óbvia.
-
-**Validação**: §4.3. Commit: `ui: empty states com passos acionaveis; market sem charts-oceano`.
+**Resultado**: EmptyState ganhou param `steps` (círculo 20px ACCENT_DIM + número + `label_body_muted`), aplicado em Scanner, Trades e Watchlist com onboarding de 3 passos cada. Market: chart cards trocaram stretch por `setFixedHeight(300)`, liberando espaço pro card "Detalhes do item". Market EmptyState ganhou CTA "Tentar novamente" conectado a `_on_search`. Consistência revisada: todos os 6 EmptyStates usam glifo geométrico, título curto e CTA onde há ação óbvia (Account sync, Watchlist add, Trades add, Market retry; Scanner e History sem CTA porque a ação primária está no PageHeader/toolbar). Extra: P&L líquido em trades_screen.py mostra `t.TEXT` (neutro) quando não há trades no filtro (antes ACCENT verde para R$ 0,00). 1313 tests verdes. Screenshots regenerados.
 
 ### Frente R — Despir o Qt cru: spinbox, checkbox, combo popup, scrollbar (esforço: 2-3h, impact: médio-alto) [deps: M]
 

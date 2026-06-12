@@ -318,8 +318,11 @@ class TradesScreen(QWidget):
         es = EmptyState(
             icon="◇",
             title="Nenhum trade ainda",
-            subtitle=("Adicione um trade manualmente ou sincronize com a Steam\n"
-                       "pra ver seu histórico de operações aparecer aqui."),
+            subtitle=("Adicione ou sincronize seus trades pra ver\n"
+                       "o histórico completo aqui."),
+            steps=["Adicione um trade manualmente ou sincronize com a Steam.",
+                   "Acompanhe P&L, taxa de acerto e desempenho mensal.",
+                   "Clique numa barra do P&L mensal para filtrar a tabela."],
             cta_label="+ Adicionar trade",
             on_cta=self._on_add,
         )
@@ -420,7 +423,10 @@ class TradesScreen(QWidget):
         self._stat_total.set_value(str(stats["total"]))
 
         pnl = stats["pnl_total"]
-        pnl_c = t.ACCENT if pnl >= 0 else t.DANGER
+        if stats["total"] == 0:
+            pnl_c = t.TEXT
+        else:
+            pnl_c = t.ACCENT if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_c)
         # Delta vs mes anterior
         _monthly = trades_mod.monthly_pnl(trades=self._trades)

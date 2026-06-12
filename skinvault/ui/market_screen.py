@@ -202,6 +202,7 @@ class MarketScreen(QWidget):
         charts_row.setSpacing(12)
 
         spark_card = Card(self)
+        spark_card.setFixedHeight(300)
         spark_lay = QVBoxLayout()
         spark_lay.setSpacing(8)
         spark_hdr = QHBoxLayout()
@@ -225,9 +226,10 @@ class MarketScreen(QWidget):
         self._sparkline.setMinimumHeight(140)
         spark_lay.addWidget(self._sparkline, 1)
         spark_card.layout().addLayout(spark_lay)
-        charts_row.addWidget(spark_card, 1)
+        charts_row.addWidget(spark_card)
 
         depth_card = Card(self)
+        depth_card.setFixedHeight(300)
         depth_lay = QVBoxLayout()
         depth_lay.setSpacing(8)
         depth_hdr = QHBoxLayout()
@@ -248,7 +250,7 @@ class MarketScreen(QWidget):
         )
         depth_lay.addWidget(self._depth, 1)
         depth_card.layout().addLayout(depth_lay)
-        charts_row.addWidget(depth_card, 1)
+        charts_row.addWidget(depth_card)
 
         content_lay.addLayout(charts_row)
 
@@ -301,6 +303,8 @@ class MarketScreen(QWidget):
             "◇", "Nada encontrado",
             "Nenhum dado disponível para este item. Verifique o nome "
             "exato (wear, StatTrak, acentos) ou tente novamente.",
+            cta_label="Tentar novamente",
+            on_cta=self._on_search,
         )
         self._empty.setVisible(False)
         root.addWidget(self._empty, 1)

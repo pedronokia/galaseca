@@ -60,8 +60,11 @@ class EmptyState(QWidget):
 
     Uso:
         es = EmptyState("◇", "Nenhum item ainda",
-                         "Adicione manualmente ou sincronize.",
+                         subtitle="Adicione manualmente ou sincronize.",
                          cta_label="+ Adicionar", on_cta=callback)
+
+        es = EmptyState("◎", "Pronto pra escanear",
+                         steps=["1. Escolha uma categoria", "2. Clique em Escanear"])
     """
 
     cta_clicked = pyqtSignal()
@@ -69,6 +72,7 @@ class EmptyState(QWidget):
     def __init__(self, icon: str, title: str, subtitle: str = "",
                  cta_label: str | None = None,
                  on_cta=None,
+                 steps: list[str] | None = None,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         lay = QVBoxLayout(self)
@@ -97,6 +101,31 @@ class EmptyState(QWidget):
             sub.setWordWrap(True)
             sub.setStyleSheet(t.label_body_muted())
             lay.addWidget(sub)
+
+        if steps:
+            steps_w = QWidget()
+            steps_lay = QVBoxLayout(steps_w)
+            steps_lay.setSpacing(8)
+            steps_lay.setContentsMargins(40, 0, 40, 0)
+            for i, step in enumerate(steps, 1):
+                row = QHBoxLayout()
+                row.setSpacing(10)
+                num = QLabel(str(i))
+                num.setFixedSize(20, 20)
+                num.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                num.setStyleSheet(
+                    f"background: {t.ACCENT_DIM}; color: {t.TEXT};"
+                    f" font-size: {t.FS_MUTED}; font-weight: 600;"
+                    f" border-radius: 10px; font-family: {t.FONT_FAMILY};"
+                )
+                row.addWidget(num)
+                txt = QLabel(step)
+                txt.setWordWrap(True)
+                txt.setStyleSheet(t.label_body_muted())
+                row.addWidget(txt, 1)
+                steps_lay.addLayout(row)
+            steps_lay.addStretch(1)
+            lay.addWidget(steps_w)
 
         if cta_label:
             cta = QPushButton(cta_label)

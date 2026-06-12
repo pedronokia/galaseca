@@ -950,8 +950,11 @@ class ScannerScreen(QWidget):
         self._empty_hero = EmptyState(
             icon="◎",
             title="Pronto pra escanear",
-            subtitle=("Escolha uma categoria acima (Rifles, Facas, Luvas…)\n"
-                       "e clique em Escanear para descobrir oportunidades."),
+            subtitle=("Escolha uma categoria acima e clique em Escanear\n"
+                       "para descobrir oportunidades."),
+            steps=["Escolha uma categoria (Rifles, Facas, Luvas…).",
+                   "Clique em Escanear para analisar preços e sinais.",
+                   "Duplo-clique numa linha para ver o breakdown do score."],
         )
         root.addWidget(self._empty_hero, 1)
         # Estado inicial: hero visivel, tabela escondida

@@ -313,8 +313,11 @@ class WatchlistScreen(QWidget):
         self._empty_hero = EmptyState(
             icon="☆",
             title="Sua watchlist está vazia",
-            subtitle=("Adicione itens pra monitorar preços e receber alertas\n"
-                       "quando o mercado se mexer."),
+            subtitle=("Adicione itens pra monitorar preços\n"
+                       "e configurar alertas personalizados."),
+            steps=["Adicione um item digitando o nome exato da skin.",
+                   "Configure regras de alerta (preço alvo, queda, volume).",
+                   "Receba notificações nativas quando o mercado se mexer."],
             cta_label="+ Adicionar item",
             on_cta=self._on_add,
         )
