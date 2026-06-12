@@ -552,6 +552,7 @@ class ActivityFeed(Card):
             f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
             f" font-weight: 600; font-family: {t.FONT_FAMILY};"
         )
+        title.setWordWrap(False)
         self.layout().addWidget(title)
 
         chips_row = QHBoxLayout()
@@ -578,7 +579,7 @@ class ActivityFeed(Card):
         self.layout().addStretch(1)
 
         self._empty = QLabel("Nenhuma atividade ainda.")
-        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self._empty.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-family: {t.FONT_FAMILY}; padding: 16px 0;"
