@@ -10,11 +10,21 @@ from PyQt6.QtCore import (
     QEasingCurve,
     QPoint,
     QPropertyAnimation,
+    QPointF,
+    QRectF,
     Qt,
     QTimer,
     pyqtSignal,
 )
-from PyQt6.QtGui import QFont, QFontMetrics, QPixmap
+from PyQt6.QtGui import (
+    QColor,
+    QFont,
+    QFontMetrics,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPixmap,
+)
 from PyQt6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
@@ -260,22 +270,157 @@ class StatCard(Card):
             )
 
 
+# ── LineIcon (QPainter) ──────────────────────────────────────
+class LineIcon(QWidget):
+    """Icone de linha 18x18 desenhado com QPainter (estilo Fluent/Lucide).
+
+    Stroke 1.5px, cap arredondado, sem preenchimento. `set_color()` permite
+    acompanhar estado (ex.: ACCENT quando o item do sidebar esta ativo).
+    Nome desconhecido cai no fallback (circulo).
+    """
+
+    SIZE = 18
+
+    def __init__(self, name: str, color: str = t.TEXT_MUTED,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._name = name
+        self._color = color
+        self.setFixedSize(self.SIZE, self.SIZE)
+
+    def set_color(self, color: str) -> None:
+        if color != self._color:
+            self._color = color
+            self.update()
+
+    def set_name(self, name: str) -> None:
+        if name != self._name:
+            self._name = name
+            self.update()
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor(self._color))
+        pen.setWidthF(1.5)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        drawer = getattr(self, f"_draw_{self._name}", None)
+        if drawer is None:
+            self._draw_fallback(p)
+        else:
+            drawer(p)
+        p.end()
+
+    # cada _draw_* trabalha num viewBox 18x18 (area util ~2..16)
+    def _draw_user(self, p: QPainter) -> None:
+        p.drawEllipse(QRectF(6, 3, 6, 6))            # cabeca
+        p.drawArc(QRectF(4, 10.5, 10, 9), 0, 180 * 16)  # ombros (meia elipse)
+
+    def _draw_history(self, p: QPainter) -> None:
+        p.drawEllipse(QRectF(3, 3, 12, 12))          # mostrador
+        p.drawLine(9, 9, 9, 5)                        # ponteiro hora
+        p.drawLine(9, 9, 12, 9)                       # ponteiro minuto
+
+    def _draw_radar(self, p: QPainter) -> None:
+        # dois arcos concentricos abrindo do canto inf-esq + dot na origem
+        p.drawArc(QRectF(-6, 4, 22, 22), 0, 90 * 16)
+        p.drawArc(QRectF(-1, 9, 12, 12), 0, 90 * 16)
+        p.setBrush(QColor(self._color))
+        p.drawEllipse(QRectF(3.2, 13.2, 1.6, 1.6))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+    def _draw_chart(self, p: QPainter) -> None:
+        path = QPainterPath()
+        for i, (x, y) in enumerate([(3, 13), (7, 8), (11, 11), (15, 4)]):
+            path.lineTo(x, y) if i else path.moveTo(x, y)
+        p.drawPath(path)
+
+    def _draw_swap(self, p: QPainter) -> None:
+        # seta -> em cima, seta <- embaixo
+        p.drawLine(4, 6, 14, 6)
+        p.drawLine(11, 3, 14, 6)
+        p.drawLine(11, 9, 14, 6)
+        p.drawLine(14, 12, 4, 12)
+        p.drawLine(7, 9, 4, 12)
+        p.drawLine(7, 15, 4, 12)
+
+    def _draw_calc(self, p: QPainter) -> None:
+        p.drawRoundedRect(QRectF(4, 3, 10, 12), 1.5, 1.5)
+        p.drawLine(6, 6, 12, 6)                       # visor
+        p.setBrush(QColor(self._color))
+        for cx in (7, 11):
+            for cy in (9.5, 12.5):
+                p.drawEllipse(QRectF(cx - 0.7, cy - 0.7, 1.4, 1.4))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+    def _draw_eye(self, p: QPainter) -> None:
+        path = QPainterPath()
+        path.moveTo(3, 9)
+        path.quadTo(9, 3.5, 15, 9)
+        path.quadTo(9, 14.5, 3, 9)
+        p.drawPath(path)
+        p.drawEllipse(QRectF(6.8, 6.8, 4.4, 4.4))     # pupila
+
+    def _draw_gear(self, p: QPainter) -> None:
+        import math
+        p.drawEllipse(QRectF(5.8, 5.8, 6.4, 6.4))
+        for k in range(6):
+            ang = math.radians(k * 60)
+            dx, dy = math.cos(ang), math.sin(ang)
+            p.drawLine(int(9 + dx * 4.3), int(9 + dy * 4.3),
+                       int(9 + dx * 6.3), int(9 + dy * 6.3))
+
+    def _draw_info(self, p: QPainter) -> None:
+        p.drawEllipse(QRectF(3, 3, 12, 12))
+        p.setBrush(QColor(self._color))
+        p.drawEllipse(QRectF(8.2, 5.4, 1.6, 1.6))     # pingo do i
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawLine(QPointF(9, 8.5), QPointF(9, 12.5))  # corpo do i
+
+    def _draw_archive(self, p: QPainter) -> None:
+        p.drawRoundedRect(QRectF(3, 4, 12, 3), 1, 1)  # tampa
+        p.drawRoundedRect(QRectF(4, 7, 10, 8), 1, 1)  # corpo
+        p.drawLine(QPointF(7.5, 10.5), QPointF(10.5, 10.5))  # alca
+
+    def _draw_fallback(self, p: QPainter) -> None:
+        p.drawEllipse(QRectF(3, 3, 12, 12))
+
+
 # ── Sidebar ──────────────────────────────────────────────────
 class _SidebarItem(QPushButton):
-    def __init__(self, icon: str, label: str, parent: QWidget | None = None):
+    """Item do sidebar: LineIcon a esquerda + texto nativo (cor via QSS).
+
+    O texto e' nativo do QPushButton (mantem a cascata de cor :hover/
+    :checked/:focus da Frente C intacta); o LineIcon e' um child reposi-
+    cionado cuja cor sincroniza com o estado. checkable=False pra acoes
+    (Configuracoes/Sobre/Backups) — sem estado ativo, so' hover.
+    """
+
+    def __init__(self, icon: str, label: str, checkable: bool = True,
+                 parent: QWidget | None = None):
         super().__init__(parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setCheckable(True)
-        self.setAutoExclusive(True)
-        self.setText(f"  {icon}    {label}")
+        if checkable:
+            self.setCheckable(True)
+            self.setAutoExclusive(True)
+        self.setText(label)
         self.setStyleSheet(self._style_idle())
         self.setMinimumHeight(40)
-        self.toggled.connect(self._on_toggled)
+        self._icon = LineIcon(icon, t.TEXT_MUTED, self)
+        self._icon.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents
+        )
+        if checkable:
+            self.toggled.connect(self._on_toggled)
 
     def _style_idle(self) -> str:
+        # padding-left abre espaco pro LineIcon (14 margem + 18 icone + 10)
         return (
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
-            f" border: none; text-align: left; padding-left: 11px;"
+            f" border: none; text-align: left; padding-left: 42px;"
             f" border-left: 3px solid transparent;"
             f" font-size: {t.FS_BODY}; font-weight: 500;"
             f" font-family: {t.FONT_FAMILY}; }}"
@@ -290,8 +435,22 @@ class _SidebarItem(QPushButton):
         )
 
     def _on_toggled(self, checked: bool) -> None:
-        # Estilo aplicado via :checked do qss
-        pass
+        self._icon.set_color(t.ACCENT if checked else t.TEXT_MUTED)
+
+    def resizeEvent(self, evt) -> None:  # noqa: N802
+        super().resizeEvent(evt)
+        y = (self.height() - self._icon.height()) // 2
+        self._icon.move(14, y)
+
+    def enterEvent(self, evt) -> None:  # noqa: N802
+        if not self.isChecked():
+            self._icon.set_color(t.TEXT)
+        super().enterEvent(evt)
+
+    def leaveEvent(self, evt) -> None:  # noqa: N802
+        if not self.isChecked():
+            self._icon.set_color(t.TEXT_MUTED)
+        super().leaveEvent(evt)
 
 
 class Sidebar(QWidget):
@@ -318,16 +477,82 @@ class Sidebar(QWidget):
         self._lay.addWidget(brand)
 
     def add_item(self, key: str, icon: str, label: str) -> None:
-        btn = _SidebarItem(icon, label, self)
+        btn = _SidebarItem(icon, label, parent=self)
         btn.clicked.connect(lambda: self.item_selected.emit(key))
         self._items[key] = btn
         self._lay.addWidget(btn)
+
+    def add_action(self, icon: str, label: str,
+                   callback: Callable[[], None]) -> _SidebarItem:
+        """Acao secundaria (nao-navegacao): mesmo visual, sem estado ativo."""
+        btn = _SidebarItem(icon, label, checkable=False, parent=self)
+        btn.clicked.connect(lambda: callback())
+        self._lay.addWidget(btn)
+        return btn
 
     def add_stretch(self) -> None:
         self._lay.addStretch(1)
 
     def add_widget(self, w: QWidget) -> None:
         self._lay.addWidget(w)
+
+    def add_session_chip(self) -> None:
+        """Chip de sessao no rodape: dot + nome + 'Steam'. Clique navega
+        pra Minha Conta. Inicia oculto; set_session() popula e exibe."""
+        self._chip = QWidget()
+        self._chip.setObjectName("SessionChip")
+        self._chip.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._chip.setStyleSheet(
+            f"QWidget#SessionChip {{ background: {t.SURFACE};"
+            f" border: 1px solid {t.BORDER}; border-radius: 8px; }}"
+            f"QWidget#SessionChip:hover {{ border: 1px solid {t.TEXT_MUTED}; }}"
+        )
+        lay = QHBoxLayout(self._chip)
+        lay.setContentsMargins(10, 8, 10, 8)
+        lay.setSpacing(8)
+        self._chip_dot = QWidget()
+        self._chip_dot.setFixedSize(8, 8)
+        self._chip_dot.setStyleSheet(
+            f"background: {t.ACCENT}; border-radius: 4px;"
+        )
+        lay.addWidget(self._chip_dot)
+        col = QVBoxLayout()
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(0)
+        self._chip_name = QLabel("—")
+        self._chip_name.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_MUTED}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        self._chip_sub = QLabel("Steam")
+        self._chip_sub.setStyleSheet(t.label_caption())
+        col.addWidget(self._chip_name)
+        col.addWidget(self._chip_sub)
+        lay.addLayout(col, 1)
+        # Clique no chip -> navega pra Minha Conta
+        self._chip.mousePressEvent = (
+            lambda _evt: self.item_selected.emit("account")
+        )
+        self._chip.setVisible(False)
+        self._lay.addWidget(self._chip)
+
+    def set_session(self, name: str, steamid: str) -> None:
+        """Atualiza o chip de sessao. name/steamid vazios escondem o chip."""
+        chip = getattr(self, "_chip", None)
+        if chip is None:
+            return
+        if not name and not steamid:
+            chip.setVisible(False)
+            return
+        if name:
+            display = name
+        elif len(steamid) >= 12:
+            display = f"{steamid[:8]}…{steamid[-4:]}"
+        else:
+            display = steamid
+        self._chip_name.setText(display)
+        chip.setToolTip(f"SteamID: {steamid}" if steamid else "")
+        chip.setVisible(True)
 
     def select(self, key: str) -> None:
         btn = self._items.get(key)

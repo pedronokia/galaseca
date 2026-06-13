@@ -22,7 +22,7 @@ from skinvault import steam_session
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.account_screen import AccountScreen
-from skinvault.ui.components import Breadcrumb, Footer, fade_in
+from skinvault.ui.components import Breadcrumb, fade_in
 from skinvault.ui.history_screen import HistoryScreen
 from skinvault.ui.login_gate import LoginGate
 from skinvault.ui.market_screen import MarketScreen
@@ -50,6 +50,7 @@ class ScreenRouter(QWidget):
     sidebar_visibility_changed = pyqtSignal(bool)
     navigated = pyqtSignal(str)
     notification_requested = pyqtSignal(str, str, str)  # title, body, severity
+    session_changed = pyqtSignal(str, str)  # name, steamid ("","" = deslogado)
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -112,9 +113,8 @@ class ScreenRouter(QWidget):
         self._stack.addWidget(self._watchlist_screen)
 
         root.addWidget(self._stack, 1)
-
-        self._footer = Footer(self)
-        root.addWidget(self._footer)
+        # Footer global removido na Frente S — o indicador de sessao virou
+        # o chip no rodape da sidebar (session_changed -> Sidebar.set_session).
 
     def _check_session(self) -> None:
         s = steam_session.load()
@@ -135,8 +135,7 @@ class ScreenRouter(QWidget):
         if changed and self._stack.isVisible():
             fade_in(self._login_gate)
         self._breadcrumb.set_path("Bem-vindo")
-        self._footer.set_left("Nao conectado")
-        self._footer.set_right("")
+        self.session_changed.emit("", "")
         self.sidebar_visibility_changed.emit(False)
 
     def _on_session(self, session: steam_session.SteamSession) -> None:
@@ -149,11 +148,8 @@ class ScreenRouter(QWidget):
             prof = load_cached_profile(sid)
         except Exception:
             prof = None
-        if prof and prof.get("name"):
-            label = f"Conectado como {prof['name']}"
-        else:
-            label = "Conectado: {}…{}".format(sid[:8], sid[-4:])
-        self._footer.set_left(label)
+        name = prof.get("name") if prof else ""
+        self.session_changed.emit(name or "", sid)
         self.sidebar_visibility_changed.emit(True)
         self.navigate(SCREEN_ACCOUNT)
         self._maybe_show_welcome()

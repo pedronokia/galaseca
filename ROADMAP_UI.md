@@ -525,7 +525,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Fix final (validação visual externa)**: a borda verde em volta do checkbox INTEIRO persistia mesmo após o hotfix — causa raiz era a **ordem do seletor de focus**, não a cor: `QCheckBox:focus::indicator` (estado antes do subcontrol) é malformado e o parser QSS do Qt aplica a `border` ao widget raiz, incondicionalmente. Confirmado por A/B empírico (dois checkboxes lado a lado, só a ordem do seletor diferindo). Forma canônica `QCheckBox::indicator:focus` resolve. **Pitfall registrado no docstring do helper** — em QSS, sempre subcontrol primeiro, estados depois.
 
-### Frente S — Sidebar: ícones de linha QPainter + sessão no rodapé (esforço: 3-4h, impact: alto — assinatura visual) [deps: M]
+### Frente S — Sidebar: ícones de linha QPainter + sessão no rodapé (esforço: 3-4h, impact: alto — assinatura visual) [deps: M] ✅
 
 **Problema**: (1) `_SidebarItem` embute glifos unicode no texto (`setText(f"  {icon}    {label}")` em components.py) — ∴ ◈ ○ ★ ⇄ ▭ ≡ têm pesos/larguras inconsistentes e não comunicam. (2) "Conectado como {nome}" ocupa barra full-width na base da janela inteira.
 
@@ -540,6 +540,8 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 **Aceite**: sidebar com 7 itens + 3 inferiores usando ícones de linha consistentes (mesmo stroke/peso óptico); checked em ACCENT; sessão no rodapé da sidebar; barra inferior global removida/reduzida; prints das 7 telas ok.
 
 **Validação**: §4.3. Commit: `ui: sidebar com icones de linha QPainter + chip de sessao no rodape`.
+
+**Resultado**: (1) `LineIcon(QWidget)` em components.py — 18×18 QPainter, stroke 1.5 RoundCap sem fill, 10 ícones (user/history/radar/chart/swap/calc/eye/gear/info/archive) + fallback círculo; `set_color()` pra acompanhar estado. (2) `_SidebarItem` ganhou o LineIcon como child reposicionado (abordagem texto-nativo: a cor do TEXTO continua 100% via QSS da Frente C — zero regressão; só a cor do ícone sincroniza no toggled/enter/leave). `padding-left` 11→42px abre espaço. Generalizado com `checkable` param: os 3 inferiores viram `add_action()` (mesmo visual, sem estado ativo) — saíram do `_ghost_sidebar_style`, que ficou órfão e foi removido de gui.py. (3) Chip de sessão no rodapé da sidebar (`add_session_chip` + `set_session`): dot ACCENT + nome + "Steam", tooltip SteamID, clique → Minha Conta; esconde quando deslogado. (4) **Footer global removido** (decisão da spec "remover ou reduzir"): era usado SÓ pra "Conectado como X" (set_right sempre vazio) — virou o chip. Novo sinal `ScreenRouter.session_changed(name, steamid)` emitido em `_on_session`/`_show_login`, conectado a `Sidebar.set_session` no gui.py. Classe `Footer` mantida em components.py (pode ter uso futuro), só desconectada do router. (5) Glifos unicode dos 7 itens (`chr(9676)` etc.) substituídos por nomes de ícone. +9 tests (LineIcon por nome/fallback/set_color, chip visível/oculto/truncado/clique, add_action não-checkable, _on_toggled pinta ícone). Validação visual: sidebar via preview isolado (gating esconde com sessão deslogada — registrado); 7 telas sem buraco pós-remoção do footer (status local de cada tela permanece). Pitfall evitado: `drawLine` com floats gera DeprecationWarning no Qt6 → usar `QPointF`.
 
 ### Frente T — Scanner: cada controle no seu lugar (esforço: 2h, impact: médio) [deps: N] ✅
 

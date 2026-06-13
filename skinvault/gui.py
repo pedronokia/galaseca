@@ -606,6 +606,7 @@ class MainWindow(QMainWindow):
 
         self._router.navigated.connect(self._on_navigated)
         self._router.sidebar_visibility_changed.connect(self._on_sidebar_visibility)
+        self._router.session_changed.connect(self._sidebar.set_session)
         self._router.start()
 
         self._setup_shortcuts()
@@ -698,31 +699,30 @@ class MainWindow(QMainWindow):
         self._sidebar_dock.setMaximumWidth(sw)
 
         sidebar = Sidebar(width=sw)
+        # Icones de linha (QPainter) por nome — vide components.LineIcon
         for key, icon, label in [
-            ("account", chr(9676), "Minha Conta"),
-            ("history", chr(9672), "Historico"),
-            ("scanner", chr(9711), "Scanner"),
-            ("market", chr(9733), "Market"),
-            ("trades", chr(8644), "Trades"),
-            ("simulador", chr(9856), "Simulador"),
-            ("watchlist", chr(9776), "Watchlist"),
+            ("account", "user", "Minha Conta"),
+            ("history", "history", "Historico"),
+            ("scanner", "radar", "Scanner"),
+            ("market", "chart", "Market"),
+            ("trades", "swap", "Trades"),
+            ("simulador", "calc", "Simulador"),
+            ("watchlist", "eye", "Watchlist"),
         ]:
             sidebar.add_item(key, icon, label)
         sidebar.add_stretch()
 
-        btn_style = self._ghost_sidebar_style()
-        for text, cb in [
-            ("  " + chr(9881) + "  Configuracoes", self._open_settings),
-            ("  Sobre", self._open_about),
-            ("  Backups", self._open_backups),
+        for icon, label, cb in [
+            ("gear", "Configuracoes", self._open_settings),
+            ("info", "Sobre", self._open_about),
+            ("archive", "Backups", self._open_backups),
         ]:
-            btn = QPushButton(text)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(btn_style)
-            btn.clicked.connect(cb)
-            sidebar.add_widget(btn)
+            sidebar.add_action(icon, label, cb)
+
+        sidebar.add_session_chip()
 
         sidebar.item_selected.connect(self._router.navigate)
+        self._sidebar = sidebar
         self._sidebar_dock.setWidget(sidebar)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
                            self._sidebar_dock)
@@ -730,15 +730,6 @@ class MainWindow(QMainWindow):
         # estado inicial
         visible = self._router.sidebar_visible
         self._sidebar_dock.setVisible(visible)
-
-    def _ghost_sidebar_style(self) -> str:
-        return (
-            f"QPushButton {{ color: {_MUTED}; background: transparent;"
-            f" border: none; text-align: left; padding: 8px 14px;"
-            f" font-size: 9pt; font-weight: 500; }}"
-            f"QPushButton:hover {{ color: {_TEXT}; background: {_SURFACE};"
-            f" border-radius: 6px; }}"
-        )
 
     def _on_sidebar_visibility(self, visible: bool) -> None:
         self._sidebar_dock.setVisible(visible)

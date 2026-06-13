@@ -2119,7 +2119,7 @@ def test_router_welcome_swallows_exception(monkeypatch):
 
 
 def test_router_on_session_with_cached_profile(monkeypatch):
-    """_on_session usa nome do perfil cached pra label do footer."""
+    """_on_session emite session_changed com nome do perfil cached."""
     from skinvault.ui.screen_router import ScreenRouter
     from skinvault.prices import PriceCache
     monkeypatch.setattr("threading.Thread", _InlineThread)
@@ -2128,9 +2128,11 @@ def test_router_on_session_with_cached_profile(monkeypatch):
         "skinvault.ui.profile_fetcher.load_cached_profile",
         lambda sid: {"name": "nokia"})
     router = ScreenRouter(PriceCache(ttl=3600))
+    sig = []
+    router.session_changed.connect(lambda n, s: sig.append((n, s)))
     sess = _fake_session()
     router._on_session(sess)
-    # Footer left deve conter "nokia"
+    assert sig and sig[0][0] == "nokia"
 
 
 def test_router_on_session_profile_fetch_raises(monkeypatch):
@@ -3766,11 +3768,89 @@ def test_avatar_set_image_valid_bytes():
     assert a.pixmap() is not None
 
 
-def test_segmented_control_on_toggled():
-    """_on_toggled e' chamavel (slot vazio)."""
+def test_sidebar_item_on_toggled_pinta_icone():
+    """_on_toggled sincroniza a cor do LineIcon com o estado checked."""
+    from skinvault.ui import theme as t
     from skinvault.ui.components import _SidebarItem
-    si = _SidebarItem("k", "L")
-    si._on_toggled(True)  # nao crasha
+    si = _SidebarItem("user", "L")
+    si._on_toggled(True)
+    assert si._icon._color == t.ACCENT
+    si._on_toggled(False)
+    assert si._icon._color == t.TEXT_MUTED
+
+
+def test_lineicon_paints_all_named_glyphs():
+    """LineIcon renderiza cada nome conhecido sem crashar (grab nao-nulo)."""
+    from skinvault.ui.components import LineIcon
+    names = ["user", "history", "radar", "chart", "swap",
+             "calc", "eye", "gear", "info", "archive"]
+    for name in names:
+        ic = LineIcon(name)
+        pix = ic.grab()
+        assert not pix.isNull(), name
+
+
+def test_lineicon_unknown_name_falls_back():
+    """Nome desconhecido cai no fallback (circulo) sem crashar."""
+    from skinvault.ui.components import LineIcon
+    ic = LineIcon("nao-existe")
+    assert not ic.grab().isNull()
+
+
+def test_lineicon_set_color_triggers_repaint():
+    """set_color muda a cor e nao quebra o paint."""
+    from skinvault.ui import theme as t
+    from skinvault.ui.components import LineIcon
+    ic = LineIcon("user")
+    ic.set_color(t.ACCENT)
+    assert ic._color == t.ACCENT
+    assert not ic.grab().isNull()
+
+
+def test_sidebar_session_chip():
+    """add_session_chip + set_session controla visibilidade e texto."""
+    from skinvault.ui.components import Sidebar
+    sb = Sidebar()
+    sb.add_session_chip()
+    assert sb._chip.isHidden()  # inicia oculto
+    sb.set_session("nokia", "76561198000000001")
+    assert not sb._chip.isHidden()
+    assert sb._chip_name.text() == "nokia"
+    assert "76561198000000001" in sb._chip.toolTip()
+    # deslogado esconde de novo
+    sb.set_session("", "")
+    assert sb._chip.isHidden()
+
+
+def test_sidebar_session_chip_steamid_fallback():
+    """Sem nome, o chip trunca o steamid."""
+    from skinvault.ui.components import Sidebar
+    sb = Sidebar()
+    sb.add_session_chip()
+    sb.set_session("", "76561198000000001")
+    assert "…" in sb._chip_name.text()
+
+
+def test_sidebar_chip_click_navigates_account():
+    """Clique no chip emite item_selected('account')."""
+    from skinvault.ui.components import Sidebar
+    sb = Sidebar()
+    sb.add_session_chip()
+    emitted = []
+    sb.item_selected.connect(emitted.append)
+    sb._chip.mousePressEvent(None)
+    assert emitted == ["account"]
+
+
+def test_sidebar_add_action_not_checkable():
+    """add_action cria item de acao (sem estado checked) com icone."""
+    from skinvault.ui.components import Sidebar
+    sb = Sidebar()
+    calls = []
+    btn = sb.add_action("gear", "Config", lambda: calls.append(1))
+    assert not btn.isCheckable()
+    btn.click()
+    assert calls == [1]
 
 
 # ── LoginGate _on_connect ──────────────────────────────────────
@@ -6429,6 +6509,7 @@ def _make_mw(monkeypatch) -> "MainWindow":
         navigated = pyqtSignal(str)
         sidebar_visibility_changed = pyqtSignal(bool)
         notification_requested = pyqtSignal(str, str, str)
+        session_changed = pyqtSignal(str, str)
 
         def __init__(self, cache=None, parent=None):
             super().__init__(parent)
