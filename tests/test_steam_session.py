@@ -366,6 +366,46 @@ class TestRefresh:
         s = self._session_with_refresh()
         assert ss.refresh(s) is False  # nenhum cookie obtido
 
+    def test_refresh_prefers_community_token(self, monkeypatch):
+        """Com transfers de store E community, fica com o token community."""
+        def mock_post(url, fields, timeout, extra_headers=None):
+            if "finalizelogin" in url:
+                payload = json.dumps({"transfer_info": [
+                    {"url": "https://store.steampowered.com/login/settoken",
+                     "params": {"nonce": "n"}},
+                    {"url": "https://steamcommunity.com/login/settoken",
+                     "params": {"nonce": "n"}},
+                ]}).encode()
+                return 200, payload, []
+            tok = "STORE" if "store" in url else "COMMUNITY"
+            return 200, b"{}", [
+                f"steamLoginSecure={SAMPLE_STEAMID}%7C%7C{tok}; Path=/",
+            ]
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        assert ss.refresh(s) is True
+        assert "COMMUNITY" in s.cookies["steamLoginSecure"]
+
+    def test_refresh_falls_back_to_store_when_community_fails(self, monkeypatch):
+        """Se o transfer community falha, usa o token que sobrou (store)."""
+        def mock_post(url, fields, timeout, extra_headers=None):
+            if "finalizelogin" in url:
+                payload = json.dumps({"transfer_info": [
+                    {"url": "https://store.steampowered.com/login/settoken",
+                     "params": {"nonce": "n"}},
+                    {"url": "https://steamcommunity.com/login/settoken",
+                     "params": {"nonce": "n"}},
+                ]}).encode()
+                return 200, payload, []
+            if "store" in url:
+                return 200, b"{}", [
+                    f"steamLoginSecure={SAMPLE_STEAMID}%7C%7CSTORE; Path=/"]
+            return None  # community falha (rede)
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        assert ss.refresh(s) is True
+        assert "STORE" in s.cookies["steamLoginSecure"]
+
     def test_refresh_transfer_without_cookie_returns_false(self, monkeypatch):
         def mock_post(url, fields, timeout, extra_headers=None):
             if "finalizelogin" in url:
@@ -378,6 +418,32 @@ class TestRefresh:
         monkeypatch.setattr(ss, "_post_multipart", mock_post)
         s = self._session_with_refresh()
         assert ss.refresh(s) is False
+
+
+class TestPostMultipartNoRedirect:
+    def test_captures_set_cookie_from_302(self, monkeypatch):
+        """302 com Set-Cookie vira HTTPError e o cookie e' lido dele."""
+        import io
+        from urllib.error import HTTPError
+
+        class _Hdrs:
+            def get_all(self, _name):
+                return [f"steamLoginSecure={SAMPLE_STEAMID}%7C%7CTOK; Path=/"]
+
+        def _raise_302(req, timeout=None):
+            raise HTTPError(req.full_url, 302, "Found", _Hdrs(),
+                            io.BytesIO(b""))
+
+        monkeypatch.setattr(ss._no_redirect_opener, "open", _raise_302)
+        res = ss._post_multipart("https://steamcommunity.com/login/settoken",
+                                 {"steamID": "x"}, 5.0)
+        assert res is not None
+        assert ss._extract_cookie_value(res[2], "steamLoginSecure") is not None
+
+    def test_no_redirect_handler_returns_none(self):
+        """O handler nao segue redirects (redirect_request -> None)."""
+        h = ss._NoRedirect()
+        assert h.redirect_request(None, None, 302, "", {}, "http://x") is None
 
 
 class TestEnsureValid:

@@ -166,7 +166,8 @@ class CommandPalette(QDialog):
             f"QListWidget::item:selected {{ background: {t.SURFACE_HOV}; }}"
         )
         self._list.setFixedHeight(320)
-        self._list.itemActivated.connect(lambda _i: self._execute_current())
+        # So' itemClicked: Enter e' tratado no keyPressEvent (verificado).
+        # itemActivated dispararia junto no double-click -> run() duplicado.
         self._list.itemClicked.connect(lambda _i: self._execute_current())
         inner.addWidget(self._list)
 

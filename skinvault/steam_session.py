@@ -202,13 +202,29 @@ def _multipart_encode(fields: dict) -> tuple[bytes, str]:
     return b"\r\n".join(lines), f"multipart/form-data; boundary={boundary}"
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Nao segue 3xx — deixa a resposta de redirect propagar como HTTPError.
+
+    Critico pro fluxo de transfer: a Steam pode setar o steamLoginSecure
+    num 302 e redirecionar. O urlopen padrao seguiria o redirect e os
+    headers finais NAO trariam o Set-Cookie do hop intermediario. Com este
+    handler o 302 vira HTTPError e lemos o Set-Cookie dele.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_no_redirect_opener = urllib.request.build_opener(_NoRedirect)
+
+
 def _post_multipart(url: str, fields: dict, timeout: float,
                     extra_headers: dict | None = None,
                     ) -> tuple[int, bytes, list[str]] | None:
     """POST multipart. Retorna (status, body, set_cookie_headers) ou None.
 
-    Le os Set-Cookie inclusive em respostas HTTPError (os transfers podem
-    redirecionar mas ja' setam o cookie no caminho).
+    Usa opener sem-redirect: os transfers da Steam setam o cookie e
+    redirecionam (3xx), entao o Set-Cookie e' lido do branch HTTPError.
     """
     body, content_type = _multipart_encode(fields)
     headers = {"User-Agent": _UA, "Content-Type": content_type}
@@ -217,7 +233,7 @@ def _post_multipart(url: str, fields: dict, timeout: float,
     req = urllib.request.Request(url, data=body, headers=headers,
                                  method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _no_redirect_opener.open(req, timeout=timeout) as resp:
             return (resp.status, resp.read(),
                     resp.headers.get_all("Set-Cookie") or [])
     except urllib.error.HTTPError as exc:
@@ -272,7 +288,7 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
     if not transfers:
         return False
 
-    new_secure: str | None = None
+    tokens: dict[str, str] = {}  # host -> steamLoginSecure emitido
     for tr in transfers:
         url = tr.get("url") or ""
         params = tr.get("params") or {}
@@ -290,10 +306,18 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
             continue
         val = _extract_cookie_value(res[2], "steamLoginSecure")
         if val:
-            new_secure = val
-            if "steamcommunity.com" in host:
-                break  # preferimos o cookie do dominio community
+            tokens[host] = val
 
+    # Prefere o token do dominio community — e' o que validate()/sync usam.
+    # Os tokens sao audience-scoped: pegar o do store por engano (ex.: o
+    # transfer community falhou) faria o validate() seguinte cair em /login.
+    new_secure: str | None = None
+    for host, val in tokens.items():
+        if "steamcommunity.com" in host:
+            new_secure = val
+            break
+    if new_secure is None and tokens:
+        new_secure = next(iter(tokens.values()))
     if not new_secure:
         return False
 

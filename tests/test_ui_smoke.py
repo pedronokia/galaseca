@@ -1266,6 +1266,24 @@ def test_screen_router_check_session_invalid(monkeypatch):
     assert router._stack.currentWidget() == router._login_gate
 
 
+def test_screen_router_keeps_session_with_refresh_token_on_failure(monkeypatch):
+    """Falha transiente NAO apaga sessao que tem steamRefresh_steam."""
+    from skinvault.steam_session import SteamSession
+    sess = SteamSession("76561198000000001",
+                        {"steamLoginSecure": "tok",
+                         "steamRefresh_steam": "76561198000000001||rt"})
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: sess)
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid",
+                        lambda s: False)
+    clear_calls = []
+    monkeypatch.setattr("skinvault.steam_session.clear",
+                        lambda: clear_calls.append(True))
+    router = _make_router()
+    router._check_session()
+    assert clear_calls == []  # token preservado pra retry no proximo boot
+    assert router._stack.currentWidget() == router._login_gate
+
+
 def test_screen_router_on_session(monkeypatch):
     """_on_session configura estado pos-login."""
     monkeypatch.setattr("threading.Thread", _InlineThread)

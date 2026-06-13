@@ -370,8 +370,10 @@ class LineIcon(QWidget):
         for k in range(6):
             ang = math.radians(k * 60)
             dx, dy = math.cos(ang), math.sin(ang)
-            p.drawLine(int(9 + dx * 4.3), int(9 + dy * 4.3),
-                       int(9 + dx * 6.3), int(9 + dy * 6.3))
+            # Coords float (QPointF) p/ manter os dentes simetricos — int()
+            # truncava assimetrico (lados opostos em raios diferentes).
+            p.drawLine(QPointF(9 + dx * 4.3, 9 + dy * 4.3),
+                       QPointF(9 + dx * 6.3, 9 + dy * 6.3))
 
     def _draw_info(self, p: QPainter) -> None:
         p.drawEllipse(QRectF(3, 3, 12, 12))

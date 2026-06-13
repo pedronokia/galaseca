@@ -128,3 +128,33 @@ def test_palette_move_wraps(_qapp):
     assert pal._list.currentRow() == 2
     pal._move(1)   # wrap pro primeiro
     assert pal._list.currentRow() == 0
+
+
+def test_palette_enter_executes_via_keyboard(_qapp):
+    """Enter no input (focado) propaga pro keyPressEvent e executa.
+
+    Regressao: o smoke chama _execute_current direto; este exercita o
+    caminho real de teclado (QLineEdit ignora Return -> dialog trata)."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    from skinvault.ui.palette import CommandPalette
+    cmds, fired = _cmds_with_spy()
+    pal = CommandPalette(cmds)
+    pal.show()
+    pal._refilter("scan")
+    QTest.keyClick(pal._input, Qt.Key.Key_Return)
+    assert fired == ["scanner"]
+    pal.close()
+
+
+def test_palette_arrow_down_navigates_via_keyboard(_qapp):
+    """Down no input move a selecao (propaga pro keyPressEvent)."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtTest import QTest
+    from skinvault.ui.palette import CommandPalette
+    cmds, _ = _cmds_with_spy()
+    pal = CommandPalette(cmds)
+    pal.show()
+    QTest.keyClick(pal._input, Qt.Key.Key_Down)
+    assert pal._list.currentRow() == 1
+    pal.close()

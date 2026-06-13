@@ -47,9 +47,15 @@ def _collect_steam_cookies(cdp_cookies: list) -> dict:
     """Filtra os cookies relevantes da resposta do CDP Network.getAllCookies.
 
     Pega cookies de steamcommunity.com (sessao web) E o steamRefresh_steam
-    de login.steampowered.com (refresh token de longa duracao, usado pra
+    do dominio steampowered.com (refresh token de longa duracao, usado pra
     renovar a sessao sem novo login). Sem este ultimo, a sessao morre em
     ~24h e o usuario precisa relogar toda hora.
+
+    O filtro do refresh token aceita qualquer subdominio *.steampowered.com
+    (login./store./host-only) — dependendo de onde o redirect de login
+    assenta, o Chrome pode armazenar o cookie sob dominios diferentes; um
+    match estrito em 'login.steampowered.com' deixaria o token escapar e o
+    auto-refresh nunca ativaria.
     """
     cookies: dict = {}
     for c in cdp_cookies:
@@ -57,7 +63,7 @@ def _collect_steam_cookies(cdp_cookies: list) -> dict:
         name = c.get("name", "")
         if "steamcommunity.com" in domain:
             cookies[name] = c.get("value", "")
-        elif name == "steamRefresh_steam" and "login.steampowered.com" in domain:
+        elif name == "steamRefresh_steam" and "steampowered.com" in domain:
             cookies[name] = c.get("value", "")
     return cookies
 

@@ -126,7 +126,12 @@ class ScreenRouter(QWidget):
                 steam_session.persist(s)
                 self._on_session(s)
                 return
-            steam_session.clear()
+            # Falha: so' descarta a sessao se NAO ha refresh token pra
+            # retry. Uma falha transiente (rede) no boot nao pode apagar o
+            # steamRefresh_steam (~1 ano) — senao um blip de rede forca
+            # relogin manual. Com refresh token, mantem no disco pra proxima.
+            if not s.cookies.get("steamRefresh_steam"):
+                steam_session.clear()
         self._show_login()
 
     def _show_login(self) -> None:

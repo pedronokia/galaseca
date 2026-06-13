@@ -955,8 +955,6 @@ class MainWindow(QMainWindow):
             {"label": "Consultar item no Market", "category": "Acao",
              "icon": "chart",
              "run": lambda: self._palette_nav_focus("market", "_search_inp")},
-            {"label": "Exportar CSV da tela atual", "category": "Acao",
-             "icon": "archive", "run": self._palette_export_csv},
             {"label": "Sincronizar com Steam", "category": "Acao",
              "icon": "swap", "run": self._palette_sync},
             {"label": "Adicionar trade", "category": "Acao", "icon": "swap",
@@ -968,6 +966,14 @@ class MainWindow(QMainWindow):
             {"label": "Configuracoes", "category": "Acao", "icon": "gear",
              "run": self._open_settings},
         ]
+        # "Exportar CSV" so' entra quando a tela atual suporta — evita
+        # acao listada que nao faz nada (ex.: Account, Simulador).
+        stack = getattr(self._router, "_stack", None)
+        cur = stack.currentWidget() if stack is not None else None
+        if callable(getattr(cur, "_on_export_csv", None)):
+            cmds.append({"label": "Exportar CSV da tela atual",
+                         "category": "Acao", "icon": "archive",
+                         "run": self._palette_export_csv})
         return cmds
 
     def _palette_nav_focus(self, screen: str, attr: str) -> None:
