@@ -751,6 +751,8 @@ class MainWindow(QMainWindow):
             self._open_settings)
         QShortcut(QKeySequence("Ctrl+,"), self).activated.connect(
             self._open_settings)
+        QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(
+            self._open_palette)
 
     def _focus_filter(self) -> None:
         stack = getattr(self._router, '_stack', None)
@@ -911,8 +913,10 @@ class MainWindow(QMainWindow):
         self._sidebar_dock.setStyleSheet(
             f"QDockWidget {{ background: {_SURFACE}; }}"
         )
+        # Seletor com objectName — sem ele o background propaga pros filhos
+        # da sidebar (LineIcon/chip), reintroduzindo as tarjas (vide Frente M).
         self._sidebar_dock.widget().setStyleSheet(
-            f"background: {_SURFACE};"
+            f"QWidget#Sidebar {{ background: {_SURFACE}; }}"
         )
 
     def _open_about(self) -> None:
@@ -925,6 +929,67 @@ class MainWindow(QMainWindow):
             "Nao preve futuro — so' dados factuais.<br><br>"
             "Feito por Pedro S. | 2026",
         )
+
+    # ── command palette (Ctrl+K) ──────────────────────────────
+    def _open_palette(self) -> None:
+        from skinvault.ui.palette import CommandPalette
+        CommandPalette(self._palette_commands(), self).exec()
+
+    def _palette_commands(self) -> list[dict]:
+        """Registro estatico de comandos (navegacao + acoes globais)."""
+        nav = [
+            ("account", "user", "Minha Conta"),
+            ("history", "history", "Historico"),
+            ("scanner", "radar", "Scanner"),
+            ("market", "chart", "Market"),
+            ("trades", "swap", "Trades"),
+            ("simulador", "calc", "Simulador"),
+            ("watchlist", "eye", "Watchlist"),
+        ]
+        cmds: list[dict] = [
+            {"label": f"Ir: {label}", "category": "Navegar", "icon": icon,
+             "run": (lambda k=key: self._router.navigate(k))}
+            for key, icon, label in nav
+        ]
+        cmds += [
+            {"label": "Consultar item no Market", "category": "Acao",
+             "icon": "chart",
+             "run": lambda: self._palette_nav_focus("market", "_search_inp")},
+            {"label": "Exportar CSV da tela atual", "category": "Acao",
+             "icon": "archive", "run": self._palette_export_csv},
+            {"label": "Sincronizar com Steam", "category": "Acao",
+             "icon": "swap", "run": self._palette_sync},
+            {"label": "Adicionar trade", "category": "Acao", "icon": "swap",
+             "run": lambda: self._router.navigate("trades")},
+            {"label": "Adicionar a watchlist", "category": "Acao",
+             "icon": "eye", "run": lambda: self._router.navigate("watchlist")},
+            {"label": "Gerenciar backups", "category": "Acao",
+             "icon": "archive", "run": self._open_backups},
+            {"label": "Configuracoes", "category": "Acao", "icon": "gear",
+             "run": self._open_settings},
+        ]
+        return cmds
+
+    def _palette_nav_focus(self, screen: str, attr: str) -> None:
+        """Navega pra `screen` e foca o input `attr` da tela (se existir)."""
+        self._router.navigate(screen)
+        stack = getattr(self._router, "_stack", None)
+        if stack is not None:
+            inp = getattr(stack.currentWidget(), attr, None)
+            if inp is not None:
+                inp.setFocus()
+
+    def _palette_export_csv(self) -> None:
+        stack = getattr(self._router, "_stack", None)
+        if stack is not None:
+            fn = getattr(stack.currentWidget(), "_on_export_csv", None)
+            if callable(fn):
+                fn()
+
+    def _palette_sync(self) -> None:
+        sess = getattr(self._router, "session", None)
+        if sess is not None:
+            self._on_sync_requested(sess)
 
 
 def launch() -> int:

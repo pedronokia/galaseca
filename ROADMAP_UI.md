@@ -579,7 +579,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 
 **Resultado**: (1) Input `setMinimumWidth(420)` + botão "Consultar item" colado à direita numa HBox dedicada — saiu do PageHeader e do Toolbar; `returnPressed` continua consultando. (2) "Buscas recentes" removido como botão solto; vira `QAction("▾")` no trailing do input, exibe o mesmo `_recent_menu` via `_show_recent_menu()` que executa o menu ancorado no bottomLeft do input. (3) Detalhes migraram de `QFormLayout` + `label_caption()` para `QGridLayout` 2 colunas com labels em `label_caption_bold()` e valores em `FS_BODY` semibold; `_add_detail` → `_add_detail_row`, `_clear_detail_form` → `_clear_detail_grid`. (4) Charts mantêm `setFixedHeight(300)` da Frente Q. `Toolbar` removido dos imports. 1316 tests verdes.
 
-### Frente V — Command palette Ctrl+K (esforço: 4-6h, impact: alto; AMBICIOSA — por último) [deps: M-U]
+### Frente V — Command palette Ctrl+K (esforço: 4-6h, impact: alto; AMBICIOSA — por último) [deps: M-U] ✅
 
 **Oportunidade**: 7 telas + ~10 ações frequentes e nenhum acesso rápido global. Command palette (padrão VS Code/Raycast/Linear) é o selo de produto moderno — e o usuário é power user.
 
@@ -595,6 +595,8 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 **Aceite**: Ctrl+K abre em qualquer tela; "scan"+Enter navega pro Scanner; "trade" lista ≥2 ações; visual 100% tokens; testes verdes.
 
 **Validação**: §4.3. Commit: `ui: command palette Ctrl+K — navegacao e acoes globais com fuzzy match`.
+
+**Resultado**: (1) `skinvault/ui/palette.py` novo. `palette_rank(query, items)` puro: subsequência case-insensitive com `_fuzzy_score` (substring-prefixo 1500 > substring-contígua 1000−pos > subsequência-espalhada ~200; `None` = sem match); query vazia devolve todos; empate desempata por índice (estável). (2) `CommandPalette(QDialog)` frameless 560px, `WA_TranslucentBackground`, card `BG_ELEVATED`+border+radius 12 com `QGraphicsDropShadowEffect` (exceção consciente à regra anti-shadow — modal único, não recorrente). QLineEdit + QListWidget com `_ResultRow` (LineIcon da Frente S + label + categoria muted via `setItemWidget`). `keyPressEvent`: ↑↓ navegam com wrap, Enter executa, Esc fecha; `showEvent` posiciona a ~18% do topo da janela pai e foca o input. `_execute_current` faz `accept()` antes do `run()` (pra foco pós-navegação funcionar). (3) MainWindow: `_palette_commands()` registra 7 navegações + 7 ações (Consultar no Market com foco no `_search_inp`, Exportar CSV da tela atual via `_on_export_csv` da tela corrente, Sincronizar com Steam via sessão do router, Adicionar trade/watchlist degradados pra navegação conforme spec, Gerenciar backups, Configurações); `QShortcut(Ctrl+K)` → `_open_palette`. Closures do loop capturam a key com default-arg. (4) **Bônus**: corrigido pitfall latente em `set_theme` — reaplicava `background` sem seletor na sidebar (tarjas da Frente M ao trocar tema); agora `QWidget#Sidebar`. (5) `tests/test_palette.py`: 12 da lógica pura (prefixo vence, contíguo>espalhado, case-insensitive, sem match vazio, query vazia, estável) + 4 smoke do dialog (lista/filtra/executa/wrap). Suíte verde.
 
 ---
 
