@@ -249,6 +249,162 @@ def test_follow_redirect_http_error_returns_url(monkeypatch):
     result = ss._follow_redirect("https://steamcommunity.com/my/", "cookies", 10)
     assert result == "https://steamcommunity.com/login/"
 
+class TestRefreshTokenExtractor:
+    def test_extracts_jwt_after_pipes(self):
+        cookies = {"steamRefresh_steam": f"{SAMPLE_STEAMID}||eyJ.payload.sig"}
+        assert ss._refresh_token_from_cookies(cookies) == "eyJ.payload.sig"
+
+    def test_extracts_when_url_encoded(self):
+        cookies = {"steamRefresh_steam": f"{SAMPLE_STEAMID}%7C%7Ctok.p.s"}
+        assert ss._refresh_token_from_cookies(cookies) == "tok.p.s"
+
+    def test_returns_none_when_missing(self):
+        assert ss._refresh_token_from_cookies({}) is None
+
+    def test_returns_none_when_empty(self):
+        assert ss._refresh_token_from_cookies({"steamRefresh_steam": ""}) is None
+
+    def test_no_pipes_returns_whole_value(self):
+        # Token sem prefixo steamid — usa o valor inteiro
+        cookies = {"steamRefresh_steam": "rawjwt"}
+        assert ss._refresh_token_from_cookies(cookies) == "rawjwt"
+
+
+class TestMultipartEncode:
+    def test_includes_all_fields(self):
+        body, ctype = ss._multipart_encode({"nonce": "abc", "sessionid": "x"})
+        assert ctype.startswith("multipart/form-data; boundary=")
+        text = body.decode()
+        assert 'name="nonce"' in text
+        assert "abc" in text
+        assert 'name="sessionid"' in text
+
+    def test_boundary_matches_header(self):
+        body, ctype = ss._multipart_encode({"a": "1"})
+        boundary = ctype.split("boundary=", 1)[1]
+        assert f"--{boundary}".encode() in body
+        assert f"--{boundary}--".encode() in body
+
+
+class TestExtractCookieValue:
+    def test_finds_named_cookie(self):
+        headers = [
+            "sessionid=abc; Path=/",
+            "steamLoginSecure=76561%7C%7Cnewtok; Path=/; HttpOnly",
+        ]
+        assert (ss._extract_cookie_value(headers, "steamLoginSecure")
+                == "76561%7C%7Cnewtok")
+
+    def test_returns_none_when_absent(self):
+        assert ss._extract_cookie_value(["foo=bar"], "steamLoginSecure") is None
+
+
+class TestRefresh:
+    def _session_with_refresh(self):
+        cookies = dict(SAMPLE_COOKIES)
+        cookies["steamRefresh_steam"] = f"{SAMPLE_STEAMID}||refresh.jwt.sig"
+        return SteamSession(steamid=SAMPLE_STEAMID, cookies=cookies)
+
+    def test_refresh_happy_path(self, monkeypatch):
+        calls = []
+
+        def mock_post(url, fields, timeout, extra_headers=None):
+            calls.append(url)
+            if "finalizelogin" in url:
+                payload = json.dumps({
+                    "steamID": SAMPLE_STEAMID,
+                    "transfer_info": [
+                        {"url": "https://steamcommunity.com/login/settoken",
+                         "params": {"nonce": "n1", "auth": "a1"}},
+                    ],
+                }).encode()
+                return 200, payload, []
+            # transfer endpoint
+            return 200, b"{}", [
+                f"steamLoginSecure={SAMPLE_STEAMID}%7C%7CNEWTOKEN; Path=/",
+            ]
+
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        old_secure = s.cookies["steamLoginSecure"]
+        assert ss.refresh(s) is True
+        assert s.cookies["steamLoginSecure"] != old_secure
+        assert "NEWTOKEN" in s.cookies["steamLoginSecure"]
+        assert len(s.cookies["sessionid"]) == 24  # token_hex(12)
+        assert any("finalizelogin" in c for c in calls)
+
+    def test_refresh_no_token_returns_false(self, monkeypatch):
+        called = []
+        monkeypatch.setattr(ss, "_post_multipart",
+                            lambda *a, **kw: called.append(1))
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.refresh(s) is False
+        assert called == []  # nem tenta sem refresh token
+
+    def test_refresh_finalize_fails(self, monkeypatch):
+        monkeypatch.setattr(ss, "_post_multipart", lambda *a, **kw: None)
+        s = self._session_with_refresh()
+        assert ss.refresh(s) is False
+
+    def test_refresh_no_transfer_info(self, monkeypatch):
+        def mock_post(url, fields, timeout, extra_headers=None):
+            return 200, json.dumps({"transfer_info": []}).encode(), []
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        assert ss.refresh(s) is False
+
+    def test_refresh_skips_non_steam_url(self, monkeypatch):
+        def mock_post(url, fields, timeout, extra_headers=None):
+            if "finalizelogin" in url:
+                payload = json.dumps({"transfer_info": [
+                    {"url": "https://evil.example.com/steal",
+                     "params": {"nonce": "n"}},
+                ]}).encode()
+                return 200, payload, []
+            raise AssertionError("nao deve postar em dominio nao-Steam")
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        assert ss.refresh(s) is False  # nenhum cookie obtido
+
+    def test_refresh_transfer_without_cookie_returns_false(self, monkeypatch):
+        def mock_post(url, fields, timeout, extra_headers=None):
+            if "finalizelogin" in url:
+                payload = json.dumps({"transfer_info": [
+                    {"url": "https://store.steampowered.com/login/settoken",
+                     "params": {"nonce": "n"}},
+                ]}).encode()
+                return 200, payload, []
+            return 200, b"{}", ["sessionid=x; Path=/"]  # sem steamLoginSecure
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        assert ss.refresh(s) is False
+
+
+class TestEnsureValid:
+    def test_returns_true_when_already_valid(self, monkeypatch):
+        monkeypatch.setattr(ss, "validate", lambda s, t=15.0: True)
+        monkeypatch.setattr(ss, "refresh",
+                            lambda s, t=15.0: pytest.fail("nao deve renovar"))
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid(s) is True
+
+    def test_refreshes_when_expired(self, monkeypatch):
+        states = iter([False, True])  # validate: 1o falha, 2o (pos-refresh) ok
+        monkeypatch.setattr(ss, "validate", lambda s, t=15.0: next(states))
+        refresh_calls = []
+        monkeypatch.setattr(ss, "refresh",
+                            lambda s, t=15.0: refresh_calls.append(1) or True)
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid(s) is True
+        assert refresh_calls == [1]
+
+    def test_returns_false_when_refresh_fails(self, monkeypatch):
+        monkeypatch.setattr(ss, "validate", lambda s, t=15.0: False)
+        monkeypatch.setattr(ss, "refresh", lambda s, t=15.0: False)
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid(s) is False
+
+
 class TestMergeCookies:
     def test_keeps_relevant_keys_only(self):
         existing = {"sessionid": "old"}

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
 import time
 import urllib.error
 import urllib.parse
@@ -144,3 +145,173 @@ def merge_cookies(existing: dict, new: dict) -> dict:
         if k in _AUTH_COOKIES and v:
             merged[k] = v
     return merged
+
+
+# ── renovacao automatica de sessao (refresh token) ────────────
+# O steamLoginSecure (token de acesso web) expira em ~24h. O
+# steamRefresh_steam e' um refresh token de longa duracao (~1 ano) que
+# permite gerar novos tokens de acesso sem novo login interativo.
+#
+# Fluxo web (audience web/renew/derive — NAO precisa do audience mobile
+# que o IAuthenticationService/GenerateAccessTokenForApp exigiria):
+#   1. POST login.steampowered.com/jwt/finalizelogin
+#      (nonce=refresh_token, sessionid novo, redir community) -> JSON com
+#      transfer_info: [{url, params:{nonce, auth}}, ...]
+#   2. POST em cada transfer com {steamID, **params} -> Set-Cookie traz o
+#      novo steamLoginSecure pro dominio daquele transfer
+# Referencia do fluxo: DoctorMcKay/node-steam-session (getWebCookies).
+_FINALIZE_URL = "https://login.steampowered.com/jwt/finalizelogin"
+_REDIR = "https://steamcommunity.com/login/home/?goto="
+_STEAM_HOSTS = ("steampowered.com", "steamcommunity.com")
+
+
+def _refresh_token_from_cookies(cookies: dict) -> str | None:
+    """Extrai o JWT puro do cookie steamRefresh_steam.
+
+    Formato do cookie: 'steamid||jwt' (pode vir URL-encoded com %7C%7C).
+    O finalizelogin espera so' o jwt (sem o prefixo steamid).
+    """
+    raw = cookies.get("steamRefresh_steam") or ""
+    if not raw:
+        return None
+    decoded = urllib.parse.unquote(raw)
+    parts = decoded.split("||", 1)
+    token = parts[1] if len(parts) == 2 else decoded
+    token = token.strip()
+    return token or None
+
+
+def _multipart_encode(fields: dict) -> tuple[bytes, str]:
+    """Monta corpo multipart/form-data. Retorna (body, content_type).
+
+    O jwt/finalizelogin + os transfers do Steam esperam multipart (mesmo
+    encoding que o node-steam-session usa); form-urlencoded nao e' aceito
+    de forma confiavel.
+    """
+    boundary = "----SkinVault" + secrets.token_hex(16)
+    lines: list[bytes] = []
+    for name, value in fields.items():
+        lines.append(f"--{boundary}".encode())
+        lines.append(
+            f'Content-Disposition: form-data; name="{name}"'.encode()
+        )
+        lines.append(b"")
+        lines.append(str(value).encode())
+    lines.append(f"--{boundary}--".encode())
+    lines.append(b"")
+    return b"\r\n".join(lines), f"multipart/form-data; boundary={boundary}"
+
+
+def _post_multipart(url: str, fields: dict, timeout: float,
+                    extra_headers: dict | None = None,
+                    ) -> tuple[int, bytes, list[str]] | None:
+    """POST multipart. Retorna (status, body, set_cookie_headers) ou None.
+
+    Le os Set-Cookie inclusive em respostas HTTPError (os transfers podem
+    redirecionar mas ja' setam o cookie no caminho).
+    """
+    body, content_type = _multipart_encode(fields)
+    headers = {"User-Agent": _UA, "Content-Type": content_type}
+    if extra_headers:
+        headers.update(extra_headers)
+    req = urllib.request.Request(url, data=body, headers=headers,
+                                 method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return (resp.status, resp.read(),
+                    resp.headers.get_all("Set-Cookie") or [])
+    except urllib.error.HTTPError as exc:
+        try:
+            return (exc.code, exc.read(),
+                    exc.headers.get_all("Set-Cookie") or [])
+        except Exception:
+            return exc.code, b"", []
+    except Exception as exc:
+        logger.info("POST multipart falhou (%s): %s", url, exc)
+        return None
+
+
+def _extract_cookie_value(set_cookie_headers: list[str],
+                          name: str) -> str | None:
+    """Acha o valor de `name` numa lista de headers Set-Cookie."""
+    prefix = f"{name}="
+    for sc in set_cookie_headers:
+        if sc.startswith(prefix):
+            return sc[len(prefix):].split(";", 1)[0]
+    return None
+
+
+def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
+    """Renova o steamLoginSecure usando o steamRefresh_steam.
+
+    Atualiza session.cookies (steamLoginSecure + sessionid) e captured_at
+    em caso de sucesso. Nao faz nada destrutivo em falha (retorna False).
+    """
+    token = _refresh_token_from_cookies(session.cookies)
+    if not token or not session.steamid:
+        return False
+
+    session_id = secrets.token_hex(12)
+    fin = _post_multipart(
+        _FINALIZE_URL,
+        {"nonce": token, "sessionid": session_id, "redir": _REDIR},
+        timeout,
+        extra_headers={
+            "Origin": "https://steamcommunity.com",
+            "Referer": "https://steamcommunity.com/",
+        },
+    )
+    if not fin:
+        return False
+    _status, raw, _ = fin
+    try:
+        data = json.loads(raw.decode("utf-8", "replace"))
+    except Exception:
+        return False
+    transfers = data.get("transfer_info") or []
+    if not transfers:
+        return False
+
+    new_secure: str | None = None
+    for tr in transfers:
+        url = tr.get("url") or ""
+        params = tr.get("params") or {}
+        # So' POSTamos em URLs https de dominios Steam (as URLs vem da
+        # resposta da Steam, mas validamos por seguranca).
+        if not url.startswith("https://"):
+            continue
+        host = urllib.parse.urlparse(url).hostname or ""
+        if not any(host == h or host.endswith("." + h)
+                   for h in _STEAM_HOSTS):
+            continue
+        res = _post_multipart(url, {"steamID": session.steamid, **params},
+                              timeout)
+        if not res:
+            continue
+        val = _extract_cookie_value(res[2], "steamLoginSecure")
+        if val:
+            new_secure = val
+            if "steamcommunity.com" in host:
+                break  # preferimos o cookie do dominio community
+
+    if not new_secure:
+        return False
+
+    session.cookies["steamLoginSecure"] = new_secure
+    session.cookies["sessionid"] = session_id
+    session.captured_at = time.time()
+    return True
+
+
+def ensure_valid(session: SteamSession, timeout: float = 15.0) -> bool:
+    """Garante sessao utilizavel: valida e, se expirou, tenta renovar.
+
+    Retorna True se a sessao esta valida ao final (com ou sem refresh).
+    Em sucesso de refresh, os cookies da `session` ja' foram atualizados
+    in-place — o chamador deve persist() para nao perder a renovacao.
+    """
+    if validate(session, timeout):
+        return True
+    if refresh(session, timeout) and validate(session, timeout):
+        return True
+    return False

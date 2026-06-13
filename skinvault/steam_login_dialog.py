@@ -43,6 +43,25 @@ _LOGIN_URL = "https://steamcommunity.com/login/home/?goto=my"
 _SUCCESS_FRAGMENTS = ("/profiles/", "/id/")
 
 
+def _collect_steam_cookies(cdp_cookies: list) -> dict:
+    """Filtra os cookies relevantes da resposta do CDP Network.getAllCookies.
+
+    Pega cookies de steamcommunity.com (sessao web) E o steamRefresh_steam
+    de login.steampowered.com (refresh token de longa duracao, usado pra
+    renovar a sessao sem novo login). Sem este ultimo, a sessao morre em
+    ~24h e o usuario precisa relogar toda hora.
+    """
+    cookies: dict = {}
+    for c in cdp_cookies:
+        domain = c.get("domain", "")
+        name = c.get("name", "")
+        if "steamcommunity.com" in domain:
+            cookies[name] = c.get("value", "")
+        elif name == "steamRefresh_steam" and "login.steampowered.com" in domain:
+            cookies[name] = c.get("value", "")
+    return cookies
+
+
 def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
@@ -284,10 +303,7 @@ class SteamLoginDialog(QDialog):
             QTimer.singleShot(0, self._on_login_error)
             return
 
-        cookies: dict = {}
-        for c in result.get("cookies", []):
-            if "steamcommunity.com" in c.get("domain", ""):
-                cookies[c["name"]] = c["value"]
+        cookies = _collect_steam_cookies(result.get("cookies", []))
 
         logger.info("Extraidos %d cookies Steam via CDP (total=%d)",
                      len(cookies), len(result.get("cookies", [])))
@@ -299,10 +315,7 @@ class SteamLoginDialog(QDialog):
             mid = self._send_cdp("Network.getAllCookies")
             result = self._wait_for_cdp_result(mid, timeout=15)
             if result:
-                cookies = {}
-                for c in result.get("cookies", []):
-                    if "steamcommunity.com" in c.get("domain", ""):
-                        cookies[c["name"]] = c["value"]
+                cookies = _collect_steam_cookies(result.get("cookies", []))
                 logger.info("Tentativa 2: %d cookies Steam via CDP", len(cookies))
 
         steamid = extract_steamid_from_cookie(cookies) or ""
@@ -399,10 +412,7 @@ class SteamLoginDialog(QDialog):
             self._status.setText(f"JSON invalido: {exc}")
             return
         if isinstance(parsed, list):
-            cookies: dict = {}
-            for c in parsed:
-                if "steamcommunity.com" in c.get("domain", ""):
-                    cookies[c["name"]] = c["value"]
+            cookies: dict = _collect_steam_cookies(parsed)
         elif isinstance(parsed, dict):
             cookies = dict(parsed)
         else:

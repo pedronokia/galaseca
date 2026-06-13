@@ -703,7 +703,15 @@ Exemplos da sessão:
 
 **Fix**: (a) regex alterado para `r'id="history_row_(?P<lid>[^"]+)"'` (tolerante — captura tudo entre `history_row_` e `"`). (b) `sync_market_history` ganhou lógica de migração: ao processar evento novo com `listing_id`, se existir armazenado sem `listing_id` cujo composite key seja igual, ATUALIZA esse armazenado in-place (atribui o listing_id) em vez de criar registro novo; ocorrências extras do mesmo composite entram como registros novos. (c) Fixtures atualizadas para o formato real (removido trailing `_` e `_event`). (d) Testes: fixture real `myhistory_sample.html` com 5 rows parseando listing_id != None; dedup com 3 eventos mesmo composite e listing_ids distintos → 3 registros; migração com 3 cenários (migra 1, extra vira new, dup ignorado).
 
-**Validação**: resync de validação requer sessão Steam (não disponível na execução do fix). Critério de aceite: total local ~614, spot-check 07/06 com ~10 eventos de Kilowatt Case.
+**Validação**: resync de validação requer sessão Steam (não disponível na execução do fix). Critério de aceite: total local ~614, spot-check 07/06 com ~10 eventos de Kilowatt Case. **Destravado por B2** (sessão agora persiste) — rodar o resync após relogin único.
+
+### B2 — Sessão Steam expirava em ~24h, forçando relogin (2026-06-12) ✅
+
+**Causa raiz**: `steam_login_dialog.py` capturava cookies só do domínio `steamcommunity.com`, descartando o `steamRefresh_steam` (refresh token de ~1 ano, setado em `login.steampowered.com`). Sem ele, quando o `steamLoginSecure` (token de acesso, ~24h) expirava, `screen_router._check_session` fazia `clear()` e exigia novo login interativo.
+
+**Fix**: (a) `_collect_steam_cookies()` helper no dialog captura também o `steamRefresh_steam` de `login.steampowered.com` (aplicado nos 2 caminhos: CDP e manual). (b) `steam_session.refresh()` implementa o fluxo web `jwt/finalizelogin` + `transfer` (POST multipart → `transfer_info` → POST em cada transfer Steam → novo `steamLoginSecure` do `Set-Cookie`). NÃO usa `GenerateAccessTokenForApp` (exigiria audience `mobile`, que o login web não tem). (c) `ensure_valid()` valida e, se expirou, renova antes de desistir. (d) `_check_session` usa `ensure_valid` no boot — sessão se auto-renova por meses com 1 login inicial. Referência do fluxo: DoctorMcKay/node-steam-session.
+
+**Validação**: lógica coberta por testes monkeypatch (refresh happy-path, sem token, finalize falha, sem transfer_info, URL não-Steam rejeitada, ensure_valid 3 caminhos). End-to-end real precisa de 1 login (captura o refresh token) — script `_check_session_refresh.py` força uma renovação real contra a Steam pra confirmar sem esperar 24h. **Pré-requisito do usuário**: relogar uma vez para capturar o token sob o filtro corrigido.
 
 Outros débitos:
 

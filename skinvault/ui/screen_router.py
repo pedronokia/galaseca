@@ -119,7 +119,10 @@ class ScreenRouter(QWidget):
     def _check_session(self) -> None:
         s = steam_session.load()
         if s and s.is_complete():
-            if steam_session.validate(s):
+            # ensure_valid renova via steamRefresh_steam se o token de
+            # acesso expirou — evita relogin manual a cada ~24h. persist
+            # salva os cookies renovados in-place.
+            if steam_session.ensure_valid(s):
                 steam_session.persist(s)
                 self._on_session(s)
                 return

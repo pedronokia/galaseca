@@ -1236,7 +1236,7 @@ def test_screen_router_session_property():
 def test_screen_router_check_session_valid(monkeypatch):
     """_check_session com sessao valida redireciona para account."""
     monkeypatch.setattr("skinvault.steam_session.load", _fake_session)
-    monkeypatch.setattr("skinvault.steam_session.validate",
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid",
                         lambda s: True)
     persist_calls = []
     monkeypatch.setattr("skinvault.steam_session.persist",
@@ -1253,9 +1253,9 @@ def test_screen_router_check_session_valid(monkeypatch):
 
 
 def test_screen_router_check_session_invalid(monkeypatch):
-    """_check_session com sessao invalida mostra login."""
+    """_check_session com sessao invalida (sem renovar) mostra login."""
     monkeypatch.setattr("skinvault.steam_session.load", _fake_session)
-    monkeypatch.setattr("skinvault.steam_session.validate",
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid",
                         lambda s: False)
     clear_calls = []
     monkeypatch.setattr("skinvault.steam_session.clear",
@@ -1296,7 +1296,7 @@ def test_screen_router_navigate_unknown():
 def test_screen_router_navigate_all_screens(monkeypatch):
     """navigate() funciona para todas as telas validas."""
     monkeypatch.setattr("skinvault.steam_session.load", lambda: _fake_session())
-    monkeypatch.setattr("skinvault.steam_session.validate", lambda s: True)
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid", lambda s: True)
     monkeypatch.setattr("skinvault.steam_session.persist", lambda s: None)
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
@@ -4757,6 +4757,30 @@ def test_find_free_port():
     port = _find_free_port()
     assert isinstance(port, int)
     assert 1024 <= port <= 65535
+
+def test_collect_steam_cookies_captures_refresh_token():
+    """_collect_steam_cookies pega community + steamRefresh_steam (login.steampowered)."""
+    from skinvault.steam_login_dialog import _collect_steam_cookies
+    cdp = [
+        {"domain": "steamcommunity.com", "name": "steamLoginSecure", "value": "sec"},
+        {"domain": "steamcommunity.com", "name": "sessionid", "value": "sid"},
+        {"domain": "login.steampowered.com", "name": "steamRefresh_steam",
+         "value": "76561%7C%7Crefresh"},
+        {"domain": "store.steampowered.com", "name": "irrelevante", "value": "x"},
+    ]
+    out = _collect_steam_cookies(cdp)
+    assert out["steamLoginSecure"] == "sec"
+    assert out["sessionid"] == "sid"
+    assert out["steamRefresh_steam"] == "76561%7C%7Crefresh"
+    assert "irrelevante" not in out
+
+def test_collect_steam_cookies_ignores_refresh_from_wrong_domain():
+    """steamRefresh_steam só é aceito do domínio login.steampowered.com."""
+    from skinvault.steam_login_dialog import _collect_steam_cookies
+    cdp = [
+        {"domain": "evil.com", "name": "steamRefresh_steam", "value": "x"},
+    ]
+    assert _collect_steam_cookies(cdp) == {}
 
 def test_btn_ghost():
     """btn_ghost returns a stylesheet string."""
