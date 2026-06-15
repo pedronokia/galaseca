@@ -91,7 +91,7 @@ SIZE_FOOTER_H   = 32
 # Consolida o param `radius=...` espalhado em Card/StatCard/etc
 RADIUS_SM = 6
 RADIUS_MD = 10
-RADIUS_LG = 14
+RADIUS_LG = 16
 
 # Padding interno de Card por densidade visual.
 # LG = default (Card init); MD = cards compactos; SM = chips/strips.
