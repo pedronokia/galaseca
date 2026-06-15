@@ -218,7 +218,8 @@ class StatCard(Card):
         self._value = QLabel(value)
         self._value.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._value.setStyleSheet(
-            f"color: {accent}; font-size: {t.FS_STAT}; font-weight: 600;"
+            f"color: {self._value_color(value, accent)};"
+            f" font-size: {t.FS_STAT}; font-weight: 600;"
             f" font-family: {t.FONT_FAMILY};"
         )
         self.layout().addWidget(self._label)
@@ -261,11 +262,19 @@ class StatCard(Card):
             f" font-family: {t.FONT_FAMILY};"
         )
 
+    @staticmethod
+    def _value_color(value: str, accent: str) -> str:
+        # "—"/vazio = sem dado -> sempre neutro. A cor de accent (verde de
+        # lucro, vermelho de prejuizo, etc.) so' aparece com valor real,
+        # pra empty states nao gritarem cor. Note: "0" e' dado, nao "—".
+        return t.TEXT_MUTED if value.strip() in ("—", "") else accent
+
     def set_value(self, value: str, accent: str | None = None) -> None:
         self._value.setText(value)
         if accent:
             self._value.setStyleSheet(
-                f"color: {accent}; font-size: {t.FS_STAT}; font-weight: 600;"
+                f"color: {self._value_color(value, accent)};"
+                f" font-size: {t.FS_STAT}; font-weight: 600;"
                 f" font-family: {t.FONT_FAMILY};"
             )
 
