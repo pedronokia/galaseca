@@ -24,15 +24,12 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
-    QCheckBox,
-    QComboBox,
     QDialog,
     QDockWidget,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QListWidget,
     QMainWindow,
     QMenu,
@@ -56,18 +53,18 @@ except ImportError:
 from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
 from skinvault._paths import DATA_DIR
 from skinvault.settings import DEFAULTS, load_settings, save_settings
-from skinvault.ui.components import FormRow, Sidebar, Toast
+from skinvault.ui.components import Sidebar, Toast
 
-_BG = "#0E0E12"
-_SURFACE = "#16161C"
-_TEXT = "#E6E6EA"
-_MUTED = "#9D9DA8"
-_GREEN = "#22C55E"
+_BG = "#0F0F0F"
+_SURFACE = "#212121"
+_TEXT = "#F1F1F1"
+_MUTED = "#AAAAAA"
+_GREEN = "#F1F1F1"   # branco YouTube (chrome legado dos dialogs/tray)
 _RED = "#EF4444"
 
 THEMES = {
-    "dark": {"bg": "#0E0E12", "surface": "#16161C", "text": "#E6E6EA", "muted": "#9D9DA8"},
-    "light": {"bg": "#F5F5F5", "surface": "#FFFFFF", "text": "#1C1C1C", "muted": "#888888"},
+    "dark": {"bg": "#0F0F0F", "surface": "#212121", "surface2": "#272727", "text": "#F1F1F1", "muted": "#AAAAAA"},
+    "light": {"bg": "#F5F5F5", "surface": "#FFFFFF", "surface2": "#ECECEC", "text": "#1C1C1C", "muted": "#888888"},
 }
 
 
@@ -90,15 +87,6 @@ def _set_dark_titlebar(window: QWidget) -> None:
 
 def _brl(v: float) -> str:
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
-def _input_style() -> str:
-    return (
-        f"QLineEdit {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-        " border-radius: 8px; padding: 10px 12px; font-size: 11pt;"
-        f" color: {_TEXT}; }}"
-        f"QLineEdit:focus {{ border: 1px solid {_GREEN}; }}"
-    )
 
 
 def _btn_primary(padding: str = "10px 22px", fs: str = "11pt",
@@ -175,146 +163,6 @@ def _make_tray_icon() -> QIcon:
     p.drawEllipse(0, 0, 16, 16)
     p.end()
     return QIcon(pix)
-
-
-# ── SettingsDialog ──────────────────────────────────────────────
-class SettingsDialog(QDialog):
-    def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self._settings = load_settings()
-        self.setWindowTitle("Configuracoes")
-        self.resize(420, 300)
-        self.setStyleSheet(
-            f"QDialog {{ background: {_BG}; }}"
-            f"* {{ color: {_TEXT}; font-family: 'Segoe UI'; }}"
-        )
-        self._build()
-
-    def showEvent(self, evt) -> None:  # noqa: N802
-        super().showEvent(evt)
-        if not hasattr(self, '_dark_titlebar_set'):
-            _set_dark_titlebar(self)
-            self._dark_titlebar_set = True
-
-    def _build(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-        layout.setContentsMargins(20, 18, 20, 18)
-
-        title = QLabel("Configuracoes")
-        title.setStyleSheet(f"color: {_TEXT}; font-size: 13pt; font-weight: 700;")
-        layout.addWidget(title)
-
-        self._cache_ttl = QLineEdit(str(self._settings.get("cache_ttl_hours", 6)))
-        self._cache_ttl.setPlaceholderText("Horas")
-        self._cache_ttl.setStyleSheet(_input_style())
-        layout.addWidget(FormRow("Cache TTL (h):", self._cache_ttl))
-
-        self._fee_rate = QLineEdit(str(self._settings.get("fee_rate", 0.15)))
-        self._fee_rate.setPlaceholderText("Ex.: 0.15")
-        self._fee_rate.setStyleSheet(_input_style())
-        layout.addWidget(FormRow("Taxa Steam:", self._fee_rate))
-
-        self._auto_backup = QCheckBox("Ativar backup automatico")
-        self._auto_backup.setChecked(self._settings.get("auto_backup", True))
-        self._auto_backup.setStyleSheet(
-            f"QCheckBox {{ color: {_TEXT}; font-size: 10pt; font-family: 'Segoe UI'; }}"
-            f"QCheckBox::indicator {{ width: 18px; height: 18px; }}"
-        )
-        layout.addWidget(self._auto_backup)
-
-        self._keep_backups = QLineEdit(str(self._settings.get("keep_backups", 10)))
-        self._keep_backups.setPlaceholderText("Numero de backups")
-        self._keep_backups.setStyleSheet(_input_style())
-        layout.addWidget(FormRow("Manter backups:", self._keep_backups))
-
-        self._sidebar_width = QLineEdit(str(self._settings.get("sidebar_width", 220)))
-        self._sidebar_width.setPlaceholderText("Largura em px")
-        self._sidebar_width.setStyleSheet(_input_style())
-        layout.addWidget(FormRow("Largura sidebar:", self._sidebar_width))
-
-        self._theme_combo = QComboBox()
-        self._theme_combo.addItems(["Escuro", "Claro"])
-        current = self._settings.get("theme", "dark")
-        self._theme_combo.setCurrentIndex(0 if current == "dark" else 1)
-        self._theme_combo.setStyleSheet(
-            f"QComboBox {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
-            " border-radius: 8px; padding: 8px 10px; font-size: 10pt;"
-            f" color: {_TEXT}; }}"
-            "QComboBox::drop-down { border: none; width: 24px; }"
-            f"QComboBox QAbstractItemView {{ background: {_SURFACE};"
-            f" color: {_TEXT}; selection-background-color: #2A2A33; }}"
-        )
-        layout.addWidget(FormRow("Tema:", self._theme_combo))
-
-        self._start_min = QCheckBox("Iniciar minimizado (na bandeja)")
-        self._start_min.setChecked(self._settings.get("start_minimized", False))
-        self._start_min.setStyleSheet(
-            f"QCheckBox {{ color: {_TEXT}; font-size: 10pt; font-family: 'Segoe UI'; }}"
-            f"QCheckBox::indicator {{ width: 18px; height: 18px; }}"
-        )
-        layout.addWidget(self._start_min)
-
-        self._min_to_tray = QCheckBox(
-            "Minimizar para bandeja ao fechar (X nao encerra o app)"
-        )
-        self._min_to_tray.setChecked(
-            self._settings.get("minimize_to_tray_on_close", True)
-        )
-        self._min_to_tray.setStyleSheet(self._start_min.styleSheet())
-        layout.addWidget(self._min_to_tray)
-
-        layout.addStretch()
-
-        btn_row = QHBoxLayout()
-        save_btn = QPushButton("Salvar")
-        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_btn.setStyleSheet(_btn_primary())
-        save_btn.clicked.connect(self._save)
-        btn_row.addWidget(save_btn)
-
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cancel_btn.setStyleSheet(_btn_secondary())
-        cancel_btn.clicked.connect(self.reject)
-        btn_row.addWidget(cancel_btn)
-        layout.addLayout(btn_row)
-
-    def _save(self) -> None:
-        try:
-            ttl = int(self._cache_ttl.text().strip())
-        except ValueError:
-            ttl = 6
-        try:
-            fee = float(self._fee_rate.text().strip().replace(",", "."))
-        except ValueError:
-            fee = 0.15
-        try:
-            keep = int(self._keep_backups.text().strip())
-        except ValueError:
-            keep = 10
-        try:
-            sw = int(self._sidebar_width.text().strip())
-        except ValueError:
-            sw = 220
-        theme = "dark" if self._theme_combo.currentIndex() == 0 else "light"
-        existing = load_settings()
-        existing.update({
-            "cache_ttl_hours": max(1, ttl),
-            "fee_rate": max(0, min(1, fee)),
-            "auto_backup": self._auto_backup.isChecked(),
-            "keep_backups": max(0, keep),
-            "sidebar_width": max(160, min(400, sw)),
-            "theme": theme,
-            "start_minimized": self._start_min.isChecked(),
-            "minimize_to_tray_on_close": self._min_to_tray.isChecked(),
-        })
-        save_settings(existing)
-        # Live theme reload via parent
-        parent = self.parent()
-        if parent and hasattr(parent, '_on_theme_changed'):
-            parent._on_theme_changed()
-        self.accept()
 
 
 # ── BackupDialog ────────────────────────────────────────────────
@@ -712,8 +560,10 @@ class MainWindow(QMainWindow):
             sidebar.add_item(key, icon, label)
         sidebar.add_stretch()
 
+        # Configuracoes virou tela (Frente K): item de navegacao com
+        # estado ativo, nao mais acao modal. Sobre/Backups seguem acoes.
+        sidebar.add_item("settings", "gear", "Configuracoes")
         for icon, label, cb in [
-            ("gear", "Configuracoes", self._open_settings),
             ("info", "Sobre", self._open_about),
             ("archive", "Backups", self._open_backups),
         ]:
@@ -898,8 +748,20 @@ class MainWindow(QMainWindow):
         dlg.exec()
 
     def _open_settings(self) -> None:
-        dlg = SettingsDialog(self)
-        dlg.exec()
+        # Frente K: Configuracoes virou tela navegavel (era modal).
+        self._router.navigate("settings")
+
+    def _apply_sidebar_width(self, width: int) -> None:
+        """Aplica a largura da sidebar ao vivo (chamado pela tela de
+        Configuracoes). Clampa no mesmo range do settings."""
+        width = max(160, min(400, int(width)))
+        dock = getattr(self, "_sidebar_dock", None)
+        if dock is not None:
+            dock.setMinimumWidth(width)
+            dock.setMaximumWidth(width)
+        sidebar = getattr(self, "_sidebar", None)
+        if sidebar is not None:
+            sidebar.setFixedWidth(width)
 
     def _on_theme_changed(self) -> None:
         s = load_settings()

@@ -31,7 +31,7 @@ class _HistoryChip(QPushButton):
     def __init__(self, snap: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         pnl = snap.get("pnl", 0)
-        color = t.ACCENT if pnl >= 0 else t.DANGER
+        color = t.POSITIVE if pnl >= 0 else t.DANGER
         label = (
             f"R$ {snap['buy_price']:.0f} → R$ {snap['sell_price']:.0f}"
             f" × {snap['quantity']}  •  {t.brl(pnl)}"
@@ -218,7 +218,7 @@ class SimuladorScreen(QWidget):
         r = portfolio.simulate_trade(buy, sell, qty)
 
         pnl = r["pnl"]
-        pnl_color = t.ACCENT if r["is_profit"] else (
+        pnl_color = t.POSITIVE if r["is_profit"] else (
             t.DANGER if r["is_loss"] else t.TEXT
         )
         # roi_pct ja vem em 0-100 do portfolio.simulate_trade

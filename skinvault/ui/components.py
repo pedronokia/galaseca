@@ -244,7 +244,7 @@ class StatCard(Card):
             return
         if pct > 0:
             prefix = chr(9650)  # ▲
-            color = t.ACCENT
+            color = t.POSITIVE
             formatted = f"+{pct:.1f}%".replace(".", ",")
         elif pct < 0:
             prefix = chr(9660)  # ▼
@@ -757,7 +757,7 @@ class LockOverlay(QWidget):
 def _activity_color(name: str) -> str:
     """Mapeia COLOR_* da activity.py para constante do theme."""
     return {
-        "green": t.ACCENT,
+        "green": t.POSITIVE,
         "red": t.DANGER,
         "accent": t.STEAM_BLUE,
         "muted": t.TEXT_MUTED,
@@ -950,7 +950,7 @@ def _streak_summary(trades: list[dict]) -> tuple[str, str] | None:
     if count < 2:
         return None
     label = f"{count} vitorias em sequencia" if is_win else f"{count} derrotas em sequencia"
-    return (label, t.ACCENT if is_win else t.DANGER)
+    return (label, t.POSITIVE if is_win else t.DANGER)
 
 
 class _MatchChip(QLabel):
@@ -960,7 +960,7 @@ class _MatchChip(QLabel):
         super().__init__(parent)
         pnl = trade.get("pnl", 0) or 0
         if pnl > 0:
-            text, color = "V", t.ACCENT
+            text, color = "V", t.POSITIVE
         elif pnl < 0:
             text, color = "D", t.DANGER
         else:
@@ -1060,7 +1060,7 @@ class Toast(QWidget):
 
     _VARIANT_BORDER = {
         "info":    "ACCENT",
-        "success": "ACCENT",
+        "success": "POSITIVE",
         "warning": "WARN",
         "error":   "DANGER",
     }

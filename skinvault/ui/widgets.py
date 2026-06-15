@@ -161,7 +161,7 @@ class MonthBarChart(QWidget):
             is_selected = self._selected is not None and key == self._selected
             bar_h = max(1, int((abs(pnl) / rng) * usable))
             x = 10 + i * (bar_w + 4)
-            fill = QColor(t.ACCENT if pnl >= 0 else t.DANGER)
+            fill = QColor(t.POSITIVE if pnl >= 0 else t.DANGER)
             if self._selected is not None and not is_selected:
                 fill.setAlpha(90)
             y = int(baseline) - bar_h if pnl >= 0 else int(baseline)
@@ -204,7 +204,7 @@ class ValueChart(QWidget):
         vmin, vmax = min(self._values), max(self._values)
         rng = (vmax - vmin) or 1.0
         up = self._values[-1] >= self._values[0]
-        pen = QPen(QColor(t.ACCENT if up else t.DANGER))
+        pen = QPen(QColor(t.POSITIVE if up else t.DANGER))
         pen.setWidthF(2.0)
         p.setPen(pen)
         n = len(self._values)
@@ -320,7 +320,7 @@ class MiniSparkline(QWidget):
                 p.drawLine(4, y, w - 4, y)
 
         up = self._values[-1] >= self._values[0]
-        pen = QPen(QColor(t.ACCENT if up else t.DANGER))
+        pen = QPen(QColor(t.POSITIVE if up else t.DANGER))
         pen.setWidthF(1.5)
         p.setPen(pen)
         prev = None
@@ -354,7 +354,7 @@ class MiniSparkline(QWidget):
             guide.setWidthF(1)
             p.setPen(guide)
             p.drawLine(hx, 2, hx, h - 2)
-            p.setBrush(QColor(t.ACCENT if up else t.DANGER))
+            p.setBrush(QColor(t.POSITIVE if up else t.DANGER))
             p.setPen(QPen(QColor(t.BG), 1.5))
             p.drawEllipse(hx - 4, hy - 4, 8, 8)
 
@@ -468,11 +468,11 @@ class DepthChart(QWidget):
                 bid_path.lineTo(_x_bid(cum_qty), _y(price))
             bid_path.lineTo(mid_x, _y(self._bid_points[-1][1]))
             bid_path.closeSubpath()
-            bid_fill = QColor(t.ACCENT)
+            bid_fill = QColor(t.POSITIVE)
             bid_fill.setAlpha(40)
             p.fillPath(bid_path, bid_fill)
 
-            bid_pen = QPen(QColor(t.ACCENT))
+            bid_pen = QPen(QColor(t.POSITIVE))
             bid_pen.setWidthF(1.5)
             p.setPen(bid_pen)
             prev = None
@@ -522,7 +522,7 @@ class DepthChart(QWidget):
             return max(margin, min(h - margin - 12, _y(price) - 6))
 
         if self._best_bid is not None:
-            p.setPen(QColor(t.ACCENT))
+            p.setPen(QColor(t.POSITIVE))
             p.drawText(margin, _label_y(self._best_bid),
                        mid_x - 8 - margin, 12,
                        Qt.AlignmentFlag.AlignRight
@@ -537,7 +537,7 @@ class DepthChart(QWidget):
                        t.brl(self._best_ask))
 
         if self._bid_points:
-            p.setPen(QColor(t.ACCENT))
+            p.setPen(QColor(t.POSITIVE))
             p.drawText(margin, margin, mid_x - margin, 14,
                        Qt.AlignmentFlag.AlignLeft
                        | Qt.AlignmentFlag.AlignVCenter,

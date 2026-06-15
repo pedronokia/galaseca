@@ -1761,7 +1761,7 @@ def test_components_instantiation():
 
 def test_activity_color_mapping():
     from skinvault.ui import components, theme
-    assert components._activity_color("green") == theme.ACCENT
+    assert components._activity_color("green") == theme.POSITIVE
     assert components._activity_color("red") == theme.DANGER
     assert components._activity_color("accent") == theme.STEAM_BLUE
     assert components._activity_color("muted") == theme.TEXT_MUTED
@@ -3256,13 +3256,13 @@ def test_simulador_history_chip_negative():
 
 
 def test_simulador_history_chip_positive():
-    """_HistoryChip com pnl positivo mostra cor accent."""
+    """_HistoryChip com pnl positivo mostra cor de lucro (POSITIVE verde)."""
     from skinvault.ui.simulador_screen import _HistoryChip
     from skinvault.ui import theme as t
     snap = {"buy_price": 100, "sell_price": 200, "quantity": 1,
             "pnl": 50}
     chip = _HistoryChip(snap)
-    assert t.ACCENT in chip.styleSheet()
+    assert t.POSITIVE in chip.styleSheet()
 
 
 def test_account_screen_focus_filter():
@@ -3610,12 +3610,11 @@ def test_watchlist_screen():
 
 
 def test_dialogs_instantiation(monkeypatch):
-    """SettingsDialog, BackupDialog e SteamSyncDialog instanciam."""
+    """BackupDialog e SteamSyncDialog instanciam."""
     monkeypatch.setattr("skinvault.sync.sync_all",
                         lambda *a, **kw: {})
-    from skinvault.gui import BackupDialog, SettingsDialog, SteamSyncDialog
+    from skinvault.gui import BackupDialog, SteamSyncDialog
     from skinvault.steam_session import SteamSession
-    assert SettingsDialog() is not None
     assert BackupDialog() is not None
     assert SteamSyncDialog(SteamSession("key", "sid")) is not None
 
@@ -6235,70 +6234,82 @@ def test_sync_bridge_signals():
     assert hasattr(b, 'failed')
 
 
-def test_settings_dialog_init(monkeypatch):
-    """SettingsDialog initializes with default values."""
-    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
-    from skinvault.gui import SettingsDialog
-    dlg = SettingsDialog()
-    assert dlg.windowTitle() == "Configuracoes"
-    assert dlg._cache_ttl.text() == "6"
-    assert dlg._fee_rate.text() == "0.15"
+def test_settings_screen_init(monkeypatch):
+    """SettingsScreen carrega valores padrao nos controles."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    assert screen._cache_ttl.value() == 6
+    assert screen._fee_rate.value() == 0.15
+    assert screen._keep_backups.value() == 10
 
-def test_settings_dialog_save(monkeypatch):
-    """SettingsDialog._save saves settings and accepts."""
+
+def test_settings_screen_autosave(monkeypatch):
+    """Mudar um controle persiste no settings.json na hora."""
     saved = []
-    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
-    monkeypatch.setattr("skinvault.gui.save_settings",
-                        lambda s: saved.append(s))
-    from skinvault.gui import SettingsDialog
-    dlg = SettingsDialog()
-    dlg._cache_ttl.setText("12")
-    dlg._fee_rate.setText("0.10")
-    dlg._save()
-    assert len(saved) == 1
-    assert saved[0]["cache_ttl_hours"] == 12
-    assert saved[0]["fee_rate"] == 0.10
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: saved.append(s))
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    screen._cache_ttl.setValue(12)
+    assert saved
+    assert saved[-1]["cache_ttl_hours"] == 12
 
-def test_settings_dialog_save_invalid_values(monkeypatch):
-    """SettingsDialog._save falls back to defaults on invalid input."""
+
+def test_settings_screen_reset(monkeypatch):
+    """Restaurar padroes reseta as chaves expostas aos DEFAULTS."""
+    from PyQt6.QtWidgets import QMessageBox
     saved = []
-    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
-    monkeypatch.setattr("skinvault.gui.save_settings",
-                        lambda s: saved.append(s))
-    from skinvault.gui import SettingsDialog
-    dlg = SettingsDialog()
-    dlg._cache_ttl.setText("not a number")
-    dlg._fee_rate.setText("invalid")
-    dlg._keep_backups.setText("abc")
-    dlg._sidebar_width.setText("xyz")
-    dlg._save()
-    assert saved[0]["cache_ttl_hours"] == 6
-    assert saved[0]["fee_rate"] == 0.15
-    assert saved[0]["keep_backups"] == 10
-    assert saved[0]["sidebar_width"] == 220
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {"cache_ttl_hours": 99,
+                                          "fee_rate": 0.99})
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: saved.append(s))
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *a, **kw: QMessageBox.StandardButton.Yes)
+    from skinvault.ui import settings_screen as ss
+    monkeypatch.setattr(ss.Toast, "show_toast",
+                        classmethod(lambda cls, *a, **kw: None))
+    screen = ss.SettingsScreen()
+    screen._on_reset()
+    assert saved
+    assert saved[-1]["cache_ttl_hours"] == ss.DEFAULTS["cache_ttl_hours"]
+    assert saved[-1]["fee_rate"] == ss.DEFAULTS["fee_rate"]
 
-def test_settings_dialog_theme_change_calls_parent(monkeypatch):
-    """SettingsDialog._save calls parent._on_theme_changed."""
+
+def test_settings_screen_theme_calls_window_hook(monkeypatch):
+    """Trocar o tema aciona _on_theme_changed via window()."""
     from PyQt6.QtWidgets import QWidget
-    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
-    monkeypatch.setattr("skinvault.gui.save_settings", lambda s: None)
-    from skinvault.gui import SettingsDialog
-    parent_called = []
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda *a, **kw: None)
+    from skinvault.ui.settings_screen import SettingsScreen
+    called = []
     parent = QWidget()
-    parent._on_theme_changed = lambda: parent_called.append(True)
-    dlg = SettingsDialog(parent)
-    dlg._save()
-    assert len(parent_called) == 1
+    parent._on_theme_changed = lambda: called.append(True)
+    screen = SettingsScreen(parent)
+    screen._theme_seg.select("light")
+    assert called == [True]
 
-def test_settings_dialog_theme_no_parent(monkeypatch):
-    """SettingsDialog._save works without parent."""
-    from PyQt6.QtWidgets import QDialog
-    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
-    monkeypatch.setattr("skinvault.gui.save_settings", lambda s: None)
-    from skinvault.gui import SettingsDialog
-    dlg = SettingsDialog()
-    dlg._save()
-    assert dlg.result() == QDialog.DialogCode.Accepted
+
+def test_settings_screen_sidebar_width_calls_window_hook(monkeypatch):
+    """Mudar a largura aciona _apply_sidebar_width via window()."""
+    from PyQt6.QtWidgets import QWidget
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda *a, **kw: None)
+    from skinvault.ui.settings_screen import SettingsScreen
+    widths = []
+    parent = QWidget()
+    parent._apply_sidebar_width = lambda w: widths.append(w)
+    screen = SettingsScreen(parent)
+    screen._sidebar_w.setValue(300)
+    assert widths == [300]
 
 
 def test_backup_dialog_init(monkeypatch):
@@ -6674,15 +6685,10 @@ def test_mainwindow_open_about(monkeypatch):
 
 
 def test_mainwindow_open_settings(monkeypatch):
-    """_open_settings creates and shows SettingsDialog."""
-    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
-    monkeypatch.setattr("skinvault.gui.save_settings", lambda s: None)
-    from skinvault.gui import SettingsDialog as SD
-    shown = []
-    monkeypatch.setattr(SD, "exec", lambda self: shown.append(True))
+    """_open_settings navega para a tela de Configuracoes (Frente K)."""
     win = _make_mw(monkeypatch)
     win._open_settings()
-    assert len(shown) == 1
+    assert win._router._screen == "settings"
 
 
 def test_mainwindow_open_backups(monkeypatch):

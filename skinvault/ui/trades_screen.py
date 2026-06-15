@@ -384,7 +384,7 @@ class TradesScreen(QWidget):
         for i, tr in enumerate(self._filtered):
             self._table.insertRow(i)
             pnl = tr.get("pnl") or 0
-            pnl_color = t.ACCENT if pnl >= 0 else t.DANGER
+            pnl_color = t.POSITIVE if pnl >= 0 else t.DANGER
             src_label, src_color = _source_label(tr.get("source", "manual"))
             sell_ts = tr.get("sell_ts") or tr.get("buy_ts") or 0
             roi = (tr.get("pnl_pct") or 0)
@@ -426,7 +426,7 @@ class TradesScreen(QWidget):
         if stats["total"] == 0:
             pnl_c = t.TEXT
         else:
-            pnl_c = t.ACCENT if pnl >= 0 else t.DANGER
+            pnl_c = t.POSITIVE if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_c)
         # Delta vs mes anterior
         _monthly = trades_mod.monthly_pnl(trades=self._trades)
@@ -446,7 +446,7 @@ class TradesScreen(QWidget):
         if stats["total"] == 0:
             wr_c = t.TEXT_MUTED
         elif wr >= 50:
-            wr_c = t.ACCENT
+            wr_c = t.POSITIVE
         elif wr >= 30:
             wr_c = t.WARN
         else:

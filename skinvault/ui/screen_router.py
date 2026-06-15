@@ -27,6 +27,7 @@ from skinvault.ui.history_screen import HistoryScreen
 from skinvault.ui.login_gate import LoginGate
 from skinvault.ui.market_screen import MarketScreen
 from skinvault.ui.scanner_screen import ScannerScreen
+from skinvault.ui.settings_screen import SettingsScreen
 from skinvault.ui.simulador_screen import SimuladorScreen
 from skinvault.ui.trades_screen import TradesScreen
 from skinvault.ui.watchlist_screen import WatchlistScreen
@@ -39,6 +40,7 @@ SCREEN_MARKET = "market"
 SCREEN_TRADES = "trades"
 SCREEN_SIMULADOR = "simulador"
 SCREEN_WATCHLIST = "watchlist"
+SCREEN_SETTINGS = "settings"
 
 
 class ScreenRouter(QWidget):
@@ -112,6 +114,9 @@ class ScreenRouter(QWidget):
         )
         self._stack.addWidget(self._watchlist_screen)
 
+        self._settings_screen = SettingsScreen(self)
+        self._stack.addWidget(self._settings_screen)
+
         root.addWidget(self._stack, 1)
         # Footer global removido na Frente S — o indicador de sessao virou
         # o chip no rodape da sidebar (session_changed -> Sidebar.set_session).
@@ -183,6 +188,7 @@ class ScreenRouter(QWidget):
             SCREEN_TRADES: (self._trades_screen, "Trades"),
             SCREEN_SIMULADOR: (self._simulador_screen, "Simulador"),
             SCREEN_WATCHLIST: (self._watchlist_screen, "Watchlist"),
+            SCREEN_SETTINGS: (self._settings_screen, "Configurações"),
         }
         widget, label = mapping.get(screen, (None, ""))
         if widget is None:
@@ -201,6 +207,8 @@ class ScreenRouter(QWidget):
             self._account_screen.refresh()
         elif screen == SCREEN_WATCHLIST:
             self._watchlist_screen.refresh()
+        elif screen == SCREEN_SETTINGS:
+            self._settings_screen.refresh()
 
         self.navigated.emit(screen)
 

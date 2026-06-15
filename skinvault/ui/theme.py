@@ -9,16 +9,16 @@ from __future__ import annotations
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QAbstractItemView, QTableWidget
 
-# ── Paleta ───────────────────────────────────────────────────
-BG          = "#0E0E12"   # fundo principal
-BG_ELEVATED = "#16161C"   # sidebar, cards
-SURFACE     = "#1C1C24"   # surface sobre card (input, hover)
-BORDER      = "#2A2A33"   # bordas finas
-TEXT        = "#E6E6EA"
-TEXT_MUTED  = "#9D9DA8"
-ACCENT      = "#22C55E"   # verde SkinVault
-ACCENT_DIM  = "rgba(34,197,94,0.16)"
-ACCENT_HOV  = "rgba(34,197,94,0.26)"
+# ── Paleta — tons do YouTube (monocromático) ─────────────────
+BG          = "#0F0F0F"   # fundo principal (YouTube)
+BG_ELEVATED = "#212121"   # sidebar, cards (YouTube secondary)
+SURFACE     = "#272727"   # surface sobre card (input, hover, chip)
+BORDER      = "#303030"   # bordas finas (YouTube divider)
+TEXT        = "#F1F1F1"
+TEXT_MUTED  = "#AAAAAA"
+ACCENT      = "#F1F1F1"   # branco YouTube — accent de MARCA/UI (mono; nao e' lucro)
+ACCENT_DIM  = "rgba(241,241,241,0.13)"
+ACCENT_HOV  = "rgba(241,241,241,0.22)"
 STEAM_BLUE  = "#66C0F4"   # azul Steam (conta/sync)
 STEAM_DIM   = "rgba(102,192,244,0.14)"
 STEAM_HOV   = "rgba(102,192,244,0.24)"
@@ -27,11 +27,18 @@ DANGER_DIM  = "rgba(239,68,68,0.16)"
 DANGER_HOV  = "rgba(239,68,68,0.26)"
 WARN        = "#F59E0B"
 
+# Semantico de mercado/P&L — verde = lucro/alta/bom, DESACOPLADO do
+# ACCENT de marca (titanio). Use POSITIVE para "lucro/compra/bom" e
+# DANGER para "prejuizo/queda/ruim".
+POSITIVE     = "#3FB950"
+POSITIVE_DIM = "rgba(63,185,80,0.16)"
+POSITIVE_HOV = "rgba(63,185,80,0.26)"
+
 # Focus ring (navegacao por teclado) — versao clareada da cor base de
 # cada familia de botao. Qt6 QSS nao suporta `outline`; o focus e
 # sinalizado trocando a cor da borda 1px ja reservada (zero layout
 # shift) + bg igual ao hover.
-FOCUS_GREEN = "#4ADE80"   # ACCENT clareado
+FOCUS_GREEN = "#FFFFFF"   # focus ring do ACCENT (branco YouTube)
 FOCUS_STEAM = "#8FD3F8"   # STEAM_BLUE clareado
 FOCUS_RED   = "#F87171"   # DANGER clareado
 
@@ -45,14 +52,14 @@ WARN_BORDER = "#6B5A1A"
 WARN_TEXT   = "#D8C267"
 
 # Hover surface (row-hover, item:hover)
-SURFACE_HOV = "#23232D"
+SURFACE_HOV = "#3F3F3F"
 
 # Scrollbar (global, fina)
-SCROLL_THUMB    = "#2E2E38"
-SCROLL_THUMB_HOV = "#3A3A46"
+SCROLL_THUMB    = "#383838"
+SCROLL_THUMB_HOV = "#484848"
 
 # Overlay (LockOverlay, modals semi-transparentes)
-BG_OVERLAY  = "rgba(14, 14, 18, 0.88)"
+BG_OVERLAY  = "rgba(15, 15, 15, 0.88)"
 
 # ── Spacing scale ────────────────────────────────────────────
 # Use em setContentsMargins() e setSpacing() ao inves de magic numbers
@@ -110,14 +117,15 @@ def _reload_palette(theme: str) -> None:
     global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER
     global _BG, _SURFACE, _TEXT, _MUTED, _GREEN, _RED
     BG = pal["bg"]
-    BG_ELEVATED = SURFACE = pal["surface"]
+    BG_ELEVATED = pal["surface"]
+    SURFACE = pal.get("surface2", pal["surface"])
     TEXT = pal["text"]
     TEXT_MUTED = pal["muted"]
-    BORDER = "#3A3A44" if theme == "light" else "#2A2A33"
-    ACCENT = "#22C55E"
+    BORDER = "#3A3A44" if theme == "light" else "#303030"
+    ACCENT = "#F1F1F1"
     DANGER = "#EF4444"
-    ACCENT_DIM = "rgba(34,197,94,0.16)"
-    ACCENT_HOV = "rgba(34,197,94,0.26)"
+    ACCENT_DIM = "rgba(241,241,241,0.13)"
+    ACCENT_HOV = "rgba(241,241,241,0.22)"
     STEAM_BLUE = "#66C0F4"
     _BG = BG
     _SURFACE = BG_ELEVATED

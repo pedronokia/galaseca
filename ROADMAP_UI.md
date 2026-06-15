@@ -398,7 +398,7 @@ Ajuda futuro agente / contribuidor a entender o design system rapidamente.
 >
  > **Ordem**: M primeiro e sozinha (invalida screenshots anteriores — todas as outras frentes validam visual contra o baseline pós-M). Depois N/O/P/Q/R/S em paralelo. T e U dependem de N. V por último.
  >
- > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**, ✅**U**, ✅**R**, ✅**T**. Próximas: S, V.
+ > Concluídas: ✅**M**, ✅**N**, ✅**O**, ✅**P**, ✅**Q**, ✅**R**, ✅**S**, ✅**T**, ✅**U**, ✅**V** — **Fase 2 completa (jun/2026).**
 
  ~~### Frente M — Matar a propagação de QSS global: as "tarjas" atrás de todo label (esforço: 1-2h, impact: ALTÍSSIMO) [deps: nenhuma — RODAR PRIMEIRO]~~ ✅
 

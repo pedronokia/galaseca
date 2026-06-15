@@ -59,7 +59,7 @@ def _save_recent(items: list[str]) -> None:
 
 
 _VERDICT_COLOR = {
-    "below_median": t.ACCENT,
+    "below_median": t.POSITIVE,
     "fair": t.TEXT,
     "slightly_above": t.WARN,
     "overpriced": t.DANGER,
@@ -566,7 +566,7 @@ class MarketScreen(QWidget):
                              str(vol) if vol else "—")
             diff = verdict.get("diff_pct")
             if diff is not None:
-                color = t.ACCENT if diff <= 0 else (
+                color = t.POSITIVE if diff <= 0 else (
                     t.WARN if diff <= 20 else t.DANGER
                 )
                 self._add_detail_row("Diferença vs mediana",

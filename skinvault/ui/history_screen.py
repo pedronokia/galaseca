@@ -134,7 +134,7 @@ class SimulateTradeDialog(QDialog):
         self._buy.setStyleSheet(t.input_style())
         self._sell.setStyleSheet(t.input_style())
         r = portfolio.simulate_trade(buy, sell, qty)
-        color = t.ACCENT if r["is_profit"] else (
+        color = t.POSITIVE if r["is_profit"] else (
             t.DANGER if r["is_loss"] else t.TEXT
         )
         self._pnl_lbl.setStyleSheet(
@@ -1010,7 +1010,7 @@ class HistoryScreen(QWidget):
                     pnl = pnl_vals[i] if i < len(pnl_vals) else None
                     if pnl is not None:
                         it.setForeground(
-                            QBrush(QColor(t.ACCENT if pnl >= 0 else t.DANGER))
+                            QBrush(QColor(t.POSITIVE if pnl >= 0 else t.DANGER))
                         )
                 elif (headers[c] == "Origem"
                         and val.strip().lower() == "steam"):
@@ -1020,7 +1020,7 @@ class HistoryScreen(QWidget):
                 # profissional de trade.
                 if row_side in ("buy", "sell"):
                     color = (QColor(t.DANGER) if row_side == "buy"
-                             else QColor(t.ACCENT))
+                             else QColor(t.POSITIVE))
                     if c == side_op_col or c == side_price_col:
                         it.setForeground(QBrush(color))
                 # Icone do Steam CDN (cache local) — coluna Item

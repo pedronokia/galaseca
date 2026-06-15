@@ -222,7 +222,7 @@ class AccountScreen(QWidget):
         self._bd_invested = StatCard("Total investido", "—")
         self._bd_invested.setMaximumWidth(300)
         self._bd_profit_count = StatCard("Itens no lucro", "—",
-                                         accent=t.ACCENT)
+                                         accent=t.POSITIVE)
         self._bd_profit_count.setMaximumWidth(300)
         self._bd_loss_count = StatCard("Itens no prejuizo", "—",
                                        accent=t.DANGER)
@@ -573,7 +573,7 @@ class AccountScreen(QWidget):
         self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
                                  accent=t.STEAM_BLUE)
         pnl = totals.get("pnl") or 0
-        pnl_color = t.ACCENT if pnl >= 0 else t.DANGER
+        pnl_color = t.POSITIVE if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_color)
         self._stat_items.set_value(str(len(rows)))
 
@@ -588,7 +588,7 @@ class AccountScreen(QWidget):
         self._bd_invested.set_value(t.brl(total_cost))
         self._bd_profit_count.set_value(
             f"{profit_items} ({profit_items/len(rows)*100:.0f}%)" if rows else "0",
-            accent=t.ACCENT
+            accent=t.POSITIVE
         )
         self._bd_loss_count.set_value(
             f"{loss_items} ({loss_items/len(rows)*100:.0f}%)" if rows else "0",
@@ -597,7 +597,7 @@ class AccountScreen(QWidget):
         from skinvault.localization import localize_name as _ln
         self._bd_best.set_value(
             t.brl(best['pnl']) if best else "—",
-            accent=t.ACCENT
+            accent=t.POSITIVE
         )
         self._bd_best.setToolTip(_ln(best.get("name", "")) if best else "")
         self._bd_worst.set_value(
@@ -651,7 +651,7 @@ class AccountScreen(QWidget):
                     pnl = r.get("pnl")
                     if pnl is not None:
                         item.setForeground(
-                            QBrush(QColor(t.ACCENT if pnl >= 0 else t.DANGER))
+                            QBrush(QColor(t.POSITIVE if pnl >= 0 else t.DANGER))
                         )
                 elif col == self.COL_ORIGIN and origin == "Steam":
                     item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
@@ -667,7 +667,7 @@ class AccountScreen(QWidget):
                         if stale:
                             color = t.WARN
                         elif cur_score >= 70:
-                            color = t.ACCENT
+                            color = t.POSITIVE
                         elif cur_score >= 45:
                             color = t.WARN
                         else:

@@ -257,7 +257,7 @@ class WatchlistScreen(QWidget):
         self._stat_rules = StatCard("Com regras ativas", "0",
                                      accent=t.STEAM_BLUE)
         self._stat_triggered = StatCard("Disparados agora", "0",
-                                         accent=t.ACCENT)
+                                         accent=t.POSITIVE)
         self._stat_recent = StatCard("Alertas em 24h", "0",
                                        accent=t.WARN)
         for sc in (self._stat_total, self._stat_rules,
@@ -341,7 +341,7 @@ class WatchlistScreen(QWidget):
         self._stat_total.set_value(str(total))
         self._stat_rules.set_value(str(with_rules))
         self._stat_triggered.set_value(str(triggered),
-                                       accent=t.ACCENT if triggered else t.TEXT_MUTED)
+                                       accent=t.POSITIVE if triggered else t.TEXT_MUTED)
         self._stat_recent.set_value(str(recent),
                                     accent=t.WARN if recent else t.TEXT_MUTED)
         # Contexto: timestamp do ultimo alerta
@@ -386,7 +386,7 @@ class WatchlistScreen(QWidget):
                 dist_item = QTableWidgetItem(dist_txt)
                 if price_curr <= target:
                     # Favoravel pra compra (atual <= alvo)
-                    dist_item.setForeground(QBrush(QColor(t.ACCENT)))
+                    dist_item.setForeground(QBrush(QColor(t.POSITIVE)))
                 else:
                     dist_item.setForeground(QBrush(QColor(t.DANGER)))
                 dist_item.setToolTip(
@@ -454,7 +454,7 @@ class WatchlistScreen(QWidget):
                 if stale:
                     color = t.WARN
                 elif cur_score >= 70:
-                    color = t.ACCENT
+                    color = t.POSITIVE
                 elif cur_score >= 45:
                     color = t.WARN
                 else:
@@ -477,7 +477,7 @@ class WatchlistScreen(QWidget):
             conf_labels = {"high": "Alta", "medium": "Média",
                            "low": "Baixa", "very_low": "Muito baixa",
                            "none": "—"}
-            conf_colors = {"high": t.ACCENT, "medium": t.WARN,
+            conf_colors = {"high": t.POSITIVE, "medium": t.WARN,
                            "low": t.DANGER, "very_low": t.DANGER,
                            "none": t.TEXT_MUTED}
             conf_item = QTableWidgetItem(conf_labels.get(conf_level, conf_level))

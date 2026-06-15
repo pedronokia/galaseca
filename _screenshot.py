@@ -76,6 +76,7 @@ def shoot():
         (sr.SCREEN_TRADES, "05-trades"),
         (sr.SCREEN_SIMULADOR, "06-simulador"),
         (sr.SCREEN_WATCHLIST, "07-watchlist"),
+        (sr.SCREEN_SETTINGS, "08-settings"),
     ]
 
     for screen, name in screens:

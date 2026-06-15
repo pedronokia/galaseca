@@ -109,7 +109,7 @@ class _FactorBar(QWidget):
         ratio = min(abs(self._delta) / self._max, 1.0) if self._max else 0
         bar_w = int(ratio * (w / 2 - 4))
         if self._delta >= 0:
-            color = QColor(t.ACCENT)
+            color = QColor(t.POSITIVE)
             x = cx + 1
         else:
             color = QColor(t.DANGER)
@@ -138,7 +138,7 @@ class _ScoreBreakdownDialog(QDialog):
 
         score = int(item.get("score", 0))
         if score >= 70:
-            verdict_label, vcolor = "COMPRA", t.ACCENT
+            verdict_label, vcolor = "COMPRA", t.POSITIVE
         elif score >= 45:
             verdict_label, vcolor = "ATENÇÃO", t.WARN
         else:
@@ -198,7 +198,7 @@ class _ScoreBreakdownDialog(QDialog):
         if dq:
             level = dq.get("level", "none")
             level_colors = {
-                "high":     (t.ACCENT,     "Confiança alta"),
+                "high":     (t.POSITIVE,   "Confiança alta"),
                 "medium":   (t.WARN,       "Confiança média"),
                 "low":      (t.DANGER,     "Confiança BAIXA"),
                 "very_low": (t.DANGER,     "Confiança MUITO BAIXA"),
@@ -254,7 +254,7 @@ class _ScoreBreakdownDialog(QDialog):
                 row.addWidget(bar, 1)
 
                 d = b["delta"]
-                d_color = t.ACCENT if d > 0 else t.DANGER
+                d_color = t.POSITIVE if d > 0 else t.DANGER
                 val = QLabel(f"{d:+.0f}")
                 val.setStyleSheet(
                     f"color: {d_color}; font-weight: 700;"
@@ -284,7 +284,7 @@ class _ScoreBreakdownDialog(QDialog):
             avg = stats["avg"]
             hit = stats["hit"]
             n = stats["n"]
-            color = t.ACCENT if avg > 5 else (t.WARN if avg > 0 else t.DANGER)
+            color = t.POSITIVE if avg > 5 else (t.WARN if avg > 0 else t.DANGER)
             insufficient = " (amostra pequena)" if n < 30 else ""
             hist_lbl = QLabel(
                 f"Histórico em 90 dias: itens com score {lo}-{hi_label} "
@@ -310,7 +310,7 @@ class _ScoreBreakdownDialog(QDialog):
                 type_hit = type_stats.get("hit", 0)
                 type_n = type_stats.get("n", 0)
                 if type_n >= 30:
-                    type_color = (t.ACCENT if type_avg > 5
+                    type_color = (t.POSITIVE if type_avg > 5
                                   else (t.WARN if type_avg > 0
                                         else t.DANGER))
                     type_label = "containers" if is_cont else "skins"
@@ -393,7 +393,7 @@ class _ScatterPlot(QWidget):
             return QColor(t.WARN)
         if score < 70:
             return QColor(t.TEXT_MUTED)
-        return QColor(t.ACCENT)
+        return QColor(t.POSITIVE)
 
     def paintEvent(self, _evt) -> None:  # noqa: N802
         p = QPainter(self)
@@ -549,7 +549,7 @@ class _BacktestResultDialog(QDialog):
 
         for row, b in enumerate(buckets):
             avg = b["avg_return_pct"]
-            color = (t.ACCENT if avg > 5 else
+            color = (t.POSITIVE if avg > 5 else
                      (t.WARN if avg > 0 else t.DANGER))
             bucket_table.setItem(row, 0, QTableWidgetItem(b["bucket"]))
             bucket_table.setItem(row, 1, QTableWidgetItem(str(b["n"])))
@@ -580,7 +580,7 @@ class _BacktestResultDialog(QDialog):
 
         # Correlação agregada (Spearman é default desde 2026-06-08)
         if spearman_corr is not None:
-            scolor = (t.ACCENT if spearman_corr > 0.05 else
+            scolor = (t.POSITIVE if spearman_corr > 0.05 else
                       (t.WARN if spearman_corr > 0 else t.DANGER))
             s_lbl = QLabel(
                 f"<b>Spearman (score × retorno) — default:</b> "
@@ -594,7 +594,7 @@ class _BacktestResultDialog(QDialog):
             layout.addWidget(s_lbl)
 
         if pearson_corr is not None:
-            pcolor = (t.ACCENT if pearson_corr > 0.05 else
+            pcolor = (t.POSITIVE if pearson_corr > 0.05 else
                       (t.WARN if pearson_corr > 0 else t.DANGER))
             p_lbl = QLabel(
                 f"<b>Pearson (score × retorno):</b> "
@@ -1112,7 +1112,7 @@ class ScannerScreen(QWidget):
             "data_quality": dq,
             "is_container": cases.is_container(name),
             "verdict": verdict.get("label", "—"),
-            "verdict_color": t.ACCENT if verdict.get("diff_pct", 0) <= 0
+            "verdict_color": t.POSITIVE if verdict.get("diff_pct", 0) <= 0
                              else t.DANGER,
             "spread": (verdict.get("spread_verdict", "") +
                        (approx_suffix if verdict.get("spread_verdict") else "")),
@@ -1145,7 +1145,7 @@ class ScannerScreen(QWidget):
         for i, r in enumerate(self._scan_results):
             self._table.insertRow(i)
             score = r["score"]
-            score_color = t.ACCENT if score >= 70 else (
+            score_color = t.POSITIVE if score >= 70 else (
                 t.WARN if score >= 45 else t.DANGER
             )
             label = "COMPRA" if score >= 70 else (
@@ -1157,7 +1157,7 @@ class ScannerScreen(QWidget):
             dq_conf = dq.get("confidence", 0)
             dq_n = dq.get("n", 0)
             _dq_color_map = {
-                "high": t.ACCENT, "medium": t.WARN,
+                "high": t.POSITIVE, "medium": t.WARN,
                 "low": t.DANGER, "very_low": t.DANGER,
                 "none": t.TEXT_MUTED,
             }
@@ -1264,7 +1264,7 @@ class ScannerScreen(QWidget):
             scores = [r["score"] for r in self._scan_results]
             self._stat_count.set_value(str(len(self._scan_results)))
             self._stat_best.set_value(str(max(scores)),
-                                      accent=t.ACCENT)
+                                      accent=t.POSITIVE)
             self._stat_avg.set_value(str(round(sum(scores)/len(scores))))
         n = len(self._scan_results)
         if hidden:
