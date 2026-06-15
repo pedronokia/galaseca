@@ -11,18 +11,20 @@ from __future__ import annotations
 from typing import Callable
 
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QHBoxLayout,
+    QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from skinvault import steam_session
+from skinvault import settings as settings_mod, steam_session
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.account_screen import AccountScreen
-from skinvault.ui.components import Breadcrumb, fade_in
+from skinvault.ui.components import Breadcrumb, LineIcon, fade_in
 from skinvault.ui.history_screen import HistoryScreen
 from skinvault.ui.login_gate import LoginGate
 from skinvault.ui.market_screen import MarketScreen
@@ -53,6 +55,7 @@ class ScreenRouter(QWidget):
     navigated = pyqtSignal(str)
     notification_requested = pyqtSignal(str, str, str)  # title, body, severity
     session_changed = pyqtSignal(str, str)  # name, steamid ("","" = deslogado)
+    theme_toggled = pyqtSignal()  # disparado quando usuario clica no toggle
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -82,6 +85,38 @@ class ScreenRouter(QWidget):
 
         self._breadcrumb = Breadcrumb(self)
         root.addWidget(self._breadcrumb)
+
+        # Acoes trailing: toggle de tema + perfil
+        self._theme_btn = QPushButton()
+        self._theme_btn.setFixedSize(34, 34)
+        self._theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._theme_btn.setStyleSheet(t.btn_ghost(padding="0", fs=t.FS_MUTED))
+        self._theme_btn.setToolTip("Alternar tema claro/escuro")
+        self._theme_icon = LineIcon("sun", t.TEXT_MUTED, self._theme_btn)
+        self._theme_icon.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._theme_btn.clicked.connect(self._on_toggle_theme)
+        self._theme_icon.move(
+            (self._theme_btn.width() - self._theme_icon.width()) // 2,
+            (self._theme_btn.height() - self._theme_icon.height()) // 2,
+        )
+
+        self._profile_btn = QPushButton()
+        self._profile_btn.setFixedSize(34, 34)
+        self._profile_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._profile_btn.setStyleSheet(t.btn_ghost(padding="0", fs=t.FS_MUTED))
+        self._profile_btn.setToolTip("Minha Conta")
+        self._profile_icon = LineIcon("user", t.TEXT_MUTED, self._profile_btn)
+        self._profile_icon.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._profile_btn.clicked.connect(
+            lambda: self.navigate(SCREEN_ACCOUNT))
+        self._profile_icon.move(
+            (self._profile_btn.width() - self._profile_icon.width()) // 2,
+            (self._profile_btn.height() - self._profile_icon.height()) // 2,
+        )
+
+        self._breadcrumb.set_actions([self._theme_btn, self._profile_btn])
 
         self._stack = QStackedWidget(self)
 
@@ -178,6 +213,17 @@ class ScreenRouter(QWidget):
             pass
         s["welcome_seen"] = True
         _settings.save_settings(s)
+
+    def _on_toggle_theme(self) -> None:
+        s = settings_mod.load_settings()
+        current = s.get("theme", "dark")
+        new = "light" if current == "dark" else "dark"
+        s["theme"] = new
+        settings_mod.save_settings(s)
+        # Atualiza icone
+        self._theme_icon.set_icon_name(
+            "moon" if new == "dark" else "sun")
+        self.theme_toggled.emit()
 
     def navigate(self, screen: str) -> None:
         mapping = {

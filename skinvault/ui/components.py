@@ -337,9 +337,10 @@ class StatCard(Card):
         """Troca o icone de canto em runtime. Cria se nao existir."""
         if self._icon_w is None:
             self._icon_w = LineIcon(name, t.TEXT_MUTED)
-            hdr = self.layout().itemAt(0)
-            if isinstance(hdr, QHBoxLayout):
-                hdr.addWidget(self._icon_w, 0, Qt.AlignmentFlag.AlignRight)
+            hdr_item = self.layout().itemAt(0)
+            if hdr_item is not None and hdr_item.layout() is not None:
+                hdr_item.layout().addWidget(
+                    self._icon_w, 0, Qt.AlignmentFlag.AlignRight)
             else:
                 self._icon_w.setParent(self)
                 self._icon_w.show()
@@ -368,6 +369,11 @@ class LineIcon(QWidget):
     def set_color(self, color: str) -> None:
         if color != self._color:
             self._color = color
+            self.update()
+
+    def set_icon_name(self, name: str) -> None:
+        if name != self._icon:
+            self._icon = name
             self.update()
 
     def set_name(self, name: str) -> None:
@@ -463,6 +469,28 @@ class LineIcon(QWidget):
         p.drawRoundedRect(QRectF(3, 4, 12, 3), 1, 1)  # tampa
         p.drawRoundedRect(QRectF(4, 7, 10, 8), 1, 1)  # corpo
         p.drawLine(QPointF(7.5, 10.5), QPointF(10.5, 10.5))  # alca
+
+    def _draw_sun(self, p: QPainter) -> None:
+        # sol: circulo + 8 raios
+        p.drawEllipse(QRectF(5.5, 5.5, 7, 7))
+        for k in range(8):
+            ang = k * 45  # degrees
+            import math
+            rad = math.radians(ang)
+            dx, dy = math.cos(rad), math.sin(rad)
+            p.drawLine(QPointF(9 + dx * 5.5, 9 + dy * 5.5),
+                       QPointF(9 + dx * 7.5, 9 + dy * 7.5))
+
+    def _draw_moon(self, p: QPainter) -> None:
+        # lua crescente: circulo sobreposto por outro deslocado
+        p.drawEllipse(QRectF(3.5, 3.5, 11, 11))
+        # Sobrepoe um semi-circulo da cor do fundo pra criar a forma crescente.
+        # Como nao temos fill, usamos path para desenhar o arco crescente.
+        path = QPainterPath()
+        path.moveTo(9, 3.5)
+        path.quadTo(3, 9, 9, 14.5)
+        path.quadTo(13, 9, 9, 3.5)
+        p.drawPath(path)
 
     def _draw_wallet(self, p: QPainter) -> None:
         # carteira: retangulo + aba
@@ -690,12 +718,30 @@ class Breadcrumb(QWidget):
         self._right.setStyleSheet(t.label_caption())
         lay.addWidget(self._right)
 
+        # Container para acoes trailing (toggle tema, perfil)
+        self._actions_widget = QWidget()
+        self._actions_lay = QHBoxLayout(self._actions_widget)
+        self._actions_lay.setContentsMargins(0, 0, 0, 0)
+        self._actions_lay.setSpacing(4)
+        self._actions_widget.setVisible(False)
+        lay.addWidget(self._actions_widget)
+
     def set_path(self, *parts: str) -> None:
         body = "  ›  ".join(p for p in parts if p)
         self._label.setText(body)
 
     def set_right(self, text: str) -> None:
         self._right.setText(text)
+
+    def set_actions(self, widgets: list[QWidget]) -> None:
+        """Adiciona botoes trailing a direita do breadcrumb."""
+        while self._actions_lay.count():
+            w = self._actions_lay.takeAt(0).widget()
+            if w is not None:
+                w.deleteLater()
+        for w in widgets:
+            self._actions_lay.addWidget(w)
+        self._actions_widget.setVisible(len(widgets) > 0)
 
 
 # ── Footer ───────────────────────────────────────────────────

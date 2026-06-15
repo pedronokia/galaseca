@@ -6539,6 +6539,7 @@ def _make_mw(monkeypatch) -> "MainWindow":
         sidebar_visibility_changed = pyqtSignal(bool)
         notification_requested = pyqtSignal(str, str, str)
         session_changed = pyqtSignal(str, str)
+        theme_toggled = pyqtSignal()
 
         def __init__(self, cache=None, parent=None):
             super().__init__(parent)

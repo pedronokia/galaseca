@@ -453,6 +453,7 @@ class MainWindow(QMainWindow):
         self._create_sidebar_dock(settings)
 
         self._router.navigated.connect(self._on_navigated)
+        self._router.theme_toggled.connect(self._on_theme_changed)
         self._router.sidebar_visibility_changed.connect(self._on_sidebar_visibility)
         self._router.session_changed.connect(self._sidebar.set_session)
         self._router.start()
