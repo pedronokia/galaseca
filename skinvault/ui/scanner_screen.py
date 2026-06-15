@@ -14,7 +14,6 @@ from PyQt6.QtCore import QObject, Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -36,7 +35,10 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, EmptyState, LoadingState, PageHeader, SectionHeader, StatCard, Toast, Toolbar
+from skinvault.ui.components import (
+    Card, EmptyState, LoadingState, PageHeader, SectionHeader, StatCard,
+    Toast, ToggleSwitch, Toolbar,
+)
 
 
 _MAX_FACTOR_DELTA = 35.0  # peso maximo de qualquer fator no enhanced_score
@@ -891,30 +893,38 @@ class ScannerScreen(QWidget):
         _s = _load()
         filt_row = QHBoxLayout()
         filt_row.setSpacing(12)
-        self._hide_low_conf_cb = QCheckBox("Esconder baixa confiança")
-        self._hide_low_conf_cb.setChecked(
-            bool(_s.get("scanner_hide_low_confidence", False))
+        self._hide_low_conf_cb = ToggleSwitch(
+            checked=bool(_s.get("scanner_hide_low_confidence", False))
         )
         self._hide_low_conf_cb.setToolTip(
-            "Oculta itens onde data_quality é 'low' ou 'very_low'."
-            " Empiricamente esses scores são anti-preditivos (corr -0.14)."
+            "Itens com score < 45 sao classificados como baixa confianca. "
+            "Ative para filtrar ruido visual."
         )
-        self._hide_low_conf_cb.setStyleSheet(t.checkbox_style())
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
+        _lbl1 = QLabel("Baixa confiança")
+        _lbl1.setStyleSheet(t.label_caption())
+        _lbl1.setToolTip(
+            "Itens com score < 45 sao classificados como baixa confianca."
+        )
+        filt_row.addWidget(_lbl1)
 
-        self._hide_approx_cb = QCheckBox("Esconder order book aproximado")
-        self._hide_approx_cb.setChecked(
-            bool(_s.get("scanner_hide_approx", False))
+        self._hide_approx_cb = ToggleSwitch(
+            checked=bool(_s.get("scanner_hide_approx", False))
         )
         self._hide_approx_cb.setToolTip(
             "Oculta itens onde o order book veio de outro wear do mesmo"
             " skin (aproximação). A Steam não expõe o item_nameid"
             " necessário para o book exato deste wear."
         )
-        self._hide_approx_cb.setStyleSheet(t.checkbox_style())
         self._hide_approx_cb.toggled.connect(self._on_hide_approx_toggle)
         filt_row.addWidget(self._hide_approx_cb)
+        _lbl2 = QLabel("Order book aprox.")
+        _lbl2.setStyleSheet(t.label_caption())
+        _lbl2.setToolTip(
+            "Itens com order book de wear alternativo (proxy)."
+        )
+        filt_row.addWidget(_lbl2)
         filt_row.addStretch(1)
         root.addLayout(filt_row)
 

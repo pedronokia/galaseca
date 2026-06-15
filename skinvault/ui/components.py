@@ -1603,3 +1603,50 @@ class FormRow(QWidget):
 
     def set_label(self, text: str) -> None:
         self._lbl.setText(text)
+
+
+# ── ToggleSwitch ─────────────────────────────────────────────
+class ToggleSwitch(QWidget):
+    """Switch pílula desenhado com QPainter (estilo botcloud).
+    API compatível com QCheckBox: isChecked/setChecked/toggled.
+
+    Tamanho fixo 36×20. Track ON = ACCENT, OFF = SURFACE; thumb = TEXT.
+    """
+
+    toggled = pyqtSignal(bool)
+
+    def __init__(self, checked: bool = False,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(36, 20)
+        self._checked = checked
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def isChecked(self) -> bool:
+        return self._checked
+
+    def setChecked(self, v: bool) -> None:
+        if v != self._checked:
+            self._checked = v
+            self.toggled.emit(v)
+            self.update()
+
+    def mousePressEvent(self, evt) -> None:  # noqa: N802
+        super().mousePressEvent(evt)
+        self.setChecked(not self._checked)
+
+    def paintEvent(self, evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        track = QRectF(1, 3, 34, 14)
+        r = 7
+        p.setBrush(QColor(t.ACCENT if self._checked else t.SURFACE))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(track, r, r)
+
+        thumb_x = 19 if self._checked else 3
+        p.setBrush(QColor(t.TEXT))
+        p.drawEllipse(QRectF(thumb_x, 1, 14, 18))
+
+

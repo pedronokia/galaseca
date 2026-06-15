@@ -12,7 +12,6 @@ import time
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -42,7 +41,10 @@ from skinvault import (
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
-from skinvault.ui.components import EmptyState, FormRow, LoadingState, PageHeader, SectionHeader, StatCard
+from skinvault.ui.components import (
+    EmptyState, FormRow, LoadingState, PageHeader, SectionHeader, StatCard,
+    ToggleSwitch,
+)
 
 
 class _RulesDialog(QDialog):
@@ -270,14 +272,19 @@ class WatchlistScreen(QWidget):
 
         # Filtro de confianca (mesmo padrao do Scanner)
         filt_row = QHBoxLayout()
-        self._hide_low_conf_cb = QCheckBox("Esconder baixa confian\u00e7a")
+        self._hide_low_conf_cb = ToggleSwitch()
         self._hide_low_conf_cb.setToolTip(
             "Oculta itens onde a confianca dos dados e 'low' ou 'very_low'."
             " Disponivel apenas apos 'Validar Score'."
         )
-        self._hide_low_conf_cb.setStyleSheet(t.checkbox_style())
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
+        _lbl = QLabel("Baixa confiança")
+        _lbl.setStyleSheet(t.label_caption())
+        _lbl.setToolTip(
+            "Oculta itens com confianca 'low' ou 'very_low'."
+        )
+        filt_row.addWidget(_lbl)
         filt_row.addStretch(1)
         root.addLayout(filt_row)
 
