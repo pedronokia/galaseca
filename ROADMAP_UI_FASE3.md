@@ -209,7 +209,7 @@ resultado, mantendo a zebra pras linhas neutras.
 **Ação:**
 1. Helper em `theme.py`: `row_tint(pnl: float | None) -> QColor | None` —
    retorna `QColor(POSITIVE_DIM)` se `pnl > 0`, `QColor(DANGER_DIM)` se
-   `pnl < 0`, `None` se 0/None (mantém zebra). Alpha já baixo nos *_DIM.
+   `pnl < 0`, `None` se 0/None (mantém zebra).
    *(ou monte o QColor no screen; mas centralizar é melhor.)*
 2. **Trades** (`trades_screen.py`, no loop de `_populate`/`insertRow`): para
    cada linha com pnl, setar `item.setBackground(tint)` em TODAS as células
@@ -234,6 +234,8 @@ translúcido, neutras na zebra; texto ainda legível; seleção/hover intactos.
   células bate (verde/vermelho); linha neutra sem background custom.
 
 **Commit:** `ui: tabelas tingem a linha por resultado (lucro verde / prejuizo vermelho)`
+
+✅ **Resultado:** `theme.row_tint()` adicionado (QColor com alpha 41 a partir de POSITIVE/DANGER hex — Qt6 não parseia `rgba()` CSS). Trades `_populate` aplica `setBackground` em todas as células da linha usando `row_tint(raw_pnl)`. History `_populate` faz o mesmo nas linhas com P&L nos segmentos Trades/Steam Market. 1377 testes verdes. Commit `12f42d1`.
 
 ---
 
