@@ -139,41 +139,41 @@ alinhamento à esquerda do botcloud.
 
 **Ação:**
 1. `LineIcon`: adicionar glifos úteis pra KPI (novos `_draw_*`, QPainter,
-   mesmo padrão dos existentes): `wallet` (retângulo + aba), `coins`
-   (2 elipses empilhadas), `trophy` (taça), `percent` (% com 2 círculos +
-   barra), `calendar` (retângulo + 2 ticks no topo + linha). Nome inválido
-   continua caindo no fallback.
+    mesmo padrão dos existentes): `wallet` (retângulo + aba), `coins`
+    (2 elipses empilhadas), `trophy` (taça), `percent` (% com 2 círculos +
+    barra), `calendar` (retângulo + 2 ticks no topo + linha). Nome inválido
+    continua caindo no fallback.
 2. `StatCard.__init__`: aceitar `icon: str = ""`. Reestruturar o layout pra
-   **alinhado à esquerda** (botcloud):
-   - **header row** = `QHBoxLayout`: `QLabel(label)` (`label_caption()`,
-     AlignLeft) + `addStretch(1)` + (se `icon`) `LineIcon(icon, TEXT_MUTED)`
-     16×18px no canto direito.
-   - **value row** = `QHBoxLayout`: `self._value` (AlignLeft) + `self._badge`
-     (pill, oculto por padrão) + `addStretch(1)`.
-   - `self._delta` abaixo (AlignLeft).
-   - Trocar os `AlignCenter` atuais (label/value) por AlignLeft. *(Sim, isto
-     muda TODOS os StatCards de centralizado→esquerda; é intencional, é o
-     look botcloud.)*
-   - Preservar `_value_color` (placeholder "—" continua neutro — ver
-     ROADMAP_UI.md / commit `39a6dc5`).
+    **alinhado à esquerda** (botcloud):
+    - **header row** = `QHBoxLayout`: `QLabel(label)` (`label_caption()`,
+      AlignLeft) + `addStretch(1)` + (se `icon`) `LineIcon(icon, TEXT_MUTED)`
+      16×18px no canto direito.
+    - **value row** = `QHBoxLayout`: `self._value` (AlignLeft) + `self._badge`
+      (pill, oculto por padrão) + `addStretch(1)`.
+    - `self._delta` abaixo (AlignLeft).
+    - Trocar os `AlignCenter` atuais (label/value) por AlignLeft. *(Sim, isto
+      muda TODOS os StatCards de centralizado→esquerda; é intencional, é o
+      look botcloud.)*
+    - Preservar `_value_color` (placeholder "—" continua neutro — ver
+      ROADMAP_UI.md / commit `39a6dc5`).
 3. `StatCard.set_badge(text: str, kind: str = "neutral")`: mostra um pill
-   colado ao valor. `kind` → cor:
-   - `positive` → bg `POSITIVE_DIM`, texto `POSITIVE`
-   - `danger` → bg `DANGER_DIM`, texto `DANGER`
-   - `neutral` → bg `SURFACE`, texto `TEXT_MUTED`
-   QSS do pill: `padding: 2px 8px; border-radius: 10px; font-size: FS_MUTED;
-   font-weight: 600; font-family: FONT_FAMILY;`. `clear_badge()` esconde.
+    colado ao valor. `kind` → cor:
+    - `positive` → bg `POSITIVE_DIM`, texto `POSITIVE`
+    - `danger` → bg `DANGER_DIM`, texto `DANGER`
+    - `neutral` → bg `SURFACE`, texto `TEXT_MUTED`
+    QSS do pill: `padding: 2px 8px; border-radius: 10px; font-size: FS_MUTED;
+    font-weight: 600; font-family: FONT_FAMILY;`. `clear_badge()` esconde.
 4. `StatCard.set_icon(name)` (opcional, troca o ícone em runtime).
 5. **Aplicar** ícones + badges onde agrega (sem exagerar):
-   - Account (`account_screen.py`): "Valor bruto" → `icon="wallet"`; "Valor
-     líquido" → `icon="coins"`; "P&L total" → `icon="chart"`; "Total de
-     itens" → `icon="archive"`. No card de P&L total, usar `set_badge` com a
-     % de lucro (kind positive/danger conforme sinal).
-   - Trades (`trades_screen.py`): "P&L líquido" → `icon="chart"` + badge com
-     a taxa de acerto; "Taxa de acerto" → `icon="percent"`; "Taxas pagas" →
-     `icon="coins"`.
-   - Scanner/Watchlist/Market/Simulador: pelo menos o ícone de canto nos
-     StatCards principais (escolha glifo coerente: radar/eye/chart/calc).
+    - Account (`account_screen.py`): "Valor bruto" → `icon="wallet"`; "Valor
+      líquido" → `icon="coins"`; "P&L total" → `icon="chart"`; "Total de
+      itens" → `icon="archive"`. No card de P&L total, usar `set_badge` com a
+      % de lucro (kind positive/danger conforme sinal).
+    - Trades (`trades_screen.py`): "P&L líquido" → `icon="chart"` + badge com
+      a taxa de acerto; "Taxa de acerto" → `icon="percent"`; "Taxas pagas" →
+      `icon="coins"`.
+    - Scanner/Watchlist/Market/Simulador: pelo menos o ícone de canto nos
+      StatCards principais (escolha glifo coerente: radar/eye/chart/calc).
 
 **Não fazer:** não remover `set_delta` (a sub-linha continua sendo ele); não
 colorir badge fora de POSITIVE/DANGER/neutral; não deixar `icon` obrigatório
@@ -194,6 +194,8 @@ sub-linha do delta preservada. Tudo via tokens. Tooltips preservados.
 - Suíte verde; `test_statcard_height` continua passando.
 
 **Commit:** `ui: StatCard estilo botcloud — icone de canto, pill badge, alinhamento a esquerda`
+
+✅ **Resultado:** LineIcon ganhou 5 novos glifos (wallet, coins, trophy, percent, calendar) via QPainter no padrão existente. StatCard reestruturado para layout alinhado à esquerda (botcloud): header row com label + ícone de canto, value row com valor + pill badge + stretch, delta preservado abaixo. `set_badge()`/`clear_badge()`/`set_icon()` adicionados. Aplicado nas 7 telas: Account (wallet/coins/chart/archive + badge pnl_pct), Trades (chart/percent/coins + badge win_rate), Scanner (radar/trophy/chart), Market (eye/chart/archive/radar), Watchlist (eye/gear/info/history), Simulador (chart/percent/coins/calc). 1377 testes verdes. Commit `241cebd`.
 
 ---
 
