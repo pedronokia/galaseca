@@ -96,7 +96,26 @@ class AccountScreen(QWidget):
     def set_session(self, session: steam_session.SteamSession | None) -> None:
         self._session = session
         self._reload_profile()
+        self._update_strip()
         self.refresh()
+
+    def _update_strip(self) -> None:
+        s = self._session
+        if s and s.steamid:
+            name = self._name.text()
+            if name and name != "—":
+                label = f"Conectado como {name}"
+            else:
+                label = "Conectado com Steam"
+            self._strip_status.setText(label)
+            self._strip_dot.setStyleSheet(
+                f"background: {t.POSITIVE}; border-radius: 4px;"
+            )
+        else:
+            self._strip_status.setText("Não conectado")
+            self._strip_dot.setStyleSheet(
+                f"background: {t.TEXT_MUTED}; border-radius: 4px;"
+            )
 
     # ── construcao do layout ──────────────────────────────
     def _build(self) -> None:
@@ -105,22 +124,9 @@ class AccountScreen(QWidget):
         root.setSpacing(12)
 
         # PageHeader
-        self._last_sync_lbl = QLabel("")
-        self._last_sync_lbl.setStyleSheet(t.label_caption())
         act_lbl = QHBoxLayout()
         act_lbl.setContentsMargins(0, 0, 0, 0)
         act_lbl.setSpacing(t.SPACE_SM)
-        act_lbl.addWidget(self._last_sync_lbl)
-
-        self._sync_btn = QPushButton("Sincronizar com Steam")
-        self._sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._sync_btn.setStyleSheet(t.btn_steam())
-        self._sync_btn.setToolTip(
-            "Puxa seu inventario, market history, listings ativas e trade "
-            "offers da Steam. Usa cookies salvos da sessao."
-        )
-        self._sync_btn.clicked.connect(self.request_sync.emit)
-        act_lbl.addWidget(self._sync_btn)
 
         self._validate_btn = QPushButton("Validar Score do Portfolio")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -151,6 +157,42 @@ class AccountScreen(QWidget):
             "Inventário, desempenho da carteira e sincronização Steam.",
             actions=[act_w],
         ))
+
+        # Session status strip
+        self._strip_card = Card(self, padding=t.CARD_PAD_MD)
+        strip_lay = QHBoxLayout()
+        strip_lay.setContentsMargins(0, 0, 0, 0)
+        strip_lay.setSpacing(10)
+
+        self._strip_dot = QLabel()
+        self._strip_dot.setFixedSize(8, 8)
+        self._strip_dot.setStyleSheet(
+            f"background: {t.TEXT_MUTED}; border-radius: 4px;"
+        )
+        strip_lay.addWidget(self._strip_dot)
+
+        self._strip_status = QLabel("Não conectado")
+        self._strip_status.setStyleSheet(t.label_section())
+        strip_lay.addWidget(self._strip_status)
+
+        strip_lay.addStretch(1)
+
+        self._strip_last_sync = QLabel("")
+        self._strip_last_sync.setStyleSheet(t.label_caption())
+        strip_lay.addWidget(self._strip_last_sync)
+
+        self._strip_sync_btn = QPushButton("Sincronizar com Steam")
+        self._strip_sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._strip_sync_btn.setStyleSheet(t.btn_steam())
+        self._strip_sync_btn.setToolTip(
+            "Puxa seu inventario, market history, listings ativas e trade "
+            "offers da Steam. Usa cookies salvos da sessao."
+        )
+        self._strip_sync_btn.clicked.connect(self.request_sync.emit)
+        strip_lay.addWidget(self._strip_sync_btn)
+
+        self._strip_card.layout().addLayout(strip_lay)
+        root.addWidget(self._strip_card)
 
         # Header card (avatar + ident, sem botoes)
         header = Card(self)
@@ -367,6 +409,7 @@ class AccountScreen(QWidget):
     def _on_profile(self, data: dict) -> None:
         steamid = data.get("steamid", "")
         self._name.setText(data.get("name") or "—")
+        self._update_strip()
         self._sub.setText(f"SteamID: {steamid}")
         if steamid:
             self._profile_link.setText("Ver perfil na Steam ›")
@@ -437,7 +480,7 @@ class AccountScreen(QWidget):
         self._validate_items_count = len(names)
         self._validate_btn.setEnabled(False)
         self._refresh_btn.setEnabled(False)
-        self._sync_btn.setEnabled(False)
+        self._strip_sync_btn.setEnabled(False)
         self._loading.set_label(f"Validando {len(names)} itens...")
         self._loading.setVisible(True)
         bridge = self._validate_bridge
@@ -502,7 +545,7 @@ class AccountScreen(QWidget):
         self._loading.setVisible(False)
         self._validate_btn.setEnabled(True)
         self._refresh_btn.setEnabled(True)
-        self._sync_btn.setEnabled(True)
+        self._strip_sync_btn.setEnabled(True)
         n = len(self._validate_samples)
         items_n = self._validate_items_count
         self._status.setText(
@@ -627,7 +670,7 @@ class AccountScreen(QWidget):
         self._status.setText(
             f"{len(rows)} item(ns) • atualizado {now}"
         )
-        self._last_sync_lbl.setText(f"Ultima sync: {now}")
+        self._strip_last_sync.setText(f"Ultima sync: {now}")
 
     def _populate_table(self, rows: list[dict],
                         positions: list[dict]) -> None:

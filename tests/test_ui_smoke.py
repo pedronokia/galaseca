@@ -7054,12 +7054,12 @@ def test_account_on_validate_finished_reativa_botoes(monkeypatch):
     monkeypatch.setattr(_BacktestResultDialog, "exec",
                         lambda self: QDialog.DialogCode.Accepted)
     screen = AccountScreen(PriceCache(ttl=3600))
-    screen._sync_btn.setEnabled(False)
+    screen._strip_sync_btn.setEnabled(False)
     screen._validate_btn.setEnabled(False)
     screen._validate_samples = []
     screen._validate_items_count = 2
     screen._on_validate_finished()
-    assert screen._sync_btn.isEnabled()
+    assert screen._strip_sync_btn.isEnabled()
     assert screen._validate_btn.isEnabled()
 
 
