@@ -384,6 +384,8 @@ passa a usar o size grande); suíte verde.
 
 **Commit:** `ui: titulo de pagina grande/bold (estilo botcloud) — reverte compactacao da Frente N`
 
+✅ **Resultado:** PageHeader.title_fs alterado de `FS_TITLE_MD` (16pt) para `FS_TITLE` (24pt) + weight 600→700. Altura fixa ajustada 52→64px. Subtítulo mantém `label_caption()`. SectionHeader em cards não foi alterado. 1377 testes verdes. Commit `d5eef61`.
+
 ---
 
 ### Frente HH — Toggle-pílula no lugar de checkbox (cosmético) [opcional]
@@ -407,6 +409,8 @@ comportamento.
 emite `toggled(True)`; filtros do Scanner/Watchlist continuam funcionando.
 
 **Commit:** `ui: ToggleSwitch (QPainter) substitui checkbox nos filtros de tela`
+
+✅ **Resultado:** `ToggleSwitch(QWidget)` adicionado em components.py — QPainter com trilho arredondado (36×20) + bolinha deslizante; ON = ACCENT, OFF = SURFACE; thumb = TEXT. API: `isChecked`/`setChecked`/`toggled`. Aplicado no Scanner (2 switches: "Baixa confiança" + "Order book aprox.") e Watchlist (1 switch: "Baixa confiança"). Labels accompaniment substituem o texto do QCheckBox. 1377 testes verdes. Commit `48d35e0`.
 
 ---
 
