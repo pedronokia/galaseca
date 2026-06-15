@@ -1450,17 +1450,17 @@ class LoadingState(QWidget):
 
 # ── PageHeader ───────────────────────────────────────────────
 class PageHeader(QWidget):
-    """Cabecalho de pagina: titulo 16pt + subtitulo + acoes a direita.
+    """Cabecalho de pagina: titulo 24pt + subtitulo + acoes a direita.
 
-    Altura total ~52px. Substitui SectionHeader no topo das telas
-    (pagina), mas nao substitui SectionHeader dentro de cards.
+    Altura total ~64px. Versao bold (botcloud), reverte compactacao
+    da Frente N.
     """
 
     def __init__(self, title: str, subtitle: str = "",
                  actions: list[QWidget] | None = None,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFixedHeight(52)
+        self.setFixedHeight(64)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(t.SPACE_SM)
@@ -1471,8 +1471,8 @@ class PageHeader(QWidget):
 
         self._title_lbl = QLabel(title)
         self._title_lbl.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_TITLE_MD};"
-            f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE};"
+            f" font-weight: 700; font-family: {t.FONT_FAMILY};"
         )
         text_col.addWidget(self._title_lbl)
 
