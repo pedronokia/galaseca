@@ -7,6 +7,7 @@ sync/conta.
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QAbstractItemView, QTableWidget
 
 # ── Paleta — tons do YouTube (monocromático) ─────────────────
@@ -465,6 +466,27 @@ def label_hero() -> str:
         f"color: {TEXT}; font-size: {FS_HERO}; font-weight: 700;"
         f" font-family: {FONT_FAMILY}; letter-spacing: -0.5px;"
     )
+
+
+def row_tint(pnl: float | None) -> QColor | None:
+    """Retorna cor de fundo semantica para linha de tabela.
+
+    Lucro (>0) → POSITIVE_DIM (verde translúcido, alpha ~0.16)
+    Prejuízo (<0) → DANGER_DIM (vermelho translúcido, alpha ~0.16)
+    Zero/None → None (mantém zebra)
+
+    NOTA: QColor do Qt6 nao parseia 'rgba()' CSS — construimos com
+    alpha int 0-255 a partir dos hex POSITIVE/DANGER.
+    """
+    if pnl is None or pnl == 0:
+        return None
+    if pnl > 0:
+        c = QColor(POSITIVE)
+        c.setAlpha(41)  # 0.16 * 255
+        return c
+    c = QColor(DANGER)
+    c.setAlpha(41)
+    return c
 
 
 def configure_table(table: QTableWidget) -> None:

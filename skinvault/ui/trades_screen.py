@@ -384,6 +384,8 @@ class TradesScreen(QWidget):
         for i, tr in enumerate(self._filtered):
             self._table.insertRow(i)
             pnl = tr.get("pnl") or 0
+            raw_pnl = tr.get("pnl")  # None/0 preservado pro tint
+            row_tint = t.row_tint(raw_pnl)
             pnl_color = t.POSITIVE if pnl >= 0 else t.DANGER
             src_label, src_color = _source_label(tr.get("source", "manual"))
             sell_ts = tr.get("sell_ts") or tr.get("buy_ts") or 0
@@ -404,6 +406,8 @@ class TradesScreen(QWidget):
                 item = QTableWidgetItem(str(val))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
+                if row_tint is not None:
+                    item.setBackground(QBrush(row_tint))
                 # Guarda o indice original do trade pra editar/remover
                 if col == 0:
                     item.setData(Qt.ItemDataRole.UserRole,

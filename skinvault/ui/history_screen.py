@@ -1001,6 +1001,12 @@ class HistoryScreen(QWidget):
                 icon_hashes[i]
                 if icon_hashes and i < len(icon_hashes) else None
             )
+            # Tinte de linha semantico (lucro/prejuizo) antes do loop
+            _row_pnl = None
+            if pnl_col is not None and pnl_vals:
+                _row_pnl = pnl_vals[i] if i < len(pnl_vals) else None
+            _row_tint = t.row_tint(_row_pnl)
+
             for c, val in enumerate(row):
                 if c in name_cols:
                     val = _ln(val)
@@ -1015,6 +1021,9 @@ class HistoryScreen(QWidget):
                 elif (headers[c] == "Origem"
                         and val.strip().lower() == "steam"):
                     it.setForeground(QBrush(QColor(t.STEAM_BLUE)))
+                # Tinte de linha inteira
+                if _row_tint is not None:
+                    it.setBackground(QBrush(_row_tint))
                 # Side coloring — estilo Future/Bloomberg: só texto colorido,
                 # sem background cheio. Visual minimalista de plataforma
                 # profissional de trade.
