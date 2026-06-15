@@ -149,22 +149,22 @@ class SimuladorScreen(QWidget):
 
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
-        self._stat_pnl = StatCard("Lucro/Prejuízo", "—")
+        self._stat_pnl = StatCard("Lucro/Prejuízo", "—", icon="chart")
         self._stat_pnl.setToolTip(
             "Resultado líquido = valor recebido – custo total. "
             "Negativo = prejuízo."
         )
-        self._stat_roi = StatCard("ROI", "—")
+        self._stat_roi = StatCard("ROI", "—", icon="percent")
         self._stat_roi.setToolTip(
             "Retorno sobre o investimento: lucro líquido ÷ custo total."
         )
         self._stat_recebe = StatCard("Valor recebido (–15%)", "—",
-                                     accent=t.STEAM_BLUE)
+                                      accent=t.STEAM_BLUE, icon="coins")
         self._stat_recebe.setToolTip(
             "Total que cai na sua carteira Steam após a taxa de 15%."
         )
         self._stat_break = StatCard("Preço mínimo de venda", "—",
-                                    accent=t.WARN)
+                                     accent=t.WARN, icon="calc")
         self._stat_break.setToolTip(
             "Preço pelo qual você precisa listar para empatar — recuperar "
             "exatamente o custo de compra após a taxa Steam."

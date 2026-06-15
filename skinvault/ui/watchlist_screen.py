@@ -253,13 +253,14 @@ class WatchlistScreen(QWidget):
         # Stat cards: total + com regras + disparados + recentes 24h
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
-        self._stat_total = StatCard("Itens monitorados", "0")
+        self._stat_total = StatCard("Itens monitorados", "0",
+                                     icon="eye")
         self._stat_rules = StatCard("Com regras ativas", "0",
-                                     accent=t.STEAM_BLUE)
+                                     accent=t.STEAM_BLUE, icon="gear")
         self._stat_triggered = StatCard("Disparados agora", "0",
-                                         accent=t.POSITIVE)
+                                         accent=t.POSITIVE, icon="info")
         self._stat_recent = StatCard("Alertas em 24h", "0",
-                                       accent=t.WARN)
+                                       accent=t.WARN, icon="history")
         for sc in (self._stat_total, self._stat_rules,
                    self._stat_triggered, self._stat_recent):
             sc.setMaximumWidth(280)

@@ -203,29 +203,61 @@ class Card(QFrame):
 
 
 class StatCard(Card):
-    """Card pequeno: label muted em cima, valor grande embaixo."""
+    """Card pequeno: label muted em cima, valor grande embaixo.
+
+    Layout alinhado a esquerda (botcloud): header row com label + icone opcional
+    no canto direito, value row com valor grande + pill badge opcional, e
+    sub-linha delta abaixo.
+    """
 
     def __init__(self, label: str, value: str = "—",
                  accent: str = t.TEXT,
+                 icon: str = "",
                  parent: QWidget | None = None) -> None:
         # Padding (20, 16) e ligeiramente mais compacto que CARD_PAD_LG (20, 18)
         # — StatCard mostra apenas label + numero, nao precisa respiro extra.
         super().__init__(parent, padding=(20, 16, 20, 16), radius=t.RADIUS_LG)
         self.layout().setSpacing(4)
+
+        # header row: label a esquerda + icone no canto direito
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(0)
         self._label = QLabel(label)
-        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._label.setStyleSheet(t.label_caption())
+        header.addWidget(self._label, 1)
+        self._icon_w = LineIcon("info", t.TEXT_MUTED) if icon else None
+        if self._icon_w is not None:
+            self._icon_w.set_name(icon)
+            header.addWidget(self._icon_w, 0, Qt.AlignmentFlag.AlignRight)
+        self.layout().addLayout(header)
+
+        # value row: valor a esquerda + badge colado + stretch
+        val_row = QHBoxLayout()
+        val_row.setContentsMargins(0, 0, 0, 0)
+        val_row.setSpacing(t.SPACE_SM)
         self._value = QLabel(value)
-        self._value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._value.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._value.setStyleSheet(
             f"color: {self._value_color(value, accent)};"
             f" font-size: {t.FS_STAT}; font-weight: 600;"
             f" font-family: {t.FONT_FAMILY};"
         )
-        self.layout().addWidget(self._label)
-        self.layout().addWidget(self._value)
+        val_row.addWidget(self._value)
+        self._badge = QLabel("")
+        self._badge.setVisible(False)
+        self._badge.setStyleSheet(
+            f"padding: 2px 8px; border-radius: 10px;"
+            f" font-size: {t.FS_MUTED}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
+        val_row.addWidget(self._badge)
+        val_row.addStretch(1)
+        self.layout().addLayout(val_row)
+
         self._delta = QLabel("")
-        self._delta.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._delta.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._delta.setVisible(False)
         self.layout().addWidget(self._delta)
         self.setMinimumWidth(120)
@@ -277,6 +309,42 @@ class StatCard(Card):
                 f" font-size: {t.FS_STAT}; font-weight: 600;"
                 f" font-family: {t.FONT_FAMILY};"
             )
+
+    def set_badge(self, text: str, kind: str = "neutral") -> None:
+        """Mostra um pill badge colado ao valor.
+        kind: 'positive' / 'danger' / 'neutral'."""
+        if kind == "positive":
+            bg, fg = t.POSITIVE_DIM, t.POSITIVE
+        elif kind == "danger":
+            bg, fg = t.DANGER_DIM, t.DANGER
+        else:
+            bg, fg = t.SURFACE, t.TEXT_MUTED
+        self._badge.setText(text)
+        self._badge.setStyleSheet(
+            f"padding: 2px 8px; border-radius: 10px;"
+            f" font-size: {t.FS_MUTED}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
+            f" background: {bg}; color: {fg};"
+        )
+        self._badge.setVisible(True)
+
+    def clear_badge(self) -> None:
+        """Esconde o pill badge."""
+        self._badge.setVisible(False)
+        self._badge.setText("")
+
+    def set_icon(self, name: str) -> None:
+        """Troca o icone de canto em runtime. Cria se nao existir."""
+        if self._icon_w is None:
+            self._icon_w = LineIcon(name, t.TEXT_MUTED)
+            hdr = self.layout().itemAt(0)
+            if isinstance(hdr, QHBoxLayout):
+                hdr.addWidget(self._icon_w, 0, Qt.AlignmentFlag.AlignRight)
+            else:
+                self._icon_w.setParent(self)
+                self._icon_w.show()
+        else:
+            self._icon_w.set_name(name)
 
 
 # ── LineIcon (QPainter) ──────────────────────────────────────
@@ -395,6 +463,37 @@ class LineIcon(QWidget):
         p.drawRoundedRect(QRectF(3, 4, 12, 3), 1, 1)  # tampa
         p.drawRoundedRect(QRectF(4, 7, 10, 8), 1, 1)  # corpo
         p.drawLine(QPointF(7.5, 10.5), QPointF(10.5, 10.5))  # alca
+
+    def _draw_wallet(self, p: QPainter) -> None:
+        # carteira: retangulo + aba
+        p.drawRoundedRect(QRectF(3, 5, 12, 9), 1.5, 1.5)
+        p.drawRoundedRect(QRectF(3, 5, 6, 9), 1.5, 1.5)  # aba frontal
+
+    def _draw_coins(self, p: QPainter) -> None:
+        # 2 elipses empilhadas (moedas)
+        p.drawEllipse(QRectF(4, 3, 10, 6))
+        p.drawEllipse(QRectF(4, 9, 10, 6))
+
+    def _draw_trophy(self, p: QPainter) -> None:
+        # taca: corpo + base + 2 alcas
+        p.drawRoundedRect(QRectF(6, 4, 6, 7), 1, 1)  # corpo
+        p.drawLine(QPointF(5, 11), QPointF(13, 11))  # borda base
+        p.drawLine(QPointF(7, 12), QPointF(11, 12))  # base
+        p.drawArc(QRectF(2, 4, 6, 6), 0, 90 * 16)    # alca esq
+        p.drawArc(QRectF(10, 4, 6, 6), 90 * 16, 90 * 16)  # alca dir
+
+    def _draw_percent(self, p: QPainter) -> None:
+        # % com 2 circulos + barra
+        p.drawEllipse(QRectF(3, 3, 4.5, 4.5))     # circulo sup
+        p.drawEllipse(QRectF(10.5, 10.5, 4.5, 4.5))  # circulo inf
+        p.drawLine(QPointF(13, 4), QPointF(5, 14))  # barra
+
+    def _draw_calendar(self, p: QPainter) -> None:
+        # calendario: retangulo + 2 ticks no topo + linha
+        p.drawRoundedRect(QRectF(3, 5, 12, 10), 1.5, 1.5)
+        p.drawLine(QPointF(5, 3), QPointF(5, 6))
+        p.drawLine(QPointF(13, 3), QPointF(13, 6))
+        p.drawLine(QPointF(3, 9), QPointF(15, 9))
 
     def _draw_fallback(self, p: QPainter) -> None:
         p.drawEllipse(QRectF(3, 3, 12, 12))

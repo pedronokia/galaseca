@@ -201,17 +201,17 @@ class TradesScreen(QWidget):
         self._stat_total.setToolTip(
             "Quantidade de trades que casam com o filtro atual."
         )
-        self._stat_pnl = StatCard("P&L líquido", "—")
+        self._stat_pnl = StatCard("P&L líquido", "—", icon="chart")
         self._stat_pnl.setMaximumWidth(300)
         self._stat_pnl.setToolTip(
             "Lucro/prejuízo total já descontada a taxa Steam de 15%."
         )
-        self._stat_winrate = StatCard("Taxa de acerto", "—")
+        self._stat_winrate = StatCard("Taxa de acerto", "—", icon="percent")
         self._stat_winrate.setMaximumWidth(300)
         self._stat_winrate.setToolTip(
             "% de trades com P&L positivo (winning trades / total)."
         )
-        self._stat_fees = StatCard("Taxas pagas", "—")
+        self._stat_fees = StatCard("Taxas pagas", "—", icon="coins")
         self._stat_fees.setMaximumWidth(200)
         self._stat_fees.setToolTip(
             "Soma das taxas Steam (15%) pagas pelos trades no filtro."
@@ -453,6 +453,12 @@ class TradesScreen(QWidget):
             wr_c = t.DANGER
         wr_extra = f"  ({stats['win_count']}W / {stats['loss_count']}L)"
         self._stat_winrate.set_value(f"{wr:.0f}%{wr_extra}", accent=wr_c)
+        # Badge no P&L com a taxa de acerto
+        if stats["total"] > 0 and wr >= 0:
+            wk = "positive" if wr >= 50 else "danger"
+            self._stat_pnl.set_badge(f"{wr:.0f}% acerto", wk)
+        else:
+            self._stat_pnl.clear_badge()
 
         fees = stats.get("fees_total", 0)
         self._stat_fees.set_value(t.brl(fees))

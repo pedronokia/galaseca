@@ -192,14 +192,15 @@ class AccountScreen(QWidget):
         # Stat cards row
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
-        self._stat_gross = StatCard("Valor bruto (Market)", "—")
+        self._stat_gross = StatCard("Valor bruto (Market)", "—",
+                                     icon="wallet")
         self._stat_gross.setMaximumWidth(300)
         self._stat_net = StatCard("Valor líquido (-15%)", "—",
-                                  accent=t.STEAM_BLUE)
+                                   accent=t.STEAM_BLUE, icon="coins")
         self._stat_net.setMaximumWidth(300)
-        self._stat_pnl = StatCard("P&L total", "—")
+        self._stat_pnl = StatCard("P&L total", "—", icon="chart")
         self._stat_pnl.setMaximumWidth(300)
-        self._stat_items = StatCard("Total de itens", "0")
+        self._stat_items = StatCard("Total de itens", "0", icon="archive")
         self._stat_items.setMaximumWidth(300)
         for sc in (self._stat_gross, self._stat_net, self._stat_pnl,
                    self._stat_items):
@@ -575,6 +576,13 @@ class AccountScreen(QWidget):
         pnl = totals.get("pnl") or 0
         pnl_color = t.POSITIVE if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_color)
+        pnl_pct = totals.get("pnl_pct")
+        if pnl_pct is not None and len(rows) > 0:
+            sign = "+" if pnl_pct >= 0 else ""
+            kind = "positive" if pnl_pct >= 0 else "danger"
+            self._stat_pnl.set_badge(f"{sign}{pnl_pct:.1f}%", kind)
+        else:
+            self._stat_pnl.clear_badge()
         self._stat_items.set_value(str(len(rows)))
 
         # Portfolio breakdown

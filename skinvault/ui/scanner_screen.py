@@ -849,11 +849,11 @@ class ScannerScreen(QWidget):
         # Stats
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
-        self._stat_count = StatCard("Itens escaneados", "0")
+        self._stat_count = StatCard("Itens escaneados", "0", icon="radar")
         self._stat_count.setMaximumWidth(300)
-        self._stat_best = StatCard("Melhor score", "—")
+        self._stat_best = StatCard("Melhor score", "—", icon="trophy")
         self._stat_best.setMaximumWidth(300)
-        self._stat_avg = StatCard("Score medio", "—")
+        self._stat_avg = StatCard("Score medio", "—", icon="chart")
         self._stat_avg.setMaximumWidth(300)
         for sc in (self._stat_count, self._stat_best, self._stat_avg):
             stats_row.addWidget(sc)

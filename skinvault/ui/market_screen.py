@@ -163,20 +163,21 @@ class MarketScreen(QWidget):
         # ── Stat cards ────────────────────────────────────
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
-        self._stat_lowest = StatCard("Menor listagem ativa", "—")
+        self._stat_lowest = StatCard("Menor listagem ativa", "—",
+                                      icon="eye")
         self._stat_lowest.setToolTip(
             "Preço da listagem mais barata disponível agora no Steam Market."
         )
-        self._stat_median = StatCard("Mediana 24h", "—")
+        self._stat_median = StatCard("Mediana 24h", "—", icon="chart")
         self._stat_median.setToolTip(
             "Mediana das vendas das últimas 24h. Referência de \"preço justo\"."
         )
-        self._stat_volume = StatCard("Volume 24h", "—")
+        self._stat_volume = StatCard("Volume 24h", "—", icon="archive")
         self._stat_volume.setToolTip(
             "Unidades vendidas nas últimas 24h. Acima de ~2000 indica "
             "liquidez confortável. Marca anomalia quando desvia 2x da média."
         )
-        self._stat_verdict = StatCard("Veredito", "—")
+        self._stat_verdict = StatCard("Veredito", "—", icon="radar")
         self._stat_verdict.setToolTip(
             "Análise multi-fator: posição vs mediana, spread, profundidade do "
             "book e tendência recente."
