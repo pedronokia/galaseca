@@ -3571,7 +3571,7 @@ def test_watchlist_on_add_empty_name(monkeypatch):
 
 def test_watchlist_on_add_success(monkeypatch):
     """_on_add adds item when form is valid."""
-    from PyQt6.QtWidgets import QDialog, QLineEdit, QDoubleSpinBox, QDialogButtonBox
+    from PyQt6.QtWidgets import QDialog, QLineEdit, QDoubleSpinBox, QPushButton
     from skinvault.prices import PriceCache
     from skinvault.ui.watchlist_screen import WatchlistScreen
     monkeypatch.setattr(
@@ -3590,9 +3590,10 @@ def test_watchlist_on_add_success(monkeypatch):
         for child in self.findChildren(QDoubleSpinBox):
             child.setValue(50.0)
             break
-        for child in self.findChildren(QDialogButtonBox):
-            child.accepted.emit()
-            break
+        for child in self.findChildren(QPushButton):
+            if child.text() == "Adicionar":
+                child.click()
+                break
         return QDialog.DialogCode.Accepted
     monkeypatch.setattr(QDialog, "exec", controlled)
     screen = WatchlistScreen(PriceCache(ttl=3600))

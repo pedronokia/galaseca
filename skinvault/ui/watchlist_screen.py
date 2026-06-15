@@ -13,9 +13,7 @@ from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QDialog,
-    QDialogButtonBox,
     QDoubleSpinBox,
-    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -711,29 +709,34 @@ class WatchlistScreen(QWidget):
         self._stop_schedule()
 
     def _on_add(self) -> None:
-        # Dialog simples para adicionar
         dlg = QDialog(self)
         dlg.setWindowTitle("Adicionar a Watchlist")
-        dlg.setMinimumWidth(400)
+        dlg.setMinimumWidth(420)
+        dlg.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
         lay = QVBoxLayout(dlg)
-        form = QFormLayout()
+        lay.setContentsMargins(20, 18, 20, 18)
+        lay.setSpacing(14)
 
         name_inp = QLineEdit()
         name_inp.setPlaceholderText("AK-47 | Redline (Field-Tested)")
-        form.addRow("Nome do item:", name_inp)
+        name_inp.setStyleSheet(t.input_style())
+        lay.addWidget(FormRow("Nome do item:", name_inp))
 
         target_inp = QDoubleSpinBox()
         target_inp.setRange(0, 99999)
         target_inp.setPrefix("R$ ")
         target_inp.setDecimals(2)
-        form.addRow("Preco alvo:", target_inp)
+        target_inp.setStyleSheet(t.input_style())
+        lay.addWidget(FormRow("Preco alvo:", target_inp))
 
-        lay.addLayout(form)
-
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok
-            | QDialogButtonBox.StandardButton.Cancel
-        )
+        btn_row = QHBoxLayout()
+        cancel = QPushButton("Cancelar")
+        cancel.setStyleSheet(t.btn_ghost())
+        cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel.clicked.connect(dlg.reject)
+        ok = QPushButton("Adicionar")
+        ok.setStyleSheet(t.btn_primary())
+        ok.setCursor(Qt.CursorShape.PointingHandCursor)
 
         def on_ok():
             name = name_inp.text().strip()
@@ -744,7 +747,9 @@ class WatchlistScreen(QWidget):
             self.refresh()
             dlg.accept()
 
-        buttons.accepted.connect(on_ok)
-        buttons.rejected.connect(dlg.reject)
-        lay.addWidget(buttons)
+        ok.clicked.connect(on_ok)
+        btn_row.addStretch()
+        btn_row.addWidget(cancel)
+        btn_row.addWidget(ok)
+        lay.addLayout(btn_row)
         dlg.exec()
