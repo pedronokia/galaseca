@@ -538,15 +538,21 @@ class _SidebarItem(QPushButton):
     """
 
     def __init__(self, icon: str, label: str, checkable: bool = True,
-                 parent: QWidget | None = None):
+                 parent: QWidget | None = None, rail: bool = False):
         super().__init__(parent)
+        self._rail = rail
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         if checkable:
             self.setCheckable(True)
             self.setAutoExclusive(True)
-        self.setText(label)
-        self.setStyleSheet(self._style_idle())
+        if rail:
+            self.setText("")
+            self.setFixedWidth(64)
+            self.setToolTip(label)
+        else:
+            self.setText(label)
         self.setMinimumHeight(40)
+        self.setStyleSheet(self._style_idle())
         self._icon = LineIcon(icon, t.TEXT_MUTED, self)
         self._icon.setAttribute(
             Qt.WidgetAttribute.WA_TransparentForMouseEvents
@@ -555,6 +561,14 @@ class _SidebarItem(QPushButton):
             self.toggled.connect(self._on_toggled)
 
     def _style_idle(self) -> str:
+        if self._rail:
+            return (
+                f"QPushButton {{ background: transparent; border: none;"
+                f" border-radius: 10px; }}"
+                f"QPushButton:hover {{ background: {t.ACCENT_DIM}; }}"
+                f"QPushButton:checked {{ background: {t.ACCENT_DIM}; }}"
+                f"QPushButton:focus {{ background: {t.ACCENT_DIM}; }}"
+            )
         # padding-left abre espaco pro LineIcon (14 margem + 18 icone + 10)
         return (
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
@@ -578,7 +592,11 @@ class _SidebarItem(QPushButton):
     def resizeEvent(self, evt) -> None:  # noqa: N802
         super().resizeEvent(evt)
         y = (self.height() - self._icon.height()) // 2
-        self._icon.move(14, y)
+        if self._rail:
+            x = (self.width() - self._icon.width()) // 2
+        else:
+            x = 14
+        self._icon.move(x, y)
 
     def enterEvent(self, evt) -> None:  # noqa: N802
         if not self.isChecked():
@@ -596,26 +614,41 @@ class Sidebar(QWidget):
 
     item_selected = pyqtSignal(str)
 
-    def __init__(self, width: int = 220, parent: QWidget | None = None) -> None:
+    def __init__(self, width: int = 220, parent: QWidget | None = None,
+                 rail: bool = False) -> None:
         super().__init__(parent)
+        self._rail = rail
         self.setFixedWidth(width)
         self.setObjectName("Sidebar")
         self.setStyleSheet(f"QWidget#Sidebar {{ background: {t.BG_ELEVATED}; }}")
         self._items: dict[str, _SidebarItem] = {}
         self._lay = QVBoxLayout(self)
-        self._lay.setContentsMargins(8, 16, 8, 16)
-        self._lay.setSpacing(2)
+        if rail:
+            self._lay.setContentsMargins(0, 16, 0, 16)
+            self._lay.setSpacing(4)
+            self._lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        else:
+            self._lay.setContentsMargins(8, 16, 8, 16)
+            self._lay.setSpacing(2)
 
         # Branding minimal no topo
-        brand = QLabel("SkinVault")
-        brand.setStyleSheet(
-            f"color: {t.TEXT}; font-size: 14pt; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY}; padding: 6px 12px 18px 14px;"
-        )
+        if rail:
+            brand = QLabel("SV")
+            brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            brand.setStyleSheet(
+                f"color: {t.TEXT}; font-size: 12pt; font-weight: 700;"
+                f" font-family: {t.FONT_FAMILY}; padding: 6px 0 18px 0;"
+            )
+        else:
+            brand = QLabel("SkinVault")
+            brand.setStyleSheet(
+                f"color: {t.TEXT}; font-size: 14pt; font-weight: 600;"
+                f" font-family: {t.FONT_FAMILY}; padding: 6px 12px 18px 14px;"
+            )
         self._lay.addWidget(brand)
 
     def add_item(self, key: str, icon: str, label: str) -> None:
-        btn = _SidebarItem(icon, label, parent=self)
+        btn = _SidebarItem(icon, label, parent=self, rail=self._rail)
         btn.clicked.connect(lambda: self.item_selected.emit(key))
         self._items[key] = btn
         self._lay.addWidget(btn)
@@ -623,7 +656,8 @@ class Sidebar(QWidget):
     def add_action(self, icon: str, label: str,
                    callback: Callable[[], None]) -> _SidebarItem:
         """Acao secundaria (nao-navegacao): mesmo visual, sem estado ativo."""
-        btn = _SidebarItem(icon, label, checkable=False, parent=self)
+        btn = _SidebarItem(icon, label, checkable=False, parent=self,
+                           rail=self._rail)
         btn.clicked.connect(lambda: callback())
         self._lay.addWidget(btn)
         return btn
@@ -640,39 +674,60 @@ class Sidebar(QWidget):
         self._chip = QWidget()
         self._chip.setObjectName("SessionChip")
         self._chip.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._chip.setStyleSheet(
-            f"QWidget#SessionChip {{ background: {t.SURFACE};"
-            f" border: 1px solid {t.BORDER}; border-radius: 8px; }}"
-            f"QWidget#SessionChip:hover {{ border: 1px solid {t.TEXT_MUTED}; }}"
-        )
-        lay = QHBoxLayout(self._chip)
-        lay.setContentsMargins(10, 8, 10, 8)
-        lay.setSpacing(8)
-        self._chip_dot = QWidget()
-        self._chip_dot.setFixedSize(8, 8)
-        self._chip_dot.setStyleSheet(
-            f"background: {t.ACCENT}; border-radius: 4px;"
-        )
-        lay.addWidget(self._chip_dot)
-        col = QVBoxLayout()
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(0)
-        self._chip_name = QLabel("—")
-        self._chip_name.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_MUTED}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        self._chip_sub = QLabel("Steam")
-        self._chip_sub.setStyleSheet(t.label_caption())
-        col.addWidget(self._chip_name)
-        col.addWidget(self._chip_sub)
-        lay.addLayout(col, 1)
+        if self._rail:
+            self._chip.setFixedSize(32, 32)
+            self._chip.setStyleSheet(
+                f"QWidget#SessionChip {{ background: {t.SURFACE};"
+                f" border: 1px solid {t.BORDER}; border-radius: 16px; }}"
+                f"QWidget#SessionChip:hover {{"
+                f" border: 1px solid {t.TEXT_MUTED}; }}"
+            )
+            lay = QHBoxLayout(self._chip)
+            lay.setContentsMargins(0, 0, 0, 0)
+            lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._chip_dot = QWidget()
+            self._chip_dot.setFixedSize(8, 8)
+            self._chip_dot.setStyleSheet(
+                f"background: {t.ACCENT}; border-radius: 4px;"
+            )
+            lay.addWidget(self._chip_dot)
+            self._chip.setVisible(False)
+            self._lay.addWidget(self._chip, 0, Qt.AlignmentFlag.AlignCenter)
+        else:
+            self._chip.setStyleSheet(
+                f"QWidget#SessionChip {{ background: {t.SURFACE};"
+                f" border: 1px solid {t.BORDER}; border-radius: 8px; }}"
+                f"QWidget#SessionChip:hover {{"
+                f" border: 1px solid {t.TEXT_MUTED}; }}"
+            )
+            lay = QHBoxLayout(self._chip)
+            lay.setContentsMargins(10, 8, 10, 8)
+            lay.setSpacing(8)
+            self._chip_dot = QWidget()
+            self._chip_dot.setFixedSize(8, 8)
+            self._chip_dot.setStyleSheet(
+                f"background: {t.ACCENT}; border-radius: 4px;"
+            )
+            lay.addWidget(self._chip_dot)
+            col = QVBoxLayout()
+            col.setContentsMargins(0, 0, 0, 0)
+            col.setSpacing(0)
+            self._chip_name = QLabel("—")
+            self._chip_name.setStyleSheet(
+                f"color: {t.TEXT}; font-size: {t.FS_MUTED}; font-weight: 600;"
+                f" font-family: {t.FONT_FAMILY};"
+            )
+            self._chip_sub = QLabel("Steam")
+            self._chip_sub.setStyleSheet(t.label_caption())
+            col.addWidget(self._chip_name)
+            col.addWidget(self._chip_sub)
+            lay.addLayout(col, 1)
+            self._chip.setVisible(False)
+            self._lay.addWidget(self._chip)
         # Clique no chip -> navega pra Minha Conta
         self._chip.mousePressEvent = (
             lambda _evt: self.item_selected.emit("account")
         )
-        self._chip.setVisible(False)
-        self._lay.addWidget(self._chip)
 
     def set_session(self, name: str, steamid: str) -> None:
         """Atualiza o chip de sessao. name/steamid vazios escondem o chip."""
@@ -682,15 +737,23 @@ class Sidebar(QWidget):
         if not name and not steamid:
             chip.setVisible(False)
             return
-        if name:
-            display = name
-        elif len(steamid) >= 12:
-            display = f"{steamid[:8]}…{steamid[-4:]}"
+        if self._rail:
+            # Rail mode: dot + tooltip apenas
+            tooltip = name or steamid
+            if steamid:
+                tooltip += f" (SteamID: {steamid})"
+            chip.setToolTip(tooltip)
+            chip.setVisible(True)
         else:
-            display = steamid
-        self._chip_name.setText(display)
-        chip.setToolTip(f"SteamID: {steamid}" if steamid else "")
-        chip.setVisible(True)
+            if name:
+                display = name
+            elif len(steamid) >= 12:
+                display = f"{steamid[:8]}…{steamid[-4:]}"
+            else:
+                display = steamid
+            self._chip_name.setText(display)
+            chip.setToolTip(f"SteamID: {steamid}" if steamid else "")
+            chip.setVisible(True)
 
     def select(self, key: str) -> None:
         btn = self._items.get(key)

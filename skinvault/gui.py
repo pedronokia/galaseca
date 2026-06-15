@@ -543,11 +543,12 @@ class MainWindow(QMainWindow):
         title_bar = QWidget()
         self._sidebar_dock.setTitleBarWidget(title_bar)
 
-        sw = settings.get("sidebar_width", 220)
+        from skinvault.ui.theme import SIZE_SIDEBAR_RAIL
+        sw = SIZE_SIDEBAR_RAIL
         self._sidebar_dock.setMinimumWidth(sw)
         self._sidebar_dock.setMaximumWidth(sw)
 
-        sidebar = Sidebar(width=sw)
+        sidebar = Sidebar(width=sw, rail=True)
         # Icones de linha (QPainter) por nome — vide components.LineIcon
         for key, icon, label in [
             ("account", "user", "Minha Conta"),
