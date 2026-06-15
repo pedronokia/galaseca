@@ -303,6 +303,8 @@ emite o sinal de sync.
 
 **Commit:** `ui: strip de status da sessao na Conta (conectado / ultima sync / sincronizar)`
 
+✅ **Resultado:** Card strip adicionado abaixo do PageHeader com: dot 8px (POSITIVE quando conectado, TEXT_MUTED quando não), label "Conectado como {nome}" / "Não conectado", shrink label de "Última sync HH:MM" e botão `btn_steam` "Sincronizar com Steam". O botão de sync foi removido do PageHeader (evita duplicação). `_update_strip()` é chamado em `set_session` e `_on_profile`. 1377 testes verdes. Commit `3476bb0`.
+
 ---
 
 ### Frente EE — Roundness + respiro (densidade botcloud) (impact: baixo) [deps: AA]
@@ -323,6 +325,8 @@ globais; mudança mínima, só o token.
 **Auto-validação:** suíte verde; prints sem corte/overflow.
 
 **Commit:** `ui: cantos de card mais arredondados (RADIUS_LG 16) no espirito botcloud`
+
+✅ **Resultado:** `RADIUS_LG` alterado de 14→16 em `theme.py:94`. Cards e StatCards passam a usar cantos 16px. Nenhum outro token tocado. 1377 testes verdes. Commit `1269e46`.
 
 ---
 
@@ -355,6 +359,8 @@ nomes, sessão como avatar; navegação e foco intactos.
 o rótulo; smoke das 7 telas com a sidebar nova.
 
 **Commit:** `ui: sidebar vira rail de icones (estilo botcloud) com rotulos no tooltip`
+
+✅ **Resultado:** Sidebar convertida para rail 64px (token `SIZE_SIDEBAR_RAIL`). `_SidebarItem` em rail mode: text vazio, tooltip com o rótulo, ícone centralizado, estado ativo com pílula `ACCENT_DIM` (border-radius 10px) em vez de borda-esquerda. Brand vira "SV" compacto. Session chip vira dot 32×32 circular com tooltip (nome + SteamID). Navegação e foco intactos. 1377 testes verdes. Commit `453f492`.
 
 ---
 
