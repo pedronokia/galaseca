@@ -144,8 +144,9 @@ def record_alert(name: str, alert: dict,
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to save alerts log: {e}",
+              file=__import__('sys').stderr)
 
 
 def load_alerts_log(path: Path | str = _ALERTS_LOG_PATH) -> list[dict]:
@@ -162,8 +163,9 @@ def clear_alerts_log(path: Path | str = _ALERTS_LOG_PATH) -> None:
     """Limpa o log de alertas."""
     try:
         Path(path).write_text("[]", encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to clear alerts log: {e}",
+              file=__import__('sys').stderr)
 
 
 def format_rules_summary(rules: dict | None) -> str:

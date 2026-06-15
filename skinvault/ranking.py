@@ -47,8 +47,9 @@ def save_snapshot(results: list[dict],
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to save ranking snapshot: {e}",
+              file=__import__('sys').stderr)
     return snapshot
 
 
@@ -106,5 +107,6 @@ def clear_rankings(path: Path | str = _RANKINGS_PATH) -> None:
     """Limpa todos os snapshots."""
     try:
         Path(path).write_text("[]", encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to clear rankings: {e}",
+              file=__import__('sys').stderr)

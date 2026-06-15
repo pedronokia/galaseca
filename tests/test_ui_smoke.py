@@ -6749,12 +6749,11 @@ def test_mainwindow_center_on_screen(monkeypatch):
 
 
 def test_set_theme(monkeypatch):
-    """set_theme applies theme and reloads palette."""
+    """set_theme reloads palette via theme.py."""
     palette_reloaded = []
     monkeypatch.setattr("skinvault.ui.theme._reload_palette",
                         lambda t: palette_reloaded.append(t))
-    from skinvault.gui import set_theme, _BG
-    initial_bg = _BG
+    from skinvault.gui import set_theme
     set_theme("dark")
     assert len(palette_reloaded) == 1
     assert palette_reloaded[0] == "dark"

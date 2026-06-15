@@ -23,8 +23,8 @@ def save_trades(trades: list[dict], path: Path | str = _DEFAULT_PATH) -> None:
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(trades, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to save trades: {e}", file=__import__('sys').stderr)
 
 
 def record_trade(name: str, buy_cost: float, sell_price: float,

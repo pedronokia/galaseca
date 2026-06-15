@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 
-from skinvault import sticker_data
+from skinvault.sticker_data import get_all as _get_stickers
 
 # Status por case
 _CASES: dict[str, dict] = {
@@ -771,7 +771,7 @@ for _k, _v in [
 ]:
     _PREMIUM_STICKERS[_k] = _v
 
-_ALL_STICKERS: dict[str, dict] = dict(sticker_data._ALL_STICKERS)
+_ALL_STICKERS: dict[str, dict] = dict(_get_stickers())
 # Merge premium stickers not in API data (naming differences between events)
 for _k, _v in _PREMIUM_STICKERS.items():
     if _k not in _ALL_STICKERS:

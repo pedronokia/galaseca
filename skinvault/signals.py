@@ -6,6 +6,7 @@ que ajudam a decidir. A decisao e' sempre do usuario.
 from __future__ import annotations
 
 import json
+import sys
 import time
 from datetime import date
 from pathlib import Path
@@ -90,8 +91,8 @@ def record_item_price(name: str, price: float,
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(data), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to save item history: {e}", file=sys.stderr)
 
 
 def load_item_history(name: str,
@@ -118,8 +119,8 @@ def _record_metric(name: str, value: float, path: Path) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to save metric: {e}", file=sys.stderr)
 
 
 def _load_metric_history(name: str, path: Path) -> list[dict]:

@@ -24,8 +24,9 @@ def record_snapshot(total: float, path: Path | str = _DEFAULT_PATH,
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(series), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to save history: {e}",
+              file=__import__('sys').stderr)
 
 
 def load_history(path: Path | str = _DEFAULT_PATH) -> list[dict]:

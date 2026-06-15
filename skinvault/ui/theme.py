@@ -100,15 +100,6 @@ CARD_PAD_SM = (14, 10, 14, 10)
 CARD_PAD_MD = (16, 14, 16, 14)
 CARD_PAD_LG = (20, 18, 20, 18)
 
-# Alias backward compat com gui.py legado
-_BG = BG
-_SURFACE = BG_ELEVATED
-_TEXT = TEXT
-_MUTED = TEXT_MUTED
-_GREEN = ACCENT
-_RED = DANGER
-
-
 def _reload_palette(theme: str) -> None:
     """Atualiza as constantes deste modulo a partir de THEMES.
     Chamado por gui.set_theme() para live reload sem restart.
@@ -117,7 +108,6 @@ def _reload_palette(theme: str) -> None:
     pal = _T.get(theme, _T["dark"])
     global BG, BG_ELEVATED, SURFACE, BORDER, TEXT, TEXT_MUTED
     global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER
-    global _BG, _SURFACE, _TEXT, _MUTED, _GREEN, _RED
     BG = pal["bg"]
     BG_ELEVATED = pal["surface"]
     SURFACE = pal.get("surface2", pal["surface"])
@@ -129,12 +119,6 @@ def _reload_palette(theme: str) -> None:
     ACCENT_DIM = "rgba(241,241,241,0.13)"
     ACCENT_HOV = "rgba(241,241,241,0.22)"
     STEAM_BLUE = "#66C0F4"
-    _BG = BG
-    _SURFACE = BG_ELEVATED
-    _TEXT = TEXT
-    _MUTED = TEXT_MUTED
-    _GREEN = ACCENT
-    _RED = DANGER
 
 
 # ── Tipografia ───────────────────────────────────────────────

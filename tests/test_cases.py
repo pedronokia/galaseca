@@ -471,8 +471,8 @@ def test_list_all_stickers_has_autograph_category():
 
 
 def test_sticker_data_importable():
-    from skinvault import sticker_data as sd
-    assert len(sd._ALL_STICKERS) >= 9700
+    from skinvault.sticker_data import get_all
+    assert len(get_all()) >= 9700
 
 
 def test_list_stickers_by_category_team():

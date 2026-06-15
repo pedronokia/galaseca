@@ -11,6 +11,7 @@ saca pra conta) -- a ferramenta e' pra quem opera dentro do Steam.
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -102,8 +103,8 @@ def save_portfolio(positions: list[dict], path: Path | str = _DEFAULT_PATH) -> N
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(positions, indent=2), encoding="utf-8")
-    except OSError:
-        pass
+    except OSError as e:
+        print(f"WARNING: failed to save portfolio: {e}", file=sys.stderr)
 
 
 def add_position(name: str, cost: float, quantity: int = 1,

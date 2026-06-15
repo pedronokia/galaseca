@@ -53,14 +53,8 @@ except ImportError:
 from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
 from skinvault._paths import DATA_DIR
 from skinvault.settings import DEFAULTS, load_settings, save_settings
+from skinvault.ui import theme as t
 from skinvault.ui.components import Sidebar, Toast
-
-_BG = "#0F0F0F"
-_SURFACE = "#212121"
-_TEXT = "#F1F1F1"
-_MUTED = "#AAAAAA"
-_GREEN = "#F1F1F1"   # branco YouTube (chrome legado dos dialogs/tray)
-_RED = "#EF4444"
 
 THEMES = {
     "dark": {"bg": "#0F0F0F", "surface": "#212121", "surface2": "#272727", "text": "#F1F1F1", "muted": "#AAAAAA"},
@@ -93,7 +87,7 @@ def _btn_primary(padding: str = "10px 22px", fs: str = "11pt",
                  disabled: bool = False) -> str:
     s = (
         "QPushButton { color: #DCFFE6; background: rgba(34,197,94,0.16);"
-        f" border: 1px solid {_GREEN}; border-radius: 8px;"
+        f" border: 1px solid {t.ACCENT}; border-radius: 8px;"
         f" padding: {padding}; font-size: {fs}; font-weight: 600; }}"
         "QPushButton:hover { background: rgba(34,197,94,0.26); }"
     )
@@ -108,7 +102,7 @@ def _btn_primary(padding: str = "10px 22px", fs: str = "11pt",
 def _btn_danger(padding: str = "8px 18px", fs: str = "10pt") -> str:
     return (
         "QPushButton { color: #FFE6E6; background: rgba(239,68,68,0.16);"
-        f" border: 1px solid {_RED}; border-radius: 8px;"
+        f" border: 1px solid {t.DANGER}; border-radius: 8px;"
         f" padding: {padding}; font-size: {fs}; font-weight: 600; }}"
         "QPushButton:hover { background: rgba(239,68,68,0.26); }"
     )
@@ -125,27 +119,21 @@ def _btn_secondary(padding: str = "8px 18px", fs: str = "10pt") -> str:
 
 def _table_style() -> str:
     return (
-        f"QTableWidget {{ background: {_SURFACE};"
-        f" alternate-background-color: {_SURFACE};"
+        f"QTableWidget {{ background: {t.BG_ELEVATED};"
+        f" alternate-background-color: {t.BG_ELEVATED};"
         " gridline-color: transparent; border: 1px solid #2A2A33;"
-        f" border-radius: 10px; color: {_TEXT}; font-size: 10pt; }}"
-        f"QHeaderView::section {{ background: {_SURFACE};"
-        f" color: {_MUTED}; border: none; padding: 8px 10px;"
+        f" border-radius: 10px; color: {t.TEXT}; font-size: 10pt; }}"
+        f"QHeaderView::section {{ background: {t.BG_ELEVATED};"
+        f" color: {t.TEXT_MUTED}; border: none; padding: 8px 10px;"
         " font-weight: 600; font-size: 9pt; }}"
         f"QTableWidget::item:selected {{ background: rgba(34,197,94,0.16);"
-        f" color: {_TEXT}; }}"
+        f" color: {t.TEXT}; }}"
     )
 
 
-def set_theme(theme: str) -> None:
-    global _BG, _SURFACE, _TEXT, _MUTED, _GREEN, _RED
-    t = THEMES.get(theme, THEMES["dark"])
-    _BG = t["bg"]
-    _SURFACE = t["surface"]
-    _TEXT = t["text"]
-    _MUTED = t["muted"]
+def set_theme(theme_name: str) -> None:
     from skinvault.ui.theme import _reload_palette
-    _reload_palette(theme)
+    _reload_palette(theme_name)
 
 
 def _steam_market_url(name: str) -> str:
@@ -158,7 +146,7 @@ def _make_tray_icon() -> QIcon:
     pix.fill(Qt.GlobalColor.transparent)
     p = QPainter(pix)
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
-    p.setBrush(QBrush(QColor(_GREEN)))
+    p.setBrush(QBrush(QColor(t.ACCENT)))
     p.setPen(Qt.PenStyle.NoPen)
     p.drawEllipse(0, 0, 16, 16)
     p.end()
@@ -172,8 +160,8 @@ class BackupDialog(QDialog):
         self.setWindowTitle("Gerenciar Backups")
         self.resize(520, 360)
         self.setStyleSheet(
-            f"QDialog {{ background: {_BG}; }}"
-            f"* {{ color: {_TEXT}; font-family: 'Segoe UI'; }}"
+            f"QDialog {{ background: {t.BG}; }}"
+            f"* {{ color: {t.TEXT}; font-family: 'Segoe UI'; }}"
         )
         self._build()
 
@@ -189,14 +177,14 @@ class BackupDialog(QDialog):
         layout.setContentsMargins(20, 18, 20, 18)
 
         title = QLabel("Backups dos dados")
-        title.setStyleSheet(f"color: {_TEXT}; font-size: 13pt; font-weight: 700;")
+        title.setStyleSheet(f"color: {t.TEXT}; font-size: 13pt; font-weight: 700;")
         layout.addWidget(title)
 
         self._list = QListWidget()
         self._list.setStyleSheet(
-            f"QListWidget {{ background: {_SURFACE}; border: 1px solid #2A2A33;"
+            f"QListWidget {{ background: {t.BG_ELEVATED}; border: 1px solid #2A2A33;"
             " border-radius: 8px; padding: 8px; font-size: 10pt;"
-            f" color: {_TEXT}; }}"
+            f" color: {t.TEXT}; }}"
             "QListWidget::item { padding: 6px; }"
             "QListWidget::item:selected { background: #2A2A33; }"
         )
@@ -316,24 +304,24 @@ class SteamSyncDialog(QDialog):
         root.setSpacing(12)
 
         title = QLabel("Sincronizando dados da conta Steam")
-        title.setStyleSheet(f"color: {_TEXT}; font-size: 13pt; font-weight: 600;")
+        title.setStyleSheet(f"color: {t.TEXT}; font-size: 13pt; font-weight: 600;")
         root.addWidget(title)
 
         warn = QLabel(
             "Mantenha esta janela aberta. O Steam limita requisicoes; "
             "pode levar ate 1 minuto."
         )
-        warn.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
+        warn.setStyleSheet(f"color: {t.TEXT_MUTED}; font-size: 9pt;")
         warn.setWordWrap(True)
         root.addWidget(warn)
 
         for key, label in self._STEPS:
             row = QHBoxLayout()
             tag = QLabel(f"o  {label}")
-            tag.setStyleSheet(f"color: {_TEXT}; font-size: 10pt;")
+            tag.setStyleSheet(f"color: {t.TEXT}; font-size: 10pt;")
             row.addWidget(tag, 1)
             status = QLabel("aguardando…")
-            status.setStyleSheet(f"color: {_MUTED}; font-size: 9pt;")
+            status.setStyleSheet(f"color: {t.TEXT_MUTED}; font-size: 9pt;")
             row.addWidget(status)
             self._labels[key] = tag
             self._labels[key + "_status"] = status
@@ -343,10 +331,10 @@ class SteamSyncDialog(QDialog):
         self._progress.setRange(0, len(self._STEPS))
         self._progress.setValue(0)
         self._progress.setStyleSheet(
-            f"QProgressBar {{ background: {_SURFACE};"
+            f"QProgressBar {{ background: {t.BG_ELEVATED};"
             f" border: 1px solid #3A3A44; border-radius: 6px;"
-            f" color: {_TEXT}; text-align: center; }}"
-            f"QProgressBar::chunk {{ background: {_GREEN};"
+            f" color: {t.TEXT}; text-align: center; }}"
+            f"QProgressBar::chunk {{ background: {t.ACCENT};"
             " border-radius: 5px; }}"
         )
         root.addWidget(self._progress)
@@ -375,7 +363,7 @@ class SteamSyncDialog(QDialog):
         status = self._labels.get(step + "_status")
         if label is not None:
             label.setText("● " + label.text()[3:])
-            label.setStyleSheet(f"color: {_GREEN}; font-size: 10pt; font-weight: 600;")
+            label.setStyleSheet(f"color: {t.ACCENT}; font-size: 10pt; font-weight: 600;")
         if status is not None:
             status.setText(_format_sync_result(step, result))
         self._progress.setValue(self._progress.value() + 1)
@@ -650,7 +638,7 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         if hasattr(QMenu, "setStyleSheet"):
             menu.setStyleSheet(
-                f"QMenu {{ background: {_SURFACE}; color: {_TEXT};"
+                f"QMenu {{ background: {t.BG_ELEVATED}; color: {t.TEXT};"
                 " border: 1px solid #3A3A44; padding: 4px; }"
                 "QMenu::item { padding: 6px 20px; }"
                 "QMenu::item:selected { background: #2A2A33; }"
@@ -775,12 +763,12 @@ class MainWindow(QMainWindow):
         self._apply_stylesheet()
         # Re-aplica sidebar dock style
         self._sidebar_dock.setStyleSheet(
-            f"QDockWidget {{ background: {_SURFACE}; }}"
+            f"QDockWidget {{ background: {t.BG_ELEVATED}; }}"
         )
         # Seletor com objectName — sem ele o background propaga pros filhos
         # da sidebar (LineIcon/chip), reintroduzindo as tarjas (vide Frente M).
         self._sidebar_dock.widget().setStyleSheet(
-            f"QWidget#Sidebar {{ background: {_SURFACE}; }}"
+            f"QWidget#Sidebar {{ background: {t.BG_ELEVATED}; }}"
         )
 
     def _open_about(self) -> None:

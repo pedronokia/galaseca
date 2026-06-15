@@ -42,8 +42,9 @@ class PriceHistoryCache:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps(self._data), encoding="utf-8")
-        except OSError:
-            pass
+        except OSError as e:
+            print(f"WARNING: failed to save SSR cache: {e}",
+                  file=__import__('sys').stderr)
 
     def get(self, name: str) -> list[dict] | None:
         """Retorna price_history se cache hit e nao expirado, senao None."""

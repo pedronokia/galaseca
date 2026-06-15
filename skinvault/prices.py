@@ -45,8 +45,9 @@ class PriceCache:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self.path.write_text(json.dumps(self._data), encoding="utf-8")
-        except OSError:
-            pass
+        except OSError as e:
+            print(f"WARNING: failed to save price cache: {e}",
+                  file=__import__('sys').stderr)
 
     def _entry_valid(self, entry: dict, now: float) -> bool:
         price = entry.get("price")
