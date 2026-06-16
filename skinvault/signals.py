@@ -638,9 +638,9 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     {factor, delta, label} ordenada por |delta| decrescente.
     Base = 50, clipado em [0, 100].
 
-    is_container: parametro mantido por compatibilidade; nao e' mais
-    usado internamente (rel_ath agora aplica universal — backtest
-    2026-06-07 validou ganho para skins tambem).
+    is_container: usado pelo vintage bonus (V4, aprovado em 2026-06-08)
+    quando a caixa eh descontinuada ha >= 8 anos. rel_ath aplica
+    universal desde 2026-06-07, entao nao depende mais de is_container.
     """
     score = 50.0
     breakdown: list[dict] = []

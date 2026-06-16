@@ -5,6 +5,7 @@ e permite gerar ranking Top 20.
 """
 from __future__ import annotations
 
+import sys
 import threading
 import time
 
@@ -178,7 +179,7 @@ class ScannerScreen(QWidget):
         self._scan_btn.setStyleSheet(t.btn_primary(padding="10px 24px"))
         self._scan_btn.setToolTip(
             "Escaneia todos os itens da categoria, calcula score 0-100"
-            " e veredito (COMPRA / ATENCAO / EVITAR)."
+            " e veredito (COMPRA / ATENÇÃO / EVITAR)."
         )
         self._scan_btn.clicked.connect(self._on_scan)
 
@@ -423,7 +424,7 @@ class ScannerScreen(QWidget):
             page = steam_api.get_market_page_data(name)
         except Exception as e:
             print(f"WARNING: _scan_item({name}) failed: {e}",
-                  file=__import__('sys').stderr)
+                  file=sys.stderr)
             return None
 
         lowest = overview.get("lowest") if overview else None
@@ -463,13 +464,14 @@ class ScannerScreen(QWidget):
             page.get("price_history", [])
         ) if page and page.get("price_history") else None
         cs = cases.case_status(name)
+        is_cont = cases.is_container(name)
 
         score, breakdown = signals.enhanced_score(
             verdict, volume, supply,
             multi_trend=multi,
             price_history=page.get("price_history") if page else None,
             case_status=cs,
-            is_container=cases.is_container(name),
+            is_container=is_cont,
         )
 
         dq = signals.data_quality(
@@ -498,7 +500,7 @@ class ScannerScreen(QWidget):
             "score": score,
             "breakdown": breakdown,
             "data_quality": dq,
-            "is_container": cases.is_container(name),
+            "is_container": is_cont,
             "verdict": verdict.get("label", "—"),
             "verdict_color": t.POSITIVE if verdict.get("diff_pct", 0) <= 0
                              else t.DANGER,
@@ -537,7 +539,7 @@ class ScannerScreen(QWidget):
                 t.WARN if score >= 45 else t.DANGER
             )
             label = "COMPRA" if score >= 70 else (
-                "ATENCAO" if score >= 45 else "EVITAR"
+                "ATENÇÃO" if score >= 45 else "EVITAR"
             )
             from skinvault.localization import localize_name as _ln
             dq = r.get("data_quality") or {}
@@ -909,14 +911,18 @@ class ScannerScreen(QWidget):
                         price_history = ssr_cache.cached_price_history(
                             name, cache=cache,
                         )
-                    except Exception:
+                    except Exception as e:
+                        print(f"WARNING: scanner price_history({name}) failed: {e}",
+                              file=sys.stderr)
                         price_history = None
                     if price_history:
                         try:
                             samples = backtest.simulate_item(
                                 name, price_history,
                             )
-                        except Exception:
+                        except Exception as e:
+                            print(f"WARNING: scanner simulate({name}) failed: {e}",
+                                  file=sys.stderr)
                             samples = []
                         if samples:
                             bridge.samples_ready.emit(samples)
