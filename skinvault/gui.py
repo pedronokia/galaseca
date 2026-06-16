@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import threading
 import time
+from pathlib import Path
 
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import (
@@ -141,7 +142,13 @@ def _steam_market_url(name: str) -> str:
     return f"https://steamcommunity.com/market/listings/730/{urllib.parse.quote(name)}"
 
 
-def _make_tray_icon() -> QIcon:
+_APP_ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.ico"
+
+
+def _app_icon() -> QIcon:
+    """Icone do app (vault dial). Fallback pra circulo branco se faltar."""
+    if _APP_ICON_PATH.is_file():
+        return QIcon(str(_APP_ICON_PATH))
     pix = QPixmap(16, 16)
     pix.fill(Qt.GlobalColor.transparent)
     p = QPainter(pix)
@@ -151,6 +158,10 @@ def _make_tray_icon() -> QIcon:
     p.drawEllipse(0, 0, 16, 16)
     p.end()
     return QIcon(pix)
+
+
+def _make_tray_icon() -> QIcon:
+    return _app_icon()
 
 
 # ── BackupDialog ────────────────────────────────────────────────
@@ -404,6 +415,7 @@ class MainWindow(QMainWindow):
         set_theme(theme)
         self._current_theme = theme
         self.setWindowTitle("SkinVault")
+        self.setWindowIcon(_app_icon())
 
         geo = settings.get("window_geometry", {})
         pos = settings.get("window_position", {})
@@ -856,6 +868,7 @@ def launch() -> int:
         Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True
     )
     app = QApplication([])
+    app.setWindowIcon(_app_icon())
     win = MainWindow()
     settings = load_settings()
     if settings.get("start_minimized", False) and win._tray_icon is not None:
