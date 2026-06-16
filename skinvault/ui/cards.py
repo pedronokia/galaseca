@@ -40,7 +40,8 @@ class StatCard(Card):
         self._label = QLabel(label)
         self._label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._label.setStyleSheet(t.label_caption())
-        header.addWidget(self._label, 1)
+        header.addWidget(self._label)
+        header.addStretch(1)
         from skinvault.ui.components import LineIcon
         self._icon_w = LineIcon("info", t.TEXT_MUTED) if icon else None
         if self._icon_w is not None:

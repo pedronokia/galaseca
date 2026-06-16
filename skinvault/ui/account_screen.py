@@ -234,12 +234,16 @@ class AccountScreen(QWidget):
         # Stat cards row
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
-        self._stat_gross = StatCard("Valor bruto (Market)", "—",
+        self._stat_gross = StatCard("Valor bruto", "—",
                                      icon="wallet")
         self._stat_gross.setMaximumWidth(300)
-        self._stat_net = StatCard("Valor líquido (-15%)", "—",
+        self._stat_gross.setToolTip(
+            "Valor de mercado da carteira (Steam Market).")
+        self._stat_net = StatCard("Valor líquido", "—",
                                    accent=t.STEAM_BLUE, icon="coins")
         self._stat_net.setMaximumWidth(300)
+        self._stat_net.setToolTip(
+            "Valor bruto menos a taxa Steam de 15%.")
         self._stat_pnl = StatCard("P&L total", "—", icon="chart")
         self._stat_pnl.setMaximumWidth(300)
         self._stat_items = StatCard("Total de itens", "0", icon="archive")
