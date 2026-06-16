@@ -64,21 +64,21 @@ def test_history_screen():
 
 def test_factor_bar_default():
     """_FactorBar instancia com delta positivo."""
-    from skinvault.ui.scanner_screen import _FactorBar
+    from skinvault.ui.scanner_widgets import _FactorBar
     bar = _FactorBar(10.0)
     assert bar._delta == 10.0
     assert bar._max == 35.0
 
 def test_factor_bar_negative():
     """_FactorBar instancia com delta negativo."""
-    from skinvault.ui.scanner_screen import _FactorBar
+    from skinvault.ui.scanner_widgets import _FactorBar
     bar = _FactorBar(-5.0)
     assert bar._delta == -5.0
 
 def test_factor_bar_paint(monkeypatch):
     """_FactorBar paintEvent renders without error."""
     from PyQt6.QtCore import Qt
-    from skinvault.ui.scanner_screen import _FactorBar
+    from skinvault.ui.scanner_widgets import _FactorBar
     bar = _FactorBar(10.0)
     bar.resize(200, 20)
     # QPainter calls in paintEvent are hard to assert,
@@ -90,7 +90,7 @@ def test_factor_bar_paint(monkeypatch):
 
 def test_score_breakdown_dialog_compra():
     """_ScoreBreakdownDialog header 'COMPRA' para score >= 70."""
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK-47", "score": 85, "breakdown": [],
     })
@@ -98,7 +98,7 @@ def test_score_breakdown_dialog_compra():
 
 def test_score_breakdown_dialog_atencao():
     """_ScoreBreakdownDialog header 'ATENÇÃO' para score 45-69."""
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK-47", "score": 55, "breakdown": [],
     })
@@ -106,7 +106,7 @@ def test_score_breakdown_dialog_atencao():
 
 def test_score_breakdown_dialog_evitar():
     """_ScoreBreakdownDialog header 'EVITAR' para score < 45."""
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK-47", "score": 30, "breakdown": [],
     })
@@ -114,7 +114,7 @@ def test_score_breakdown_dialog_evitar():
 
 def test_score_breakdown_dialog_with_breakdown():
     """_ScoreBreakdownDialog renders breakdown rows."""
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK-47", "score": 75,
         "breakdown": [{"label": "Spread", "delta": 20},
@@ -125,7 +125,7 @@ def test_score_breakdown_dialog_with_breakdown():
 
 def test_bucket_for_score_mapping():
     """_bucket_for_score retorna o bucket correto para cada score."""
-    from skinvault.ui.scanner_screen import _bucket_for_score
+    from skinvault.ui.scanner_widgets import bucket_for_score as _bucket_for_score
     assert _bucket_for_score(0) == (0, 30)
     assert _bucket_for_score(29) == (0, 30)
     assert _bucket_for_score(30) == (30, 50)
@@ -140,14 +140,14 @@ def test_bucket_for_score_mapping():
 
 def test_bucket_for_score_boundaries():
     """Score fora do range esperado: retorna None (defensivo)."""
-    from skinvault.ui.scanner_screen import _bucket_for_score
+    from skinvault.ui.scanner_widgets import bucket_for_score as _bucket_for_score
     # Range valido cobre 0..100. Score 101 nao deve mapear.
     assert _bucket_for_score(101) is None
 
 
 def test_bucket_history_data_integrity():
     """Os buckets historicos cobrem 0..100 sem gap."""
-    from skinvault.ui.scanner_screen import _BUCKET_HISTORY_90D
+    from skinvault.ui.scanner_widgets import _BUCKET_HISTORY_90D
     bounds = sorted(_BUCKET_HISTORY_90D.keys())
     assert bounds[0][0] == 0
     assert bounds[-1][1] == 101  # cobre 100 inclusive
@@ -363,7 +363,7 @@ def test_scanner_populate_conf_tooltip():
 def test_score_breakdown_dialog_container_mostra_especifico():
     """Container com is_container=True mostra retorno tipico de container."""
     from PyQt6.QtWidgets import QLabel
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "Clutch Case", "score": 75, "breakdown": [],
         "is_container": True,
@@ -377,7 +377,7 @@ def test_score_breakdown_dialog_container_mostra_especifico():
 def test_score_breakdown_dialog_skin_mostra_especifico():
     """Skin com is_container=False mostra retorno tipico de skin."""
     from PyQt6.QtWidgets import QLabel
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK-47 | Redline", "score": 75, "breakdown": [],
         "is_container": False,
@@ -391,7 +391,7 @@ def test_score_breakdown_dialog_skin_mostra_especifico():
 def test_score_breakdown_dialog_sem_is_container_omite_tipo():
     """Sem is_container, nao mostra info por tipo (back-compat)."""
     from PyQt6.QtWidgets import QLabel
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "X", "score": 75, "breakdown": [],
     })
@@ -402,7 +402,7 @@ def test_score_breakdown_dialog_sem_is_container_omite_tipo():
 def test_score_breakdown_dialog_bucket_n_pequeno_omite():
     """Bucket com n<30 (ex: skin 85-100 n=12) omite linha especifica."""
     from PyQt6.QtWidgets import QLabel
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     # Skin no bucket 85-100: n=12 (insuficiente)
     dlg = _ScoreBreakdownDialog({
         "name": "X skin", "score": 95, "breakdown": [],
@@ -417,7 +417,7 @@ def test_score_breakdown_dialog_bucket_n_pequeno_omite():
 def test_score_breakdown_dialog_confidence_high():
     """Dialog mostra badge de confianca alta."""
     from PyQt6.QtWidgets import QLabel
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK", "score": 75, "breakdown": [],
         "data_quality": {"level": "high", "confidence": 0.9,
@@ -432,7 +432,7 @@ def test_score_breakdown_dialog_confidence_high():
 def test_score_breakdown_dialog_confidence_baixa_mostra_warning():
     """Dialog mostra warning quando level e' low ou very_low."""
     from PyQt6.QtWidgets import QLabel
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK", "score": 75, "breakdown": [],
         "data_quality": {"level": "very_low", "confidence": 0.1,
@@ -445,7 +445,7 @@ def test_score_breakdown_dialog_confidence_baixa_mostra_warning():
 
 def test_score_breakdown_dialog_sem_dq_nao_crasha():
     """Sem data_quality no item: dialog continua renderizando (back-compat)."""
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK", "score": 75, "breakdown": [],
     })
@@ -455,7 +455,7 @@ def test_score_breakdown_dialog_sem_dq_nao_crasha():
 
 def test_score_breakdown_dialog_mostra_historico():
     """Dialog inclui texto do historico empirico do bucket."""
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
         "name": "AK-47", "score": 75, "breakdown": [],
     })
@@ -473,7 +473,7 @@ def test_score_breakdown_dialog_mostra_historico():
 def test_backtest_result_dialog_empty():
     """Dialog com lista vazia mostra mensagem de empty state."""
     from PyQt6.QtWidgets import QLabel
-    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    from skinvault.ui.scanner_dialogs import _BacktestResultDialog
     dlg = _BacktestResultDialog([], 0)
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
     assert any("Nenhuma amostra" in t for t in texts)
@@ -482,7 +482,7 @@ def test_backtest_result_dialog_empty():
 def test_backtest_result_dialog_com_samples():
     """Dialog com samples renderiza tabela e correlação."""
     from PyQt6.QtWidgets import QLabel, QTableWidget
-    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    from skinvault.ui.scanner_dialogs import _BacktestResultDialog
     samples = [
         {"item": "X", "ts": 0, "score": s, "return_pct": float(s) - 50,
          "breakdown_count": 5}
@@ -500,7 +500,7 @@ def test_backtest_result_dialog_com_samples():
 
 def test_backtest_result_dialog_title_inclui_contagem():
     """Title menciona quantidade de samples e itens."""
-    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    from skinvault.ui.scanner_dialogs import _BacktestResultDialog
     samples = [{"item": "X", "ts": 0, "score": 50, "return_pct": 5.0,
                 "breakdown_count": 1}]
     dlg = _BacktestResultDialog(samples, items_count=3)
@@ -541,7 +541,7 @@ def test_scanner_on_validate_samples_acumula():
 
 def test_scatter_plot_empty():
     """_ScatterPlot com lista vazia renderiza sem crash."""
-    from skinvault.ui.scanner_screen import _ScatterPlot
+    from skinvault.ui.scanner_widgets import _ScatterPlot
     sc = _ScatterPlot([])
     sc.resize(600, 220)
     sc.grab()
@@ -549,7 +549,7 @@ def test_scatter_plot_empty():
 
 def test_scatter_plot_com_samples():
     """_ScatterPlot pinta pontos sem crash."""
-    from skinvault.ui.scanner_screen import _ScatterPlot
+    from skinvault.ui.scanner_widgets import _ScatterPlot
     samples = [
         {"item": "X", "ts": 0, "score": s, "return_pct": float(s) * 0.5,
          "breakdown_count": 1}
@@ -563,7 +563,7 @@ def test_scatter_plot_com_samples():
 
 def test_scatter_plot_extreme_returns_clamped():
     """Retornos > Y_CLAMP nao quebram o plot (clamp aplicado)."""
-    from skinvault.ui.scanner_screen import _ScatterPlot
+    from skinvault.ui.scanner_widgets import _ScatterPlot
     samples = [
         {"item": "X", "ts": 0, "score": 50, "return_pct": 999.0,
          "breakdown_count": 1},
@@ -577,7 +577,7 @@ def test_scatter_plot_extreme_returns_clamped():
 
 def test_scatter_plot_alpha_por_confidence():
     """Sample com confidence baixa renderiza sem crash (alpha diferenciado)."""
-    from skinvault.ui.scanner_screen import _ScatterPlot
+    from skinvault.ui.scanner_widgets import _ScatterPlot
     samples = [
         {"item": "X", "ts": 0, "score": 70, "return_pct": 10.0,
          "confidence": 0.9, "level": "high"},
@@ -591,7 +591,7 @@ def test_scatter_plot_alpha_por_confidence():
 
 def test_scatter_plot_back_compat_sem_confidence():
     """Sample legado sem campo 'confidence' funciona (default 1.0)."""
-    from skinvault.ui.scanner_screen import _ScatterPlot
+    from skinvault.ui.scanner_widgets import _ScatterPlot
     samples = [
         {"item": "X", "ts": 0, "score": 70, "return_pct": 10.0,
          "breakdown_count": 1},
@@ -603,7 +603,7 @@ def test_scatter_plot_back_compat_sem_confidence():
 
 def test_scatter_plot_bucket_colors():
     """_bucket_color retorna cores distintas por banda."""
-    from skinvault.ui.scanner_screen import _ScatterPlot
+    from skinvault.ui.scanner_widgets import _ScatterPlot
     sc = _ScatterPlot([])
     c_low = sc._bucket_color(20)
     c_mid = sc._bucket_color(60)
@@ -615,7 +615,8 @@ def test_scatter_plot_bucket_colors():
 
 def test_backtest_dialog_inclui_scatter():
     """_BacktestResultDialog com samples instancia um _ScatterPlot."""
-    from skinvault.ui.scanner_screen import _BacktestResultDialog, _ScatterPlot
+    from skinvault.ui.scanner_dialogs import _BacktestResultDialog
+    from skinvault.ui.scanner_widgets import _ScatterPlot
     samples = [
         {"item": "X", "ts": 0, "score": 70, "return_pct": 15.0,
          "breakdown_count": 1},
@@ -631,9 +632,8 @@ def test_scanner_on_validate_finished_reativa_botoes(monkeypatch):
     """_on_validate_finished reabilita botões e abre dialog."""
     from PyQt6.QtWidgets import QDialog
     from skinvault.prices import PriceCache
-    from skinvault.ui.scanner_screen import (
-        ScannerScreen, _BacktestResultDialog,
-    )
+    from skinvault.ui.scanner_dialogs import _BacktestResultDialog
+    from skinvault.ui.scanner_screen import ScannerScreen
     monkeypatch.setattr(_BacktestResultDialog, "exec",
                         lambda self: QDialog.DialogCode.Accepted)
     screen = ScannerScreen(PriceCache(ttl=3600))
@@ -762,7 +762,7 @@ def test_scanner_on_explain_selected_with_result(monkeypatch):
     from PyQt6.QtWidgets import QTableWidgetItem, QDialog
     from skinvault.prices import PriceCache
     from skinvault.ui.scanner_screen import ScannerScreen
-    from skinvault.ui.scanner_screen import _ScoreBreakdownDialog
+    from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     monkeypatch.setattr(_ScoreBreakdownDialog, "exec",
                         lambda self: QDialog.DialogCode.Accepted)
     screen = ScannerScreen(PriceCache(ttl=3600))
@@ -4903,11 +4903,11 @@ def test_steam_login_dialog_init():
     assert dlg._monitor_active is False
 
 def test_on_cancel():
-    """_on_cancel calls cleanup and reject."""
+    """_on_cancel calls reject (which calls cleanup)."""
     from skinvault.steam_login_dialog import SteamLoginDialog
     dlg = SteamLoginDialog()
     dlg._cleanup = lambda: setattr(dlg, '_cleanup_called', True)
-    dlg.reject = lambda: setattr(dlg, '_reject_called', True)
+    dlg.reject = lambda: setattr(dlg, '_reject_called', True) or dlg._cleanup()
     dlg._on_cancel()
     assert dlg._cleanup_called
     assert dlg._reject_called
@@ -7050,7 +7050,7 @@ def test_account_on_validate_finished_reativa_botoes(monkeypatch):
     from PyQt6.QtWidgets import QDialog
     from skinvault.prices import PriceCache
     from skinvault.ui.account_screen import AccountScreen
-    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    from skinvault.ui.scanner_dialogs import _BacktestResultDialog
     monkeypatch.setattr(_BacktestResultDialog, "exec",
                         lambda self: QDialog.DialogCode.Accepted)
     screen = AccountScreen(PriceCache(ttl=3600))
@@ -7114,7 +7114,7 @@ def test_watchlist_on_validate_finished_reativa(monkeypatch):
     """_on_validate_finished reabilita botões e abre dialog."""
     from PyQt6.QtWidgets import QDialog
     from skinvault.prices import PriceCache
-    from skinvault.ui.scanner_screen import _BacktestResultDialog
+    from skinvault.ui.scanner_dialogs import _BacktestResultDialog
     from skinvault.ui.watchlist_screen import WatchlistScreen
     monkeypatch.setattr(_BacktestResultDialog, "exec",
                         lambda self: QDialog.DialogCode.Accepted)

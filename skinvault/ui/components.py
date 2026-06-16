@@ -1,14 +1,13 @@
 """Componentes reutilizaveis do esqueleto navegacional (F11).
 
-Sidebar + Breadcrumb + Footer + Card + StatCard + SegmentedControl.
+Breadcrumb + Footer + SegmentedControl + Toast + EmptyState + LineIcon +
+ActivityFeed + Avatar + ToggleSwitch + demais widgets de layout.
+Sidebar e Card/StatCard estao em .sidebar e .cards respectivamente.
 """
 from __future__ import annotations
 
-from typing import Callable
-
 from PyQt6.QtCore import (
     QEasingCurve,
-    QPoint,
     QPropertyAnimation,
     QPointF,
     QRectF,
@@ -18,7 +17,6 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import (
     QColor,
-    QFont,
     QFontMetrics,
     QPainter,
     QPainterPath,
@@ -26,16 +24,17 @@ from PyQt6.QtGui import (
     QPixmap,
 )
 from PyQt6.QtWidgets import (
-    QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLayout,
     QPushButton,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
+
+from .cards import Card, StatCard
+from .sidebar import _SidebarItem, Sidebar
 
 
 def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
@@ -180,174 +179,6 @@ from skinvault.ui import theme as t
 
 
 # ── Card base ────────────────────────────────────────────────
-class Card(QFrame):
-    """Frame estilizado como card Win11. Use addLayout() ou layout() pra
-    inserir conteudo."""
-
-    def __init__(self, parent: QWidget | None = None,
-                 padding: tuple[int, int, int, int] = t.CARD_PAD_LG,
-                 radius: int = 14) -> None:
-        super().__init__(parent)
-        self.setObjectName("Card")
-        self.setStyleSheet(t.card_style(radius))
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(*padding)
-        lay.setSpacing(10)
-
-    def set_layout(self, layout: QLayout) -> None:
-        # Substitui o layout default
-        old = self.layout()
-        if old is not None:
-            QWidget().setLayout(old)
-        self.setLayout(layout)
-
-
-class StatCard(Card):
-    """Card pequeno: label muted em cima, valor grande embaixo.
-
-    Layout alinhado a esquerda (botcloud): header row com label + icone opcional
-    no canto direito, value row com valor grande + pill badge opcional, e
-    sub-linha delta abaixo.
-    """
-
-    def __init__(self, label: str, value: str = "—",
-                 accent: str = t.TEXT,
-                 icon: str = "",
-                 parent: QWidget | None = None) -> None:
-        # Padding (20, 16) e ligeiramente mais compacto que CARD_PAD_LG (20, 18)
-        # — StatCard mostra apenas label + numero, nao precisa respiro extra.
-        super().__init__(parent, padding=(20, 16, 20, 16), radius=t.RADIUS_LG)
-        self.layout().setSpacing(4)
-
-        # header row: label a esquerda + icone no canto direito
-        header = QHBoxLayout()
-        header.setContentsMargins(0, 0, 0, 0)
-        header.setSpacing(0)
-        self._label = QLabel(label)
-        self._label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._label.setStyleSheet(t.label_caption())
-        header.addWidget(self._label, 1)
-        self._icon_w = LineIcon("info", t.TEXT_MUTED) if icon else None
-        if self._icon_w is not None:
-            self._icon_w.set_name(icon)
-            header.addWidget(self._icon_w, 0, Qt.AlignmentFlag.AlignRight)
-        self.layout().addLayout(header)
-
-        # value row: valor a esquerda + badge colado + stretch
-        val_row = QHBoxLayout()
-        val_row.setContentsMargins(0, 0, 0, 0)
-        val_row.setSpacing(t.SPACE_SM)
-        self._value = QLabel(value)
-        self._value.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._value.setStyleSheet(
-            f"color: {self._value_color(value, accent)};"
-            f" font-size: {t.FS_STAT}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        val_row.addWidget(self._value)
-        self._badge = QLabel("")
-        self._badge.setVisible(False)
-        self._badge.setStyleSheet(
-            f"padding: 2px 8px; border-radius: 10px;"
-            f" font-size: {t.FS_MUTED}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-        val_row.addWidget(self._badge)
-        val_row.addStretch(1)
-        self.layout().addLayout(val_row)
-
-        self._delta = QLabel("")
-        self._delta.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self._delta.setVisible(False)
-        self.layout().addWidget(self._delta)
-        self.setMinimumWidth(120)
-
-    def set_delta(self, pct: float | None,
-                  label: str = "") -> None:
-        """Mostra variacao sob o valor: ▲ +X,X% {label} ou ▼ -X,X% {label}.
-        pct=None + label vazio = esconde. pct=None + label preenchido =
-        mostra apenas o label (contexto textual, sem delta)."""
-        if pct is None and not label:
-            self._delta.setVisible(False)
-            return
-        self._delta.setVisible(True)
-        if pct is None:
-            self._delta.setText(label)
-            self._delta.setStyleSheet(t.label_caption())
-            return
-        if pct > 0:
-            prefix = chr(9650)  # ▲
-            color = t.POSITIVE
-            formatted = f"+{pct:.1f}%".replace(".", ",")
-        elif pct < 0:
-            prefix = chr(9660)  # ▼
-            color = t.DANGER
-            formatted = f"{pct:.1f}%".replace(".", ",")
-        else:
-            prefix = chr(8212)  # —
-            color = t.TEXT_MUTED
-            formatted = "0,0%"
-        suffix = f" {label}" if label else ""
-        self._delta.setText(f"{prefix} {formatted}{suffix}")
-        self._delta.setStyleSheet(
-            f"color: {color}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY};"
-        )
-
-    @staticmethod
-    def _value_color(value: str, accent: str) -> str:
-        # "—"/vazio = sem dado -> sempre neutro. A cor de accent (verde de
-        # lucro, vermelho de prejuizo, etc.) so' aparece com valor real,
-        # pra empty states nao gritarem cor. Note: "0" e' dado, nao "—".
-        return t.TEXT_MUTED if value.strip() in ("—", "") else accent
-
-    def set_value(self, value: str, accent: str | None = None) -> None:
-        self._value.setText(value)
-        if accent:
-            self._value.setStyleSheet(
-                f"color: {self._value_color(value, accent)};"
-                f" font-size: {t.FS_STAT}; font-weight: 600;"
-                f" font-family: {t.FONT_FAMILY};"
-            )
-
-    def set_badge(self, text: str, kind: str = "neutral") -> None:
-        """Mostra um pill badge colado ao valor.
-        kind: 'positive' / 'danger' / 'neutral'."""
-        if kind == "positive":
-            bg, fg = t.POSITIVE_DIM, t.POSITIVE
-        elif kind == "danger":
-            bg, fg = t.DANGER_DIM, t.DANGER
-        else:
-            bg, fg = t.SURFACE, t.TEXT_MUTED
-        self._badge.setText(text)
-        self._badge.setStyleSheet(
-            f"padding: 2px 8px; border-radius: 10px;"
-            f" font-size: {t.FS_MUTED}; font-weight: 600;"
-            f" font-family: {t.FONT_FAMILY};"
-            f" background: {bg}; color: {fg};"
-        )
-        self._badge.setVisible(True)
-
-    def clear_badge(self) -> None:
-        """Esconde o pill badge."""
-        self._badge.setVisible(False)
-        self._badge.setText("")
-
-    def set_icon(self, name: str) -> None:
-        """Troca o icone de canto em runtime. Cria se nao existir."""
-        if self._icon_w is None:
-            self._icon_w = LineIcon(name, t.TEXT_MUTED)
-            hdr_item = self.layout().itemAt(0)
-            if hdr_item is not None and hdr_item.layout() is not None:
-                hdr_item.layout().addWidget(
-                    self._icon_w, 0, Qt.AlignmentFlag.AlignRight)
-            else:
-                self._icon_w.setParent(self)
-                self._icon_w.show()
-        else:
-            self._icon_w.set_name(name)
-
-
 # ── LineIcon (QPainter) ──────────────────────────────────────
 class LineIcon(QWidget):
     """Icone de linha 18x18 desenhado com QPainter (estilo Fluent/Lucide).
@@ -372,9 +203,7 @@ class LineIcon(QWidget):
             self.update()
 
     def set_icon_name(self, name: str) -> None:
-        if name != self._icon:
-            self._icon = name
-            self.update()
+        self.set_name(name)
 
     def set_name(self, name: str) -> None:
         if name != self._name:
@@ -527,238 +356,7 @@ class LineIcon(QWidget):
         p.drawEllipse(QRectF(3, 3, 12, 12))
 
 
-# ── Sidebar ──────────────────────────────────────────────────
-class _SidebarItem(QPushButton):
-    """Item do sidebar: LineIcon a esquerda + texto nativo (cor via QSS).
 
-    O texto e' nativo do QPushButton (mantem a cascata de cor :hover/
-    :checked/:focus da Frente C intacta); o LineIcon e' um child reposi-
-    cionado cuja cor sincroniza com o estado. checkable=False pra acoes
-    (Configuracoes/Sobre/Backups) — sem estado ativo, so' hover.
-    """
-
-    def __init__(self, icon: str, label: str, checkable: bool = True,
-                 parent: QWidget | None = None, rail: bool = False):
-        super().__init__(parent)
-        self._rail = rail
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        if checkable:
-            self.setCheckable(True)
-            self.setAutoExclusive(True)
-        if rail:
-            self.setText("")
-            self.setFixedWidth(64)
-            self.setToolTip(label)
-        else:
-            self.setText(label)
-        self.setMinimumHeight(40)
-        self.setStyleSheet(self._style_idle())
-        self._icon = LineIcon(icon, t.TEXT_MUTED, self)
-        self._icon.setAttribute(
-            Qt.WidgetAttribute.WA_TransparentForMouseEvents
-        )
-        if checkable:
-            self.toggled.connect(self._on_toggled)
-
-    def _style_idle(self) -> str:
-        if self._rail:
-            return (
-                f"QPushButton {{ background: transparent; border: none;"
-                f" border-radius: 10px; }}"
-                f"QPushButton:hover {{ background: {t.ACCENT_DIM}; }}"
-                f"QPushButton:checked {{ background: {t.ACCENT_DIM}; }}"
-                f"QPushButton:focus {{ background: {t.ACCENT_DIM}; }}"
-            )
-        # padding-left abre espaco pro LineIcon (14 margem + 18 icone + 10)
-        return (
-            f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
-            f" border: none; text-align: left; padding-left: 42px;"
-            f" border-left: 3px solid transparent;"
-            f" font-size: {t.FS_BODY}; font-weight: 500;"
-            f" font-family: {t.FONT_FAMILY}; }}"
-            f"QPushButton:hover {{ color: {t.TEXT}; background: {t.SURFACE}; }}"
-            f"QPushButton:checked {{ color: {t.ACCENT}; background: {t.SURFACE};"
-            f" font-weight: 700;"
-            f" border-left: 3px solid {t.ACCENT}; }}"
-            f"QPushButton:focus {{ color: {t.TEXT}; background: {t.SURFACE};"
-            f" border-left: 3px solid {t.TEXT_MUTED}; }}"
-            f"QPushButton:checked:focus {{ color: {t.ACCENT};"
-            f" border-left: 3px solid {t.FOCUS_GREEN}; }}"
-        )
-
-    def _on_toggled(self, checked: bool) -> None:
-        self._icon.set_color(t.ACCENT if checked else t.TEXT_MUTED)
-
-    def resizeEvent(self, evt) -> None:  # noqa: N802
-        super().resizeEvent(evt)
-        y = (self.height() - self._icon.height()) // 2
-        if self._rail:
-            x = (self.width() - self._icon.width()) // 2
-        else:
-            x = 14
-        self._icon.move(x, y)
-
-    def enterEvent(self, evt) -> None:  # noqa: N802
-        if not self.isChecked():
-            self._icon.set_color(t.TEXT)
-        super().enterEvent(evt)
-
-    def leaveEvent(self, evt) -> None:  # noqa: N802
-        if not self.isChecked():
-            self._icon.set_color(t.TEXT_MUTED)
-        super().leaveEvent(evt)
-
-
-class Sidebar(QWidget):
-    """Sidebar vertical com items. Emite item_selected(key)."""
-
-    item_selected = pyqtSignal(str)
-
-    def __init__(self, width: int = 220, parent: QWidget | None = None,
-                 rail: bool = False) -> None:
-        super().__init__(parent)
-        self._rail = rail
-        self.setFixedWidth(width)
-        self.setObjectName("Sidebar")
-        self.setStyleSheet(f"QWidget#Sidebar {{ background: {t.BG_ELEVATED}; }}")
-        self._items: dict[str, _SidebarItem] = {}
-        self._lay = QVBoxLayout(self)
-        if rail:
-            self._lay.setContentsMargins(0, 16, 0, 16)
-            self._lay.setSpacing(4)
-            self._lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        else:
-            self._lay.setContentsMargins(8, 16, 8, 16)
-            self._lay.setSpacing(2)
-
-        # Branding minimal no topo
-        if rail:
-            brand = QLabel("SV")
-            brand.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            brand.setStyleSheet(
-                f"color: {t.TEXT}; font-size: 12pt; font-weight: 700;"
-                f" font-family: {t.FONT_FAMILY}; padding: 6px 0 18px 0;"
-            )
-        else:
-            brand = QLabel("SkinVault")
-            brand.setStyleSheet(
-                f"color: {t.TEXT}; font-size: 14pt; font-weight: 600;"
-                f" font-family: {t.FONT_FAMILY}; padding: 6px 12px 18px 14px;"
-            )
-        self._lay.addWidget(brand)
-
-    def add_item(self, key: str, icon: str, label: str) -> None:
-        btn = _SidebarItem(icon, label, parent=self, rail=self._rail)
-        btn.clicked.connect(lambda: self.item_selected.emit(key))
-        self._items[key] = btn
-        self._lay.addWidget(btn)
-
-    def add_action(self, icon: str, label: str,
-                   callback: Callable[[], None]) -> _SidebarItem:
-        """Acao secundaria (nao-navegacao): mesmo visual, sem estado ativo."""
-        btn = _SidebarItem(icon, label, checkable=False, parent=self,
-                           rail=self._rail)
-        btn.clicked.connect(lambda: callback())
-        self._lay.addWidget(btn)
-        return btn
-
-    def add_stretch(self) -> None:
-        self._lay.addStretch(1)
-
-    def add_widget(self, w: QWidget) -> None:
-        self._lay.addWidget(w)
-
-    def add_session_chip(self) -> None:
-        """Chip de sessao no rodape: dot + nome + 'Steam'. Clique navega
-        pra Minha Conta. Inicia oculto; set_session() popula e exibe."""
-        self._chip = QWidget()
-        self._chip.setObjectName("SessionChip")
-        self._chip.setCursor(Qt.CursorShape.PointingHandCursor)
-        if self._rail:
-            self._chip.setFixedSize(32, 32)
-            self._chip.setStyleSheet(
-                f"QWidget#SessionChip {{ background: {t.SURFACE};"
-                f" border: 1px solid {t.BORDER}; border-radius: 16px; }}"
-                f"QWidget#SessionChip:hover {{"
-                f" border: 1px solid {t.TEXT_MUTED}; }}"
-            )
-            lay = QHBoxLayout(self._chip)
-            lay.setContentsMargins(0, 0, 0, 0)
-            lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._chip_dot = QWidget()
-            self._chip_dot.setFixedSize(8, 8)
-            self._chip_dot.setStyleSheet(
-                f"background: {t.ACCENT}; border-radius: 4px;"
-            )
-            lay.addWidget(self._chip_dot)
-            self._chip.setVisible(False)
-            self._lay.addWidget(self._chip, 0, Qt.AlignmentFlag.AlignCenter)
-        else:
-            self._chip.setStyleSheet(
-                f"QWidget#SessionChip {{ background: {t.SURFACE};"
-                f" border: 1px solid {t.BORDER}; border-radius: 8px; }}"
-                f"QWidget#SessionChip:hover {{"
-                f" border: 1px solid {t.TEXT_MUTED}; }}"
-            )
-            lay = QHBoxLayout(self._chip)
-            lay.setContentsMargins(10, 8, 10, 8)
-            lay.setSpacing(8)
-            self._chip_dot = QWidget()
-            self._chip_dot.setFixedSize(8, 8)
-            self._chip_dot.setStyleSheet(
-                f"background: {t.ACCENT}; border-radius: 4px;"
-            )
-            lay.addWidget(self._chip_dot)
-            col = QVBoxLayout()
-            col.setContentsMargins(0, 0, 0, 0)
-            col.setSpacing(0)
-            self._chip_name = QLabel("—")
-            self._chip_name.setStyleSheet(
-                f"color: {t.TEXT}; font-size: {t.FS_MUTED}; font-weight: 600;"
-                f" font-family: {t.FONT_FAMILY};"
-            )
-            self._chip_sub = QLabel("Steam")
-            self._chip_sub.setStyleSheet(t.label_caption())
-            col.addWidget(self._chip_name)
-            col.addWidget(self._chip_sub)
-            lay.addLayout(col, 1)
-            self._chip.setVisible(False)
-            self._lay.addWidget(self._chip)
-        # Clique no chip -> navega pra Minha Conta
-        self._chip.mousePressEvent = (
-            lambda _evt: self.item_selected.emit("account")
-        )
-
-    def set_session(self, name: str, steamid: str) -> None:
-        """Atualiza o chip de sessao. name/steamid vazios escondem o chip."""
-        chip = getattr(self, "_chip", None)
-        if chip is None:
-            return
-        if not name and not steamid:
-            chip.setVisible(False)
-            return
-        if self._rail:
-            # Rail mode: dot + tooltip apenas
-            tooltip = name or steamid
-            if steamid:
-                tooltip += f" (SteamID: {steamid})"
-            chip.setToolTip(tooltip)
-            chip.setVisible(True)
-        else:
-            if name:
-                display = name
-            elif len(steamid) >= 12:
-                display = f"{steamid[:8]}…{steamid[-4:]}"
-            else:
-                display = steamid
-            self._chip_name.setText(display)
-            chip.setToolTip(f"SteamID: {steamid}" if steamid else "")
-            chip.setVisible(True)
-
-    def select(self, key: str) -> None:
-        btn = self._items.get(key)
-        if btn is not None and not btn.isChecked():
-            btn.setChecked(True)
 
 
 # ── Breadcrumb ───────────────────────────────────────────────
@@ -1648,5 +1246,8 @@ class ToggleSwitch(QWidget):
         thumb_x = 19 if self._checked else 3
         p.setBrush(QColor(t.TEXT))
         p.drawEllipse(QRectF(thumb_x, 1, 14, 18))
+
+
+
 
 
