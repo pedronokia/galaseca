@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from skinvault import backup as backup_mod
 from skinvault.settings import DEFAULTS, load_settings, save_settings
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
@@ -142,6 +143,30 @@ class SettingsScreen(QWidget):
                     "antigos.",
         ))
 
+        btn_row = QVBoxLayout()
+        btn_row.setSpacing(8)
+        self._backup_btn = QPushButton("Fazer backup manual agora")
+        self._backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._backup_btn.setStyleSheet(t.btn_secondary())
+        self._backup_btn.setToolTip(
+            "Cria um backup ZIP de todos os arquivos de dados "
+            "(prices, portfolio, trades, watchlist, etc.) na pasta "
+            "data/backups/."
+        )
+        self._backup_btn.clicked.connect(self._on_manual_backup)
+        btn_row.addWidget(self._backup_btn)
+
+        self._restore_btn = QPushButton("Restaurar backup...")
+        self._restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._restore_btn.setStyleSheet(t.btn_ghost())
+        self._restore_btn.setToolTip(
+            "Abre um seletor de backup para restaurar dados de um "
+            "ponto anterior. Os dados atuais sao substituidos."
+        )
+        self._restore_btn.clicked.connect(self._on_restore_backup)
+        btn_row.addWidget(self._restore_btn)
+        lay.addLayout(btn_row)
+
         self._start_min = QCheckBox("Iniciar minimizado na bandeja")
         self._start_min.setStyleSheet(t.checkbox_style())
         self._start_min.setToolTip(
@@ -221,11 +246,55 @@ class SettingsScreen(QWidget):
             w._apply_sidebar_width(value)
 
     def _apply_theme_live(self) -> None:
-        # O MainWindow re-le o settings.json, troca a paleta e re-aplica
-        # o stylesheet global (mesmo caminho que o dialog antigo usava).
+        # MainWindow._on_theme_changed recarrega settings, invoca
+        # theme._reload_palette() e re-aplica o stylesheet global.
         w = self.window()
         if hasattr(w, "_on_theme_changed"):
             w._on_theme_changed()
+
+    def _on_manual_backup(self) -> None:
+        from skinvault.backup import make_backup
+        try:
+            path = make_backup()
+            Toast.show_toast(
+                self, f"Backup criado: {path.name}", "success",
+            )
+        except Exception as e:
+            Toast.show_toast(self, f"Falha ao criar backup: {e}", "error")
+
+    def _on_restore_backup(self) -> None:
+        from skinvault.backup import list_backups, restore_backup
+        backups = list_backups()
+        if not backups:
+            Toast.show_toast(self, "Nenhum backup encontrado.", "warning")
+            return
+        items = [f"{b['ts']:%d/%m/%Y %H:%M} ({b['path'].name})"
+                 for b in backups]
+        from PyQt6.QtWidgets import QInputDialog
+        choice, ok = QInputDialog.getItem(
+            self, "Restaurar backup",
+            "Selecione o backup para restaurar:",
+            items, 0, False,
+        )
+        if not ok:
+            return
+        idx = items.index(choice)
+        path = backups[idx]["path"]
+        confirm = QMessageBox.question(
+            self, "Confirmar restauração",
+            f"Restaurar o backup {path.name}?\n"
+            "Os dados atuais SERÃO SUBSTITUÍDOS.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            count = restore_backup(path)
+            Toast.show_toast(
+                self, f"Restaurados {count} arquivos.", "success",
+            )
+        except Exception as e:
+            Toast.show_toast(self, f"Falha ao restaurar: {e}", "error")
 
     def _on_reset(self) -> None:
         confirm = QMessageBox.question(
