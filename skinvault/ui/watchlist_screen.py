@@ -541,7 +541,9 @@ class WatchlistScreen(QWidget):
                     )
                     try:
                         ph = ssr_cache.cached_price_history(name, cache=cache)
-                    except Exception:
+                    except Exception as e:
+                        print(f"WARNING: watchlist price_history({name}) failed: {e}",
+                              file=__import__('sys').stderr)
                         ph = None
                     if not ph:
                         if not hit:
@@ -550,7 +552,9 @@ class WatchlistScreen(QWidget):
                     # Backtest samples (igual antes)
                     try:
                         samples = backtest_mod.simulate_item(name, ph)
-                    except Exception:
+                    except Exception as e:
+                        print(f"WARNING: watchlist simulate({name}) failed: {e}",
+                              file=__import__('sys').stderr)
                         samples = []
                     if samples:
                         bridge.samples_ready.emit(samples)
@@ -560,7 +564,9 @@ class WatchlistScreen(QWidget):
                         current_score = backtest_mod.score_from_history(
                             name, ph,
                         )
-                    except Exception:
+                    except Exception as e:
+                        print(f"WARNING: watchlist score({name}) failed: {e}",
+                              file=__import__('sys').stderr)
                         current_score = None
                     # Persiste score por item (pra coluna mostrar)
                     item = items_by_name.get(name)
@@ -681,7 +687,7 @@ class WatchlistScreen(QWidget):
             self._refresh_mode = False
             self.refresh()
             return
-        from skinvault.ui.scanner_screen import _BacktestResultDialog
+        from skinvault.ui.scanner_dialogs import _BacktestResultDialog
         dlg = _BacktestResultDialog(
             self._validate_samples, items_n, parent=self,
         )

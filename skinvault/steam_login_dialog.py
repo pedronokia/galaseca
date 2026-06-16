@@ -152,8 +152,11 @@ class SteamLoginDialog(QDialog):
         btn_row.addWidget(self._cancel_btn)
         layout.addLayout(btn_row)
 
-    def _on_cancel(self) -> None:
+    def reject(self) -> None:
         self._cleanup()
+        super().reject()
+
+    def _on_cancel(self) -> None:
         self.reject()
 
     def _cleanup(self) -> None:
@@ -275,6 +278,8 @@ class SteamLoginDialog(QDialog):
                     if any(f in url for f in _SUCCESS_FRAGMENTS):
                         logger.info("Login detectado via /json: %s", url[:100])
                         ws_url = page.get("webSocketDebuggerUrl") or ""
+                        if ws_url and not ws_url.startswith("ws://"):
+                            ws_url = ""
                         break
                 if ws_url:
                     break

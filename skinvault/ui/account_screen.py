@@ -498,19 +498,25 @@ class AccountScreen(QWidget):
                     )
                     try:
                         ph = ssr_cache.cached_price_history(name, cache=cache)
-                    except Exception:
+                    except Exception as e:
+                        print(f"WARNING: account price_history({name}) failed: {e}",
+                              file=__import__('sys').stderr)
                         ph = None
                     if ph:
                         try:
                             samples = backtest_mod.simulate_item(name, ph)
-                        except Exception:
+                        except Exception as e:
+                            print(f"WARNING: account simulate({name}) failed: {e}",
+                                  file=__import__('sys').stderr)
                             samples = []
                         if samples:
                             bridge.samples_ready.emit(samples)
                         # Computa current_score pra persistir
                         try:
                             cs = backtest_mod.score_from_history(name, ph)
-                        except Exception:
+                        except Exception as e:
+                            print(f"WARNING: account score({name}) failed: {e}",
+                                  file=__import__('sys').stderr)
                             cs = None
                         if cs is not None:
                             name_to_score[name] = (int(cs), time.time())
@@ -564,7 +570,7 @@ class AccountScreen(QWidget):
                           "positions": positions})
             return
         # Reusa o dialog do scanner pra manter UX coerente
-        from skinvault.ui.scanner_screen import _BacktestResultDialog
+        from skinvault.ui.scanner_dialogs import _BacktestResultDialog
         dlg = _BacktestResultDialog(
             self._validate_samples, items_n, parent=self,
         )

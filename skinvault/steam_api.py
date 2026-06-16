@@ -193,7 +193,14 @@ def _parse_volume(text: str | None) -> int | None:
 
 
 def _js_unescape(s: str) -> str:
-    """Unescape uma JavaScript string literal (entre as aspas externas)."""
+    # fmt: off
+    """Unescape uma JavaScript string literal (entre as aspas externas).
+
+    Trata escapes conhecidos do SSR do Steam: backslash, aspas, n, r, t,
+    uXXXX (unicode), xNN (hex), 0 (null).
+    Se encontrar backslash seguido de algo nao reconhecido, preserva literalmente.
+    """
+    # fmt: on
     result = []
     i = 0
     while i < len(s):
@@ -211,9 +218,21 @@ def _js_unescape(s: str) -> str:
                 result.append("\t")
             elif nxt == "/":
                 result.append("/")
-            elif nxt == "u":
-                result.append(chr(int(s[i + 2 : i + 6], 16)))
+            elif nxt == "u" and i + 5 < len(s):
+                try:
+                    result.append(chr(int(s[i + 2 : i + 6], 16)))
+                except ValueError:
+                    result.append(s[i : i + 6])
                 i += 5
+            elif nxt == "x" and i + 3 < len(s):
+                try:
+                    result.append(chr(int(s[i + 2 : i + 4], 16)))
+                except ValueError:
+                    result.append(s[i : i + 4])
+                i += 3
+            elif nxt == "0":
+                result.append("\0")
+                i += 1
             else:
                 result.append(nxt)
             i += 2

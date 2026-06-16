@@ -19,8 +19,9 @@ def _safe_emit(sig: pyqtSignal, *args) -> None:
     """Emit com tolerancia a C++ objeto deletado."""
     try:
         sig.emit(*args)
-    except (RuntimeError, AttributeError):
-        pass
+    except (RuntimeError, AttributeError) as e:
+        print(f"WARNING: _safe_emit falhou (receptor deletado?): {e}",
+              file=__import__('sys').stderr)
 
 
 class PriceWorker(QObject):
