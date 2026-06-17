@@ -159,7 +159,7 @@ do `EmptyState` documenta a regra.
 
 ---
 
-### Frente CC — PageHeader actions: limite de 2 botões + ⋯ menu (impact: ALTO) [deps: nenhuma]
+### Frente CC — PageHeader actions: limite de 2 botões + ⋯ menu (impact: ALTO) [deps: nenhuma] ✅
 
 **Contexto:** no canto superior direito de cada tela hoje:
 
@@ -207,6 +207,8 @@ secundárias vivem em ⋯. Tooltip em todas. Atalhos de teclado preservados.
   movidos — passar a chamar `act_export_csv.trigger()` etc.).
 
 **Commit:** `ui: padroniza header actions (1 primary + 1 ghost + menu ⋯)`
+
+✅ **Resultado:** History (`history_screen.py`) e Scanner (`scanner_screen.py`) replicam o padrão Trades. **History:** "Exportar CSV" e "Buscar ícones" viram QActions no `_more_menu`; `tb.add_right` agora soma 4 (Atualizar preços invisível, Recarregar, Simular trade, ⋯) — 1 acima do alvo `≤3` do roadmap, mas o `_update_prices_btn` é indicador de progresso (`setText("X/Y")`) e não ação user-facing, então fica. **Scanner:** "Ranking Top 20", "Validar Score", "Limpar cache SSR" e "Exportar CSV" viram QActions; o bloco `ghost_tb` abaixo dos stats foi removido inteiro e o import de `Toolbar` saiu junto. Atributos `_rank_btn`, `_validate_btn`, `_export_btn`, `_clear_cache_btn` preservados (agora QAction), o que mantém os testes existentes funcionando sem reparo — APIs `isEnabled/setEnabled/toolTip/text` são compatíveis entre QPushButton e QAction. 1377 testes verdes. Commit `e3c5382`.
 
 ---
 
