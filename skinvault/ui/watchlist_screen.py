@@ -184,7 +184,7 @@ class WatchlistScreen(QWidget):
     COL_SCORE = 6
     COL_CONFIDENCE = 7
 
-    # Sinal emitido quando um alerta dispara durante Validar Score.
+    # Sinal emitido quando um alerta dispara durante Validar score.
     # (title, body, severity). Router conecta -> MainWindow conecta -> tray.
     notification_requested = pyqtSignal(str, str, str)
 
@@ -225,7 +225,7 @@ class WatchlistScreen(QWidget):
         )
         self._add_btn.clicked.connect(self._on_add)
 
-        self._validate_btn = QPushButton("Validar Score")
+        self._validate_btn = QPushButton("Validar score")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._validate_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
                                                           fs=t.FS_INPUT))
@@ -241,7 +241,7 @@ class WatchlistScreen(QWidget):
         self._refresh_btn.setStyleSheet(t.btn_ghost())
         self._refresh_btn.setToolTip(
             "Recomputa scores e reavalia alertas de todos os itens usando"
-            " dados do cache. Mais rápido que Validar Score — sem dialog."
+            " dados do cache. Mais rápido que Validar score — sem dialog."
         )
         self._refresh_btn.clicked.connect(self._on_refresh_scores)
 
@@ -275,7 +275,7 @@ class WatchlistScreen(QWidget):
         self._hide_low_conf_cb = ToggleSwitch()
         self._hide_low_conf_cb.setToolTip(
             "Oculta itens onde a confianca dos dados e 'low' ou 'very_low'."
-            " Disponivel apenas apos 'Validar Score'."
+            " Disponivel apenas apos 'Validar score'."
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
@@ -308,7 +308,7 @@ class WatchlistScreen(QWidget):
                                     QHeaderView.ResizeMode.Interactive)
         # Garante que padding QSS ignorado no sizeHint nao trunque headers
         t._ensure_header_width(self._table, hh)
-        # Score e Confianca: ocultos ate Validar Score
+        # Score e Confianca: ocultos ate Validar score
         self._table.setColumnHidden(self.COL_SCORE, True)
         self._table.setColumnHidden(self.COL_CONFIDENCE, True)
         root.addWidget(self._table, 1)
@@ -447,14 +447,14 @@ class WatchlistScreen(QWidget):
                 QTableWidgetItem(alerts.format_rules_summary(rules)),
             )
 
-            # Score atual (persistido pelo Validar Score)
+            # Score atual (persistido pelo Validar score)
             cur_score = item.get("current_score")
             score_ts = item.get("score_ts")
             if cur_score is None:
                 score_item = QTableWidgetItem("—")
                 score_item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
                 score_item.setToolTip(
-                    "Clique em 'Validar Score' para calcular."
+                    "Clique em 'Validar score' para calcular."
                 )
             else:
                 score_item = QTableWidgetItem(str(int(cur_score)))
@@ -508,7 +508,7 @@ class WatchlistScreen(QWidget):
         )
         self._apply_confidence_filter()
 
-    # ── Validar Score + Avaliar alertas ───────────────────
+    # ── Validar score + Avaliar alertas ───────────────────
     def _on_validate_watchlist(self) -> None:
         if self._validating:
             return

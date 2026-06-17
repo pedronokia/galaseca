@@ -199,7 +199,7 @@ class ScannerScreen(QWidget):
         )
         self._rank_btn.triggered.connect(self._on_ranking)
 
-        self._validate_btn = self._more_menu.addAction("Validar Score")
+        self._validate_btn = self._more_menu.addAction("Validar score")
         self._validate_btn.setToolTip(
             "Roda backtest histórico nos itens escaneados (horizonte 90d)."
             " Mostra se o score realmente prediz retornos pra esses itens."

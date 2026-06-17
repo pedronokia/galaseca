@@ -510,7 +510,7 @@ def test_backtest_result_dialog_title_inclui_contagem():
 
 
 def test_scanner_validate_btn_exists():
-    """Botao 'Validar Score' existe e esta habilitado por default."""
+    """Botao 'Validar score' existe e esta habilitado por default."""
     from skinvault.prices import PriceCache
     from skinvault.ui.scanner_screen import ScannerScreen
     screen = ScannerScreen(PriceCache(ttl=3600))
@@ -7011,10 +7011,10 @@ def test_launch_show_maximized(monkeypatch):
     assert len(shown) == 1
 
 
-# ── Validar Score do Portfolio (AccountScreen) ────────
+# ── Validar score (AccountScreen) ────────
 
 def test_account_validate_btn_existe():
-    """Botão 'Validar Score do Portfolio' existe e habilitado."""
+    """Botão 'Validar score' existe e habilitado."""
     from skinvault.prices import PriceCache
     from skinvault.ui.account_screen import AccountScreen
     screen = AccountScreen(PriceCache(ttl=3600))
@@ -7076,10 +7076,10 @@ def test_account_validate_progress_atualiza_status():
     assert "AK-47" in screen._status.text()
 
 
-# ── Validar Score da Watchlist ────────────────────────
+# ── Validar score da Watchlist ────────────────────────
 
 def test_watchlist_validate_btn_existe():
-    """Botão 'Validar Score' existe na watchlist e habilitado."""
+    """Botão 'Validar score' existe na watchlist e habilitado."""
     from skinvault.prices import PriceCache
     from skinvault.ui.watchlist_screen import WatchlistScreen
     screen = WatchlistScreen(PriceCache(ttl=3600))

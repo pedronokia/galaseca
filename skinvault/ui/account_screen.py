@@ -128,7 +128,7 @@ class AccountScreen(QWidget):
         act_lbl.setContentsMargins(0, 0, 0, 0)
         act_lbl.setSpacing(t.SPACE_SM)
 
-        self._validate_btn = QPushButton("Validar Score do Portfolio")
+        self._validate_btn = QPushButton("Validar score")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._validate_btn.setStyleSheet(t.btn_secondary(padding="8px 14px",
                                                           fs=t.FS_INPUT))
@@ -145,7 +145,7 @@ class AccountScreen(QWidget):
         self._refresh_btn.setStyleSheet(t.btn_ghost())
         self._refresh_btn.setToolTip(
             "Recomputa scores de todos os itens usando dados do cache."
-            " Mais rápido que Validar Score — não mostra dialog de backtest."
+            " Mais rápido que Validar score — não mostra dialog de backtest."
         )
         self._refresh_btn.clicked.connect(self._on_refresh_scores)
         act_lbl.addWidget(self._refresh_btn)
@@ -464,7 +464,7 @@ class AccountScreen(QWidget):
     def _on_eval_progress(self, done: int, total: int) -> None:
         self._status.setText(f"Avaliando inventário... {done}/{total}")
 
-    # ── Validar Score do Portfolio ───────────────────────
+    # ── Validar score ───────────────────────
     def _on_refresh_scores(self) -> None:
         """Atualiza scores do portfolio silenciosamente (sem dialog)."""
         self._refresh_mode = True
@@ -720,7 +720,7 @@ class AccountScreen(QWidget):
                     if cur_score is None:
                         item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
                         item.setToolTip(
-                            "Clique 'Validar Score do Portfolio' "
+                            "Clique 'Validar score' "
                             "para calcular."
                         )
                     else:

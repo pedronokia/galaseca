@@ -1,6 +1,6 @@
 """Cache local do price_history SSR (Steam Market).
 
-Reduz chamadas de rede repetidas durante backtest / Validar Score.
+Reduz chamadas de rede repetidas durante backtest / Validar score.
 Default TTL 24h porque price_history e' granularidade diaria -- mais
 novo que isso e' redundante.
 
