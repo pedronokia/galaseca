@@ -60,7 +60,7 @@ calendar` (+ fallback círculo).
 
 ## 3. Frentes
 
-### Frente AA — Acentos PT-BR em strings user-facing (impact: ALTO) [deps: nenhuma]
+### Frente AA — Acentos PT-BR em strings user-facing (impact: ALTO) [deps: nenhuma] ✅
 
 **Contexto:** strings user-facing perderam acentos em vários lugares.
 Aparecem no UI assim mesmo (não é bug de fonte — é typo no fonte). Lista
@@ -104,6 +104,8 @@ diz "Erro durante a sincronização".
 - Suíte cheia verde.
 
 **Commit:** `ui: corrige acentos PT-BR em strings user-facing (Conta, sync, widgets)`
+
+✅ **Resultado:** 7 strings literais corrigidas em 3 arquivos (`gui.py` 3×, `ui/account_screen.py` 3×, `ui/widgets.py` 1×): `inventario→inventário`, `evolucao→evolução`, `sincronizacao→sincronização`, `Avaliacao→Avaliação`. Docstring de `_reload_value_series` (account_screen.py:449) e comentários intocados (não user-facing). Os 4 greps do aceite retornam vazio. 1296 testes passam; o único `test_launch_start_minimized` que falha já estava quebrado em HEAD (`7d5c5b3`) por bug pré-existente de `FakeApp.setWindowIcon` no test double, sem relação com esta frente. Commit `cc30e70`.
 
 ---
 
