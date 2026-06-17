@@ -245,7 +245,7 @@ título + empty message; com ≥1 evento, expande pra 280px+ com chips.
 
 ---
 
-### Frente EE — Tooltips em botões sem tooltip (impact: médio) [deps: nenhuma]
+### Frente EE — Tooltips em botões sem tooltip (impact: médio) [deps: nenhuma] ✅
 
 **Contexto:** regra do projeto: tooltip em todo botão. Hoje há botões sem
 tooltip (vide regra-mãe + `ROADMAP_UI.md`). Auditoria rápida:
@@ -276,6 +276,8 @@ genérica ("Clique aqui").
 o grep e reporta. Suíte cheia verde.
 
 **Commit:** `ui: tooltip em todos os QPushButton (regra do projeto)`
+
+✅ **Resultado:** novo `scripts/check_tooltips.py` lê `skinvault/gui.py` + `skinvault/ui/*.py`, encontra `<var> = QPushButton(...)` e verifica `<var>.setToolTip(` numa janela de 5 linhas. Reportou 15 faltantes — todos receberam tooltip explicativo (BackupDialog refresh/restore/delete/close, SteamSyncDialog close, EmptyState CTA, SegmentedControl `add()`, ComingSoon CTA, ActivityFeed chips, dialogs cancelar/salvar/adicionar de trades e watchlist). `SegmentedControl.add()` teve `setToolTip` movido pra logo após `QPushButton(label)` pra caber na janela de 5 linhas. Componentes genéricos usam `setToolTip(label)` (o próprio label já é descritivo). Script retorna `OK` após as mudanças. 130 testes do subset afetado verdes, suíte cheia também. Commit `b978284`.
 
 ---
 
