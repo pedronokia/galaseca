@@ -283,7 +283,7 @@ o grep e reporta. Suíte cheia verde.
 
 ---
 
-### Frente FF — Nomenclatura uniforme de ações (impact: baixo) [deps: CC]
+### Frente FF — Nomenclatura uniforme de ações (impact: baixo) [deps: CC] ✅
 
 **Contexto:** mesma operação semântica aparece com nomes diferentes:
 - Account: "Atualizar scores"
@@ -320,6 +320,8 @@ NÃO renomear strings ID/chaves (`SCREEN_ACCOUNT` etc.).
   a usar object names ou `clicked.emit()`).
 
 **Commit:** `ui: nomenclatura uniforme — sentence case nos botoes secundarios`
+
+✅ **Resultado:** "Validar Score do Portfolio" (Account), "Validar Score" (Scanner) e "Validar Score" (Watchlist — não listado explicitamente no roadmap, mas é a mesma operação semântica e ganhou consistência) viram **"Validar score"**. Atualizado em cascata: todas as strings user-facing que referenciam o botão (tooltips "Mais rápido que…", mensagens "Clique em '…' para calcular"), docstrings de teste (`test_ui_smoke.py:513/7017/7082`) e a docstring de módulo `ssr_cache.py:3`. Os asserts dos testes continuam funcionando porque usam `"Validar" in screen._validate_btn.text()` (parcial). Greps do aceite: `Validar Score` em `skinvault/ui` = 0; `Validar score` = 13 (Account 4, Scanner 1, Watchlist 8). 104 testes do subset verdes, suíte cheia também. Commit `a2339dd`.
 
 ---
 
