@@ -6955,6 +6955,8 @@ def test_launch_start_minimized(monkeypatch):
         def exec(self):
             FakeApp.exec_called = True
             return 0
+        def setWindowIcon(self, *_a, **_kw):
+            pass
         @staticmethod
         def setAttribute(attr, val):
             pass
@@ -6987,6 +6989,8 @@ def test_launch_show_maximized(monkeypatch):
             pass
         def exec(self):
             return 0
+        def setWindowIcon(self, *_a, **_kw):
+            pass
         @staticmethod
         def setAttribute(attr, val):
             pass
