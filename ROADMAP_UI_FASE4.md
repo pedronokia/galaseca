@@ -109,7 +109,7 @@ diz "Erro durante a sincronização".
 
 ---
 
-### Frente BB — EmptyState: unificar glifos canônicos (impact: ALTO) [deps: nenhuma]
+### Frente BB — EmptyState: unificar glifos canônicos (impact: ALTO) [deps: nenhuma] ✅
 
 **Contexto:** componente `EmptyState` (`components.py:67`) recebe glifo
 livre. Hoje cada tela escolhe o que quer:
@@ -154,6 +154,8 @@ do `EmptyState` documenta a regra.
 - `EmptyState("◇", "X").grab()` non-null; idem `◎`.
 
 **Commit:** `ui: unifica glifos de empty state (◇ sem dados, ◎ pronto pra agir)`
+
+✅ **Resultado:** Account troca `"○"` por `"◇"` (`account_screen.py:352`) e Watchlist troca `"☆"` por `"◇"` (`watchlist_screen.py:316`) — ambas se encaixam em "ainda sem dados". Docstring do `EmptyState` (`components.py:67`) passa a documentar a regra dos 2 glifos canônicos com mapeamento explícito de telas. Demais telas (History, Trades, Market `◇` + Scanner `◎`) já estavam no padrão. Greps de aceite (`EmptyState(\s*icon\s*=\s*"[^◇◎]` e variante posicional) retornam vazio. 1376 testes verdes (o `test_launch_start_minimized` deselected ficou destravado pelo commit paralelo `e2e4d90`). Commit `e14be60`.
 
 ---
 
