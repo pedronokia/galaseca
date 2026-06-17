@@ -210,7 +210,7 @@ secundárias vivem em ⋯. Tooltip em todas. Atalhos de teclado preservados.
 
 ---
 
-### Frente DD — ActivityFeed: encolher quando vazio (impact: médio) [deps: nenhuma]
+### Frente DD — ActivityFeed: encolher quando vazio (impact: médio) [deps: nenhuma] ✅
 
 **Contexto:** `ActivityFeed` (`components.py:647`) tem
 `setMinimumWidth(280)` e `setMaximumWidth(380)`. Na Account
@@ -240,6 +240,8 @@ título + empty message; com ≥1 evento, expande pra 280px+ com chips.
 - Chips visíveis só quando há eventos.
 
 **Commit:** `ui: ActivityFeed encolhe e esconde chips quando vazio`
+
+✅ **Resultado:** `chips_row` reembrulhado num `QWidget` (`_chips_w`) pra dar `setVisible()`. Novo método `_apply_empty_layout(is_empty)` alterna `minimumWidth` entre 200 (vazio) e 280 (populado) e mostra/esconde `_chips_w`. Chamado no fim de `__init__` (estado inicial vazio) e ao final de `set_events()`. Aceite explícito do roadmap validado: `af.set_events([])` → minW=200 + chips ocultos; `af.set_events([ev])` → minW=280 + chips visíveis; volta pra 200 ao zerar. 16 testes do `ActivityFeed` continuam verdes, suíte cheia também. Commit `8c55dbd`.
 
 ---
 
