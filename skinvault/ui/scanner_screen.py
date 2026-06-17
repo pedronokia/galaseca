@@ -34,7 +34,7 @@ from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     Card, EmptyState, LoadingState, PageHeader, SectionHeader, StatCard,
-    Toast, ToggleSwitch, Toolbar,
+    Toast, ToggleSwitch,
 )
 from skinvault.ui.scanner_dialogs import _BacktestResultDialog, _ScoreBreakdownDialog
 from skinvault.ui.scanner_widgets import _ScannerBridge, _ValidationBridge
@@ -183,31 +183,54 @@ class ScannerScreen(QWidget):
         )
         self._scan_btn.clicked.connect(self._on_scan)
 
-        self._rank_btn = QPushButton("Ranking Top 20")
-        self._rank_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._rank_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
-                                                     fs=t.FS_INPUT))
+        # Acoes secundarias agrupadas em menu ⋯ (Frente CC: max 2 botoes
+        # diretos no header).
+        self._more_btn = QPushButton("⋯")
+        self._more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._more_btn.setStyleSheet(t.btn_ghost(padding="10px 14px",
+                                                  fs=t.FS_INPUT))
+        self._more_btn.setToolTip("Mais ações.")
+        self._more_menu = QMenu(self._more_btn)
+
+        self._rank_btn = self._more_menu.addAction("Ranking Top 20")
         self._rank_btn.setToolTip(
             "Escaneia TODAS as categorias e gera ranking dos 20 melhores"
             " scores. Demora vários minutos pelo rate-limit do Steam."
         )
-        self._rank_btn.clicked.connect(self._on_ranking)
+        self._rank_btn.triggered.connect(self._on_ranking)
 
-        self._validate_btn = QPushButton("Validar Score")
-        self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._validate_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
-                                                          fs=t.FS_INPUT))
+        self._validate_btn = self._more_menu.addAction("Validar Score")
         self._validate_btn.setToolTip(
             "Roda backtest histórico nos itens escaneados (horizonte 90d)."
             " Mostra se o score realmente prediz retornos pra esses itens."
             " Demora ~2s por item pelo rate-limit do Steam."
         )
-        self._validate_btn.clicked.connect(self._on_validate_score)
+        self._validate_btn.triggered.connect(self._on_validate_score)
+
+        self._more_menu.addSeparator()
+
+        self._clear_cache_btn = self._more_menu.addAction("Limpar cache SSR")
+        self._clear_cache_btn.setToolTip(
+            "Limpa o cache local de dados SSR (PriceHistoryCache)."
+            " Útil quando você quer forçar busca nova da Steam na próxima"
+            " consulta. O cache expira automaticamente em 24h."
+        )
+        self._clear_cache_btn.triggered.connect(self._on_clear_ssr_cache)
+
+        self._export_btn = self._more_menu.addAction("Exportar CSV")
+        self._export_btn.setToolTip(
+            "Exporta os resultados do scan atual para CSV."
+            " Abre dialogo para escolher nome e pasta."
+        )
+        self._export_btn.triggered.connect(self._on_export_csv)
+        self._export_btn.setEnabled(False)
+
+        self._more_btn.setMenu(self._more_menu)
 
         root.addWidget(PageHeader(
             "Scanner de Oportunidades",
             "Análise multi-fator — score 0-100.",
-            actions=[self._cat_combo, self._scan_btn, self._rank_btn, self._validate_btn],
+            actions=[self._cat_combo, self._scan_btn, self._more_btn],
         ))
 
         # Banner de aviso quando update recente da Valve afetou a categoria
@@ -235,32 +258,6 @@ class ScannerScreen(QWidget):
             stats_row.addWidget(sc)
         stats_row.addStretch(1)
         root.addLayout(stats_row)
-
-        # Ghost buttons (Limpar cache SSR, Exportar CSV) — acima da tabela
-        ghost_tb = Toolbar()
-        self._clear_cache_btn = QPushButton("Limpar cache SSR")
-        self._clear_cache_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._clear_cache_btn.setStyleSheet(t.btn_ghost())
-        self._clear_cache_btn.setToolTip(
-            "Limpa o cache local de dados SSR (PriceHistoryCache)."
-            " Útil quando você quer forçar busca nova da Steam na próxima"
-            " consulta. O cache expira automaticamente em 24h."
-        )
-        self._clear_cache_btn.clicked.connect(self._on_clear_ssr_cache)
-        ghost_tb.add_right(self._clear_cache_btn)
-
-        self._export_btn = QPushButton("Exportar CSV")
-        self._export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._export_btn.setStyleSheet(t.btn_ghost())
-        self._export_btn.setToolTip(
-            "Exporta os resultados do scan atual para CSV."
-            " Abre dialogo para escolher nome e pasta."
-        )
-        self._export_btn.clicked.connect(self._on_export_csv)
-        self._export_btn.setEnabled(False)
-        ghost_tb.add_right(self._export_btn)
-
-        root.addWidget(ghost_tb)
 
         # Filtros acima da tabela
         from skinvault.settings import load_settings as _load

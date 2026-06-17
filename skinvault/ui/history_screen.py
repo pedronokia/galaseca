@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QStackedWidget,
     QTableWidget,
@@ -477,32 +478,34 @@ class HistoryScreen(QWidget):
         reload_btn.clicked.connect(self.refresh)
         tb.add_right(reload_btn)
 
-        export_btn = QPushButton("Exportar CSV")
-        export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        export_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
-        export_btn.setToolTip("Salva o conteudo da tabela atual em arquivo CSV.")
-        export_btn.clicked.connect(self._on_export_csv)
-        tb.add_right(export_btn)
-
-        self._backfill_icons_btn = QPushButton("Buscar ícones")
-        self._backfill_icons_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._backfill_icons_btn.setStyleSheet(
-            t.btn_ghost(padding="8px 14px", fs=t.FS_BODY),
-        )
-        self._backfill_icons_btn.setToolTip(
-            "Busca os icones PNG dos eventos do Steam Market antigos"
-            " (sincronizados antes da Phase B). Uma chamada por nome unico,"
-            " ~2s entre cada. Roda em background — pode demorar varios minutos."
-        )
-        self._backfill_icons_btn.clicked.connect(self._on_backfill_icons)
-        tb.add_right(self._backfill_icons_btn)
-
         sim_btn = QPushButton("Simular trade")
         sim_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         sim_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         sim_btn.setToolTip("Calcula lucro real apos taxa Steam de 15%.")
         sim_btn.clicked.connect(self._open_simulator)
         tb.add_right(sim_btn)
+
+        # Acoes secundarias agrupadas em menu ⋯ (Frente CC: max 2 botoes
+        # diretos no header).
+        self._more_btn = QPushButton("⋯")
+        self._more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._more_btn.setStyleSheet(t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
+        self._more_btn.setToolTip("Mais ações.")
+        self._more_menu = QMenu(self._more_btn)
+        self._act_export_csv = self._more_menu.addAction("Exportar CSV")
+        self._act_export_csv.setToolTip(
+            "Salva o conteudo da tabela atual em arquivo CSV."
+        )
+        self._act_export_csv.triggered.connect(self._on_export_csv)
+        self._backfill_icons_btn = self._more_menu.addAction("Buscar ícones")
+        self._backfill_icons_btn.setToolTip(
+            "Busca os icones PNG dos eventos do Steam Market antigos"
+            " (sincronizados antes da Phase B). Uma chamada por nome unico,"
+            " ~2s entre cada. Roda em background — pode demorar varios minutos."
+        )
+        self._backfill_icons_btn.triggered.connect(self._on_backfill_icons)
+        self._more_btn.setMenu(self._more_menu)
+        tb.add_right(self._more_btn)
 
         root.addWidget(tb)
 
