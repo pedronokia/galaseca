@@ -313,7 +313,7 @@ class WatchlistScreen(QWidget):
 
         # Empty state (mostrado quando watchlist vazia)
         self._empty_hero = EmptyState(
-            icon="☆",
+            icon="◇",
             title="Sua watchlist está vazia",
             subtitle=("Adicione itens pra monitorar preços\n"
                        "e configurar alertas personalizados."),

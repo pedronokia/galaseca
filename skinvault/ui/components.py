@@ -67,6 +67,12 @@ def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
 class EmptyState(QWidget):
     """Hero centralizado pra empty states. Icone + headline + sub + CTA opcional.
 
+    Glifos canonicos (use SOMENTE estes dois):
+    - "◇" (U+25C7) para "ainda sem dados" — esperando o usuario popular.
+      Telas: Account, History, Trades, Watchlist, Market (sem busca).
+    - "◎" (U+25CE) para "pronto pra agir" — empty state com CTA imediato.
+      Telas: Scanner e similares.
+
     Uso:
         es = EmptyState("◇", "Nenhum item ainda",
                          subtitle="Adicione manualmente ou sincronize.",

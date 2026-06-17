@@ -349,7 +349,7 @@ class AccountScreen(QWidget):
 
         # Empty state: inventario vazio (apos sync, sem itens marketable)
         self._empty_hero = EmptyState(
-            icon="○",
+            icon="◇",
             title="Inventário vazio",
             subtitle=("Sincronize sua conta com a Steam pra puxar seu inventário\n"
                        "ou adicione posições manualmente pelo CLI."),
