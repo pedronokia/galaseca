@@ -387,7 +387,7 @@ class SteamSyncDialog(QDialog):
         self._close_btn.setEnabled(True)
         self._close_btn.setText("Fechar")
         QMessageBox.warning(self, "Falha no sync",
-                            f"Erro durante a sincronizacao:\n{msg}")
+                            f"Erro durante a sincronização:\n{msg}")
 
 
 def _format_sync_result(step: str, result: dict) -> str:
@@ -396,7 +396,7 @@ def _format_sync_result(step: str, result: dict) -> str:
     if step == "inventory":
         added = result.get("added", 0)
         total = added + result.get("skipped", 0)
-        return f"{added} novos / {total} no inventario"
+        return f"{added} novos / {total} no inventário"
     if step == "market":
         return f"{result.get('new', 0)} novos / {result.get('total', 0)} total"
     if step == "listings":
@@ -787,7 +787,7 @@ class MainWindow(QMainWindow):
         QMessageBox.about(
             self, "Sobre o SkinVault",
             "<b>SkinVault</b> v1.0<br><br>"
-            "Avaliacao de inventario CS2 sem login.<br>"
+            "Avaliação de inventário CS2 sem login.<br>"
             "Precos publicos da Steam Community Market.<br><br>"
             "Lucro real apos taxa de 15% da Steam.<br>"
             "Nao preve futuro — so' dados factuais.<br><br>"

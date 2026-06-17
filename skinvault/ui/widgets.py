@@ -198,7 +198,7 @@ class ValueChart(QWidget):
         if len(self._values) < 2:
             p.setPen(QColor(t.TEXT_MUTED))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Avalie 2x+ pra ver a evolucao do valor")
+                       "Avalie 2x+ pra ver a evolução do valor")
             p.end()
             return
         vmin, vmax = min(self._values), max(self._values)

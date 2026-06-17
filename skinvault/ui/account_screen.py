@@ -185,7 +185,7 @@ class AccountScreen(QWidget):
         self._strip_sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._strip_sync_btn.setStyleSheet(t.btn_steam())
         self._strip_sync_btn.setToolTip(
-            "Puxa seu inventario, market history, listings ativas e trade "
+            "Puxa seu inventário, market history, listings ativas e trade "
             "offers da Steam. Usa cookies salvos da sessao."
         )
         self._strip_sync_btn.clicked.connect(self.request_sync.emit)
@@ -432,7 +432,7 @@ class AccountScreen(QWidget):
     def refresh(self) -> None:
         """Avalia portfolio em thread e atualiza tabela + stats."""
         self._progress.setVisible(True)
-        self._status.setText("Avaliando inventario...")
+        self._status.setText("Avaliando inventário...")
         self._price_worker.start()
         self._reload_activity()
 
@@ -462,7 +462,7 @@ class AccountScreen(QWidget):
         history.record_snapshot(total)
 
     def _on_eval_progress(self, done: int, total: int) -> None:
-        self._status.setText(f"Avaliando inventario... {done}/{total}")
+        self._status.setText(f"Avaliando inventário... {done}/{total}")
 
     # ── Validar Score do Portfolio ───────────────────────
     def _on_refresh_scores(self) -> None:
