@@ -667,7 +667,8 @@ class ActivityFeed(Card):
         title.setWordWrap(False)
         self.layout().addWidget(title)
 
-        chips_row = QHBoxLayout()
+        self._chips_w = QWidget()
+        chips_row = QHBoxLayout(self._chips_w)
         chips_row.setContentsMargins(0, 2, 0, 4)
         chips_row.setSpacing(4)
         for key, label, _icon in self._FILTERS:
@@ -682,7 +683,7 @@ class ActivityFeed(Card):
             self._chip_buttons[key] = btn
             chips_row.addWidget(btn)
         chips_row.addStretch(1)
-        self.layout().addLayout(chips_row)
+        self.layout().addWidget(self._chips_w)
 
         self._list_lay = QVBoxLayout()
         self._list_lay.setContentsMargins(0, 4, 0, 0)
@@ -697,6 +698,15 @@ class ActivityFeed(Card):
             f" font-family: {t.FONT_FAMILY}; padding: 16px 0;"
         )
         self._list_lay.addWidget(self._empty)
+
+        # Comeca compacto (sem eventos); set_events ajusta dinamicamente.
+        self._apply_empty_layout(True)
+
+    def _apply_empty_layout(self, is_empty: bool) -> None:
+        """Compacta o painel quando vazio: esconde chips e encolhe a largura
+        minima de 280 pra 200, evitando que vire orfao na coluna lateral."""
+        self._chips_w.setVisible(not is_empty)
+        self.setMinimumWidth(200 if is_empty else 280)
 
     def _chip_style(self) -> str:
         return (
@@ -745,6 +755,7 @@ class ActivityFeed(Card):
     def set_events(self, events: list[dict]) -> None:
         self._all_events = list(events)
         self._render()
+        self._apply_empty_layout(not self._all_events)
 
 
 # ── RecentMatchesStrip ────────────────────────────────────────
