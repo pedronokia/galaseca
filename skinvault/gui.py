@@ -205,18 +205,23 @@ class BackupDialog(QDialog):
         refresh_btn = QPushButton("Atualizar")
         refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         refresh_btn.setStyleSheet(_btn_secondary())
+        refresh_btn.setToolTip("Recarrega a lista de backups do disco.")
         refresh_btn.clicked.connect(self._refresh)
         btn_row.addWidget(refresh_btn)
 
         restore_btn = QPushButton("Restaurar")
         restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         restore_btn.setStyleSheet(_btn_primary("8px 18px", "10pt"))
+        restore_btn.setToolTip(
+            "Restaura o backup selecionado, sobrescrevendo todos os dados atuais."
+        )
         restore_btn.clicked.connect(self._restore)
         btn_row.addWidget(restore_btn)
 
         delete_btn = QPushButton("Deletar")
         delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         delete_btn.setStyleSheet(_btn_danger())
+        delete_btn.setToolTip("Apaga o backup selecionado do disco. Acao irreversivel.")
         delete_btn.clicked.connect(self._delete)
         btn_row.addWidget(delete_btn)
 
@@ -224,6 +229,7 @@ class BackupDialog(QDialog):
         close_btn = QPushButton("Fechar")
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.setStyleSheet(_btn_secondary())
+        close_btn.setToolTip("Fecha o dialogo sem alterar nada.")
         close_btn.clicked.connect(self.accept)
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
@@ -353,6 +359,9 @@ class SteamSyncDialog(QDialog):
         self._close_btn = QPushButton("Fechar")
         self._close_btn.setEnabled(False)
         self._close_btn.setStyleSheet(_btn_secondary())
+        self._close_btn.setToolTip(
+            "Fecha o dialogo. Habilita quando a sincronizacao termina."
+        )
         self._close_btn.clicked.connect(self.accept)
         root.addWidget(self._close_btn, 0, Qt.AlignmentFlag.AlignRight)
 

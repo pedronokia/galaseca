@@ -145,6 +145,7 @@ class EmptyState(QWidget):
             cta = QPushButton(cta_label)
             cta.setCursor(Qt.CursorShape.PointingHandCursor)
             cta.setStyleSheet(t.btn_primary(padding="12px 28px", fs=t.FS_INPUT))
+            cta.setToolTip(cta_label)
             cta.clicked.connect(self.cta_clicked.emit)
             if on_cta is not None:
                 self.cta_clicked.connect(on_cta)
@@ -452,6 +453,7 @@ class SegmentedControl(QWidget):
 
     def add(self, key: str, label: str) -> None:
         btn = QPushButton(label)
+        btn.setToolTip(label)
         btn.setCheckable(True)
         btn.setAutoExclusive(True)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -570,6 +572,7 @@ class LockOverlay(QWidget):
         cta = QPushButton("Quero ser avisado quando lançar")
         cta.setCursor(Qt.CursorShape.PointingHandCursor)
         cta.setStyleSheet(t.btn_steam(padding="12px 28px", fs=t.FS_INPUT))
+        cta.setToolTip("Registra interesse — avisamos quando o recurso for liberado.")
         cta.clicked.connect(self.cta_clicked.emit)
         lay.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)
 
@@ -677,6 +680,7 @@ class ActivityFeed(Card):
             btn.setCheckable(True)
             btn.setAutoExclusive(True)
             btn.setStyleSheet(self._chip_style())
+            btn.setToolTip(f"Filtra a atividade por: {label}.")
             btn.clicked.connect(lambda _checked, k=key: self._set_filter(k))
             if key == "all":
                 btn.setChecked(True)
