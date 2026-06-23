@@ -417,12 +417,18 @@ def _format_sync_result(step: str, result: dict) -> str:
 
 # ── MainWindow (QMainWindow) ────────────────────────────────────
 class MainWindow(QMainWindow):
+    # Tamanho compacto da janela enquanto no LoginGate (sem sessao). O app
+    # so maximiza apos conectar — login nao abre em tela cheia.
+    LOGIN_WIN_W = 560
+    LOGIN_WIN_H = 640
+
     def __init__(self) -> None:
         super().__init__()
         settings = load_settings()
         theme = settings.get("theme", "dark")
         set_theme(theme)
         self._current_theme = theme
+        self._login_mode = False
         self.setWindowTitle("SkinVault")
         self.setWindowIcon(_app_icon())
 
@@ -594,6 +600,25 @@ class MainWindow(QMainWindow):
 
     def _on_sidebar_visibility(self, visible: bool) -> None:
         self._sidebar_dock.setVisible(visible)
+        self._set_login_mode(not visible)
+
+    def _set_login_mode(self, login: bool) -> None:
+        """Janela compacta no login; maximizada no app.
+
+        Chamado via sidebar_visibility_changed (False = login, True = app).
+        Durante o __init__ a janela ainda nao esta visivel — aqui so
+        ajustamos o tamanho/centro; quem decide show()/showMaximized() e
+        o launch(). Em runtime (conectar/desconectar) a transicao e
+        aplicada na hora.
+        """
+        self._login_mode = login
+        if login:
+            if self.isMaximized():
+                self.showNormal()
+            self.resize(self.LOGIN_WIN_W, self.LOGIN_WIN_H)
+            self._center_on_screen()
+        elif self.isVisible():
+            self.showMaximized()
 
     def _on_navigated(self, screen: str) -> None:
         sidebar = self._sidebar_dock.widget()
@@ -713,6 +738,9 @@ class MainWindow(QMainWindow):
 
     # ── geometry ──────────────────────────────────────────────
     def _save_geometry(self) -> None:
+        # Nao persistir o tamanho compacto do login como geometria do app.
+        if self._login_mode:
+            return
         s = load_settings()
         s["window_geometry"] = {"w": self.width(), "h": self.height()}
         s["window_position"] = {"x": self.x(), "y": self.y()}
@@ -885,6 +913,10 @@ def launch() -> int:
     elif settings.get("overlay_mode", False):
         # Overlay: show() em vez de showMaximized() pra nao se sobrepor
         # totalmente ao jogo, mantendo a janela em tamanho gerenciavel.
+        win.show()
+    elif win._login_mode:
+        # Sem sessao: janela compacta (ja dimensionada/centrada no
+        # _set_login_mode); nao maximizar o login.
         win.show()
     else:
         win.showMaximized()

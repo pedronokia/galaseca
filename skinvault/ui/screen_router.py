@@ -15,6 +15,7 @@ from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
+    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -155,6 +156,26 @@ class ScreenRouter(QWidget):
         root.addWidget(self._stack, 1)
         # Footer global removido na Frente S — o indicador de sessao virou
         # o chip no rodape da sidebar (session_changed -> Sidebar.set_session).
+
+        # Faz o stack dimensionar pela tela ATUAL, nao pela maior — sem isto
+        # o minimumSizeHint do stack e o max de todas as telas (~1187x1398),
+        # impedindo a janela compacta do LoginGate.
+        self._stack.currentChanged.connect(self._sync_stack_policies)
+        self._sync_stack_policies()
+
+    def _sync_stack_policies(self, *_a) -> None:
+        """Telas nao-ativas recebem policy Ignored (minimumSize -> 0); a
+        ativa volta a Preferred. Assim a janela pode encolher ao minimo da
+        tela visivel (LoginGate cabe em ~460x530)."""
+        cur = self._stack.currentIndex()
+        for i in range(self._stack.count()):
+            w = self._stack.widget(i)
+            pol = w.sizePolicy()
+            p = (QSizePolicy.Policy.Preferred if i == cur
+                 else QSizePolicy.Policy.Ignored)
+            pol.setHorizontalPolicy(p)
+            pol.setVerticalPolicy(p)
+            w.setSizePolicy(pol)
 
     def _check_session(self) -> None:
         s = steam_session.load()

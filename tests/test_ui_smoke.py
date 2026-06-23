@@ -6967,6 +6967,7 @@ def test_launch_start_minimized(monkeypatch):
     hidden = []
     class FakeWin:
         _tray_icon = type("T", (), {})()
+        _login_mode = False
         def hide(self):
             hidden.append(True)
         def showMaximized(self):
@@ -7000,6 +7001,7 @@ def test_launch_show_maximized(monkeypatch):
     shown = []
     class FakeWin:
         _tray_icon = None
+        _login_mode = False
         def hide(self):
             pass
         def showMaximized(self):
@@ -7009,6 +7011,42 @@ def test_launch_show_maximized(monkeypatch):
     result = launch()
     assert result == 0
     assert len(shown) == 1
+
+
+def test_launch_login_mode_compact(monkeypatch):
+    """launch() sem sessao (login_mode) usa show() compacto, nao maximiza."""
+    from skinvault._paths import DATA_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    class FakeApp:
+        def __init__(self, argv):
+            pass
+        def exec(self):
+            return 0
+        def setWindowIcon(self, *_a, **_kw):
+            pass
+        @staticmethod
+        def setAttribute(attr, val):
+            pass
+
+    monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    calls = {"show": 0, "max": 0}
+    class FakeWin:
+        _tray_icon = None
+        _login_mode = True
+        def hide(self):
+            pass
+        def show(self):
+            calls["show"] += 1
+        def showMaximized(self):
+            calls["max"] += 1
+    monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
+    from skinvault.gui import launch
+    result = launch()
+    assert result == 0
+    assert calls["show"] == 1
+    assert calls["max"] == 0
 
 
 # ── Validar score (AccountScreen) ────────
