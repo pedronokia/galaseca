@@ -4,8 +4,8 @@ Emite session_connected(SteamSession) ao terminar o login.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
@@ -19,6 +19,34 @@ from PyQt6.QtWidgets import (
 from skinvault import steam_session
 from skinvault.steam_login_dialog import build_steam_login_dialog
 from skinvault.ui import theme as t
+from skinvault.ui.components import Card, line_icon_pixmap
+
+
+def _feature_card(icon_name: str, title: str, desc: str) -> Card:
+    """Card de feature: glifo LineIcon + titulo + 1 linha de valor.
+
+    Mesmo padrao do welcome_dialog, trazido pro gate pra preencher o
+    espaco e dizer *o que* cada area faz (nao so o nome).
+    """
+    card = Card()
+    card.setMinimumWidth(150)
+
+    icn = QLabel()
+    icn.setPixmap(line_icon_pixmap(icon_name, t.ACCENT, 26))
+    icn.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    card.layout().addWidget(icn, 0, Qt.AlignmentFlag.AlignCenter)
+
+    ttl = QLabel(title)
+    ttl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    ttl.setStyleSheet(t.label_section())
+    card.layout().addWidget(ttl)
+
+    d = QLabel(desc)
+    d.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    d.setWordWrap(True)
+    d.setStyleSheet(t.label_body_muted())
+    card.layout().addWidget(d)
+    return card
 
 
 class LoginGate(QWidget):
@@ -40,7 +68,7 @@ class LoginGate(QWidget):
         # ── Hero central ──────────────────────────────────
         hero = QVBoxLayout()
         hero.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hero.setSpacing(16)
+        hero.setSpacing(12)
 
         # Accent line decorativa
         accent_line = QLabel()
@@ -68,17 +96,30 @@ class LoginGate(QWidget):
         )
         hero.addWidget(tagline)
 
-        features = QLabel("Inventário  ·  Histórico  ·  Simulação  ·  Scanner")
-        features.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        features.setStyleSheet(
-            f"color: {t.ACCENT}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY}; font-weight: 500;"
-            f" letter-spacing: 2px;"
-        )
-        hero.addWidget(features)
-
         outer.addLayout(hero)
-        outer.addSpacing(48)
+        outer.addSpacing(32)
+
+        # ── Feature cards ─────────────────────────────────
+        cards_host = QWidget()
+        cards_host.setMaximumWidth(720)
+        cards_row = QHBoxLayout(cards_host)
+        cards_row.setContentsMargins(0, 0, 0, 0)
+        cards_row.setSpacing(12)
+        cards_row.addWidget(_feature_card(
+            "wallet", "Inventário", "Avaliado a preço de mercado"
+        ), 1)
+        cards_row.addWidget(_feature_card(
+            "history", "Histórico", "Evolução do patrimônio"
+        ), 1)
+        cards_row.addWidget(_feature_card(
+            "calc", "Simulação", "Teste trades sem risco"
+        ), 1)
+        cards_row.addWidget(_feature_card(
+            "radar", "Scanner", "Score 0–100 por item"
+        ), 1)
+        outer.addWidget(cards_host, 0, Qt.AlignmentFlag.AlignCenter)
+
+        outer.addSpacing(40)
 
         # ── CTA enorme ────────────────────────────────────
         btn_row = QHBoxLayout()
@@ -89,6 +130,8 @@ class LoginGate(QWidget):
         connect_btn.setMinimumHeight(64)
         connect_btn.setFixedWidth(400)
         connect_btn.setStyleSheet(t.btn_steam(padding="18px 44px", fs="14pt"))
+        connect_btn.setIcon(QIcon(line_icon_pixmap("steam", "#DDF4FF", 20)))
+        connect_btn.setIconSize(QSize(20, 20))
         connect_btn.setToolTip(
             "Abre o login do Steam no Chrome. Sua sessao fica salva no "
             "PC — voce so faz login uma vez."

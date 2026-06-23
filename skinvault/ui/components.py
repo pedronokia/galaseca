@@ -359,10 +359,46 @@ class LineIcon(QWidget):
         p.drawLine(QPointF(13, 3), QPointF(13, 6))
         p.drawLine(QPointF(3, 9), QPointF(15, 9))
 
+    def _draw_steam(self, p: QPainter) -> None:
+        # logo Steam simplificado: corpo grande (inf-esq) com nucleo
+        # preenchido + pino menor (sup-dir) ligados por um "cano".
+        p.drawEllipse(QRectF(2.5, 7, 8, 8))            # corpo grande
+        p.setBrush(QColor(self._color))
+        p.drawEllipse(QRectF(5.2, 9.7, 2.6, 2.6))      # nucleo preenchido
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawEllipse(QRectF(10.5, 2.5, 5, 5))         # pino sup-dir
+        p.drawLine(QPointF(6.6, 11), QPointF(13, 5))   # cano ligando os dois
+
     def _draw_fallback(self, p: QPainter) -> None:
         p.drawEllipse(QRectF(3, 3, 12, 12))
 
 
+def line_icon_pixmap(name: str, color: str = t.TEXT, size: int = 18) -> QPixmap:
+    """Renderiza um glifo do LineIcon para QPixmap (ex.: icone em QPushButton).
+
+    Reusa o mesmo desenho QPainter do LineIcon (stroke 1.5px, cap
+    arredondado) num pixmap transparente, escalando do viewBox 18x18 pro
+    `size` pedido. Util onde se precisa de QIcon e nao de um QWidget.
+    """
+    pm = QPixmap(size, size)
+    pm.fill(Qt.GlobalColor.transparent)
+    src = LineIcon(name, color)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(color))
+    pen.setWidthF(1.5)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    p.setPen(pen)
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    if size != LineIcon.SIZE:
+        s = size / LineIcon.SIZE
+        p.scale(s, s)
+    drawer = getattr(src, f"_draw_{name}", src._draw_fallback)
+    drawer(p)
+    p.end()
+    src.deleteLater()
+    return pm
 
 
 
