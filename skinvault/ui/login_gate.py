@@ -19,38 +19,52 @@ from PyQt6.QtWidgets import (
 from skinvault import steam_session
 from skinvault.steam_login_dialog import build_steam_login_dialog
 from skinvault.ui import theme as t
-from skinvault.ui.components import Card, line_icon_pixmap
+from skinvault.ui.components import LineIcon, line_icon_pixmap
 
 
-def _feature_card(icon_name: str, title: str, desc: str) -> Card:
-    """Card de feature: glifo LineIcon + titulo + 1 linha de valor.
+def _divider() -> QWidget:
+    """Linha fina 1px (BORDER) pra separar blocos dentro do cartao."""
+    d = QWidget()
+    d.setFixedHeight(1)
+    d.setStyleSheet(f"background: {t.BORDER};")
+    return d
 
-    Mesmo padrao do welcome_dialog, trazido pro gate pra preencher o
-    espaco e dizer *o que* cada area faz (nao so o nome).
+
+def _feature_row(icon_name: str, title: str, desc: str) -> QWidget:
+    """Linha de feature: glifo LineIcon + titulo + descricao (lista limpa).
+
+    Substitui as caixas/cards — leve, alinhada a esquerda, sem fundo.
     """
-    card = Card()
-    card.setMinimumWidth(150)
+    row = QWidget()
+    lay = QHBoxLayout(row)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(14)
 
-    icn = QLabel()
-    icn.setPixmap(line_icon_pixmap(icon_name, t.ACCENT, 26))
-    icn.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    card.layout().addWidget(icn, 0, Qt.AlignmentFlag.AlignCenter)
+    icn = LineIcon(icon_name, t.ACCENT)
+    lay.addWidget(icn, 0, Qt.AlignmentFlag.AlignTop)
+
+    text = QVBoxLayout()
+    text.setContentsMargins(0, 0, 0, 0)
+    text.setSpacing(1)
 
     ttl = QLabel(title)
-    ttl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    ttl.setStyleSheet(t.label_section())
-    card.layout().addWidget(ttl)
+    ttl.setStyleSheet(
+        f"color: {t.TEXT}; font-size: {t.FS_INPUT}; font-weight: 600;"
+        f" font-family: {t.FONT_FAMILY};"
+    )
+    text.addWidget(ttl)
 
     d = QLabel(desc)
-    d.setAlignment(Qt.AlignmentFlag.AlignCenter)
     d.setWordWrap(True)
-    d.setStyleSheet(t.label_body_muted())
-    card.layout().addWidget(d)
-    return card
+    d.setStyleSheet(t.label_caption())
+    text.addWidget(d)
+
+    lay.addLayout(text, 1)
+    return row
 
 
 class LoginGate(QWidget):
-    """Tela cheia centralizada com CTA pra conectar Steam."""
+    """Tela cheia com cartao de login contido e centralizado."""
 
     session_connected = pyqtSignal(object)
 
@@ -65,91 +79,82 @@ class LoginGate(QWidget):
         outer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         outer.setSpacing(0)
 
-        # ── Hero central ──────────────────────────────────
-        hero = QVBoxLayout()
-        hero.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hero.setSpacing(12)
+        # ── Cartao contido ────────────────────────────────
+        card = QWidget()
+        card.setObjectName("LoginCard")
+        card.setFixedWidth(440)
+        card.setStyleSheet(
+            f"QWidget#LoginCard {{ background: {t.BG_ELEVATED};"
+            f" border: 1px solid {t.BORDER};"
+            f" border-radius: {t.RADIUS_LG}px; }}"
+        )
+        col = QVBoxLayout(card)
+        col.setContentsMargins(36, 34, 36, 28)
+        col.setSpacing(0)
 
         # Accent line decorativa
         accent_line = QLabel()
-        accent_line.setFixedSize(48, 3)
-        accent_line.setStyleSheet(
-            f"background: {t.ACCENT}; border-radius: 2px;"
-        )
-        hero.addWidget(accent_line, 0, Qt.AlignmentFlag.AlignCenter)
-
-        hero.addSpacing(8)
+        accent_line.setFixedSize(40, 3)
+        accent_line.setStyleSheet(f"background: {t.ACCENT}; border-radius: 2px;")
+        col.addWidget(accent_line)
+        col.addSpacing(18)
 
         title = QLabel("SkinVault")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
-            f"color: {t.TEXT}; font-size: {t.FS_ICON_LG}; font-weight: 700;"
+            f"color: {t.TEXT}; font-size: {t.FS_HERO}; font-weight: 700;"
             f" font-family: {t.FONT_FAMILY}; letter-spacing: -1px;"
         )
-        hero.addWidget(title)
+        col.addWidget(title)
+        col.addSpacing(10)
 
         tagline = QLabel("Análise inteligente do Steam Community Market")
-        tagline.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        tagline.setStyleSheet(
-            f"color: {t.TEXT_MUTED}; font-size: 14pt;"
-            f" font-family: {t.FONT_FAMILY}; font-weight: 400;"
-        )
-        hero.addWidget(tagline)
+        tagline.setWordWrap(True)
+        tagline.setStyleSheet(t.label_body_muted())
+        col.addWidget(tagline)
 
-        outer.addLayout(hero)
-        outer.addSpacing(32)
+        col.addSpacing(24)
+        col.addWidget(_divider())
+        col.addSpacing(24)
 
-        # ── Feature cards ─────────────────────────────────
-        cards_host = QWidget()
-        cards_host.setMaximumWidth(720)
-        cards_row = QHBoxLayout(cards_host)
-        cards_row.setContentsMargins(0, 0, 0, 0)
-        cards_row.setSpacing(12)
-        cards_row.addWidget(_feature_card(
-            "wallet", "Inventário", "Avaliado a preço de mercado"
-        ), 1)
-        cards_row.addWidget(_feature_card(
-            "history", "Histórico", "Evolução do patrimônio"
-        ), 1)
-        cards_row.addWidget(_feature_card(
-            "calc", "Simulação", "Teste trades sem risco"
-        ), 1)
-        cards_row.addWidget(_feature_card(
-            "radar", "Scanner", "Score 0–100 por item"
-        ), 1)
-        outer.addWidget(cards_host, 0, Qt.AlignmentFlag.AlignCenter)
+        # ── Lista de features ─────────────────────────────
+        features = [
+            ("wallet", "Inventário", "Avaliado a preço de mercado, já com a taxa"),
+            ("history", "Histórico", "Evolução do patrimônio a cada sync"),
+            ("calc", "Simulação", "Teste trades antes de fazer"),
+            ("radar", "Scanner", "Score 0–100 do que comprar e evitar"),
+        ]
+        for i, (icon, ttl, desc) in enumerate(features):
+            if i:
+                col.addSpacing(16)
+            col.addWidget(_feature_row(icon, ttl, desc))
 
-        outer.addSpacing(40)
+        col.addSpacing(26)
 
-        # ── CTA enorme ────────────────────────────────────
-        btn_row = QHBoxLayout()
-        btn_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
+        # ── CTA full-width ────────────────────────────────
         connect_btn = QPushButton("  Conectar com Steam  ")
         connect_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        connect_btn.setMinimumHeight(64)
-        connect_btn.setFixedWidth(400)
-        connect_btn.setStyleSheet(t.btn_steam(padding="18px 44px", fs="14pt"))
-        connect_btn.setIcon(QIcon(line_icon_pixmap("steam", "#DDF4FF", 20)))
-        connect_btn.setIconSize(QSize(20, 20))
+        connect_btn.setMinimumHeight(52)
+        connect_btn.setStyleSheet(t.btn_steam(padding="14px 24px", fs="12pt"))
+        connect_btn.setIcon(QIcon(line_icon_pixmap("steam", "#DDF4FF", 19)))
+        connect_btn.setIconSize(QSize(19, 19))
         connect_btn.setToolTip(
             "Abre o login do Steam no Chrome. Sua sessao fica salva no "
             "PC — voce so faz login uma vez."
         )
         connect_btn.clicked.connect(self._on_connect)
-        btn_row.addWidget(connect_btn)
+        col.addWidget(connect_btn)
 
-        outer.addLayout(btn_row)
-
-        outer.addSpacing(16)
+        col.addSpacing(14)
 
         footnote = QLabel(
-            "Cookies de sessão salvos localmente · "
-            "Desconecte quando quiser"
+            "Cookies de sessão salvos localmente · Desconecte quando quiser"
         )
         footnote.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        footnote.setWordWrap(True)
         footnote.setStyleSheet(t.label_caption())
-        outer.addWidget(footnote, 0, Qt.AlignmentFlag.AlignCenter)
+        col.addWidget(footnote)
+
+        outer.addWidget(card, 0, Qt.AlignmentFlag.AlignCenter)
 
     def _on_connect(self) -> None:
         dlg = build_steam_login_dialog(self)
