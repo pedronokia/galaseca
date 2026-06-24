@@ -64,32 +64,31 @@ def _feature_row(icon_name: str, title: str, desc: str) -> QWidget:
 
 
 class LoginGate(QWidget):
-    """Tela cheia com cartao de login contido e centralizado."""
+    """Tela de login — superficie unica (BG_ELEVATED), sem cartao flutuante.
+
+    O fundo da janela inteira (router + breadcrumb) tambem vira BG_ELEVATED
+    via ScreenRouter._set_surface, entao aqui o conteudo fica direto sobre a
+    superficie, centralizado, sem moldura.
+    """
 
     session_connected = pyqtSignal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("LoginGate")
-        self.setStyleSheet(f"QWidget#LoginGate {{ background: {t.BG}; }}")
+        self.setStyleSheet(f"QWidget#LoginGate {{ background: {t.BG_ELEVATED}; }}")
         self._build()
 
     def _build(self) -> None:
         outer = QVBoxLayout(self)
-        outer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        # ── Cartao contido ────────────────────────────────
-        card = QWidget()
-        card.setObjectName("LoginCard")
-        card.setFixedWidth(440)
-        card.setStyleSheet(
-            f"QWidget#LoginCard {{ background: {t.BG_ELEVATED};"
-            f" border: 1px solid {t.BORDER};"
-            f" border-radius: {t.RADIUS_LG}px; }}"
-        )
-        col = QVBoxLayout(card)
-        col.setContentsMargins(36, 34, 36, 28)
+        # Conteudo centralizado (vertical + horizontal), largura limitada.
+        content = QWidget()
+        content.setFixedWidth(400)
+        col = QVBoxLayout(content)
+        col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(0)
 
         # Accent line decorativa
@@ -154,7 +153,9 @@ class LoginGate(QWidget):
         footnote.setStyleSheet(t.label_caption())
         col.addWidget(footnote)
 
-        outer.addWidget(card, 0, Qt.AlignmentFlag.AlignCenter)
+        outer.addStretch(1)
+        outer.addWidget(content, 0, Qt.AlignmentFlag.AlignHCenter)
+        outer.addStretch(1)
 
     def _on_connect(self) -> None:
         dlg = build_steam_login_dialog(self)

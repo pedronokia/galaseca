@@ -419,8 +419,8 @@ def _format_sync_result(step: str, result: dict) -> str:
 class MainWindow(QMainWindow):
     # Tamanho compacto da janela enquanto no LoginGate (sem sessao). O app
     # so maximiza apos conectar — login nao abre em tela cheia.
-    LOGIN_WIN_W = 560
-    LOGIN_WIN_H = 640
+    LOGIN_WIN_W = 480
+    LOGIN_WIN_H = 560
 
     def __init__(self) -> None:
         super().__init__()

@@ -200,12 +200,22 @@ class ScreenRouter(QWidget):
         self._stack.setCurrentWidget(self._login_gate)
         if changed and self._stack.isVisible():
             fade_in(self._login_gate)
+        self._set_surface(login=True)
         self._breadcrumb.set_path("Bem-vindo")
         self.session_changed.emit("", "")
         self.sidebar_visibility_changed.emit(False)
 
+    def _set_surface(self, login: bool) -> None:
+        """No login a janela inteira e' uma superficie clara (BG_ELEVATED),
+        sem cartao flutuando sobre fundo escuro; no app volta ao BG escuro
+        com telas/cards por cima."""
+        bg = t.BG_ELEVATED if login else t.BG
+        self.setStyleSheet(f"QWidget#ScreenRouter {{ background: {bg}; }}")
+        self._breadcrumb.set_surface(bg)
+
     def _on_session(self, session: steam_session.SteamSession) -> None:
         self._session = session
+        self._set_surface(login=False)
         self._account_screen.set_session(session)
         sid = session.steamid
         # Tenta usar o nome do perfil em cache; cai pro steamid truncado

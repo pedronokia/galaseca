@@ -409,9 +409,7 @@ class Breadcrumb(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(40)
-        self.setStyleSheet(
-            f"background: {t.BG}; border-bottom: 1px solid {t.BORDER};"
-        )
+        self.set_surface(t.BG)
         lay = QHBoxLayout(self)
         lay.setContentsMargins(20, 0, 20, 0)
         self._label = QLabel("")
@@ -429,6 +427,12 @@ class Breadcrumb(QWidget):
         self._actions_lay.setSpacing(4)
         self._actions_widget.setVisible(False)
         lay.addWidget(self._actions_widget)
+
+    def set_surface(self, color: str) -> None:
+        """Troca a cor de fundo da barra (ex.: superficie unica no login)."""
+        self.setStyleSheet(
+            f"background: {color}; border-bottom: 1px solid {t.BORDER};"
+        )
 
     def set_path(self, *parts: str) -> None:
         body = "  ›  ".join(p for p in parts if p)
