@@ -91,6 +91,9 @@ class ScreenRouter(QWidget):
         self._theme_btn = QPushButton()
         self._theme_btn.setFixedSize(34, 34)
         self._theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Botoes-icone de toolbar nao pegam foco de teclado — evita o anel de
+        # foco espurio no toggle ao abrir (o foco inicial vai pro CTA).
+        self._theme_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._theme_btn.setStyleSheet(t.btn_ghost(padding="0", fs=t.FS_MUTED))
         self._theme_btn.setToolTip("Alternar tema claro/escuro")
         self._theme_icon = LineIcon("sun", t.TEXT_MUTED, self._theme_btn)
@@ -105,6 +108,7 @@ class ScreenRouter(QWidget):
         self._profile_btn = QPushButton()
         self._profile_btn.setFixedSize(34, 34)
         self._profile_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._profile_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._profile_btn.setStyleSheet(t.btn_ghost(padding="0", fs=t.FS_MUTED))
         self._profile_btn.setToolTip("Minha Conta")
         self._profile_icon = LineIcon("user", t.TEXT_MUTED, self._profile_btn)
@@ -212,6 +216,9 @@ class ScreenRouter(QWidget):
         bg = t.BG_ELEVATED if login else t.BG
         self.setStyleSheet(f"QWidget#ScreenRouter {{ background: {bg}; }}")
         self._breadcrumb.set_surface(bg)
+        # Perfil leva a "Minha Conta" (exige sessao) — sem login e' peso
+        # morto; some no gate, fica so o toggle de tema.
+        self._profile_btn.setVisible(not login)
 
     def _on_session(self, session: steam_session.SteamSession) -> None:
         self._session = session

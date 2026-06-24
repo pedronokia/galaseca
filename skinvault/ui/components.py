@@ -408,6 +408,7 @@ class Breadcrumb(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setObjectName("Breadcrumb")
         self.setFixedHeight(40)
         self.set_surface(t.BG)
         lay = QHBoxLayout(self)
@@ -429,9 +430,15 @@ class Breadcrumb(QWidget):
         lay.addWidget(self._actions_widget)
 
     def set_surface(self, color: str) -> None:
-        """Troca a cor de fundo da barra (ex.: superficie unica no login)."""
+        """Troca a cor de fundo da barra (ex.: superficie unica no login).
+
+        Seletor com objectName e' obrigatorio — sem ele o `background` e a
+        `border-bottom` propagam pros filhos (label, acoes), desenhando
+        linhas/tarjas espurias (vide pitfall Frente M).
+        """
         self.setStyleSheet(
-            f"background: {color}; border-bottom: 1px solid {t.BORDER};"
+            f"QWidget#Breadcrumb {{ background: {color};"
+            f" border-bottom: 1px solid {t.BORDER}; }}"
         )
 
     def set_path(self, *parts: str) -> None:
