@@ -330,6 +330,11 @@ class SteamLoginDialog(QDialog):
                 logger.info("Tentativa 2: %d cookies Steam via CDP", len(cookies))
 
         steamid = extract_steamid_from_cookie(cookies) or ""
+        logger.info(
+            "Cookies capturados: steamid=%s, has_secure=%s, has_refresh_token=%s",
+            bool(steamid), bool(cookies.get("steamLoginSecure")),
+            bool(cookies.get("steamRefresh_steam")),
+        )
         if not steamid or not cookies.get("steamLoginSecure"):
             logger.warning(
                 "Cookies insuficientes: steamid=%s, has_secure=%s",

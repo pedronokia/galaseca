@@ -8,6 +8,7 @@ Emite navigated(screen) e sidebar_visibility_changed(bool).
 """
 from __future__ import annotations
 
+import logging
 from typing import Callable
 
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -34,6 +35,8 @@ from skinvault.ui.settings_screen import SettingsScreen
 from skinvault.ui.simulador_screen import SimuladorScreen
 from skinvault.ui.trades_screen import TradesScreen
 from skinvault.ui.watchlist_screen import WatchlistScreen
+
+logger = logging.getLogger(__name__)
 
 
 SCREEN_ACCOUNT = "account"
@@ -183,11 +186,19 @@ class ScreenRouter(QWidget):
 
     def _check_session(self) -> None:
         s = steam_session.load()
-        if s and s.is_complete():
+        if s is None:
+            logger.info("Nenhuma sessao salva em disco (data/steam_session.json ausente)")
+        elif not s.is_complete():
+            logger.warning("Sessao salva incompleta (falta steamid ou steamLoginSecure)")
+        else:
+            has_refresh = bool(s.cookies.get("steamRefresh_steam"))
+            logger.info("Sessao carregada (steamid=%s, tem refresh token=%s)",
+                        s.steamid, has_refresh)
             # ensure_valid renova via steamRefresh_steam se o token de
             # acesso expirou — evita relogin manual a cada ~24h. persist
             # salva os cookies renovados in-place.
             if steam_session.ensure_valid(s):
+                logger.info("Sessao valida (ou renovada com sucesso), pulando login")
                 steam_session.persist(s)
                 self._on_session(s)
                 return
@@ -195,8 +206,17 @@ class ScreenRouter(QWidget):
             # retry. Uma falha transiente (rede) no boot nao pode apagar o
             # steamRefresh_steam (~1 ano) — senao um blip de rede forca
             # relogin manual. Com refresh token, mantem no disco pra proxima.
-            if not s.cookies.get("steamRefresh_steam"):
+            if not has_refresh:
+                logger.warning(
+                    "Sessao invalida e sem refresh token -- apagando "
+                    "data/steam_session.json, sera necessario relogin"
+                )
                 steam_session.clear()
+            else:
+                logger.warning(
+                    "Sessao invalida mas refresh token presente -- "
+                    "mantendo arquivo para nova tentativa no proximo start"
+                )
         self._show_login()
 
     def _show_login(self) -> None:

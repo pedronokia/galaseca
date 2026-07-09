@@ -5,6 +5,7 @@ Dialogs reutilizaveis aqui. Importada via 'python -m skinvault --ui'.
 """
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from pathlib import Path
@@ -899,8 +900,23 @@ class MainWindow(QMainWindow):
             self._on_sync_requested(sess)
 
 
+def _setup_logging() -> None:
+    """Log em arquivo (data/skinvault.log) -- sob pythonw.exe nao ha console,
+    entao sem isto todo logger.warning/info do app (incluindo o ciclo de
+    sessao Steam) some sem deixar rastro."""
+    log_path = DATA_DIR / "skinvault.log"
+    handler = logging.FileHandler(log_path, encoding="utf-8")
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s: %(message)s"
+    ))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
+
+
 def launch() -> int:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _setup_logging()
     QApplication.setAttribute(
         Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True
     )

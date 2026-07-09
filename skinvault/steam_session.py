@@ -114,12 +114,16 @@ def validate(session: SteamSession, timeout: float = 10.0) -> bool:
     final_url = _follow_redirect("https://steamcommunity.com/my/",
                                  session.cookie_header(), timeout)
     if not final_url:
+        logger.warning("validate: sem resposta de /my/ (erro de rede/timeout)")
         return False
     if "/login" in final_url:
+        logger.info("validate: expirada (redirect para %s)", final_url)
         return False
     if "/profiles/" in final_url or "/id/" in final_url:
         session.validated_at = time.time()
         return True
+    logger.warning("validate: redirect inesperado (%s), tratando como invalida",
+                    final_url)
     return False
 
 
@@ -265,6 +269,10 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
     """
     token = _refresh_token_from_cookies(session.cookies)
     if not token or not session.steamid:
+        logger.warning(
+            "refresh: abortado (token_presente=%s, steamid_presente=%s)",
+            bool(token), bool(session.steamid),
+        )
         return False
 
     session_id = secrets.token_hex(12)
@@ -278,14 +286,19 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
         },
     )
     if not fin:
+        logger.warning("refresh: finalizelogin nao respondeu (erro de rede)")
         return False
     _status, raw, _ = fin
     try:
         data = json.loads(raw.decode("utf-8", "replace"))
     except Exception:
+        logger.warning("refresh: finalizelogin retornou status=%s corpo nao-JSON: %r",
+                        _status, raw[:200])
         return False
     transfers = data.get("transfer_info") or []
     if not transfers:
+        logger.warning("refresh: finalizelogin sem transfer_info (status=%s, corpo=%r)",
+                        _status, data)
         return False
 
     tokens: dict[str, str] = {}  # host -> steamLoginSecure emitido
@@ -319,11 +332,14 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
     if new_secure is None and tokens:
         new_secure = next(iter(tokens.values()))
     if not new_secure:
+        logger.warning("refresh: nenhum transfer devolveu steamLoginSecure (hosts=%s)",
+                        list(tokens.keys()))
         return False
 
     session.cookies["steamLoginSecure"] = new_secure
     session.cookies["sessionid"] = session_id
     session.captured_at = time.time()
+    logger.info("refresh: sucesso, steamLoginSecure renovado")
     return True
 
 
