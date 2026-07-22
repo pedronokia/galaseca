@@ -1236,8 +1236,8 @@ def test_screen_router_session_property():
 def test_screen_router_check_session_valid(monkeypatch):
     """_check_session com sessao valida redireciona para account."""
     monkeypatch.setattr("skinvault.steam_session.load", _fake_session)
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid",
-                        lambda s: True)
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex",
+                        lambda s: "valid")
     persist_calls = []
     monkeypatch.setattr("skinvault.steam_session.persist",
                         lambda s: persist_calls.append(s))
@@ -1255,8 +1255,8 @@ def test_screen_router_check_session_valid(monkeypatch):
 def test_screen_router_check_session_invalid(monkeypatch):
     """_check_session com sessao invalida (sem renovar) mostra login."""
     monkeypatch.setattr("skinvault.steam_session.load", _fake_session)
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid",
-                        lambda s: False)
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex",
+                        lambda s: "invalid")
     clear_calls = []
     monkeypatch.setattr("skinvault.steam_session.clear",
                         lambda: clear_calls.append(True))
@@ -1273,8 +1273,8 @@ def test_screen_router_keeps_session_with_refresh_token_on_failure(monkeypatch):
                         {"steamLoginSecure": "tok",
                          "steamRefresh_steam": "76561198000000001||rt"})
     monkeypatch.setattr("skinvault.steam_session.load", lambda: sess)
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid",
-                        lambda s: False)
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex",
+                        lambda s: "invalid")
     clear_calls = []
     monkeypatch.setattr("skinvault.steam_session.clear",
                         lambda: clear_calls.append(True))
@@ -1314,7 +1314,7 @@ def test_screen_router_navigate_unknown():
 def test_screen_router_navigate_all_screens(monkeypatch):
     """navigate() funciona para todas as telas validas."""
     monkeypatch.setattr("skinvault.steam_session.load", lambda: _fake_session())
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid", lambda s: True)
+    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex", lambda s: "valid")
     monkeypatch.setattr("skinvault.steam_session.persist", lambda s: None)
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
@@ -6962,6 +6962,7 @@ def test_launch_start_minimized(monkeypatch):
             pass
 
     monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings",
                         lambda: {"start_minimized": True})
     hidden = []
@@ -6997,6 +6998,7 @@ def test_launch_show_maximized(monkeypatch):
             pass
 
     monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
     shown = []
     class FakeWin:
@@ -7030,6 +7032,7 @@ def test_launch_login_mode_compact(monkeypatch):
             pass
 
     monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
     calls = {"show": 0, "max": 0}
     class FakeWin:

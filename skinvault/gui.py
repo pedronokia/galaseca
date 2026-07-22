@@ -967,14 +967,24 @@ class MainWindow(QMainWindow):
 def _setup_logging() -> None:
     """Log em arquivo (data/skinvault.log) -- sob pythonw.exe nao ha console,
     entao sem isto todo logger.warning/info do app (incluindo o ciclo de
-    sessao Steam) some sem deixar rastro."""
+    sessao Steam) some sem deixar rastro.
+
+    Idempotente: chamadas repetidas no mesmo processo (testes de launch)
+    nao acumulam handlers — cada duplicata repetiria toda linha no arquivo.
+    """
     log_path = DATA_DIR / "skinvault.log"
-    handler = logging.FileHandler(log_path, encoding="utf-8")
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    for h in root.handlers:
+        if isinstance(h, logging.FileHandler) \
+                and getattr(h, "baseFilename", "") == str(log_path):
+            return
+    from logging.handlers import RotatingFileHandler
+    handler = RotatingFileHandler(
+        log_path, maxBytes=512_000, backupCount=1, encoding="utf-8")
     handler.setFormatter(logging.Formatter(
         "%(asctime)s %(levelname)s %(name)s: %(message)s"
     ))
-    root = logging.getLogger()
-    root.setLevel(logging.INFO)
     root.addHandler(handler)
 
 

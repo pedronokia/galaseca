@@ -1,4 +1,4 @@
-"""Testes do steam_session -- logica pura (mocks de rede)."""
+﻿"""Testes do steam_session -- logica pura (mocks de rede)."""
 from __future__ import annotations
 
 import json
@@ -209,7 +209,7 @@ class TestValidate:
         assert validate(s) is False
 
 
-# ── _follow_redirect ──────────────────────────────────────────────
+# â”€â”€ _follow_redirect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_follow_redirect_success(monkeypatch):
@@ -265,7 +265,7 @@ class TestRefreshTokenExtractor:
         assert ss._refresh_token_from_cookies({"steamRefresh_steam": ""}) is None
 
     def test_no_pipes_returns_whole_value(self):
-        # Token sem prefixo steamid — usa o valor inteiro
+        # Token sem prefixo steamid â€” usa o valor inteiro
         cookies = {"steamRefresh_steam": "rawjwt"}
         assert ss._refresh_token_from_cookies(cookies) == "rawjwt"
 
@@ -493,3 +493,109 @@ class TestMergeCookies:
         out = merge_cookies(existing, new)
         assert out == {"sessionid": "x", "steamCountry": "BR",
                        "steamLoginSecure": "tok"}
+
+
+class TestValidateEx:
+    def test_network_error_returns_none(self, monkeypatch):
+        monkeypatch.setattr(ss, "_follow_redirect", lambda u, c, t: None)
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.validate_ex(s) is None
+
+    def test_expired_returns_false(self, monkeypatch):
+        monkeypatch.setattr(
+            ss, "_follow_redirect",
+            lambda u, c, t: "https://steamcommunity.com/login/home/")
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.validate_ex(s) is False
+
+    def test_valid_returns_true(self, monkeypatch):
+        monkeypatch.setattr(
+            ss, "_follow_redirect",
+            lambda u, c, t: f"https://steamcommunity.com/profiles/{SAMPLE_STEAMID}/")
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.validate_ex(s) is True
+
+    def test_incomplete_session_returns_false_sem_rede(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(ss, "_follow_redirect",
+                            lambda u, c, t: calls.append(u))
+        s = SteamSession(steamid="", cookies={})
+        assert ss.validate_ex(s) is False
+        assert calls == []
+
+
+class TestEnsureValidEx:
+    def test_valid_direto(self, monkeypatch):
+        monkeypatch.setattr(ss, "validate_ex", lambda s, t=15.0: True)
+        monkeypatch.setattr(ss, "refresh",
+                            lambda s, t=15.0: pytest.fail("nao deve renovar"))
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid_ex(s) == "valid"
+
+    def test_network_error_nao_tenta_refresh(self, monkeypatch):
+        monkeypatch.setattr(ss, "validate_ex", lambda s, t=15.0: None)
+        monkeypatch.setattr(ss, "refresh",
+                            lambda s, t=15.0: pytest.fail("rede fora: nao renovar"))
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid_ex(s) == "network_error"
+
+    def test_refresh_recupera(self, monkeypatch):
+        states = iter([False, True])
+        monkeypatch.setattr(ss, "validate_ex", lambda s, t=15.0: next(states))
+        monkeypatch.setattr(ss, "refresh", lambda s, t=15.0: True)
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid_ex(s) == "valid"
+
+    def test_invalid_quando_refresh_falha(self, monkeypatch):
+        monkeypatch.setattr(ss, "validate_ex", lambda s, t=15.0: False)
+        monkeypatch.setattr(ss, "refresh", lambda s, t=15.0: False)
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid_ex(s) == "invalid"
+
+    def test_network_error_pos_refresh(self, monkeypatch):
+        states = iter([False, None])  # expirada; pos-refresh a rede caiu
+        monkeypatch.setattr(ss, "validate_ex", lambda s, t=15.0: next(states))
+        monkeypatch.setattr(ss, "refresh", lambda s, t=15.0: True)
+        s = SteamSession(steamid=SAMPLE_STEAMID, cookies=dict(SAMPLE_COOKIES))
+        assert ss.ensure_valid_ex(s) == "network_error"
+
+
+class TestRefreshTokenRotation:
+    def _session_with_refresh(self):
+        cookies = dict(SAMPLE_COOKIES)
+        cookies["steamRefresh_steam"] = f"{SAMPLE_STEAMID}||refresh.jwt.sig"
+        return SteamSession(steamid=SAMPLE_STEAMID, cookies=cookies)
+
+    def test_captura_rotacao_no_finalizelogin(self, monkeypatch):
+        def mock_post(url, fields, timeout, extra_headers=None):
+            if "finalizelogin" in url:
+                payload = json.dumps({"transfer_info": [
+                    {"url": "https://steamcommunity.com/login/settoken",
+                     "params": {"nonce": "n"}},
+                ]}).encode()
+                return 200, payload, [
+                    "steamRefresh_steam=ROTATED.jwt.sig; Path=/; HttpOnly",
+                ]
+            return 200, b"{}", [
+                f"steamLoginSecure={SAMPLE_STEAMID}%7C%7CNEW; Path=/"]
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        assert ss.refresh(s) is True
+        assert s.cookies["steamRefresh_steam"] == "ROTATED.jwt.sig"
+
+    def test_sem_rotacao_mantem_token_antigo(self, monkeypatch):
+        def mock_post(url, fields, timeout, extra_headers=None):
+            if "finalizelogin" in url:
+                payload = json.dumps({"transfer_info": [
+                    {"url": "https://steamcommunity.com/login/settoken",
+                     "params": {"nonce": "n"}},
+                ]}).encode()
+                return 200, payload, []
+            return 200, b"{}", [
+                f"steamLoginSecure={SAMPLE_STEAMID}%7C%7CNEW; Path=/"]
+        monkeypatch.setattr(ss, "_post_multipart", mock_post)
+        s = self._session_with_refresh()
+        old = s.cookies["steamRefresh_steam"]
+        assert ss.refresh(s) is True
+        assert s.cookies["steamRefresh_steam"] == old
+

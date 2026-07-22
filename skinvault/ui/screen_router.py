@@ -194,19 +194,23 @@ class ScreenRouter(QWidget):
             has_refresh = bool(s.cookies.get("steamRefresh_steam"))
             logger.info("Sessao carregada (steamid=%s, tem refresh token=%s)",
                         s.steamid, has_refresh)
-            # ensure_valid renova via steamRefresh_steam se o token de
+            # ensure_valid_ex renova via steamRefresh_steam se o token de
             # acesso expirou — evita relogin manual a cada ~24h. persist
             # salva os cookies renovados in-place.
-            if steam_session.ensure_valid(s):
+            status = steam_session.ensure_valid_ex(s)
+            if status == "valid":
                 logger.info("Sessao valida (ou renovada com sucesso), pulando login")
                 steam_session.persist(s)
                 self._on_session(s)
                 return
-            # Falha: so' descarta a sessao se NAO ha refresh token pra
-            # retry. Uma falha transiente (rede) no boot nao pode apagar o
-            # steamRefresh_steam (~1 ano) — senao um blip de rede forca
-            # relogin manual. Com refresh token, mantem no disco pra proxima.
-            if not has_refresh:
+            if status == "network_error":
+                # Rede fora no boot: impossivel saber se a sessao expirou.
+                # Apagar aqui forcaria relogin manual por causa de um blip.
+                logger.warning(
+                    "Sem resposta da Steam (rede fora?) -- mantendo "
+                    "data/steam_session.json para o proximo start"
+                )
+            elif not has_refresh:
                 logger.warning(
                     "Sessao invalida e sem refresh token -- apagando "
                     "data/steam_session.json, sera necessario relogin"

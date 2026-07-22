@@ -109,13 +109,23 @@ def validate(session: SteamSession, timeout: float = 10.0) -> bool:
 
     Atualiza session.validated_at em sucesso.
     """
+    return validate_ex(session, timeout) is True
+
+
+def validate_ex(session: SteamSession, timeout: float = 10.0) -> bool | None:
+    """Como validate(), mas distingue erro de rede de sessao expirada.
+
+    Retorna True (valida), False (expirada/invalida) ou None (rede fora —
+    impossivel saber se a sessao expirou; o chamador NAO deve descartar
+    a sessao nesse caso).
+    """
     if not session.is_complete():
         return False
     final_url = _follow_redirect("https://steamcommunity.com/my/",
                                  session.cookie_header(), timeout)
     if not final_url:
         logger.warning("validate: sem resposta de /my/ (erro de rede/timeout)")
-        return False
+        return None
     if "/login" in final_url:
         logger.info("validate: expirada (redirect para %s)", final_url)
         return False
@@ -288,7 +298,11 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
     if not fin:
         logger.warning("refresh: finalizelogin nao respondeu (erro de rede)")
         return False
-    _status, raw, _ = fin
+    _status, raw, fin_cookies = fin
+    # A Steam pode rotacionar o refresh token no proprio finalizelogin.
+    # Ignorar deixaria um token morto no disco — o proximo refresh falharia
+    # e forcaria relogin manual.
+    rotated_refresh = _extract_cookie_value(fin_cookies, "steamRefresh_steam")
     try:
         data = json.loads(raw.decode("utf-8", "replace"))
     except Exception:
@@ -320,6 +334,9 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
         val = _extract_cookie_value(res[2], "steamLoginSecure")
         if val:
             tokens[host] = val
+        rot = _extract_cookie_value(res[2], "steamRefresh_steam")
+        if rot:
+            rotated_refresh = rot
 
     # Prefere o token do dominio community — e' o que validate()/sync usam.
     # Os tokens sao audience-scoped: pegar o do store por engano (ex.: o
@@ -338,6 +355,9 @@ def refresh(session: SteamSession, timeout: float = 15.0) -> bool:
 
     session.cookies["steamLoginSecure"] = new_secure
     session.cookies["sessionid"] = session_id
+    if rotated_refresh:
+        session.cookies["steamRefresh_steam"] = rotated_refresh
+        logger.info("refresh: steamRefresh_steam rotacionado pela Steam, atualizado")
     session.captured_at = time.time()
     logger.info("refresh: sucesso, steamLoginSecure renovado")
     return True
@@ -355,3 +375,28 @@ def ensure_valid(session: SteamSession, timeout: float = 15.0) -> bool:
     if refresh(session, timeout) and validate(session, timeout):
         return True
     return False
+
+
+def ensure_valid_ex(session: SteamSession, timeout: float = 15.0) -> str:
+    """Como ensure_valid(), mas distingue por que a sessao nao esta valida.
+
+    Retorna:
+    - "valid": sessao utilizavel (com ou sem refresh no caminho); cookies
+      possivelmente renovados in-place — persistir.
+    - "network_error": rede fora, impossivel saber se expirou. NAO
+      descartar a sessao do disco.
+    - "invalid": Steam respondeu e a sessao esta mesmo expirada (e o
+      refresh nao conseguiu renovar).
+    """
+    first = validate_ex(session, timeout)
+    if first is True:
+        return "valid"
+    if first is None:
+        return "network_error"
+    if refresh(session, timeout):
+        second = validate_ex(session, timeout)
+        if second is True:
+            return "valid"
+        if second is None:
+            return "network_error"
+    return "invalid"
