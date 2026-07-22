@@ -30,6 +30,9 @@ _DATA_FILES = [
     "steam_market_events.json",
     "active_listings.json",
     "trade_history.json",
+    # Watcher de arquivos do jogo (gamedata.py)
+    "gamedata_state.json",
+    "gamedata_events.json",
 ]
 
 

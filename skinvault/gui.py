@@ -294,6 +294,10 @@ class _SyncBridge(QObject):
     failed = pyqtSignal(str)
 
 
+class _GamedataBridge(QObject):
+    events_found = pyqtSignal(list)
+
+
 class SteamSyncDialog(QDialog):
     _STEPS = (
         ("inventory", "Inventario CS2"),
@@ -475,6 +479,7 @@ class MainWindow(QMainWindow):
         self._router.start()
 
         self._setup_shortcuts()
+        self._init_gamedata_watcher()
 
         if settings.get("auto_backup", True):
             backup.make_backup()
@@ -736,6 +741,65 @@ class MainWindow(QMainWindow):
     def _on_tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self._restore_from_tray()
+
+    # ── gamedata watcher (updates do CS2 via GameTracking-CS2) ─
+    _GAMEDATA_INTERVAL_MS = 6 * 3600 * 1000
+    _GAMEDATA_FIRST_CHECK_MS = 20_000
+
+    def _init_gamedata_watcher(self) -> None:
+        """Polling do items_game.txt: 1 checagem 20s pos-boot + a cada 6h.
+
+        Cada ciclo custa 1 request na API do GitHub (limite anonimo 60/h);
+        downloads dos arquivos so acontecem quando o commit muda.
+        """
+        self._gamedata_checking = False
+        self._gamedata_bridge = _GamedataBridge()
+        self._gamedata_bridge.events_found.connect(self._on_gamedata_events)
+        self._gamedata_timer = QTimer(self)
+        self._gamedata_timer.setInterval(self._GAMEDATA_INTERVAL_MS)
+        self._gamedata_timer.timeout.connect(self._check_gamedata_updates)
+        self._gamedata_timer.start()
+        QTimer.singleShot(
+            self._GAMEDATA_FIRST_CHECK_MS, self._check_gamedata_updates,
+        )
+
+    def _check_gamedata_updates(self) -> None:
+        if self._gamedata_checking:
+            return
+        self._gamedata_checking = True
+        bridge = self._gamedata_bridge
+
+        def _worker() -> None:
+            try:
+                from skinvault import gamedata
+                result = gamedata.check_for_updates()
+                events = result.get("events") or []
+                if events:
+                    gamedata.record_events_as_alerts(events)
+                    bridge.events_found.emit(events)
+            except Exception as e:
+                print(f"WARNING: gamedata check failed: {e}",
+                      file=__import__('sys').stderr)
+            finally:
+                self._gamedata_checking = False
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_gamedata_events(self, events: list) -> None:
+        """Notifica via tray os eventos de update do jogo (agregado)."""
+        if not load_settings().get("tray_notifications", True):
+            return
+        lines = [ev.get("summary", "") for ev in events[:3]]
+        extra = len(events) - 3
+        if extra > 0:
+            lines.append(f"... e mais {extra} evento(s)")
+        severity = "opportunity" if any(
+            ev.get("type") in ("drop_pool_removed", "xpshop_removed")
+            for ev in events
+        ) else "info"
+        self._on_notification(
+            "SkinVault: update do CS2 detectado", "\n".join(lines), severity,
+        )
 
     # ── geometry ──────────────────────────────────────────────
     def _save_geometry(self) -> None:
