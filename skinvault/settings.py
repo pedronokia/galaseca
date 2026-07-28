@@ -28,6 +28,11 @@ DEFAULTS = {
     "overlay_mode": False,  # janela "stays on top" + show sem roubar foco
     "scanner_hide_low_confidence": False,
     "validate_interval_minutes": 30,  # 0 = desliga schedule automatico
+    # Descoberta de itens por faceta no Market em vez da lista fixa do
+    # scanner. Default OFF: o caminho de rede ainda nao foi validado
+    # ponta a ponta contra a Steam (bloqueio de rate limit persistente em
+    # 2026-07-28). Ligado, cai na lista fixa em qualquer falha.
+    "scanner_discovery": False,
 }
 
 

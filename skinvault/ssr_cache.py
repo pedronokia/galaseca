@@ -66,6 +66,26 @@ class PriceHistoryCache:
         }
         self._save()
 
+    def put_many(self, mapping: dict) -> int:
+        """Armazena varios itens com UM save. Retorna quantos gravou.
+
+        Existe porque uma listing page devolve ate ~10 series de uma vez:
+        chamar put() em laco faria 10 escritas em disco pra um unico fetch.
+        Entradas vazias ou de tipo errado sao ignoradas.
+        """
+        if not isinstance(mapping, dict):
+            return 0
+        now = time.time()
+        gravados = 0
+        for name, ph in mapping.items():
+            if not isinstance(ph, list) or not ph:
+                continue
+            self._data[str(name)] = {"ts": now, "price_history": ph}
+            gravados += 1
+        if gravados:
+            self._save()
+        return gravados
+
     def has(self, name: str) -> bool:
         """True se cache hit e nao expirado."""
         return self.get(name) is not None
@@ -88,6 +108,12 @@ def cached_price_history(
 
     Se cache miss ou expirado, busca via steam_api.get_market_page_data e
     armazena. Retorna None se Steam tambem nao tiver dados.
+
+    A pagina buscada traz as variantes irmas do skin (cada wear x
+    Normal/StatTrak/Souvenir) na MESMA resposta. Todas sao gravadas no
+    cache, nao so' a pedida: sem isso, escanear os 6 wears de um skin
+    custaria 6 requisicoes quando uma ja' respondeu por todas -- e o
+    endpoint e' agressivamente rate-limited.
     """
     from skinvault import steam_api
     cache = cache or PriceHistoryCache()
@@ -97,8 +123,15 @@ def cached_price_history(
     page = steam_api.get_market_page_data(name)
     if not page:
         return None
+
+    variants = page.get("variants")
+    semeados = cache.put_many(variants) if isinstance(variants, dict) else 0
+
     ph = page.get("price_history")
     if ph:
-        cache.put(name, ph)
+        # put_many ja' gravou o item pedido quando ele veio no lote; repetir
+        # so' geraria outra escrita em disco.
+        if not (semeados and isinstance(variants, dict) and name in variants):
+            cache.put(name, ph)
         return ph
     return None

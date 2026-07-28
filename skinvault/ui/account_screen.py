@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -32,9 +34,12 @@ from PyQt6.QtWidgets import (
 
 from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
-from skinvault import history, prices, signals, ssr_cache, steam_session
+from skinvault import (
+    history, markets, prices, signals, ssr_cache, steam_session,
+)
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
+from skinvault.ui.inventory_grid import InventoryGrid
 from skinvault.ui.components import ActivityFeed, Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
 from skinvault.ui.widgets import ValueChart
 from skinvault.ui.profile_fetcher import (
@@ -284,15 +289,22 @@ class AccountScreen(QWidget):
         bd_row.addStretch(1)
         bd_lay.addLayout(bd_row)
 
-        vc_lbl = QLabel("Evolução do valor bruto — cada avaliação grava um ponto")
-        vc_lbl.setStyleSheet(t.label_caption())
-        bd_lay.addWidget(vc_lbl)
+        self._vc_lbl = QLabel(
+            "Evolução do valor bruto — cada avaliação grava um ponto")
+        self._vc_lbl.setStyleSheet(t.label_caption())
+        bd_lay.addWidget(self._vc_lbl)
         self._value_chart = ValueChart()
         bd_lay.addWidget(self._value_chart)
         self._reload_value_series()
 
         breakdown_card.layout().addLayout(bd_lay)
         self._breakdown_card = breakdown_card
+        # Os cartoes de cima informam; o inventario e' o objetivo da tela.
+        # Sem travar a altura deles, sobravam ~150px pra lista -- 5 linhas
+        # visiveis num monitor de 1080p.
+        for card in (header, breakdown_card):
+            card.setSizePolicy(QSizePolicy.Policy.Preferred,
+                               QSizePolicy.Policy.Maximum)
         root.addWidget(breakdown_card)
 
         # Coluna esquerda (filtro + tabela + status) + ActivityFeed lateral
@@ -312,7 +324,22 @@ class AccountScreen(QWidget):
         filt.setStyleSheet(t.input_style())
         filt.textChanged.connect(self._apply_filter)
         self._filter_inp = filt
-        left_col.addWidget(filt)
+
+        # Alternar grade/tabela. A grade e' pra RECONHECER item pelo icone
+        # (como a Steam faz); a tabela e' pra conferir numero. Sao usos
+        # diferentes, entao coexistem em vez de uma substituir a outra.
+        self._view_btn = QPushButton("Ver em tabela")
+        self._view_btn.setToolTip(
+            "Alterna entre grade de icones (estilo Steam) e tabela detalhada.")
+        self._view_btn.setStyleSheet(t.btn_ghost())
+        self._view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._view_btn.clicked.connect(self._toggle_view)
+
+        linha_filtro = QHBoxLayout()
+        linha_filtro.setSpacing(t.SPACE_SM)
+        linha_filtro.addWidget(filt, 1)
+        linha_filtro.addWidget(self._view_btn, 0)
+        left_col.addLayout(linha_filtro)
 
         # Progress bar (indeterminate, hidden by default)
         self._progress = QProgressBar()
@@ -345,7 +372,14 @@ class AccountScreen(QWidget):
             if i != self.COL_NAME:
                 hh.setSectionResizeMode(
                     i, QHeaderView.ResizeMode.ResizeToContents)
-        left_col.addWidget(self._table, 1)
+        # Grade (indice 0, padrao) e tabela (indice 1) no mesmo espaco.
+        self._grid = InventoryGrid(columns=6)
+        self._views = QStackedWidget()
+        self._views.addWidget(self._grid)
+        self._views.addWidget(self._table)
+        left_col.addWidget(self._views, 1)
+        # Comeca na grade, entao o filtro (que so' age na tabela) nasce off.
+        self._filter_inp.setEnabled(False)
 
         # Empty state: inventario vazio (apos sync, sem itens marketable)
         self._empty_hero = EmptyState(
@@ -370,6 +404,9 @@ class AccountScreen(QWidget):
         self._activity_feed = ActivityFeed(self)
         split.addWidget(self._activity_feed, 0)
 
+        # Piso: mesmo com os cartoes cheios, o inventario nunca fica com
+        # menos que isso -- e' o conteudo principal da tela.
+        self._views.setMinimumHeight(340)
         root.addLayout(split, 1)
 
         from PyQt6.QtGui import QKeySequence, QShortcut
@@ -446,11 +483,19 @@ class AccountScreen(QWidget):
         self._activity_feed.set_events(events)
 
     def _reload_value_series(self) -> None:
-        """Recarrega data/history.json no grafico de evolucao do valor."""
+        """Recarrega data/history.json no grafico de evolucao do valor.
+
+        Com menos de 2 pontos nao ha' evolucao pra desenhar. Antes o
+        grafico continuava ocupando ~200px so' pra escrever "Avalie 2x+",
+        e o inventario -- que e' o objetivo da tela -- sobrava espremido no
+        rodape. Sem serie, o bloco inteiro some.
+        """
         series = history.load_history()
-        self._value_chart.set_series(
-            [p.get("total", 0.0) for p in series]
-        )
+        pontos = [p.get("total", 0.0) for p in series]
+        self._value_chart.set_series(pontos)
+        tem_serie = len(pontos) >= 2
+        self._value_chart.setVisible(tem_serie)
+        self._vc_lbl.setVisible(tem_serie)
 
     def _record_value_snapshot(self, total: float) -> None:
         """Grava ponto de valor — pula se igual ao ultimo (o schedule de
@@ -626,45 +671,59 @@ class AccountScreen(QWidget):
             self._stat_gross.set_delta(None)
         self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
                                  accent=t.STEAM_BLUE)
-        pnl = totals.get("pnl") or 0
-        pnl_color = t.POSITIVE if pnl >= 0 else t.DANGER
-        self._stat_pnl.set_value(t.brl(pnl), accent=pnl_color)
-        pnl_pct = totals.get("pnl_pct")
-        if pnl_pct is not None and len(rows) > 0:
-            sign = "+" if pnl_pct >= 0 else ""
-            kind = "positive" if pnl_pct >= 0 else "danger"
-            self._stat_pnl.set_badge(f"{sign}{pnl_pct:.1f}%", kind)
-        else:
+        # P&L so' existe onde ha' custo. Item vindo do sync tem custo
+        # DESCONHECIDO (a Steam nao informa), e exibir R$ 0,00 como se fosse
+        # o custo transformava o inventario inteiro em "lucro".
+        pnl = totals.get("pnl")
+        com_custo = [r for r in rows if r.get("has_cost")]
+        sem_custo = totals.get("unknown_cost") or 0
+        if pnl is None:
+            self._stat_pnl.set_value("—")
             self._stat_pnl.clear_badge()
+            self._stat_pnl.setToolTip(
+                f"Nenhum dos {len(rows)} itens tem custo registrado.\n"
+                "Itens vindos do sync nao trazem quanto voce pagou — sem\n"
+                "isso nao da' pra dizer se houve lucro ou prejuizo.\n"
+                "Informe o custo pelo CLI: --add \"<nome>\" <custo>")
+        else:
+            self._stat_pnl.set_value(
+                t.brl(pnl), accent=t.POSITIVE if pnl >= 0 else t.DANGER)
+            pnl_pct = totals.get("pnl_pct")
+            if pnl_pct is not None:
+                sign = "+" if pnl_pct >= 0 else ""
+                self._stat_pnl.set_badge(
+                    f"{sign}{pnl_pct:.1f}%",
+                    "positive" if pnl_pct >= 0 else "danger")
+            else:
+                self._stat_pnl.clear_badge()
+            self._stat_pnl.setToolTip(
+                f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"
+                f"{sem_custo} sem custo registrado ficaram de fora.")
         self._stat_items.set_value(str(len(rows)))
 
-        # Portfolio breakdown
-        total_cost = sum(
-            r.get("cost_total", 0) or 0 for r in rows
-        )
-        profit_items = sum(1 for r in rows if (r.get("pnl") or 0) > 0)
-        loss_items = sum(1 for r in rows if (r.get("pnl") or 0) < 0)
-        best = max(rows, key=lambda r: r.get("pnl") or 0) if rows else None
-        worst = min(rows, key=lambda r: r.get("pnl") or 0) if rows else None
-        self._bd_invested.set_value(t.brl(total_cost))
+        # Portfolio breakdown -- tudo aqui e' sobre P&L, entao so' conta
+        # item com custo conhecido. Denominador tambem: "0 de 25" mentiria.
+        total_cost = sum(r.get("cost_total", 0) or 0 for r in com_custo)
+        n = len(com_custo)
+        profit_items = sum(1 for r in com_custo if (r.get("pnl") or 0) > 0)
+        loss_items = sum(1 for r in com_custo if (r.get("pnl") or 0) < 0)
+        best = max(com_custo, key=lambda r: r.get("pnl") or 0) if n else None
+        worst = min(com_custo, key=lambda r: r.get("pnl") or 0) if n else None
+        self._bd_invested.set_value(t.brl(total_cost) if n else "—")
+        self._bd_invested.setToolTip(
+            f"{sem_custo} item(ns) sem custo registrado." if sem_custo else "")
         self._bd_profit_count.set_value(
-            f"{profit_items} ({profit_items/len(rows)*100:.0f}%)" if rows else "0",
-            accent=t.POSITIVE
-        )
+            f"{profit_items} de {n}" if n else "—", accent=t.POSITIVE)
         self._bd_loss_count.set_value(
-            f"{loss_items} ({loss_items/len(rows)*100:.0f}%)" if rows else "0",
-            accent=t.DANGER
-        )
+            f"{loss_items} de {n}" if n else "—", accent=t.DANGER)
         from skinvault.localization import localize_name as _ln
         self._bd_best.set_value(
-            t.brl(best['pnl']) if best else "—",
-            accent=t.POSITIVE
-        )
+            t.brl(best["pnl"]) if best and best.get("pnl") is not None
+            else "—", accent=t.POSITIVE)
         self._bd_best.setToolTip(_ln(best.get("name", "")) if best else "")
         self._bd_worst.set_value(
-            t.brl(worst['pnl']) if worst else "—",
-            accent=t.DANGER
-        )
+            t.brl(worst["pnl"]) if worst and worst.get("pnl") is not None
+            else "—", accent=t.DANGER)
         self._bd_worst.setToolTip(_ln(worst.get("name", "")) if worst else "")
 
         # Evolucao do valor: grava snapshot (GUI alimenta o mesmo
@@ -674,13 +733,56 @@ class AccountScreen(QWidget):
             self._record_value_snapshot(total_market)
         self._reload_value_series()
 
-        # Atualiza tabela
+        # Atualiza as duas visoes
         self._populate_table(rows, data["positions"])
+        self._populate_grid(rows, data["positions"])
         now = time.strftime('%H:%M')
         self._status.setText(
             f"{len(rows)} item(ns) • atualizado {now}"
         )
         self._strip_last_sync.setText(f"Ultima sync: {now}")
+
+    def _toggle_view(self) -> None:
+        # `indo_pra_tabela` descreve o estado DEPOIS do clique -- olhar o
+        # estado anterior aqui inverte o filtro, que foi o bug original.
+        indo_pra_tabela = self._views.currentIndex() == 0
+        self._views.setCurrentIndex(1 if indo_pra_tabela else 0)
+        self._view_btn.setText(
+            "Ver em grade" if indo_pra_tabela else "Ver em tabela")
+        # O filtro so' age sobre a tabela; na grade ele confundiria.
+        self._filter_inp.setEnabled(indo_pra_tabela)
+
+    def _populate_grid(self, rows: list[dict],
+                       positions: list[dict]) -> None:
+        """Alimenta a grade com as DUAS avaliacoes de cada item.
+
+        `market_net` vem de mercado com dinheiro real. Falha de rede ou item
+        sem cotacao deixa o campo None -- a grade mostra "sem cotacao" em vez
+        de inventar numero.
+        """
+        try:
+            precos = markets.cached_market("skinport")
+            fx = markets.usd_brl()
+        except Exception:
+            precos, fx = {}, 0.0
+
+        from skinvault.localization import localize_name as _ln
+        itens = []
+        for i, r in enumerate(rows):
+            pos = positions[i] if i < len(positions) else {}
+            nome = r.get("name") or ""
+            cmp_ = markets.compare(r.get("price"), precos.get(nome), fx)
+            itens.append({
+                "name": _ln(nome) or nome,
+                "raw_name": nome,
+                "qty": r.get("quantity") or 1,
+                "icon": pos.get("icon") or r.get("icon"),
+                "type": pos.get("type") or r.get("type") or "",
+                "steam_net": r.get("net_if_sold") or cmp_["steam_net"],
+                "market_net": cmp_["market_net"],
+                "premium_pct": cmp_["premium_pct"],
+            })
+        self._grid.set_items(itens)
 
     def _populate_table(self, rows: list[dict],
                         positions: list[dict]) -> None:

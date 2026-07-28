@@ -140,11 +140,87 @@ evento gera strings diferentes em syncs feitos em anos diferentes.
 `sync.market_event_key` normaliza via `parse_steam_date` → ISO antes
 de hashear.
 
-### 5. `_find_query` faz substring match
+### 4b. O que o backtest mediu (2026-07-28)
 
-`item_name in cached_name` — não match exato. "AK-47 | Redline" pega
-"AK-47 | Redline (Field-Tested)" também. Em geral OK, mas cuidado
-com nomes que são prefixos uns dos outros.
+Corpus de 123 séries, 324 mil pontos diários, 24.306 amostras, horizonte
+90d. Rodado com `simulate_item(with_factors=True)` +
+`cross_sectional_ic` / `factor_ic` / `quintile_spread`.
+
+**O score briga consigo mesmo.** IC por fator:
+
+| fator | IC | datas positivas |
+|---|---|---|
+| mediana | **+0,195** | 82,9% |
+| verdict | **+0,166** | 81,0% |
+| momentum | **−0,192** | 14,3% |
+| multi_period | **−0,140** | 18,7% |
+| **score completo** | **+0,051** | 59,8% |
+
+`momentum` e `multi_period` cancelam `mediana` e `verdict`. Não é ruído:
+o sinal de todos os fatores é estável nas duas metades cronológicas.
+Invertendo os dois, o IC vai a **+0,207** (+0,209 / +0,204 por metade).
+
+**Testado em 7 horizontes (7d a 365d)** — e o resultado refutou a primeira
+explicação, que era "momentum funciona em prazo curto e reverte em 90d":
+
+| horizonte | mediana | momentum | multi_period | vintage | case |
+|---|---|---|---|---|---|
+| 7d | **+0,346** | **−0,327** | −0,238 | +0,028 | +0,016 |
+| 90d | +0,194 | −0,190 | −0,140 | +0,098 | +0,065 |
+| 365d | +0,072 | −0,094 | −0,051 | **+0,221** | **+0,117** |
+
+**Momentum é negativo em TODOS os horizontes, e mais forte no mais curto.**
+Não há regime em que ele acerte. O mercado reverte à média em toda escala
+medida — não existe janela de momentum pra preservar.
+
+Mas existem **duas famílias com horizontes opostos**:
+
+- **Curto prazo, reversão à média** — `mediana`, `verdict`, e
+  `momentum`/`multi_period` invertidos. Mais fortes em 7d, decaem com o
+  horizonte.
+- **Longo prazo, estrutural** — `vintage` e `case`. Quase nulos em 7d,
+  máximos em 365d. É oferta se ajustando ao longo de anos, o mesmo
+  mecanismo do drop pool.
+
+Somar as duas num número só dilui ambas. Separar o score por horizonte
+continua fazendo sentido, mas por este motivo — não pelo que estava
+escrito aqui antes.
+
+**Nada disso vence a taxa.** Quintil superior do score corrigido:
++13,64% brutos em 90d. Com os 15% da Steam: **−3,41% líquidos**. O bruto
+mínimo pra empatar é **17,65%**, não 15% — a taxa incide sobre a venda,
+não sobre o lucro (`net_after_fee` / `breakeven_gross`). A 2% de taxa
+(mercado terceiro), os mesmos 13,64% viram +11,37%.
+
+**Drop pool, medido:** caixa aposentada rendeu +20,3%/ano de mediana nos
+últimos 3 anos (8 de 8 positivas); caixa no pool ativo, −13,4%/ano.
+Kilowatt −80,8%/ano. Sair do pool é quando a valorização começa, não
+quando acaba. Ressalva: n=4 e n=8, e idade está confundida com
+aposentadoria.
+
+Ao mexer no score, meça antes e depois — a infraestrutura está pronta.
+
+### 5. `_find_query` prioriza match exato (corrigido em 2026-07-28)
+
+Ordem de preferência, independente da ordem de iteração do SSR:
+
+1. igualdade exata do nome
+2. substring (`item_name in cached_name`, para nome parcial do chamador)
+3. skin root, só com `loose_match=True`
+4. queryKey sem slot de nome
+
+**Por que a ordem importa.** Antes era substring puro, pegando o
+primeiro que casasse. Mas `"Souvenir X"` e `"StatTrak™ X"` **contêm**
+`"X"` — e uma listing page traz até 10 variantes do mesmo skin. Medido
+numa página real: pedindo `AK-47 | Redline (Field-Tested)` voltava a
+série da **Souvenir**, com 1 ponto de histórico, enquanto a correta
+estava na mesma resposta com **5188**.
+
+Falhava em silêncio, e contaminava tudo que deriva de `price_history`:
+tendência, momentum, multi-período, SMA, suporte/resistência — até 30
+dos 100 pontos do score, calculados sobre 1 ponto do item errado.
+
+Ao mexer aqui, não volte a retornar no primeiro match do laço.
 
 ### 5a. Naming `(Holo-Foil)` com hífen é o correto
 

@@ -138,6 +138,84 @@ def test_cached_price_history_miss_chama_steam(tmp_path, monkeypatch):
     assert calls == ["X"]  # nao chamou de novo
 
 
+# ── put_many + colheita de variantes ───────────────────────────────
+
+
+def test_put_many_grava_lote(tmp_path):
+    c = ssr_cache.PriceHistoryCache(path=tmp_path / "c.json", ttl=3600)
+    n = c.put_many({"A": _mk_history(3), "B": _mk_history(5)})
+    assert n == 2
+    assert len(c.get("A")) == 3
+    assert len(c.get("B")) == 5
+
+
+def test_put_many_ignora_vazio_e_tipo_errado(tmp_path):
+    c = ssr_cache.PriceHistoryCache(path=tmp_path / "c.json", ttl=3600)
+    n = c.put_many({"A": [], "B": "nao e' lista", "C": _mk_history(2)})
+    assert n == 1
+    assert c.get("A") is None
+    assert c.get("B") is None
+    assert len(c.get("C")) == 2
+
+
+def test_put_many_nao_dict_e_seguro(tmp_path):
+    c = ssr_cache.PriceHistoryCache(path=tmp_path / "c.json", ttl=3600)
+    assert c.put_many(None) == 0
+    assert c.put_many([1, 2]) == 0
+
+
+def test_put_many_persiste_em_disco(tmp_path):
+    p = tmp_path / "c.json"
+    ssr_cache.PriceHistoryCache(path=p, ttl=3600).put_many(
+        {"A": _mk_history(3), "B": _mk_history(4)})
+    outra = ssr_cache.PriceHistoryCache(path=p, ttl=3600)
+    assert len(outra.get("A")) == 3
+    assert len(outra.get("B")) == 4
+
+
+def test_variantes_da_pagina_viram_cache_hit(tmp_path, monkeypatch):
+    """O ganho real: buscar 1 wear e os outros virarem hit sem rede."""
+    c = ssr_cache.PriceHistoryCache(path=tmp_path / "c.json", ttl=3600)
+    calls = []
+
+    def _fake_steam(name):
+        calls.append(name)
+        return {
+            "price_history": _mk_history(10),
+            "variants": {
+                "AK-47 | Redline (Field-Tested)": _mk_history(10),
+                "AK-47 | Redline (Minimal Wear)": _mk_history(20),
+                "AK-47 | Redline (Well-Worn)": _mk_history(30),
+                "StatTrak™ AK-47 | Redline (Field-Tested)": _mk_history(40),
+            },
+        }
+
+    monkeypatch.setattr("skinvault.steam_api.get_market_page_data",
+                        _fake_steam)
+
+    ssr_cache.cached_price_history("AK-47 | Redline (Field-Tested)", cache=c)
+    assert calls == ["AK-47 | Redline (Field-Tested)"]
+
+    # As irmas vieram na mesma resposta: nenhuma nova requisicao.
+    assert len(ssr_cache.cached_price_history(
+        "AK-47 | Redline (Minimal Wear)", cache=c)) == 20
+    assert len(ssr_cache.cached_price_history(
+        "AK-47 | Redline (Well-Worn)", cache=c)) == 30
+    assert len(ssr_cache.cached_price_history(
+        "StatTrak™ AK-47 | Redline (Field-Tested)", cache=c)) == 40
+    assert calls == ["AK-47 | Redline (Field-Tested)"], "buscou de novo"
+
+
+def test_sem_variantes_mantem_comportamento_antigo(tmp_path, monkeypatch):
+    """Pagina sem a chave `variants` continua funcionando como antes."""
+    c = ssr_cache.PriceHistoryCache(path=tmp_path / "c.json", ttl=3600)
+    monkeypatch.setattr(
+        "skinvault.steam_api.get_market_page_data",
+        lambda name: {"price_history": _mk_history(6)})
+    assert len(ssr_cache.cached_price_history("Z", cache=c)) == 6
+    assert len(c.get("Z")) == 6
+
+
 def test_cached_price_history_steam_none(tmp_path, monkeypatch):
     p = tmp_path / "c.json"
     c = ssr_cache.PriceHistoryCache(path=p, ttl=3600)

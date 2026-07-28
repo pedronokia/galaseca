@@ -75,8 +75,20 @@ def _find_free_port() -> int:
 
 
 def _find_chrome() -> str | None:
-    """Procura o executavel do Chrome no PATH e locais comuns."""
-    candidates = ["chrome", "google-chrome", "chromium", "chromium-browser"]
+    """Procura um navegador Chromium no PATH e nos locais comuns.
+
+    Nao precisa ser o Chrome: qualquer Chromium aceita
+    --remote-debugging-port e fala CDP, que e' tudo que este dialog usa.
+    Aceitar so' o Chrome deixava o login MORTO em maquina sem ele --
+    incluindo quem usa Edge (presente em todo Windows) ou Vivaldi.
+
+    Ordem: Chrome (mais testado) -> Edge (sempre existe no Windows) ->
+    Vivaldi -> Brave -> Chromium.
+    """
+    candidates = [
+        "chrome", "google-chrome", "chromium", "chromium-browser",
+        "msedge", "vivaldi", "brave", "brave-browser",
+    ]
     for name in candidates:
         try:
             subprocess.run(
@@ -87,9 +99,22 @@ def _find_chrome() -> str | None:
         except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
             pass
     paths = [
+        # Chrome
         os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
         os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
         os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+        # Edge -- instalado por padrao no Windows; o caminho canonico e' o
+        # de 32 bits mesmo em Windows 64.
+        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+        # Vivaldi -- instala no perfil do usuario por padrao.
+        os.path.expandvars(r"%LocalAppData%\Vivaldi\Application\vivaldi.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Vivaldi\Application\vivaldi.exe"),
+        # Brave
+        os.path.expandvars(r"%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+        os.path.expandvars(r"%ProgramFiles(x86)%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+        os.path.expandvars(r"%LocalAppData%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+        # Chromium
         os.path.expandvars(r"%ProgramFiles%\Chromium\Application\chrome.exe"),
     ]
     for p in paths:

@@ -296,6 +296,80 @@ def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> 
     return result
 
 
+def daily_series(price_history: list[dict], days: int | None = None,
+                 now: float | None = None) -> list[dict]:
+    """Agrega o price_history em UM ponto por dia (UTC).
+
+    Existe porque a Steam serve granularidade MISTA: diaria no historico
+    antigo e HORARIA nos ultimos ~28 dias. Medido em 2026-07-28 na serie da
+    AK-47 Redline FT: 4510 intervalos de 86400s contra 641 de 3600s, em
+    5188 pontos. A transicao comecou em 28/06/2026.
+
+    O efeito e' que fatia por contagem mente: `[-15:]` cobre 15 dias na
+    regiao antiga e 15 HORAS na recente. E somar volume direto compara
+    hora com dia (mediana de `purchases`: 605 nos pontos diarios, 3 nos
+    horarios).
+
+    Cada dia vira {time, price_median, purchases}, com preco ponderado por
+    volume quando ha' `purchases` -- que e' o preco medio real das
+    transacoes do dia -- e media simples quando nao ha'.
+
+    Entries sem `time` sao ignorados; use `recent_prices()` quando o
+    historico puder vir sem timestamp.
+    """
+    if not price_history:
+        return []
+    baldes: dict = {}
+    for e in price_history:
+        t = e.get("time")
+        preco = e.get("price_median")
+        if t is None or preco is None:
+            continue
+        try:
+            dia = int(float(t) // 86400)
+        except (TypeError, ValueError):
+            continue
+        try:
+            vol = int(e.get("purchases") or 0)
+        except (TypeError, ValueError):
+            vol = 0
+        b = baldes.setdefault(dia, {"soma_pv": 0.0, "vol": 0,
+                                    "soma_p": 0.0, "n": 0})
+        b["soma_pv"] += float(preco) * vol
+        b["vol"] += vol
+        b["soma_p"] += float(preco)
+        b["n"] += 1
+
+    out = []
+    for dia in sorted(baldes):
+        b = baldes[dia]
+        preco = (b["soma_pv"] / b["vol"]) if b["vol"] else (b["soma_p"] / b["n"])
+        out.append({"time": dia * 86400,
+                    "price_median": preco,
+                    "purchases": b["vol"]})
+    if days is not None and days > 0:
+        ref = now if now is not None else (out[-1]["time"] if out else 0)
+        corte = ref - days * 86400
+        out = [d for d in out if d["time"] > corte]
+    return out
+
+
+def recent_prices(price_history: list[dict], days: int = 15,
+                  now: float | None = None) -> list[float]:
+    """Precos recentes respeitando TEMPO, com fallback por contagem.
+
+    Com `time` nos entries, agrega por dia e devolve os ultimos `days`.
+    Sem `time` (historico sintetico ou legado), cai pro comportamento
+    historico -- ultimos `days` pontos -- pra nao quebrar quem passa serie
+    crua sem timestamp.
+    """
+    diario = daily_series(price_history, days=days, now=now)
+    if diario:
+        return [d["price_median"] for d in diario]
+    return [e["price_median"] for e in price_history[-days:]
+            if e.get("price_median") is not None]
+
+
 def sma(values: list[float], period: int = 7) -> list[float | None]:
     """Simple Moving Average. Retorna lista do mesmo tamanho com None nos primeiros period-1."""
     if len(values) < period:
@@ -730,9 +804,16 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                 _add("drawdown", 5,
                      f"DD profundo {dd_pct:.0f}% + recuperacao (+5)")
 
-    # Momentum: preco atual vs media dos ultimos 15 pontos
+    # Momentum: preco atual vs media dos ultimos 15 DIAS.
+    # Era `price_history[-15:]` -- 15 pontos. Funcionava enquanto a Steam
+    # servia so' dado diario; com pontos horarios nos ultimos ~28 dias
+    # virou "media das ultimas 15 horas" em silencio. recent_prices()
+    # agrega por dia quando ha' timestamp e mantem o corte por contagem
+    # quando nao ha'.
     if price_history and len(price_history) >= 10:
-        prices_m = [e["price_median"] for e in price_history[-15:]]
+        prices_m = recent_prices(price_history, days=15)
+        if not prices_m:
+            prices_m = [e["price_median"] for e in price_history[-15:]]
         mean_recent = sum(prices_m) / len(prices_m)
         last_p = prices_m[-1]
         if last_p > mean_recent * 1.02:

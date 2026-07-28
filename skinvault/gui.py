@@ -53,7 +53,7 @@ except ImportError:
     QSystemTrayIcon = None
 
 from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, ensure_data_dir
 from skinvault.settings import DEFAULTS, load_settings, save_settings
 from skinvault.ui import theme as t
 from skinvault.ui.components import Sidebar, Toast
@@ -989,7 +989,7 @@ def _setup_logging() -> None:
 
 
 def launch() -> int:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_data_dir()
     _setup_logging()
     QApplication.setAttribute(
         Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True

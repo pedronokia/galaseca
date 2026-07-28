@@ -136,7 +136,8 @@ def _volume_at(prefix: list[dict], window_days: int = 1) -> int | None:
 def simulate_item(name: str, price_history: list[dict],
                   horizon_days: int = 90,
                   step_days: int = 14,
-                  min_history_days: int = 60) -> list[dict]:
+                  min_history_days: int = 60,
+                  with_factors: bool = False) -> list[dict]:
     """Roda backtest pra um item.
 
     Para cada ponto t (com step de step_days) no historico:
@@ -146,6 +147,9 @@ def simulate_item(name: str, price_history: list[dict],
       4. Compara com retorno realizado em t+horizon_days
 
     Retorna lista de {item, ts, score, return_pct, breakdown_count}.
+
+    `with_factors=True` adiciona `factors`: {nome_do_fator: delta}, que e' o
+    que `factor_ic()` consome pra medir cada fator separadamente.
     """
     if not price_history or len(price_history) < 20:
         return []
@@ -188,7 +192,7 @@ def simulate_item(name: str, price_history: list[dict],
         # confianca historica correta no scatter plot.
         dq = signals.data_quality(prefix, now=t)
 
-        samples.append({
+        amostra = {
             "item": name,
             "ts": t,
             "score": score,
@@ -196,7 +200,14 @@ def simulate_item(name: str, price_history: list[dict],
             "breakdown_count": len(breakdown),
             "confidence": dq.get("confidence", 0.0),
             "level": dq.get("level", "none"),
-        })
+        }
+        if with_factors:
+            fatores: dict = {}
+            for b in breakdown:
+                chave = b.get("factor") or b.get("label") or "?"
+                fatores[chave] = fatores.get(chave, 0) + (b.get("delta") or 0)
+            amostra["factors"] = fatores
+        samples.append(amostra)
         t += step
 
     return samples
@@ -289,6 +300,162 @@ def correlation(samples: list[dict],
     else:
         r = _pearson_raw(scores, returns)
     return round(r, 4) if r is not None else None
+
+
+# ── Analise CROSS-ITEM ─────────────────────────────────────────────
+#
+# `correlation()` mistura todas as amostras de todas as datas. Num mercado
+# que subiu 12 anos, isso mede principalmente "o mercado subiu", nao "o
+# score escolheu melhor". Medido em 2026-07-28 num corpus de 123 series:
+# correlacao pooled +0.043 contra baseline de +6.25% em 90d -- o baseline
+# explicava quase tudo.
+#
+# A pergunta que o scanner de fato responde e' transversal: entre os itens
+# disponiveis HOJE, quais valem mais? Por isso a correlacao tem que ser
+# calculada DENTRO de cada data e so' depois promediada entre datas. Assim
+# o movimento de mercado atinge todos os itens da data igualmente e sai da
+# conta. Em quant isso se chama information coefficient (IC).
+
+
+def _bin_por_data(samples: list[dict], bin_days: int) -> dict:
+    """Agrupa amostras em janelas de `bin_days`, chaveadas pelo indice."""
+    largura = max(1, int(bin_days)) * 86400
+    bins: dict = {}
+    for s in samples:
+        ts = s.get("ts")
+        if ts is None:
+            continue
+        bins.setdefault(int(ts // largura), []).append(s)
+    return bins
+
+
+def cross_sectional_ic(samples: list[dict], bin_days: int = 14,
+                       min_items: int = 6,
+                       key: str = "score") -> dict:
+    """IC do sinal: correlacao dentro de cada data, promediada.
+
+    `key` escolhe o campo ranqueado (default "score").
+
+    Retorna {ic_mean, ic_std, pct_positive, n_dates, ir}. `ir` e'
+    ic_mean/ic_std -- consistencia do sinal, nao so' magnitude.
+
+    ATENCAO ao interpretar n_dates: com horizonte de 90d e passo de 14d,
+    datas vizinhas compartilham o mesmo retorno futuro. O numero efetivo de
+    observacoes independentes e' ~n_dates * step/horizon, bem menor.
+    """
+    ics: list[float] = []
+    for grupo in _bin_por_data(samples, bin_days).values():
+        if len(grupo) < min_items:
+            continue
+        pares = [{"score": s.get(key, 0), "return_pct": s["return_pct"]}
+                 for s in grupo]
+        if len({p["score"] for p in pares}) < 2:
+            continue  # sinal constante na data: nao ranqueia nada
+        c = correlation(pares, method="spearman")
+        if c is not None:
+            ics.append(c)
+    if not ics:
+        return {"ic_mean": None, "ic_std": None, "pct_positive": None,
+                "n_dates": 0, "ir": None}
+    media = statistics.mean(ics)
+    dp = statistics.pstdev(ics) if len(ics) > 1 else 0.0
+    return {
+        "ic_mean": round(media, 4),
+        "ic_std": round(dp, 4),
+        "pct_positive": round(
+            sum(1 for c in ics if c > 0) / len(ics) * 100, 1),
+        "n_dates": len(ics),
+        "ir": round(media / dp, 3) if dp else None,
+    }
+
+
+def factor_ic(samples: list[dict], bin_days: int = 14,
+              min_items: int = 6) -> list[dict]:
+    """IC de CADA fator do breakdown, ordenado por |IC|.
+
+    Exige amostras de simulate_item(with_factors=True).
+
+    Serve pra achar fator com sinal INVERTIDO: um fator com IC negativo
+    consistente nao e' ruido, e' sinal apontado pro lado errado, e ele
+    cancela os fatores certos. Medido em 2026-07-28: `momentum` (-0.19) e
+    `multi_period` (-0.14) anulavam `mediana` (+0.20) e `verdict` (+0.17),
+    derrubando o IC do score inteiro pra +0.05.
+    """
+    nomes = sorted({k for s in samples for k in (s.get("factors") or {})})
+    out: list[dict] = []
+    for nome in nomes:
+        marcados = [
+            {**s, "_f": (s.get("factors") or {}).get(nome, 0)}
+            for s in samples
+        ]
+        r = cross_sectional_ic(marcados, bin_days=bin_days,
+                               min_items=min_items, key="_f")
+        if r["ic_mean"] is None:
+            continue
+        r["factor"] = nome
+        out.append(r)
+    out.sort(key=lambda r: abs(r["ic_mean"]), reverse=True)
+    return out
+
+
+def quintile_spread(samples: list[dict], bin_days: int = 14,
+                    min_items: int = 6, parts: int = 5,
+                    key: str = "score") -> dict:
+    """Retorno do topo vs base do ranking, comparados DENTRO da data.
+
+    Retorna {top_pct, bottom_pct, spread_pp, top_median, bottom_median,
+    spread_median_pp, n_top, n_bottom}. E' a leitura economica do IC:
+    spread proximo de zero significa que o sinal nao separa, por melhor que
+    a correlacao pareca.
+
+    PREFIRA A MEDIANA. Retorno de skin tem cauda gorda: um item que saiu de
+    R$ 0,03 pra R$ 5,00 e' +16.000% e sozinho destroi a media. Medido em
+    2026-07-28 num corpus de 782 series: media do quintil superior deu 437%
+    contra mediana de poucos por cento. A media so' e' util pra detectar
+    justamente essa assimetria.
+    """
+    altos: list[float] = []
+    baixos: list[float] = []
+    for grupo in _bin_por_data(samples, bin_days).values():
+        if len(grupo) < min_items:
+            continue
+        ordenado = sorted(grupo, key=lambda s: s.get(key, 0))
+        k = max(1, len(ordenado) // max(2, parts))
+        baixos.extend(s["return_pct"] for s in ordenado[:k])
+        altos.extend(s["return_pct"] for s in ordenado[-k:])
+    if not altos or not baixos:
+        return {"top_pct": None, "bottom_pct": None, "spread_pp": None,
+                "top_median": None, "bottom_median": None,
+                "spread_median_pp": None, "n_top": 0, "n_bottom": 0}
+    ma, mb = statistics.mean(altos), statistics.mean(baixos)
+    da, db = statistics.median(altos), statistics.median(baixos)
+    return {
+        "top_pct": round(ma, 2),
+        "bottom_pct": round(mb, 2),
+        "spread_pp": round(ma - mb, 2),
+        "top_median": round(da, 2),
+        "bottom_median": round(db, 2),
+        "spread_median_pp": round(da - db, 2),
+        "n_top": len(altos),
+        "n_bottom": len(baixos),
+    }
+
+
+def net_after_fee(gross_pct: float, fee_rate: float = 0.15) -> float:
+    """Retorno liquido depois da taxa de venda, em %.
+
+    A taxa incide sobre o valor de VENDA, nao sobre o lucro. Por isso o
+    bruto necessario pra empatar e' 1/(1-taxa)-1 -- 17.6% pros 15% da
+    Steam, nao 15%.
+    """
+    return round(((1 + gross_pct / 100.0) * (1 - fee_rate) - 1) * 100, 2)
+
+
+def breakeven_gross(fee_rate: float = 0.15) -> float:
+    """Retorno bruto minimo pra empatar com a taxa, em %."""
+    if fee_rate >= 1:
+        return float("inf")
+    return round((1 / (1 - fee_rate) - 1) * 100, 2)
 
 
 def pearson_correlation(samples: list[dict]) -> float | None:

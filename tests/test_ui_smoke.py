@@ -857,7 +857,7 @@ def test_scanner_scan_item_happy(monkeypatch):
     monkeypatch.setattr("skinvault.signals.multi_trend",
                         lambda ph: {"label": "Alta", "delta": 10})
     monkeypatch.setattr("skinvault.cases.case_status",
-                        lambda name: {"label": "Case: Operation"})
+                        lambda name, **kw: {"label": "Case: Operation"})
     monkeypatch.setattr("skinvault.signals.enhanced_score",
                         lambda *a, **kw: (75, [{"label": "Spread", "delta": 20}]))
     monkeypatch.setattr("skinvault.signals.supply_demand_ratio",
@@ -922,7 +922,7 @@ def test_scanner_scan_item_no_page(monkeypatch):
                                        "trend_verdict": ""})
     monkeypatch.setattr("skinvault.signals.record_item_price", lambda *a, **kw: None)
     monkeypatch.setattr("skinvault.cases.case_status",
-                        lambda name: {"label": ""})
+                        lambda name, **kw: {"label": ""})
     monkeypatch.setattr("skinvault.signals.enhanced_score",
                         lambda *a, **kw: (50, []))
     monkeypatch.setattr("skinvault.signals.supply_demand_ratio",
@@ -969,7 +969,7 @@ def test_scanner_on_scan_starts_thread(monkeypatch, tmp_path):
                                        "trend_verdict": ""})
     monkeypatch.setattr("skinvault.signals.record_item_price", lambda *a, **kw: None)
     monkeypatch.setattr("skinvault.cases.case_status",
-                        lambda name: {"label": ""})
+                        lambda name, **kw: {"label": ""})
     monkeypatch.setattr("skinvault.signals.enhanced_score",
                         lambda *a, **kw: (50, []))
     monkeypatch.setattr("skinvault.signals.supply_demand_ratio",
@@ -994,6 +994,39 @@ def test_scanner_on_scan_starts_thread(monkeypatch, tmp_path):
 
     screen._on_scan()
     assert "Escaneando" in screen._status.text()
+
+
+def test_scanner_discovery_default_off(tmp_path):
+    """Descoberta e' opt-in: sem settings ligadas, o scanner nao muda."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    assert screen._discovery_ligada() is False
+
+
+def test_scanner_discovery_le_settings(monkeypatch, tmp_path):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    monkeypatch.setattr(
+        "skinvault.settings.load_settings",
+        lambda *a, **kw: {"scanner_discovery": True})
+    assert screen._discovery_ligada() is True
+
+
+def test_scanner_discovery_settings_quebrado_nao_derruba(monkeypatch,
+                                                         tmp_path):
+    """Settings ilegivel nao pode impedir o scan -- so' desliga a descoberta."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+
+    def boom(*a, **kw):
+        raise OSError("settings corrompido")
+
+    monkeypatch.setattr("skinvault.settings.load_settings", boom)
+    assert screen._discovery_ligada() is False
+
 
 def test_scanner_on_scan_all_categories(monkeypatch, tmp_path):
     """_on_scan with 'Todas as categorias' scans all items."""
@@ -2514,7 +2547,13 @@ class TestMarketScreen:
         # Regressao: a serie do sparkline deve ser extraida de price_median
         # (bug antigo lia x["price"], que nao existe no SSR -> chart vazio)
         assert screen._sparkline._values == [210, 215]
-        assert screen._sparkline._timestamps == [1700000000, 1700086400]
+        # A serie e' agregada por dia -- a Steam mistura pontos diarios com
+        # horarios, e fatiar por contagem mostrava ~4 dias em vez de ~100.
+        # Cada ponto vira o inicio do dia UTC a que pertence.
+        assert screen._sparkline._timestamps == [
+            1700000000 // 86400 * 86400,
+            1700086400 // 86400 * 86400,
+        ]
 
     def test_on_data_page_approx(self, monkeypatch):
         from skinvault.prices import PriceCache
@@ -5089,6 +5128,64 @@ def test_find_chrome_via_windows_path(monkeypatch):
     assert result is not None
     assert "Program Files" in result or "LocalAppData" in result
 
+
+def _sem_browser_no_path(monkeypatch):
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+
+
+def test_find_chrome_aceita_edge(monkeypatch):
+    """Windows sem Chrome: Edge serve -- e' Chromium e fala CDP."""
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr("os.path.isfile", lambda p: "msedge.exe" in p)
+    result = _find_chrome()
+    assert result is not None and "msedge.exe" in result
+
+
+def test_find_chrome_aceita_vivaldi(monkeypatch):
+    """Sem Chrome nem Edge, Vivaldi resolve."""
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr("os.path.isfile", lambda p: "vivaldi.exe" in p)
+    result = _find_chrome()
+    assert result is not None and "vivaldi.exe" in result
+
+
+def test_find_chrome_aceita_brave(monkeypatch):
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr("os.path.isfile", lambda p: "brave.exe" in p)
+    result = _find_chrome()
+    assert result is not None and "brave.exe" in result
+
+
+def test_find_chrome_prefere_chrome_a_edge(monkeypatch):
+    """Com os dois instalados, Chrome ganha -- e' o mais testado aqui."""
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr(
+        "os.path.isfile",
+        lambda p: "chrome.exe" in p or "msedge.exe" in p)
+    result = _find_chrome()
+    assert "chrome.exe" in result and "msedge.exe" not in result
+
+
+def test_find_chrome_edge_no_path(monkeypatch):
+    """msedge no PATH tambem vale."""
+    from skinvault.steam_login_dialog import _find_chrome
+    import subprocess as _sp
+
+    def run(args, *a, **kw):
+        if args[0] != "msedge":
+            raise FileNotFoundError()
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr("subprocess.run", run)
+    assert _find_chrome() == "msedge"
+    assert _sp is not None  # import usado so' pra manter o namespace real
+
 def test_show_manual_option(monkeypatch):
     """_show_manual_option inserts manual button and calls cleanup."""
     from skinvault.steam_login_dialog import SteamLoginDialog
@@ -6146,7 +6243,12 @@ def test_paths_dev_branch():
     assert DATA_DIR.is_dir()
 
 def test_paths_frozen_branch():
-    """sys.frozen=True makes _paths use exec parent."""
+    """sys.frozen=True: BASE_DIR e' o exec parent, mas DATA_DIR NAO fica la'.
+
+    Dado ao lado do executavel some no rebuild do PyInstaller (dist/ e'
+    recriado) e Program Files nem e' gravavel. Congelado grava no perfil do
+    usuario; a pasta antiga vira LEGACY_DATA_DIR, so' pra migrar uma vez.
+    """
     import os
     import subprocess
     import sys
@@ -6155,15 +6257,20 @@ def test_paths_frozen_branch():
         "import importlib; "
         "import skinvault._paths; "
         "importlib.reload(skinvault._paths); "
-        "from skinvault._paths import BASE_DIR, DATA_DIR; "
+        "from skinvault._paths import BASE_DIR, DATA_DIR, LEGACY_DATA_DIR; "
         "assert BASE_DIR == type(BASE_DIR)(sys.executable).parent, f'{BASE_DIR} != {type(BASE_DIR)(sys.executable).parent}'; "
-        "assert DATA_DIR == BASE_DIR / 'data'; "
+        "assert DATA_DIR != BASE_DIR / 'data', f'DATA_DIR nao pode ficar junto do exe: {DATA_DIR}'; "
+        "assert LEGACY_DATA_DIR == BASE_DIR / 'data'; "
         "print('OK')"
     )
+    # Sem o override no env: com ele setado, DATA_DIR seria o override e o
+    # teste passaria sem exercitar o branch congelado.
+    env = {k: v for k, v in os.environ.items() if k != "SKINVAULT_DATA_DIR"}
     r = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True, text=True, timeout=15,
         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        env=env,
     )
     assert r.returncode == 0, f"stderr: {r.stderr}"
     assert r.stdout.strip() == "OK"

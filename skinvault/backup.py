@@ -33,6 +33,15 @@ _DATA_FILES = [
     # Watcher de arquivos do jogo (gamedata.py)
     "gamedata_state.json",
     "gamedata_events.json",
+    # Caches de dados da Steam. Sao regeneraveis em teoria, mas na pratica
+    # custam horas: os endpoints sao agressivamente rate-limited (medido em
+    # 2026-07-28, bloqueio de dezenas de minutos). Reconstruir do zero e'
+    # bem mais caro que carregar no backup.
+    "ssr_cache.json",
+    "discovery_cache.json",
+    # Precos de mercado fora da Steam + cambio (markets.py)
+    "market_prices.json",
+    "fx_rate.json",
 ]
 
 

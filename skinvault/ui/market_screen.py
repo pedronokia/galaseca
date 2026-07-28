@@ -502,19 +502,32 @@ class MarketScreen(QWidget):
 
             if price_history:
                 # Entries SSR: {time: unix, price_median: float, purchases}
-                series = [(x.get("time"), x["price_median"])
-                          for x in price_history if "price_median" in x]
-                if series:
+                # A Steam serve pontos HORARIOS nos ultimos ~28 dias. Fatiar
+                # por contagem mostraria ~4 dias no lugar de ~100, e a SMA
+                # de 7 periodos viraria media de 7 horas. Agrega por dia
+                # quando ha' timestamp; sem timestamp, mantem o corte antigo.
+                diario = signals.daily_series(price_history)
+                if diario:
+                    todos = [d["price_median"] for d in diario]
+                    sma_vals = signals.sma(todos, period=7)[-100:]
+                    janela = diario[-100:]
+                    valores = [d["price_median"] for d in janela]
+                    tempos = [d["time"] for d in janela]
+                    base_sr = janela
+                else:
+                    series = [(x.get("time"), x["price_median"])
+                              for x in price_history if "price_median" in x]
                     recent = series[-100:]
-                    self._sparkline.set_series(
-                        [pr for _, pr in recent],
-                        timestamps=[ts for ts, _ in recent],
-                    )
+                    valores = [pr for _, pr in recent]
+                    tempos = [ts for ts, _ in recent]
                     sma_vals = signals.sma([pr for _, pr in series],
-                                           period=7)
+                                           period=7)[-100:]
+                    base_sr = price_history[-100:]
+                if valores:
+                    self._sparkline.set_series(valores, timestamps=tempos)
                     if sma_vals:
-                        self._sparkline.set_sma(sma_vals[-100:])
-                    sr = signals.find_support_resistance(price_history[-100:])
+                        self._sparkline.set_sma(sma_vals)
+                    sr = signals.find_support_resistance(base_sr)
                     if sr:
                         self._sparkline.set_sr(sr)
                 self._spark_meta.setText(

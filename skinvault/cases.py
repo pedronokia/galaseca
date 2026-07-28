@@ -996,7 +996,68 @@ def _normalize_skin_name(name: str) -> str:
     return s.strip()
 
 
-def case_status(name: str) -> dict:
+# Colecao (tag ItemSet da Steam) -> caixa que a contem.
+#
+# Inverte o custo de manutencao: _SKIN_TO_CASE cresce a cada skin lancada
+# (centenas), enquanto colecao->caixa cresce so' quando sai caixa nova
+# (dezenas). A colecao vem de graca na description da listing page, entao
+# nao custa requisicao.
+#
+# As entradas abaixo sao por correspondencia direta de nome. O modo de
+# falha e' benigno: nome que nao bate simplesmente nao acha, e o item cai
+# em status="collection" com o nome da colecao -- que ainda e' melhor que
+# "unknown". NAO invente entrada sem confirmar o nome exato da colecao.
+_COLLECTION_TO_CASE: dict[str, str] = {
+    "The Arms Deal Collection": "CS:GO Weapon Case",
+    "The Arms Deal 2 Collection": "CS:GO Weapon Case 2",
+    "The Arms Deal 3 Collection": "CS:GO Weapon Case 3",
+    "The Bravo Collection": "Operation Bravo Case",
+    "The Phoenix Collection": "Operation Phoenix Weapon Case",
+    "The Winter Offensive Collection": "Winter Offensive Weapon Case",
+    "The Breakout Collection": "Operation Breakout Weapon Case",
+    "The Huntsman Collection": "Huntsman Weapon Case",
+    "The Vanguard Collection": "Operation Vanguard Weapon Case",
+    "The Chroma Collection": "Chroma Case",
+    "The Chroma 2 Collection": "Chroma 2 Case",
+    "The Chroma 3 Collection": "Chroma 3 Case",
+    "The Falchion Collection": "Falchion Case",
+    "The Shadow Collection": "Shadow Case",
+    "The Revolver Case Collection": "Revolver Case",
+    "The Wildfire Collection": "Operation Wildfire Case",
+    "The Gamma Collection": "Gamma Case",
+    "The Gamma 2 Collection": "Gamma 2 Case",
+    "The Glove Collection": "Glove Case",
+    "The Spectrum Collection": "Spectrum Case",
+    "The Spectrum 2 Collection": "Spectrum 2 Case",
+    "The Hydra Collection": "Operation Hydra Case",
+    "The Clutch Collection": "Clutch Case",
+    "The Horizon Collection": "Horizon Case",
+    "The Danger Zone Collection": "Danger Zone Case",
+    "The Prisma Collection": "Prisma Case",
+    "The CS20 Collection": "CS20 Case",
+    "The Shattered Web Collection": "Shattered Web Case",
+    "The Prisma 2 Collection": "Prisma 2 Case",
+    "The Fracture Collection": "Fracture Case",
+    "The Broken Fang Collection": "Operation Broken Fang Case",
+    "The Snakebite Collection": "Snakebite Case",
+    "The Operation Riptide Collection": "Operation Riptide Case",
+    "The Dreams & Nightmares Collection": "Dreams & Nightmares Case",
+    "The Recoil Collection": "Recoil Case",
+    "The Revolution Collection": "Revolution Case",
+    "The Kilowatt Collection": "Kilowatt Case",
+    "The Gallery Collection": "Gallery Case",
+    "The Fever Collection": "Fever Case",
+}
+
+
+def case_from_collection(collection: str | None) -> str | None:
+    """Caixa que contem a colecao, ou None. Aceita nome ja' normalizado."""
+    if not collection:
+        return None
+    return _COLLECTION_TO_CASE.get(collection.strip())
+
+
+def case_status(name: str, collection: str | None = None) -> dict:
     """Retorna informacoes de caixa/colecao/capsula para o item.
 
     Output:
@@ -1041,7 +1102,24 @@ def case_status(name: str) -> dict:
                 case_name = val
                 break
 
+    # (5) Colecao vinda da Steam (tag ItemSet). Entra DEPOIS do mapa manual
+    # pra nao mudar resultado de item ja' mapeado -- e' fonte adicional,
+    # nao substituta.
     if not case_name:
+        case_name = case_from_collection(collection)
+
+    if not case_name:
+        # Sem caixa, mas com colecao conhecida: melhor que "unknown", e e'
+        # o que a Steam de fato afirma sobre o item.
+        if collection:
+            return {
+                "case": collection.strip(),
+                "status": "collection",
+                "is_discontinued": False,
+                "is_rare": False,
+                "year": None,
+                "label": collection.strip(),
+            }
         return {
             "case": None,
             "status": "unknown",

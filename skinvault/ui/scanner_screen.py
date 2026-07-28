@@ -27,7 +27,8 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import (
-    backtest, cases, ranking, signals, ssr_cache, steam_api, valve_events,
+    backtest, cases, discovery, ranking, settings as sv_settings, signals,
+    ssr_cache, steam_api, valve_events,
 )
 from skinvault._paths import DATA_DIR
 from skinvault.prices import PriceCache
@@ -375,15 +376,26 @@ class ScannerScreen(QWidget):
         self._regime_banner.setToolTip(ev["summary"])
         self._regime_banner.setVisible(True)
 
+    def _discovery_ligada(self) -> bool:
+        """Descoberta e' opt-in (settings.scanner_discovery, default OFF).
+
+        Desligada, o scanner se comporta exatamente como sempre: lista fixa.
+        """
+        try:
+            return bool(
+                sv_settings.load_settings().get("scanner_discovery"))
+        except Exception:
+            return False
+
     def _on_scan(self) -> None:
         cat = self._cat_combo.currentText()
-        items: list[str] = []
         if cat == "Todas as categorias":
-            for v in _SCAN_BY_CATEGORY.values():
-                items.extend(v)
+            alvos = list(_SCAN_BY_CATEGORY.items())
         else:
-            items = _SCAN_BY_CATEGORY.get(cat, [])
-        if not items:
+            alvos = [(cat, _SCAN_BY_CATEGORY.get(cat, []))]
+        usar_descoberta = self._discovery_ligada()
+        # Sem descoberta e sem lista fixa nao ha' o que escanear.
+        if not usar_descoberta and not any(fb for _, fb in alvos):
             return
 
         self._scan_cancelled = False
@@ -395,11 +407,33 @@ class ScannerScreen(QWidget):
         self._scan_btn.setEnabled(False)
         self._rank_btn.setEnabled(False)
         self._validate_btn.setEnabled(False)
-        self._status.setText(f"Escaneando {len(items)} itens...")
-        self._loading.set_label(f"Escaneando {len(items)} itens...")
+        if usar_descoberta:
+            # Total so' se sabe depois da busca por faceta, ja' na worker.
+            rotulo = "Descobrindo itens no Mercado..."
+        else:
+            rotulo = f"Escaneando {sum(len(fb) for _, fb in alvos)} itens..."
+        self._status.setText(rotulo)
+        self._loading.set_label(rotulo)
         self._loading.setVisible(True)
 
         def _worker():
+            # Resolver a lista pode ir a' rede (busca por faceta). Roda AQUI,
+            # nunca em _on_scan -- la' e' a thread da UI e a janela travaria.
+            items: list[str] = []
+            vistos = set()
+            for nome_cat, fallback in alvos:
+                if self._scan_cancelled:
+                    break
+                achados, _origem = discovery.resolve_scan_items(
+                    nome_cat, fallback, enabled=usar_descoberta,
+                )
+                for nome in achados:
+                    if nome not in vistos:
+                        vistos.add(nome)
+                        items.append(nome)
+            if not items:
+                self._bridge.progress.emit("FIM")
+                return
             for i, name in enumerate(items):
                 if self._scan_cancelled:
                     break
@@ -443,12 +477,16 @@ class ScannerScreen(QWidget):
         self._cache.put(name, lowest)
 
         ob = page.get("order_book") if page else None
+        # Metadados oficiais da Steam (tags da description) -- vem na mesma
+        # pagina, sem requisicao extra.
+        meta = (page.get("meta") or {}) if page else {}
         verdict = steam_api.fair_value_verdict(
             lowest, median,
             spread=ob.get("spread") if ob else None,
             buy_count=ob.get("buy_count") if ob else None,
             sell_count=ob.get("sell_count") if ob else None,
             price_history=page.get("price_history") if page else None,
+            tradable_restriction=meta.get("tradable_restriction"),
         ) if page else steam_api.fair_value_verdict(lowest, median)
         signals.record_item_price(name, lowest)
         if volume:
@@ -460,7 +498,9 @@ class ScannerScreen(QWidget):
         multi = signals.multi_trend(
             page.get("price_history", [])
         ) if page and page.get("price_history") else None
-        cs = cases.case_status(name)
+        # A colecao vem da tag ItemSet da Steam: resolve item que o mapa
+        # manual _SKIN_TO_CASE nao cobre, sem sobrescrever o que ja' cobre.
+        cs = cases.case_status(name, collection=meta.get("collection"))
         is_cont = cases.is_container(name)
 
         score, breakdown = signals.enhanced_score(

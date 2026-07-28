@@ -98,24 +98,40 @@ def sync_inventory(session: SteamSession,
         return {"status": status, "added": 0, "skipped": 0}
 
     positions = portfolio_mod.load_portfolio(path)
-    existing_names = {p.get("name") for p in positions}
+    por_nome = {p.get("name"): p for p in positions if p.get("name")}
     added = 0
+    enriched = 0
     for it in items:
         name = it.get("name")
-        if not name or name in existing_names:
+        if not name:
             continue
-        qty = int(it.get("quantity", 1))
+        existente = por_nome.get(name)
+        if existente is not None:
+            # Backfill de icone/tipo. Sem isto, posicao sincronizada antes
+            # destes campos existirem nunca ganharia imagem: o laco so'
+            # olhava nomes NOVOS, e a grade do inventario ficava sem icone
+            # pra sempre. Nao sobrescreve valor ja' preenchido.
+            mudou = False
+            for campo in ("icon", "type"):
+                if it.get(campo) and not existente.get(campo):
+                    existente[campo] = it[campo]
+                    mudou = True
+            if mudou:
+                enriched += 1
+            continue
         positions.append({
             "name": name,
             "cost": 0.0,
-            "quantity": qty,
+            "quantity": int(it.get("quantity", 1)),
             "added_ts": time.time(),
             "source": "steam_sync",
+            "icon": it.get("icon"),
+            "type": it.get("type"),
         })
-        existing_names.add(name)
+        por_nome[name] = positions[-1]
         added += 1
     portfolio_mod.save_portfolio(positions, path)
-    return {"status": status, "added": added,
+    return {"status": status, "added": added, "enriched": enriched,
             "skipped": len(items) - added}
 
 
