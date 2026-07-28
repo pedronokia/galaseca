@@ -573,11 +573,11 @@ class MainWindow(QMainWindow):
         # Icones de linha (QPainter) por nome — vide components.LineIcon
         for key, icon, label in [
             ("account", "user", "Minha Conta"),
+            ("inventory", "wallet", "Inventario"),
             ("history", "history", "Historico"),
             ("scanner", "radar", "Scanner"),
             ("market", "chart", "Market"),
             ("trades", "swap", "Trades"),
-            ("simulador", "calc", "Simulador"),
             ("watchlist", "eye", "Watchlist"),
         ]:
             sidebar.add_item(key, icon, label)
@@ -905,11 +905,11 @@ class MainWindow(QMainWindow):
         """Registro estatico de comandos (navegacao + acoes globais)."""
         nav = [
             ("account", "user", "Minha Conta"),
+            ("inventory", "wallet", "Inventario"),
             ("history", "history", "Historico"),
             ("scanner", "radar", "Scanner"),
             ("market", "chart", "Market"),
             ("trades", "swap", "Trades"),
-            ("simulador", "calc", "Simulador"),
             ("watchlist", "eye", "Watchlist"),
         ]
         cmds: list[dict] = [

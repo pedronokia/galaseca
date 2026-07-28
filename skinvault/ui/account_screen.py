@@ -40,7 +40,7 @@ from skinvault import (
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
 from skinvault.ui.inventory_grid import InventoryGrid
-from skinvault.ui.components import ActivityFeed, Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
+from skinvault.ui.components import Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
 from skinvault.ui.widgets import ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
@@ -62,16 +62,12 @@ class _PortfolioValidationBridge(QObject):
 class AccountScreen(QWidget):
     """Tela 1 -- Minha Conta + Inventario."""
 
-    COL_NAME = 0
-    COL_QTY = 1
-    COL_PRICE = 2
-    COL_SUBTOTAL = 3
-    COL_RECEIVED = 4
-    COL_PNL = 5
-    COL_ORIGIN = 6
-    COL_SCORE = 7
 
     request_sync = pyqtSignal()
+    # (rows, positions) ja' avaliados. Quem consome e' a InventoryScreen --
+    # esta tela mantem o PriceWorker porque avaliar em dois lugares
+    # dobraria o custo num endpoint rate-limited.
+    inventory_ready = pyqtSignal(list, list)
 
     def __init__(self, cache: prices.PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -294,6 +290,12 @@ class AccountScreen(QWidget):
         self._vc_lbl.setStyleSheet(t.label_caption())
         bd_lay.addWidget(self._vc_lbl)
         self._value_chart = ValueChart()
+        # O ValueChart nasce com setMinimumHeight(120), e minimo vence
+        # maximo -- por isso o teto precisa vir DEPOIS de baixar o piso.
+        # Sem isso o grafico crescia pra ~140px e empurrava o inventario,
+        # que e' o conteudo principal da tela, pro rodape.
+        self._value_chart.setMinimumHeight(0)
+        self._value_chart.setMaximumHeight(90)
         bd_lay.addWidget(self._value_chart)
         self._reload_value_series()
 
@@ -314,32 +316,11 @@ class AccountScreen(QWidget):
         left_col = QVBoxLayout()
         left_col.setSpacing(12)
 
-        # Filtro
-        filt = QLineEdit()
-        filt.setPlaceholderText("Filtrar por nome do item...")
-        filt.setToolTip(
-            "Filtra a tabela por nome (case-insensitive). Ctrl+F foca; Esc limpa."
-        )
-        filt.setClearButtonEnabled(True)
-        filt.setStyleSheet(t.input_style())
-        filt.textChanged.connect(self._apply_filter)
-        self._filter_inp = filt
-
-        # Alternar grade/tabela. A grade e' pra RECONHECER item pelo icone
-        # (como a Steam faz); a tabela e' pra conferir numero. Sao usos
-        # diferentes, entao coexistem em vez de uma substituir a outra.
-        self._view_btn = QPushButton("Ver em tabela")
-        self._view_btn.setToolTip(
-            "Alterna entre grade de icones (estilo Steam) e tabela detalhada.")
-        self._view_btn.setStyleSheet(t.btn_ghost())
-        self._view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._view_btn.clicked.connect(self._toggle_view)
-
-        linha_filtro = QHBoxLayout()
-        linha_filtro.setSpacing(t.SPACE_SM)
-        linha_filtro.addWidget(filt, 1)
-        linha_filtro.addWidget(self._view_btn, 0)
-        left_col.addLayout(linha_filtro)
+        # Filtro, grade, tabela e empty state migraram pra InventoryScreen
+        # em 28/07/2026. Aqui eles disputavam espaco com perfil, quatro
+        # cartoes de valor, cinco de desempenho e um grafico -- sobrava
+        # rodape pro conteudo principal. Esta tela agora avalia e repassa
+        # via `inventory_ready`.
 
         # Progress bar (indeterminate, hidden by default)
         self._progress = QProgressBar()
@@ -359,65 +340,23 @@ class AccountScreen(QWidget):
         self._loading.setVisible(False)
         left_col.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
 
-        # Tabela
-        self._table = QTableWidget(0, 8)
-        self._table.setHorizontalHeaderLabels([
-            "Item", "Qtd", "Preço atual", "Subtotal", "Recebido (-15%)",
-            "P&L", "Origem", "Score",
-        ])
-        t.configure_table(self._table)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        for i in range(max(self.COL_QTY, self.COL_SCORE + 1)):
-            if i != self.COL_NAME:
-                hh.setSectionResizeMode(
-                    i, QHeaderView.ResizeMode.ResizeToContents)
-        # Grade (indice 0, padrao) e tabela (indice 1) no mesmo espaco.
-        self._grid = InventoryGrid(columns=6)
-        self._views = QStackedWidget()
-        self._views.addWidget(self._grid)
-        self._views.addWidget(self._table)
-        left_col.addWidget(self._views, 1)
-        # Comeca na grade, entao o filtro (que so' age na tabela) nasce off.
-        self._filter_inp.setEnabled(False)
-
-        # Empty state: inventario vazio (apos sync, sem itens marketable)
-        self._empty_hero = EmptyState(
-            icon="◇",
-            title="Inventário vazio",
-            subtitle=("Sincronize sua conta com a Steam pra puxar seu inventário\n"
-                       "ou adicione posições manualmente pelo CLI."),
-            cta_label="Sincronizar com Steam",
-            on_cta=self.request_sync.emit,
-        )
-        left_col.addWidget(self._empty_hero, 1)
-        self._empty_hero.setVisible(False)
-
         # Status
         self._status = QLabel("")
         self._status.setStyleSheet(t.label_caption())
         left_col.addWidget(self._status)
 
+        # Sem coluna lateral: o inventario usa a largura inteira.
+        #
+        # Aqui existia um ActivityFeed. Removido em 28/07/2026 porque tudo
+        # que ele mostrava ja' existia com mais contexto em outro lugar --
+        # trades e eventos de mercado na tela de Historico, alertas no log
+        # da Watchlist, ranking na coluna DeltaPos do Scanner. Numa tela
+        # cujo objetivo e' o inventario, ele custava metade da largura pra
+        # repetir informacao. O modulo activity.py continua existindo; se
+        # voltar, o lugar e' um dashboard, nao esta tela.
+        left_col.addStretch(1)
         split.addLayout(left_col, 1)
-
-        # Coluna direita: Activity Feed
-        self._activity_feed = ActivityFeed(self)
-        split.addWidget(self._activity_feed, 0)
-
-        # Piso: mesmo com os cartoes cheios, o inventario nunca fica com
-        # menos que isso -- e' o conteudo principal da tela.
-        self._views.setMinimumHeight(340)
         root.addLayout(split, 1)
-
-        from PyQt6.QtGui import QKeySequence, QShortcut
-        find_sc = QShortcut(QKeySequence("Ctrl+F"), self)
-        find_sc.activated.connect(self._focus_filter)
-        esc_sc = QShortcut(QKeySequence("Esc"), self)
-        esc_sc.activated.connect(self._filter_inp.clear)
-
-    def _focus_filter(self) -> None:
-        self._filter_inp.setFocus()
-        self._filter_inp.selectAll()
 
     # ── perfil ───────────────────────────────────────────
     def _reload_profile(self) -> None:
@@ -474,26 +413,29 @@ class AccountScreen(QWidget):
         self._reload_activity()
 
     def _reload_activity(self) -> None:
-        """Atualiza o feed de atividade recente (sem I/O de rede)."""
-        from skinvault import activity as _act
-        try:
-            events = _act.load_recent_activity(limit=10)
-        except Exception:
-            events = []
-        self._activity_feed.set_events(events)
+        """No-op: o feed saiu da tela de conta (ver comentario no _build).
+
+        Mantido como metodo vazio porque e' chamado no __init__ e no ciclo
+        de avaliacao; remover as chamadas tambem so' espalharia o diff.
+        """
+        return
 
     def _reload_value_series(self) -> None:
         """Recarrega data/history.json no grafico de evolucao do valor.
 
-        Com menos de 2 pontos nao ha' evolucao pra desenhar. Antes o
+        Com menos de 3 pontos nao ha' evolucao pra desenhar. Antes o
         grafico continuava ocupando ~200px so' pra escrever "Avalie 2x+",
         e o inventario -- que e' o objetivo da tela -- sobrava espremido no
         rodape. Sem serie, o bloco inteiro some.
+
+        O piso e' 3 e nao 2 de proposito: dois pontos viram uma reta, que
+        nao informa tendencia nenhuma e ainda aparece como uma diagonal
+        vermelha atravessando a tela.
         """
         series = history.load_history()
         pontos = [p.get("total", 0.0) for p in series]
         self._value_chart.set_series(pontos)
-        tem_serie = len(pontos) >= 2
+        tem_serie = len(pontos) >= 3
         self._value_chart.setVisible(tem_serie)
         self._vc_lbl.setVisible(tem_serie)
 
@@ -614,7 +556,7 @@ class AccountScreen(QWidget):
             result = portfolio_mod.evaluate_portfolio(positions,
                                                        lambda n: None)
             rows = result["rows"]
-            self._populate_table(rows, positions)
+            # _on_eval ja' repassa pra InventoryScreen via inventory_ready.
             self._on_eval({"rows": rows, "totals": result["totals"],
                           "positions": positions})
             return
@@ -653,8 +595,6 @@ class AccountScreen(QWidget):
         self._progress.setVisible(False)
         # Toggle empty state: sem rows mostra hero
         is_empty = not rows
-        self._table.setVisible(not is_empty)
-        self._empty_hero.setVisible(is_empty)
         # Atualiza stats
         self._stat_gross.set_value(t.brl(totals.get("market") or 0))
         # Delta do valor bruto vs penultimo ponto do historico
@@ -733,133 +673,12 @@ class AccountScreen(QWidget):
             self._record_value_snapshot(total_market)
         self._reload_value_series()
 
-        # Atualiza as duas visoes
-        self._populate_table(rows, data["positions"])
-        self._populate_grid(rows, data["positions"])
+        # O inventario vive na aba propria desde 28/07/2026; aqui so' se
+        # avalia e se repassa.
+        self.inventory_ready.emit(list(rows), list(data["positions"]))
         now = time.strftime('%H:%M')
         self._status.setText(
             f"{len(rows)} item(ns) • atualizado {now}"
         )
         self._strip_last_sync.setText(f"Ultima sync: {now}")
 
-    def _toggle_view(self) -> None:
-        # `indo_pra_tabela` descreve o estado DEPOIS do clique -- olhar o
-        # estado anterior aqui inverte o filtro, que foi o bug original.
-        indo_pra_tabela = self._views.currentIndex() == 0
-        self._views.setCurrentIndex(1 if indo_pra_tabela else 0)
-        self._view_btn.setText(
-            "Ver em grade" if indo_pra_tabela else "Ver em tabela")
-        # O filtro so' age sobre a tabela; na grade ele confundiria.
-        self._filter_inp.setEnabled(indo_pra_tabela)
-
-    def _populate_grid(self, rows: list[dict],
-                       positions: list[dict]) -> None:
-        """Alimenta a grade com as DUAS avaliacoes de cada item.
-
-        `market_net` vem de mercado com dinheiro real. Falha de rede ou item
-        sem cotacao deixa o campo None -- a grade mostra "sem cotacao" em vez
-        de inventar numero.
-        """
-        try:
-            precos = markets.cached_market("skinport")
-            fx = markets.usd_brl()
-        except Exception:
-            precos, fx = {}, 0.0
-
-        from skinvault.localization import localize_name as _ln
-        itens = []
-        for i, r in enumerate(rows):
-            pos = positions[i] if i < len(positions) else {}
-            nome = r.get("name") or ""
-            cmp_ = markets.compare(r.get("price"), precos.get(nome), fx)
-            itens.append({
-                "name": _ln(nome) or nome,
-                "raw_name": nome,
-                "qty": r.get("quantity") or 1,
-                "icon": pos.get("icon") or r.get("icon"),
-                "type": pos.get("type") or r.get("type") or "",
-                "steam_net": r.get("net_if_sold") or cmp_["steam_net"],
-                "market_net": cmp_["market_net"],
-                "premium_pct": cmp_["premium_pct"],
-            })
-        self._grid.set_items(itens)
-
-    def _populate_table(self, rows: list[dict],
-                        positions: list[dict]) -> None:
-        was_sorting = self._table.isSortingEnabled()
-        self._table.setSortingEnabled(False)
-        self._table.setRowCount(0)
-        for i, r in enumerate(rows):
-            self._table.insertRow(i)
-            pos = positions[i] if i < len(positions) else {}
-            src = pos.get("source", "manual")
-            origin = "Steam" if src == "steam_sync" else "Manual"
-            cur_score = pos.get("current_score")
-            score_ts = pos.get("score_ts")
-            score_txt = str(int(cur_score)) if cur_score is not None else "—"
-            from skinvault.localization import localize_name as _ln
-            cells = [
-                _ln(r.get("name") or "") or "—",
-                str(r.get("quantity") or 1),
-                t.brl(r.get("price")),
-                t.brl(r.get("market")),
-                t.brl(r.get("net_if_sold")),
-                t.brl(r.get("pnl")),
-                origin,
-                score_txt,
-            ]
-            for col, val in enumerate(cells):
-                item = QTableWidgetItem(val)
-                if col == self.COL_PNL:
-                    pnl = r.get("pnl")
-                    if pnl is not None:
-                        item.setForeground(
-                            QBrush(QColor(t.POSITIVE if pnl >= 0 else t.DANGER))
-                        )
-                elif col == self.COL_ORIGIN and origin == "Steam":
-                    item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
-                elif col == self.COL_SCORE:
-                    if cur_score is None:
-                        item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
-                        item.setToolTip(
-                            "Clique 'Validar score' "
-                            "para calcular."
-                        )
-                    else:
-                        stale = signals.is_score_stale(score_ts)
-                        if stale:
-                            color = t.WARN
-                        elif cur_score >= 70:
-                            color = t.POSITIVE
-                        elif cur_score >= 45:
-                            color = t.WARN
-                        else:
-                            color = t.DANGER
-                        item.setForeground(QBrush(QColor(color)))
-                        age_txt = signals.score_age_text(score_ts)
-                        stale_tag = " [DESATUALIZADO]" if stale else ""
-                        item.setToolTip(
-                            f"Score {int(cur_score)} — calculado "
-                            f"{age_txt}.{stale_tag}\n"
-                            f"Empíricamente:\n"
-                            f"  70-84 containers → +33%, "
-                            f"skins → +8% em 90d\n"
-                            f"  85+ containers → +52%, "
-                            f"skins → +21% em 90d"
-                        )
-                self._table.setItem(i, col, item)
-        # Alinhamento por coluna: qtd/dinheiro → direita, origem → centro
-        right_cols = {
-            self.COL_QTY, self.COL_PRICE, self.COL_SUBTOTAL,
-            self.COL_RECEIVED, self.COL_PNL, self.COL_SCORE,
-        }
-        center_cols = {self.COL_ORIGIN}
-        t.align_table_columns(self._table, right=right_cols, center=center_cols)
-        self._table.setSortingEnabled(was_sorting)
-
-    def _apply_filter(self, text: str) -> None:
-        text = (text or "").strip().lower()
-        for row in range(self._table.rowCount()):
-            name = self._table.item(row, 0)
-            visible = not text or (name and text in name.text().lower())
-            self._table.setRowHidden(row, not visible)

@@ -1360,7 +1360,6 @@ def test_screen_router_navigate_all_screens(monkeypatch):
         ("scanner", router._scanner_screen),
         ("market", router._market_screen),
         ("trades", router._trades_screen),
-        ("simulador", router._simulador_screen),
         ("watchlist", router._watchlist_screen),
         ("account", router._account_screen),
     ]
@@ -3159,161 +3158,6 @@ def test_trades_screen():
     assert screen is not None
 
 
-def test_simulador_screen():
-    """SimuladorScreen instancia sem erro."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    assert screen is not None
-
-
-def test_simulador_screen_clear():
-    """SimuladorScreen._on_clear reseta campos."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(100)
-    screen._sell_inp.setValue(200)
-    screen._qty_inp.setValue(2)
-    screen._on_clear()
-    assert screen._buy_inp.value() == 0
-    assert screen._sell_inp.value() == 0
-    assert screen._qty_inp.value() == 1
-
-
-def test_simulador_screen_invalid_input():
-    """_on_simular com valores invalidos mostra erro."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._on_simular()
-    assert "positivos" in screen._result_detail.text()
-
-
-def test_simulador_screen_profit():
-    """_on_simular com lucro mostra mensagem de lucro."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(100)
-    screen._sell_inp.setValue(200)
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert "Lucro" in screen._result_detail.text()
-
-
-def test_simulador_screen_loss():
-    """_on_simular com prejuizo mostra mensagem de loss."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(200)
-    screen._sell_inp.setValue(100)
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert "Preju" in screen._result_detail.text()
-
-
-def test_simulador_screen_rebuild_empty():
-    """_rebuild_history com historico vazio esconde seção."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._history = []
-    screen._rebuild_history()
-    assert screen._hist_lbl.isVisible() is False
-
-
-def test_simulador_screen_rebuild_populated():
-    """_rebuild_history com historico preenchido mostra label."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen.show()  # necessário para isVisible() considerar hierarquia
-    screen._history = [{"pnl": 50, "buy_price": 100, "sell_price": 130,
-                        "quantity": 1}]
-    screen._rebuild_history()
-    assert screen._hist_lbl.isVisible() is True
-
-
-def test_simulador_screen_break_even():
-    """_on_simular com PNL=0 mostra mensagem de break-even."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    # break-even: sell_price = buy_price * 1.15
-    screen._buy_inp.setValue(50)
-    screen._sell_inp.setValue(57.5)  # 50 * 1.15
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert "zero" in screen._result_detail.text()
-
-
-def test_simulador_screen_simulacao_updates_stats():
-    """_on_simular com valores validos atualiza stats e historico."""
-    from skinvault import portfolio
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(150)
-    screen._sell_inp.setValue(200)
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert screen._stat_pnl._value != "—"
-    assert screen._stat_roi._value != "—"
-    assert len(screen._history) == 1
-    assert screen._history[0]["buy_price"] == 150
-
-
-def test_simulador_screen_push_history():
-    """_push_history insere no topo e respeita _HIST_CAP."""
-    from skinvault import portfolio
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    for buy in range(1, 8):
-        r = portfolio.simulate_trade(buy * 10, buy * 20, 1)
-        screen._push_history(r)
-    assert len(screen._history) == 5
-    assert screen._history[0]["buy_price"] == 70
-
-
-def test_simulador_screen_restore():
-    """_restore repoe campos e chama _on_simular."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(100)
-    r = {"buy_price": 50, "sell_price": 80, "quantity": 2,
-         "pnl": 10, "roi_pct": 5, "net_received": 128,
-         "break_even_price": 58.82, "steam_fee": 24,
-         "is_profit": True, "is_loss": False}
-    screen._restore(r)
-    assert screen._buy_inp.value() == 50
-    assert screen._sell_inp.value() == 80
-    assert screen._qty_inp.value() == 2
-    assert len(screen._history) == 1
-
-
-def test_simulador_history_chip_negative():
-    """_HistoryChip com pnl negativo mostra cor danger."""
-    from skinvault.ui.simulador_screen import _HistoryChip
-    from skinvault.ui import theme as t
-    snap = {"buy_price": 200, "sell_price": 100, "quantity": 1,
-            "pnl": -75}
-    chip = _HistoryChip(snap)
-    assert t.DANGER in chip.styleSheet()
-
-
-def test_simulador_history_chip_positive():
-    """_HistoryChip com pnl positivo mostra cor de lucro (POSITIVE verde)."""
-    from skinvault.ui.simulador_screen import _HistoryChip
-    from skinvault.ui import theme as t
-    snap = {"buy_price": 100, "sell_price": 200, "quantity": 1,
-            "pnl": 50}
-    chip = _HistoryChip(snap)
-    assert t.POSITIVE in chip.styleSheet()
-
-
-def test_account_screen_focus_filter():
-    """_focus_filter nao crasha (setFocus requer widget visivel)."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._filter_inp.setText("AK-47")
-    screen._focus_filter()
-    # setFocus pode nao funcionar sem show(), mas nao crasha
-
-
 def test_account_screen_reload_profile_no_session():
     """_reload_profile sem session mostra placeholder."""
     from skinvault.prices import PriceCache
@@ -3397,53 +3241,20 @@ def test_account_screen_on_eval_empty(monkeypatch):
     screen._on_eval({"rows": [], "totals": {}, "positions": []})
 
 
-def test_account_screen_on_eval_with_data():
-    """_on_eval com dados preenche tabela e stats."""
+def test_account_screen_nao_tem_mais_activity_feed():
+    """O feed saiu da tela de conta em 28/07/2026.
+
+    Tudo que ele mostrava ja' existia com mais contexto em outro lugar:
+    trades e eventos de mercado no Historico, alertas no log da Watchlist,
+    ranking na coluna DeltaPos do Scanner. Numa tela cujo objetivo e' o
+    inventario, ele custava metade da largura pra repetir informacao.
+
+    Se voltar, o lugar e' um dashboard -- nao esta tela.
+    """
     from skinvault.prices import PriceCache
     from skinvault.ui.account_screen import AccountScreen
     screen = AccountScreen(PriceCache(ttl=3600))
-    screen._on_eval({
-        "rows": [
-            {"name": "AK-47", "quantity": 2, "price": 100, "market": 200,
-             "net_if_sold": 170, "pnl": 30, "cost_total": 140},
-        ],
-        "totals": {"market": 200, "net_if_sold": 170, "pnl": 30},
-        "positions": [{"source": "steam_sync"}],
-    })
-    assert screen._stat_gross._value != "—"
-    assert screen._table.rowCount() == 1
-    assert screen._table.item(0, 0).text() == "AK-47"
-    assert screen._table.item(0, 6).text() == "Steam"  # origin
-
-
-def test_account_screen_apply_filter():
-    """_apply_filter esconde linhas que nao correspondem."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    import PyQt6.QtWidgets as qw
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._table.setSortingEnabled(False)
-    screen._table.insertRow(0)
-    screen._table.setItem(0, 0, qw.QTableWidgetItem("AK-47"))
-    screen._table.insertRow(1)
-    screen._table.setItem(1, 0, qw.QTableWidgetItem("AWP"))
-    screen._apply_filter("AK")
-    assert screen._table.isRowHidden(0) is False
-    assert screen._table.isRowHidden(1) is True
-
-
-def test_account_screen_reload_activity_populates_feed(monkeypatch):
-    """_reload_activity puxa eventos e atualiza o ActivityFeed."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    monkeypatch.setattr("skinvault.activity.load_recent_activity",
-                        lambda limit=10: [
-                            {"type": "trade", "ts": 1000, "title": "AK",
-                             "subtitle": "+50", "color": "green", "icon": "↑"},
-                        ])
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._reload_activity()
-    assert screen._activity_feed._list_lay.count() == 1
+    assert not hasattr(screen, "_activity_feed")
 
 
 def test_account_screen_reload_activity_swallows_exception(monkeypatch):
@@ -3913,71 +3724,94 @@ def test_sidebar_add_action_not_checkable():
 # ── LoginGate _on_connect ──────────────────────────────────────
 
 
-def test_login_gate_on_connect_cancelled(monkeypatch):
-    """Dialog cancelado nao emite session_connected."""
-    from PyQt6.QtWidgets import QDialog
+def test_login_gate_qr_visivel_sem_clique():
+    """As duas opcoes ficam lado a lado, como no login da Steam.
+
+    Nao existe mais botao "Conectar": esconder o QR atras de um clique era
+    um passo a mais pra a unica acao da tela.
+    """
     from skinvault.ui.login_gate import LoginGate
+    gate = LoginGate()
+    assert gate._qr_panel is not None
+    assert not hasattr(gate, "_connect_btn")
+    assert not hasattr(gate, "_stack")
 
-    class MockCancelDialog:
-        def exec(self):
-            return QDialog.DialogCode.Rejected
-        session = None
 
-    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
-                        lambda parent: MockCancelDialog())
+def test_login_gate_start_e_idempotente(monkeypatch):
+    """Reexibir a tela nao pode disparar uma segunda thread de poll."""
+    from skinvault.ui.login_gate import LoginGate
+    gate = LoginGate()
+    chamadas = []
+    monkeypatch.setattr("skinvault.steam_qr_auth.begin_session",
+                        lambda *a, **k: chamadas.append(1) or ("error", {}))
+    gate._qr_panel.start()
+    gate._qr_panel.start()
+    import time
+    time.sleep(0.2)
+    assert len(chamadas) <= 1, "segunda thread de poll foi criada"
+
+
+def test_login_gate_sessao_nula_nao_emite():
+    from skinvault.ui.login_gate import LoginGate
     gate = LoginGate()
     results = []
     gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_connect()
+    gate._on_session(None)
     assert results == []
 
 
 def test_login_gate_on_connect_incomplete_session(monkeypatch):
-    """Session incompleta mostra warning."""
-    from PyQt6.QtWidgets import QDialog, QMessageBox
+    """Session incompleta mostra warning e nao emite."""
+    from PyQt6.QtWidgets import QMessageBox
     from skinvault.steam_session import SteamSession
     from skinvault.ui.login_gate import LoginGate
 
-    class MockDialog:
-        def exec(self):
-            return QDialog.DialogCode.Accepted
-        session = SteamSession(steamid="", cookies={})
-
-    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
-                        lambda parent: MockDialog())
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **kw: None)
+    avisos = []
+    monkeypatch.setattr(QMessageBox, "warning",
+                        lambda *a, **kw: avisos.append(1))
     gate = LoginGate()
     results = []
     gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_connect()
+    gate._on_session(SteamSession(steamid="", cookies={}))
     assert results == []
+    assert avisos == [1]
 
 
 def test_login_gate_on_connect_success(monkeypatch):
     """Session valida persiste e emite."""
-    from PyQt6.QtWidgets import QDialog
     from skinvault.steam_session import SteamSession
     from skinvault.ui.login_gate import LoginGate
 
     sess = SteamSession(steamid="123", cookies={"steamLoginSecure": "tok"})
-
-    class MockDialog:
-        def exec(self):
-            return QDialog.DialogCode.Accepted
-        session = sess
-
     persist_calls = []
-    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
-                        lambda parent: MockDialog())
     monkeypatch.setattr("skinvault.steam_session.persist",
                         lambda s: persist_calls.append(s))
     gate = LoginGate()
     results = []
     gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_connect()
+    gate._on_session(sess)
     assert len(persist_calls) == 1
     assert len(results) == 1
     assert results[0].steamid == "123"
+
+
+def test_login_gate_botao_navegador_para_o_qr(monkeypatch):
+    """Pedir o navegador tem que interromper o poll do QR."""
+    from PyQt6.QtWidgets import QDialog
+    from skinvault.ui.login_gate import LoginGate
+
+    class MockDialog:
+        def exec(self):
+            return QDialog.DialogCode.Rejected
+        session = None
+
+    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
+                        lambda parent: MockDialog())
+    gate = LoginGate()
+    parou = []
+    monkeypatch.setattr(gate._qr_panel, "stop", lambda: parou.append(1))
+    gate._on_browser()
+    assert parou == [1], "o worker continuaria pollando em segundo plano"
 
 
 # ── HistoryScreen helpers ──────────────────────────────────
@@ -7290,57 +7124,6 @@ def _watchlist_row_by_name(screen, name):
     return -1
 
 
-def test_account_tem_coluna_score():
-    """Tabela do AccountScreen tem 8 colunas com Score na ultima."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    assert screen._table.columnCount() == 8
-    assert screen.COL_SCORE == 7
-    hdr = screen._table.horizontalHeaderItem(7)
-    assert hdr.text() == "Score"
-
-
-def test_account_coluna_score_renderiza_valor():
-    """Position com current_score aparece na coluna como int."""
-    import time as _t
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
-             "net_if_sold": 85, "pnl": 10}]
-    positions = [{"name": "X", "cost": 90, "source": "manual",
-                  "current_score": 75, "score_ts": _t.time()}]
-    screen._populate_table(rows, positions)
-    assert screen._table.item(0, 7).text() == "75"
-
-
-def test_account_coluna_score_sem_valor_mostra_dash():
-    """Position sem current_score mostra '—'."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
-             "net_if_sold": 85, "pnl": 10}]
-    positions = [{"name": "X", "cost": 90, "source": "manual"}]
-    screen._populate_table(rows, positions)
-    assert screen._table.item(0, 7).text() == "—"
-
-
-def test_account_coluna_score_tooltip_age():
-    """Tooltip menciona idade do score."""
-    import time as _t
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
-             "net_if_sold": 85, "pnl": 10}]
-    positions = [{"name": "X", "cost": 90, "source": "manual",
-                  "current_score": 80, "score_ts": _t.time()}]
-    screen._populate_table(rows, positions)
-    assert "agora" in screen._table.item(0, 7).toolTip()
-
-
 def test_watchlist_tem_coluna_score():
     """Tabela tem 8 colunas com 'Score' e 'Confianca' ocultas inicialmente."""
     from skinvault.prices import PriceCache
@@ -7697,20 +7480,6 @@ def test_account_validating_guard_impede_concorrencia(monkeypatch):
     assert screen._validating
 
 
-def test_account_validating_flag_limpo_apos_finished(monkeypatch):
-    """_on_validate_finished limpa _validating."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
-    monkeypatch.setattr("skinvault.settings.load_settings",
-                        lambda: {"validate_interval_minutes": 30})
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._validating = True
-    screen._refresh_mode = True
-    screen._on_validate_finished()
-    assert not screen._validating
-
-
 # ── Modo overlay (fullscreen-friendly) ────────────────
 
 def test_overlay_mode_default_false(monkeypatch):
@@ -7841,16 +7610,3 @@ def test_spin_style_no_invalid_bi():
     assert "bi:" not in qss, "The invalid 'bi:' property was removed"
 
 
-def test_simulador_qspinbox_uses_spin_style():
-    """O QSpinBox de Quantidade no Simulador usa spin_style(), nao input_style()."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    from PyQt6.QtWidgets import QSpinBox
-    screen = SimuladorScreen()
-    qty = screen.findChild(QSpinBox)
-    assert qty is not None, "SimuladorScreen deve ter um QSpinBox"
-    ss = qty.styleSheet()
-    assert ss != "", "QSpinBox deve ter styleSheet nao-vazio"
-    assert "up-button" in ss or "up-arrow" in ss, (
-        "styleSheet deve conter up-button/up-arrow de spin_style(), "
-        f"got: {ss[:200]}"
-    )

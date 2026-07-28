@@ -1,3 +1,6 @@
 PyQt6>=6.10,<6.11
 httpx>=0.28
 websocket-client>=1.6
+# QR do login por device-auth (steam_qr_auth.py). Python puro, sem
+# dependencia propria -- bundla no PyInstaller sem tratamento especial.
+segno>=1.6

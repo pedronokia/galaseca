@@ -164,6 +164,11 @@ class ItemDetailPanel(QFrame):
 
         self._nome = QLabel("Selecione um item")
         self._nome.setWordWrap(True)
+        # Nome de skin quebra em 2-3 linhas. QLabel com wordWrap calcula
+        # altura antes de saber a largura, e a ultima linha saia cortada.
+        self._nome.setMinimumHeight(
+            self._nome.fontMetrics().height() * 3)
+        self._nome.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._nome.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;")
         v.addWidget(self._nome)
@@ -266,7 +271,19 @@ class InventoryGrid(QWidget):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # QScrollArea pinta o viewport com a cor Base da paleta do sistema
+        # -- branco no Windows. Sem isto a grade vira um retangulo claro no
+        # meio do tema escuro.
+        #
+        # OPACO, nao transparente: a grade divide um QStackedWidget com a
+        # tabela, e com fundo transparente a tabela de tras aparecia por
+        # baixo dos tiles -- nomes de item flutuando sobre a grade.
+        self._scroll.setStyleSheet(
+            f"QScrollArea {{ background: {t.BG_ELEVATED}; border: none; }}")
+        self._scroll.viewport().setStyleSheet(
+            f"background: {t.BG_ELEVATED};")
         self._holder = QWidget()
+        self._holder.setStyleSheet(f"background: {t.BG_ELEVATED};")
         self._grid = QGridLayout(self._holder)
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setSpacing(t.SPACE_SM)

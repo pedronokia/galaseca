@@ -38,34 +38,34 @@ def test_grafico_some_sem_serie(screen):
     assert screen._vc_lbl.isVisibleTo(screen) is False
 
 
-def test_grafico_some_com_um_ponto_so(screen, monkeypatch):
-    """Um ponto nao e' evolucao -- precisa de dois pra ter linha."""
-    monkeypatch.setattr("skinvault.history.load_history",
-                        lambda *a, **k: [{"total": 100.0}])
-    screen._reload_value_series()
-    assert screen._value_chart.isVisibleTo(screen) is False
+def test_grafico_some_com_menos_de_tres_pontos(screen, monkeypatch):
+    """Dois pontos viram uma reta: nao mostram tendencia nenhuma.
+
+    Com 2 pontos o grafico desenhava uma diagonal vermelha atravessando a
+    tela, o que parecia alarme sem informar nada.
+    """
+    for serie in ([{"total": 100.0}],
+                  [{"total": 100.0}, {"total": 120.0}]):
+        monkeypatch.setattr("skinvault.history.load_history",
+                            lambda *a, **k: serie)
+        screen._reload_value_series()
+        assert screen._value_chart.isVisibleTo(screen) is False
 
 
-def test_grafico_aparece_com_dois_pontos(screen, monkeypatch):
+def test_grafico_aparece_com_tres_pontos(screen, monkeypatch):
     monkeypatch.setattr(
         "skinvault.history.load_history",
-        lambda *a, **k: [{"total": 100.0}, {"total": 120.0}])
+        lambda *a, **k: [{"total": 100.0}, {"total": 120.0},
+                         {"total": 110.0}])
     screen._reload_value_series()
     assert screen._value_chart.isVisibleTo(screen) is True
     assert screen._vc_lbl.isVisibleTo(screen) is True
 
 
-def test_inventario_tem_altura_minima(screen):
-    assert screen._views.minimumHeight() >= 300
+def test_grafico_tem_teto_de_altura(screen):
+    """Minimo vence maximo no Qt: o piso do ValueChart (120) precisa ter
+    sido baixado, senao o teto de 90 nao vale nada."""
+    assert screen._value_chart.minimumHeight() == 0
+    assert screen._value_chart.maximumHeight() == 90
 
 
-def test_cartoes_do_topo_nao_esticam(screen):
-    """Sem isto os cartoes crescem e engolem a lista."""
-    from PyQt6.QtWidgets import QSizePolicy
-    for card in screen.findChildren(type(screen._views.parent())):
-        pass  # so' garante que a arvore existe
-    # O piso do inventario continua valendo depois de repovoar
-    screen._views.setMinimumHeight(340)
-    assert screen._views.minimumHeight() == 340
-    assert (screen._views.sizePolicy().verticalPolicy()
-            != QSizePolicy.Policy.Maximum)
