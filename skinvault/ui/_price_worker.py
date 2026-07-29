@@ -41,12 +41,28 @@ class PriceWorker(QObject):
 
         def worker() -> None:
             try:
+                from skinvault import steam_api
+
                 positions = portfolio_mod.load_portfolio()
                 total = len(positions)
                 done = [0]
+                limitado = [False]
 
                 def price_fn(n: str) -> float | None:
-                    p = prices_mod.cached_price(n, self._cache)
+                    # Uma vez que a Steam devolveu 429, o bloqueio e' do
+                    # IP/conta e vale pra todos os itens. Continuar batendo
+                    # so' gasta o backoff de cada um -- medido: 24 itens
+                    # sem cache viravam minutos de espera. O cache ainda
+                    # responde, entao itens ja' conhecidos seguem saindo.
+                    if limitado[0]:
+                        cache_hit = (self._cache.get(n)
+                                     if self._cache.has(n) else None)
+                        done[0] += 1
+                        _safe_emit(sig_progress, done[0], total)
+                        return cache_hit
+                    status, p = prices_mod.cached_price_status(n, self._cache)
+                    if status == steam_api.PRICE_RATE_LIMITED:
+                        limitado[0] = True
                     done[0] += 1
                     _safe_emit(sig_progress, done[0], total)
                     return p
@@ -58,6 +74,7 @@ class PriceWorker(QObject):
                     "positions": positions,
                     "rows": result["rows"],
                     "totals": result["totals"],
+                    "rate_limited": limitado[0],
                 })
             except Exception as exc:
                 _safe_emit(sig_done, {
@@ -106,6 +123,56 @@ class BatchPriceWorker(QObject):
                 _safe_emit(sig_progress, i, total)
             self._running = False
             _safe_emit(sig_done)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+
+class IconWorker(QObject):
+    """Baixa do CDN da Steam os icones que faltam no cache local.
+
+    A grade de inventario e' network-free de proposito (`icons.local_path`
+    so' olha o disco), e nada no app populava esse disco -- `ensure_cached`
+    existia sem nenhum chamador. Resultado: 25 das 31 posicoes apareciam
+    como "?" numa tela cujo proposito e' reconhecer item pelo icone.
+
+    O CDN de icone e' um host separado do priceoverview: medido em
+    2026-07-29, respondia normalmente com os outros endpoints em 429.
+    """
+
+    done = pyqtSignal(int)  # quantos icones novos entraram no cache
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._running = False
+
+    def start(self, icon_hashes: list) -> None:
+        if self._running:
+            return
+        from skinvault import icons
+
+        faltando = []
+        vistos = set()
+        for h in icon_hashes:
+            if not h or h in vistos:
+                continue
+            vistos.add(h)
+            if icons.local_path(h) is None:
+                faltando.append(h)
+        if not faltando:
+            return  # nada a fazer: nao acorda thread nem emite sinal
+
+        self._running = True
+        sig_done = self.done
+
+        def worker() -> None:
+            try:
+                baixados = icons.ensure_cached(faltando)
+                n = len(baixados)
+            except Exception:
+                n = 0  # icone e' cosmetico; falha nunca derruba a tela
+            finally:
+                self._running = False
+            _safe_emit(sig_done, n)
 
         threading.Thread(target=worker, daemon=True).start()
 

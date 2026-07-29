@@ -307,6 +307,102 @@ def test_status_conta_itens(tela):
     assert "2" in tela._status.text()
 
 
+# ── icones ─────────────────────────────────────────────────────────
+#
+# A grade e' network-free de proposito (icons.local_path so' olha o disco),
+# e nada no app populava esse disco -- ensure_cached existia sem chamador.
+# 25 das 31 posicoes apareciam como "?" numa tela cujo proposito e'
+# reconhecer item pelo icone.
+
+
+def test_set_data_dispara_download_dos_icones(tela, monkeypatch):
+    pedidos = []
+    monkeypatch.setattr(tela._icon_worker, "start", pedidos.append)
+    pos = [dict(POS[0], icon="hashA"), dict(POS[1], icon="hashB")]
+    tela.set_data(ROWS, pos)
+    assert pedidos and "hashA" in pedidos[0] and "hashB" in pedidos[0]
+
+
+def test_worker_ignora_icone_ja_em_cache(monkeypatch):
+    """Nem acorda thread quando nao ha' o que baixar."""
+    from skinvault.ui._price_worker import IconWorker
+    from skinvault import icons
+    monkeypatch.setattr(icons, "local_path", lambda h: "ja/existe.png")
+    threads = []
+    monkeypatch.setattr("threading.Thread",
+                        lambda *a, **kw: threads.append(kw) or _Dummy())
+    IconWorker().start(["a", "b"])
+    assert threads == []
+
+
+class _Dummy:
+    def start(self):
+        pass
+
+
+def test_worker_deduplica_e_baixa_so_o_que_falta(monkeypatch):
+    from skinvault.ui._price_worker import IconWorker
+    from skinvault import icons
+    monkeypatch.setattr(icons, "local_path",
+                        lambda h: "existe.png" if h == "tem" else None)
+    pedidos = []
+    monkeypatch.setattr(icons, "ensure_cached",
+                        lambda hs: pedidos.append(list(hs)) or {})
+
+    class _Inline:
+        def __init__(self, target=None, **kw):
+            self._t = target
+        def start(self):
+            self._t()
+
+    monkeypatch.setattr("threading.Thread", _Inline)
+    IconWorker().start(["tem", "falta", "falta", None, "", "outro"])
+    assert pedidos == [["falta", "outro"]]
+
+
+def test_icones_prontos_repintam_a_grade(tela, monkeypatch):
+    tela.set_data(ROWS, POS)
+    repintou = []
+    monkeypatch.setattr(tela, "_populate_grid",
+                        lambda: repintou.append(True))
+    tela._on_icons_ready(3)
+    assert repintou == [True]
+
+
+def test_zero_icones_novos_nao_repinta(tela, monkeypatch):
+    """Repintar a' toa pisca a grade sem motivo."""
+    tela.set_data(ROWS, POS)
+    repintou = []
+    monkeypatch.setattr(tela, "_populate_grid",
+                        lambda: repintou.append(True))
+    tela._on_icons_ready(0)
+    assert repintou == []
+
+
+def test_falha_no_cdn_nao_derruba_a_tela(monkeypatch):
+    from skinvault.ui._price_worker import IconWorker
+    from skinvault import icons
+    monkeypatch.setattr(icons, "local_path", lambda h: None)
+
+    def _boom(hs):
+        raise OSError("CDN fora")
+
+    monkeypatch.setattr(icons, "ensure_cached", _boom)
+
+    class _Inline:
+        def __init__(self, target=None, **kw):
+            self._t = target
+        def start(self):
+            self._t()
+
+    monkeypatch.setattr("threading.Thread", _Inline)
+    w = IconWorker()
+    recebidos = []
+    w.done.connect(recebidos.append)
+    w.start(["x"])
+    assert recebidos == [0]
+
+
 # ── integracao com o router ────────────────────────────────────────
 
 
@@ -315,8 +411,29 @@ def test_router_liga_account_ao_inventario(tmp_path):
     from skinvault.prices import PriceCache
     from skinvault.ui.screen_router import ScreenRouter
     r = ScreenRouter(PriceCache(tmp_path / "p.json", ttl=3600))
-    r._account_screen.inventory_ready.emit(ROWS, POS)
+    r._account_screen.inventory_ready.emit(ROWS, POS, False)
     assert r._inventory_screen._grid.count() == 2
+
+
+def test_router_propaga_o_rate_limit(tmp_path):
+    """"Sem preço" e "a Steam recusou" viram o mesmo travessão na tabela;
+    o rodapé é o único lugar que pode distinguir."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.screen_router import ScreenRouter
+    r = ScreenRouter(PriceCache(tmp_path / "p.json", ttl=3600))
+    sem_preco = [dict(x, price=None) for x in ROWS]
+    r._account_screen.inventory_ready.emit(sem_preco, POS, True)
+    assert "limitou" in r._inventory_screen._status.text()
+
+
+def test_rate_limit_sem_linha_nenhuma_explica_no_rodape(tela):
+    tela.set_data([], [], True)
+    assert "limitou" in tela._status.text()
+
+
+def test_sem_rate_limit_o_rodape_e_so_a_contagem(tela):
+    tela.set_data(ROWS, POS, False)
+    assert tela._status.text() == "2 item(ns)"
 
 
 def test_router_navega_pro_inventario(tmp_path):

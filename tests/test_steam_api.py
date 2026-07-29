@@ -417,23 +417,83 @@ def test_parse_volume_with_commas():
 # ── get_market_price / get_market_overview ─────────────────────────
 
 
+# get_market_price virou wrapper de get_market_price_status, que precisa do
+# STATUS HTTP pra distinguir 429 de "item sem preco" -- entao ele le' o
+# _http_get direto, que e' o ponto de mock canonico (AGENTS.md).
+def _fake_http(code, body):
+    return lambda url, timeout=15.0: (code, body)
+
+
 def test_get_market_price_no_data(monkeypatch):
-    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: None)
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(500, None))
     assert steam_api.get_market_price("AK") is None
 
 
 def test_get_market_price_not_successful(monkeypatch):
-    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {"success": False})
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, '{"success": false}'))
     assert steam_api.get_market_price("AK") is None
 
 
 def test_get_market_price_falls_back_to_median(monkeypatch):
     """Sem lowest_price, usa median_price."""
-    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {
-        "success": True,
-        "median_price": "R$ 200,00",
-    })
+    monkeypatch.setattr(
+        "skinvault.steam_api._http_get",
+        _fake_http(200, '{"success": true, "median_price": "R$ 200,00"}'))
     assert steam_api.get_market_price("AK") == 200.0
+
+
+# ── status do priceoverview ────────────────────────────────────────
+
+def test_price_status_ok(monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.steam_api._http_get",
+        _fake_http(200, '{"success": true, "lowest_price": "R$ 150,00"}'))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_OK, 150.0)
+
+
+def test_price_status_429_e_rate_limited(monkeypatch):
+    """O caso que antes virava 'sem preco' e envenenava o cache por 1h."""
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(429, None))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_RATE_LIMITED, None)
+
+
+def test_price_status_sem_mercado(monkeypatch):
+    """Steam respondeu: o item nao tem preco. Isso e' fato sobre o item."""
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, '{"success": false}'))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_NO_PRICE, None)
+
+
+def test_price_status_erro_de_rede(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(0, None))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_ERROR, None)
+
+
+def test_price_status_json_quebrado(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, "{nao e json"))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_ERROR, None)
+
+
+def test_price_status_sucesso_sem_preco_parseavel(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, '{"success": true}'))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_NO_PRICE, None)
+
+
+def test_apenas_ok_e_no_price_sao_cacheaveis():
+    """A lista que separa fato sobre o ITEM de estado da REDE."""
+    assert steam_api.PRICE_OK in steam_api.PRICE_CACHEABLE
+    assert steam_api.PRICE_NO_PRICE in steam_api.PRICE_CACHEABLE
+    assert steam_api.PRICE_RATE_LIMITED not in steam_api.PRICE_CACHEABLE
+    assert steam_api.PRICE_ERROR not in steam_api.PRICE_CACHEABLE
 
 
 def test_get_market_overview_no_data(monkeypatch):

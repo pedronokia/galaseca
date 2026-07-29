@@ -37,6 +37,7 @@ from skinvault.ui.components import (
     PageHeader,
     score_table_item,
 )
+from skinvault.ui._price_worker import IconWorker
 from skinvault.ui.inventory_grid import InventoryGrid
 
 
@@ -56,6 +57,8 @@ class InventoryScreen(QWidget):
         super().__init__(parent)
         self._rows: list = []
         self._positions: list = []
+        self._icon_worker = IconWorker(self)
+        self._icon_worker.done.connect(self._on_icons_ready)
         self._build()
 
     def _build(self) -> None:
@@ -160,8 +163,13 @@ class InventoryScreen(QWidget):
         )
         self._status.setText("")
 
-    def set_data(self, rows: list, positions: list) -> None:
-        """Recebe as linhas ja' avaliadas pela AccountScreen."""
+    def set_data(self, rows: list, positions: list,
+                 rate_limited: bool = False) -> None:
+        """Recebe as linhas ja' avaliadas pela AccountScreen.
+
+        `rate_limited` distingue "estes itens nao tem preco" de "a Steam
+        recusou as consultas" -- na tabela os dois viram travessao igual.
+        """
         self._rows = list(rows or [])
         self._positions = list(positions or [])
         tem = bool(self._rows)
@@ -169,12 +177,36 @@ class InventoryScreen(QWidget):
         self._views.setVisible(tem)
         self._empty.setVisible(not tem)
         if not tem:
-            self._status.setText("")
+            self._status.setText(
+                "A Steam limitou as consultas de preço. Tente de novo daqui a "
+                "alguns minutos." if rate_limited else ""
+            )
             return
         self._populate_grid()
         self._populate_table()
-        self._status.setText(f"{len(self._rows)} item(ns)")
+        sem_preco = sum(1 for r in self._rows if r.get("price") is None)
+        if rate_limited:
+            self._status.setText(
+                f"{len(self._rows)} item(ns) • a Steam limitou as consultas; "
+                f"{sem_preco} sem preço agora (volta sozinho)"
+            )
+        else:
+            self._status.setText(f"{len(self._rows)} item(ns)")
         self._apply_filter(self._filter.text())
+        # Icone e' host separado do preco: vale tentar mesmo sob rate limit.
+        self._icon_worker.start(
+            [p.get("icon") for p in self._positions] +
+            [r.get("icon") for r in self._rows]
+        )
+
+    def _on_icons_ready(self, quantos: int) -> None:
+        """Repinta a grade com os icones que acabaram de chegar.
+
+        Só a grade -- a tabela nao usa icone, e repintar ela perderia
+        ordenacao e selecao do usuario a' toa.
+        """
+        if quantos > 0 and self._rows:
+            self._populate_grid()
 
     def _populate_grid(self) -> None:
         """Alimenta a grade com as DUAS avaliacoes de cada item.

@@ -84,22 +84,95 @@ def test_cache_save_oserror(tmp_path):
     # nao crashou
 
 
+def _fake_status(status, price=None, calls=None):
+    """Substitui get_market_price_STATUS -- o backoff passa a olhar o status,
+    entao mockar o wrapper `get_market_price` nao alcanca mais o caminho."""
+    def _fn(n, currency=7):
+        if calls is not None:
+            calls.append(n)
+        return status, price
+    return _fn
+
+
 def test_fetch_with_backoff_success(monkeypatch):
     """Retorna preco na primeira tentativa."""
-    monkeypatch.setattr(steam_api, "get_market_price", lambda n: 150.0)
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_OK, 150.0))
     assert prices._fetch_with_backoff("AK") == 150.0
 
 
-def test_fetch_with_backoff_all_fail(monkeypatch):
-    """Retorna None apos todas as tentativas falharem."""
+def test_fetch_with_backoff_rate_limit_esgota_tentativas(monkeypatch):
+    """429 e' o unico caso em que esperar pode ajudar -- aí sim insiste."""
     calls = []
-    def fake_price(n):
-        calls.append(1)
-        return None
-    monkeypatch.setattr(steam_api, "get_market_price", fake_price)
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_RATE_LIMITED,
+                                     calls=calls))
     monkeypatch.setattr(time, "sleep", lambda _: None)
-    assert prices._fetch_with_backoff("AK", retries=3) is None
+    status, price = prices.fetch_price_status("AK", retries=3)
+    assert (status, price) == (steam_api.PRICE_RATE_LIMITED, None)
     assert len(calls) == 3
+
+
+def test_fetch_sem_mercado_desiste_na_primeira(monkeypatch):
+    """Item sem preco nao muda de opiniao em 14s de backoff. Era o custo
+    que fazia a avaliacao do portfolio levar minutos."""
+    calls = []
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_NO_PRICE, calls=calls))
+    dormidas = []
+    monkeypatch.setattr(time, "sleep", lambda s: dormidas.append(s))
+    status, price = prices.fetch_price_status("AK", retries=3)
+    assert (status, price) == (steam_api.PRICE_NO_PRICE, None)
+    assert len(calls) == 1
+    assert dormidas == []
+
+
+def test_fetch_erro_de_rede_desiste_na_primeira(monkeypatch):
+    calls = []
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_ERROR, calls=calls))
+    dormidas = []
+    monkeypatch.setattr(time, "sleep", lambda s: dormidas.append(s))
+    assert prices.fetch_price_status("AK", retries=3)[0] == steam_api.PRICE_ERROR
+    assert len(calls) == 1
+    assert dormidas == []
+
+
+def test_rate_limit_nao_envenena_o_cache(monkeypatch, tmp_path):
+    """O 429 nao diz NADA sobre o item. Cachear como "sem preco" (TTL 1h)
+    sumia com o portfolio inteiro por uma hora depois de a Steam liberar."""
+    c = prices.PriceCache(path=tmp_path / "p.json")
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_RATE_LIMITED))
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+    status, preco = prices.cached_price_status("AK", cache=c)
+    assert status == steam_api.PRICE_RATE_LIMITED
+    assert preco is None
+    assert c.has("AK") is False  # nada gravado
+
+    # Steam liberou: a proxima consulta acha o preco de verdade.
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_OK, 150.0))
+    assert prices.cached_price("AK", cache=c) == 150.0
+
+
+def test_erro_de_rede_tambem_nao_envenena(monkeypatch, tmp_path):
+    c = prices.PriceCache(path=tmp_path / "p.json")
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_ERROR))
+    prices.cached_price("AK", cache=c)
+    assert c.has("AK") is False
+
+
+def test_sem_mercado_continua_sendo_cacheado(monkeypatch, tmp_path):
+    """Este SIM e' fato sobre o item -- cachear evita re-fetch a cada
+    startup, que era o motivo do TTL negativo existir."""
+    c = prices.PriceCache(path=tmp_path / "p.json")
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_NO_PRICE))
+    assert prices.cached_price("AK", cache=c) is None
+    assert c.has("AK") is True
+    assert c.get("AK") is None
 
 
 def test_cached_price_hit(monkeypatch, tmp_path):
@@ -115,7 +188,8 @@ def test_cached_price_hit(monkeypatch, tmp_path):
 def test_cached_price_miss(monkeypatch, tmp_path):
     """cached_price com cache miss busca na rede e armazena."""
     c = prices.PriceCache(path=tmp_path / "p.json")
-    monkeypatch.setattr(steam_api, "get_market_price", lambda n: 150.0)
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_OK, 150.0))
     monkeypatch.setattr(time, "sleep", lambda _: None)
     assert prices.cached_price("AK", cache=c) == 150.0
     assert c.get("AK") == 150.0
@@ -129,7 +203,8 @@ def test_value_inventory_miss_fetches(monkeypatch, tmp_path):
             {"name": "AK", "quantity": 1, "tradable": True},
         ]),
     )
-    monkeypatch.setattr(steam_api, "get_market_price", lambda n: 200.0)
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_OK, 200.0))
     monkeypatch.setattr(time, "sleep", lambda _: None)
 
     c = prices.PriceCache(path=tmp_path / "p.json", ttl=100)

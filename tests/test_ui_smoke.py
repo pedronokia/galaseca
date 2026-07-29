@@ -1414,11 +1414,12 @@ def test_price_worker_start(monkeypatch):
     from skinvault.prices import PriceCache
     from skinvault.ui._price_worker import PriceWorker
 
+    from skinvault import steam_api
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio",
                         lambda: [{"name": "AK", "cost": 100.0, "quantity": 1}])
-    monkeypatch.setattr("skinvault.prices.cached_price",
-                        lambda n, c: 150.0)
+    monkeypatch.setattr("skinvault.prices.cached_price_status",
+                        lambda n, c: (steam_api.PRICE_OK, 150.0))
 
     cache = PriceCache(ttl=3600)
     worker = PriceWorker(cache)
@@ -1431,6 +1432,69 @@ def test_price_worker_start(monkeypatch):
     d = results[0]
     assert d["totals"]["pnl"] == pytest.approx(30.43, abs=0.01)
     assert len(d["rows"]) == 1
+    assert d["rate_limited"] is False
+
+
+def test_price_worker_corta_o_lote_no_primeiro_429(monkeypatch):
+    """O 429 e' do IP/conta, nao do item. Continuar batendo so' gasta o
+    backoff de cada um -- medido: 24 itens viravam minutos de espera."""
+    from PyQt6.QtWidgets import QApplication
+    from skinvault import steam_api
+    from skinvault.prices import PriceCache
+    from skinvault.ui._price_worker import PriceWorker
+
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr(
+        "skinvault.portfolio.load_portfolio",
+        lambda: [{"name": f"Item{i}", "cost": 10.0, "quantity": 1}
+                 for i in range(20)])
+    consultados = []
+
+    def _fake(n, c):
+        consultados.append(n)
+        return steam_api.PRICE_RATE_LIMITED, None
+
+    monkeypatch.setattr("skinvault.prices.cached_price_status", _fake)
+
+    worker = PriceWorker(PriceCache(ttl=3600))
+    results = []
+    worker.eval_done.connect(results.append)
+    worker.start()
+    QApplication.processEvents()
+
+    # Bateu na rede uma vez; os outros 19 sairam do cache/sem rede.
+    assert len(consultados) == 1
+    assert results[0]["rate_limited"] is True
+    assert len(results[0]["rows"]) == 20  # as linhas continuam aparecendo
+
+
+def test_price_worker_apos_corte_ainda_usa_o_cache(monkeypatch):
+    """Cortar a rede nao pode esconder preco que ja' estava em cache."""
+    from PyQt6.QtWidgets import QApplication
+    from skinvault import steam_api
+    from skinvault.prices import PriceCache
+    from skinvault.ui._price_worker import PriceWorker
+
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr(
+        "skinvault.portfolio.load_portfolio",
+        lambda: [{"name": "SemCache", "cost": 10.0, "quantity": 1},
+                 {"name": "ComCache", "cost": 10.0, "quantity": 1}])
+    monkeypatch.setattr(
+        "skinvault.prices.cached_price_status",
+        lambda n, c: (steam_api.PRICE_RATE_LIMITED, None))
+
+    cache = PriceCache(ttl=3600)
+    cache.put("ComCache", 99.0)
+    worker = PriceWorker(cache)
+    results = []
+    worker.eval_done.connect(results.append)
+    worker.start()
+    QApplication.processEvents()
+
+    por_nome = {r["name"]: r for r in results[0]["rows"]}
+    assert por_nome["ComCache"]["price"] == 99.0
+    assert por_nome["SemCache"]["price"] is None
 
 
 def test_price_worker_start_error(monkeypatch):

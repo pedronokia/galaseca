@@ -67,7 +67,9 @@ class AccountScreen(QWidget):
     # (rows, positions) ja' avaliados. Quem consome e' a InventoryScreen --
     # esta tela mantem o PriceWorker porque avaliar em dois lugares
     # dobraria o custo num endpoint rate-limited.
-    inventory_ready = pyqtSignal(list, list)
+    # (rows, positions, rate_limited). O terceiro campo existe porque "31
+    # itens sem preco" e "a Steam bloqueou" sao indistinguiveis na tabela.
+    inventory_ready = pyqtSignal(list, list, bool)
     # Progresso da avaliacao (done, total). A InventoryScreen precisa disso
     # pra distinguir "ainda avaliando" de "vazio" -- sob rate limit da Steam
     # a avaliacao leva minutos, e o estado intermediario e' o que mais
@@ -682,10 +684,18 @@ class AccountScreen(QWidget):
 
         # O inventario vive na aba propria desde 28/07/2026; aqui so' se
         # avalia e se repassa.
-        self.inventory_ready.emit(list(rows), list(data["positions"]))
+        rate_limited = bool(data.get("rate_limited"))
+        self.inventory_ready.emit(
+            list(rows), list(data["positions"]), rate_limited)
         now = time.strftime('%H:%M')
-        self._status.setText(
-            f"{len(rows)} item(ns) • atualizado {now}"
-        )
+        if rate_limited:
+            self._status.setText(
+                f"{len(rows)} item(ns) • a Steam limitou as consultas de "
+                f"preço; mostrando o que estava em cache ({now})"
+            )
+        else:
+            self._status.setText(
+                f"{len(rows)} item(ns) • atualizado {now}"
+            )
         self._strip_last_sync.setText(f"Ultima sync: {now}")
 

@@ -196,18 +196,56 @@ def fetch_public_inventory(steam_id: str) -> list[dict]:
     return fetch_inventory(steam_id)[1]
 
 
-def get_market_price(market_hash_name: str, currency: int = 7) -> float | None:
-    """Preco mais baixo atual no Steam Market, em BRL (currency=7). None se
-    indisponivel. O Steam limita ~20 req/min -- producao precisa de cache+backoff."""
+PRICE_OK = "ok"                     # a Steam respondeu com preco
+PRICE_NO_PRICE = "no_price"         # a Steam respondeu: este item nao tem preco
+PRICE_RATE_LIMITED = "rate_limited"  # 429 -- nao diz nada sobre o item
+PRICE_ERROR = "error"               # rede/HTTP/parse -- tambem nao diz nada
+
+# Só estes dois são fato sobre o item; os outros dois são estado da rede.
+PRICE_CACHEABLE = (PRICE_OK, PRICE_NO_PRICE)
+
+
+def get_market_price_status(market_hash_name: str,
+                            currency: int = 7) -> "tuple[str, float | None]":
+    """(status, preco) do priceoverview.
+
+    Existe porque `get_market_price` devolve None em quatro situacoes bem
+    diferentes, e todas pediam tratamento distinto:
+
+    - `ok` / `no_price`: a Steam respondeu. É fato sobre o item, pode ir
+      pro cache.
+    - `rate_limited`: 429. Não diz nada sobre o item -- cachear isso como
+      "sem preço" envenena o cache por 1h (o TTL negativo) e o item some da
+      tela mesmo depois de a Steam liberar.
+    - `error`: rede, HTTP ou JSON quebrado. Mesma coisa.
+    """
     url = (
         "https://steamcommunity.com/market/priceoverview/"
         f"?appid={_APP_CS2}&currency={currency}"
         f"&market_hash_name={urllib.parse.quote(market_hash_name)}"
     )
-    data = _get_json(url)
+    code, body = _http_get(url)
+    if code == 429:
+        return PRICE_RATE_LIMITED, None
+    if code != 200 or body is None:
+        return PRICE_ERROR, None
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return PRICE_ERROR, None
     if not data or not data.get("success"):
-        return None
-    return parse_brl(data.get("lowest_price") or data.get("median_price"))
+        # Resposta valida dizendo que nao ha' item/preco: fato sobre o item.
+        return PRICE_NO_PRICE, None
+    preco = parse_brl(data.get("lowest_price") or data.get("median_price"))
+    return (PRICE_OK, preco) if preco is not None else (PRICE_NO_PRICE, None)
+
+
+def get_market_price(market_hash_name: str, currency: int = 7) -> float | None:
+    """Preco mais baixo atual no Steam Market, em BRL (currency=7). None se
+    indisponivel. O Steam limita ~20 req/min -- producao precisa de cache+backoff.
+
+    Wrapper retrocompatível de `get_market_price_status`."""
+    return get_market_price_status(market_hash_name, currency)[1]
 
 
 def get_market_overview(market_hash_name: str, currency: int = 7) -> dict | None:
