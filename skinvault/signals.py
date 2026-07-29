@@ -33,7 +33,27 @@ from skinvault._paths import (
 # 2/2 universos containers passam Sp >= 0.002. Bucket 85+ avg dentro
 # tolerancia (cai < 2pp em qualquer universo).
 # Detalhes: memory/vintage-v4-aprovado.md
-_VINTAGE_BONUS_ENABLED = True
+#
+# 2026-07-29: V4 DESLIGADO. A aprovacao acima media lookahead.
+# `enhanced_score` calculava a idade como `date.today().year - year`, sem
+# olhar o instante simulado -- entao TODA amostra de uma caixa de 2013
+# recebia o bonus, inclusive as de 2013, quando ela tinha 0 anos. O fator
+# virava uma constante por item, e o IC dele media "caixas lancadas ha'
+# muito tempo se sairam bem", sabendo de antemao quais eram.
+# Com `now_ts` passado pelo backtest (idade real no momento da amostra),
+# medido em 41 caixas com serie diaria completa:
+#   90d  -> Spearman -0.0002, Pearson -0.0031
+#   365d -> Spearman -0.0080, Pearson -0.0067
+# Nenhum passa o criterio de Sp >= +0.002; em 365d atrapalha claramente.
+# Bate com o estudo de coortes do mesmo dia (AGENTS.md 4c): dentro das
+# aposentadas, Spearman(idade, retorno) = -0.762. Premiar idade e' premiar
+# a ponta que DECAI -- o ganho esta' na aposentadoria recente, nao na
+# antiguidade.
+# RESSALVA: reavaliado so' em CAIXAS. A aprovacao do v4 exigia 2/2
+# universos (caixas + capsulas) e nao ha' serie de capsula em cache pra
+# refazer o teste. Como o vies era estrutural e atingia todo universo
+# igualmente, o +0.0031 das capsulas tambem esta' sob suspeita.
+_VINTAGE_BONUS_ENABLED = False
 _VINTAGE_AGE_YEARS = 8
 _VINTAGE_BONUS = 2
 
@@ -696,6 +716,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                    case_status: dict | None = None,
                    is_container: bool = False,
                    volume_history: list[dict] | None = None,
+                   now_ts: float | None = None,
                    ) -> tuple[int, list[dict]]:
     """Score 0-100 + breakdown com contribuicao de cada fator.
 
@@ -706,6 +727,14 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     is_container: usado pelo vintage bonus (V4, aprovado em 2026-06-08)
     quando a caixa eh descontinuada ha >= 8 anos. rel_ath aplica
     universal desde 2026-06-07, entao nao depende mais de is_container.
+
+    now_ts: instante de referencia pra IDADE do container. Default None =
+    agora, que e' o certo ao vivo. O backtest precisa passar o timestamp da
+    amostra: sem isso a idade era sempre "hoje menos o ano de lancamento",
+    entao uma amostra de 2013 numa caixa de 2013 recebia o bonus de
+    vintage como se ela ja' tivesse 13 anos (medido em 2026-07-29). O
+    fator virava uma constante por item, e o IC dele media conhecimento do
+    futuro.
     """
     score = 50.0
     breakdown: list[dict] = []
@@ -868,7 +897,9 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                 and case_status.get("is_discontinued")):
             year = case_status.get("year")
             if year:
-                age = date.today().year - year
+                ano_ref = (date.today().year if now_ts is None
+                           else time.localtime(now_ts).tm_year)
+                age = ano_ref - year
                 if age >= _VINTAGE_AGE_YEARS:
                     score += _VINTAGE_BONUS
                     breakdown.append({

@@ -168,7 +168,18 @@ explicação, que era "momentum funciona em prazo curto e reverte em 90d":
 |---|---|---|---|---|---|
 | 7d | **+0,346** | **−0,327** | −0,238 | +0,028 | +0,016 |
 | 90d | +0,194 | −0,190 | −0,140 | +0,098 | +0,065 |
-| 365d | +0,072 | −0,094 | −0,051 | **+0,221** | **+0,117** |
+| 365d | +0,072 | −0,094 | −0,051 | ~~+0,221~~ | **+0,117** |
+
+> **As colunas `vintage` desta tabela estão contaminadas** (descoberto em
+> 2026-07-29). `enhanced_score` calculava a idade do container como
+> `date.today().year - year`, ignorando o instante simulado — então toda
+> amostra de uma caixa de 2013 recebia o bônus, inclusive as de 2013,
+> quando ela tinha 0 anos. O fator era constante por item e o IC media
+> conhecimento do futuro. Corrigido via `now_ts`; ver 4c e o comentário do
+> `_VINTAGE_BONUS_ENABLED`. A coluna `case` sofre de um problema parecido
+> mas não corrigível hoje: `case_status` devolve o status de HOJE, então
+> uma caixa aposentada em 2018 aparece como descontinuada também nas
+> amostras de 2015 — falta data de aposentadoria no catálogo.
 
 **Momentum é negativo em TODOS os horizontes, e mais forte no mais curto.**
 Não há regime em que ele acerte. O mercado reverte à média em toda escala

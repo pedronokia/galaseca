@@ -182,6 +182,9 @@ def simulate_item(name: str, price_history: list[dict],
             verdict, volume=vol, multi_trend=mt, price_history=prefix,
             case_status=cs,
             is_container=is_container,
+            # Sem now_ts a idade do container seria "hoje menos lancamento"
+            # em TODA amostra -- lookahead puro (ver enhanced_score).
+            now_ts=t,
         )
         ret = _future_return(sorted_hist, t, horizon_days)
         if ret is None:

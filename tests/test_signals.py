@@ -1067,9 +1067,34 @@ def test_pump_risk_sem_inputs():
 
 
 # === vintage v4 (containers-only, age >= 8) ===
+#
+# DESLIGADO em 2026-07-29: a aprovacao media lookahead (idade calculada
+# como "hoje menos lancamento" em toda amostra do backtest). Sem o vies,
+# 90d da' Sp -0.0002 e 365d da' Sp -0.0080 -- nenhum passa o criterio.
+# Os testes abaixo continuam fixando o MECANISMO, ligando a flag na mao,
+# pra que religar seja uma decisao e nao um acidente.
 
-def test_enhanced_score_vintage_v4_container_old_recebe_bonus():
-    """Container descontinuado ha >= 8 anos -> bonus +2."""
+
+@pytest.fixture
+def vintage_ligado(monkeypatch):
+    monkeypatch.setattr(signals, "_VINTAGE_BONUS_ENABLED", True)
+
+
+def test_vintage_desligado_por_padrao():
+    """O default e' OFF. Se alguem religar, que seja com medicao nova."""
+    assert signals._VINTAGE_BONUS_ENABLED is False
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=True,
+    )
+    assert not any(b["factor"] == "vintage" for b in breakdown)
+    assert score == 55  # so' o case_status (+5)
+
+
+def test_enhanced_score_vintage_v4_container_old_recebe_bonus(vintage_ligado):
+    """Container descontinuado ha >= 8 anos -> bonus +2 (quando ligado)."""
     v = {"verdict": "fair", "diff_pct": 0}
     score, breakdown = signals.enhanced_score(
         v,
@@ -1080,6 +1105,39 @@ def test_enhanced_score_vintage_v4_container_old_recebe_bonus():
     assert score == 57
     assert any(b["factor"] == "vintage" and b["delta"] == 2
                for b in breakdown)
+
+
+def test_vintage_usa_a_idade_do_instante_simulado(vintage_ligado):
+    """O bug que derrubou o v4: sem now_ts a idade era sempre a de hoje,
+    entao amostra de 2014 numa caixa de 2014 ganhava bonus de vintage."""
+    import datetime as _dt
+    v = {"verdict": "fair", "diff_pct": 0}
+    ts_2015 = _dt.datetime(2015, 6, 1).timestamp()
+    _score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=True,
+        now_ts=ts_2015,          # caixa tinha 1 ano
+    )
+    assert not any(b["factor"] == "vintage" for b in breakdown)
+
+    ts_2030 = _dt.datetime(2030, 6, 1).timestamp()
+    _score2, breakdown2 = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=True,
+        now_ts=ts_2030,          # caixa com 16 anos
+    )
+    assert any(b["factor"] == "vintage" for b in breakdown2)
+
+
+def test_backtest_passa_now_ts_pro_score():
+    """simulate_item tem que propagar o timestamp da amostra, senao o
+    lookahead volta em silencio."""
+    import inspect
+    from skinvault import backtest
+    fonte = inspect.getsource(backtest.simulate_item)
+    assert "now_ts=t" in fonte
 
 
 def test_enhanced_score_vintage_v4_skin_nao_recebe_bonus():
