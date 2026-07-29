@@ -31,7 +31,11 @@ _CASES: dict[str, dict] = {
     "Operation Vanguard Weapon Case": {"status": "discontinued", "year": 2014},
     "Huntsman Weapon Case": {"status": "discontinued", "year": 2014},
     "Operation Wildfire Case": {"status": "discontinued", "year": 2016},
-    "Operation Bloodhound Weapon Case": {"status": "discontinued", "year": 2015},
+    # "Operation Bloodhound Weapon Case" removida em 2026-07-29: nao existe
+    # no Market. Verificado pelo <title> da listing page (ver AGENTS.md #12)
+    # nas tres grafias plausiveis -- todas devolvem o generico "Market Item".
+    # A Operation Bloodhound nao trouxe caixa propria; a caixa dela e' a
+    # Falchion Case, que ja' esta' catalogada logo abaixo.
     "Falchion Case": {"status": "discontinued", "year": 2015},
     "Shadow Case": {"status": "discontinued", "year": 2015},
     "Revolver Case": {"status": "discontinued", "year": 2015},
@@ -44,7 +48,9 @@ _CASES: dict[str, dict] = {
     "Spectrum Case": {"status": "discontinued", "year": 2017},
     "Spectrum 2 Case": {"status": "discontinued", "year": 2017},
     "Operation Hydra Case": {"status": "discontinued", "year": 2017},
-    "Operation Shattered Web Case": {"status": "discontinued", "year": 2019},
+    # "Operation Shattered Web Case" removida em 2026-07-29: duplicata
+    # invalida de "Shattered Web Case" (mesma operacao, mesmo ano), que
+    # esta' logo abaixo e responde com 3130 pontos. Mesmo metodo do <title>.
     "Operation Broken Fang Case": {"status": "discontinued", "year": 2020},
     "Operation Riptide Case": {"status": "discontinued", "year": 2021},
     "Clutch Case": {"status": "discontinued", "year": 2018},

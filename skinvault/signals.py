@@ -61,19 +61,14 @@ _DEFAULT_PATH = DATA_DIR / "item_history.json"
 _VOLUME_PATH = DATA_DIR / "volume_history.json"
 _SUPPLY_PATH = DATA_DIR / "supply_history.json"
 
-# Casos/containers notoriamente descontinuados (fonte: csgobackpack, community).
-# NUNCA afirme "vai valorizar" por estar aqui.
-_DISCONTINUED_NAMES = [
-    "CS:GO Weapon Case", "CS:GO Weapon Case 2", "CS:GO Weapon Case 3",
-    "Operation Bravo Case", "Operation Phoenix Case", "Operation Breakout Case",
-    "Operation Vanguard Case", "Operation Falchion Case", "Operation Shadow Case",
-    "Operation Wildfire Case", "Operation Bloodhound Case", "Operation Hydra Case",
-    "Operation Shattered Web Case", "Operation Broken Fang Case",
-    "Clutch Case", "Fracture Case", "Prisma Case", "Prisma 2 Case",
-    "Revolver Case", "Spectrum Case", "Spectrum 2 Case",
-    "Winter Offensive Case", "ESL One Cologne 2014", "ESL One Cologne 2015",
-    "EMS One 2014",
-]
+# _DISCONTINUED_NAMES removida em 2026-07-29. Era uma lista escrita a mao,
+# paralela ao catalogo de cases.py, e estava majoritariamente errada:
+# 11 das 25 entradas nao casavam com caixa nenhuma ("Operation Phoenix
+# Case" em vez de "...Weapon Case", "Operation Falchion Case" em vez de
+# "Falchion Case", etc.), e 22 das 36 caixas descontinuadas reais passavam
+# despercebidas -- 61% de falha, em silencio.
+# A fonte da verdade agora e' cases.case_status(), cujos nomes foram
+# verificados um a um contra a listing page da Steam.
 
 _MIN_VOLUME_LIQUID = 50
 
@@ -960,14 +955,33 @@ def score_age_text(score_ts: float | None) -> str:
 
 
 def discontinued_flag(name: str) -> dict:
-    """Sinal de oferta: item pode ser descontinuado (caixa antiga).
+    """Sinal de oferta: o item E' um container descontinuado.
 
-    Retorna {is_discontinued, flag}. Apenas informativo."""
-    lower = name.lower()
-    for known in _DISCONTINUED_NAMES:
-        if known.lower() in lower:
-            return {
-                "is_discontinued": True,
-                "flag": "Caixa descontinuada — oferta nao cresce mais",
-            }
+    Retorna {is_discontinued, flag}. Apenas informativo.
+
+    Dispara so' quando o proprio item e' o container. `case_status` tambem
+    resolve SKIN -> caixa de origem, e usar isso aqui marcaria toda skin de
+    caixa antiga como "descontinuada" -- outra afirmacao, que mudaria o
+    significado do sinal.
+    """
+    alvo = (name or "").strip().lower()
+    if not alvo:
+        return {"is_discontinued": False, "flag": ""}
+    from skinvault import cases
+    # `case_status` casa por nome exato; canonicaliza antes pra "clutch case"
+    # continuar valendo, como valia com o match case-insensitive antigo.
+    canonico = name
+    for catalogo in (cases._CASES, cases._CAPSULES,
+                     cases._AUTOGRAPH_CAPSULES):
+        achado = next((k for k in catalogo if k.lower() == alvo), None)
+        if achado:
+            canonico = achado
+            break
+    st = cases.case_status(canonico)
+    container = (st.get("case") or "").strip().lower()
+    if st.get("is_discontinued") and container == canonico.strip().lower():
+        return {
+            "is_discontinued": True,
+            "flag": "Caixa descontinuada — oferta nao cresce mais",
+        }
     return {"is_discontinued": False, "flag": ""}

@@ -101,6 +101,52 @@ def test_discontinued_case_partial_match():
     assert r["is_discontinued"] is True
 
 
+# ── cobertura do flag de descontinuada ─────────────────────────────
+#
+# Ate' 2026-07-29 a funcao usava uma lista escrita a mao, paralela ao
+# catalogo de cases.py e majoritariamente errada ("Operation Phoenix Case"
+# em vez de "...Weapon Case", "Operation Falchion Case" em vez de
+# "Falchion Case"). 22 das 36 descontinuadas passavam despercebidas -- 61%
+# de falha, em silencio, porque o match era substring e simplesmente nao
+# casava.
+
+
+def test_flag_cobre_todas_as_descontinuadas_do_catalogo():
+    """A regressao que motivou a troca: a cobertura tem que ser total."""
+    from skinvault import cases
+    reais = [n for n, m in cases._CASES.items()
+             if m["status"] == "discontinued"]
+    assert reais, "catalogo sem caixas descontinuadas?"
+    falhas = [n for n in reais
+              if not signals.discontinued_flag(n)["is_discontinued"]]
+    assert falhas == [], "nao detectadas: {}".format(falhas)
+
+
+def test_flag_nao_marca_caixa_ativa():
+    for nome, meta in __import__(
+            "skinvault.cases", fromlist=["cases"])._CASES.items():
+        if meta["status"] == "active":
+            assert signals.discontinued_flag(nome)["is_discontinued"] is False
+
+
+def test_flag_nao_marca_skin_de_caixa_descontinuada():
+    """`case_status` resolve skin -> caixa de origem. Usar isso aqui diria
+    que a SKIN esta' descontinuada, que e' outra afirmacao."""
+    r = signals.discontinued_flag("AK-47 | Redline (Field-Tested)")
+    assert r["is_discontinued"] is False
+
+
+def test_flag_nome_vazio_nao_explode():
+    assert signals.discontinued_flag("")["is_discontinued"] is False
+    assert signals.discontinued_flag("   ")["is_discontinued"] is False
+
+
+def test_flag_nome_desconhecido():
+    r = signals.discontinued_flag("Item Que Nao Existe 12345")
+    assert r["is_discontinued"] is False
+    assert r["flag"] == ""
+
+
 def test_record_and_load_volume(tmp_path, monkeypatch):
     p = tmp_path / "vol_history.json"
     monkeypatch.setattr(signals, "_VOLUME_PATH", p)
