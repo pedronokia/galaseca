@@ -2741,6 +2741,84 @@ class TestTradesScreen:
         screen.refresh()
         assert screen._table.rowCount() == 2
 
+    # ── importacao do historico da Steam ──────────────────
+
+    def test_import_action_existe_no_overflow(self, monkeypatch):
+        """A acao mora no menu '⋯': a hierarquia de CTA do AGENTS.md manda
+        ter um unico botao primario por tela, e ele e' 'Adicionar trade'."""
+        screen = self._make_screen()
+        labels = [a.text() for a in screen._more_menu.actions()]
+        assert "Importar trades da Steam" in labels
+        assert screen._add_btn.text() == "Adicionar trade"
+
+    def test_import_sem_historico_avisa_e_nao_grava(self, monkeypatch):
+        from skinvault.ui.trades_screen import TradesScreen
+        monkeypatch.setattr("skinvault.trade_matcher.load_closed_trades",
+                            lambda: [])
+        gravou = []
+        monkeypatch.setattr("skinvault.trade_matcher.import_closed_trades",
+                            lambda *a, **kw: gravou.append(True))
+        toasts = []
+        monkeypatch.setattr(
+            "skinvault.ui.trades_screen.Toast.show_toast",
+            lambda parent, text, variant="info", **kw: toasts.append(
+                (text, variant)))
+        screen = TradesScreen()
+        screen._on_import_steam()
+        assert gravou == []
+        assert toasts and toasts[-1][1] == "warning"
+        assert "Sincronize" in toasts[-1][0]
+
+    def test_import_grava_e_atualiza_a_tela(self, monkeypatch):
+        from skinvault.ui.trades_screen import TradesScreen
+        from skinvault.trade_matcher import ClosedTrade
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.load_closed_trades",
+            lambda: [ClosedTrade("AK", "1 Jan", 10.0, "5 Jan", 20.0,
+                                 0.0, 7.0, 70.0)])
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.import_closed_trades",
+            lambda closed: {"imported": 1, "skipped": 0, "total": 1})
+        toasts = []
+        monkeypatch.setattr(
+            "skinvault.ui.trades_screen.Toast.show_toast",
+            lambda parent, text, variant="info", **kw: toasts.append(
+                (text, variant)))
+        screen = TradesScreen()
+        refreshed = []
+        monkeypatch.setattr(screen, "refresh",
+                            lambda: refreshed.append(True))
+        screen._on_import_steam()
+        assert refreshed == [True]
+        assert toasts[-1][1] == "success"
+        assert "1 trade(s) importado(s)" in toasts[-1][0]
+
+    def test_import_tudo_ja_importado_nao_refresha(self, monkeypatch):
+        """Reimportar sem novidade e' o caso comum -- nao vale repintar a
+        tabela nem dar um toast de sucesso enganoso."""
+        from skinvault.ui.trades_screen import TradesScreen
+        from skinvault.trade_matcher import ClosedTrade
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.load_closed_trades",
+            lambda: [ClosedTrade("AK", "1 Jan", 10.0, "5 Jan", 20.0,
+                                 0.0, 7.0, 70.0)])
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.import_closed_trades",
+            lambda closed: {"imported": 0, "skipped": 1, "total": 1})
+        toasts = []
+        monkeypatch.setattr(
+            "skinvault.ui.trades_screen.Toast.show_toast",
+            lambda parent, text, variant="info", **kw: toasts.append(
+                (text, variant)))
+        screen = TradesScreen()
+        refreshed = []
+        monkeypatch.setattr(screen, "refresh",
+                            lambda: refreshed.append(True))
+        screen._on_import_steam()
+        assert refreshed == []
+        assert toasts[-1][1] == "info"
+        assert "Nada novo" in toasts[-1][0]
+
     def test_on_period(self, monkeypatch):
         from skinvault.ui.trades_screen import TradesScreen
         monkeypatch.setattr("skinvault.trades.load_trades",

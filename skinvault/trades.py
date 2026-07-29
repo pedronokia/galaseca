@@ -27,21 +27,24 @@ def save_trades(trades: list[dict], path: Path | str = _DEFAULT_PATH) -> None:
         print(f"WARNING: failed to save trades: {e}", file=__import__('sys').stderr)
 
 
-def record_trade(name: str, buy_cost: float, sell_price: float,
-                 quantity: int = 1,
-                 notes: str = "", tags: list[str] | None = None,
-                 buy_ts: float | None = None,
-                 path: Path | str = _DEFAULT_PATH,
-                 source: str = "manual",
-                 steam_event_id: str | None = None,
-                 sell_ts: float | None = None) -> dict:
-    """Registra trade. source distingue entrada manual de sync Steam (F10).
-    steam_event_id identifica o evento original na Steam pra dedupe."""
+def build_trade(name: str, buy_cost: float, sell_price: float,
+                quantity: int = 1,
+                notes: str = "", tags: list[str] | None = None,
+                buy_ts: float | None = None,
+                source: str = "manual",
+                steam_event_id: str | None = None,
+                sell_ts: float | None = None) -> dict:
+    """Monta o registro de trade sem tocar em disco.
+
+    Existe separado de `record_trade` porque a importacao da Steam grava
+    centenas de trades de uma vez: passar por `record_trade` faria um
+    load+save do arquivo inteiro por trade.
+    """
     cost_total = buy_cost * quantity
     net = net_proceeds(sell_price) * quantity
     pnl = net - cost_total
     now = time.time()
-    trade = {
+    return {
         "name": name,
         "buy_cost": buy_cost,
         "sell_price": sell_price,
@@ -57,6 +60,23 @@ def record_trade(name: str, buy_cost: float, sell_price: float,
         "source": source,
         "steam_event_id": steam_event_id,
     }
+
+
+def record_trade(name: str, buy_cost: float, sell_price: float,
+                 quantity: int = 1,
+                 notes: str = "", tags: list[str] | None = None,
+                 buy_ts: float | None = None,
+                 path: Path | str = _DEFAULT_PATH,
+                 source: str = "manual",
+                 steam_event_id: str | None = None,
+                 sell_ts: float | None = None) -> dict:
+    """Registra trade. source distingue entrada manual de sync Steam (F10).
+    steam_event_id identifica o evento original na Steam pra dedupe."""
+    trade = build_trade(
+        name, buy_cost, sell_price, quantity,
+        notes=notes, tags=tags, buy_ts=buy_ts,
+        source=source, steam_event_id=steam_event_id, sell_ts=sell_ts,
+    )
     trades = load_trades(path)
     trades.append(trade)
     save_trades(trades, path)

@@ -5,12 +5,15 @@ Sintetiza trades fechados a partir dos eventos brutos sincronizados
 data e casa FIFO (compra mais antiga com venda mais antiga). Calcula
 P&L liquido descontando a taxa Steam de 15%.
 
-Modulo puro: parsing + matching, sem IO direto (apenas o helper
-`load_closed_trades` carrega via `sync`). Testavel sem rede.
+Parsing e matching sao puros. O IO fica confinado nos helpers do fim do
+modulo: `load_closed_trades`/`load_open_buys` leem via `sync`, e
+`import_closed_trades` grava em trades.json. Nada aqui usa rede -- a
+sincronizacao com a Steam ja' aconteceu antes, em `sync.py`.
 """
 from __future__ import annotations
 
 import datetime as _dt
+import html as _html
 import time
 from dataclasses import dataclass
 
@@ -85,6 +88,8 @@ class ClosedTrade:
     sell_ts: float
     pnl: float
     pnl_pct: float
+    # No fim e com default pra nao quebrar construcao posicional existente.
+    buy_ts: float = 0.0
 
 
 @dataclass
@@ -150,6 +155,7 @@ def _pair_and_split(events: list[dict], now: float | None = None,
                 sell_ts=s["ts"],
                 pnl=d["pnl"],
                 pnl_pct=d["pnl_pct"],
+                buy_ts=b["ts"],
             ))
             bi += 1
             si += 1
@@ -199,6 +205,95 @@ def load_closed_trades() -> list[ClosedTrade]:
 def load_open_buys() -> list[OpenBuy]:
     """Carrega eventos sincronizados e devolve buys ainda nao vendidos."""
     return find_open_buys(sync.load_market_events())
+
+
+def _date_key(date_str: str, ts: float) -> str:
+    """Componente de data das chaves de dedupe, em ISO.
+
+    O Steam omite o ano quando a data e' do ano corrente (AGENTS.md #4), entao
+    a string crua muda sozinha na virada de ano e o mesmo trade seria
+    importado duas vezes. Mesma normalizacao de `sync.market_event_key`.
+    """
+    if ts:
+        return time.strftime("%Y-%m-%d", time.localtime(ts))
+    return date_str or ""
+
+
+def closed_trade_key(trade: ClosedTrade) -> str:
+    """ID estavel de um trade fechado, usado como `steam_event_id`.
+
+    Nao inclui P&L: ele e' derivado dos precos e mudaria a chave se a taxa
+    Steam fosse reconfigurada, reimportando tudo.
+    """
+    return "|".join([
+        _html.unescape(trade.name or ""),
+        _date_key(trade.buy_date, trade.buy_ts),
+        "{:.2f}".format(trade.buy_price),
+        _date_key(trade.sell_date, trade.sell_ts),
+        "{:.2f}".format(trade.sell_price),
+    ])
+
+
+def assign_keys(closed: list[ClosedTrade]) -> list[tuple[str, ClosedTrade]]:
+    """Casa cada trade com sua chave, desempatando repeticoes.
+
+    Comprar e vender 3 unidades do mesmo item, no mesmo dia, pelo mesmo
+    preco gera 3 trades com chave identica -- e sem desempate so' um seria
+    importado. O sufixo e' estavel porque o pareamento FIFO e' deterministico:
+    a mesma lista de eventos sempre produz a mesma ordem.
+    """
+    seen: dict[str, int] = {}
+    out = []
+    for tr in closed:
+        base = closed_trade_key(tr)
+        n = seen.get(base, 0) + 1
+        seen[base] = n
+        out.append((base if n == 1 else "{}#{}".format(base, n), tr))
+    return out
+
+
+def import_closed_trades(closed: list[ClosedTrade] | None = None,
+                         path=None) -> dict:
+    """Grava em trades.json os trades pareados do historico do Steam Market.
+
+    Idempotente: cada trade carrega seu `steam_event_id` e reimportar pula o
+    que ja' esta la'. Registros manuais nunca sao tocados nem considerados
+    duplicata -- se o usuario registrou o mesmo trade na mao, a nota dele
+    tem valor e apagar seria perda de dado. O custo e' uma linha repetida,
+    que ele pode remover.
+
+    Devolve {"imported", "skipped", "total"}.
+    """
+    from skinvault import trades as trades_mod
+
+    if closed is None:
+        closed = load_closed_trades()
+    path = path if path is not None else trades_mod._DEFAULT_PATH
+
+    existing = trades_mod.load_trades(path)
+    known = {
+        tr.get("steam_event_id") for tr in existing
+        if tr.get("steam_event_id")
+    }
+
+    novos = []
+    for key, tr in assign_keys(closed):
+        if key in known:
+            continue
+        known.add(key)
+        novos.append(trades_mod.build_trade(
+            tr.name, tr.buy_price, tr.sell_price, quantity=1,
+            buy_ts=tr.buy_ts or None, sell_ts=tr.sell_ts or None,
+            source="steam_sync", steam_event_id=key,
+        ))
+
+    if novos:
+        trades_mod.save_trades(existing + novos, path)
+    return {
+        "imported": len(novos),
+        "skipped": len(closed) - len(novos),
+        "total": len(closed),
+    }
 
 
 def summarize(closed: list[ClosedTrade]) -> dict:

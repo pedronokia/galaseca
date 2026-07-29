@@ -184,6 +184,18 @@ class TradesScreen(QWidget):
         self._act_remove = self._more_menu.addAction("Remover selecionado")
         self._act_remove.triggered.connect(self._on_remove_selected)
         self._more_menu.addSeparator()
+        self._act_import = self._more_menu.addAction(
+            "Importar trades da Steam"
+        )
+        self._act_import.setToolTip(
+            "Pareia as compras e vendas do seu histórico do Steam Market e "
+            "registra cada par como um trade.\n"
+            "Usa o que o último sync baixou — não acessa a rede.\n"
+            "Pode rodar quantas vezes quiser: trades já importados são "
+            "ignorados."
+        )
+        self._act_import.triggered.connect(self._on_import_steam)
+        self._more_menu.addSeparator()
         self._act_clear = self._more_menu.addAction("Limpar tudo…")
         self._act_clear.triggered.connect(self._on_clear)
         self._more_btn.setMenu(self._more_menu)
@@ -553,6 +565,41 @@ class TradesScreen(QWidget):
             return
         trades_mod.remove_trade(idx)
         self.refresh()
+
+    def _on_import_steam(self) -> None:
+        """Importa o historico do Steam Market ja' sincronizado.
+
+        Le' `steam_market_events.json` -- o que `sync.py` baixou -- e nao
+        toca na rede. Se o arquivo esta vazio, o caminho e' sincronizar
+        primeiro na tela de Conta, e a mensagem diz isso.
+        """
+        from skinvault import trade_matcher
+
+        closed = trade_matcher.load_closed_trades()
+        if not closed:
+            Toast.show_toast(
+                self,
+                "Nenhuma compra pareada com venda no histórico da Steam. "
+                "Sincronize sua conta primeiro.",
+                "warning",
+            )
+            return
+
+        result = trade_matcher.import_closed_trades(closed)
+        if not result["imported"]:
+            Toast.show_toast(
+                self,
+                f"Nada novo — os {result['total']} trades da Steam já "
+                "estavam importados.",
+                "info",
+            )
+            return
+
+        self.refresh()
+        msg = f"{result['imported']} trade(s) importado(s) da Steam."
+        if result["skipped"]:
+            msg += f" {result['skipped']} já estava(m) aqui."
+        Toast.show_toast(self, msg, "success")
 
     def _on_clear(self) -> None:
         if not self._trades:
