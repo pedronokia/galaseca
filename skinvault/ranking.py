@@ -10,7 +10,9 @@ import json
 import time
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 
 _RANKINGS_PATH = DATA_DIR / "rankings.json"
 _SNAPSHOT_CAP = 50
@@ -35,18 +37,14 @@ def save_snapshot(results: list[dict],
     snapshot = {"ts": time.time(), "items": items}
 
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else []
-        if not isinstance(data, list):
-            data = []
-    except Exception:
+    data = load_json_record(p, [])
+    if not isinstance(data, list):
         data = []
     data.append(snapshot)
     if len(data) > _SNAPSHOT_CAP:
         data = data[-_SNAPSHOT_CAP:]
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        atomic_write_text(p, json.dumps(data, indent=2))
     except OSError as e:
         print(f"WARNING: failed to save ranking snapshot: {e}",
               file=__import__('sys').stderr)
@@ -56,11 +54,8 @@ def save_snapshot(results: list[dict],
 def load_snapshots(path: Path | str = _RANKINGS_PATH) -> list[dict]:
     """Retorna todos os snapshots (mais recente por ultimo)."""
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else []
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_json_record(p, [])
+    return data if isinstance(data, list) else []
 
 
 def previous_snapshot(path: Path | str = _RANKINGS_PATH) -> dict | None:
@@ -106,7 +101,7 @@ def position_delta(name: str, current_position: int,
 def clear_rankings(path: Path | str = _RANKINGS_PATH) -> None:
     """Limpa todos os snapshots."""
     try:
-        Path(path).write_text("[]", encoding="utf-8")
+        atomic_write_text(path, "[]")
     except OSError as e:
         print(f"WARNING: failed to clear rankings: {e}",
               file=__import__('sys').stderr)

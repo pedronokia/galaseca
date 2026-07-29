@@ -31,7 +31,9 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 
 _REPO = "SteamDatabase/GameTracking-CS2"
 _ITEMS_PATH = "game/csgo/pak01_dir/scripts/items/items_game.txt"
@@ -317,16 +319,13 @@ def fetch_localization(ref: str = "master") -> "dict[str, str]":
 
 def load_state(path: "Path | str" = _STATE_PATH) -> "Optional[dict]":
     p = Path(path)
-    try:
-        return json.loads(p.read_text("utf-8")) if p.exists() else None
-    except Exception:
-        return None
+    data = load_json_record(p, None)
+    return data if isinstance(data, dict) else None
 
 
 def save_state(state: dict, path: "Path | str" = _STATE_PATH) -> None:
     p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    atomic_write_text(p, json.dumps(state, indent=2))
 
 
 def log_events(events: "list[dict]",
@@ -334,26 +333,19 @@ def log_events(events: "list[dict]",
     if not events:
         return
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else []
-        if not isinstance(data, list):
-            data = []
-    except Exception:
+    data = load_json_record(p, [])
+    if not isinstance(data, list):
         data = []
     data.extend(events)
     if len(data) > _LOG_CAP:
         data = data[-_LOG_CAP:]
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    atomic_write_text(p, json.dumps(data, indent=2))
 
 
 def load_events_log(path: "Path | str" = _EVENTS_LOG_PATH) -> "list[dict]":
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else []
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_json_record(p, [])
+    return data if isinstance(data, list) else []
 
 
 _EVENT_SEVERITY = {

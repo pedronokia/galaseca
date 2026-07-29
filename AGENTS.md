@@ -284,6 +284,45 @@ Duas outras decisões que parecem bugs e não são:
   conectar de novo. Remover às cegas mataria o servidor da instância viva
   que acabou de ganhar a corrida.
 
+### 10. Persistência: nunca use `write_text` direto em `data/`
+
+Use `_paths.atomic_write_text` / `atomic_write_bytes`. Eles gravam num
+temporário no **mesmo diretório** e trocam com `os.replace`.
+
+`Path.write_text` **trunca** o destino antes de escrever. Morrer no meio
+deixa JSON cortado — e as workers do app são threads daemon, mortas de
+supetão no fim do interpretador (gotcha #7). O agravante é o par com o
+load: todo loader tratava JSON inválido como "vazio", então o **próximo
+save gravava o vazio por cima**. Perda definitiva, sem uma linha de log.
+
+Do lado da leitura, `_paths.load_json_record(path, default)`:
+
+- ausente ou ilegível → `default`, sem drama;
+- presente mas não parseia → vai pra `<nome>.corrupt` e devolve `default`;
+- parseia com tipo errado → **não** vai pra quarentena. Isso é bug de
+  código ou arquivo de outra versão, não truncamento; mover esconderia.
+
+Use em arquivo de **registro** (portfolio, trades, watchlist, histórico,
+`ssr_cache`). Em cache barato, virar vazio em silêncio é o certo — encher
+`data/` de `.corrupt` de cache é só ruído. `ssr_cache` conta como registro
+apesar de ser cache: são ~265 séries acumuladas contra um endpoint
+agressivamente rate-limited, e refazer custa dias.
+
+Detalhes que parecem excesso e não são:
+
+- **`fsync` antes do replace.** Medido em 2026-07-29 no `ssr_cache.json`
+  real (43 MB): +10ms, 27% sobre um write de 35ms. Barato pelo que
+  compra. Em arquivo de 1 KB o custo total sai de 0,3ms pra 2,6ms — a
+  suíte inteira ficou ~10s mais lenta, e vale.
+- **`except BaseException`** ao limpar o temporário: `KeyboardInterrupt`
+  não herda de `Exception`, e o `.tmp` não pode sobreviver a nenhum
+  aborto.
+- **`newline` default** (não `""`): mantém a tradução pra CRLF que o
+  `write_text` fazia. Validado: os 17 JSON do `data/` real fazem
+  round-trip byte-a-byte idêntico.
+- **`ensure_data_dir()` varre `*.tmp`** no startup — um `kill -9` no meio
+  da escrita não roda `except` nenhum, e sem a varredura eles acumulam.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`

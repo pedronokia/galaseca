@@ -21,7 +21,7 @@ import json
 import time
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 
 _DEFAULT_PATH = DATA_DIR / "discovery_cache.json"
 _TTL_SECONDS = 24 * 60 * 60
@@ -65,8 +65,7 @@ class DiscoveryCache:
 
     def _save(self) -> None:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(self._data), encoding="utf-8")
+            atomic_write_text(self.path, json.dumps(self._data))
         except OSError:
             pass  # cache e' conveniencia; falha de disco nao derruba scan
 

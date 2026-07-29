@@ -31,7 +31,7 @@ import urllib.request
 import zlib
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
 _BASE = "https://prices.csgotrader.app/latest/{source}.json"
@@ -151,9 +151,7 @@ def usd_brl(path: "Path | str | None" = None,
             taxa = _FX_FALLBACK
         return taxa
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps({"ts": agora, "rate": taxa}),
-                     encoding="utf-8")
+        atomic_write_text(p, json.dumps({"ts": agora, "rate": taxa}))
     except OSError:
         pass
     return taxa
@@ -174,8 +172,7 @@ class MarketPriceCache:
 
     def _save(self) -> None:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(self._data), encoding="utf-8")
+            atomic_write_text(self.path, json.dumps(self._data))
         except OSError:
             pass  # cache e' conveniencia; disco cheio nao derruba a tela
 

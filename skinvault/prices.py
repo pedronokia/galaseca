@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from skinvault import steam_api
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 
 _TTL_SECONDS = 6 * 3600
 _NEG_TTL_SECONDS = 60 * 60  # 1h pra entries "sem preco" (None cacheado)
@@ -43,8 +43,7 @@ class PriceCache:
 
     def _save(self) -> None:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(self._data), encoding="utf-8")
+            atomic_write_text(self.path, json.dumps(self._data))
         except OSError as e:
             print(f"WARNING: failed to save price cache: {e}",
                   file=__import__('sys').stderr)

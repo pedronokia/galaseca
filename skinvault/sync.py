@@ -22,7 +22,9 @@ from typing import Callable
 
 from skinvault import portfolio as portfolio_mod
 from skinvault import steam_api
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 from skinvault.steam_session import SteamSession
 
 _EVENTS_PATH = DATA_DIR / "steam_market_events.json"
@@ -37,18 +39,14 @@ _HISTORY_THROTTLE_S = 1.5
 
 # ── utilitarios JSON ──────────────────────────────────────────
 def _load_json_list(path: Path) -> list[dict]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_json_record(path, [])
+    return data if isinstance(data, list) else []
 
 
 def _save_json_list(path: Path, data: list[dict]) -> None:
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False),
-                        encoding="utf-8")
+        atomic_write_text(path,
+                          json.dumps(data, indent=2, ensure_ascii=False))
     except OSError as e:
         print(f"WARNING: failed to save {path.name}: {e}",
               file=__import__('sys').stderr)

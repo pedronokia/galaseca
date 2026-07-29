@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text, load_json_record
 
 _DEFAULT_PATH = DATA_DIR / "settings.json"
 
@@ -37,18 +37,15 @@ DEFAULTS = {
 
 
 def load_settings(path: Path | str = _DEFAULT_PATH) -> dict:
-    p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8"))
-        return {**DEFAULTS, **data}
-    except Exception:
+    data = load_json_record(path, None)
+    if not isinstance(data, dict):
         return dict(DEFAULTS)
+    return {**DEFAULTS, **data}
 
 
 def save_settings(settings: dict, path: Path | str = _DEFAULT_PATH) -> None:
     p = Path(path)
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+        atomic_write_text(p, json.dumps(settings, indent=2))
     except OSError as e:
         print(f"WARNING: failed to save settings: {e}", file=__import__('sys').stderr)

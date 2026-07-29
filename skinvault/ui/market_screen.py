@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import cases, signals, steam_api
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
@@ -52,8 +52,7 @@ def _load_recent() -> list[str]:
 
 def _save_recent(items: list[str]) -> None:
     try:
-        _RECENT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _RECENT_PATH.write_text(json.dumps(items[:8]), encoding="utf-8")
+        atomic_write_text(_RECENT_PATH, json.dumps(items[:8]))
     except OSError:
         pass
 

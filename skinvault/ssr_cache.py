@@ -16,7 +16,9 @@ import json
 import time
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 
 _DEFAULT_PATH = DATA_DIR / "ssr_cache.json"
 _TTL_SECONDS = 24 * 60 * 60  # 24h
@@ -33,15 +35,16 @@ class PriceHistoryCache:
         self._load()
 
     def _load(self) -> None:
-        try:
-            self._data = json.loads(self.path.read_text(encoding="utf-8"))
-        except Exception:
-            self._data = {}
+        # Cache, mas o unico que vale preservar: sao ~265 series de historico
+        # acumuladas contra um endpoint agressivamente rate-limited. Refazer
+        # custa dias, entao um arquivo ilegivel vai pra quarentena em vez de
+        # ser apagado pelo proximo save.
+        data = load_json_record(self.path, {})
+        self._data = data if isinstance(data, dict) else {}
 
     def _save(self) -> None:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(self._data), encoding="utf-8")
+            atomic_write_text(self.path, json.dumps(self._data))
         except OSError as e:
             print(f"WARNING: failed to save SSR cache: {e}",
                   file=__import__('sys').stderr)

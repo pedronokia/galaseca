@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text, load_json_record
 
 _DEFAULT_PATH = DATA_DIR / "portfolio.json"
 
@@ -140,18 +140,14 @@ def evaluate_portfolio(positions: list[dict], price_fn,
 
 # --- persistencia local -------------------------------------------------------
 def load_portfolio(path: Path | str = _DEFAULT_PATH) -> list[dict]:
-    try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_json_record(path, [])
+    return data if isinstance(data, list) else []
 
 
 def save_portfolio(positions: list[dict], path: Path | str = _DEFAULT_PATH) -> None:
     p = Path(path)
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(positions, indent=2), encoding="utf-8")
+        atomic_write_text(p, json.dumps(positions, indent=2))
     except OSError as e:
         print(f"WARNING: failed to save portfolio: {e}", file=sys.stderr)
 

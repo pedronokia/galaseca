@@ -6,7 +6,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.settings import load_settings
 
 _BACKUP_DIR = DATA_DIR / "backups"
@@ -124,7 +124,7 @@ def restore_backup(path: str) -> int:
                 if fname not in allowed:
                     continue
                 data = z.read(fname)
-                (DATA_DIR / fname).write_bytes(data)
+                atomic_write_bytes(DATA_DIR / fname, data)
                 count += 1
         return count
     except Exception:

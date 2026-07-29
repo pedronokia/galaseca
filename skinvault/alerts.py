@@ -18,7 +18,9 @@ import time
 from pathlib import Path
 
 from skinvault import signals
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 
 _ALERTS_LOG_PATH = DATA_DIR / "alerts_log.json"
 _LOG_CAP = 500
@@ -126,7 +128,7 @@ def record_alert(name: str, alert: dict,
     """Persiste um alerta no log. Cap em _LOG_CAP entradas."""
     p = Path(path)
     try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else []
+        data = load_json_record(p, [])
         if not isinstance(data, list):
             data = []
     except Exception:
@@ -142,8 +144,7 @@ def record_alert(name: str, alert: dict,
     if len(data) > _LOG_CAP:
         data = data[-_LOG_CAP:]
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        atomic_write_text(p, json.dumps(data, indent=2))
     except OSError as e:
         print(f"WARNING: failed to save alerts log: {e}",
               file=__import__('sys').stderr)
@@ -152,17 +153,14 @@ def record_alert(name: str, alert: dict,
 def load_alerts_log(path: Path | str = _ALERTS_LOG_PATH) -> list[dict]:
     """Retorna o log de alertas (mais recente por ultimo)."""
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else []
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_json_record(p, [])
+    return data if isinstance(data, list) else []
 
 
 def clear_alerts_log(path: Path | str = _ALERTS_LOG_PATH) -> None:
     """Limpa o log de alertas."""
     try:
-        Path(path).write_text("[]", encoding="utf-8")
+        atomic_write_text(path, "[]")
     except OSError as e:
         print(f"WARNING: failed to clear alerts log: {e}",
               file=__import__('sys').stderr)

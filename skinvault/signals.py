@@ -11,7 +11,9 @@ import time
 from datetime import date
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 
 # EXPERIMENT 2026-06-08: vintage bonus — V4 APROVADO (Spearman criterion).
 # Trajetoria:
@@ -80,17 +82,15 @@ def record_item_price(name: str, price: float,
                       path: Path | str = _DEFAULT_PATH) -> None:
     """Registra um snapshot de preco pro item. Cap em 100 entradas."""
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else {}
-    except Exception:
+    data = load_json_record(p, {})
+    if not isinstance(data, dict):
         data = {}
     entry = data.setdefault(name, [])
     entry.append({"ts": time.time(), "price": price})
     if len(entry) > 100:
         entry[:] = entry[-100:]
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data), encoding="utf-8")
+        atomic_write_text(p, json.dumps(data))
     except OSError as e:
         print(f"WARNING: failed to save item history: {e}", file=sys.stderr)
 
@@ -99,35 +99,31 @@ def load_item_history(name: str,
                       path: Path | str = _DEFAULT_PATH) -> list[dict]:
     """Retorna a serie [{ts, price}] do item."""
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else {}
-    except Exception:
+    data = load_json_record(p, {})
+    if not isinstance(data, dict):
         data = {}
     return data.get(name, [])
 
 
 def _record_metric(name: str, value: float, path: Path) -> None:
     """Registra um snapshot de metrica (volume/supply). Cap em 100 entradas."""
-    try:
-        data = json.loads(path.read_text("utf-8")) if path.exists() else {}
-    except Exception:
+    data = load_json_record(path, {})
+    if not isinstance(data, dict):
         data = {}
     entry = data.setdefault(name, [])
     entry.append({"ts": time.time(), "value": value})
     if len(entry) > 200:
         entry[:] = entry[-200:]
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data), encoding="utf-8")
+        atomic_write_text(path, json.dumps(data))
     except OSError as e:
         print(f"WARNING: failed to save metric: {e}", file=sys.stderr)
 
 
 def _load_metric_history(name: str, path: Path) -> list[dict]:
     """Retorna a serie [{ts, value}] de uma metrica."""
-    try:
-        data = json.loads(path.read_text("utf-8")) if path.exists() else {}
-    except Exception:
+    data = load_json_record(path, {})
+    if not isinstance(data, dict):
         data = {}
     return data.get(name, [])
 
