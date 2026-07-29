@@ -6884,6 +6884,38 @@ def test_steam_login_cleanup_rmtree_error(tmp_path, monkeypatch):
     assert dlg._user_data_dir is None  # linha apos o except
 
 
+class _FakeSignal:
+    """Stub de pyqtSignal pra FakeApp.aboutToQuit."""
+    def __init__(self):
+        self.slots = []
+    def connect(self, slot):
+        self.slots.append(slot)
+
+
+def _fake_guard(monkeypatch, acquired=True):
+    """Neutraliza o SingleInstance em testes de launch().
+
+    Sem isso cada teste abriria um named pipe de verdade e um dependeria da
+    ordem do outro. Devolve o guarda instanciado pra inspecao.
+    """
+    holder = {}
+
+    class FakeGuard:
+        def __init__(self):
+            self.callback = None
+            self.released = False
+            holder["guard"] = self
+        def try_acquire(self):
+            return acquired
+        def set_activate_callback(self, cb):
+            self.callback = cb
+        def release(self):
+            self.released = True
+
+    monkeypatch.setattr("skinvault.gui.SingleInstance", FakeGuard)
+    return holder
+
+
 def test_launch_start_minimized(monkeypatch):
     """launch() com start_minimized=True esconde a janela."""
     from skinvault._paths import DATA_DIR
@@ -6892,7 +6924,7 @@ def test_launch_start_minimized(monkeypatch):
     class FakeApp:
         exec_called = False
         def __init__(self, argv):
-            pass
+            self.aboutToQuit = _FakeSignal()
         def exec(self):
             FakeApp.exec_called = True
             return 0
@@ -6906,6 +6938,7 @@ def test_launch_start_minimized(monkeypatch):
     monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings",
                         lambda: {"start_minimized": True})
+    _fake_guard(monkeypatch)
     hidden = []
     class FakeWin:
         _tray_icon = type("T", (), {})()
@@ -6913,6 +6946,8 @@ def test_launch_start_minimized(monkeypatch):
         def hide(self):
             hidden.append(True)
         def showMaximized(self):
+            pass
+        def activate(self):
             pass
     monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
     from skinvault.gui import launch
@@ -6929,7 +6964,7 @@ def test_launch_show_maximized(monkeypatch):
 
     class FakeApp:
         def __init__(self, argv):
-            pass
+            self.aboutToQuit = _FakeSignal()
         def exec(self):
             return 0
         def setWindowIcon(self, *_a, **_kw):
@@ -6941,6 +6976,7 @@ def test_launch_show_maximized(monkeypatch):
     monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
     monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    _fake_guard(monkeypatch)
     shown = []
     class FakeWin:
         _tray_icon = None
@@ -6949,6 +6985,8 @@ def test_launch_show_maximized(monkeypatch):
             pass
         def showMaximized(self):
             shown.append(True)
+        def activate(self):
+            pass
     monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
     from skinvault.gui import launch
     result = launch()
@@ -6963,7 +7001,7 @@ def test_launch_login_mode_compact(monkeypatch):
 
     class FakeApp:
         def __init__(self, argv):
-            pass
+            self.aboutToQuit = _FakeSignal()
         def exec(self):
             return 0
         def setWindowIcon(self, *_a, **_kw):
@@ -6975,6 +7013,7 @@ def test_launch_login_mode_compact(monkeypatch):
     monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
     monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    _fake_guard(monkeypatch)
     calls = {"show": 0, "max": 0}
     class FakeWin:
         _tray_icon = None
@@ -6985,12 +7024,128 @@ def test_launch_login_mode_compact(monkeypatch):
             calls["show"] += 1
         def showMaximized(self):
             calls["max"] += 1
+        def activate(self):
+            pass
     monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
     from skinvault.gui import launch
     result = launch()
     assert result == 0
     assert calls["show"] == 1
     assert calls["max"] == 0
+
+
+def test_launch_segunda_instancia_sai_sem_janela(monkeypatch):
+    """Com uma instancia viva, launch() sai 0 e nem constroi a MainWindow."""
+    from skinvault._paths import DATA_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    class FakeApp:
+        def __init__(self, argv):
+            self.aboutToQuit = _FakeSignal()
+        def exec(self):
+            raise AssertionError("nao deveria entrar no event loop")
+        def setWindowIcon(self, *_a, **_kw):
+            pass
+        @staticmethod
+        def setAttribute(attr, val):
+            pass
+
+    monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
+    _fake_guard(monkeypatch, acquired=False)
+
+    def _boom():
+        raise AssertionError("MainWindow nao deveria ser construida")
+
+    monkeypatch.setattr("skinvault.gui.MainWindow", _boom)
+    from skinvault.gui import launch
+    assert launch() == 0
+
+
+def test_launch_liga_release_no_about_to_quit(monkeypatch):
+    """O guarda e' liberado quando o app encerra."""
+    from skinvault._paths import DATA_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    apps = []
+
+    class FakeApp:
+        def __init__(self, argv):
+            self.aboutToQuit = _FakeSignal()
+            apps.append(self)
+        def exec(self):
+            return 0
+        def setWindowIcon(self, *_a, **_kw):
+            pass
+        @staticmethod
+        def setAttribute(attr, val):
+            pass
+
+    monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    holder = _fake_guard(monkeypatch)
+
+    class FakeWin:
+        _tray_icon = None
+        _login_mode = False
+        def hide(self):
+            pass
+        def showMaximized(self):
+            pass
+        def activate(self):
+            pass
+
+    win = FakeWin()
+    monkeypatch.setattr("skinvault.gui.MainWindow", lambda: win)
+    from skinvault.gui import launch
+    launch()
+
+    guard = holder["guard"]
+    # A janela e' quem sobe quando outra instancia bate na porta.
+    assert guard.callback == win.activate
+    assert guard.released is False
+    for slot in apps[-1].aboutToQuit.slots:
+        slot()
+    assert guard.released is True
+
+
+def test_mainwindow_activate_visivel_nao_desmaximiza(monkeypatch):
+    """Janela visivel: activate() sobe o z-order sem chamar showNormal."""
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr(win, "isMinimized", lambda: False)
+    monkeypatch.setattr(win, "isVisible", lambda: True)
+    monkeypatch.setattr(win, "_restore_from_tray",
+                        lambda: calls.append("restore"))
+    monkeypatch.setattr(win, "raise_", lambda: calls.append("raise"))
+    monkeypatch.setattr(win, "activateWindow", lambda: calls.append("activate"))
+    win.activate()
+    assert calls == ["raise", "activate"]
+
+
+def test_mainwindow_activate_escondida_restaura(monkeypatch):
+    """Escondida na bandeja: activate() cai no caminho de restauracao."""
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr(win, "isMinimized", lambda: False)
+    monkeypatch.setattr(win, "isVisible", lambda: False)
+    monkeypatch.setattr(win, "_restore_from_tray",
+                        lambda: calls.append("restore"))
+    win.activate()
+    assert calls == ["restore"]
+
+
+def test_mainwindow_activate_minimizada_restaura(monkeypatch):
+    """Minimizada: mesmo caminho da bandeja."""
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr(win, "isMinimized", lambda: True)
+    monkeypatch.setattr(win, "isVisible", lambda: True)
+    monkeypatch.setattr(win, "_restore_from_tray",
+                        lambda: calls.append("restore"))
+    win.activate()
+    assert calls == ["restore"]
 
 
 # ── Validar score (AccountScreen) ────────

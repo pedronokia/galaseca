@@ -47,6 +47,7 @@ skinvault/
 ├── settings.py
 ├── backup.py       # restore com whitelist contra Zip Slip
 ├── _paths.py       # DATA_DIR centralizado
+├── single_instance.py # guarda de instancia unica (QLocalServer)
 ├── gui.py          # MainWindow + dialogs grandes
 └── ui/             # screens individuais (Athenas-style)
     ├── theme.py    # paleta + tipografia + helpers de stylesheet
@@ -253,6 +254,35 @@ Padrão no codebase é
 `QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(handler)`.
 **Não** use kwarg `activated=...` no construtor — não funciona em
 todas as versões.
+
+### 9. Instância única — o sinal é a conexão, não uma mensagem
+
+`minimize_to_tray_on_close` faz o X esconder na bandeja. Quem não percebe
+reabre pelo atalho e empilha processos: **29 vivos ao mesmo tempo**, todos
+gravando nos mesmos JSON de `data/` sem lock nenhum. `save_portfolio` e os
+caches reescrevem o arquivo inteiro, então a última gravação apaga o que as
+outras fizeram. `single_instance.py` fecha isso com um `QLocalServer` cujo
+nome é um sha1 do `DATA_DIR` (case-folded — `C:\SkinVault\data` e
+`c:/skinvault/data` precisam colidir).
+
+**Não tente mandar payload no ping.** Medido no Windows: o cliente conecta,
+escreve, dá `flush()` e `disconnectFromServer()`; o servidor recebe
+`newConnection` com `bytesAvailable() == 0` e depois `disconnected`, sem
+nunca disparar `readyRead`. O payload some. Testadas e todas falharam:
+`waitForBytesWritten`, `waitForDisconnected` no cliente,
+`waitForReadyRead` no servidor. Só entrega se o cliente mantiver o socket
+vivo — e o cliente aqui é um processo que existe para morrer em seguida.
+
+Por isso a **conexão em si** é a mensagem. Consequência aceita: qualquer
+processo que abra o pipe faz a janela subir.
+
+Duas outras decisões que parecem bugs e não são:
+
+- Falha ao criar o servidor devolve `True` (abre sem proteção). Um app que
+  se recusa a abrir sem ninguém concorrendo é pior que um app sem guarda.
+- `listen()` falhando **não** chama `removeServer()` direto: primeiro tenta
+  conectar de novo. Remover às cegas mataria o servidor da instância viva
+  que acabou de ganhar a corrida.
 
 ## Persistência (arquivos em `data/`)
 

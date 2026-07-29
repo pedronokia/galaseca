@@ -55,6 +55,7 @@ except ImportError:
 from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
 from skinvault._paths import DATA_DIR, ensure_data_dir
 from skinvault.settings import DEFAULTS, load_settings, save_settings
+from skinvault.single_instance import SingleInstance
 from skinvault.ui import theme as t
 from skinvault.ui.components import Sidebar, Toast
 
@@ -738,6 +739,22 @@ class MainWindow(QMainWindow):
         self.activateWindow()
         self.raise_()
 
+    def activate(self) -> None:
+        """Traz a janela pra frente. Chamado quando outra instancia tenta abrir.
+
+        Escondida na bandeja ou minimizada: mesmo caminho da restauracao pelo
+        tray. Ja' visivel: so' sobe o z-order -- `showNormal()` aqui
+        desmaximizaria a janela so' porque o usuario clicou no atalho de novo.
+        """
+        if self.isMinimized() or not self.isVisible():
+            self._restore_from_tray()
+            return
+        self.setWindowState(
+            self.windowState() | Qt.WindowState.WindowActive
+        )
+        self.raise_()
+        self.activateWindow()
+
     def _on_tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self._restore_from_tray()
@@ -996,7 +1013,19 @@ def launch() -> int:
     )
     app = QApplication([])
     app.setWindowIcon(_app_icon())
+
+    # Antes de qualquer janela: com minimize_to_tray_on_close ligado, o X
+    # esconde em vez de encerrar, e reabrir pelo atalho empilha processos
+    # gravando nos mesmos JSON sem lock (ver single_instance).
+    guard = SingleInstance()
+    if not guard.try_acquire():
+        logging.getLogger(__name__).info(
+            "Ja' existe uma instancia rodando; trazendo pra frente.")
+        return 0
+    app.aboutToQuit.connect(guard.release)
+
     win = MainWindow()
+    guard.set_activate_callback(win.activate)
     settings = load_settings()
     if settings.get("start_minimized", False) and win._tray_icon is not None:
         win.hide()
