@@ -357,6 +357,39 @@ Antes de "consertar" um glifo, repita o teste com a plataforma nativa
 assinatura de tinta com um codepoint da área de uso privado (``),
 que é tofu garantido.
 
+### 12. A listing page também é racionada — e falha em SILÊNCIO
+
+O gotcha #3 e as notas antigas diziam que a listing page continua
+respondendo quando `priceoverview`/`search` estão em 429. **É verdade só
+até certo volume.** Medido em 2026-07-29 buscando as séries das caixas:
+
+- as 17 primeiras páginas voltaram completas (~5000 pontos cada);
+- a partir daí, **HTTP 200, corpo de 210 KB, e nenhum dado**: sem
+  `Market_LoadOrderSpread`, sem `var line1`, sem `g_rgAssets`.
+
+A Steam serve a casca da página em vez de recusar. Isso é pior que um 429
+para quem consome:
+
+- o status diz sucesso, então nenhum retry/backoff dispara;
+- o corpo é grande, então checar tamanho não detecta;
+- `get_market_page_data` devolve None, e o chamador lê isso como
+  **"este item não tem histórico"** — que é uma afirmação falsa sobre o
+  item, não sobre a rede.
+
+Ao varrer muitos itens, trate `page sem price_history` como **suspeita de
+throttle**, não como fato: se vários itens seguidos vierem vazios, pare a
+varredura. Um item real sem histórico é raro; dez seguidos é bloqueio.
+
+`ssr_cache.cached_price_history` não cacheia o None, então não há
+envenenamento (ao contrário do que acontecia com `prices` — ver #10). Mas
+o scanner e a watchlist exibem esses itens como "sem dado".
+
+**Erro de método a não repetir:** o script que descobriu isso sondava
+`_http_get` antes de chamar `get_market_page_data`, pra detectar 429 —
+e com isso fazia **duas requisições por item**, dobrando o consumo
+justamente no endpoint que queria poupar. Se precisar do status, use o
+retorno de `get_market_page_data` e não uma sonda separada.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`
