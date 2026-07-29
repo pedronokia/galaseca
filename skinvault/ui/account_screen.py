@@ -68,6 +68,11 @@ class AccountScreen(QWidget):
     # esta tela mantem o PriceWorker porque avaliar em dois lugares
     # dobraria o custo num endpoint rate-limited.
     inventory_ready = pyqtSignal(list, list)
+    # Progresso da avaliacao (done, total). A InventoryScreen precisa disso
+    # pra distinguir "ainda avaliando" de "vazio" -- sob rate limit da Steam
+    # a avaliacao leva minutos, e o estado intermediario e' o que mais
+    # aparece pro usuario.
+    inventory_progress = pyqtSignal(int, int)
 
     def __init__(self, cache: prices.PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -409,6 +414,7 @@ class AccountScreen(QWidget):
         """Avalia portfolio em thread e atualiza tabela + stats."""
         self._progress.setVisible(True)
         self._status.setText("Avaliando inventário...")
+        self.inventory_progress.emit(0, 0)
         self._price_worker.start()
         self._reload_activity()
 
@@ -450,6 +456,7 @@ class AccountScreen(QWidget):
 
     def _on_eval_progress(self, done: int, total: int) -> None:
         self._status.setText(f"Avaliando inventário... {done}/{total}")
+        self.inventory_progress.emit(done, total)
 
     # ── Validar score ───────────────────────
     def _on_refresh_scores(self) -> None:

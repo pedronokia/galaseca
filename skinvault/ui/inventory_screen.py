@@ -31,7 +31,12 @@ from PyQt6.QtWidgets import (
 
 from skinvault import markets
 from skinvault.ui import theme as t
-from skinvault.ui.components import EmptyState, PageHeader, score_table_item
+from skinvault.ui.components import (
+    EmptyState,
+    LoadingState,
+    PageHeader,
+    score_table_item,
+)
 from skinvault.ui.inventory_grid import InventoryGrid
 
 
@@ -113,7 +118,20 @@ class InventoryScreen(QWidget):
                        "pra puxar seus itens."),
         )
         root.addWidget(self._empty, 1)
+
+        # Enquanto a AccountScreen avalia, nem a grade nem o "vazio" valem:
+        # dizer "sincronize com a Steam" pra quem TEM itens e' so' esperar
+        # e' mentir sobre a causa. Sob rate limit a avaliacao chega a levar
+        # minutos (backoff de 14s por item), entao o estado intermediario e'
+        # o que o usuario mais ve'.
+        self._loading = LoadingState("Avaliando inventário…")
+        root.addWidget(self._loading, 1)
+
+        # Default e' o empty state, nao o loading: sem sessao a AccountScreen
+        # nunca chama refresh(), e a tela ficaria em branco pra sempre.
         self._views.setVisible(False)
+        self._empty.setVisible(True)
+        self._loading.setVisible(False)
 
         self._status = QLabel("")
         self._status.setStyleSheet(t.label_caption())
@@ -121,11 +139,33 @@ class InventoryScreen(QWidget):
 
     # ── dados ─────────────────────────────────────────────
 
+    def set_loading(self, done: int = 0, total: int = 0) -> None:
+        """Avaliacao em andamento na AccountScreen.
+
+        Só entra no estado de carregamento quando ainda NAO ha' dados: uma
+        reavaliacao com a tabela ja' preenchida nao deve apagar o que o
+        usuario esta' lendo.
+        """
+        if self._rows:
+            if total:
+                self._status.setText(
+                    f"{len(self._rows)} item(ns) • reavaliando {done}/{total}…")
+            return
+        self._views.setVisible(False)
+        self._empty.setVisible(False)
+        self._loading.setVisible(True)
+        self._loading.set_label(
+            f"Avaliando inventário… {done}/{total}" if total
+            else "Avaliando inventário…"
+        )
+        self._status.setText("")
+
     def set_data(self, rows: list, positions: list) -> None:
         """Recebe as linhas ja' avaliadas pela AccountScreen."""
         self._rows = list(rows or [])
         self._positions = list(positions or [])
         tem = bool(self._rows)
+        self._loading.setVisible(False)
         self._views.setVisible(tem)
         self._empty.setVisible(not tem)
         if not tem:

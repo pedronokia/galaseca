@@ -323,6 +323,40 @@ Detalhes que parecem excesso e não são:
 - **`ensure_data_dir()` varre `*.tmp`** no startup — um `kill -9` no meio
   da escrita não roda `except` nenhum, e sem a varredura eles acumulam.
 
+### 11. Render offscreen mente sobre duas coisas
+
+Renderizar o `ScreenRouter` com `QT_QPA_PLATFORM=offscreen` e amostrar
+luminância é o jeito certo de validar **layout, tema e hierarquia** sem
+pedir print pro usuário. Mas ele erra em dois pontos, os dois medidos em
+2026-07-29 depois de quase virarem "correções" de bugs inexistentes:
+
+**1. Animação não avança com `processEvents()`.** `LoadingState.showEvent`
+chama `fade_in()`, que instala um `QGraphicsOpacityEffect` em 0.0 e anima
+até 1.0 em 150ms. `processEvents()` não faz o relógio andar, então o
+widget renderiza **totalmente invisível** e parece que o estado não
+funciona. Bombeie com tempo real antes do `render()`:
+
+```python
+fim = time.time() + 0.5
+while time.time() < fim:
+    app.processEvents(); time.sleep(0.01)
+```
+
+(O `fade_in` só dispara com a janela visível — é por isso que os testes,
+que nunca dão `show()`, ficam determinísticos. O guard está lá de
+propósito.)
+
+**2. O fallback de fonte é mais pobre que o do app real.** Offscreen,
+`◴◷◶◵` (spinner do `LoadingState`) e `◇` (ícone do `EmptyState`) saem
+como **tofu** — retângulo vazio. Na plataforma `windows` os mesmos
+codepoints renderizam normalmente. `QFontMetrics.inFontUcs4()` também
+diz que faltam, porque só olha a família primária e ignora o fallback.
+
+Antes de "consertar" um glifo, repita o teste com a plataforma nativa
+(`QPixmap` + `QPainter`, sem `show()`, não rouba foco) e compare a
+assinatura de tinta com um codepoint da área de uso privado (``),
+que é tofu garantido.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`

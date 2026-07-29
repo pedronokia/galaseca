@@ -109,6 +109,74 @@ def test_sem_posicoes_nao_quebra(tela):
     assert tela._grid.count() == 2
 
 
+# ── "avaliando" nao e' "vazio" ─────────────────────────────────────
+#
+# A avaliacao roda na AccountScreen (ela tem o PriceWorker). Sob rate
+# limit da Steam cada item queima o backoff inteiro -- 2+4+8s -- entao com
+# 24 itens sem cache a tela fica ~5,6 min sem dado nenhum. Nesse intervalo
+# ela dizia "Inventario vazio / Sincronize com a Steam", que e' falso pra
+# quem ja' tem itens e so' esta' esperando.
+
+
+def test_loading_substitui_o_empty_state(tela):
+    tela.set_loading(0, 0)
+    assert tela._loading.isVisibleTo(tela) is True
+    assert tela._empty.isVisibleTo(tela) is False
+    assert tela._views.isVisibleTo(tela) is False
+
+
+def test_loading_mostra_o_progresso(tela):
+    tela.set_loading(4, 31)
+    assert "4/31" in tela._loading._lbl.text()
+
+
+def test_loading_sem_total_nao_inventa_numero(tela):
+    tela.set_loading(0, 0)
+    assert "0/0" not in tela._loading._lbl.text()
+
+
+def test_dados_encerram_o_loading(tela):
+    tela.set_loading(4, 31)
+    tela.set_data(ROWS, POS)
+    assert tela._loading.isVisibleTo(tela) is False
+    assert tela._views.isVisibleTo(tela) is True
+
+
+def test_avaliacao_vazia_de_verdade_mostra_o_empty(tela):
+    """Terminou e nao veio nada: aí sim o empty state e' honesto."""
+    tela.set_loading(0, 0)
+    tela.set_data([], [])
+    assert tela._empty.isVisibleTo(tela) is True
+    assert tela._loading.isVisibleTo(tela) is False
+
+
+def test_reavaliacao_nao_apaga_a_tabela(tela):
+    """Refresh periodico com dados na tela nao pode esconder o que o
+    usuario esta' lendo."""
+    tela.set_data(ROWS, POS)
+    tela.set_loading(2, 31)
+    assert tela._views.isVisibleTo(tela) is True
+    assert tela._loading.isVisibleTo(tela) is False
+    assert "reavaliando 2/31" in tela._status.text()
+
+
+def test_comeca_no_empty_e_nao_em_branco(tela):
+    """Sem sessao a AccountScreen nunca chama refresh(); a tela nao pode
+    ficar totalmente em branco."""
+    assert tela._empty.isVisibleTo(tela) is True
+    assert tela._loading.isVisibleTo(tela) is False
+
+
+def test_account_emite_progresso_pra_inventory(monkeypatch):
+    """O fio que liga as duas telas existe de ponta a ponta."""
+    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+    from skinvault.prices import PriceCache
+    from skinvault.ui.screen_router import ScreenRouter
+    router = ScreenRouter(PriceCache(ttl=3600))
+    router._account_screen.inventory_progress.emit(3, 31)
+    assert "3/31" in router._inventory_screen._loading._lbl.text()
+
+
 # ── coluna Score ───────────────────────────────────────────────────
 #
 # O score fica persistido na POSITION pelo "Validar score" da tela Minha

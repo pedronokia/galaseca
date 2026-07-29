@@ -145,6 +145,8 @@ class ScreenRouter(QWidget):
         self._inventory_screen = InventoryScreen(self)
         self._account_screen.inventory_ready.connect(
             self._inventory_screen.set_data)
+        self._account_screen.inventory_progress.connect(
+            self._inventory_screen.set_loading)
         self._stack.addWidget(self._inventory_screen)
 
         self._history_screen = HistoryScreen(self._cache, self)
