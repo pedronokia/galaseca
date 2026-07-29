@@ -187,7 +187,39 @@ class SettingsScreen(QWidget):
         self._min_to_tray.toggled.connect(
             lambda v: self._set("minimize_to_tray_on_close", v))
         lay.addWidget(self._min_to_tray)
+
+        # Ate' 29/07/2026 esta opcao so' existia no menu de contexto da
+        # bandeja. Ela muda o comportamento da JANELA (sempre no topo, sem
+        # roubar foco), e ligada por engano o sintoma que aparece e' "o
+        # alt+tab parou de funcionar" -- sem nada na UI apontando a causa.
+        self._overlay = QCheckBox(
+            "Modo overlay — janela sempre no topo (para CS2 em tela cheia)"
+        )
+        self._overlay.setStyleSheet(t.checkbox_style())
+        self._overlay.setToolTip(
+            "Mantém a janela acima das outras e impede que ela roube o foco "
+            "do jogo.\n"
+            "Efeito colateral: ligado, o alt+tab não tira o SkinVault da "
+            "frente.\n"
+            "Deixe desligado se você não usa o app sobre o CS2 em tela cheia."
+        )
+        self._overlay.toggled.connect(self._on_overlay_toggled)
+        lay.addWidget(self._overlay)
         return card
+
+    def _on_overlay_toggled(self, value: bool) -> None:
+        """Aplica ao vivo quando ha' MainWindow.
+
+        `set_overlay_mode` ja' persiste e refaz as flags da janela --
+        chamar `_set` junto so' gravaria duas vezes.
+        """
+        if self._loading:
+            return
+        w = self.window()
+        if hasattr(w, "set_overlay_mode"):
+            w.set_overlay_mode(value)
+        else:
+            self._set("overlay_mode", value)
 
     def _build_advanced(self) -> Card:
         card = Card(self)
@@ -339,6 +371,7 @@ class SettingsScreen(QWidget):
                 bool(s.get("start_minimized", False)))
             self._min_to_tray.setChecked(
                 bool(s.get("minimize_to_tray_on_close", True)))
+            self._overlay.setChecked(bool(s.get("overlay_mode", False)))
             self._cache_ttl.setValue(int(s.get("cache_ttl_hours", 6)))
             self._fee_rate.setValue(float(s.get("fee_rate", 0.15)))
         finally:

@@ -6453,6 +6453,90 @@ def test_settings_screen_reset(monkeypatch):
     assert saved[-1]["fee_rate"] == ss.DEFAULTS["fee_rate"]
 
 
+# ── modo overlay na tela de Configuracoes ────────────────
+#
+# Ate' 29/07/2026 a opcao so' existia no menu de contexto da bandeja. Ela
+# muda o comportamento da JANELA (sempre no topo + sem roubar foco), e
+# ligada por engano o sintoma que aparece e' "o alt+tab parou de
+# funcionar", sem nada na UI apontando a causa.
+
+
+def test_overlay_aparece_nas_configuracoes(monkeypatch):
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    assert screen._overlay.isChecked() is False
+    assert "overlay" in screen._overlay.text().lower()
+
+
+def test_overlay_reflete_o_valor_salvo(monkeypatch):
+    """O usuario precisa CONSEGUIR VER que esta' ligado."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {"overlay_mode": True})
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    assert screen._overlay.isChecked() is True
+
+
+def test_overlay_tooltip_cita_o_alt_tab(monkeypatch):
+    """O sintoma pelo qual o usuario procura precisa estar escrito ali."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    assert "alt+tab" in screen._overlay.toolTip().lower()
+
+
+def test_overlay_usa_o_hook_da_janela(monkeypatch):
+    """set_overlay_mode ja' persiste E refaz as flags; passar pelo _set
+    gravaria duas vezes e nao reaplicaria nada."""
+    from PyQt6.QtWidgets import QWidget
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    gravou = []
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: gravou.append(s))
+    from skinvault.ui.settings_screen import SettingsScreen
+
+    chamadas = []
+
+    class FakeWin(QWidget):
+        def set_overlay_mode(self, v):
+            chamadas.append(v)
+
+    parent = FakeWin()
+    screen = SettingsScreen(parent)
+    screen._overlay.setChecked(True)
+    assert chamadas == [True]
+    assert gravou == []  # quem persiste e' a janela
+
+
+def test_overlay_sem_janela_persiste_sozinho(monkeypatch):
+    """Fora do MainWindow (testes, telas soltas) ainda tem que salvar."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    gravou = []
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: gravou.append(s))
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    screen._overlay.setChecked(True)
+    assert gravou and gravou[-1]["overlay_mode"] is True
+
+
+def test_overlay_nao_dispara_ao_carregar(monkeypatch):
+    """_loading guarda contra salvar durante o preenchimento inicial."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {"overlay_mode": True})
+    gravou = []
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: gravou.append(s))
+    from skinvault.ui.settings_screen import SettingsScreen
+    SettingsScreen()
+    assert gravou == []
+
+
 def test_settings_screen_theme_calls_window_hook(monkeypatch):
     """Trocar o tema aciona _on_theme_changed via window()."""
     from PyQt6.QtWidgets import QWidget
