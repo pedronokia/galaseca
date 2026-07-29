@@ -201,6 +201,52 @@ aposentadoria.
 
 Ao mexer no score, meça antes e depois — a infraestrutura está pronta.
 
+### 4c. Aposentadoria de caixa: o efeito é um SALTO que depois DECAI (2026-07-29)
+
+41 caixas, séries diárias completas da listing page, retorno 365d em
+janelas rolando (passo 30d) dentro dos **últimos 3 anos** — mesma janela
+de calendário pra todas, então regime de mercado fica controlado. Unidade
+de análise é a CAIXA (janelas sobrepostas na mesma série são
+autocorrelacionadas; contar amostras daria precisão falsa).
+
+| grupo | n | mediana | líquido (15%) | positivas | pior caixa |
+|---|---|---|---|---|---|
+| aposentadas | 35 | **+48,0%** | **+25,8%** | 35/35 | +7,8% |
+| pool ativo | 5 | +18,9% | +1,0% | 3/5 | **−50,1%** |
+
+**A ressalva de idade do 4b ("idade está confundida com aposentadoria")
+foi resolvida — e o resultado inverteu a suspeita.** Por coorte:
+
+| coorte | n | mediana | líquido |
+|---|---|---|---|
+| ativo 2022-25 | 5 | +18,9% | +1,0% |
+| **aposent. recente 2019-21** | 7 | **+78,3%** | **+51,6%** |
+| aposent. média 2015-18 | 16 | +49,2% | +26,8% |
+| aposent. antiga 2013-14 | 12 | +32,4% | +12,5% |
+
+Há um **salto de 4x exatamente na fronteira** ativo → recém-aposentada, e
+daí em diante o retorno **cai** com a idade.
+`Spearman(idade, retorno)` dentro das aposentadas = **−0,762**.
+
+Ou seja: não é "velha rende mais". É a aposentadoria que dispara uma
+re-precificação, que **se esgota** ao longo dos anos seguintes. O
+mecanismo bate: sai do drop pool → oferta para de crescer → preço
+re-precifica → efeito exaure.
+
+Isso **vence a taxa com folga** (+25,8% líquidos), ao contrário do flip de
+90d do 4b (−3,41% líquidos). É a única tese medida aqui que fecha a conta.
+
+Limites que continuam de pé:
+
+- **n=5 no pool ativo é o gargalo e não tem como crescer** — só existem 6
+  caixas ativas. Gallery (2024) tem n=10 janelas; Fever (2025) nem entrou.
+- mediana-a-mediana, ignora spread de compra/venda;
+- 3 caixas faltando (Bloodhound, Operation Shattered Web, Snakebite);
+- `_CASES` parece ter entrada duplicada: `Shattered Web Case` (2019)
+  responde com 3130 pontos e `Operation Shattered Web Case` (2019) vem
+  vazia na mesma varredura, 3 posições depois — sugere nome inválido, não
+  throttle. Não confirmado.
+
 ### 5. `_find_query` prioriza match exato (corrigido em 2026-07-28)
 
 Ordem de preferência, independente da ordem de iteração do SSR:
