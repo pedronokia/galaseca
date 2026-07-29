@@ -41,7 +41,7 @@ from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState, FormRow, LoadingState, PageHeader, SectionHeader, StatCard,
-    ToggleSwitch,
+    ToggleSwitch, score_table_item,
 )
 
 
@@ -447,37 +447,10 @@ class WatchlistScreen(QWidget):
                 QTableWidgetItem(alerts.format_rules_summary(rules)),
             )
 
-            # Score atual (persistido pelo Validar score)
-            cur_score = item.get("current_score")
-            score_ts = item.get("score_ts")
-            if cur_score is None:
-                score_item = QTableWidgetItem("—")
-                score_item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
-                score_item.setToolTip(
-                    "Clique em 'Validar score' para calcular."
-                )
-            else:
-                score_item = QTableWidgetItem(str(int(cur_score)))
-                stale = signals.is_score_stale(score_ts)
-                if stale:
-                    color = t.WARN
-                elif cur_score >= 70:
-                    color = t.POSITIVE
-                elif cur_score >= 45:
-                    color = t.WARN
-                else:
-                    color = t.DANGER
-                score_item.setForeground(QBrush(QColor(color)))
-                age_txt = signals.score_age_text(score_ts)
-                stale_tag = " [DESATUALIZADO]" if stale else ""
-                score_item.setToolTip(
-                    f"Score {int(cur_score)} — calculado {age_txt}."
-                    f"{stale_tag}\n"
-                    f"Empíricamente:\n"
-                    f"  70-84 containers → +33%, skins → +8% em 90d\n"
-                    f"  85+ containers → +52%, skins → +21% em 90d"
-                )
-            self._table.setItem(i, self.COL_SCORE, score_item)
+            # Score atual (persistido pelo Validar score). A celula e'
+            # compartilhada com o Inventario -- ver components.
+            self._table.setItem(i, self.COL_SCORE, score_table_item(
+                item.get("current_score"), item.get("score_ts")))
 
             # Confianca (data quality)
             dq = item.get("data_quality") or {}

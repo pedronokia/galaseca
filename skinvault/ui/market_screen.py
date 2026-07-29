@@ -58,6 +58,15 @@ def _save_recent(items: list[str]) -> None:
         pass
 
 
+_MEDIAN_LABEL = "Mediana 24h"
+_MEDIAN_LABEL_FALLBACK = "Mediana (último dia com venda)"
+
+_THROTTLED_MSG = (
+    "A Steam limitou as consultas de preço agora. O histórico e o livro de "
+    "ofertas vieram da página do item; menor listagem, volume 24h e o "
+    "veredito voltam sozinhos quando o limite passar."
+)
+
 _VERDICT_COLOR = {
     "below_median": t.POSITIVE,
     "fair": t.TEXT,
@@ -374,6 +383,44 @@ class MarketScreen(QWidget):
         self._detail_grid.addWidget(lbl, row, 0)
         self._detail_grid.addWidget(val, row, 1)
 
+    def _reset_median_card(self) -> None:
+        """Devolve o cartao de mediana ao significado padrao.
+
+        Rotulo e badge sobrevivem entre consultas: sem este reset, um item
+        consultado durante o rate limit deixaria "último dia com venda"
+        colado no cartao do proximo item, que veio com mediana 24h de fato.
+        """
+        self._stat_median.set_label(_MEDIAN_LABEL)
+        self._stat_median.clear_badge()
+        self._stat_median.setToolTip(
+            "Mediana das vendas das últimas 24h. Referência de \"preço justo\"."
+        )
+
+    def _fill_median_from_page(self, page: dict) -> None:
+        """Preenche a mediana com o último dia do histórico da página.
+
+        Não é a mediana de 24h: é a do último dia em que houve venda, que
+        pode ser mais antigo. O rótulo e o badge dizem isso — um número com
+        o rótulo errado seria pior que travessão.
+        """
+        diario = signals.daily_series(page.get("price_history") or [])
+        if not diario:
+            return
+        ultimo = diario[-1]
+        preco = ultimo.get("price_median")
+        if preco is None:
+            return
+        self._stat_median.set_label(_MEDIAN_LABEL_FALLBACK)
+        self._stat_median.set_value(t.brl(preco), accent=t.TEXT)
+        self._stat_median.set_badge("do histórico")
+        quando = time.strftime("%d/%m/%Y", time.localtime(ultimo["time"])) \
+            if ultimo.get("time") else "data desconhecida"
+        self._stat_median.setToolTip(
+            "A Steam limitou o endpoint de preço, então esta mediana vem do "
+            "histórico da página do item.\n"
+            f"Refere-se a {quando}, não às últimas 24h."
+        )
+
     # ── acoes ─────────────────────────────────────────────
     def _on_search(self) -> None:
         name = self._search_inp.text().strip()
@@ -416,6 +463,7 @@ class MarketScreen(QWidget):
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict):
             sc.set_value("—", accent=t.TEXT)
+        self._reset_median_card()
         self._sparkline.set_series([])
         self._sparkline.set_sma([])
         self._sparkline.set_sr({})
@@ -458,6 +506,12 @@ class MarketScreen(QWidget):
 
         # Stats
         verdict: dict = {}
+        # `page` sem `overview` significa que o nome existe (a pagina do item
+        # resolveu) mas o priceoverview nao respondeu -- rate limit ou rede,
+        # nunca item invalido. Da' pra mostrar algo em vez de quatro
+        # travessoes e um "dados insuficientes" que sugere culpa do usuario.
+        throttled = bool(page) and not overview
+        self._reset_median_card()
         if overview:
             lowest = overview.get("lowest")
             median = overview.get("median")
@@ -494,6 +548,8 @@ class MarketScreen(QWidget):
                         f"Anomalia detectada: {anom.get('label', '')}"
                     )
             self._stat_volume.set_value(vol_label, accent=vol_color)
+        elif throttled:
+            self._fill_median_from_page(page)
 
         # Charts
         if page:
@@ -563,6 +619,12 @@ class MarketScreen(QWidget):
                                          t.TEXT)
             self._detail_msg.setStyleSheet(
                 f"color: {v_color}; font-size: {t.FS_BODY};"
+                f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+            )
+        elif throttled:
+            self._detail_msg.setText(_THROTTLED_MSG)
+            self._detail_msg.setStyleSheet(
+                f"color: {t.WARN}; font-size: {t.FS_BODY};"
                 f" font-weight: 600; font-family: {t.FONT_FAMILY};"
             )
         else:

@@ -37,6 +37,52 @@ from .cards import Card, StatCard
 from .sidebar import _SidebarItem, Sidebar
 
 
+def score_table_item(current_score, score_ts):
+    """Celula de tabela para o score persistido pelo "Validar score".
+
+    Vive aqui porque duas telas mostram o mesmo numero -- Watchlist e
+    Inventario. A regra de cor e os numeros empiricos do tooltip sao
+    conhecimento medido (ver AGENTS.md #4b); duplicar seria deixar as duas
+    telas divergirem na proxima recalibragem.
+
+    Score desatualizado fica ambar independente do valor: um 90 de tres
+    semanas atras nao e' uma oportunidade, e' um dado velho.
+    """
+    from PyQt6.QtGui import QBrush
+    from PyQt6.QtWidgets import QTableWidgetItem
+
+    from skinvault import signals
+    from skinvault.ui import theme as t
+
+    if current_score is None:
+        item = QTableWidgetItem("—")
+        item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+        item.setToolTip("Clique em 'Validar score' para calcular.")
+        return item
+
+    item = QTableWidgetItem(str(int(current_score)))
+    stale = signals.is_score_stale(score_ts)
+    if stale:
+        color = t.WARN
+    elif current_score >= 70:
+        color = t.POSITIVE
+    elif current_score >= 45:
+        color = t.WARN
+    else:
+        color = t.DANGER
+    item.setForeground(QBrush(QColor(color)))
+    age_txt = signals.score_age_text(score_ts)
+    stale_tag = " [DESATUALIZADO]" if stale else ""
+    item.setToolTip(
+        f"Score {int(current_score)} — calculado {age_txt}."
+        f"{stale_tag}\n"
+        f"Empíricamente:\n"
+        f"  70-84 containers → +33%, skins → +8% em 90d\n"
+        f"  85+ containers → +52%, skins → +21% em 90d"
+    )
+    return item
+
+
 def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
     """Fade-in suave de um widget via QGraphicsOpacityEffect.
 

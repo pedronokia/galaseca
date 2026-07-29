@@ -2328,6 +2328,95 @@ class TestMarketScreen:
         )
         _save_recent(["AK"])  # nao crasha
 
+    # ── priceoverview limitado pela Steam ─────────────────
+    #
+    # Cenario medido em 2026-07-29: priceoverview devolvia 429 enquanto a
+    # listing page (outro host) respondia normalmente. A tela mostrava
+    # quatro travessoes e "Dados insuficientes para um veredito", sugerindo
+    # que o problema era o nome do item.
+
+    PAGE_SO = {
+        "price_history": [
+            {"time": 1704067200, "price_median": 200.0, "purchases": 10},
+            {"time": 1704153600, "price_median": 229.26, "purchases": 8},
+        ],
+        "order_book": {"buy_count": 2745, "sell_count": 69},
+        "order_book_approx": True,
+    }
+
+    def _screen(self):
+        from skinvault.prices import PriceCache
+        from skinvault.ui.market_screen import MarketScreen
+        return MarketScreen(PriceCache(ttl=3600))
+
+    def test_sem_overview_usa_mediana_do_historico(self):
+        from skinvault.ui.market_screen import _MEDIAN_LABEL_FALLBACK
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        assert "229,26" in screen._stat_median._value.text()
+        assert screen._stat_median._label.text() == _MEDIAN_LABEL_FALLBACK
+        # isVisibleTo, nao isVisible: a tela nunca foi exibida na suite, entao
+        # isVisible() e' False pra tudo e nao diria nada.
+        assert screen._stat_median._badge.isVisibleTo(screen._stat_median)
+
+    def test_sem_overview_nao_inventa_menor_listagem(self):
+        """O livro pode vir de outro wear (order_book_approx). Preencher
+        'menor listagem' com best_ask mostraria numero de outro item."""
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        assert screen._stat_lowest._value.text() == "—"
+        assert screen._stat_volume._value.text() == "—"
+        assert screen._stat_verdict._value.text() == "—"
+
+    def test_sem_overview_explica_o_rate_limit(self):
+        from skinvault.ui.market_screen import _THROTTLED_MSG
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        assert screen._detail_msg.text() == _THROTTLED_MSG
+
+    def test_rotulo_do_fallback_nao_vaza_pra_proxima_consulta(self):
+        """Sem reset, o item seguinte -- que tem mediana 24h de verdade --
+        herdaria o rotulo 'ultimo dia com venda'."""
+        from skinvault.ui.market_screen import _MEDIAN_LABEL
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        screen._on_data({
+            "name": "AWP",
+            "overview": {"lowest": 10.0, "median": 12.0, "volume": 100},
+        })
+        assert screen._stat_median._label.text() == _MEDIAN_LABEL
+        assert not screen._stat_median._badge.isVisibleTo(screen._stat_median)
+        assert "12,00" in screen._stat_median._value.text()
+
+    def test_on_clear_restaura_o_cartao(self):
+        from skinvault.ui.market_screen import _MEDIAN_LABEL
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        screen._on_clear()
+        assert screen._stat_median._label.text() == _MEDIAN_LABEL
+        assert screen._stat_median._value.text() == "—"
+
+    def test_historico_vazio_nao_preenche_mediana(self):
+        screen = self._screen()
+        screen._on_data({
+            "name": "AK-47",
+            "page": {"price_history": [], "order_book": {}},
+        })
+        assert screen._stat_median._value.text() == "—"
+
+    def test_sem_overview_e_sem_page_continua_empty_state(self):
+        """Nada respondeu: o caminho antigo (empty state) tem que valer."""
+        screen = self._screen()
+        screen._on_data({"name": "AK-47"})
+        assert screen._empty.isVisibleTo(screen)
+        assert not screen._content.isVisibleTo(screen)
+
+    def test_statcard_set_label(self):
+        from skinvault.ui.cards import StatCard
+        sc = StatCard("Antes", "1")
+        sc.set_label("Depois")
+        assert sc._label.text() == "Depois"
+
     def test_clear_detail_grid_with_rows(self):
         from skinvault.prices import PriceCache
         from skinvault.ui.market_screen import MarketScreen

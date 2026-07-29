@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import markets
 from skinvault.ui import theme as t
-from skinvault.ui.components import EmptyState, PageHeader
+from skinvault.ui.components import EmptyState, PageHeader, score_table_item
 from skinvault.ui.inventory_grid import InventoryGrid
 
 
@@ -44,7 +44,8 @@ class InventoryScreen(QWidget):
     COL_SUBTOTAL = 3
     COL_RECEIVED = 4
     COL_PNL = 5
-    COL_ORIGIN = 6
+    COL_SCORE = 6
+    COL_ORIGIN = 7
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -82,11 +83,17 @@ class InventoryScreen(QWidget):
         root.addLayout(linha)
 
         self._grid = InventoryGrid(columns=8)
-        self._table = QTableWidget(0, 7)
+        self._table = QTableWidget(0, 8)
         self._table.setHorizontalHeaderLabels([
             "Item", "Qtd", "Preço atual", "Subtotal", "Recebido (-15%)",
-            "P&L", "Origem",
+            "P&L", "Score", "Origem",
         ])
+        self._table.horizontalHeaderItem(self.COL_SCORE).setToolTip(
+            "Score do item (0-100), calculado pelo botão 'Validar score' na "
+            "tela Minha Conta.\n"
+            "Fica âmbar quando está desatualizado. '—' significa que ainda "
+            "não foi calculado."
+        )
         t.configure_table(self._table)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
@@ -170,15 +177,15 @@ class InventoryScreen(QWidget):
                       else "Manual")
             pnl = r.get("pnl")
             celulas = [
-                _ln(r.get("name") or "") or "—",
-                str(r.get("quantity") or 1),
-                t.brl(r.get("price")),
-                t.brl(r.get("market")),
-                t.brl(r.get("net_if_sold")),
-                t.brl(pnl) if pnl is not None else "—",
-                origem,
+                (self.COL_NAME, _ln(r.get("name") or "") or "—"),
+                (self.COL_QTY, str(r.get("quantity") or 1)),
+                (self.COL_PRICE, t.brl(r.get("price"))),
+                (self.COL_SUBTOTAL, t.brl(r.get("market"))),
+                (self.COL_RECEIVED, t.brl(r.get("net_if_sold"))),
+                (self.COL_PNL, t.brl(pnl) if pnl is not None else "—"),
+                (self.COL_ORIGIN, origem),
             ]
-            for col, val in enumerate(celulas):
+            for col, val in celulas:
                 item = QTableWidgetItem(val)
                 if col == self.COL_PNL and pnl is not None:
                     item.setForeground(QBrush(QColor(
@@ -190,6 +197,15 @@ class InventoryScreen(QWidget):
                         Qt.AlignmentFlag.AlignRight
                         | Qt.AlignmentFlag.AlignVCenter)
                 self._table.setItem(i, col, item)
+
+            # O score vem persistido na position pelo "Validar score" da tela
+            # Minha Conta -- nao ha' recalculo nem rede aqui. Uma linha sem
+            # score (item novo, ou validacao nunca rodada) mostra travessao.
+            score_item = score_table_item(
+                pos.get("current_score"), pos.get("score_ts"))
+            score_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self._table.setItem(i, self.COL_SCORE, score_item)
         self._table.setSortingEnabled(True)
 
     # ── interacao ─────────────────────────────────────────

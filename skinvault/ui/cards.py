@@ -110,6 +110,15 @@ class StatCard(Card):
     def _value_color(value: str, accent: str) -> str:
         return t.TEXT_MUTED if value.strip() in ("—", "") else accent
 
+    def set_label(self, text: str) -> None:
+        """Troca o rotulo do cartao.
+
+        Existe porque um cartao pode passar a mostrar outra coisa quando a
+        fonte primaria falha -- e manter o rotulo antigo mentiria sobre o
+        que o numero significa.
+        """
+        self._label.setText(text)
+
     def set_value(self, value: str, accent: str | None = None) -> None:
         self._value.setText(value)
         if accent:

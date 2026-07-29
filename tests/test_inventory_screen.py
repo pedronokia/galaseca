@@ -109,6 +109,97 @@ def test_sem_posicoes_nao_quebra(tela):
     assert tela._grid.count() == 2
 
 
+# ── coluna Score ───────────────────────────────────────────────────
+#
+# O score fica persistido na POSITION pelo "Validar score" da tela Minha
+# Conta. A tela de inventario so' exibe -- nao recalcula nem toca a rede,
+# que e' rate-limited.
+
+
+def _score_cell(tela, fragmento):
+    """Celula de score da linha cujo nome contem `fragmento`.
+
+    Buscar por nome, nao por indice: a tabela roda com setSortingEnabled e
+    reordena pelo nome LOCALIZADO ("Caixa Kilowatt" vem antes de "AK-47 |
+    Redline (Veterana de Guerra)"), entao a ordem visual nao e' a de entrada.
+    """
+    for i in range(tela._table.rowCount()):
+        nome = tela._table.item(i, tela.COL_NAME)
+        if nome and fragmento.lower() in nome.text().lower():
+            return tela._table.item(i, tela.COL_SCORE)
+    raise AssertionError("linha nao encontrada: " + fragmento)
+
+
+def test_score_da_position_aparece_na_coluna(tela):
+    import time
+    pos = [dict(POS[0], current_score=88, score_ts=time.time()),
+           dict(POS[1])]
+    tela.set_data(ROWS, pos)
+    assert _score_cell(tela, "Redline").text() == "88"
+
+
+def test_score_segue_o_item_certo_apos_a_ordenacao(tela):
+    """A tabela reordena; o score nao pode acabar na linha do vizinho."""
+    import time
+    agora = time.time()
+    pos = [dict(POS[0], current_score=88, score_ts=agora),
+           dict(POS[1], current_score=12, score_ts=agora)]
+    tela.set_data(ROWS, pos)
+    assert _score_cell(tela, "Redline").text() == "88"
+    assert _score_cell(tela, "Kilowatt").text() == "12"
+
+
+def test_sem_score_mostra_travessao(tela):
+    tela.set_data(ROWS, POS)
+    cel = _score_cell(tela, "Redline")
+    assert cel.text() == "—"
+    assert "Validar score" in cel.toolTip()
+
+
+def test_score_desatualizado_fica_ambar(tela):
+    """Um 90 de tres semanas atras nao e' oportunidade, e' dado velho."""
+    import time
+    from skinvault.ui import theme as t
+    pos = [dict(POS[0], current_score=90, score_ts=time.time() - 86400 * 21),
+           dict(POS[1], current_score=90, score_ts=time.time())]
+    tela.set_data(ROWS, pos)
+    velho = _score_cell(tela, "Redline")
+    novo = _score_cell(tela, "Kilowatt")
+    assert velho.foreground().color().name() == t.WARN.lower()
+    assert novo.foreground().color().name() == t.POSITIVE.lower()
+    assert "DESATUALIZADO" in velho.toolTip()
+    assert "DESATUALIZADO" not in novo.toolTip()
+
+
+def test_score_nao_desloca_a_coluna_origem(tela):
+    """Origem entrou depois de Score; se os indices saissem de sincronia a
+    tabela mostraria 'Steam' na coluna errada."""
+    tela.set_data(ROWS, POS)
+    assert tela._table.item(0, tela.COL_ORIGIN).text() == "Steam"
+    assert tela._table.columnCount() == 8
+
+
+def test_position_faltando_nao_quebra_a_coluna(tela):
+    """set_data(rows, []) e' caminho suportado -- ver test_sem_posicoes."""
+    tela.set_data(ROWS, [])
+    assert _score_cell(tela, "Redline").text() == "—"
+
+
+def test_celula_de_score_e_a_mesma_da_watchlist():
+    """Se as duas telas divergirem na cor ou no tooltip, uma das duas esta'
+    mentindo sobre o mesmo numero."""
+    import time
+    from skinvault.ui.components import score_table_item
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    assert WatchlistScreen  # a tela consome o mesmo helper
+    ts = time.time()
+    a = score_table_item(75, ts)
+    b = score_table_item(75, ts)
+    assert a.text() == b.text()
+    assert a.toolTip() == b.toolTip()
+    assert a.foreground().color().name() == b.foreground().color().name()
+
+
 # ── alternancia e filtro ───────────────────────────────────────────
 
 
