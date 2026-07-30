@@ -31,6 +31,7 @@ from skinvault import (
     ssr_cache, steam_api, valve_events,
 )
 from skinvault._paths import DATA_DIR
+from skinvault.ui.components import auto_cell
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
@@ -616,7 +617,9 @@ class ScannerScreen(QWidget):
                 (dq_label, dq_color),
             ]
             for col, (val, color) in enumerate(cells):
-                item = QTableWidgetItem(str(val))
+                # auto_cell: chave de ordenacao derivada do texto. Sem ela,
+                # Preco/Justo/Spread/Score ordenavam como string.
+                item = auto_cell(str(val))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
                 if col == self.COL_NAME:

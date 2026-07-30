@@ -307,6 +307,103 @@ def test_status_conta_itens(tela):
     assert "2" in tela._status.text()
 
 
+# ── ordenacao por valor, nao por texto ─────────────────────────────
+#
+# QTableWidgetItem compara por DisplayRole, entao coluna formatada
+# ordenava como string. Medido em 2026-07-30 nos 25 trades reais:
+# P&L decrescente dava "R$ -7,54 | R$ -1,96 | R$ 1,63" -- o maior
+# PREJUIZO no topo. E R$ 16,49 caia abaixo de R$ 9,66.
+
+
+def test_sortable_item_ordena_por_valor():
+    from skinvault.ui.components import SortableItem
+    a = SortableItem("R$ 9,66", 9.66)
+    b = SortableItem("R$ 16,49", 16.49)
+    assert a < b          # pelo texto seria o contrario
+    assert not (b < a)
+
+
+def test_sortable_item_negativo_vem_antes_do_positivo():
+    from skinvault.ui.components import SortableItem
+    assert SortableItem("R$ -7,54", -7.54) < SortableItem("R$ 1,63", 1.63)
+
+
+def test_sortable_item_ausente_vai_pro_fim():
+    """None -> -inf, pra linha sem valor nao se misturar aos numeros."""
+    from skinvault.ui.components import num_cell
+    vazio = num_cell("—", None)
+    assert vazio < num_cell("R$ 0,00", 0.0)
+
+
+def test_sortable_item_contra_item_comum_nao_explode():
+    from PyQt6.QtWidgets import QTableWidgetItem
+    from skinvault.ui.components import SortableItem
+    SortableItem("x", 1) < QTableWidgetItem("y")  # nao levanta
+
+
+def test_sort_key_reconhece_os_formatos_do_projeto():
+    """Os tres formatos que t.brl, _fmt_date e o f-string de % produzem."""
+    from skinvault.ui.components import sort_key_from_text as k
+    assert k("R$ 16,49") == 16.49
+    assert k("R$ -7,54") == -7.54
+    assert k("R$ 1.234,56") == 1234.56
+    assert k("+103.8%") == 103.8
+    assert k("-90.2%") == -90.2
+    assert k("88") == 88
+    # data vira AAAAMMDD, que ordena igual a data
+    assert k("30/04/2026") < k("29/05/2026")
+    # o Historico usa DD/MM/AA; as duas grafias tem que conviver
+    assert k("30/07/26") == k("30/07/2026")
+    assert k("31/12/25") < k("01/01/26")
+
+
+def test_sort_key_devolve_none_no_que_nao_reconhece():
+    """Formato desconhecido volta a ordenar por texto -- nunca piora."""
+    from skinvault.ui.components import sort_key_from_text as k
+    for texto in ("AK-47 | Redline", "Steam", "—", "", "  ", "R$ ---"):
+        assert k(texto) is None
+
+
+def test_auto_cell_ordena_moeda(tela):
+    from skinvault.ui.components import auto_cell, SortableItem
+    from PyQt6.QtWidgets import QTableWidgetItem
+    caro, barato = auto_cell("R$ 16,49"), auto_cell("R$ 9,66")
+    assert isinstance(caro, SortableItem)
+    assert barato < caro
+    # texto puro continua sendo item comum
+    assert not isinstance(auto_cell("AK-47"), SortableItem)
+
+
+def test_inventario_ordena_preco_por_valor(tela):
+    from PyQt6.QtCore import Qt
+    rows = [dict(ROWS[0], name="Caro", price=16.49),
+            dict(ROWS[1], name="Barato", price=9.66)]
+    tela.set_data(rows, POS)
+    tela._table.sortItems(tela.COL_PRICE, Qt.SortOrder.DescendingOrder)
+    assert tela._table.item(0, tela.COL_NAME).text() == "Caro"
+
+
+def test_inventario_ordena_score_por_valor(tela):
+    from PyQt6.QtCore import Qt
+    import time
+    agora = time.time()
+    pos = [dict(POS[0], current_score=9, score_ts=agora),
+           dict(POS[1], current_score=88, score_ts=agora)]
+    tela.set_data(ROWS, pos)
+    tela._table.sortItems(tela.COL_SCORE, Qt.SortOrder.DescendingOrder)
+    assert tela._table.item(0, tela.COL_SCORE).text() == "88"
+
+
+def test_inventario_score_ausente_nao_vence_score_alto(tela):
+    from PyQt6.QtCore import Qt
+    import time
+    pos = [dict(POS[0]),  # sem score -> "—"
+           dict(POS[1], current_score=50, score_ts=time.time())]
+    tela.set_data(ROWS, pos)
+    tela._table.sortItems(tela.COL_SCORE, Qt.SortOrder.DescendingOrder)
+    assert tela._table.item(0, tela.COL_SCORE).text() == "50"
+
+
 # ── icones ─────────────────────────────────────────────────────────
 #
 # A grade e' network-free de proposito (icons.local_path so' olha o disco),

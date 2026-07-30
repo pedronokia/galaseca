@@ -6,6 +6,8 @@ Sidebar e Card/StatCard estao em .sidebar e .cards respectivamente.
 """
 from __future__ import annotations
 
+import re
+
 from PyQt6.QtCore import (
     QEasingCurve,
     QPropertyAnimation,
@@ -29,12 +31,115 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLayout,
     QPushButton,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from .cards import Card, StatCard
 from .sidebar import _SidebarItem, Sidebar
+
+
+class SortableItem(QTableWidgetItem):
+    """Celula de tabela que ordena pelo VALOR, nao pelo texto exibido.
+
+    `QTableWidgetItem` compara por DisplayRole, entao qualquer coluna
+    formatada ordenava como string. Medido em 2026-07-30 nos 25 trades
+    reais, ordenando P&L decrescente:
+
+        R$ -7,54 | R$ -1,96 | R$ -1,94 | R$ 1,63 | R$ -0,85 ...
+
+    O maior PREJUIZO aparecia no topo, porque '7' > '1' como caractere.
+    Data ordenava por dia do mes (30/04/2026 antes de 29/05/2026) e
+    R$ 16,49 ficava abaixo de R$ 9,66.
+
+    `key` e' o valor cru (float, int ou timestamp). Use float("-inf") pra
+    ausente, pra ele cair no fim da ordem decrescente.
+    """
+
+    def __init__(self, text: str, key) -> None:
+        super().__init__(text)
+        self._sort_key = key
+
+    def __lt__(self, other) -> bool:
+        outro = getattr(other, "_sort_key", None)
+        if outro is None:
+            return super().__lt__(other)
+        try:
+            return self._sort_key < outro
+        except TypeError:
+            return str(self._sort_key) < str(outro)
+
+
+_RE_BRL = re.compile(r"^R\$\s*(-?[\d.]+,\d{2})$")
+_RE_PCT = re.compile(r"^([+-]?\d+(?:[.,]\d+)?)\s*%$")
+# Duas grafias convivem: as tabelas usam DD/MM/AAAA e o Historico usa
+# DD/MM/AA. Ambas precisam ordenar, e entre si tambem.
+_RE_DATA = re.compile(r"^(\d{2})/(\d{2})/(\d{2}|\d{4})$")
+_RE_INT = re.compile(r"^[+-]?\d+$")
+
+
+def sort_key_from_text(texto: str):
+    """Deriva chave de ordenacao do texto ja' formatado. None se nao der.
+
+    Existe pras tabelas genericas (Historico, Scanner) que montam a linha
+    a partir de strings prontas e nao tem mais o valor cru na mao. Passar
+    a chave por ali exigiria refatorar todos os segmentos; derivar do
+    texto cobre os tres formatos que os helpers do projeto produzem --
+    `t.brl`, `_fmt_date` e f"{x:+.1f}%".
+
+    Formato desconhecido devolve None e a celula volta a ordenar por
+    texto, que e' o comportamento antigo. Nunca piora.
+    """
+    if not texto:
+        return None
+    s = texto.strip()
+    m = _RE_BRL.match(s)
+    if m:
+        try:
+            return float(m.group(1).replace(".", "").replace(",", "."))
+        except ValueError:
+            return None
+    m = _RE_PCT.match(s)
+    if m:
+        try:
+            return float(m.group(1).replace(",", "."))
+        except ValueError:
+            return None
+    m = _RE_DATA.match(s)
+    if m:
+        d, mes, a = (int(g) for g in m.groups())
+        if a < 100:                # DD/MM/AA -> seculo 21
+            a += 2000
+        return a * 10000 + mes * 100 + d      # AAAAMMDD, ordena igual data
+    if _RE_INT.match(s):
+        try:
+            return int(s)
+        except ValueError:
+            return None
+    return None
+
+
+def auto_cell(texto: str):
+    """Celula que se ordena sozinha quando o texto e' reconhecivel."""
+    chave = sort_key_from_text(texto)
+    return QTableWidgetItem(texto) if chave is None else SortableItem(
+        texto, chave)
+
+
+def num_cell(text: str, key, color: str | None = None):
+    """Celula numerica: alinhada a' direita e ordenada por valor.
+
+    `key` None vira -inf: linha sem valor vai pro fim na ordem
+    decrescente, em vez de se misturar com os numeros.
+    """
+    from PyQt6.QtGui import QBrush
+    item = SortableItem(text, float("-inf") if key is None else key)
+    item.setTextAlignment(
+        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    if color:
+        item.setForeground(QBrush(QColor(color)))
+    return item
 
 
 def score_table_item(current_score, score_ts):
@@ -55,12 +160,12 @@ def score_table_item(current_score, score_ts):
     from skinvault.ui import theme as t
 
     if current_score is None:
-        item = QTableWidgetItem("—")
+        item = SortableItem("—", float("-inf"))
         item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
         item.setToolTip("Clique em 'Validar score' para calcular.")
         return item
 
-    item = QTableWidgetItem(str(int(current_score)))
+    item = SortableItem(str(int(current_score)), int(current_score))
     stale = signals.is_score_stale(score_ts)
     if stale:
         color = t.WARN

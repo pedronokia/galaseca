@@ -35,6 +35,7 @@ from skinvault.ui.components import (
     EmptyState,
     LoadingState,
     PageHeader,
+    SortableItem,
     score_table_item,
 )
 from skinvault.ui._price_worker import IconWorker
@@ -248,17 +249,23 @@ class InventoryScreen(QWidget):
             origem = ("Steam" if pos.get("source") == "steam_sync"
                       else "Manual")
             pnl = r.get("pnl")
+            # 3o campo = chave de ordenacao (None = ordena pelo texto).
+            # Sem ela, moeda ordenava como string: R$ 16,49 caia abaixo de
+            # R$ 9,66 -- ver components.SortableItem.
             celulas = [
-                (self.COL_NAME, _ln(r.get("name") or "") or "—"),
-                (self.COL_QTY, str(r.get("quantity") or 1)),
-                (self.COL_PRICE, t.brl(r.get("price"))),
-                (self.COL_SUBTOTAL, t.brl(r.get("market"))),
-                (self.COL_RECEIVED, t.brl(r.get("net_if_sold"))),
-                (self.COL_PNL, t.brl(pnl) if pnl is not None else "—"),
-                (self.COL_ORIGIN, origem),
+                (self.COL_NAME, _ln(r.get("name") or "") or "—", None),
+                (self.COL_QTY, str(r.get("quantity") or 1),
+                 r.get("quantity") or 1),
+                (self.COL_PRICE, t.brl(r.get("price")), r.get("price")),
+                (self.COL_SUBTOTAL, t.brl(r.get("market")), r.get("market")),
+                (self.COL_RECEIVED, t.brl(r.get("net_if_sold")),
+                 r.get("net_if_sold")),
+                (self.COL_PNL, t.brl(pnl) if pnl is not None else "—", pnl),
+                (self.COL_ORIGIN, origem, None),
             ]
-            for col, val in celulas:
-                item = QTableWidgetItem(val)
+            for col, val, chave in celulas:
+                item = (QTableWidgetItem(val) if chave is None
+                        else SortableItem(val, chave))
                 if col == self.COL_PNL and pnl is not None:
                     item.setForeground(QBrush(QColor(
                         t.POSITIVE if pnl >= 0 else t.DANGER)))

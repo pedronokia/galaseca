@@ -41,7 +41,7 @@ from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState, FormRow, LoadingState, PageHeader, SectionHeader, StatCard,
-    ToggleSwitch, score_table_item,
+    ToggleSwitch, score_table_item, SortableItem, auto_cell,
 )
 
 
@@ -382,16 +382,16 @@ class WatchlistScreen(QWidget):
             from skinvault.localization import localize_name as _ln
             self._table.setItem(i, self.COL_NAME, QTableWidgetItem(_ln(name)))
 
-            # Target
+            # Target (auto_cell pra ordenar por valor, nao por texto)
             self._table.setItem(i, self.COL_TARGET,
-                                QTableWidgetItem(t.brl(target) if target else "—"))
+                                auto_cell(t.brl(target) if target else "—"))
 
             # Distancia ao alvo
             price_curr = self._cache.get(name)
             if target and price_curr:
                 dist_pct = (price_curr - target) / target * 100
                 dist_txt = f"{dist_pct:+.1f}%".replace(".", ",")
-                dist_item = QTableWidgetItem(dist_txt)
+                dist_item = SortableItem(dist_txt, dist_pct)
                 if price_curr <= target:
                     # Favoravel pra compra (atual <= alvo)
                     dist_item.setForeground(QBrush(QColor(t.POSITIVE)))
@@ -404,13 +404,15 @@ class WatchlistScreen(QWidget):
                     "Valores positivos = item acima do alvo."
                 )
             else:
-                dist_item = QTableWidgetItem("—")
+                # -inf: linha sem distancia vai pro fim, nao se mistura
+                dist_item = SortableItem("—", float("-inf"))
                 dist_item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
             self._table.setItem(i, self.COL_DISTANCE, dist_item)
 
             # Preco atual (try cache)
-            price_item = QTableWidgetItem(
-                t.brl(price_curr) if price_curr else "Consultando…"
+            price_item = SortableItem(
+                t.brl(price_curr) if price_curr else "Consultando…",
+                price_curr if price_curr else float("-inf"),
             )
             if price_curr:
                 price_item.setForeground(QBrush(QColor(t.TEXT)))

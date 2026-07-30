@@ -503,12 +503,16 @@ class MainWindow(QMainWindow):
     def _apply_stylesheet(self) -> None:
         from skinvault.ui.theme import (
             BG, BG_ELEVATED, BORDER, TEXT, TEXT_MUTED,
-            FONT_FAMILY, SCROLL_THUMB, SCROLL_THUMB_HOV,
+            FONT_FAMILY, SCROLL_THUMB, SCROLL_THUMB_HOV, menu_style,
         )
         self.setStyleSheet(
             f"QMainWindow {{ background: {BG}; }}"
             f"* {{ color: {TEXT};"
             f" font-family: '{FONT_FAMILY}', 'Segoe UI', system-ui; }}"
+            # QMenu e' popup (janela propria) e nao herda o stylesheet do
+            # widget que o abriu -- so' da raiz. Sem esta linha os menus
+            # das telas saem com o tema claro do Qt (ver theme.menu_style).
+            + menu_style() +
             # ── Scrollbar global fina ──
             f"QScrollBar:vertical {{ width: 10px;"
             f" background: transparent; margin: 0; }}"

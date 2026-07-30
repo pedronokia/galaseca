@@ -149,6 +149,32 @@ def brl(v: float | None) -> str:
 
 
 # ── Stylesheet helpers ───────────────────────────────────────
+def menu_style() -> str:
+    """Estilo de QMenu, aplicado UMA vez no stylesheet da janela.
+
+    Sem isto o QMenu herda o tema claro do Qt: popup branco sobre app
+    escuro, com o item selecionado em azul-sistema e texto quase
+    ilegivel. Ate' 2026-07-30 so' o menu da bandeja era estilizado, na
+    mao, e os 6 QMenu das telas (trades, scanner, history, market e os
+    dois de contexto de tabela) apareciam claros.
+
+    Como QMenu e' popup (janela propria), ele NAO herda o stylesheet do
+    widget pai -- por isso a regra tem que estar na QMainWindow, que e' a
+    raiz da cadeia de estilo pra todos os popups filhos dela.
+    """
+    return (
+        f"QMenu {{ background: {BG_ELEVATED}; color: {TEXT};"
+        f" border: 1px solid {BORDER}; border-radius: {RADIUS_MD}px;"
+        f" padding: 4px; }}"
+        f"QMenu::item {{ padding: 7px 22px; border-radius: 6px;"
+        f" margin: 1px 4px; }}"
+        f"QMenu::item:selected {{ background: {SURFACE}; color: {TEXT}; }}"
+        f"QMenu::item:disabled {{ color: {TEXT_MUTED}; }}"
+        f"QMenu::separator {{ height: 1px; background: {BORDER};"
+        f" margin: 4px 8px; }}"
+    )
+
+
 def input_style() -> str:
     return (
         f"QLineEdit, QDoubleSpinBox, QSpinBox"

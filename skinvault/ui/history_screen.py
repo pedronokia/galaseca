@@ -45,6 +45,7 @@ from skinvault.ui.components import (
     LoadingState,
     PageHeader,
     SectionHeader,
+    auto_cell,
     SegmentedControl,
     Toolbar,
 )
@@ -1013,7 +1014,10 @@ class HistoryScreen(QWidget):
             for c, val in enumerate(row):
                 if c in name_cols:
                     val = _ln(val)
-                it = QTableWidgetItem(val)
+                # auto_cell: deriva a chave de ordenacao do proprio texto.
+                # Esta tabela e' generica (a linha chega ja' formatada), e
+                # sem chave "R$ 16,49" caia abaixo de "R$ 9,66".
+                it = auto_cell(val)
                 # cores: P&L verde/vermelho (numeric)
                 if pnl_col is not None and c == pnl_col and pnl_vals:
                     pnl = pnl_vals[i] if i < len(pnl_vals) else None

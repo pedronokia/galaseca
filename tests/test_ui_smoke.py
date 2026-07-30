@@ -2896,6 +2896,61 @@ class TestTradesScreen:
 
     # ── importacao do historico da Steam ──────────────────
 
+    # ── ordenacao por valor ───────────────────────────────
+
+    ORDEM_DATA = [
+        {"sell_ts": 1_777_000_000, "buy_ts": 1_770_000_000, "name": "Maio",
+         "quantity": 1, "buy_cost": 1.0, "sell_price": 2.0,
+         "pnl": 1.63, "pnl_pct": 103.8, "source": "steam_sync", "notes": ""},
+        {"sell_ts": 1_775_000_000, "buy_ts": 1_770_000_000, "name": "Abril",
+         "quantity": 1, "buy_cost": 16.49, "sell_price": 9.0,
+         "pnl": -7.54, "pnl_pct": -45.7, "source": "steam_sync", "notes": ""},
+    ]
+
+    def _screen_ordenado(self, monkeypatch):
+        from skinvault.ui.trades_screen import TradesScreen
+        monkeypatch.setattr("skinvault.trades.load_trades",
+                            lambda: list(self.ORDEM_DATA))
+        monkeypatch.setattr("skinvault.trades.trade_stats",
+                            lambda trades=None: self.STATS)
+        s = TradesScreen()
+        s.refresh()
+        return s
+
+    def test_pnl_ordena_por_valor_nao_por_texto(self, monkeypatch):
+        """"R$ -7,54" > "R$ 1,63" como string. Quem ordenava por P&L pra
+        achar o melhor trade recebia o pior."""
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_PNL, Qt.SortOrder.DescendingOrder)
+        assert "1,63" in s._table.item(0, s.COL_PNL).text()
+
+    def test_data_ordena_cronologicamente(self, monkeypatch):
+        """Ordenava por dia do mes: 30/04 vinha antes de 29/05."""
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_DATE, Qt.SortOrder.DescendingOrder)
+        # coluna 1 = Item; o topo tem que ser o de sell_ts maior
+        assert s._table.item(0, 1).text() == "Maio"
+
+    def test_compra_ordena_por_valor(self, monkeypatch):
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_COST, Qt.SortOrder.DescendingOrder)
+        assert "16,49" in s._table.item(0, s.COL_COST).text()
+
+    def test_roi_ordena_por_valor(self, monkeypatch):
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_ROI, Qt.SortOrder.DescendingOrder)
+        assert "+103.8%" == s._table.item(0, s.COL_ROI).text()
+
+    def test_colunas_textuais_seguem_ordenando_por_texto(self, monkeypatch):
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(1, Qt.SortOrder.AscendingOrder)  # Item
+        assert s._table.item(0, 1).text() == "Abril"
+
     def test_import_action_existe_no_overflow(self, monkeypatch):
         """A acao mora no menu '⋯': a hierarquia de CTA do AGENTS.md manda
         ter um unico botao primario por tela, e ele e' 'Adicionar trade'."""
@@ -3266,20 +3321,31 @@ STATS_DUMMY = {"total": 0, "pnl_total": 0, "pnl_medio": 0,
                "best": None, "worst": None, "monthly": [],
                "fees_total": 0.0, "avg_days": 0}
 
-def test_selected_index_no_item():
-    """_selected_index returns None when item is missing at row."""
+def test_selected_index_no_item(monkeypatch):
+    """_selected_index returns None when item is missing at row.
+
+    Precisa mockar `load_trades`: sem isso a tela le' o trades.json REAL do
+    usuario, e o teste so' passava enquanto o arquivo estava vazio. Quebrou
+    na primeira importacao de verdade (25 trades) -- `setRowCount(1)` nao
+    limpa os itens da linha 0 que ja' estavam la'.
+    """
     from skinvault.ui.trades_screen import TradesScreen
-    from skinvault.trades import trade_stats
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+    monkeypatch.setattr("skinvault.trades.trade_stats",
+                        lambda trades=None: STATS_DUMMY)
     screen = TradesScreen()
     screen._table.setRowCount(1)
     screen._table.setCurrentCell(0, 0)
     assert screen._selected_index() is None
 
-def test_selected_index_not_int():
+def test_selected_index_not_int(monkeypatch):
     """_selected_index returns None when UserRole data is not int."""
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QTableWidgetItem
     from skinvault.ui.trades_screen import TradesScreen
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+    monkeypatch.setattr("skinvault.trades.trade_stats",
+                        lambda trades=None: STATS_DUMMY)
     screen = TradesScreen()
     screen._table.setRowCount(1)
     item = QTableWidgetItem("data")
@@ -7423,6 +7489,43 @@ def test_launch_liga_release_no_about_to_quit(monkeypatch):
     for slot in apps[-1].aboutToQuit.slots:
         slot()
     assert guard.released is True
+
+
+# ── QMenu no tema escuro ──────────────────────────────
+#
+# QMenu e' popup (janela propria) e NAO herda o stylesheet do widget que o
+# abriu -- so' da raiz da cadeia. Ate' 2026-07-30 apenas o menu da bandeja
+# era estilizado, na mao, e os 6 QMenu das telas apareciam com o tema
+# CLARO do Qt: popup branco sobre app escuro, texto quase ilegivel.
+
+
+def test_mainwindow_estiliza_qmenu_globalmente(monkeypatch):
+    win = _make_mw(monkeypatch)
+    s = win.styleSheet()
+    assert "QMenu {" in s
+    assert "QMenu::item:selected" in s
+    assert "QMenu::separator" in s
+
+
+def test_menu_style_usa_tokens_do_tema():
+    """Cor fixa no lugar de token quebra o toggle de tema."""
+    from skinvault.ui import theme as t
+    s = t.menu_style()
+    assert t.BG_ELEVATED in s
+    assert t.TEXT in s
+    assert t.BORDER in s
+
+
+def test_menus_das_telas_nao_precisam_de_style_proprio(monkeypatch):
+    """Se uma tela voltar a setar style no proprio menu, a regra global
+    deixa de ser a fonte unica e o proximo menu novo nasce claro."""
+    win = _make_mw(monkeypatch)
+    r = win._router
+    for nome in ("_trades_screen", "_scanner_screen", "_history_screen"):
+        tela = getattr(r, nome, None)
+        menu = getattr(tela, "_more_menu", None) if tela else None
+        if menu is not None:
+            assert not menu.styleSheet(), nome
 
 
 def test_mainwindow_activate_visivel_nao_desmaximiza(monkeypatch):

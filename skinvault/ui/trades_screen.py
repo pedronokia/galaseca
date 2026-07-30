@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import trades as trades_mod
 from skinvault.ui import theme as t
-from skinvault.ui.components import FormRow, PageHeader, RecentMatchesStrip, SectionHeader, SegmentedControl, StatCard, Toast
+from skinvault.ui.components import FormRow, PageHeader, RecentMatchesStrip, SectionHeader, SegmentedControl, SortableItem, StatCard, Toast
 
 
 _PERIODS = [
@@ -405,19 +405,25 @@ class TradesScreen(QWidget):
             sell_ts = tr.get("sell_ts") or tr.get("buy_ts") or 0
             roi = (tr.get("pnl_pct") or 0)
             from skinvault.localization import localize_name as _ln
+            # 3o campo = chave de ordenacao. None -> ordena pelo texto, que
+            # e' o certo pras colunas textuais (item, origem, notas).
+            # Sem chave, "R$ -7,54" vinha antes de "R$ 1,63" e 30/04 antes
+            # de 29/05 -- ver components.SortableItem.
             cells = [
-                (_fmt_date(sell_ts), None),
-                (_ln(tr.get("name", "")), None),
-                (str(tr.get("quantity", 1)), None),
-                (t.brl(tr.get("buy_cost", 0)), None),
-                (t.brl(tr.get("sell_price", 0)), None),
-                (t.brl(pnl), pnl_color),
-                (f"{roi:+.1f}%", pnl_color),
-                (src_label, src_color),
-                (tr.get("notes", ""), None),
+                (_fmt_date(sell_ts), None, sell_ts),
+                (_ln(tr.get("name", "")), None, None),
+                (str(tr.get("quantity", 1)), None, tr.get("quantity", 1)),
+                (t.brl(tr.get("buy_cost", 0)), None, tr.get("buy_cost", 0)),
+                (t.brl(tr.get("sell_price", 0)), None,
+                 tr.get("sell_price", 0)),
+                (t.brl(pnl), pnl_color, pnl),
+                (f"{roi:+.1f}%", pnl_color, roi),
+                (src_label, src_color, None),
+                (tr.get("notes", ""), None, None),
             ]
-            for col, (val, color) in enumerate(cells):
-                item = QTableWidgetItem(str(val))
+            for col, (val, color, chave) in enumerate(cells):
+                item = (QTableWidgetItem(str(val)) if chave is None
+                        else SortableItem(str(val), chave))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
                 if row_tint is not None:
