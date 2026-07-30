@@ -32,7 +32,8 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import (
-    icon_backfill, icons, portfolio, sync, trade_matcher, trades, watchlist,
+    alerts, icon_backfill, icons, portfolio, sync, trade_matcher, trades,
+    watchlist,
 )
 from skinvault.prices import PriceCache
 from skinvault.settings import load_settings, save_settings
@@ -696,11 +697,43 @@ class HistoryScreen(QWidget):
                 f"{len(opens)} compras abertas • {t.brl(total)} investido"
             )
         else:
-            txt = f"{count} registro(s)"
+            # Diz quantos EXISTEM, nao so' quantos passaram no filtro.
+            # O periodo fica salvo entre sessoes (history_last_periodo), e
+            # com "7d" gravado o usuario abria vendo 2 de 416 registros sem
+            # nada indicando que um filtro escondia os outros 414.
+            total_bruto = self._total_sem_filtro_de_periodo()
+            if total_bruto > count:
+                periodo = self._filter_panel.periodo
+                rotulo = {"7d": "últimos 7 dias", "30d": "últimos 30 dias",
+                          "90d": "últimos 90 dias"}.get(periodo, periodo)
+                txt = (f"{count} de {total_bruto} registros"
+                       f" • filtro: {rotulo}")
+            else:
+                txt = f"{count} registro(s)"
             if seg == "trades" and self._month_filter:
                 txt += (f" • mês: {month_label_full(self._month_filter)}"
                         " (clique na barra de novo pra limpar)")
             self._status.setText(txt)
+
+    def _total_sem_filtro_de_periodo(self) -> int:
+        """Quantos registros existem no segmento, ignorando o periodo.
+
+        Best-effort: serve pra avisar que um filtro esta' escondendo coisa,
+        entao errar pra menos e' aceitavel -- nunca pode explodir a tela.
+        """
+        seg = self._current_segment
+        try:
+            if seg in ("market", "all"):
+                return len(sync.load_market_events())
+            if seg == "offers":
+                return len(sync.load_trade_offers())
+            if seg == "trades":
+                return len(trades.load_trades())
+            if seg == "watchlist":
+                return len(alerts.load_alerts_log())
+        except Exception:
+            pass
+        return 0
 
     # ── loaders ──────────────────────────────────────────
     def _load_trades(self):
