@@ -976,9 +976,18 @@ class HistoryScreen(QWidget):
 
     # ── helpers ──────────────────────────────────────────
     def _fmt_ts(self, ts: float) -> str:
+        """Data de um timestamp, no MESMO formato de `_fmt_event_date`.
+
+        Antes devolvia "%Y-%m-%d %H:%M" enquanto os eventos de market e as
+        trocas usavam DD/MM/YY -- duas grafias na mesma coluna "Data" do
+        segmento "Todos", e a linha de trade destoava no meio da lista.
+        Pior: "2026-07-04 00:00" nao casa com nenhum formato que
+        `components.sort_key_from_text` reconhece, entao aquela linha
+        ordenava como texto enquanto as outras ordenavam como data.
+        """
         if not ts:
             return "—"
-        return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+        return time.strftime("%d/%m/%y", time.localtime(ts))
 
     def _fmt_source(self, src: str) -> str:
         return "Steam" if src in ("steam", "steam_sync") else "Manual"

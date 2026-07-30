@@ -4486,7 +4486,32 @@ class TestHistoryScreen:
         from skinvault.ui.history_screen import HistoryScreen
         screen = HistoryScreen(PriceCache(ttl=3600))
         result = screen._fmt_ts(1_700_000_000)
-        assert "2023" in result or "2024" in result or "20" in result
+        # DD/MM/YY desde 2026-07-30, pra bater com _fmt_event_date: a
+        # coluna "Data" do segmento "Todos" tinha duas grafias, e o
+        # "%Y-%m-%d %H:%M" nem ordenava como data.
+        assert result == "14/11/23"
+
+    def test_fmt_ts_e_fmt_event_date_usam_o_mesmo_formato(self):
+        """Duas grafias na mesma coluna era o que fazia o historico parecer
+        desorganizado."""
+        import re
+        from skinvault.prices import PriceCache
+        from skinvault.ui.history_screen import HistoryScreen
+        screen = HistoryScreen(PriceCache(ttl=3600))
+        a = screen._fmt_ts(1_700_000_000)
+        b = screen._fmt_event_date({"date_str": "14 Nov, 2023"})
+        padrao = re.compile(r"^\d{2}/\d{2}/\d{2}$")
+        assert padrao.match(a), a
+        assert padrao.match(b), b
+
+    def test_data_do_historico_ordena_como_data(self):
+        """O formato antigo nao casava com sort_key_from_text, entao a
+        linha de trade ordenava como texto no meio das outras."""
+        from skinvault.prices import PriceCache
+        from skinvault.ui.components import sort_key_from_text
+        from skinvault.ui.history_screen import HistoryScreen
+        screen = HistoryScreen(PriceCache(ttl=3600))
+        assert sort_key_from_text(screen._fmt_ts(1_700_000_000)) is not None
 
     def test_fmt_source_steam(self):
         from skinvault.prices import PriceCache
