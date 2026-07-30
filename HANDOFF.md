@@ -12,8 +12,9 @@ custou caro descobrir.
 ## Estado
 
 - Branch: `feat/multi-market-e-inventario`
-- **25 commits sem push** — nada foi enviado. Decisão do dono.
-- Suíte: **1900 testes**, ~60s. `cd C:\SkinVault && python -m pytest -q`
+- **30 commits**. **Não há remote configurado** — não é decisão pendente,
+  não existe pra onde enviar.
+- Suíte: **1923 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 
@@ -63,23 +64,36 @@ silêncio (AGENTS.md #12).
 
 ---
 
+## Já entregue depois do handoff original (30/07, tarde)
+
+- **Painel do inventário** diz por quanto anunciar, o que sobra em saldo,
+  o cenário de venda rápida, as plataformas de fora ordenadas pelo
+  líquido, e o piso pra empatar quando há custo.
+- **Scanner** ganhou a coluna "Compre até" (verde quando o preço cabe no
+  teto de 20% de margem).
+- **Tabela do inventário**: "Melhor fora" + "Onde" no lugar da parede de
+  travessões; rodapé soma R$ 1.510,86; rótulo "-15%" corrigido.
+- **Histórico**: data unificada em DD/MM/YY (havia duas grafias, e uma
+  não ordenava como data); rodapé avisa quando um filtro esconde
+  registros.
+- Removido do `history.json` o snapshot parcial que gerava "-79,6%"
+  (backup em `history.json.bak-parcial`).
+
 ## Fila, em ordem
 
-### 1. Painel lateral do inventário — o dono escolheu isto
-Hoje mostra "Vendendo na Steam / Vendendo fora" e para aí. Deve mostrar
-**alvo de venda e líquido nos dois caminhos, lado a lado**, sem o app
-escolher. Decisão explícita do dono: mostrar os dois e deixar claro que
-saldo Steam não é dinheiro.
+### 1. Cartão "Itens no lucro 0 de 2" na tela de Conta — enganoso
+Só 2 das 31 posições têm custo registrado, então o P&L agrega 2. O cartão
+diz "0 de 2" e parece que o usuário tem 2 itens. Precisa dizer que são 2
+**com custo conhecido** de 31 — `portfolio.evaluate_portfolio` já devolve
+`totals.unknown_cost` justamente pra isso, e ninguém usa.
 
-A lógica existe e está testada: `portfolio.sell_guidance()`. Falta a tela.
+### 2. Coluna "Origem" do inventário
+100% "Steam" nas 31 linhas. Ocupa espaço sem informar. Ou some, ou só
+aparece quando há mistura com posições manuais.
 
-### 2. Coluna de teto de compra no Scanner
-`portfolio.max_buy_price(preco_alvo, margem)` responde "compre até R$ X".
-É o que transforma "score 88" em instrução.
-
-### 3. UI do inventário
-O dono chamou de "horrenda e amadora". Diagnóstico: o problema não é cor
-nem espaçamento — a tela mostra **dados** onde devia mostrar **decisão**.
+### 3. Grade do inventário
+Cada tile mostra "—" embaixo. O valor de fora já existe (`market_net` no
+dict do tile) e podia aparecer ali.
 
 ### 4. `scanner_discovery` (bloqueado por fora)
 `discovery.py` escrito e testado, flag `scanner_discovery = False`. Nunca
