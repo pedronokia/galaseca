@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import markets
+from skinvault import markets, portfolio
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState,
@@ -233,12 +233,28 @@ class InventoryScreen(QWidget):
             preco_steam = r.get("price")
             mercados = self._mercados_do_item(nome, preco_steam, cotacoes, fx)
             melhor = mercados[0] if mercados else None
+            # Custo so' entra quando e' CONHECIDO. O sync grava cost=0.0
+            # pra "nao sei", e tratar isso como "custou zero" faria o
+            # painel prometer lucro que nao existe.
+            custo = (pos.get("cost")
+                     if portfolio.has_cost_basis(pos) else None)
             itens.append({
                 "name": _ln(nome) or nome,
                 "raw_name": nome,
                 "qty": r.get("quantity") or 1,
                 "icon": pos.get("icon") or r.get("icon"),
                 "type": pos.get("type") or r.get("type") or "",
+                "steam_list": preco_steam,
+                "cost": custo,
+                # `price` vem de `get_market_price`, que devolve a MENOR
+                # listagem. Serve de alvo e de referencia pra venda
+                # rapida ao mesmo tempo -- a mediana exigiria
+                # `get_market_overview`, que e' o endpoint mais racionado.
+                # Quando os dois coincidem, "vender hoje" fica um centavo
+                # abaixo do alvo, que e' o que a pratica faz mesmo.
+                "guidance": portfolio.sell_guidance(
+                    current_price=preco_steam, cost=custo,
+                    lowest=preco_steam),
                 "steam_net": r.get("net_if_sold"),
                 # `market_net` fica sendo o do MELHOR mercado: e' o que o
                 # usuario receberia de fato escolhendo bem.

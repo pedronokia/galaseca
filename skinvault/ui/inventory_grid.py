@@ -209,38 +209,79 @@ class ItemDetailPanel(QFrame):
         v.addWidget(self._tipo)
 
         v.addSpacing(t.SPACE_MD)
-        self._linhas: dict = {}
-        for chave, rotulo in (("steam", "Vendendo na Steam"),
-                              ("market", "Vendendo fora")):
-            cap = QLabel(rotulo)
-            cap.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};")
-            val = QLabel("—")
-            val.setStyleSheet(
-                f"color: {t.TEXT}; font-size: {t.FS_STAT}; font-weight: 600;")
-            sub = QLabel("")
-            sub.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};")
-            v.addWidget(cap)
-            v.addWidget(val)
-            v.addWidget(sub)
-            v.addSpacing(t.SPACE_SM)
-            self._linhas[chave] = (val, sub)
+
+        # ── POR QUANTO VENDER ─────────────────────────────
+        # O painel antes mostrava dois numeros liquidos e parava. Nao
+        # respondia a pergunta que o dono faz: "por quanto anuncio?".
+        # Agora traz o PRECO DE ANUNCIO e o que sobra dele, nos dois
+        # caminhos -- sem escolher por ele, porque saldo Steam e dinheiro
+        # nao sao a mesma coisa (a Steam pede ~36% a mais justamente
+        # porque o saldo nao sai de la').
+        self._titulo_steam = self._secao(v, "Vendendo na Steam")
+        self._steam_anuncio = self._linha(v, "anuncie por", destaque=True)
+        self._steam_recebe = self._linha(v, "você recebe")
+        self._steam_rapido = self._linha(v, "pra vender hoje")
+
+        v.addSpacing(t.SPACE_MD)
+        self._titulo_fora = self._secao(v, "Vendendo fora (dinheiro)")
+        self._fora = QLabel("—")
+        self._fora.setWordWrap(True)
+        self._fora.setTextFormat(Qt.TextFormat.RichText)
+        self._fora.setStyleSheet(f"font-size: {t.FS_BODY};")
+        v.addWidget(self._fora)
+
+        v.addSpacing(t.SPACE_MD)
+        self._piso = QLabel("")
+        self._piso.setWordWrap(True)
+        self._piso.setTextFormat(Qt.TextFormat.RichText)
+        self._piso.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        v.addWidget(self._piso)
 
         self._premio = QLabel("")
         self._premio.setWordWrap(True)
+        self._premio.setTextFormat(Qt.TextFormat.RichText)
         self._premio.setStyleSheet(f"font-size: {t.FS_MUTED};")
         v.addWidget(self._premio)
         v.addStretch(1)
+
+    def _secao(self, layout, texto: str) -> QLabel:
+        lbl = QLabel(texto.upper())
+        lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            " font-weight: 600; letter-spacing: 1px;")
+        layout.addWidget(lbl)
+        return lbl
+
+    def _linha(self, layout, rotulo: str, destaque: bool = False) -> QLabel:
+        """Uma linha rotulo→valor. Devolve so' o valor, que e' o que muda."""
+        linha = QHBoxLayout()
+        linha.setContentsMargins(0, 0, 0, 0)
+        cap = QLabel(rotulo)
+        cap.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};")
+        val = QLabel("—")
+        val.setAlignment(Qt.AlignmentFlag.AlignRight
+                         | Qt.AlignmentFlag.AlignVCenter)
+        val.setStyleSheet(
+            f"color: {t.TEXT};"
+            f" font-size: {t.FS_STAT if destaque else t.FS_BODY};"
+            f" font-weight: {'600' if destaque else '500'};")
+        linha.addWidget(cap)
+        linha.addStretch(1)
+        linha.addWidget(val)
+        layout.addLayout(linha)
+        return val
 
     def show_item(self, item: dict | None) -> None:
         if not item:
             self._nome.setText("Selecione um item")
             self._tipo.setText("")
             self._icon.clear()
-            for val, sub in self._linhas.values():
-                val.setText("—")
-                sub.setText("")
+            for lbl in (self._steam_anuncio, self._steam_recebe,
+                        self._steam_rapido):
+                lbl.setText("—")
+            self._fora.setText("—")
+            self._piso.setText("")
             self._premio.setText("")
             return
 
@@ -249,38 +290,109 @@ class ItemDetailPanel(QFrame):
         tipo = item.get("type") or ""
         self._tipo.setText(f"{tipo}   ×{qtd}" if qtd > 1 else tipo)
 
+        # Sem icone o QLabel mantinha os 120px de minimumHeight e sobrava um
+        # bloco vazio empurrando o nome pra baixo. Esconder colapsa o espaco.
         p = icons.local_path(item.get("icon"))
-        if p:
-            pm = QPixmap(str(p))
-            if not pm.isNull():
-                self._icon.setPixmap(pm.scaled(
-                    160, 120, Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation))
+        pm = QPixmap(str(p)) if p else None
+        if pm is not None and not pm.isNull():
+            self._icon.setPixmap(pm.scaled(
+                160, 120, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation))
+            self._icon.setVisible(True)
         else:
             self._icon.clear()
+            self._icon.setVisible(False)
 
-        val, sub = self._linhas["steam"]
-        sn = item.get("steam_net")
-        val.setText(t.brl(sn) if sn is not None else "—")
-        sub.setText("saldo, so' compra na Steam")
-
-        val, sub = self._linhas["market"]
-        mn = item.get("market_net")
-        val.setText(t.brl(mn) if mn is not None else "sem cotação")
-        sub.setText("dinheiro de verdade" if mn is not None
-                    else "item não listado fora")
+        self._preencher_steam(item)
+        self._preencher_fora(item)
+        self._preencher_piso(item)
 
         prem = item.get("premium_pct")
         if prem is None:
             self._premio.setText("")
         else:
             cor = t.POSITIVE if prem > 0 else t.DANGER
-            texto = ("A Steam paga mais — mas em saldo travado."
+            texto = ("A Steam pede mais — mas o que sai de lá é saldo, "
+                     "que só compra na Steam."
                      if prem > 0 else
                      "Fora da Steam paga mais, e em dinheiro.")
             self._premio.setText(
                 f"<span style='color:{cor}'><b>{prem:+.0f}%</b></span> "
                 f"<span style='color:{t.TEXT_MUTED}'>{texto}</span>")
+
+    def _preencher_steam(self, item: dict) -> None:
+        g = item.get("guidance") or {}
+        alvo = g.get("target_list")
+        self._steam_anuncio.setText(t.brl(alvo) if alvo else "—")
+
+        recebe = g.get("net_at_target")
+        if recebe is None:
+            recebe = item.get("steam_net")
+        self._steam_recebe.setText(
+            f"{t.brl(recebe)} em saldo" if recebe is not None else "—")
+
+        rapido = g.get("fast_list")
+        self._steam_rapido.setText(t.brl(rapido) if rapido else "—")
+
+    def _preencher_fora(self, item: dict) -> None:
+        """Uma linha por plataforma, ordenadas pelo LIQUIDO.
+
+        A taxa varia de 5% a 12% entre elas, entao o maior preco anunciado
+        nao e' quem paga mais -- ordenar por bruto mandaria o usuario pro
+        lugar errado.
+        """
+        mercados = item.get("mercados") or []
+        if not mercados:
+            mn = item.get("market_net")
+            self._fora.setText(
+                f"<span style='color:{t.TEXT}'>{t.brl(mn)}</span>"
+                if mn is not None
+                else f"<span style='color:{t.TEXT_MUTED}'>"
+                     "item não listado fora</span>")
+            return
+        partes = []
+        for i, m in enumerate(mercados):
+            nome = InventoryTile._NOME_MERCADO.get(m["source"], m["source"])
+            cor = t.POSITIVE if i == 0 else t.TEXT
+            peso = "600" if i == 0 else "400"
+            partes.append(
+                f"<div style='margin-bottom:2px'>"
+                f"<span style='color:{t.TEXT_MUTED}'>{nome}</span> "
+                f"<span style='color:{cor};font-weight:{peso}'>"
+                f"{t.brl(m['net_brl'])}</span> "
+                f"<span style='color:{t.TEXT_MUTED}'>"
+                f"(taxa {m['fee'] * 100:.0f}%)</span></div>")
+        self._fora.setText("".join(partes))
+
+    def _preencher_piso(self, item: dict) -> None:
+        """O piso so' existe com custo conhecido.
+
+        Posicao vinda do sync nao tem custo -- a Steam nao diz quanto voce
+        pagou. Dizer "lucro" ali seria inventar numero (ver
+        portfolio.has_cost_basis).
+        """
+        g = item.get("guidance") or {}
+        piso = g.get("break_even_list")
+        if piso is None:
+            self._piso.setText(
+                f"<span style='color:{t.TEXT_MUTED}'>Sem custo registrado — "
+                "dá pra ver quanto entra, não quanto lucra.</span>")
+            return
+        lucro = g.get("profit_at_target")
+        cobre = g.get("clears")
+        cor = t.POSITIVE if cobre else t.DANGER
+        linha = (f"<span style='color:{t.TEXT_MUTED}'>Pra empatar, anuncie "
+                 f"por</span> <b>{t.brl(piso)}</b>")
+        if lucro is not None:
+            sinal = "lucro" if lucro >= 0 else "prejuízo"
+            linha += (f"<br><span style='color:{cor}'>{t.brl(abs(lucro))} de "
+                      f"{sinal}</span> "
+                      f"<span style='color:{t.TEXT_MUTED}'>no alvo</span>")
+        gap = g.get("gap_pct")
+        if gap is not None and gap > 0:
+            linha += (f"<br><span style='color:{t.TEXT_MUTED}'>precisa subir "
+                      f"{gap:.1f}% pra empatar</span>")
+        self._piso.setText(linha)
 
 
 class InventoryGrid(QWidget):

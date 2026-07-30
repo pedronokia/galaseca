@@ -221,16 +221,16 @@ def test_painel_mostra_as_duas_colunas(app):
     p.show_item(_item("AK-47 | Redline", steam=149.35, market=111.93,
                       prem=38.0))
     assert "Redline" in p._nome.text()
-    assert "149" in p._linhas["steam"][0].text()
-    assert "111" in p._linhas["market"][0].text()
+    assert "149" in p._steam_recebe.text()
+    assert "111" in p._fora.text()
 
 
 def test_painel_explica_que_saldo_nao_e_dinheiro(app):
     """A distincao e' o ponto da tela -- nao pode sumir."""
     p = ItemDetailPanel()
     p.show_item(_item("X"))
-    assert "saldo" in p._linhas["steam"][1].text().lower()
-    assert "dinheiro" in p._linhas["market"][1].text().lower()
+    assert "saldo" in p._steam_recebe.text().lower()
+    assert "dinheiro" in p._titulo_fora.text().lower()
 
 
 def test_painel_premio_positivo_avisa_do_travamento(app):
@@ -238,7 +238,7 @@ def test_painel_premio_positivo_avisa_do_travamento(app):
     p.show_item(_item("X", prem=36.0))
     txt = p._premio.text()
     assert "+36%" in txt
-    assert "travado" in txt.lower()
+    assert "saldo" in txt.lower()
 
 
 def test_painel_premio_negativo_indica_o_outro_lado(app):
@@ -251,7 +251,7 @@ def test_painel_premio_negativo_indica_o_outro_lado(app):
 def test_painel_sem_cotacao_de_mercado(app):
     p = ItemDetailPanel()
     p.show_item(_item("X", market=None, prem=None))
-    assert "sem cotação" in p._linhas["market"][0].text()
+    assert "não listado fora" in p._fora.text()
     assert p._premio.text() == ""
 
 
@@ -274,4 +274,94 @@ def test_painel_limpa_com_none(app):
     p.show_item(_item("X"))
     p.show_item(None)
     assert "Selecione" in p._nome.text()
-    assert p._linhas["steam"][0].text() == "—"
+    assert p._steam_anuncio.text() == "—"
+    assert p._steam_recebe.text() == "—"
+    assert p._fora.text() == "—"
+    assert p._piso.text() == ""
+
+
+# ── por quanto vender ──────────────────────────────────────────────
+#
+# O painel antes mostrava dois liquidos e parava -- nao respondia "por
+# quanto anuncio?". A logica esta' em portfolio.sell_guidance, ja'
+# testada em test_sell_guidance.py; aqui so' a exibicao.
+
+
+def _com_guidance(custo=None, preco=229.26, lowest=225.0):
+    from skinvault import portfolio
+    it = _item("AK-47 | Redline", steam=199.36, market=155.75, prem=28.0)
+    it["guidance"] = portfolio.sell_guidance(
+        current_price=preco, cost=custo, lowest=lowest)
+    it["cost"] = custo
+    return it
+
+
+def test_painel_esconde_o_icone_quando_nao_ha(app):
+    """Sem esconder, o minimumHeight de 120px deixava um bloco vazio
+    empurrando o nome pra baixo."""
+    p = ItemDetailPanel()
+    p.show_item(_item("Sem icone", icon=None))
+    assert p._icon.isVisibleTo(p) is False
+
+
+def test_painel_diz_por_quanto_anunciar(app):
+    p = ItemDetailPanel()
+    p.show_item(_com_guidance())
+    assert "229" in p._steam_anuncio.text()
+
+
+def test_painel_diz_o_que_sobra_do_anuncio(app):
+    """229,26 anunciado devolve 199,36 -- a taxa come 13% do anuncio."""
+    p = ItemDetailPanel()
+    p.show_item(_com_guidance())
+    assert "199" in p._steam_recebe.text()
+    assert "saldo" in p._steam_recebe.text().lower()
+
+
+def test_painel_traz_o_cenario_de_venda_rapida(app):
+    p = ItemDetailPanel()
+    p.show_item(_com_guidance(lowest=225.0))
+    assert "224,99" in p._steam_rapido.text()
+
+
+def test_painel_sem_custo_admite_que_nao_sabe_o_lucro(app):
+    """Posicao vinda do sync nao tem custo. Prometer lucro ali seria
+    inventar numero."""
+    p = ItemDetailPanel()
+    p.show_item(_com_guidance(custo=None))
+    txt = p._piso.text().lower()
+    assert "sem custo" in txt
+    assert "lucra" in txt
+
+
+def test_painel_com_custo_mostra_piso_e_lucro(app):
+    p = ItemDetailPanel()
+    p.show_item(_com_guidance(custo=100.0))
+    txt = p._piso.text()
+    assert "115,00" in txt          # piso = custo * 1,15
+    assert "lucro" in txt.lower()
+
+
+def test_painel_com_custo_alto_mostra_prejuizo_e_gap(app):
+    """Custo 250, alvo 229,26: o alvo nao cobre, e falta subir."""
+    p = ItemDetailPanel()
+    p.show_item(_com_guidance(custo=250.0))
+    txt = p._piso.text().lower()
+    assert "prejuízo" in txt
+    assert "precisa subir" in txt
+
+
+def test_painel_lista_plataformas_ordenadas_pelo_liquido(app):
+    it = _com_guidance()
+    it["mercados"] = [
+        {"source": "csgotm", "gross_brl": 163.95, "net_brl": 155.75,
+         "fee": 0.05, "premium_pct": 28.0},
+        {"source": "skinport", "gross_brl": 154.37, "net_brl": 135.85,
+         "fee": 0.12, "premium_pct": 36.0},
+    ]
+    p = ItemDetailPanel()
+    p.show_item(it)
+    txt = p._fora.text()
+    assert txt.index("CS.MONEY/TM") < txt.index("Skinport")
+    assert "155,75" in txt and "135,85" in txt
+    assert "taxa 5%" in txt and "taxa 12%" in txt
