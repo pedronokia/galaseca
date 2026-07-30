@@ -1066,6 +1066,77 @@ def test_pump_risk_sem_inputs():
     assert r["reasons"] == []
 
 
+# === nivel de preco absoluto (containers-only, 2026-07-30) ===
+#
+# Medido em 84 itens / 7541 amostras: IC do preco absoluto = -0.2635 no
+# geral, -0.3036 em caixas, -0.0415 em skins (AGENTS.md 4d). No backtest
+# ON x OFF, passa em CAIXAS nos dois horizontes e ATRAPALHA em skins --
+# dai' o filtro is_container.
+
+
+def _hist(preco, n=12):
+    return [{"time": 1_700_000_000 + i * 86400, "price_median": preco,
+             "purchases": 5} for i in range(n)]
+
+
+def test_preco_baixo_bonifica_container():
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(2.0),
+                                    is_container=True)
+    pl = [b for b in bd if b["factor"] == "price_level"]
+    assert pl and pl[0]["delta"] == 4
+
+
+def test_preco_alto_penaliza_container():
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(800.0),
+                                    is_container=True)
+    pl = [b for b in bd if b["factor"] == "price_level"]
+    assert pl and pl[0]["delta"] == -4
+
+
+def test_faixa_neutra_nao_entra_no_breakdown():
+    """Delta zero nao vira linha -- so' polui o breakdown."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(100.0),
+                                    is_container=True)
+    assert not any(b["factor"] == "price_level" for b in bd)
+
+
+def test_skin_nao_recebe_o_fator():
+    """Em skins o fator REPROVOU (Sp -0.0130 em 90d)."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(2.0),
+                                    is_container=False)
+    assert not any(b["factor"] == "price_level" for b in bd)
+
+
+def test_sem_historico_nao_inventa_faixa():
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, is_container=True)
+    assert not any(b["factor"] == "price_level" for b in bd)
+
+
+def test_price_level_band_e_publica():
+    """Publica pra UI, mesmo padrao do pump_risk."""
+    assert signals.price_level_band(2.0)[0] == 4
+    assert signals.price_level_band(800.0)[0] == -4
+    assert signals.price_level_band(None) is None
+    assert signals.price_level_band(0) is None
+
+
+def test_price_level_usa_o_ultimo_ponto_do_prefixo():
+    """No backtest o prefixo termina no instante simulado, entao o preco
+    e' o daquele momento -- sem o lookahead que derrubou o vintage."""
+    hist = _hist(2.0) + [{"time": 1_800_000_000, "price_median": 800.0,
+                          "purchases": 5}]
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=hist,
+                                    is_container=True)
+    pl = [b for b in bd if b["factor"] == "price_level"]
+    assert pl and pl[0]["delta"] == -4   # usou 800, o ultimo
+
+
 # === vintage v4 (containers-only, age >= 8) ===
 #
 # DESLIGADO em 2026-07-29: a aprovacao media lookahead (idade calculada

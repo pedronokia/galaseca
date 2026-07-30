@@ -90,6 +90,46 @@ _SUPPLY_PATH = DATA_DIR / "supply_history.json"
 # A fonte da verdade agora e' cases.case_status(), cujos nomes foram
 # verificados um a um contra a listing page da Steam.
 
+# EXPERIMENT 2026-07-30: nivel de preco absoluto.
+# Medido em 84 itens / 7541 amostras / 365d, cross-sectional por data
+# (AGENTS.md 4d): IC do preco absoluto = -0.2635 no geral, -0.3036 em
+# caixas, -0.0415 em skins. Negativo em 80% das janelas de 90d.
+# Mediana do retorno 365d por faixa: R$0-1 +73.0%, R$1-5 +41.1%,
+# R$5-20 +44.0%, R$20-100 +27.4%, R$100-500 +18.7%, R$500+ +8.7%.
+# O score nunca viu preco absoluto -- foi o que produziu o anti-padrao do
+# Clutch Case (memory/clutch-case-falling-knife).
+# Faixas em escala log, que e' onde o efeito e' ~linear.
+# APROVADO em 2026-07-30, CONTAINERS-ONLY. Medido ON x OFF, 153 itens:
+#   CAIXAS  90d  Sp +0.0052 / Pe +0.0087   passa
+#   CAIXAS 365d  Sp +0.0222 / Pe +0.0160   passa (o maior delta ja' medido)
+#   SKINS   90d  Sp -0.0130               REPROVA
+#   SKINS  365d  Sp +0.0007               abaixo do criterio
+# 2/2 nos universos de container, igual ao criterio do vintage v4. Em
+# skins o fator ATRAPALHA, o que bate com o IC (-0.30 caixas x -0.04
+# skins) -- dai' o filtro `is_container`, mesmo padrao do vintage.
+_PRICE_LEVEL_ENABLED = True
+_PRICE_LEVEL_BANDS = (
+    (5.0, 4, "abaixo de R$ 5"),
+    (50.0, 2, "entre R$ 5 e 50"),
+    (200.0, 0, "entre R$ 50 e 200"),
+    (float("inf"), -4, "acima de R$ 200"),
+)
+
+
+def price_level_band(price: "float | None") -> "tuple[int, str] | None":
+    """(delta, rotulo) da faixa de preco. None se nao ha' preco.
+
+    Publica pra a UI poder mostrar a faixa mesmo com o fator desligado --
+    mesmo padrao do `pump_risk`, que virou coluna antes de virar score.
+    """
+    if price is None or price <= 0:
+        return None
+    for teto, delta, rotulo in _PRICE_LEVEL_BANDS:
+        if price < teto:
+            return delta, rotulo
+    return None
+
+
 _MIN_VOLUME_LIQUID = 50
 
 
@@ -880,6 +920,21 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             elif band == "at_ath":
                 _add("rel_ath", -10,
                      f"{pct:.0%} do ATH (topo histórico) (-10)")
+
+    # Nivel de preco absoluto (2026-07-30). O preco vem do ULTIMO ponto do
+    # prefixo, entao no backtest e' o preco no instante simulado -- sem
+    # lookahead, ao contrario do que acontecia com a idade do vintage.
+    if _PRICE_LEVEL_ENABLED and is_container and price_history:
+        try:
+            preco_atual = sorted(
+                price_history, key=lambda e: e["time"])[-1]["price_median"]
+        except (KeyError, IndexError, TypeError):
+            preco_atual = None
+        faixa = price_level_band(preco_atual)
+        if faixa and faixa[0]:
+            delta, rotulo = faixa
+            _add("price_level", delta,
+                 f"Preço {rotulo} ({delta:+d})")
 
     # Caixa descontinuada / rara (F7)
     if case_status:
