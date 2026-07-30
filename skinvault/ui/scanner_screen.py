@@ -27,8 +27,8 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import (
-    backtest, cases, discovery, ranking, settings as sv_settings, signals,
-    ssr_cache, steam_api, valve_events,
+    backtest, cases, discovery, portfolio as portfolio_mod, ranking,
+    settings as sv_settings, signals, ssr_cache, steam_api, valve_events,
 )
 from skinvault._paths import DATA_DIR
 from skinvault.ui.components import auto_cell
@@ -123,14 +123,23 @@ class ScannerScreen(QWidget):
     COL_SINAL = 1
     COL_PRECO = 2
     COL_JUSTO = 3
-    COL_VEREDITO = 4
-    COL_SPREAD = 5
-    COL_BOOK = 6
-    COL_TREND = 7
-    COL_SD = 8
-    COL_SCORE = 9
-    COL_RISCO = 10
-    COL_CONFIDENCE = 11
+    # "Compre ate'" fica colado no "Preco justo" porque deriva dele: e' o
+    # maximo a pagar pra, revendendo na mediana, sobrar a margem.
+    COL_COMPRAR = 4
+    COL_VEREDITO = 5
+    COL_SPREAD = 6
+    COL_BOOK = 7
+    COL_TREND = 8
+    COL_SD = 9
+    COL_SCORE = 10
+    COL_RISCO = 11
+    COL_CONFIDENCE = 12
+
+    # Margem-alvo da coluna "Compre ate'". 20% e' folgado o bastante pra
+    # cobrir o break-even de 15% da Steam e ainda sobrar -- o quintil
+    # superior do score rende +13,64% brutos, que NAO cobre a taxa
+    # (AGENTS.md 4b). Comprar com desconto e' o que fecha a conta.
+    MARGEM_ALVO_PCT = 20.0
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -307,12 +316,23 @@ class ScannerScreen(QWidget):
         root.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Tabela
-        self._table = QTableWidget(0, 12)
+        self._table = QTableWidget(0, 13)
         self._table.setHorizontalHeaderLabels([
-            "Item", "Sinal", "Preco", "Preco justo", "Veredito",
-            "Spread", "Book", "Tendencia", "Oferta/Demanda", "Score", "Risco", "Confiança",
+            "Item", "Sinal", "Preco", "Preco justo", "Compre até",
+            "Veredito", "Spread", "Book", "Tendencia", "Oferta/Demanda",
+            "Score", "Risco", "Confiança",
         ])
         t.configure_table(self._table)
+        compra_hdr = self._table.horizontalHeaderItem(self.COL_COMPRAR)
+        if compra_hdr:
+            compra_hdr.setToolTip(
+                "Máximo a pagar hoje pra, revendendo no preço justo, "
+                f"sobrar {self.MARGEM_ALVO_PCT:.0f}% de margem.\n"
+                "Já desconta a taxa de 15% da Steam — que incide sobre o "
+                "valor do vendedor: você anuncia por R$ 115 e recebe "
+                "R$ 100.\n"
+                "Verde quando o preço atual está abaixo do teto."
+            )
         score_hdr = self._table.horizontalHeaderItem(self.COL_SCORE)
         if score_hdr:
             score_hdr.setToolTip(
@@ -322,7 +342,7 @@ class ScannerScreen(QWidget):
             )
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        for i in range(1, 12):
+        for i in range(1, 13):
             hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         self._table.doubleClicked.connect(
             lambda _idx: self._on_explain_selected()
@@ -602,11 +622,26 @@ class ScannerScreen(QWidget):
             risk_labels = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
             risk_color = risk_colors.get(risk_level, t.TEXT_MUTED)
             risk_label = risk_labels.get(risk_level, "—")
+            # Teto de compra: quanto pagar pra, revendendo na mediana,
+            # sobrar MARGEM_ALVO_PCT. Verde quando o preco atual cabe.
+            teto = None
+            if r.get("median"):
+                teto = portfolio_mod.max_buy_price(
+                    r["median"], self.MARGEM_ALVO_PCT)
+            preco_atual = r.get("price")
+            if teto is None:
+                teto_txt, teto_cor = "—", t.TEXT_MUTED
+            else:
+                teto_txt = t.brl(teto)
+                teto_cor = (t.POSITIVE
+                            if preco_atual and preco_atual <= teto
+                            else t.TEXT_MUTED)
             cells = [
                 (_ln(r["name"]), None),
                 (label, score_color),
                 (r.get("price_str", t.brl(r["price"])), None),
                 (t.brl(r["median"]), None),
+                (teto_txt, teto_cor),
                 (r["verdict"], r["verdict_color"]),
                 (r["spread"], None),
                 (r["book"], None),
@@ -674,7 +709,8 @@ class ScannerScreen(QWidget):
                         " Pode diferir do preço real de listagem."
                     )
         # Alinhamento por coluna: dinheiro → direita, status → centro
-        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_SCORE}
+        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_COMPRAR,
+                      self.COL_SCORE}
         center_cols = {
             self.COL_SINAL, self.COL_VEREDITO, self.COL_SPREAD,
             self.COL_BOOK, self.COL_TREND, self.COL_SD,

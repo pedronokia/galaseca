@@ -280,19 +280,82 @@ def test_scanner_filtro_status_mostra_ocultos(monkeypatch):
 
 
 def test_scanner_tabela_tem_coluna_conf():
-    """Tabela do Scanner tem 12 colunas, sendo a 12a 'Conf.' e a 11a 'Risco'."""
+    """13 colunas desde 2026-07-30, quando 'Compre até' entrou na posição 4
+    (colada no 'Preço justo', de onde ela deriva) e empurrou o resto."""
     from skinvault.prices import PriceCache
     from skinvault.ui.scanner_screen import ScannerScreen
     screen = ScannerScreen(PriceCache(ttl=3600))
-    assert screen._table.columnCount() == 12
-    assert screen.COL_CONFIDENCE == 11
-    assert screen.COL_RISCO == 10
-    hdr = screen._table.horizontalHeaderItem(11)
-    assert hdr is not None
-    assert hdr.text() == "Confiança"
-    risco_hdr = screen._table.horizontalHeaderItem(10)
-    assert risco_hdr is not None
-    assert risco_hdr.text() == "Risco"
+    assert screen._table.columnCount() == 13
+    assert screen.COL_COMPRAR == 4
+    assert screen.COL_CONFIDENCE == 12
+    assert screen.COL_RISCO == 11
+    assert screen._table.horizontalHeaderItem(
+        screen.COL_COMPRAR).text() == "Compre até"
+    assert screen._table.horizontalHeaderItem(
+        screen.COL_CONFIDENCE).text() == "Confiança"
+    assert screen._table.horizontalHeaderItem(
+        screen.COL_RISCO).text() == "Risco"
+
+
+# ── coluna "Compre até" ───────────────────────────────
+#
+# Transforma "score 88" em instrução. O teto e' o maximo a pagar pra,
+# revendendo na mediana, sobrar MARGEM_ALVO_PCT -- ja' descontada a taxa
+# de 15% da Steam, que incide sobre o valor do vendedor (anuncia 115,
+# recebe 100). Aritmetica em portfolio.max_buy_price, testada a' parte.
+
+
+def _scanner_com(resultado):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    s = ScannerScreen(PriceCache(ttl=3600))
+    s._scan_results = [resultado]
+    s._populate()
+    return s
+
+
+def _res(price=100.0, median=230.0):
+    return {
+        "name": "AK-47 | Redline (Field-Tested)", "price": price,
+        "median": median, "score": 70, "verdict": "abaixo",
+        "verdict_color": "#3FB950", "spread": "—", "book": "—",
+        "trend": "—", "sd_label": "—", "data_quality": {"level": "high"},
+    }
+
+
+def test_compre_ate_usa_a_mediana_e_a_margem():
+    from skinvault import portfolio
+    s = _scanner_com(_res(median=230.0))
+    esperado = portfolio.max_buy_price(230.0, s.MARGEM_ALVO_PCT)
+    txt = s._table.item(0, s.COL_COMPRAR).text()
+    assert "{:.2f}".format(esperado).replace(".", ",") in txt
+
+
+def test_compre_ate_fica_verde_quando_o_preco_cabe():
+    from skinvault.ui import theme as t
+    s = _scanner_com(_res(price=100.0, median=230.0))   # teto ~166
+    cor = s._table.item(0, s.COL_COMPRAR).foreground().color().name()
+    assert cor == t.POSITIVE.lower()
+
+
+def test_compre_ate_nao_fica_verde_quando_esta_caro():
+    from skinvault.ui import theme as t
+    s = _scanner_com(_res(price=200.0, median=230.0))   # teto ~166
+    cor = s._table.item(0, s.COL_COMPRAR).foreground().color().name()
+    assert cor == t.TEXT_MUTED.lower()
+
+
+def test_compre_ate_sem_mediana_mostra_travessao():
+    s = _scanner_com(_res(median=None))
+    assert s._table.item(0, s.COL_COMPRAR).text() == "—"
+
+
+def test_compre_ate_e_sempre_menor_que_a_mediana():
+    """Se o teto passasse da mediana, comprar la' daria prejuizo garantido."""
+    from skinvault import portfolio
+    for mediana in (1.0, 50.0, 230.0, 5000.0):
+        teto = portfolio.max_buy_price(mediana, 20.0)
+        assert teto < mediana
 
 
 def test_scanner_populate_preenche_confianca_alta():
