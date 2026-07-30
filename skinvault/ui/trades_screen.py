@@ -452,16 +452,19 @@ class TradesScreen(QWidget):
         else:
             pnl_c = t.POSITIVE if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_c)
-        # Delta vs mes anterior
+        # Delta vs mes anterior, em REAIS e nao em porcentagem.
+        #
+        # Variacao percentual de P&L nao tem sentido: a base pode ser ~zero
+        # ou trocar de sinal. Com o historico real do usuario, junho fechou
+        # em R$ 0,03 e julho em R$ 1,63 -- a conta dava "+5333,3%", correta
+        # e inutil. A diferenca absoluta responde a mesma pergunta ("melhorou
+        # quanto?") e vale em qualquer base.
         _monthly = trades_mod.monthly_pnl(trades=self._trades)
         if len(_monthly) >= 2:
-            _prev_pnl = _monthly[-2]["pnl"]
-            _curr_pnl = _monthly[-1]["pnl"]
-            if _prev_pnl:
-                _dp = (_curr_pnl - _prev_pnl) / abs(_prev_pnl) * 100
-                self._stat_pnl.set_delta(_dp, "vs mês anterior")
-            else:
-                self._stat_pnl.set_delta(None)
+            _diff = _monthly[-1]["pnl"] - _monthly[-2]["pnl"]
+            _sinal = "+" if _diff >= 0 else "−"
+            self._stat_pnl.set_delta(
+                None, f"{_sinal}{t.brl(abs(_diff))} vs mês anterior")
         else:
             self._stat_pnl.set_delta(None)
 

@@ -2896,6 +2896,48 @@ class TestTradesScreen:
 
     # ── importacao do historico da Steam ──────────────────
 
+    # ── delta vs mes anterior ─────────────────────────────
+    #
+    # Era percentual, e percentual de P&L nao tem sentido: a base pode ser
+    # ~zero ou trocar de sinal. No historico real, junho R$ 0,03 -> julho
+    # R$ 1,63 virava "+5333,3%".
+
+    def _com_meses(self, monkeypatch, pnl_ant, pnl_atual):
+        from skinvault.ui.trades_screen import TradesScreen
+        monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+        monkeypatch.setattr("skinvault.trades.trade_stats",
+                            lambda trades=None: self.STATS)
+        monkeypatch.setattr(
+            "skinvault.trades.monthly_pnl",
+            lambda trades=None: [{"month": "2026-06", "trades": 1,
+                                  "pnl": pnl_ant},
+                                 {"month": "2026-07", "trades": 1,
+                                  "pnl": pnl_atual}])
+        s = TradesScreen()
+        s.refresh()
+        return s._stat_pnl._delta.text()
+
+    def test_delta_do_pnl_e_em_reais(self, monkeypatch):
+        txt = self._com_meses(monkeypatch, 0.03, 1.63)
+        assert "%" not in txt
+        assert "1,60" in txt
+        assert "mês anterior" in txt
+
+    def test_delta_negativo_marca_o_sinal(self, monkeypatch):
+        txt = self._com_meses(monkeypatch, 5.00, 1.00)
+        assert "−" in txt and "4,00" in txt
+
+    def test_delta_com_base_zero_nao_explode(self, monkeypatch):
+        """Divisao por zero era o caso que sumia com o delta inteiro."""
+        txt = self._com_meses(monkeypatch, 0.0, 2.50)
+        assert "2,50" in txt
+
+    def test_delta_com_troca_de_sinal(self, monkeypatch):
+        """De -8,92 pra +1,63: percentual aqui seria absurdo."""
+        txt = self._com_meses(monkeypatch, -8.92, 1.63)
+        assert "%" not in txt
+        assert "10,55" in txt
+
     # ── ordenacao por valor ───────────────────────────────
 
     ORDEM_DATA = [
@@ -7489,6 +7531,46 @@ def test_launch_liga_release_no_about_to_quit(monkeypatch):
     for slot in apps[-1].aboutToQuit.slots:
         slot()
     assert guard.released is True
+
+
+# ── avaliacao parcial nao entra no historico ──────────
+#
+# Em 11/06/2026 entrou um R$ 200,00 no history.json logo depois de um
+# R$ 979,42 completo -- era uma avaliacao com poucos itens precificados,
+# gravada como se fosse o valor da carteira. O cartao passou a exibir
+# "-79,6%": uma perda que nunca aconteceu.
+
+
+def _rows_com_preco(n_com, n_sem):
+    return ([{"name": f"C{i}", "price": 10.0} for i in range(n_com)]
+            + [{"name": f"S{i}", "price": None} for i in range(n_sem)])
+
+
+def test_avaliacao_completa_aceita_tudo_precificado():
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(10, 0)) is True
+
+
+def test_avaliacao_completa_tolera_poucos_sem_mercado():
+    """Item sem mercado existe de verdade; 100% travaria o grafico."""
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(19, 1)) is True
+
+
+def test_avaliacao_parcial_e_rejeitada():
+    from skinvault.ui.account_screen import AccountScreen
+    # o caso real: 7 de 31 com preco
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(7, 24)) is False
+
+
+def test_avaliacao_sem_nenhum_preco_e_rejeitada():
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(0, 31)) is False
+
+
+def test_avaliacao_vazia_e_rejeitada():
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa([]) is False
 
 
 # ── QMenu no tema escuro ──────────────────────────────

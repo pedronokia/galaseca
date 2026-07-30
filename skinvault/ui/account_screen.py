@@ -447,6 +447,19 @@ class AccountScreen(QWidget):
         self._value_chart.setVisible(tem_serie)
         self._vc_lbl.setVisible(tem_serie)
 
+    # Cobertura minima pra considerar a avaliacao boa o bastante pro
+    # historico. Nao e' 100% porque item sem mercado na Steam existe de
+    # verdade (souvenir sem liquidez) e travaria o grafico pra sempre.
+    _COBERTURA_MINIMA = 0.9
+
+    @staticmethod
+    def _avaliacao_completa(rows: list) -> bool:
+        """True se preco suficiente pra o total representar a carteira."""
+        if not rows:
+            return False
+        com_preco = sum(1 for r in rows if r.get("price") is not None)
+        return (com_preco / len(rows)) >= AccountScreen._COBERTURA_MINIMA
+
     def _record_value_snapshot(self, total: float) -> None:
         """Grava ponto de valor — pula se igual ao ultimo (o schedule de
         30min re-avalia com cache; sem o dedup o arquivo encheria de
@@ -611,9 +624,17 @@ class AccountScreen(QWidget):
         if len(_series) >= 2:
             _prev = _series[-2].get("total", 0) or 0
             _curr = _series[-1].get("total", 0) or 0
+            _prev_ts = _series[-2].get("ts", 0)
             if _prev and _curr:
+                # Diz CONTRA O QUE esta' comparando. Sem a data, "-79,6%"
+                # parecia queda de hoje quando comparava dois pontos de
+                # junho.
+                _quando = (time.strftime("%d/%m", time.localtime(_prev_ts))
+                           if _prev_ts else "")
                 self._stat_gross.set_delta(
-                    (_curr - _prev) / _prev * 100)
+                    (_curr - _prev) / _prev * 100,
+                    f"vs {_quando}" if _quando else "",
+                )
             else:
                 self._stat_gross.set_delta(None)
         else:
@@ -676,9 +697,15 @@ class AccountScreen(QWidget):
         self._bd_worst.setToolTip(_ln(worst.get("name", "")) if worst else "")
 
         # Evolucao do valor: grava snapshot (GUI alimenta o mesmo
-        # history.json do CLI) e re-renderiza a serie
+        # history.json do CLI) e re-renderiza a serie.
+        #
+        # So' grava avaliacao COMPLETA. Uma parcial vira um ponto que
+        # parece queda da carteira: em 11/06/2026 entrou um R$ 200,00 no
+        # history.json (poucos itens com preco em cache) logo depois de um
+        # R$ 979,42 completo, e o cartao passou a exibir "-79,6%" -- uma
+        # perda que nunca aconteceu.
         total_market = totals.get("market")
-        if rows and total_market:
+        if rows and total_market and self._avaliacao_completa(rows):
             self._record_value_snapshot(total_market)
         self._reload_value_series()
 
