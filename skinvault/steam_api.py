@@ -1229,14 +1229,29 @@ _TRADE_PARTNER_RE = re.compile(
 _TRADE_ITEM_RE = re.compile(
     r'<span class="history_item_name"[^>]*>(?P<name>[^<]+)</span>',
 )
+# O lado da troca esta' no ID do elemento -- "trade15_givenitem0" vs
+# "trade0_receiveditem0". A versao antiga do parser dizia nao distinguir
+# lado ("limitacao consciente"), mas o HTML sempre teve essa informacao, e
+# sem ela nao da' pra saber que uma skin SAIU numa troca em vez de ter
+# sido vendida no Market.
+_TRADE_LADO_RE = re.compile(
+    r'id="trade\d+_(?P<lado>received|given)item\d+".*?'
+    r'<span class="history_item_name"[^>]*>(?P<name>[^<]+)</span>',
+    re.S,
+)
 
 
 def parse_trade_history_html(html: str) -> list[TradeEvent]:
     """Extrai trade offers aceitas do HTML de /profiles/{id}/tradehistory.
 
-    Best-effort. A pagina divide cada trade em columns "items given"
-    vs "items received"; aqui pegamos a lista plana e nao distinguimos
-    lado (limitacao consciente; suficiente pra registro/auditoria).
+    Separa itens ENTREGUES de RECEBIDOS pelo id do elemento
+    (`trade15_givenitem0` vs `trade0_receiveditem0`). Isso importa pra quem
+    troca skin por saldo em site: a skin sai da conta sem passar pelo
+    Market, entao ela nao aparece em `myhistory` -- so' aqui.
+
+    `tradeofferid` vem VAZIO: a pagina de tradehistory nao expoe esse
+    campo (verificado no HTML inteiro em 2026-07-30, zero ocorrencias).
+    Quem for dedupar precisa de chave composta -- ver `sync.trade_event_key`.
     """
     if not html:
         return []
@@ -1250,8 +1265,16 @@ def parse_trade_history_html(html: str) -> list[TradeEvent]:
         body = html[start:end]
         offer_m = _TRADE_OFFERID_RE.search(body)
         partner_m = _TRADE_PARTNER_RE.search(body)
-        items = [_html.unescape(im.group("name").strip())
-                 for im in _TRADE_ITEM_RE.finditer(body)]
+        dados: dict = {"given": [], "received": []}
+        for lm in _TRADE_LADO_RE.finditer(body):
+            dados[lm.group("lado")].append(
+                _html.unescape(lm.group("name").strip()))
+        # Fallback: se o id do elemento mudar de formato, ainda registra os
+        # itens (sem lado) em vez de perder a troca inteira.
+        if not dados["given"] and not dados["received"]:
+            dados["given"] = [_html.unescape(im.group("name").strip())
+                              for im in _TRADE_ITEM_RE.finditer(body)]
+        items = dados["given"] + dados["received"]
         if not offer_m and not items:
             continue
         date_m = _TRADE_DATE_RE.search(body)
@@ -1265,7 +1288,7 @@ def parse_trade_history_html(html: str) -> list[TradeEvent]:
             tradeofferid=offer_m.group("id") if offer_m else "",
             partner_steamid=partner_m.group("sid") if partner_m else None,
             date_str=date_str,
-            items_given=items,
-            items_received=[],
+            items_given=dados["given"],
+            items_received=dados["received"],
         ))
     return events

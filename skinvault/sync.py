@@ -83,6 +83,38 @@ def market_event_key(event: dict) -> str:
     ])
 
 
+def trade_event_key(event: dict) -> str:
+    """ID estavel pra uma troca. Usa tradeofferid quando existe.
+
+    A pagina `/tradehistory` **nao expoe** tradeofferid (verificado no HTML
+    inteiro em 2026-07-30: zero ocorrencias). Ate' entao o sync fazia
+    `if not ev.tradeofferid: continue` e descartava TODAS as trocas -- por
+    isso `trade_history.json` nunca chegou a ser criado, mesmo com 30
+    trocas por pagina disponiveis.
+
+    Sem ele, hash composto de data ISO + parceiro + itens dos dois lados.
+    Mesma normalizacao de data do `market_event_key`: a Steam omite o ano
+    no ano corrente (gotcha #4).
+    """
+    tid = event.get("tradeofferid")
+    if tid:
+        return f"T:{tid}"
+    from skinvault.trade_matcher import parse_steam_date
+    raw = event.get("date_str") or ""
+    ts = parse_steam_date(raw)
+    data = (time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+            if ts is not None else raw)
+    dados = [
+        data,
+        event.get("partner_steamid") or "",
+        ",".join(sorted(_html.unescape(x) for x in
+                        (event.get("items_given") or []))),
+        ",".join(sorted(_html.unescape(x) for x in
+                        (event.get("items_received") or []))),
+    ]
+    return "|".join(dados)
+
+
 # ── sync individual ───────────────────────────────────────────
 def sync_inventory(session: SteamSession,
                    path: Path | str = portfolio_mod._DEFAULT_PATH) -> dict:
@@ -257,7 +289,7 @@ def sync_trade_offers(session: SteamSession,
     Dedupe via tradeofferid."""
     p = Path(path)
     stored = _load_json_list(p)
-    known = {t.get("tradeofferid") for t in stored if t.get("tradeofferid")}
+    known = {trade_event_key(t) for t in stored}
 
     new_trades: list[dict] = []
     fetched = 0
@@ -271,10 +303,13 @@ def sync_trade_offers(session: SteamSession,
             break
         added_this_page = 0
         for ev in parsed:
-            if not ev.tradeofferid or ev.tradeofferid in known:
-                continue
-            known.add(ev.tradeofferid)
             d = dataclasses.asdict(ev)
+            # Dedupe por chave composta: a pagina nao traz tradeofferid, e
+            # exigir ele descartava 100% das trocas (ver trade_event_key).
+            chave = trade_event_key(d)
+            if chave in known:
+                continue
+            known.add(chave)
             d["synced_at"] = time.time()
             new_trades.append(d)
             added_this_page += 1
