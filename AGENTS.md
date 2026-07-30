@@ -199,10 +199,20 @@ continua fazendo sentido, mas por este motivo — não pelo que estava
 escrito aqui antes.
 
 **Nada disso vence a taxa.** Quintil superior do score corrigido:
-+13,64% brutos em 90d. Com os 15% da Steam: **−3,41% líquidos**. O bruto
-mínimo pra empatar é **17,65%**, não 15% — a taxa incide sobre a venda,
-não sobre o lucro (`net_after_fee` / `breakeven_gross`). A 2% de taxa
-(mercado terceiro), os mesmos 13,64% viram +11,37%.
++13,64% brutos em 90d. Com os 15% da Steam: **−1,18% líquidos**. A 2% de
+taxa (mercado terceiro), os mesmos 13,64% viram +11,41%.
+
+> **Correção de 2026-07-30 — o break-even é 15%, não 17,65%.** O texto
+> anterior dizia 17,65% porque `backtest.net_after_fee` usava
+> `preço × (1 − taxa)`, tratando a taxa como percentual do preço de
+> compra. **Não é o que a Steam faz:** a taxa incide sobre o valor do
+> *vendedor*. Você lista a R$ 115, o comprador paga 115, você recebe
+> 115/1,15 = 100 — logo o break-even é exatamente a taxa.
+> `portfolio.net_proceeds` sempre usou o modelo certo; os dois módulos
+> discordavam em silêncio. Corrigido, com teste que trava os dois juntos
+> (`test_backtest_e_portfolio_concordam`). A conclusão qualitativa não
+> muda — 13,64% ainda não cobre 15% — mas a margem é bem menor do que o
+> texto original sugeria.
 
 **Drop pool, medido:** caixa aposentada rendeu +20,3%/ano de mediana nos
 últimos 3 anos (8 de 8 positivas); caixa no pool ativo, −13,4%/ano.

@@ -34,6 +34,66 @@ def break_even_price(cost: float, fee_rate: float = STEAM_FEE) -> float:
     return cost * (1.0 + fee_rate)
 
 
+def max_buy_price(sell_price: float, margin_pct: float = 0.0,
+                  fee_rate: float = STEAM_FEE) -> float:
+    """Maximo a pagar hoje pra, vendendo por `sell_price`, sobrar a margem.
+
+    Responde a pergunta do Scanner: "vale a pena comprar por quanto?".
+    Com margem 0 devolve o preco de indiferenca -- pagar mais que isso da'
+    prejuizo mesmo que a venda saia no preco previsto.
+    """
+    liquido = net_proceeds(sell_price, fee_rate)
+    return liquido / (1.0 + margin_pct / 100.0)
+
+
+def sell_guidance(current_price: float | None,
+                  cost: float | None = None,
+                  lowest: float | None = None,
+                  fee_rate: float = STEAM_FEE) -> dict:
+    """Por quanto vender ESTE item, e o que sobra em cada cenario.
+
+    `current_price` e' a referencia de venda (a mediana serve melhor que a
+    menor listagem: a menor e' quem esta' com pressa).
+    `lowest` e' a menor listagem ativa, pra dar o cenario "vender hoje".
+    `cost` None = posicao sem base de custo (veio do sync) -- ai' nao ha'
+    lucro a calcular, so' quanto entra no bolso.
+
+    Todos os precos sao de LISTAGEM (o que o comprador paga). O liquido
+    ja' desconta a taxa, que na Steam incide sobre o valor do vendedor:
+    lista 115 -> recebe 100.
+    """
+    out = {
+        "break_even_list": None,   # preco de listagem pra empatar
+        "target_list": None,       # alvo realista (a mediana)
+        "net_at_target": None,     # o que entra no bolso vendendo no alvo
+        "profit_at_target": None,  # lucro no alvo (None sem custo)
+        "fast_list": None,         # vender hoje: cobre a menor listagem
+        "net_at_fast": None,
+        "clears": None,            # o alvo cobre o custo?
+        "gap_pct": None,           # quanto o preco precisa subir pra empatar
+    }
+    if cost is not None and cost > 0:
+        out["break_even_list"] = round(break_even_price(cost, fee_rate), 2)
+
+    if current_price and current_price > 0:
+        out["target_list"] = round(current_price, 2)
+        liquido = net_proceeds(current_price, fee_rate)
+        out["net_at_target"] = round(liquido, 2)
+        if cost is not None and cost > 0:
+            out["profit_at_target"] = round(liquido - cost, 2)
+            out["clears"] = liquido >= cost
+            be = out["break_even_list"]
+            out["gap_pct"] = round((be / current_price - 1) * 100, 1)
+
+    if lowest and lowest > 0:
+        # Pra vender rapido a pratica e' cobrir a menor listagem por 1
+        # centavo. Nao ha' magica: o liquido cai junto.
+        rapido = max(0.01, round(lowest - 0.01, 2))
+        out["fast_list"] = rapido
+        out["net_at_fast"] = round(net_proceeds(rapido, fee_rate), 2)
+    return out
+
+
 def position_pnl(cost: float, current_price: float, quantity: int = 1,
                  fee_rate: float = STEAM_FEE) -> dict:
     """Breakdown honesto de UMA posicao. 'market' e' o bruto (o que aparenta

@@ -177,19 +177,43 @@ def test_quintil_vazio_e_seguro():
 # ── taxa ───────────────────────────────────────────────────────────
 
 
+# CORRIGIDO em 2026-07-30. O modelo antigo era `preco * (1 - taxa)`, que
+# da' break-even de 17,65% e batia com o que o AGENTS.md 4b afirmava. Mas
+# nao e' o que a Steam faz: a taxa incide sobre o valor do VENDEDOR. Voce
+# lista a R$ 115, o comprador paga 115, voce recebe 115/1,15 = 100. O
+# `portfolio.net_proceeds` sempre usou o modelo certo -- os dois modulos
+# discordavam em silencio.
+
+
 def test_liquido_pos_taxa():
-    """A taxa incide sobre a VENDA, nao sobre o lucro."""
-    assert backtest.net_after_fee(0.0, 0.15) == -15.0
-    assert backtest.net_after_fee(13.64, 0.15) == -3.41
-    assert backtest.net_after_fee(13.64, 0.02) == 11.37
+    """Sem valorizacao nenhuma, a perda e' a fatia da taxa no preco."""
+    # listar a 100 devolve 100/1,15 = 86,96 -> -13,04%
+    assert backtest.net_after_fee(0.0, 0.15) == -13.04
+    # o numero do 4b: quintil superior a +13,64% brutos
+    assert backtest.net_after_fee(13.64, 0.15) == -1.18
+    assert backtest.net_after_fee(13.64, 0.02) == 11.41
 
 
-def test_breakeven_e_maior_que_a_taxa():
-    """15% de taxa exige 17.6% brutos, nao 15%."""
-    assert backtest.breakeven_gross(0.15) == 17.65
-    assert backtest.breakeven_gross(0.02) == 2.04
+def test_breakeven_e_a_propria_taxa():
+    """Listar a custo*(1+taxa) devolve o custo. Logo break-even == taxa."""
+    assert backtest.breakeven_gross(0.15) == 15.0
+    assert backtest.breakeven_gross(0.02) == 2.0
 
 
 def test_net_after_fee_e_breakeven_batem():
     be = backtest.breakeven_gross(0.15)
     assert abs(backtest.net_after_fee(be, 0.15)) < 0.01
+
+
+def test_backtest_e_portfolio_concordam():
+    """A regressao que motivou a correcao: os dois modulos calculavam a
+    mesma taxa de formas diferentes."""
+    import pytest
+    from skinvault import portfolio
+    custo = 100.0
+    for bruto in (0.0, 5.0, 13.64, 15.0, 50.0):
+        preco = custo * (1 + bruto / 100)
+        liquido_portfolio = portfolio.net_proceeds(preco)
+        pct_portfolio = (liquido_portfolio / custo - 1) * 100
+        assert backtest.net_after_fee(bruto, 0.15) == pytest.approx(
+            pct_portfolio, abs=0.01), bruto

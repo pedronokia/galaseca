@@ -447,18 +447,25 @@ def quintile_spread(samples: list[dict], bin_days: int = 14,
 def net_after_fee(gross_pct: float, fee_rate: float = 0.15) -> float:
     """Retorno liquido depois da taxa de venda, em %.
 
-    A taxa incide sobre o valor de VENDA, nao sobre o lucro. Por isso o
-    bruto necessario pra empatar e' 1/(1-taxa)-1 -- 17.6% pros 15% da
-    Steam, nao 15%.
+    CORRIGIDO em 2026-07-30. A versao anterior usava `preco * (1 - taxa)`,
+    tratando a taxa como percentual do preco de COMPRA, e devolvia um
+    break-even de 17,65%. Nao e' o que a Steam faz: a taxa incide sobre o
+    valor do VENDEDOR. Voce lista a R$ 115, o comprador paga 115, voce
+    recebe 115/1,15 = 100 -- entao o break-even e' exatamente a taxa, 15%.
+
+    O modelo certo ja' estava em `portfolio.net_proceeds` desde sempre; os
+    dois modulos discordavam. O numero do 4b muda junto: o quintil
+    superior (+13,64% brutos) da' -1,18% liquidos, nao -3,41%.
     """
-    return round(((1 + gross_pct / 100.0) * (1 - fee_rate) - 1) * 100, 2)
+    return round(((1 + gross_pct / 100.0) / (1 + fee_rate) - 1) * 100, 2)
 
 
 def breakeven_gross(fee_rate: float = 0.15) -> float:
-    """Retorno bruto minimo pra empatar com a taxa, em %."""
-    if fee_rate >= 1:
-        return float("inf")
-    return round((1 / (1 - fee_rate) - 1) * 100, 2)
+    """Retorno bruto minimo pra empatar com a taxa, em %.
+
+    Igual a' propria taxa: listar a custo*(1+taxa) devolve o custo.
+    """
+    return round(fee_rate * 100, 2)
 
 
 def pearson_correlation(samples: list[dict]) -> float | None:
