@@ -210,34 +210,71 @@ class InventoryScreen(QWidget):
             self._populate_grid()
 
     def _populate_grid(self) -> None:
-        """Alimenta a grade com as DUAS avaliacoes de cada item.
+        """Alimenta a grade com a avaliacao em TODAS as plataformas.
 
-        Falha de rede deixa `market_net` em None, e a grade mostra
-        "sem cotação" em vez de inventar numero.
+        `cached_market` so' bate na rede em cache miss (TTL 12h), entao o
+        caminho normal e' local. Falha de rede deixa a lista vazia e a
+        grade mostra "sem cotação" em vez de inventar numero.
         """
+        cotacoes: dict = {}
+        fx = 0.0
         try:
-            precos = markets.cached_market("skinport")
             fx = markets.usd_brl()
+            for fonte in markets.MARKET_FEES:
+                cotacoes[fonte] = markets.cached_market(fonte)
         except Exception:
-            precos, fx = {}, 0.0
+            pass
 
         from skinvault.localization import localize_name as _ln
         itens = []
         for i, r in enumerate(self._rows):
             pos = self._positions[i] if i < len(self._positions) else {}
             nome = r.get("name") or ""
-            cmp_ = markets.compare(r.get("price"), precos.get(nome), fx)
+            preco_steam = r.get("price")
+            mercados = self._mercados_do_item(nome, preco_steam, cotacoes, fx)
+            melhor = mercados[0] if mercados else None
             itens.append({
                 "name": _ln(nome) or nome,
                 "raw_name": nome,
                 "qty": r.get("quantity") or 1,
                 "icon": pos.get("icon") or r.get("icon"),
                 "type": pos.get("type") or r.get("type") or "",
-                "steam_net": r.get("net_if_sold") or cmp_["steam_net"],
-                "market_net": cmp_["market_net"],
-                "premium_pct": cmp_["premium_pct"],
+                "steam_net": r.get("net_if_sold"),
+                # `market_net` fica sendo o do MELHOR mercado: e' o que o
+                # usuario receberia de fato escolhendo bem.
+                "market_net": melhor["net_brl"] if melhor else None,
+                "premium_pct": melhor["premium_pct"] if melhor else None,
+                "mercados": mercados,
             })
         self._grid.set_items(itens)
+
+    @staticmethod
+    def _mercados_do_item(nome: str, preco_steam, cotacoes: dict,
+                          fx: float) -> list:
+        """Igual a `markets.compare_all`, mas com as cotacoes ja' em maos.
+
+        Chamar `compare_all` por item releria os 3 dicionarios de ~25 mil
+        entradas 31 vezes; aqui eles sao carregados uma vez pelo chamador.
+        """
+        if fx <= 0:
+            return []
+        out = []
+        for fonte, precos in cotacoes.items():
+            usd = precos.get(nome)
+            if not usd or usd <= 0:
+                continue
+            taxa = markets.MARKET_FEES.get(fonte, 0.12)
+            bruto = usd * fx
+            out.append({
+                "source": fonte,
+                "gross_brl": round(bruto, 2),
+                "net_brl": round(bruto * (1 - taxa), 2),
+                "fee": taxa,
+                "premium_pct": (round((preco_steam / bruto - 1) * 100, 1)
+                                if preco_steam and preco_steam > 0 else None),
+            })
+        out.sort(key=lambda x: -x["net_brl"])
+        return out
 
     def _populate_table(self) -> None:
         from skinvault.localization import localize_name as _ln

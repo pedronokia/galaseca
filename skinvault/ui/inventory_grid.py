@@ -65,17 +65,47 @@ class InventoryTile(QFrame):
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation)
 
+    _NOME_MERCADO = {
+        "skinport": "Skinport",
+        "buff163": "Buff163",
+        "csgotm": "CS.MONEY/TM",
+    }
+
     def _tooltip(self) -> str:
+        """Passar o mouse mostra o item em TODAS as plataformas.
+
+        Ordenado pelo LIQUIDO, nao pelo bruto: a taxa varia demais entre
+        elas (5% na CSGOTM contra 12% no Skinport), entao o maior preco
+        anunciado nao e' necessariamente quem paga mais.
+        """
         it = self.item
         linhas = [it.get("name", "")]
         if it.get("qty", 1) > 1:
             linhas.append(f"Quantidade: {it['qty']}")
+
         if it.get("steam_net") is not None:
-            linhas.append(f"Saldo Steam: {t.brl(it['steam_net'])}")
-        if it.get("market_net") is not None:
+            linhas.append("")
+            linhas.append(f"Steam:  {t.brl(it['steam_net'])}  (saldo)")
+
+        mercados = it.get("mercados") or []
+        if mercados:
+            linhas.append("")
+            linhas.append("Vendendo fora (dinheiro):")
+            for i, m in enumerate(mercados):
+                nome = self._NOME_MERCADO.get(m["source"], m["source"])
+                marca = "  ← paga mais" if i == 0 and len(mercados) > 1 else ""
+                linhas.append(
+                    "  {:<12} {:>9}  (taxa {:.0f}%){}".format(
+                        nome, t.brl(m["net_brl"]), m["fee"] * 100, marca))
+        elif it.get("market_net") is not None:
+            linhas.append("")
             linhas.append(f"Dinheiro real: {t.brl(it['market_net'])}")
+
         if it.get("premium_pct") is not None:
-            linhas.append(f"Steam pede {it['premium_pct']:+.0f}%")
+            linhas.append("")
+            linhas.append(
+                f"A Steam pede {it['premium_pct']:+.0f}% a mais — mas o que"
+                " sai de lá é saldo, não dinheiro.")
         return "\n".join(linhas)
 
     def set_selected(self, on: bool) -> None:

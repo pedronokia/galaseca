@@ -215,6 +215,53 @@ def cached_market(source: str = "skinport",
     return precos
 
 
+def compare_all(name: str, steam_brl: "float | None" = None,
+                sources: "list[str] | None" = None,
+                fx: "float | None" = None) -> list:
+    """O mesmo item em TODAS as plataformas, ordenado pelo liquido.
+
+    Cada entrada: {source, gross_brl, net_brl, fee, premium_pct}. Fonte sem
+    cotacao pro item fica de fora -- a lista diz onde da' pra vender, nao
+    onde nao da'.
+
+    O liquido e' o que importa: a taxa varia MUITO entre plataformas (5%
+    na CSGOTM contra 12% no Skinport), entao o maior preco bruto nem
+    sempre e' o melhor negocio.
+    """
+    fx = usd_brl() if fx is None else fx
+    if fx <= 0:
+        return []
+    out = []
+    for fonte in (sources or list(MARKET_FEES)):
+        precos = cached_market(fonte)
+        usd = precos.get(name)
+        if not usd or usd <= 0:
+            continue
+        taxa = MARKET_FEES.get(fonte, 0.12)
+        bruto = usd * fx
+        liquido = bruto * (1 - taxa)
+        item = {
+            "source": fonte,
+            "gross_brl": round(bruto, 2),
+            "net_brl": round(liquido, 2),
+            "fee": taxa,
+            "premium_pct": None,
+        }
+        if steam_brl and steam_brl > 0:
+            item["premium_pct"] = round((steam_brl / bruto - 1) * 100, 1)
+        out.append(item)
+    out.sort(key=lambda x: -x["net_brl"])
+    return out
+
+
+def best_market(name: str, steam_brl: "float | None" = None,
+                sources: "list[str] | None" = None,
+                fx: "float | None" = None) -> "dict | None":
+    """A plataforma que paga mais LIQUIDO por este item. None se nenhuma."""
+    todas = compare_all(name, steam_brl, sources, fx)
+    return todas[0] if todas else None
+
+
 def compare(steam_brl: "float | None", market_usd: "float | None",
             fx: float, source: str = "skinport",
             steam_fee: float = 0.15) -> dict:

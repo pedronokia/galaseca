@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from skinvault import markets
 
 
@@ -174,6 +176,73 @@ def test_compare_sem_preco_de_mercado_ainda_da_o_lado_steam():
     assert r["steam_net"] == 8.5
     assert r["market_net"] is None
     assert r["premium_pct"] is None
+
+
+# ── compare_all / best_market ──────────────────────────────────────
+#
+# A taxa varia muito entre plataformas: 5% na CSGOTM contra 12% no
+# Skinport. Medido na AK-47 Redline FT em 2026-07-30, a CSGOTM pagava
+# R$ 155,75 liquidos contra R$ 135,85 do Skinport -- entao o maior bruto
+# nao e' necessariamente o melhor negocio, e ordenar por bruto enganaria.
+
+
+@pytest.fixture
+def _mercados(monkeypatch):
+    dados = {
+        "skinport": {"AK": 30.0},    # bruto 150, taxa 12% -> 132
+        "buff163": {"AK": 29.0},     # bruto 145, taxa 2.5% -> 141.375
+        "csgotm": {"AK": 28.0},      # bruto 140, taxa 5% -> 133
+    }
+    monkeypatch.setattr(markets, "cached_market",
+                        lambda src, cache=None: dados.get(src, {}))
+    monkeypatch.setattr(markets, "usd_brl", lambda *a, **k: 5.0)
+    return dados
+
+
+def test_compare_all_ordena_pelo_liquido(_mercados):
+    r = markets.compare_all("AK")
+    assert [x["source"] for x in r] == ["buff163", "csgotm", "skinport"]
+
+
+def test_compare_all_maior_bruto_nao_vence(_mercados):
+    """Skinport tem o maior BRUTO e mesmo assim fica em ultimo."""
+    r = markets.compare_all("AK")
+    assert max(r, key=lambda x: x["gross_brl"])["source"] == "skinport"
+    assert r[0]["source"] != "skinport"
+
+
+def test_best_market_e_o_primeiro(_mercados):
+    assert markets.best_market("AK")["source"] == "buff163"
+
+
+def test_compare_all_pula_fonte_sem_cotacao(_mercados):
+    r = markets.compare_all("Item Que So Existe No Skinport")
+    assert r == []
+
+
+def test_compare_all_calcula_premio_da_steam(_mercados):
+    r = markets.compare_all("AK", steam_brl=180.0)
+    sp = next(x for x in r if x["source"] == "skinport")
+    assert sp["premium_pct"] == pytest.approx(20.0, abs=0.1)  # 180/150
+
+
+def test_compare_all_sem_preco_steam_nao_inventa_premio(_mercados):
+    for x in markets.compare_all("AK"):
+        assert x["premium_pct"] is None
+
+
+def test_compare_all_fx_invalido_devolve_vazio(monkeypatch, _mercados):
+    monkeypatch.setattr(markets, "usd_brl", lambda *a, **k: 0.0)
+    assert markets.compare_all("AK") == []
+
+
+def test_best_market_sem_nenhuma_cotacao(_mercados):
+    assert markets.best_market("Nao Existe") is None
+
+
+def test_compare_all_aceita_lista_de_fontes(_mercados):
+    r = markets.compare_all("AK", sources=["skinport"])
+    assert [x["source"] for x in r] == ["skinport"]
 
 
 def test_compare_sem_preco_steam_e_seguro():

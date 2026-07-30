@@ -49,8 +49,60 @@ def test_tile_tooltip_traz_as_duas_avaliacoes(app):
                                prem=37.0))
     tip = tile.toolTip()
     assert "AK-47 | Redline" in tip
-    assert "Saldo Steam" in tip and "Dinheiro real" in tip
+    assert "Steam" in tip and "Dinheiro real" in tip
     assert "+37" in tip
+
+
+# ── tooltip multi-plataforma ───────────────────────────────────────
+#
+# A taxa varia demais entre plataformas (5% na CSGOTM contra 12% no
+# Skinport), entao ordenar pelo BRUTO enganaria. Medido na AK-47 Redline
+# FT em 2026-07-30: CSGOTM pagava R$ 155,75 liquidos e Skinport R$ 130,62.
+
+
+def _com_mercados(nome="AK-47 | Redline"):
+    it = _item(nome, steam=200.0, market=155.75, prem=28.0)
+    it["mercados"] = [
+        {"source": "csgotm", "gross_brl": 163.95, "net_brl": 155.75,
+         "fee": 0.05, "premium_pct": 28.0},
+        {"source": "skinport", "gross_brl": 154.37, "net_brl": 135.85,
+         "fee": 0.12, "premium_pct": 36.0},
+    ]
+    return it
+
+
+def test_tooltip_lista_todas_as_plataformas(app):
+    tip = InventoryTile(_com_mercados()).toolTip()
+    assert "CS.MONEY/TM" in tip
+    assert "Skinport" in tip
+    assert "155,75" in tip and "135,85" in tip
+
+
+def test_tooltip_mostra_a_taxa_de_cada_uma(app):
+    tip = InventoryTile(_com_mercados()).toolTip()
+    assert "taxa 5%" in tip
+    assert "taxa 12%" in tip
+
+
+def test_tooltip_marca_quem_paga_mais(app):
+    tip = InventoryTile(_com_mercados()).toolTip()
+    linhas = [x for x in tip.splitlines() if "paga mais" in x]
+    assert len(linhas) == 1
+    assert "CS.MONEY/TM" in linhas[0]
+
+
+def test_tooltip_com_uma_plataforma_nao_marca_vencedor(app):
+    """Marcar 'paga mais' com uma opcao so' e' ruido."""
+    it = _com_mercados()
+    it["mercados"] = it["mercados"][:1]
+    assert "paga mais" not in InventoryTile(it).toolTip()
+
+
+def test_tooltip_separa_saldo_de_dinheiro(app):
+    """O ponto do premio de 36%: saldo Steam nao e' dinheiro."""
+    tip = InventoryTile(_com_mercados()).toolTip()
+    assert "saldo" in tip
+    assert "dinheiro" in tip.lower()
 
 
 def test_tile_mostra_quantidade_no_tooltip(app):
