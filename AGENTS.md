@@ -253,10 +253,30 @@ Limites que continuam de pé:
   caixas ativas. Gallery (2024) tem n=10 janelas; Fever (2025) nem entrou.
 - mediana-a-mediana, ignora spread de compra/venda;
 - 3 caixas faltando (Bloodhound, Operation Shattered Web, Snakebite);
-- `_CASES` parece ter entrada duplicada: `Shattered Web Case` (2019)
-  responde com 3130 pontos e `Operation Shattered Web Case` (2019) vem
-  vazia na mesma varredura, 3 posições depois — sugere nome inválido, não
-  throttle. Não confirmado.
+- ~~`_CASES` parece ter entrada duplicada~~ — confirmado e corrigido em
+  2026-07-29: `Operation Shattered Web Case` e
+  `Operation Bloodhound Weapon Case` não existem no Market (ver #12 pro
+  método do `<title>`). Removidas.
+
+**A data de aposentadoria NÃO é recuperável do histórico do items_game.txt**
+(tentado e descartado em 2026-07-29). O estudo mostrou que a variável que
+importa é *anos desde a aposentadoria*, e `cases.py` só guarda ano de
+lançamento + status atual. As duas barreiras:
+
+1. **O histórico começa em 2016-12.** `GameTracking-CSGO` tem 133 commits
+   de `items_game.txt` (2016-12 a 2023-08) e `GameTracking-CS2` tem 53
+   (2023-12 a hoje). A coorte 2013-14 aposentou antes da janela.
+2. **O config da era CS:GO não contém o drop pool.** Verificado no
+   snapshot de 2019-07: `timed_drop` 0 ocorrências, `drop_pool` 0,
+   `prime` 0, e nenhum atributo por caixa marcando "ativa". Os únicos
+   arquivos no diretório são `items_game.txt`, `items_game_cdn.txt` (mapa
+   de ícone, 238 KB) e `items_game_live.txt` (102 bytes). A informação de
+   pool vivia no servidor da Valve, não no cliente.
+
+`set_timed_drops_*`, que é o que `gamedata.py` extrai, **só existe na era
+CS2** — o watcher funciona de 2023-12 pra frente e não retro-alimenta.
+Consequência: um fator de "anos desde aposentadoria" não tem como ser
+backtestado hoje, e por isso não entrou no score.
 
 ### 5. `_find_query` prioriza match exato (corrigido em 2026-07-28)
 
