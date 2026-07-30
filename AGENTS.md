@@ -288,6 +288,56 @@ CS2** — o watcher funciona de 2023-12 pra frente e não retro-alimenta.
 Consequência: um fator de "anos desde aposentadoria" não tem como ser
 backtestado hoje, e por isso não entrou no score.
 
+### 4d. O teto de valorização é o PREÇO ABSOLUTO (2026-07-30)
+
+Pergunta do usuário: "os itens têm teto de valorização? não sei quando
+vender". Medido em 84 itens com 500+ pontos diários (41 caixas, 43
+skins), 7.541 amostras, horizonte 365d, passo 30d.
+
+**Corte cross-sectional** — itens rankeados *entre si na mesma data*,
+janelas de 90d. Sem isso o regime de mercado contamina tudo: numa alta
+geral, todo item tem alta recente **e** retorno futuro alto.
+
+| fator | IC | datas positivas |
+|---|---|---|
+| **preço absoluto** | **−0,2635** | 20% |
+| — só caixas | **−0,3036** | 24% |
+| — só skins | −0,0415 | 46% |
+| **distância do topo histórico** | **−0,2033** | 22% |
+| alta dos últimos 90d | +0,0500 | 61% |
+
+**O teto existe e é o preço.** Quanto mais caro o item, menos ele
+valoriza — negativo em 76-80% das janelas. Mediana do retorno 365d por
+faixa:
+
+| faixa | mediana | itens |
+|---|---|---|
+| R$ 0–1 | **+73,0%** | 43 |
+| R$ 1–5 | +41,1% | 53 |
+| R$ 5–20 | +44,0% | 48 |
+| R$ 20–100 | +27,4% | 39 |
+| R$ 100–500 | +18,7% | 21 |
+| R$ 500+ | **+8,7%** | 17 |
+
+Isso generaliza a memória `clutch-case-falling-knife`: não era um caso
+isolado, é o padrão. E o efeito é **muito mais forte em caixas**
+(−0,30) do que em skins (−0,04) — não é só "tipo de item".
+
+**Sobre quando vender:** `distância do topo` tem IC −0,20. Perto da
+máxima histórica, o retorno futuro cai. No corte simples por bucket esse
+sinal aparecia **plano** — só surge controlando por data, o que é a
+lição metodológica aqui.
+
+**O que NÃO se sustentou:** o corte simples sugeria que comprar *depois*
+de alta forte funcionava (+40,2% de mediana no bucket "subiu 50-100% em
+90d"). Controlando por data, o IC vai a +0,05, e a +0,003 em caixas.
+Era regime de mercado, não sinal.
+
+Limites: os 84 itens são os que estavam no `ssr_cache`, não uma amostra
+aleatória — há viés de sobrevivência (a série existe porque o item ainda
+negocia). E o score **não vê preço absoluto**, que por esta medição é o
+fator mais forte a 365d que já medimos.
+
 ### 5. `_find_query` prioriza match exato (corrigido em 2026-07-28)
 
 Ordem de preferência, independente da ordem de iteração do SSR:
