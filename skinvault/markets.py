@@ -234,17 +234,28 @@ def compare(steam_brl: "float | None", market_usd: "float | None",
     """
     out = {"steam_net": None, "market_net": None, "premium_pct": None,
            "to_wallet_pct": None, "to_cash_pct": None, "source": source}
-    if not steam_brl or steam_brl <= 0:
-        return out
-    out["steam_net"] = round(steam_brl * (1 - steam_fee), 2)
-    if not market_usd or market_usd <= 0 or fx <= 0:
-        return out
+
+    # Os dois lados sao INDEPENDENTES. Ate' 2026-07-30 a funcao desistia
+    # inteira quando faltava o preco da Steam, e com isso escondia a
+    # cotacao do mercado externo -- que ja' estava em cache e nao depende
+    # da Steam pra nada. Com o priceoverview em 429, o inventario mostrava
+    # "sem cotacao" em 30 itens que TINHAM cotacao.
+    tem_steam = bool(steam_brl) and steam_brl > 0
+    tem_mercado = bool(market_usd) and market_usd > 0 and fx > 0
+
+    if tem_steam:
+        out["steam_net"] = round(steam_brl * (1 - steam_fee), 2)
+
     fee = MARKET_FEES.get(source, 0.12)
-    mercado_brl = market_usd * fx
-    out["market_net"] = round(mercado_brl * (1 - fee), 2)
-    out["premium_pct"] = round((steam_brl / mercado_brl - 1) * 100, 1)
-    out["to_wallet_pct"] = round(
-        (steam_brl * (1 - steam_fee) / mercado_brl - 1) * 100, 1)
-    out["to_cash_pct"] = round(
-        (mercado_brl * (1 - fee) / steam_brl - 1) * 100, 1)
+    if tem_mercado:
+        mercado_brl = market_usd * fx
+        out["market_net"] = round(mercado_brl * (1 - fee), 2)
+
+    # So' as metricas COMPARATIVAS precisam dos dois lados.
+    if tem_steam and tem_mercado:
+        out["premium_pct"] = round((steam_brl / mercado_brl - 1) * 100, 1)
+        out["to_wallet_pct"] = round(
+            (steam_brl * (1 - steam_fee) / mercado_brl - 1) * 100, 1)
+        out["to_cash_pct"] = round(
+            (mercado_brl * (1 - fee) / steam_brl - 1) * 100, 1)
     return out

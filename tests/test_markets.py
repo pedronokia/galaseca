@@ -181,6 +181,34 @@ def test_compare_sem_preco_steam_e_seguro():
     assert r["steam_net"] is None and r["premium_pct"] is None
 
 
+def test_compare_sem_preco_steam_ainda_da_o_lado_do_mercado():
+    """Simetrico do teste acima, e o que faltava.
+
+    Os dois lados sao independentes: a cotacao do Skinport nao precisa da
+    Steam pra existir. Ate' 2026-07-30 a funcao desistia inteira sem o
+    preco da Steam, e com o priceoverview em 429 o inventario mostrava
+    "sem cotacao" em 30 das 31 posicoes que TINHAM cotacao em cache.
+    """
+    r = markets.compare(None, 2.0, 5.0, source="skinport")
+    assert r["market_net"] is not None
+    assert r["market_net"] == round(2.0 * 5.0 * (1 - 0.12), 2)
+    # as comparativas seguem exigindo os dois lados
+    assert r["premium_pct"] is None
+    assert r["to_wallet_pct"] is None
+    assert r["to_cash_pct"] is None
+
+
+def test_compare_sem_nenhum_dos_dois():
+    r = markets.compare(None, None, 5.0)
+    assert r["steam_net"] is None and r["market_net"] is None
+
+
+def test_compare_fx_invalido_nao_inventa_valor_de_mercado():
+    """fx zero nao pode virar mercado gratis."""
+    r = markets.compare(None, 2.0, 0)
+    assert r["market_net"] is None
+
+
 def test_compare_fx_invalido_nao_explode():
     r = markets.compare(10.0, 2.0, 0)
     assert r["steam_net"] == 8.5 and r["market_net"] is None
