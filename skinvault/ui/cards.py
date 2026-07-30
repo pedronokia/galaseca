@@ -80,6 +80,10 @@ class StatCard(Card):
     def set_delta(self, pct: float | None,
                   label: str = "") -> None:
         if pct is None and not label:
+            # Limpar o texto junto: esconder sozinho deixava a legenda
+            # antiga guardada, e a proxima avaliacao que voltasse a mostrar
+            # o rotulo exibia por um instante o numero da avaliacao anterior.
+            self._delta.setText("")
             self._delta.setVisible(False)
             return
         self._delta.setVisible(True)

@@ -151,9 +151,21 @@ def evaluate_portfolio(positions: list[dict], price_fn,
     de mercado e liquido agregam TUDO -- esses nao dependem de custo.
     `totals.unknown_cost` diz quantas ficaram de fora, pra UI poder avisar
     em vez de exibir lucro inventado.
+
+    Dois totais de custo, porque respondem perguntas diferentes:
+
+    - `cost_known` -- tudo que o dono declarou ter pago, tenha o item
+      cotacao ou nao. E' o "Total investido" da tela.
+    - `cost` -- so' o custo das posicoes que entraram no P&L. Fica de par
+      com `pnl`/`pnl_pct`; misturar as duas daria uma porcentagem sobre um
+      custo cujo retorno nao foi medido.
+
+    Sao iguais quando toda posicao tem preco, e divergem exatamente quando
+    a Steam nao respondeu.
     """
     rows: list[dict] = []
     t_cost = t_market = t_net = 0.0
+    t_cost_known = 0.0
     t_net_conhecido = 0.0
     sem_custo = 0
     com_custo = 0
@@ -162,10 +174,20 @@ def evaluate_portfolio(positions: list[dict], price_fn,
         conhecido = has_cost_basis(pos)
         cost = float(pos.get("cost") or 0.0)
         qty = int(pos.get("quantity", 1))
+        # Ter custo e' fato da POSICAO, nao da cotacao. Contabilizar isso
+        # so' no ramo com preco fazia o lote inteiro sem preco (Steam em
+        # 429) reportar `unknown_cost: 0` e "Total investido R$ 0,00" pra
+        # quem tinha R$ 850,00 declarados -- o mesmo erro de tratar
+        # "desconhecido" e "zero" como a mesma coisa, do avesso.
+        if conhecido:
+            t_cost_known += cost * qty
+        else:
+            sem_custo += 1
         price = price_fn(name)
         if price is None:
             rows.append({"name": name, "cost": cost, "quantity": qty,
                          "price": None, "pnl": None,
+                         "cost_total": cost * qty,
                          "has_cost": conhecido})
             continue
         d = position_pnl(cost, price, qty, fee_rate)
@@ -175,7 +197,6 @@ def evaluate_portfolio(positions: list[dict], price_fn,
             d["pnl_pct"] = None
             d["is_profit"] = False
             d["is_loss"] = False
-            sem_custo += 1
         rows.append({"name": name, "cost": cost, "quantity": qty,
                      "price": price, "has_cost": conhecido, **d})
         t_market += d["market"]
@@ -189,11 +210,14 @@ def evaluate_portfolio(positions: list[dict], price_fn,
     pnl = (t_net_conhecido - t_cost) if com_custo else None
     totals = {
         "cost": t_cost,
+        "cost_known": t_cost_known,
         "market": t_market,
         "net_if_sold": t_net,
         "pnl": pnl,
         "pnl_pct": (pnl / t_cost * 100) if (pnl is not None and t_cost) else None,
         "unknown_cost": sem_custo,
+        "known_cost": len(positions) - sem_custo,
+        "positions": len(positions),
     }
     return {"rows": rows, "totals": totals}
 

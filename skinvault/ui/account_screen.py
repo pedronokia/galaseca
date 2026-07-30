@@ -650,11 +650,23 @@ class AccountScreen(QWidget):
         if pnl is None:
             self._stat_pnl.set_value("—")
             self._stat_pnl.clear_badge()
-            self._stat_pnl.setToolTip(
-                f"Nenhum dos {len(rows)} itens tem custo registrado.\n"
-                "Itens vindos do sync nao trazem quanto voce pagou — sem\n"
-                "isso nao da' pra dizer se houve lucro ou prejuizo.\n"
-                "Informe o custo pelo CLI: --add \"<nome>\" <custo>")
+            # Duas razoes diferentes zeram o P&L, e dizer a errada manda o
+            # dono cadastrar um custo que ele ja' cadastrou.
+            if not com_custo:
+                self._stat_pnl.setToolTip(
+                    f"Nenhum dos {len(rows)} itens tem custo registrado.\n"
+                    "Itens vindos do sync nao trazem quanto voce pagou — sem\n"
+                    "isso nao da' pra dizer se houve lucro ou prejuizo.\n"
+                    "Informe o custo pelo CLI: --add \"<nome>\" <custo>")
+            elif not any(r.get("price") is not None for r in com_custo):
+                self._stat_pnl.setToolTip(
+                    f"{len(com_custo)} de {len(rows)} itens tem custo "
+                    "registrado, mas\nnenhum deles tem preco agora — a Steam "
+                    "nao respondeu.\nO P&L volta quando a cotacao voltar.")
+            else:
+                self._stat_pnl.setToolTip(
+                    f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"
+                    f"{sem_custo} sem custo registrado ficaram de fora.")
         else:
             self._stat_pnl.set_value(
                 t.brl(pnl), accent=t.POSITIVE if pnl >= 0 else t.DANGER)
@@ -673,19 +685,56 @@ class AccountScreen(QWidget):
 
         # Portfolio breakdown -- tudo aqui e' sobre P&L, entao so' conta
         # item com custo conhecido. Denominador tambem: "0 de 25" mentiria.
-        total_cost = sum(r.get("cost_total", 0) or 0 for r in com_custo)
+        #
+        # Mas "0 de 2" sozinho tambem mentia, por omissao: lido de relance
+        # parece que a carteira tem 2 itens, quando tem 31 e apenas 2 com
+        # custo declarado. O numero fica; o denominador ganha a legenda que
+        # diz de onde ele saiu.
         n = len(com_custo)
+        total_pos = len(rows)
+        # `cost_known` soma o custo declarado mesmo sem cotacao; somar as
+        # linhas so' funciona porque elas passaram a carregar `cost_total`
+        # tambem quando o preco falta. O fallback cobre totals de fora.
+        total_cost = totals.get("cost_known")
+        if total_cost is None:
+            total_cost = sum(r.get("cost_total", 0) or 0 for r in com_custo)
         profit_items = sum(1 for r in com_custo if (r.get("pnl") or 0) > 0)
         loss_items = sum(1 for r in com_custo if (r.get("pnl") or 0) < 0)
         best = max(com_custo, key=lambda r: r.get("pnl") or 0) if n else None
         worst = min(com_custo, key=lambda r: r.get("pnl") or 0) if n else None
+
+        if not total_pos:
+            legenda = invest_legenda = dica = ""
+        elif not n:
+            legenda = invest_legenda = (
+                f"nenhum dos {total_pos} itens tem custo declarado")
+            dica = ("Sem custo declarado nao ha' lucro nem prejuizo a "
+                    "medir.\nInforme o custo pelo CLI: "
+                    "--add \"<nome>\" <custo>")
+        elif sem_custo:
+            legenda = f"entre os {n} com custo declarado"
+            invest_legenda = f"{n} de {total_pos} itens com custo declarado"
+            dica = (f"{n} de {total_pos} itens tem custo declarado.\n"
+                    f"{sem_custo} vieram do sync, que nao informa quanto "
+                    "voce pagou —\nesses ficam de fora da conta de lucro e "
+                    "prejuizo.\nInforme o custo pelo CLI: "
+                    "--add \"<nome>\" <custo>")
+        else:
+            # Todo item tem custo: o denominador ja' e' o inventario todo e
+            # legenda nenhuma acrescenta fato.
+            legenda = invest_legenda = dica = ""
+
         self._bd_invested.set_value(t.brl(total_cost) if n else "—")
-        self._bd_invested.setToolTip(
-            f"{sem_custo} item(ns) sem custo registrado." if sem_custo else "")
+        self._bd_invested.set_delta(None, invest_legenda)
+        self._bd_invested.setToolTip(dica)
         self._bd_profit_count.set_value(
             f"{profit_items} de {n}" if n else "—", accent=t.POSITIVE)
+        self._bd_profit_count.set_delta(None, legenda)
+        self._bd_profit_count.setToolTip(dica)
         self._bd_loss_count.set_value(
             f"{loss_items} de {n}" if n else "—", accent=t.DANGER)
+        self._bd_loss_count.set_delta(None, legenda)
+        self._bd_loss_count.setToolTip(dica)
         from skinvault.localization import localize_name as _ln
         self._bd_best.set_value(
             t.brl(best["pnl"]) if best and best.get("pnl") is not None

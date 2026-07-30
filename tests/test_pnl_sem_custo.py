@@ -111,3 +111,53 @@ def test_portfolio_vazio():
     assert tot["pnl"] is None
     assert tot["market"] == 0.0
     assert tot["unknown_cost"] == 0
+
+
+# ── ter custo nao depende de ter cotacao ───────────────────────────
+#
+# Bug visto em 30/07/2026 com a Steam em 429: `price_fn` devolvia None pra
+# tudo, o laco saltava a contagem, e a tela de conta exibia "Total investido
+# R$ 0,00" pra quem tinha R$ 850,00 declarados -- alem de "0 sem custo" com
+# 29 posicoes sem custo.
+
+
+def test_unknown_cost_conta_mesmo_sem_preco():
+    tot = portfolio.evaluate_portfolio([SYNC, COMPRADO], lambda n: None)["totals"]
+    assert tot["unknown_cost"] == 1, "posicao sem preco sumiu da contagem"
+    assert tot["known_cost"] == 1
+    assert tot["positions"] == 2
+
+
+def test_cost_known_soma_sem_preco():
+    """O que o dono pagou nao muda porque a Steam nao respondeu."""
+    tot = portfolio.evaluate_portfolio([SYNC, COMPRADO], lambda n: None)["totals"]
+    assert tot["cost_known"] == 60.0
+    # ...e continua o mesmo quando o preco volta.
+    tot2 = portfolio.evaluate_portfolio([SYNC, COMPRADO], _preco)["totals"]
+    assert tot2["cost_known"] == 60.0
+
+
+def test_cost_do_pnl_fica_separado_de_cost_known():
+    """`cost` acompanha o P&L; `cost_known` acompanha o desembolso."""
+    tot = portfolio.evaluate_portfolio([COMPRADO], lambda n: None)["totals"]
+    assert tot["cost_known"] == 60.0
+    # Nada entrou no P&L, entao o custo que o lastreia e' zero -- e o
+    # pnl_pct nao pode nascer dessa divisao.
+    assert tot["cost"] == 0.0
+    assert tot["pnl"] is None and tot["pnl_pct"] is None
+    # Com preco, os dois convergem.
+    tot2 = portfolio.evaluate_portfolio([COMPRADO], _preco)["totals"]
+    assert tot2["cost"] == tot2["cost_known"] == 60.0
+
+
+def test_linha_sem_preco_carrega_cost_total():
+    linha = portfolio.evaluate_portfolio(
+        [dict(COMPRADO, quantity=3)], lambda n: None)["rows"][0]
+    assert linha["cost_total"] == 180.0
+    assert linha["price"] is None and linha["pnl"] is None
+
+
+def test_quantidade_entra_no_cost_known():
+    tot = portfolio.evaluate_portfolio(
+        [dict(COMPRADO, quantity=2)], lambda n: None)["totals"]
+    assert tot["cost_known"] == 120.0

@@ -6230,6 +6230,107 @@ def test_account_sem_rows_nao_grava_snapshot(monkeypatch):
     assert recorded == []
 
 
+# ── cartoes de desempenho: o denominador precisa se explicar ───────
+#
+# Bug de 30/07/2026: 31 posicoes, 2 com custo declarado. O cartao dizia
+# "Itens no lucro 0 de 2" e parecia que a carteira tinha 2 itens.
+
+
+def _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: None):
+    """Tela de conta avaliada com 3 posicoes, so' 1 com custo declarado."""
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [
+        {"name": "Comprado", "cost": 200.0, "quantity": 1, "source": "manual"},
+        {"name": "Sync A", "cost": 0.0, "quantity": 1, "source": "steam_sync"},
+        {"name": "Sync B", "cost": 0.0, "quantity": 1, "source": "steam_sync"},
+    ]
+    r = portfolio.evaluate_portfolio(posicoes, price_fn)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    return screen
+
+
+def test_cartao_lucro_diz_de_onde_vem_o_denominador(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._bd_profit_count._value.text() == "0 de 1"
+    # O que faltava: dizer que o "1" e' o recorte com custo, nao a carteira.
+    legenda = screen._bd_profit_count._delta.text()
+    assert "1" in legenda and "custo declarado" in legenda
+    # E o inventario inteiro continua contado em outro cartao.
+    assert screen._stat_items._value.text() == "3"
+
+
+def test_cartao_prejuizo_tem_a_mesma_legenda(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._bd_loss_count._value.text() == "0 de 1"
+    assert "custo declarado" in screen._bd_loss_count._delta.text()
+
+
+def test_total_investido_nao_zera_sem_cotacao(monkeypatch):
+    """Sem preco, o custo declarado continua existindo -- era R$ 0,00."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert "200" in screen._bd_invested._value.text()
+    legenda = screen._bd_invested._delta.text()
+    assert "1" in legenda and "3" in legenda
+
+
+def test_tooltip_conta_quantos_ficaram_de_fora(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    dica = screen._bd_profit_count.toolTip()
+    assert "1 de 3" in dica
+    assert "2" in dica and "sync" in dica.lower()
+
+
+def test_pnl_sem_preco_nao_manda_cadastrar_custo_ja_cadastrado(monkeypatch):
+    """P&L vazio por falta de cotacao != vazio por falta de custo."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._stat_pnl._value.text() == "—"
+    dica = screen._stat_pnl.toolTip()
+    assert "nao respondeu" in dica
+    assert "Nenhum dos" not in dica
+
+
+def test_pnl_sem_nenhum_custo_mantem_a_orientacao_antiga(monkeypatch):
+    """Sem custo nenhum, a dica certa continua sendo cadastrar o custo."""
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [{"name": "Sync A", "cost": 0.0, "quantity": 1,
+                 "source": "steam_sync"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: 100.0)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert "Nenhum dos 1 itens" in screen._stat_pnl.toolTip()
+    assert screen._bd_profit_count._value.text() == "—"
+    assert "nenhum" in screen._bd_profit_count._delta.text().lower()
+
+
+def test_carteira_toda_com_custo_nao_ganha_legenda(monkeypatch):
+    """Sem posicao sem custo, a legenda nao acrescenta fato -- some."""
+    screen = _conta_com_custo_parcial(
+        monkeypatch, price_fn=lambda n: 100.0)
+    # troca pra uma carteira 100% declarada
+    from skinvault import portfolio
+    posicoes = [{"name": "A", "cost": 10.0, "quantity": 1, "source": "manual"},
+                {"name": "B", "cost": 20.0, "quantity": 1, "source": "manual"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: 100.0)
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert screen._bd_profit_count._value.text() == "2 de 2"
+    assert screen._bd_profit_count._delta.text() == ""
+    assert screen._bd_profit_count.toolTip() == ""
+
+
 def test_minisparkline_init():
     """MiniSparkline paints empty state."""
     from skinvault.ui.widgets import MiniSparkline
