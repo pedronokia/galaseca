@@ -26,6 +26,7 @@ from skinvault import settings as settings_mod, steam_session
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.account_screen import AccountScreen
+from skinvault.ui.cleanup_screen import CleanupScreen
 from skinvault.ui.inventory_screen import InventoryScreen
 from skinvault.ui.components import Breadcrumb, LineIcon, fade_in
 from skinvault.ui.history_screen import HistoryScreen
@@ -49,6 +50,7 @@ SCREEN_TRADES = "trades"
 # trade hipotetico, mas o mesmo numero ja' sai do veredito do Market e do
 # proprio inventario, com dado real em vez de digitado a mao.
 SCREEN_WATCHLIST = "watchlist"
+SCREEN_CLEANUP = "cleanup"
 SCREEN_SETTINGS = "settings"
 
 
@@ -167,6 +169,9 @@ class ScreenRouter(QWidget):
             self.notification_requested,
         )
         self._stack.addWidget(self._watchlist_screen)
+
+        self._cleanup_screen = CleanupScreen(self)
+        self._stack.addWidget(self._cleanup_screen)
 
         self._settings_screen = SettingsScreen(self)
         self._stack.addWidget(self._settings_screen)
@@ -315,6 +320,7 @@ class ScreenRouter(QWidget):
             SCREEN_MARKET: (self._market_screen, "Market"),
             SCREEN_TRADES: (self._trades_screen, "Trades"),
             SCREEN_WATCHLIST: (self._watchlist_screen, "Watchlist"),
+            SCREEN_CLEANUP: (self._cleanup_screen, "Limpeza"),
             SCREEN_SETTINGS: (self._settings_screen, "Configurações"),
         }
         widget, label = mapping.get(screen, (None, ""))
@@ -334,6 +340,8 @@ class ScreenRouter(QWidget):
             self._account_screen.refresh()
         elif screen == SCREEN_WATCHLIST:
             self._watchlist_screen.refresh()
+        elif screen == SCREEN_CLEANUP:
+            self._cleanup_screen.refresh()
         elif screen == SCREEN_SETTINGS:
             self._settings_screen.refresh()
 

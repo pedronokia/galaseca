@@ -584,6 +584,10 @@ class MainWindow(QMainWindow):
             sidebar.add_item(key, icon, label)
         sidebar.add_stretch()
 
+        # Limpeza e' utilitario de maquina, nao etapa do fluxo de mercado:
+        # fica depois do stretch, junto de Configuracoes.
+        sidebar.add_item("cleanup", "trash", "Limpeza")
+
         # Configuracoes virou tela (Frente K): item de navegacao com
         # estado ativo, nao mais acao modal. Sobre/Backups seguem acoes.
         sidebar.add_item("settings", "gear", "Configuracoes")

@@ -415,6 +415,32 @@ class LineIcon(QWidget):
         p.drawEllipse(QRectF(10.5, 2.5, 5, 5))         # pino sup-dir
         p.drawLine(QPointF(6.6, 11), QPointF(13, 5))   # cano ligando os dois
 
+    def _draw_broom(self, p: QPainter) -> None:
+        # vassoura: cabo diagonal + cabeca trapezoidal + 2 cerdas
+        p.drawLine(QPointF(14.5, 3), QPointF(8.5, 9))
+        path = QPainterPath()
+        path.moveTo(9.5, 7.5)
+        path.lineTo(12.5, 10.5)
+        path.lineTo(9, 15)
+        path.lineTo(3.5, 12)
+        path.closeSubpath()
+        p.drawPath(path)
+        p.drawLine(QPointF(6, 10.5), QPointF(4.6, 13.6))   # cerda esq
+        p.drawLine(QPointF(8.6, 11.4), QPointF(7.4, 14.6))  # cerda dir
+
+    def _draw_trash(self, p: QPainter) -> None:
+        # lixeira: alca + tampa + corpo afunilado + 2 ranhuras
+        p.drawLine(QPointF(7, 4), QPointF(11, 4))          # alca
+        p.drawLine(QPointF(3.5, 6), QPointF(14.5, 6))      # tampa
+        path = QPainterPath()
+        path.moveTo(5, 6)
+        path.lineTo(5.9, 15)
+        path.lineTo(12.1, 15)
+        path.lineTo(13, 6)
+        p.drawPath(path)
+        p.drawLine(QPointF(7.8, 8.5), QPointF(8, 12.5))
+        p.drawLine(QPointF(10.2, 8.5), QPointF(10, 12.5))
+
     def _draw_fallback(self, p: QPainter) -> None:
         p.drawEllipse(QRectF(3, 3, 12, 12))
 

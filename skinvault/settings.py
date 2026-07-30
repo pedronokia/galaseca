@@ -33,6 +33,10 @@ DEFAULTS = {
     # ponta a ponta contra a Steam (bloqueio de rate limit persistente em
     # 2026-07-28). Ligado, cai na lista fixa em qualquer falha.
     "scanner_discovery": False,
+    # Tela de Limpeza: quais alvos vem marcados. A lixeira nunca persiste
+    # marcada (alvo destrutivo) -- vide CleanupScreen._load_selection.
+    "cleanup_selected": [],
+    "cleanup_last_ts": 0,
 }
 
 
