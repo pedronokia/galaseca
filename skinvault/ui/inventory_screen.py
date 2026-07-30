@@ -39,25 +39,34 @@ from skinvault.ui.components import (
     score_table_item,
 )
 from skinvault.ui._price_worker import IconWorker
-from skinvault.ui.inventory_grid import InventoryGrid
+from skinvault.ui.inventory_grid import InventoryGrid, InventoryTile
 
 
 class InventoryScreen(QWidget):
     """Grade + tabela do inventario, com filtro."""
 
+    # Reordenada em 2026-07-30. A versao anterior tinha 5 colunas de
+    # dinheiro derivadas SO' do preco da Steam -- com o priceoverview em
+    # 429 viravam cinco travessoes lado a lado, metade da largura da tela
+    # mostrando nada, enquanto as cotacoes de fora (que existem e estao em
+    # cache) nao apareciam em lugar nenhum da tabela.
+    # "Subtotal" saiu: e' preco x qtd, derivavel, e o total ja' esta' no
+    # rodape.
     COL_NAME = 0
     COL_QTY = 1
     COL_PRICE = 2
-    COL_SUBTOTAL = 3
-    COL_RECEIVED = 4
-    COL_PNL = 5
-    COL_SCORE = 6
-    COL_ORIGIN = 7
+    COL_RECEIVED = 3
+    COL_BEST_OUT = 4
+    COL_WHERE = 5
+    COL_PNL = 6
+    COL_SCORE = 7
+    COL_ORIGIN = 8
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._rows: list = []
         self._positions: list = []
+        self._mercados: dict = {}
         self._icon_worker = IconWorker(self)
         self._icon_worker.done.connect(self._on_icons_ready)
         self._build()
@@ -92,17 +101,34 @@ class InventoryScreen(QWidget):
         root.addLayout(linha)
 
         self._grid = InventoryGrid(columns=8)
-        self._table = QTableWidget(0, 8)
+        self._table = QTableWidget(0, 9)
         self._table.setHorizontalHeaderLabels([
-            "Item", "Qtd", "Preço atual", "Subtotal", "Recebido (-15%)",
-            "P&L", "Score", "Origem",
+            "Item", "Qtd", "Anúncio Steam", "Recebe (saldo)",
+            "Melhor fora", "Onde", "P&L", "Score", "Origem",
         ])
-        self._table.horizontalHeaderItem(self.COL_SCORE).setToolTip(
-            "Score do item (0-100), calculado pelo botão 'Validar score' na "
-            "tela Minha Conta.\n"
-            "Fica âmbar quando está desatualizado. '—' significa que ainda "
-            "não foi calculado."
-        )
+        _tips = {
+            self.COL_PRICE: (
+                "Preço de anúncio na Steam — o que o comprador paga."),
+            self.COL_RECEIVED: (
+                "O que sobra pra você em SALDO Steam, já descontada a taxa.\n"
+                "A taxa incide sobre o valor do vendedor: você anuncia por "
+                "R$ 115 e recebe R$ 100."),
+            self.COL_BEST_OUT: (
+                "Melhor líquido entre as plataformas de fora, em DINHEIRO "
+                "de verdade.\n"
+                "Já desconta a taxa de cada uma (5% a 12%) — por isso o "
+                "maior preço anunciado nem sempre é quem paga mais."),
+            self.COL_WHERE: "Plataforma que paga o melhor líquido.",
+            self.COL_SCORE: (
+                "Score do item (0-100), calculado pelo botão 'Validar score' "
+                "na tela Minha Conta.\n"
+                "Fica âmbar quando está desatualizado. '—' significa que "
+                "ainda não foi calculado."),
+        }
+        for col, tip in _tips.items():
+            cab = self._table.horizontalHeaderItem(col)
+            if cab is not None:
+                cab.setToolTip(tip)
         t.configure_table(self._table)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
@@ -173,6 +199,10 @@ class InventoryScreen(QWidget):
         """
         self._rows = list(rows or [])
         self._positions = list(positions or [])
+        # Cotacoes de fora resolvidas UMA vez e compartilhadas entre a
+        # grade e a tabela. Cada dicionario tem ~25 mil entradas; resolver
+        # por tela releria os tres duas vezes.
+        self._mercados = self._resolver_mercados()
         tem = bool(self._rows)
         self._loading.setVisible(False)
         self._views.setVisible(tem)
@@ -186,19 +216,49 @@ class InventoryScreen(QWidget):
         self._populate_grid()
         self._populate_table()
         sem_preco = sum(1 for r in self._rows if r.get("price") is None)
+        # O rodape dizia so' "31 item(ns)" com R$ 1.374 de cotacao na tela.
+        # A soma e' a informacao que o usuario quer -- quanto vale isto.
+        total = self._resumo_de_valor()
         if rate_limited:
             self._status.setText(
-                f"{len(self._rows)} item(ns) • a Steam limitou as consultas; "
+                f"{total} • a Steam limitou as consultas; "
                 f"{sem_preco} sem preço agora (volta sozinho)"
             )
         else:
-            self._status.setText(f"{len(self._rows)} item(ns)")
+            self._status.setText(total)
         self._apply_filter(self._filter.text())
         # Icone e' host separado do preco: vale tentar mesmo sob rate limit.
         self._icon_worker.start(
             [p.get("icon") for p in self._positions] +
             [r.get("icon") for r in self._rows]
         )
+
+    def _resumo_de_valor(self) -> str:
+        """"31 itens • R$ 1.374,18 vendendo fora • R$ X em saldo Steam".
+
+        Os dois totais existem separados de proposito: saldo Steam nao vira
+        dinheiro (a Steam pede ~36% a mais justamente por isso), entao
+        somar os dois num numero so' seria inventar um patrimonio que nao
+        existe em lugar nenhum.
+        """
+        n = len(self._rows)
+        partes = [f"{n} {'item' if n == 1 else 'itens'}"]
+
+        fora = 0.0
+        tem_fora = False
+        for r in self._rows:
+            mercados = self._mercados.get(r.get("name") or "") or []
+            if mercados:
+                tem_fora = True
+                fora += mercados[0]["net_brl"] * (r.get("quantity") or 1)
+        if tem_fora:
+            partes.append(f"{t.brl(fora)} vendendo fora (dinheiro)")
+
+        saldo = sum((r.get("net_if_sold") or 0) * 1
+                    for r in self._rows if r.get("net_if_sold"))
+        if saldo:
+            partes.append(f"{t.brl(saldo)} em saldo Steam")
+        return " • ".join(partes)
 
     def _on_icons_ready(self, quantos: int) -> None:
         """Repinta a grade com os icones que acabaram de chegar.
@@ -209,12 +269,12 @@ class InventoryScreen(QWidget):
         if quantos > 0 and self._rows:
             self._populate_grid()
 
-    def _populate_grid(self) -> None:
-        """Alimenta a grade com a avaliacao em TODAS as plataformas.
+    def _resolver_mercados(self) -> dict:
+        """{nome: [mercados ordenados pelo liquido]} pra todas as linhas.
 
         `cached_market` so' bate na rede em cache miss (TTL 12h), entao o
-        caminho normal e' local. Falha de rede deixa a lista vazia e a
-        grade mostra "sem cotação" em vez de inventar numero.
+        caminho normal e' local. Falha de rede deixa tudo vazio e a tela
+        mostra "sem cotação" em vez de inventar numero.
         """
         cotacoes: dict = {}
         fx = 0.0
@@ -223,15 +283,25 @@ class InventoryScreen(QWidget):
             for fonte in markets.MARKET_FEES:
                 cotacoes[fonte] = markets.cached_market(fonte)
         except Exception:
-            pass
+            return {}
+        out = {}
+        for r in self._rows:
+            nome = r.get("name") or ""
+            if not nome:
+                continue
+            out[nome] = self._mercados_do_item(
+                nome, r.get("price"), cotacoes, fx)
+        return out
 
+    def _populate_grid(self) -> None:
+        """Alimenta a grade com a avaliacao em TODAS as plataformas."""
         from skinvault.localization import localize_name as _ln
         itens = []
         for i, r in enumerate(self._rows):
             pos = self._positions[i] if i < len(self._positions) else {}
             nome = r.get("name") or ""
             preco_steam = r.get("price")
-            mercados = self._mercados_do_item(nome, preco_steam, cotacoes, fx)
+            mercados = self._mercados.get(nome) or []
             melhor = mercados[0] if mercados else None
             # Custo so' entra quando e' CONHECIDO. O sync grava cost=0.0
             # pra "nao sei", e tratar isso como "custou zero" faria o
@@ -305,14 +375,25 @@ class InventoryScreen(QWidget):
             # 3o campo = chave de ordenacao (None = ordena pelo texto).
             # Sem ela, moeda ordenava como string: R$ 16,49 caia abaixo de
             # R$ 9,66 -- ver components.SortableItem.
+            # A cotacao de fora nao depende da Steam. Com o priceoverview
+            # em 429, e' a UNICA coluna de dinheiro com valor de verdade --
+            # antes ela nao existia na tabela e a tela virava uma parede de
+            # travessoes com R$ 1.374 de cotacao escondidos.
+            mercados = self._mercados.get(r.get("name") or "") or []
+            melhor = mercados[0] if mercados else None
+            onde = (InventoryTile._NOME_MERCADO.get(
+                melhor["source"], melhor["source"]) if melhor else "—")
             celulas = [
                 (self.COL_NAME, _ln(r.get("name") or "") or "—", None),
                 (self.COL_QTY, str(r.get("quantity") or 1),
                  r.get("quantity") or 1),
                 (self.COL_PRICE, t.brl(r.get("price")), r.get("price")),
-                (self.COL_SUBTOTAL, t.brl(r.get("market")), r.get("market")),
                 (self.COL_RECEIVED, t.brl(r.get("net_if_sold")),
                  r.get("net_if_sold")),
+                (self.COL_BEST_OUT,
+                 t.brl(melhor["net_brl"]) if melhor else "—",
+                 melhor["net_brl"] if melhor else None),
+                (self.COL_WHERE, onde, None),
                 (self.COL_PNL, t.brl(pnl) if pnl is not None else "—", pnl),
                 (self.COL_ORIGIN, origem, None),
             ]
@@ -322,6 +403,10 @@ class InventoryScreen(QWidget):
                 if col == self.COL_PNL and pnl is not None:
                     item.setForeground(QBrush(QColor(
                         t.POSITIVE if pnl >= 0 else t.DANGER)))
+                elif col == self.COL_BEST_OUT and melhor:
+                    item.setForeground(QBrush(QColor(t.POSITIVE)))
+                elif col == self.COL_WHERE and melhor:
+                    item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
                 elif col == self.COL_ORIGIN and origem == "Steam":
                     item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
                 if col != self.COL_NAME:

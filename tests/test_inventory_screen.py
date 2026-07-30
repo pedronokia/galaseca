@@ -244,7 +244,115 @@ def test_score_nao_desloca_a_coluna_origem(tela):
     tabela mostraria 'Steam' na coluna errada."""
     tela.set_data(ROWS, POS)
     assert tela._table.item(0, tela.COL_ORIGIN).text() == "Steam"
-    assert tela._table.columnCount() == 8
+    # 9 desde 2026-07-30: "Melhor fora" e "Onde" entraram, "Subtotal" saiu
+    assert tela._table.columnCount() == 9
+
+
+# ── a tabela mostra o valor de fora ────────────────────────────────
+#
+# Ate' 2026-07-30 a tabela so' tinha colunas derivadas do preco da Steam.
+# Com o priceoverview em 429 viravam cinco travessoes lado a lado,
+# enquanto R$ 1.374 em cotacoes de fora ficavam invisiveis nessa visao.
+
+
+def test_tabela_mostra_o_melhor_liquido_de_fora(tela, monkeypatch):
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.0)
+    monkeypatch.setattr(
+        "skinvault.markets.cached_market",
+        lambda src, cache=None: (
+            {"Kilowatt Case": 4.0} if src == "csgotm"
+            else {"Kilowatt Case": 5.0} if src == "skinport" else {}))
+    tela.set_data(ROWS, POS)
+    linha = _linha_por_nome(tela, "Kilowatt")
+    # csgotm: 4*5 = 20 bruto, taxa 5% -> 19,00
+    # skinport: 5*5 = 25 bruto, taxa 12% -> 22,00  <- vence
+    assert "22,00" in tela._table.item(linha, tela.COL_BEST_OUT).text()
+    assert "Skinport" in tela._table.item(linha, tela.COL_WHERE).text()
+
+
+def test_tabela_sem_cotacao_mostra_travessao(tela, monkeypatch):
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda src, cache=None: {})
+    tela.set_data(ROWS, POS)
+    assert tela._table.item(0, tela.COL_BEST_OUT).text() == "—"
+    assert tela._table.item(0, tela.COL_WHERE).text() == "—"
+
+
+def test_tabela_ordena_melhor_fora_por_valor(tela, monkeypatch):
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.0)
+    monkeypatch.setattr(
+        "skinvault.markets.cached_market",
+        lambda src, cache=None: ({"Kilowatt Case": 1.0,
+                                  "AK-47 | Redline (Battle-Scarred)": 40.0}
+                                 if src == "skinport" else {}))
+    from PyQt6.QtCore import Qt
+    tela.set_data(ROWS, POS)
+    tela._table.sortItems(tela.COL_BEST_OUT, Qt.SortOrder.DescendingOrder)
+    assert "Redline" in tela._table.item(0, tela.COL_NAME).text()
+
+
+def test_rotulo_da_taxa_nao_diz_menos_15(tela):
+    """A taxa nao e' -15% do preco: e' preco/1,15, ~-13%. O rotulo antigo
+    propagava o modelo errado que o backtest tinha (ver AGENTS.md 4b)."""
+    tela.set_data(ROWS, POS)
+    cab = tela._table.horizontalHeaderItem(tela.COL_RECEIVED).text()
+    assert "-15%" not in cab
+    assert "saldo" in cab.lower()
+
+
+# ── rodape com o total ─────────────────────────────────────────────
+
+
+def test_rodape_soma_o_valor_de_fora(tela, monkeypatch):
+    """Dizia so' "31 item(ns)" com R$ 1.374 de cotacao na tela."""
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.0)
+    monkeypatch.setattr(
+        "skinvault.markets.cached_market",
+        lambda src, cache=None: ({"Kilowatt Case": 1.0} if src == "skinport"
+                                 else {}))
+    tela.set_data(ROWS, POS)
+    txt = tela._status.text()
+    assert "2 itens" in txt
+    # 1.0 usd * 5 fx = 5 bruto, taxa 12% -> 4,40 x 21 unidades = 92,40
+    assert "92,40" in txt
+    assert "dinheiro" in txt
+
+
+def test_rodape_separa_saldo_de_dinheiro(tela, monkeypatch):
+    """Somar os dois num numero so' inventaria um patrimonio que nao
+    existe: saldo Steam nao vira dinheiro."""
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.0)
+    monkeypatch.setattr(
+        "skinvault.markets.cached_market",
+        lambda src, cache=None: ({"Kilowatt Case": 1.0} if src == "skinport"
+                                 else {}))
+    tela.set_data(ROWS, POS)
+    txt = tela._status.text()
+    assert "saldo Steam" in txt
+    assert "dinheiro" in txt
+
+
+def test_rodape_sem_cotacao_so_conta_itens(tela, monkeypatch):
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda src, cache=None: {})
+    rows = [dict(r, net_if_sold=None) for r in ROWS]
+    tela.set_data(rows, POS)
+    assert tela._status.text() == "2 itens"
+
+
+def test_rodape_singular(tela, monkeypatch):
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda src, cache=None: {})
+    tela.set_data([dict(ROWS[0], net_if_sold=None)], [POS[0]])
+    assert tela._status.text() == "1 item"
+
+
+def _linha_por_nome(tela, fragmento):
+    for i in range(tela._table.rowCount()):
+        it = tela._table.item(i, tela.COL_NAME)
+        if it and fragmento.lower() in it.text().lower():
+            return i
+    raise AssertionError("linha nao encontrada: " + fragmento)
 
 
 def test_position_faltando_nao_quebra_a_coluna(tela):
@@ -528,9 +636,13 @@ def test_rate_limit_sem_linha_nenhuma_explica_no_rodape(tela):
     assert "limitou" in tela._status.text()
 
 
-def test_sem_rate_limit_o_rodape_e_so_a_contagem(tela):
+def test_sem_rate_limit_o_rodape_nao_fala_de_limite(tela):
+    """O rodape passou a somar valor (2026-07-30); o que ele NAO pode
+    trazer sem rate limit e' o aviso de limite."""
     tela.set_data(ROWS, POS, False)
-    assert tela._status.text() == "2 item(ns)"
+    txt = tela._status.text()
+    assert "2 itens" in txt
+    assert "limitou" not in txt
 
 
 def test_router_navega_pro_inventario(tmp_path):
