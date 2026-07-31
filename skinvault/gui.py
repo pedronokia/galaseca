@@ -88,50 +88,23 @@ def _brl(v: float) -> str:
 
 def _btn_primary(padding: str = "10px 22px", fs: str = "11pt",
                  disabled: bool = False) -> str:
-    s = (
-        "QPushButton { color: #DCFFE6; background: rgba(34,197,94,0.16);"
-        f" border: 1px solid {t.ACCENT}; border-radius: 8px;"
-        f" padding: {padding}; font-size: {fs}; font-weight: 600; }}"
-        "QPushButton:hover { background: rgba(34,197,94,0.26); }"
-    )
-    if disabled:
-        s += (
-            "QPushButton:disabled { color: #777; border-color: #333;"
-            " background: #1a1a20; }"
-        )
-    return s
+    """Delega pro theme. Mantido como wrapper porque dialogos (backup,
+    toast) chamavam a versao local verde-legada do pre-F11; o CTA real
+    agora e' o solid do theme."""
+    return t.btn_primary(padding, fs, disabled)
 
 
 def _btn_danger(padding: str = "8px 18px", fs: str = "10pt") -> str:
-    return (
-        "QPushButton { color: #FFE6E6; background: rgba(239,68,68,0.16);"
-        f" border: 1px solid {t.DANGER}; border-radius: 8px;"
-        f" padding: {padding}; font-size: {fs}; font-weight: 600; }}"
-        "QPushButton:hover { background: rgba(239,68,68,0.26); }"
-    )
+    return t.btn_danger(padding, fs)
 
 
 def _btn_secondary(padding: str = "8px 18px", fs: str = "10pt") -> str:
-    return (
-        "QPushButton { color: #E6E6EA; background: rgba(255,255,255,0.06);"
-        " border: 1px solid #3A3A44; border-radius: 8px;"
-        f" padding: {padding}; font-size: {fs}; font-weight: 600; }}"
-        "QPushButton:hover { background: rgba(255,255,255,0.12); }"
-    )
+    return t.btn_secondary(padding, fs)
 
 
 def _table_style() -> str:
-    return (
-        f"QTableWidget {{ background: {t.BG_ELEVATED};"
-        f" alternate-background-color: {t.BG_ELEVATED};"
-        " gridline-color: transparent; border: 1px solid #2A2A33;"
-        f" border-radius: 10px; color: {t.TEXT}; font-size: 10pt; }}"
-        f"QHeaderView::section {{ background: {t.BG_ELEVATED};"
-        f" color: {t.TEXT_MUTED}; border: none; padding: 8px 10px;"
-        " font-weight: 600; font-size: 9pt; }}"
-        f"QTableWidget::item:selected {{ background: rgba(34,197,94,0.16);"
-        f" color: {t.TEXT}; }}"
-    )
+    """Wrapper legado — delega pro theme (antes tinha tint verde aqui)."""
+    return t.table_style()
 
 
 def set_theme(theme_name: str) -> None:

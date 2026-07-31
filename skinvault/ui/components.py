@@ -706,7 +706,7 @@ class SegmentedControl(QWidget):
     def _btn_style(self) -> str:
         return (
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
-            f" border: 1px solid {t.BORDER}; border-radius: 8px;"
+            f" border: 1px solid {t.BORDER}; border-radius: 10px;"
             f" padding: 6px 18px; font-size: {t.FS_BODY}; font-weight: 600;"
             f" font-family: {t.FONT_FAMILY}; }}"
             f"QPushButton:hover {{ color: {t.TEXT}; }}"
@@ -1385,11 +1385,12 @@ class PageHeader(QWidget):
         self._title_lbl.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_TITLE};"
             f" font-weight: 700; font-family: {t.FONT_FAMILY};"
+            f" letter-spacing: -0.5px;"
         )
         text_col.addWidget(self._title_lbl)
 
         self._sub_lbl = QLabel(subtitle)
-        self._sub_lbl.setStyleSheet(t.label_caption())
+        self._sub_lbl.setStyleSheet(t.label_body_muted())
         self._sub_lbl.setVisible(bool(subtitle))
         text_col.addWidget(self._sub_lbl)
 
@@ -1436,7 +1437,7 @@ class SectionHeader(QWidget):
         stack.addWidget(self._title)
 
         self._sub = QLabel(subtitle)
-        self._sub.setStyleSheet(t.label_caption())
+        self._sub.setStyleSheet(t.label_body_muted())
         self._sub.setVisible(bool(subtitle))
         stack.addWidget(self._sub)
 

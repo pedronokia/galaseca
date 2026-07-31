@@ -20,6 +20,14 @@ TEXT_MUTED  = "#AAAAAA"
 ACCENT      = "#F1F1F1"   # branco YouTube — accent de MARCA/UI (mono; nao e' lucro)
 ACCENT_DIM  = "rgba(241,241,241,0.13)"
 ACCENT_HOV  = "rgba(241,241,241,0.22)"
+# CTA solido — YouTube clean: botao primario INVERTE o contraste do fundo
+# (branco no tema escuro, preto no claro). Desacoplado de ACCENT porque
+# o fill cheio exige par proprio de fg/bg/hover/focus.
+PRIMARY_BG     = "#F1F1F1"
+PRIMARY_FG     = "#0F0F0F"
+PRIMARY_BORDER = "#F1F1F1"
+PRIMARY_HOV    = "#E4E4E4"
+PRIMARY_FOCUS  = "#9A9A9A"   # ring sobre o fill branco (visivel no CTA solido)
 STEAM_BLUE  = "#66C0F4"   # azul Steam (conta/sync)
 STEAM_DIM   = "rgba(102,192,244,0.14)"
 STEAM_HOV   = "rgba(102,192,244,0.24)"
@@ -92,9 +100,11 @@ SIZE_HEADER_H   = 40
 SIZE_FOOTER_H   = 32
 
 # ── Radius ───────────────────────────────────────────────────
-# Consolida o param `radius=...` espalhado em Card/StatCard/etc
-RADIUS_SM = 6
-RADIUS_MD = 10
+# Consolida o param `radius=...` espalhado em Card/StatCard/etc.
+# Bump 2026-07-31 (refresh modern clean): cantos mais generosos, mas
+# longe de pill — pills so' em chips/toggle, nao em botoes/cards grandes.
+RADIUS_SM = 8
+RADIUS_MD = 12
 RADIUS_LG = 16
 
 # Padding interno de Card por densidade visual.
@@ -111,6 +121,7 @@ def _reload_palette(theme: str) -> None:
     pal = _T.get(theme, _T["dark"])
     global BG, BG_ELEVATED, SURFACE, BORDER, TEXT, TEXT_MUTED
     global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER, ROW_ALT
+    global PRIMARY_BG, PRIMARY_FG, PRIMARY_BORDER, PRIMARY_HOV, PRIMARY_FOCUS
     BG = pal["bg"]
     BG_ELEVATED = pal["surface"]
     SURFACE = pal.get("surface2", pal["surface"])
@@ -123,6 +134,19 @@ def _reload_palette(theme: str) -> None:
     ACCENT_DIM = "rgba(241,241,241,0.13)"
     ACCENT_HOV = "rgba(241,241,241,0.22)"
     STEAM_BLUE = "#66C0F4"
+    if theme == "light":
+        # CTA solido inverte: fundo claro pede botao escuro
+        PRIMARY_BG = "#1C1C1C"
+        PRIMARY_FG = "#FFFFFF"
+        PRIMARY_BORDER = "#1C1C1C"
+        PRIMARY_HOV = "#2F2F2F"
+        PRIMARY_FOCUS = "#FFFFFF"
+    else:
+        PRIMARY_BG = "#F1F1F1"
+        PRIMARY_FG = "#0F0F0F"
+        PRIMARY_BORDER = "#F1F1F1"
+        PRIMARY_HOV = "#E4E4E4"
+        PRIMARY_FOCUS = "#9A9A9A"
 
 
 # ── Tipografia ───────────────────────────────────────────────
@@ -183,7 +207,7 @@ def input_style() -> str:
     return (
         f"QLineEdit, QDoubleSpinBox, QSpinBox"
         f" {{ background: {SURFACE}; border: 1px solid {BORDER};"
-        f" border-radius: 8px; padding: 10px 12px; font-size: {FS_INPUT};"
+        f" border-radius: 10px; padding: 10px 12px; font-size: {FS_INPUT};"
         f" color: {TEXT}; font-family: {FONT_FAMILY}; }}"
         f"QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus"
         f" {{ border: 1px solid {ACCENT}; }}"
@@ -199,7 +223,7 @@ def input_style_error() -> str:
     return (
         f"QLineEdit, QDoubleSpinBox, QSpinBox"
         f" {{ background: {SURFACE}; border: 1px solid {DANGER};"
-        f" border-radius: 8px; padding: 10px 12px; font-size: {FS_INPUT};"
+        f" border-radius: 10px; padding: 10px 12px; font-size: {FS_INPUT};"
         f" color: {TEXT}; font-family: {FONT_FAMILY}; }}"
         f"QLineEdit:focus, QDoubleSpinBox:focus, QSpinBox:focus"
         f" {{ border: 1px solid {ACCENT}; }}"
@@ -208,14 +232,20 @@ def input_style_error() -> str:
 
 def btn_primary(padding: str = "10px 22px", fs: str = FS_INPUT,
                 disabled: bool = False) -> str:
+    """CTA solido (YouTube clean): fill cheio, contraste invertido.
+
+    Tema escuro: botao branco com texto escuro. Tema claro: botao preto
+    com texto claro. O ring de focus e' PRIMARY_FOCUS porque FOCUS_GREEN
+    (branco) sumiria sobre o fill branco do CTA no tema escuro.
+    """
     s = (
-        f"QPushButton {{ color: #DCFFE6; background: {ACCENT_DIM};"
-        f" border: 1px solid {ACCENT}; border-radius: 8px;"
+        f"QPushButton {{ color: {PRIMARY_FG}; background: {PRIMARY_BG};"
+        f" border: 1px solid {PRIMARY_BORDER}; border-radius: 10px;"
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
-        f"QPushButton:hover {{ background: {ACCENT_HOV}; }}"
-        f"QPushButton:focus {{ border: 1px solid {FOCUS_GREEN};"
-        f" background: {ACCENT_HOV}; }}"
+        f"QPushButton:hover {{ background: {PRIMARY_HOV}; }}"
+        f"QPushButton:focus {{ border: 1px solid {PRIMARY_FOCUS};"
+        f" background: {PRIMARY_HOV}; }}"
     )
     if disabled:
         s += (
@@ -228,7 +258,7 @@ def btn_primary(padding: str = "10px 22px", fs: str = FS_INPUT,
 def btn_steam(padding: str = "10px 22px", fs: str = FS_INPUT) -> str:
     return (
         f"QPushButton {{ color: #DDF4FF; background: {STEAM_DIM};"
-        f" border: 1px solid {STEAM_BLUE}; border-radius: 8px;"
+        f" border: 1px solid {STEAM_BLUE}; border-radius: 10px;"
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {STEAM_HOV}; }}"
@@ -238,22 +268,27 @@ def btn_steam(padding: str = "10px 22px", fs: str = FS_INPUT) -> str:
 
 
 def btn_secondary(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
+    """Botao de superficie: SURFACE + BORDER, sem tint translucido.
+
+    Antes usava rgba(255,255,255,0.06) cravado + borda #3A3A44 — uma
+    meia-tinta que nao acompanhava o tema claro. SURFACE e' token
+    theme-aware, entao o botao respira com o tema de graca.
+    """
     return (
-        f"QPushButton {{ color: {TEXT};"
-        " background: rgba(255,255,255,0.06);"
-        f" border: 1px solid #3A3A44; border-radius: 8px;"
+        f"QPushButton {{ color: {TEXT}; background: {SURFACE};"
+        f" border: 1px solid {BORDER}; border-radius: 10px;"
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
-        "QPushButton:hover { background: rgba(255,255,255,0.12); }"
+        f"QPushButton:hover {{ background: {SURFACE_HOV}; }}"
         f"QPushButton:focus {{ border: 1px solid {TEXT_MUTED};"
-        " background: rgba(255,255,255,0.12); }"
+        f" background: {SURFACE_HOV}; }}"
     )
 
 
 def btn_danger(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
     return (
         f"QPushButton {{ color: #FFE6E6; background: {DANGER_DIM};"
-        f" border: 1px solid {DANGER}; border-radius: 8px;"
+        f" border: 1px solid {DANGER}; border-radius: 10px;"
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {DANGER_HOV}; }}"
@@ -266,7 +301,7 @@ def btn_ghost(padding: str = "6px 14px", fs: str = FS_MUTED) -> str:
     """Botao flat sem borda — estilo Win11 toolbar."""
     return (
         f"QPushButton {{ color: {TEXT_MUTED}; background: transparent;"
-        f" border: 1px solid transparent; border-radius: 6px;"
+        f" border: 1px solid transparent; border-radius: 8px;"
         f" padding: {padding}; font-size: {fs};"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ color: {TEXT}; background: {SURFACE};"
@@ -331,7 +366,7 @@ def checkbox_style() -> str:
         f" font-family: {FONT_FAMILY}; spacing: 8px; }}"
         f"QCheckBox:focus {{ color: {TEXT}; }}"
         f"QCheckBox::indicator {{ width: 16px; height: 16px;"
-        f" border: 1px solid {BORDER}; border-radius: 4px;"
+        f" border: 1px solid {BORDER}; border-radius: 5px;"
         f" background: {SURFACE}; }}"
         f"QCheckBox::indicator:checked {{ background: {ACCENT};"
         f" border-color: {ACCENT}; }}"
@@ -344,9 +379,9 @@ def table_style() -> str:
         f"QTableWidget {{ background: {BG_ELEVATED};"
         f" alternate-background-color: {ROW_ALT};"
         f" gridline-color: transparent; border: 1px solid {BORDER};"
-        f" border-radius: 10px; color: {TEXT}; font-size: {FS_BODY};"
+        f" border-radius: 12px; color: {TEXT}; font-size: {FS_BODY};"
         f" font-family: {FONT_FAMILY}; }}"
-        f"QTableWidget::item {{ padding: 8px 12px; }}"
+        f"QTableWidget::item {{ padding: 9px 14px; }}"
         # O QHeaderView em si, nao so' a secao: a faixa do cabecalho DEPOIS
         # da ultima coluna cai na paleta do sistema (branca no Windows).
         # So' nao aparecia porque uma coluna esticava e nunca sobrava faixa.
@@ -354,7 +389,7 @@ def table_style() -> str:
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER};"
-         f" padding: 8px 10px 8px 10px;"
+         f" padding: 9px 14px 9px 14px;"
         f" font-weight: 600; font-size: {FS_MUTED}; }}"
         f"QHeaderView::down-arrow {{ width: 8px; height: 8px;"
         f" subcontrol-origin: padding;"
@@ -452,10 +487,15 @@ def app_style() -> str:
 
 
 def card_style(radius: int = 10) -> str:
+    """Card com borda uniforme — sem o bevel antigo (border-top).
+
+    Antes tinha `border-top: #30303A`, um truque de "luz de topo" que
+    dava relevo. Modern clean: superficie plana com hairline igual nos 4
+    lados; a elevacao vem do tom (BG_ELEVATED sobre BG), nao do bevel.
+    """
     return (
         f"QWidget#Card {{ background: {BG_ELEVATED};"
         f" border: 1px solid {BORDER};"
-        f" border-top: 1px solid #30303A;"
         f" border-radius: {radius}px; }}"
     )
 

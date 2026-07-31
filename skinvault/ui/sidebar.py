@@ -46,18 +46,21 @@ class _SidebarItem(QPushButton):
             )
         return (
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
-            f" border: none; text-align: left; padding-left: 42px;"
-            f" border-left: 3px solid transparent;"
+            f" border: 1px solid transparent; text-align: left;"
+            f" padding-left: 42px; border-radius: 8px;"
+            f" margin: 1px 6px;"
             f" font-size: {t.FS_BODY}; font-weight: 500;"
             f" font-family: {t.FONT_FAMILY}; }}"
-            f"QPushButton:hover {{ color: {t.TEXT}; background: {t.SURFACE}; }}"
-            f"QPushButton:checked {{ color: {t.ACCENT}; background: {t.SURFACE};"
+            f"QPushButton:hover {{ color: {t.TEXT}; background: {t.SURFACE};"
+            f" border: 1px solid transparent; }}"
+            f"QPushButton:checked {{ color: {t.TEXT}; background: {t.ACCENT_DIM};"
             f" font-weight: 700;"
-            f" border-left: 3px solid {t.ACCENT}; }}"
+            f" border: 1px solid transparent; }}"
             f"QPushButton:focus {{ color: {t.TEXT}; background: {t.SURFACE};"
-            f" border-left: 3px solid {t.TEXT_MUTED}; }}"
-            f"QPushButton:checked:focus {{ color: {t.ACCENT};"
-            f" border-left: 3px solid {t.FOCUS_GREEN}; }}"
+            f" border: 1px solid {t.TEXT_MUTED}; }}"
+            f"QPushButton:checked:focus {{ color: {t.TEXT};"
+            f" background: {t.ACCENT_DIM};"
+            f" border: 1px solid {t.FOCUS_GREEN}; }}"
         )
 
     def _on_toggled(self, checked: bool) -> None:

@@ -11,7 +11,7 @@ from skinvault.ui import theme as t
 class Card(QFrame):
     def __init__(self, parent: QWidget | None = None,
                  padding: tuple[int, int, int, int] = t.CARD_PAD_LG,
-                 radius: int = 14) -> None:
+                 radius: int = t.RADIUS_LG) -> None:
         super().__init__(parent)
         self.setObjectName("Card")
         self.setStyleSheet(t.card_style(radius))
@@ -31,7 +31,7 @@ class StatCard(Card):
                  accent: str = t.TEXT,
                  icon: str = "",
                  parent: QWidget | None = None) -> None:
-        super().__init__(parent, padding=(20, 16, 20, 16), radius=t.RADIUS_LG)
+        super().__init__(parent, padding=(20, 18, 20, 18), radius=t.RADIUS_LG)
         self.layout().setSpacing(4)
 
         header = QHBoxLayout()
