@@ -279,6 +279,139 @@ def test_scanner_filtro_status_mostra_ocultos(monkeypatch):
     assert "1 oculto" in screen._status.text()
 
 
+def _scanner_result(name, level="high"):
+    return {"name": name, "score": 70, "price": 1, "median": 1,
+            "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+            "spread": "", "book": "", "trend": "", "sd_label": "",
+            "data_quality": {"level": level, "confidence": 0.8, "n": 120}}
+
+
+def test_scanner_busca_filtra_por_nome(monkeypatch):
+    """Busca esconde linhas cujo nome não casa (case-insensitive)."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        _scanner_result("AK-47 | Redline"),
+        _scanner_result("AWP | Asiimov"),
+        _scanner_result("Kilowatt Case"),
+    ]
+    screen._populate()
+    screen._search_inp.setText("awp")
+    by_name = _hidden_levels_by_name(screen)
+    assert by_name["AK-47 | Redline"]["hidden"] is True
+    assert by_name["AWP | Asiimov"]["hidden"] is False
+    assert by_name["Kilowatt Case"]["hidden"] is True
+
+
+def test_scanner_busca_status_mostra_visiveis(monkeypatch):
+    """Status da busca mostra "X de Y itens • busca ..."."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        _scanner_result("AK-47 | Redline"),
+        _scanner_result("AWP | Asiimov"),
+    ]
+    screen._populate()
+    screen._search_inp.setText("awp")
+    txt = screen._status.text()
+    assert "1 de 2 itens" in txt
+    assert "busca" in txt
+
+
+def test_scanner_busca_limpar_restaura_base(monkeypatch):
+    """Limpar a busca volta o status ao de "N itens escaneados"."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [_scanner_result("AK-47 | Redline"),
+                            _scanner_result("AWP | Asiimov")]
+    screen._populate()
+    screen._search_inp.setText("awp")
+    screen._search_inp.clear()
+    assert screen._status.text() == "2 itens escaneados"
+    for row in range(screen._table.rowCount()):
+        assert screen._table.isRowHidden(row) is False
+
+
+def test_scanner_busca_compoe_com_confianca(monkeypatch):
+    """Busca E baixa confiança escondem juntas (recalc único)."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s: None)
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        _scanner_result("AK-47 | Redline", level="high"),
+        _scanner_result("AWP | Asiimov", level="low"),
+        _scanner_result("Kilowatt Case", level="high"),
+    ]
+    screen._populate()
+    screen._hide_low_conf_cb.setChecked(True)
+    screen._search_inp.setText("case")
+    by_name = _hidden_levels_by_name(screen)
+    # Low conf escondido mesmo casando a busca...
+    assert by_name["AWP | Asiimov"]["hidden"] is True
+    # Busca esconde o que não casa...
+    assert by_name["AK-47 | Redline"]["hidden"] is True
+    # Só o que passa nas DUAS fica visível.
+    assert by_name["Kilowatt Case"]["hidden"] is False
+
+
+def test_scanner_busca_casa_nome_localizado_e_raw(monkeypatch):
+    """Busca casa com o nome localizado (o que a coluna mostra) E com o
+    nome raw da Steam ("Kilowatt Case" → exibe "Caixa Kilowatt")."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        _scanner_result("Kilowatt Case"),
+        _scanner_result("AWP | Asiimov"),
+    ]
+    screen._populate()
+    screen._search_inp.setText("caixa")
+    by_name = _hidden_levels_by_name(screen)
+    assert by_name["Kilowatt Case"]["hidden"] is False
+    assert by_name["AWP | Asiimov"]["hidden"] is True
+    screen._search_inp.setText("Kilowatt Case")
+    by_name = _hidden_levels_by_name(screen)
+    assert by_name["Kilowatt Case"]["hidden"] is False
+
+
+def test_scanner_busca_nao_vaza_pra_filtro_apos_limpar(monkeypatch):
+    """Tirar a busca devolve as linhas que o filtro de conf ainda esconde,
+    sem mostrar as que o filtro escondeu de propósito."""
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda: {})
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s: None)
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [
+        _scanner_result("AK-47 | Redline", level="high"),
+        _scanner_result("AWP | Asiimov", level="low"),
+    ]
+    screen._populate()
+    screen._hide_low_conf_cb.setChecked(True)
+    screen._search_inp.setText("ak")
+    screen._search_inp.clear()
+    by_name = _hidden_levels_by_name(screen)
+    assert by_name["AK-47 | Redline"]["hidden"] is False
+    assert by_name["AWP | Asiimov"]["hidden"] is True  # continua por conf
+
+
 def test_scanner_tabela_tem_coluna_conf():
     """13 colunas desde 2026-07-30, quando 'Compre até' entrou na posição 4
     (colada no 'Preço justo', de onde ela deriva) e empurrou o resto."""

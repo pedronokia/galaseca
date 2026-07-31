@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QMenu,
     QPushButton,
     QTableWidget,
@@ -324,8 +325,28 @@ class ScannerScreen(QWidget):
             "Itens com order book de wear alternativo (proxy)."
         )
         filt_row.addWidget(_lbl2)
+
+        self._search_inp = QLineEdit()
+        self._search_inp.setPlaceholderText("Buscar por nome do item...")
+        self._search_inp.setClearButtonEnabled(True)
+        self._search_inp.setFixedWidth(260)
+        self._search_inp.setStyleSheet(t.input_style())
+        self._search_inp.setToolTip(
+            "Filtra a tabela pelo nome do item. Não afeta o que foi "
+            "escaneado — só esconde linhas, e as outras colunas de "
+            "filtro (baixa confiança, order book aprox.) continuam "
+            "valendo.\nCtrl+F foca o campo, Esc limpa."
+        )
+        self._search_inp.textChanged.connect(self._apply_search_filter)
+        filt_row.addWidget(self._search_inp)
         filt_row.addStretch(1)
         root.addLayout(filt_row)
+
+        # Ctrl+F / Esc: mesmo gesto das outras telas (inventário, histórico).
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
+            self._focar_busca)
+        QShortcut(QKeySequence("Esc"), self).activated.connect(
+            self._limpar_busca)
 
         # Loading state (mostrado durante scan/validacao)
         self._loading = LoadingState(parent=self)
@@ -768,17 +789,78 @@ class ScannerScreen(QWidget):
                                       accent=t.POSITIVE)
             self._stat_avg.set_value(str(round(sum(scores)/len(scores))))
         n = len(self._scan_results)
-        if hidden:
-            self._status.setText(
-                f"{n} itens escaneados ({hidden} ocultos por baixa confiança)"
-            )
+        self._set_base_status(n, hidden)
+        # Busca ativa durante o repopulate: devolve a mensagem de busca.
+        self._atualizar_status_busca()
+
+    def _refresh_visibility(self) -> None:
+        """Recalcula a visibilidade de TODAS as linhas.
+
+        Antes cada filtro (baixa confiança, approx) rodava sozinho e
+        zerava o que o vizinho tinha escondido com setRowHidden(False);
+        a ordem no _populate é que segurava a composição. Com a busca
+        textual no meio, três filtros só compõem num recalc único: cada
+        filtro contribui "esconder", nenhum "mostra" sozinho.
+        """
+        if not hasattr(self, "_table"):
+            return
+        alvo = ((self._search_inp.text() or "").strip().lower()
+                if hasattr(self, "_search_inp") else "")
+        conf = (self._hide_low_conf_cb.isChecked()
+                if hasattr(self, "_hide_low_conf_cb") else False)
+        approx = (self._hide_approx_cb.isChecked()
+                  if hasattr(self, "_hide_approx_cb") else False)
+        for row in range(self._table.rowCount()):
+            cell = self._table.item(row, self.COL_NAME)
+            nome = cell.text().lower() if cell else ""
+            r = cell.data(Qt.ItemDataRole.UserRole) if cell else None
+            # A coluna mostra o nome LOCALIZADO ("Caixa Kilowatt"), mas o
+            # usuario que conhece o nome da Steam digita "Kilowatt Case".
+            # Casa com os dois: display e raw.
+            raw = (r or {}).get("name", "").lower()
+            busca = bool(alvo) and alvo not in nome and alvo not in raw
+            dq = (r or {}).get("data_quality") or {}
+            low = conf and dq.get("level", "none") in ("low", "very_low")
+            aprox = approx and bool((r or {}).get("order_book_approx"))
+            self._table.setRowHidden(row, busca or low or aprox)
+
+    def _apply_search_filter(self, _text: str) -> None:
+        self._refresh_visibility()
+        self._atualizar_status_busca()
+
+    def _set_base_status(self, n: int, hidden: int = 0) -> None:
+        """Mensagem do rodapé sem busca ativa (base pro estado limpo)."""
+        self._status_base = (
+            f"{n} itens escaneados ({hidden} ocultos por baixa confiança)"
+            if hidden else f"{n} itens escaneados")
+        self._status.setText(self._status_base)
+
+    def _atualizar_status_busca(self) -> None:
+        """Rodapé com busca ativa; volta à base quando o campo limpa."""
+        alvo = (self._search_inp.text() or "").strip()
+        if not alvo:
+            self._status.setText(getattr(self, "_status_base", ""))
+            return
+        visiveis = sum(1 for row in range(self._table.rowCount())
+                       if not self._table.isRowHidden(row))
+        self._status.setText(
+            f"{visiveis} de {len(self._scan_results)} itens • busca “{alvo}”")
+
+    def _focar_busca(self) -> None:
+        self._search_inp.setFocus()
+        self._search_inp.selectAll()
+
+    def _limpar_busca(self) -> None:
+        if self._search_inp.text():
+            self._search_inp.clear()  # textChanged cuida do resto
         else:
-            self._status.setText(f"{n} itens escaneados")
+            self._search_inp.setFocus()
 
     def _apply_confidence_filter(self) -> int:
         """Aplica/remove esconder baixa confiança. Retorna # ocultas."""
         if not hasattr(self, "_hide_low_conf_cb"):
             return 0
+        self._refresh_visibility()
         active = self._hide_low_conf_cb.isChecked()
         hidden = 0
         for row in range(self._table.rowCount()):
@@ -788,9 +870,7 @@ class ScannerScreen(QWidget):
                 continue
             dq = r.get("data_quality") or {}
             level = dq.get("level", "none")
-            should_hide = active and level in ("low", "very_low")
-            self._table.setRowHidden(row, should_hide)
-            if should_hide:
+            if active and level in ("low", "very_low"):
                 hidden += 1
         return hidden
 
@@ -802,28 +882,20 @@ class ScannerScreen(QWidget):
         s["scanner_hide_low_confidence"] = bool(checked)
         _ss(s)
         hidden = self._apply_confidence_filter()
-        n = len(self._scan_results)
-        if hidden:
-            self._status.setText(
-                f"{n} itens escaneados ({hidden} ocultos por baixa confiança)"
-            )
-        else:
-            self._status.setText(f"{n} itens escaneados")
+        self._set_base_status(len(self._scan_results), hidden)
+        self._atualizar_status_busca()
 
     def _apply_approx_filter(self) -> int:
-        """Aplica esconder order book approx. Retorna # ocultas.
-        So' esconde (nunca mostra) para nao sobrescrever conf filter."""
+        """Aplica esconder order book approx. Retorna # ocultas."""
         if not hasattr(self, "_hide_approx_cb"):
             return 0
+        self._refresh_visibility()
         active = self._hide_approx_cb.isChecked()
         hidden = 0
         for row in range(self._table.rowCount()):
             cell = self._table.item(row, self.COL_NAME)
             r = cell.data(Qt.ItemDataRole.UserRole) if cell else None
-            if not isinstance(r, dict):
-                continue
-            if active and r.get("order_book_approx"):
-                self._table.setRowHidden(row, True)
+            if isinstance(r, dict) and active and r.get("order_book_approx"):
                 hidden += 1
         return hidden
 
