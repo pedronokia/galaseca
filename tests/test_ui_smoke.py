@@ -1700,17 +1700,17 @@ def test_empty_state_steps_no_cta():
 
 
 def test_market_charts_fixed_height():
-    """Charts do Market tem FixedHeight(300) em vez de stretch."""
+    """Charts do Market tem FixedHeight(320) em vez de stretch."""
     from skinvault.prices import PriceCache
     from skinvault.ui.market_screen import MarketScreen
     from skinvault.ui.components import Card
     screen = MarketScreen(PriceCache(ttl=3600))
     cards = screen.findChildren(Card)
-    # O Market tem 2 chart cards (spark + depth) + detail card
+    # O Market tem 2 chart cards (historico + depth) + detail card
     chart_cards = [c for c in cards
-                   if c.minimumHeight() == 300 and c.maximumHeight() == 300]
+                   if c.minimumHeight() == 320 and c.maximumHeight() == 320]
     assert len(chart_cards) >= 2, (
-        f"Expected >=2 chart cards with FixedHeight(300), got {len(chart_cards)}"
+        f"Expected >=2 chart cards with FixedHeight(320), got {len(chart_cards)}"
     )
 
 
@@ -2398,6 +2398,8 @@ def test_market_screen():
     from skinvault.ui.market_screen import MarketScreen
     screen = MarketScreen(PriceCache(ttl=3600))
     assert screen is not None
+    # O chart abre no mesmo intervalo que o segmentado marca (30d).
+    assert screen._price_chart.range() == "30d"
 
 
 class TestMarketScreen:
@@ -2785,13 +2787,14 @@ class TestMarketScreen:
         screen._on_data(data)
         assert "AWP" in screen._detail_title.text()
         assert screen._detail_grid.count() > 0
-        # Regressao: a serie do sparkline deve ser extraida de price_median
+        # Regressao: a serie do chart deve ser extraida de price_median
         # (bug antigo lia x["price"], que nao existe no SSR -> chart vazio)
-        assert screen._sparkline._values == [210, 215]
+        assert [d["price_median"] for d in screen._price_chart._points] == \
+            [210, 215]
         # A serie e' agregada por dia -- a Steam mistura pontos diarios com
         # horarios, e fatiar por contagem mostrava ~4 dias em vez de ~100.
         # Cada ponto vira o inicio do dia UTC a que pertence.
-        assert screen._sparkline._timestamps == [
+        assert [d["time"] for d in screen._price_chart._points] == [
             1700000000 // 86400 * 86400,
             1700086400 // 86400 * 86400,
         ]
@@ -6703,6 +6706,126 @@ def test_minisparkline_hover_marker_paints():
     w._hover_idx = 2
     pix = w.grab()
     assert not pix.isNull()
+
+def test_pricechart_init():
+    """PriceHistoryChart paints empty state."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(500, 220)
+    pix = w.grab()
+    assert not pix.isNull()
+    assert w.range() == "all"
+
+def test_pricechart_less_than_two_points():
+    """Um ponto: mensagem de intervalo vazio, nao crash."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(500, 220)
+    w.set_data([{"time": 1700000000, "price_median": 100.0, "purchases": 5}])
+    pix = w.grab()
+    assert not pix.isNull()
+
+def test_pricechart_with_data():
+    """Serie completa pinta linha + volume + eixos sem crash."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(500, 220)
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": 100.0 + i * 2.0,
+                 "purchases": 5 + i * 3} for i in range(60)])
+    w.set_sma([None] * 6 + [108.0] * 54)
+    w.set_sr({"support": [100.0, 105.0], "resistance": [130.0]})
+    pix = w.grab()
+    assert not pix.isNull()
+
+def test_pricechart_sma_all_none():
+    """SMA inteira None nao derruba o paint (divisao por rng)."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(500, 220)
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": 100.0 + i,
+                 "purchases": 1} for i in range(20)])
+    w.set_sma([None] * 20)
+    pix = w.grab()
+    assert not pix.isNull()
+
+def test_pricechart_flat_series():
+    """Serie com preco constante (rng=0) nao divide por zero."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(500, 220)
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": 10.0, "purchases": 0} for i in range(10)])
+    pix = w.grab()
+    assert not pix.isNull()
+
+def test_pricechart_range_fatia_a_serie():
+    """set_range fatiia a serie visivel: 7d, 30d e tudo."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": float(i), "purchases": 1}
+                for i in range(40)])
+    w.set_range("7d")
+    assert len(w._visible()) == 7
+    w.set_range("30d")
+    assert len(w._visible()) == 30
+    w.set_range("all")
+    assert len(w._visible()) == 40
+    assert w.range() == "all"
+
+def test_pricechart_sma_alinhada_a_janela():
+    """A SMA fatia junto com a janela visivel (tail da serie total)."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": float(i), "purchases": 1}
+                for i in range(40)])
+    w.set_sma([None] * 40)
+    w.set_range("7d")
+    vis = w._visible_sma()
+    assert len(vis) == 7
+    assert all(v is None for v in vis)
+
+def test_pricechart_sma_curta_nao_derruba():
+    """SMA mais curta que a janela nao crasha no paint."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(500, 220)
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": float(i), "purchases": 1}
+                for i in range(40)])
+    w.set_sma([100.0])  # mock de testes anteriores devolvia lista de 1
+    w.set_range("7d")
+    pix = w.grab()
+    assert not pix.isNull()
+
+def test_pricechart_hover_index_clamps():
+    """_index_at mapeia x para indice e clampa nas bordas."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(500, 220)
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": float(i), "purchases": 1}
+                for i in range(20)])
+    assert w._index_at(-50) == 0
+    assert w._index_at(w._LEFT) == 0
+    assert w._index_at(w.width() - w._RIGHT) == 19
+    assert w._index_at(w.width() + 50) == 19
+    mid = w._index_at(w.width() / 2)
+    assert 8 <= mid <= 11
+
+def test_pricechart_range_ignora_chave_invalida():
+    """set_range com chave fora das conhecidas nao muda o estado."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": float(i), "purchases": 1}
+                for i in range(20)])
+    w.set_range("7d")
+    w.set_range("banana")
+    assert w.range() == "7d"
 
 def test_depthchart_init():
     """DepthChart paints empty state without crashing."""

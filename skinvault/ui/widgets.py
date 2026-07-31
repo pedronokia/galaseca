@@ -383,6 +383,295 @@ class MiniSparkline(QWidget):
         p.end()
 
 
+class PriceHistoryChart(QWidget):
+    """Histórico de preços completo: eixo, volume e intervalo.
+
+    Substituiu o MiniSparkline na tela Market em 2026-07-31. O sparkline
+    era ~100 pontos sem eixo nenhum -- ilegível como "histórico". Aqui a
+    série inteira (até a Steam servir) aparece com eixo de preço e de
+    data, barras de volume (as `purchases` do SSR) e crosshair no hover.
+
+    O intervalo (7d/30d/tudo) é controlado pelo dono via `set_range`; o
+    widget não decide por conta própria. Dados: pontos DIÁRIOS como o
+    `signals.daily_series` devolve -- {"time", "price_median", "purchases"}.
+    """
+
+    _LEFT = 52
+    _RIGHT = 10
+    _TOP = 8
+    _DATE_H = 18
+    _GRID = 4
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._points: list[dict] = []
+        self._sma: list[float | None] | None = None
+        self._sr: dict | None = None
+        self._range = "all"
+        self._hover: int | None = None
+        self.setMinimumHeight(140)
+        self.setMouseTracking(True)
+
+    # ── API ────────────────────────────────────────────────
+
+    def set_data(self, points: list[dict]) -> None:
+        """points: lista diaria (daily_series) com time/price_median/purchases."""
+        self._points = list(points or [])
+        self._sma = None
+        self._sr = None
+        self._hover = None
+        self.update()
+
+    def set_sma(self, sma_data: list[float | None]) -> None:
+        self._sma = sma_data
+        self.update()
+
+    def set_sr(self, sr_data: dict) -> None:
+        self._sr = sr_data
+        self.update()
+
+    def set_range(self, key: str) -> None:
+        if key in ("7d", "30d", "all"):
+            self._range = key
+            self._hover = None
+            self.update()
+
+    def range(self) -> str:
+        return self._range
+
+    # ── visibilidade ───────────────────────────────────────
+
+    def _visible(self) -> list[dict]:
+        if self._range == "7d":
+            return self._points[-7:]
+        if self._range == "30d":
+            return self._points[-30:]
+        return self._points
+
+    def _visible_sma(self) -> list[float | None] | None:
+        """SMA alinhada a `_visible`: a serie e' do comprimento total."""
+        if not self._sma or not self._points:
+            return None
+        n = len(self._visible())
+        if not n:
+            return None
+        return self._sma[len(self._points) - n:]
+
+    @staticmethod
+    def _fmt_axis(v: float) -> str:
+        """Rótulo compacto de eixo: "R$ 1.234" (inteiro) ou "R$ 12,34"."""
+        s = f"R$ {v:,.0f}" if abs(v) >= 100 else f"R$ {v:,.2f}"
+        return s.replace(",", ".")
+
+    # ── interacao ──────────────────────────────────────────
+
+    def _index_at(self, x: float) -> int | None:
+        n = len(self._visible())
+        if n < 2:
+            return None
+        step = (self.width() - self._LEFT - self._RIGHT) / (n - 1)
+        idx = round((x - self._LEFT) / step) if step > 0 else 0
+        return max(0, min(n - 1, int(idx)))
+
+    def mouseMoveEvent(self, evt) -> None:  # noqa: N802
+        vis = self._visible()
+        if len(vis) < 2:
+            super().mouseMoveEvent(evt)
+            return
+        idx = self._index_at(evt.position().x())
+        if idx != self._hover:
+            self._hover = idx
+            self.update()
+        d = vis[idx]
+        txt = t.brl(d.get("price_median") or 0)
+        ts = d.get("time")
+        if ts:
+            txt += datetime.fromtimestamp(ts).strftime(" — %d/%m/%Y")
+        vol = d.get("purchases")
+        if vol:
+            txt += f" — {vol} vendas"
+        QToolTip.showText(evt.globalPosition().toPoint(), txt, self)
+        super().mouseMoveEvent(evt)
+
+    def leaveEvent(self, evt) -> None:  # noqa: N802
+        if self._hover is not None:
+            self._hover = None
+            self.update()
+        super().leaveEvent(evt)
+
+    # ── pintura ────────────────────────────────────────────
+
+    def _layout(self, h: int) -> tuple[int, int, int, int]:
+        vol_h = max(26, int(h * 0.16))
+        bottom = self._DATE_H + vol_h + 6
+        price_top = self._TOP
+        price_bottom = h - bottom
+        vol_top = price_bottom + 4
+        vol_bottom = h - self._DATE_H - 2
+        return price_top, price_bottom, vol_top, vol_bottom
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        vis = self._visible()
+        if len(vis) < 2:
+            p.setPen(QColor(t.TEXT_MUTED))
+            msg = ("Sem histórico" if not self._points
+                   else "Sem dados para este intervalo")
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, msg)
+            p.end()
+            return
+
+        price_top, price_bottom, vol_top, vol_bottom = self._layout(h)
+        n = len(vis)
+        step = (w - self._LEFT - self._RIGHT) / (n - 1)
+
+        def _x(i: int) -> float:
+            return self._LEFT + i * step
+
+        # Faixa de preço cobre preços, SMA e níveis de S/R (senao as linhas
+        # sobem pra fora do grafico e a leitura perde a referencia).
+        vmin = min(d["price_median"] for d in vis)
+        vmax = max(d["price_median"] for d in vis)
+        for v in (self._visible_sma() or []):
+            if v is not None:
+                vmin = min(vmin, v)
+                vmax = max(vmax, v)
+        for lvl in ((self._sr or {}).get("support", [])
+                    + (self._sr or {}).get("resistance", [])):
+            vmin = min(vmin, lvl)
+            vmax = max(vmax, lvl)
+        pad = (vmax - vmin) * 0.06 or max(vmax * 0.01, 1.0)
+        vmin -= pad
+        vmax += pad
+        rng = (vmax - vmin) or 1.0
+
+        def _y(v: float) -> float:
+            return price_bottom - (v - vmin) / rng * (price_bottom - price_top)
+
+        fonte = p.font()
+        fonte.setPointSize(7)
+        p.setFont(fonte)
+
+        # Grade + rotulos de preco.
+        for i in range(self._GRID):
+            frac = i / (self._GRID - 1)
+            y = price_top + frac * (price_bottom - price_top)
+            grid_pen = QPen(QColor(t.BORDER))
+            grid_pen.setWidthF(1)
+            p.setPen(grid_pen)
+            p.drawLine(self._LEFT, int(y), w - self._RIGHT, int(y))
+            val = vmax - frac * rng
+            p.setPen(QColor(t.TEXT_MUTED))
+            p.drawText(0, int(y) - 8, self._LEFT - 6, 16,
+                       Qt.AlignmentFlag.AlignRight
+                       | Qt.AlignmentFlag.AlignVCenter,
+                       self._fmt_axis(val))
+
+        # Barras de volume coloridas pela direcao do dia.
+        vols = [d.get("purchases") or 0 for d in vis]
+        vmax_vol = max(vols) or 1
+        bar_w = max(2.0, step * 0.6)
+        for i, d in enumerate(vis):
+            v = d.get("purchases") or 0
+            if v <= 0:
+                continue
+            prev = vis[i - 1]["price_median"] if i else None
+            atual = d["price_median"]
+            if prev is None or prev == atual:
+                cor = QColor(t.TEXT_MUTED)
+            else:
+                cor = QColor(t.POSITIVE if atual > prev else t.DANGER)
+            cor.setAlpha(150)
+            bh = (v / vmax_vol) * (vol_bottom - vol_top)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(cor)
+            p.drawRect(QRectF(_x(i) - bar_w / 2, vol_bottom - bh, bar_w, bh))
+
+        # Suporte/resistencia (tracejadas, atras da linha).
+        if self._sr:
+            for level in self._sr.get("support", []):
+                pen = QPen(QColor(t.CHART_YELLOW))
+                pen.setStyle(Qt.PenStyle.DashLine)
+                pen.setWidthF(1)
+                p.setPen(pen)
+                p.drawLine(self._LEFT, int(_y(level)),
+                           w - self._RIGHT, int(_y(level)))
+            for level in self._sr.get("resistance", []):
+                pen = QPen(QColor(t.DANGER))
+                pen.setStyle(Qt.PenStyle.DashLine)
+                pen.setWidthF(1)
+                p.setPen(pen)
+                p.drawLine(self._LEFT, int(_y(level)),
+                           w - self._RIGHT, int(_y(level)))
+
+        # Linha de preco.
+        up = vis[-1]["price_median"] >= vis[0]["price_median"]
+        pen = QPen(QColor(t.POSITIVE if up else t.DANGER))
+        pen.setWidthF(2.0)
+        p.setPen(pen)
+        prev_pt = None
+        for i, d in enumerate(vis):
+            pt = (_x(i), _y(d["price_median"]))
+            if prev_pt is not None:
+                p.drawLine(int(prev_pt[0]), int(prev_pt[1]),
+                           int(pt[0]), int(pt[1]))
+            prev_pt = pt
+
+        # SMA 7 (indigo).
+        sma_vis = self._visible_sma()
+        if sma_vis:
+            sma_pen = QPen(QColor(t.CHART_INDIGO))
+            sma_pen.setWidthF(1.2)
+            p.setPen(sma_pen)
+            prev_pt = None
+            for i, v in enumerate(sma_vis):
+                if v is None:
+                    prev_pt = None
+                    continue
+                pt = (_x(i), _y(v))
+                if prev_pt is not None:
+                    p.drawLine(int(prev_pt[0]), int(prev_pt[1]),
+                               int(pt[0]), int(pt[1]))
+                prev_pt = pt
+
+        # Rotulos de data (5 ticks espalhados; "dd/mm" vira "mm/aa" em
+        # series muito longas, senao o rotulo cola no vizinho).
+        span_days = 0
+        if vis[0].get("time") and vis[-1].get("time"):
+            span_days = (vis[-1]["time"] - vis[0]["time"]) / 86400
+        fmt = "%m/%y" if span_days > 180 else "%d/%m"
+        if n <= 8:
+            tick_idx = list(range(n))
+        else:
+            tick_idx = sorted(set(round(i * (n - 1) / 4) for i in range(5)))
+        for i in tick_idx:
+            ts = vis[i].get("time")
+            if not ts:
+                continue
+            rotulo = datetime.fromtimestamp(ts).strftime(fmt)
+            p.setPen(QColor(t.TEXT_MUTED))
+            p.drawText(QRectF(_x(i) - 40, vol_bottom + 4, 80, 14),
+                       Qt.AlignmentFlag.AlignHCenter
+                       | Qt.AlignmentFlag.AlignTop, rotulo)
+
+        # Crosshair do hover.
+        if self._hover is not None and self._hover < n:
+            hx = _x(self._hover)
+            hy = _y(vis[self._hover]["price_median"])
+            guide = QPen(QColor(t.TEXT_MUTED))
+            guide.setStyle(Qt.PenStyle.DashLine)
+            guide.setWidthF(1)
+            p.setPen(guide)
+            p.drawLine(int(hx), price_top, int(hx), vol_top)
+            p.setBrush(QColor(t.POSITIVE if up else t.DANGER))
+            p.setPen(QPen(QColor(t.BG), 1.5))
+            p.drawEllipse(int(hx) - 4, int(hy) - 4, 8, 8)
+
+        p.end()
+
+
 class DepthChart(QWidget):
     """Profundidade do order book (bids vs asks)."""
 

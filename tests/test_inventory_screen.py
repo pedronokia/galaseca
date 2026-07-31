@@ -96,6 +96,31 @@ def test_grade_traz_as_duas_avaliacoes(tela):
     assert kilo["premium_pct"] is not None
 
 
+def test_pref_tabela_aplica_depois_do_build(monkeypatch):
+    """inventory_view=table nas settings abre a tela na tabela SEM crash.
+
+    Regressao 2026-07-31: o select('table') rodava no meio do _build, antes
+    de self._views existir; _on_view_segment (slot sincrono do emit) levantava
+    AttributeError e o PyQt6 abortava o processo com exit 0xC0000409.
+    O fixture tela mocka settings pra grid e por isso nunca pegava; o script
+    de screenshots (settings reais) morria. So' existe por que o testes nao
+    mockavam esse caminho.
+    """
+    gravado = {"inventory_view": "table"}
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s, *a, **k: gravado.update(s))
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda *a, **k: dict(gravado))
+    tela = InventoryScreen()
+    # A escolha persistida chega ao stack: tabela ativa + segmento marcado.
+    assert tela._views.currentIndex() == 1
+    assert tela._view_seg._items["table"].isChecked()
+    assert tela._view_seg._items["grid"].isChecked() is False
+    # E a tela continua navegavel: trocar de visao nao levanta excecao.
+    tela._view_seg.select("grid")
+    assert tela._views.currentIndex() == 0
+
+
 def test_item_sem_cotacao_fora_fica_none(tela, monkeypatch):
     """Nao inventa numero: sem cotacao, o campo fica vazio."""
     monkeypatch.setattr("skinvault.markets.cached_market", lambda *a, **k: {})

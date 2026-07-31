@@ -247,8 +247,13 @@ class InventoryScreen(QWidget):
         self._view_seg.segment_changed.connect(self._on_view_segment)
         linha.addWidget(self._view_seg, 0)
         root.addLayout(linha)
-        if self._view_inicial == "table":
-            self._view_seg.select("table")
+        # NAO selecionar aqui: select() emite segment_changed, e o handler
+        # _on_view_segment mexe em self._views -- que so' nasce adiante neste
+        # _build. O AttributeError dentro do emit aborta o processo em PyQt6
+        # (o teste passa porque mocka settings pra grid e nao entra aqui;
+        # o script de screenshots usava settings reais e morria).
+        # A escolha persistida e' aplicada no fim do _build (ver
+        # _apply_view_pref).
 
         # Ctrl+F e' o gesto que todo mundo ja' tem no dedo pra buscar; sem
         # ele o caminho era achar o campo com o mouse. Esc limpa -- filtro
@@ -347,6 +352,20 @@ class InventoryScreen(QWidget):
         self._status = QLabel("")
         self._status.setStyleSheet(t.label_caption())
         root.addWidget(self._status)
+
+        self._apply_view_pref()
+
+    def _apply_view_pref(self) -> None:
+        """Aplica a visao persistida em settings.json.
+
+        Tem que rodar DEPOIS de self._views existir: _on_view_segment le
+        currentIndex do stack, e select() emite segment_changed
+        sincronamente. Chama-la antes do fim do _build aborta o processo
+        (AttributeError num slot PyQt6 vira abort nativo, medido em
+        2026-07-31).
+        """
+        if getattr(self, "_view_inicial", "grid") == "table":
+            self._view_seg.select("table")
 
     # ── dados ─────────────────────────────────────────────
 

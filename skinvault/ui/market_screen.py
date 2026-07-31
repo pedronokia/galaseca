@@ -33,10 +33,11 @@ from skinvault.ui.components import (
     LoadingState,
     PageHeader,
     SectionHeader,
+    SegmentedControl,
     StatCard,
     Toast,
 )
-from skinvault.ui.widgets import DepthChart, MiniSparkline
+from skinvault.ui.widgets import DepthChart, PriceHistoryChart
 
 
 _RECENT_CAP = 8
@@ -205,34 +206,55 @@ class MarketScreen(QWidget):
         charts_row.setSpacing(12)
 
         spark_card = Card(self)
-        spark_card.setFixedHeight(300)
+        spark_card.setFixedHeight(320)
         spark_lay = QVBoxLayout()
         spark_lay.setSpacing(8)
+        # Criado antes do header de proposito: o segmented de intervalo
+        # conecta set_range nele, e `connect` resolve o atributo na hora.
+        self._price_chart = PriceHistoryChart(parent=spark_card)
+        self._price_chart.setMinimumHeight(150)
         spark_hdr = QHBoxLayout()
         spark_lbl = QLabel("Histórico de preços")
         spark_lbl.setStyleSheet(t.label_caption())
         # Tooltip de ajuda fica no label do header — o chart em si mostra
         # tooltip dinâmico (preço + data) ao passar o mouse nos pontos.
         spark_lbl.setToolTip(
-            "Últimos ~100 pontos do preço mediano.\n"
+            "Série diária completa que a Steam serve, com eixo de preço.\n"
             "Linha tracejada = SMA 7 dias. Linhas horizontais = suporte e "
             "resistência aproximados.\n"
-            "Passe o mouse sobre o gráfico para ver preço e data por ponto."
+            "Barras embaixo = volume de vendas do dia (verde sobe, vermelho "
+            "cai).\n"
+            "Passe o mouse sobre o gráfico para ver preço, data e volume."
         )
         spark_hdr.addWidget(spark_lbl)
         spark_hdr.addStretch(1)
+        self._range_seg = SegmentedControl()
+        self._range_seg.add("7d", "7d")
+        self._range_seg.add("30d", "30d")
+        self._range_seg.add("all", "Tudo")
+        self._range_seg.setToolTip(
+            "Janela do histórico: últimos 7 dias, 30 dias ou a série toda "
+            "que a Steam serve.\nPontos são DIÁRIOS — o preço é a mediana "
+            "ponderada por volume de cada dia."
+        )
+        # Conecta ANTES do select: o emit sincrono do select cai no
+        # set_range e o chart abre no mesmo intervalo do segmentado.
+        # (Nada dispara aqui no Market porque o chart jah existe — este
+        # order-of-operations so' importa onde o handler mexe em widget
+        # que ainda nao nasceu, ver inventory_screen._apply_view_pref.)
+        self._range_seg.segment_changed.connect(self._price_chart.set_range)
+        self._range_seg.select("30d")
+        spark_hdr.addWidget(self._range_seg)
         self._spark_meta = QLabel("")
         self._spark_meta.setStyleSheet(t.label_caption())
         spark_hdr.addWidget(self._spark_meta)
         spark_lay.addLayout(spark_hdr)
-        self._sparkline = MiniSparkline(parent=spark_card)
-        self._sparkline.setMinimumHeight(140)
-        spark_lay.addWidget(self._sparkline, 1)
+        spark_lay.addWidget(self._price_chart, 1)
         spark_card.layout().addLayout(spark_lay)
         charts_row.addWidget(spark_card)
 
         depth_card = Card(self)
-        depth_card.setFixedHeight(300)
+        depth_card.setFixedHeight(320)
         depth_lay = QVBoxLayout()
         depth_lay.setSpacing(8)
         depth_hdr = QHBoxLayout()
@@ -512,9 +534,7 @@ class MarketScreen(QWidget):
                    self._stat_verdict):
             sc.set_value("—", accent=t.TEXT)
         self._reset_median_card()
-        self._sparkline.set_series([])
-        self._sparkline.set_sma([])
-        self._sparkline.set_sr({})
+        self._price_chart.set_data([])
         self._depth.set_data({})
         self._spark_meta.setText("")
         self._depth_meta.setText("")
@@ -606,34 +626,30 @@ class MarketScreen(QWidget):
 
             if price_history:
                 # Entries SSR: {time: unix, price_median: float, purchases}
-                # A Steam serve pontos HORARIOS nos ultimos ~28 dias. Fatiar
-                # por contagem mostraria ~4 dias no lugar de ~100, e a SMA
-                # de 7 periodos viraria media de 7 horas. Agrega por dia
-                # quando ha' timestamp; sem timestamp, mantem o corte antigo.
+                # A Steam serve pontos HORARIOS nos ultimos ~28 dias e
+                # DIARIOS no antigo -- fatiar por contagem mostraria ~4 dias
+                # no lugar de ~100, e a SMA de 7 periodos viraria media de 7
+                # horas. Agrega por dia quando ha' timestamp; sem timestamp,
+                # mantem o corte antigo (ultimos 100 pontos crus).
                 diario = signals.daily_series(price_history)
                 if diario:
                     todos = [d["price_median"] for d in diario]
-                    sma_vals = signals.sma(todos, period=7)[-100:]
-                    janela = diario[-100:]
-                    valores = [d["price_median"] for d in janela]
-                    tempos = [d["time"] for d in janela]
-                    base_sr = janela
-                else:
-                    series = [(x.get("time"), x["price_median"])
-                              for x in price_history if "price_median" in x]
-                    recent = series[-100:]
-                    valores = [pr for _, pr in recent]
-                    tempos = [ts for ts, _ in recent]
-                    sma_vals = signals.sma([pr for _, pr in series],
-                                           period=7)[-100:]
-                    base_sr = price_history[-100:]
-                if valores:
-                    self._sparkline.set_series(valores, timestamps=tempos)
-                    if sma_vals:
-                        self._sparkline.set_sma(sma_vals)
-                    sr = signals.find_support_resistance(base_sr)
+                    sma_vals = signals.sma(todos, period=7)
+                    sr = signals.find_support_resistance(diario[-100:])
+                    self._price_chart.set_data(diario)
+                    self._price_chart.set_sma(sma_vals)
                     if sr:
-                        self._sparkline.set_sr(sr)
+                        self._price_chart.set_sr(sr)
+                else:
+                    recent = [(x.get("time"), x["price_median"],
+                               x.get("purchases"))
+                              for x in price_history
+                              if "price_median" in x]
+                    recent = recent[-100:]
+                    pts = [{"time": ts, "price_median": pr, "purchases": v}
+                           for ts, pr, v in recent]
+                    if len(pts) >= 2:
+                        self._price_chart.set_data(pts)
                 self._spark_meta.setText(
                     f"{len(price_history)} pontos"
                 )
