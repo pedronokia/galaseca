@@ -390,6 +390,41 @@ def tooltip_style() -> str:
     )
 
 
+def messagebox_style() -> str:
+    """Estilo do QMessageBox, tambem so' alcancavel pelo app-stylesheet.
+
+    Medido em 30/07/2026: o dialogo saia #FFFFFF puro dentro do tema
+    escuro. Sao 47 pontos de chamada -- "Sobre", confirmacoes de exclusao,
+    erros de sync -- e todos piscavam branco.
+
+    Os botoes precisam de regra propria: dentro do QMessageBox eles nao
+    herdam o btn_secondary() que o resto do app aplica widget a widget.
+    """
+    return (
+        f"QMessageBox {{ background: {BG_ELEVATED}; }}"
+        f"QMessageBox QLabel {{ color: {TEXT}; background: transparent;"
+        f" font-size: {FS_BODY}; font-family: {FONT_FAMILY}; }}"
+        f"QMessageBox QPushButton {{ color: {TEXT};"
+        f" background: {SURFACE}; border: 1px solid {BORDER};"
+        f" border-radius: {RADIUS_SM}px; padding: 6px 18px;"
+        f" min-width: 72px; font-size: {FS_BODY};"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QMessageBox QPushButton:hover {{ background: {SURFACE_HOV}; }}"
+        f"QMessageBox QPushButton:focus {{ border: 1px solid {TEXT_MUTED}; }}"
+    )
+
+
+def app_style() -> str:
+    """Stylesheet aplicado no QApplication inteiro.
+
+    So' entram aqui os widgets que o stylesheet do widget-dono NAO alcanca
+    -- os que abrem em janela propria (tooltip, message box). Estilo de
+    tela continua indo widget a widget; jogar tudo aqui faria uma regra de
+    canto vazar pra tela inteira.
+    """
+    return tooltip_style() + messagebox_style()
+
+
 def card_style(radius: int = 10) -> str:
     return (
         f"QWidget#Card {{ background: {BG_ELEVATED};"

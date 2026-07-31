@@ -978,7 +978,7 @@ class MainWindow(QMainWindow):
         # tema anterior ate' o proximo start.
         app = QApplication.instance()
         if app is not None:
-            app.setStyleSheet(t.tooltip_style())
+            app.setStyleSheet(t.app_style())
         # Re-aplica sidebar dock style
         self._sidebar_dock.setStyleSheet(
             f"QDockWidget {{ background: {t.BG_ELEVATED}; }}"
@@ -1100,9 +1100,9 @@ def launch() -> int:
     )
     app = QApplication([])
     app.setWindowIcon(_app_icon())
-    # QToolTip so' obedece stylesheet de aplicacao -- setStyleSheet no
-    # widget dono nao alcanca o balao, que e' uma janela propria.
-    app.setStyleSheet(t.tooltip_style())
+    # Tooltip e message box abrem em janela propria: so' o stylesheet de
+    # APLICACAO os alcanca, setStyleSheet no widget dono nao.
+    app.setStyleSheet(t.app_style())
 
     # Antes de qualquer janela: com minimize_to_tray_on_close ligado, o X
     # esconde em vez de encerrar, e reabrir pelo atalho empilha processos
