@@ -84,3 +84,22 @@ def test_app_style_segue_o_tema(app):
         assert claro != escuro
     finally:
         _reload_palette("dark")
+
+
+def test_scrollbar_entra_no_app_style(app):
+    """A barra aparece em tabela, QScrollArea, grade e configuracoes --
+    resolver em table_style() deixaria as outras de fora."""
+    css = t.app_style()
+    assert "QScrollBar" in css
+
+
+def test_scrollbar_sem_setas(app):
+    """O botao de seta do Windows nao aceita cor por stylesheet e ficava
+    como dois quadrados claros nas pontas."""
+    css = t.scrollbar_style()
+    assert "QScrollBar::add-line" in css and "height: 0" in css
+
+
+def test_scrollbar_tem_handle_visivel(app):
+    css = t.scrollbar_style()
+    assert f"background: {t.SURFACE_HOV}" in css

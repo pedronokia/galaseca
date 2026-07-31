@@ -414,15 +414,41 @@ def messagebox_style() -> str:
     )
 
 
+def scrollbar_style() -> str:
+    """Barras de rolagem, em todo canto que rola.
+
+    Sem regra elas saem no cinza claro do Windows -- uma faixa clara na
+    borda de cada tabela do tema escuro. Nao dava pra resolver junto com
+    `table_style()` porque a barra aparece tambem em QScrollArea, na grade
+    do inventario e nas telas de configuracao.
+
+    Sem setas: o botao de seta do Windows nao aceita cor por stylesheet e
+    ficava como dois quadrados claros nas pontas.
+    """
+    return (
+        "QScrollBar:vertical { background: transparent; width: 10px;"
+        " margin: 0; }"
+        "QScrollBar:horizontal { background: transparent; height: 10px;"
+        " margin: 0; }"
+        f"QScrollBar::handle {{ background: {SURFACE_HOV};"
+        " border-radius: 5px; min-height: 28px; min-width: 28px; }}"
+        f"QScrollBar::handle:hover {{ background: {TEXT_MUTED}; }}"
+        "QScrollBar::add-line, QScrollBar::sub-line { height: 0; width: 0;"
+        " border: none; background: none; }"
+        "QScrollBar::add-page, QScrollBar::sub-page { background: none; }"
+    )
+
+
 def app_style() -> str:
     """Stylesheet aplicado no QApplication inteiro.
 
-    So' entram aqui os widgets que o stylesheet do widget-dono NAO alcanca
-    -- os que abrem em janela propria (tooltip, message box). Estilo de
-    tela continua indo widget a widget; jogar tudo aqui faria uma regra de
-    canto vazar pra tela inteira.
+    Entra aqui o que nao da' pra resolver widget a widget: o que abre em
+    janela propria (tooltip, message box), fora do alcance do stylesheet
+    do dono, e o cromo que aparece em toda tela (barra de rolagem).
+    Estilo de UMA tela continua indo no widget dela -- jogar tudo aqui
+    faria uma regra de canto vazar pro app inteiro.
     """
-    return tooltip_style() + messagebox_style()
+    return tooltip_style() + messagebox_style() + scrollbar_style()
 
 
 def card_style(radius: int = 10) -> str:
