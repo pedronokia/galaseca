@@ -295,6 +295,19 @@ class ItemDetailPanel(QFrame):
         self._premio.setTextFormat(Qt.TextFormat.RichText)
         self._premio.setStyleSheet(f"font-size: {t.FS_MUTED};")
         v.addWidget(self._premio)
+
+        # ── DE ONDE VEM ───────────────────────────────────
+        # Metade de baixo do painel estava vazia, e faltava justamente o
+        # unico dado desta tela que nao depende da Steam responder: a
+        # procedencia. Container aposentado nao cai mais em drop -- e' fato
+        # sobre a oferta, nao previsao de preco.
+        v.addSpacing(t.SPACE_MD)
+        self._titulo_origem = self._secao(v, "De onde vem")
+        self._origem = QLabel("—")
+        self._origem.setWordWrap(True)
+        self._origem.setTextFormat(Qt.TextFormat.RichText)
+        self._origem.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        v.addWidget(self._origem)
         v.addStretch(1)
 
     def _secao(self, layout, texto: str) -> QLabel:
@@ -336,6 +349,7 @@ class ItemDetailPanel(QFrame):
             self._fora.setText("—")
             self._piso.setText("")
             self._premio.setText("")
+            self._origem.setText("—")
             return
 
         self._nome.setText(item.get("name", ""))
@@ -359,6 +373,7 @@ class ItemDetailPanel(QFrame):
         self._preencher_steam(item)
         self._preencher_fora(item)
         self._preencher_piso(item)
+        self._preencher_origem(item)
 
         prem = item.get("premium_pct")
         if prem is None:
@@ -416,6 +431,51 @@ class ItemDetailPanel(QFrame):
                 f"<span style='color:{t.TEXT_MUTED}'>"
                 f"(taxa {m['fee'] * 100:.0f}%)</span></div>")
         self._fora.setText("".join(partes))
+
+    def _preencher_origem(self, item: dict) -> None:
+        """Procedencia do item: a caixa de onde ele sai, e se ela ainda cai.
+
+        Descritivo, nao preditivo. "Descontinuada" e' um fato sobre a
+        oferta (o container parou de entrar em drop); o que isso faz com o
+        preco e' leitura do dono, nao afirmacao desta tela.
+        """
+        from skinvault import cases
+
+        nome = item.get("name") or ""
+        info = cases.case_status(nome) or {}
+        caixa = info.get("case")
+        # `case_status` NUNCA devolve vazio: item desconhecido volta com
+        # status "unknown" e `is_discontinued: False`. Ler esse False como
+        # "ainda cai em drop" seria afirmar sobre um item que o app nao
+        # conhece -- o gate e' o nome da caixa, nao a verdade do dict.
+        if not caixa or info.get("status") == "unknown":
+            self._origem.setText(
+                f"<span style='color:{t.TEXT_MUTED}'>Este item não está "
+                "mapeado numa caixa.</span>")
+            return
+
+        ano = info.get("year")
+        proprio = caixa == nome        # o item E' o container
+        if info.get("is_discontinued"):
+            estado = "não cai mais em drop"
+            cor = t.TEXT
+        else:
+            estado = "ainda cai em drop"
+            cor = t.TEXT_MUTED
+
+        if proprio:
+            cabeca = f"<b>{caixa}</b>"
+        else:
+            cabeca = (f"<span style='color:{t.TEXT_MUTED}'>Vem de</span> "
+                      f"<b>{caixa}</b>")
+        linha = cabeca + f"<br><span style='color:{cor}'>{estado}</span>"
+        if ano:
+            linha += (f" <span style='color:{t.TEXT_MUTED}'>· "
+                      f"{ano}</span>")
+        if info.get("is_rare"):
+            linha += (f"<br><span style='color:{t.TEXT_MUTED}'>"
+                      "marcada como rara</span>")
+        self._origem.setText(linha)
 
     def _preencher_piso(self, item: dict) -> None:
         """O piso so' existe com custo conhecido.

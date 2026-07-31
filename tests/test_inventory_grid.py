@@ -491,3 +491,65 @@ def test_repovoar_reseta_o_filtro(app):
     g.set_filter("a")
     g.set_items([_item("x"), _item("y"), _item("z")])
     assert g.visible_count() == 3
+
+
+# ── procedencia no painel ──────────────────────────────────────────
+#
+# A metade de baixo do painel estava vazia, e faltava ali o unico dado da
+# tela que nao depende da Steam responder: de onde o item vem.
+
+
+def _texto(label):
+    import re
+    return re.sub(r"<[^>]+>", "", label.text().replace("<br>", " "))
+
+
+def test_container_mostra_o_proprio_nome(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "Kilowatt Case", "qty": 1})
+    txt = _texto(p._origem)
+    assert "Kilowatt Case" in txt
+    assert "Vem de" not in txt, "o container nao 'vem de' si mesmo"
+
+
+def test_skin_aponta_a_caixa_de_origem(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "AWP | Asiimov (Field-Tested)", "qty": 1})
+    txt = _texto(p._origem)
+    assert "Vem de" in txt
+    assert "Operation Phoenix Weapon Case" in txt
+
+
+def test_descontinuada_diz_que_nao_cai_mais(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "Chroma 2 Case", "qty": 1})
+    txt = _texto(p._origem)
+    assert "não cai mais em drop" in txt
+    assert "2015" in txt
+
+
+def test_ativa_diz_que_ainda_cai(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "Kilowatt Case", "qty": 1})
+    assert "ainda cai em drop" in _texto(p._origem)
+
+
+def test_item_desconhecido_nao_ganha_afirmacao(app):
+    """`case_status` NUNCA volta vazio: desconhecido vem com status
+    'unknown' e is_discontinued=False. Ler esse False como "ainda cai em
+    drop" seria afirmar sobre um item que o app nao conhece."""
+    p = ItemDetailPanel()
+    for nome in ("Sticker | rallen | Paris 2023",
+                 "Sealed Genesis Terminal",
+                 "item que nao existe"):
+        p.show_item({"name": nome, "qty": 1})
+        txt = _texto(p._origem)
+        assert "não está mapeado" in txt, nome
+        assert "drop" not in txt, nome
+
+
+def test_painel_limpo_zera_a_procedencia(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "Kilowatt Case", "qty": 1})
+    p.show_item(None)
+    assert _texto(p._origem).strip() == "—"
