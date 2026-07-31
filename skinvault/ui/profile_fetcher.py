@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 
 _PROFILES_PATH = DATA_DIR / "steam_profiles.json"
 _AVATARS_DIR = DATA_DIR / "avatars"
@@ -43,9 +43,7 @@ def _load_cache() -> dict:
 
 def _save_cache(data: dict) -> None:
     try:
-        _PROFILES_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _PROFILES_PATH.write_text(json.dumps(data, indent=2),
-                                  encoding="utf-8")
+        atomic_write_text(_PROFILES_PATH, json.dumps(data, indent=2))
     except OSError:
         pass
 

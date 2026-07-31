@@ -101,6 +101,52 @@ def test_discontinued_case_partial_match():
     assert r["is_discontinued"] is True
 
 
+# ── cobertura do flag de descontinuada ─────────────────────────────
+#
+# Ate' 2026-07-29 a funcao usava uma lista escrita a mao, paralela ao
+# catalogo de cases.py e majoritariamente errada ("Operation Phoenix Case"
+# em vez de "...Weapon Case", "Operation Falchion Case" em vez de
+# "Falchion Case"). 22 das 36 descontinuadas passavam despercebidas -- 61%
+# de falha, em silencio, porque o match era substring e simplesmente nao
+# casava.
+
+
+def test_flag_cobre_todas_as_descontinuadas_do_catalogo():
+    """A regressao que motivou a troca: a cobertura tem que ser total."""
+    from skinvault import cases
+    reais = [n for n, m in cases._CASES.items()
+             if m["status"] == "discontinued"]
+    assert reais, "catalogo sem caixas descontinuadas?"
+    falhas = [n for n in reais
+              if not signals.discontinued_flag(n)["is_discontinued"]]
+    assert falhas == [], "nao detectadas: {}".format(falhas)
+
+
+def test_flag_nao_marca_caixa_ativa():
+    for nome, meta in __import__(
+            "skinvault.cases", fromlist=["cases"])._CASES.items():
+        if meta["status"] == "active":
+            assert signals.discontinued_flag(nome)["is_discontinued"] is False
+
+
+def test_flag_nao_marca_skin_de_caixa_descontinuada():
+    """`case_status` resolve skin -> caixa de origem. Usar isso aqui diria
+    que a SKIN esta' descontinuada, que e' outra afirmacao."""
+    r = signals.discontinued_flag("AK-47 | Redline (Field-Tested)")
+    assert r["is_discontinued"] is False
+
+
+def test_flag_nome_vazio_nao_explode():
+    assert signals.discontinued_flag("")["is_discontinued"] is False
+    assert signals.discontinued_flag("   ")["is_discontinued"] is False
+
+
+def test_flag_nome_desconhecido():
+    r = signals.discontinued_flag("Item Que Nao Existe 12345")
+    assert r["is_discontinued"] is False
+    assert r["flag"] == ""
+
+
 def test_record_and_load_volume(tmp_path, monkeypatch):
     p = tmp_path / "vol_history.json"
     monkeypatch.setattr(signals, "_VOLUME_PATH", p)
@@ -1020,10 +1066,106 @@ def test_pump_risk_sem_inputs():
     assert r["reasons"] == []
 
 
-# === vintage v4 (containers-only, age >= 8) ===
+# === nivel de preco absoluto (containers-only, 2026-07-30) ===
+#
+# Medido em 84 itens / 7541 amostras: IC do preco absoluto = -0.2635 no
+# geral, -0.3036 em caixas, -0.0415 em skins (AGENTS.md 4d). No backtest
+# ON x OFF, passa em CAIXAS nos dois horizontes e ATRAPALHA em skins --
+# dai' o filtro is_container.
 
-def test_enhanced_score_vintage_v4_container_old_recebe_bonus():
-    """Container descontinuado ha >= 8 anos -> bonus +2."""
+
+def _hist(preco, n=12):
+    return [{"time": 1_700_000_000 + i * 86400, "price_median": preco,
+             "purchases": 5} for i in range(n)]
+
+
+def test_preco_baixo_bonifica_container():
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(2.0),
+                                    is_container=True)
+    pl = [b for b in bd if b["factor"] == "price_level"]
+    assert pl and pl[0]["delta"] == 4
+
+
+def test_preco_alto_penaliza_container():
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(800.0),
+                                    is_container=True)
+    pl = [b for b in bd if b["factor"] == "price_level"]
+    assert pl and pl[0]["delta"] == -4
+
+
+def test_faixa_neutra_nao_entra_no_breakdown():
+    """Delta zero nao vira linha -- so' polui o breakdown."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(100.0),
+                                    is_container=True)
+    assert not any(b["factor"] == "price_level" for b in bd)
+
+
+def test_skin_nao_recebe_o_fator():
+    """Em skins o fator REPROVOU (Sp -0.0130 em 90d)."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=_hist(2.0),
+                                    is_container=False)
+    assert not any(b["factor"] == "price_level" for b in bd)
+
+
+def test_sem_historico_nao_inventa_faixa():
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, is_container=True)
+    assert not any(b["factor"] == "price_level" for b in bd)
+
+
+def test_price_level_band_e_publica():
+    """Publica pra UI, mesmo padrao do pump_risk."""
+    assert signals.price_level_band(2.0)[0] == 4
+    assert signals.price_level_band(800.0)[0] == -4
+    assert signals.price_level_band(None) is None
+    assert signals.price_level_band(0) is None
+
+
+def test_price_level_usa_o_ultimo_ponto_do_prefixo():
+    """No backtest o prefixo termina no instante simulado, entao o preco
+    e' o daquele momento -- sem o lookahead que derrubou o vintage."""
+    hist = _hist(2.0) + [{"time": 1_800_000_000, "price_median": 800.0,
+                          "purchases": 5}]
+    v = {"verdict": "fair", "diff_pct": 0}
+    _s, bd = signals.enhanced_score(v, price_history=hist,
+                                    is_container=True)
+    pl = [b for b in bd if b["factor"] == "price_level"]
+    assert pl and pl[0]["delta"] == -4   # usou 800, o ultimo
+
+
+# === vintage v4 (containers-only, age >= 8) ===
+#
+# DESLIGADO em 2026-07-29: a aprovacao media lookahead (idade calculada
+# como "hoje menos lancamento" em toda amostra do backtest). Sem o vies,
+# 90d da' Sp -0.0002 e 365d da' Sp -0.0080 -- nenhum passa o criterio.
+# Os testes abaixo continuam fixando o MECANISMO, ligando a flag na mao,
+# pra que religar seja uma decisao e nao um acidente.
+
+
+@pytest.fixture
+def vintage_ligado(monkeypatch):
+    monkeypatch.setattr(signals, "_VINTAGE_BONUS_ENABLED", True)
+
+
+def test_vintage_desligado_por_padrao():
+    """O default e' OFF. Se alguem religar, que seja com medicao nova."""
+    assert signals._VINTAGE_BONUS_ENABLED is False
+    v = {"verdict": "fair", "diff_pct": 0}
+    score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=True,
+    )
+    assert not any(b["factor"] == "vintage" for b in breakdown)
+    assert score == 55  # so' o case_status (+5)
+
+
+def test_enhanced_score_vintage_v4_container_old_recebe_bonus(vintage_ligado):
+    """Container descontinuado ha >= 8 anos -> bonus +2 (quando ligado)."""
     v = {"verdict": "fair", "diff_pct": 0}
     score, breakdown = signals.enhanced_score(
         v,
@@ -1034,6 +1176,39 @@ def test_enhanced_score_vintage_v4_container_old_recebe_bonus():
     assert score == 57
     assert any(b["factor"] == "vintage" and b["delta"] == 2
                for b in breakdown)
+
+
+def test_vintage_usa_a_idade_do_instante_simulado(vintage_ligado):
+    """O bug que derrubou o v4: sem now_ts a idade era sempre a de hoje,
+    entao amostra de 2014 numa caixa de 2014 ganhava bonus de vintage."""
+    import datetime as _dt
+    v = {"verdict": "fair", "diff_pct": 0}
+    ts_2015 = _dt.datetime(2015, 6, 1).timestamp()
+    _score, breakdown = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=True,
+        now_ts=ts_2015,          # caixa tinha 1 ano
+    )
+    assert not any(b["factor"] == "vintage" for b in breakdown)
+
+    ts_2030 = _dt.datetime(2030, 6, 1).timestamp()
+    _score2, breakdown2 = signals.enhanced_score(
+        v,
+        case_status={"is_discontinued": True, "year": 2014},
+        is_container=True,
+        now_ts=ts_2030,          # caixa com 16 anos
+    )
+    assert any(b["factor"] == "vintage" for b in breakdown2)
+
+
+def test_backtest_passa_now_ts_pro_score():
+    """simulate_item tem que propagar o timestamp da amostra, senao o
+    lookahead volta em silencio."""
+    import inspect
+    from skinvault import backtest
+    fonte = inspect.getsource(backtest.simulate_item)
+    assert "now_ts=t" in fonte
 
 
 def test_enhanced_score_vintage_v4_skin_nao_recebe_bonus():

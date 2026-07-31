@@ -280,19 +280,82 @@ def test_scanner_filtro_status_mostra_ocultos(monkeypatch):
 
 
 def test_scanner_tabela_tem_coluna_conf():
-    """Tabela do Scanner tem 12 colunas, sendo a 12a 'Conf.' e a 11a 'Risco'."""
+    """13 colunas desde 2026-07-30, quando 'Compre até' entrou na posição 4
+    (colada no 'Preço justo', de onde ela deriva) e empurrou o resto."""
     from skinvault.prices import PriceCache
     from skinvault.ui.scanner_screen import ScannerScreen
     screen = ScannerScreen(PriceCache(ttl=3600))
-    assert screen._table.columnCount() == 12
-    assert screen.COL_CONFIDENCE == 11
-    assert screen.COL_RISCO == 10
-    hdr = screen._table.horizontalHeaderItem(11)
-    assert hdr is not None
-    assert hdr.text() == "Confiança"
-    risco_hdr = screen._table.horizontalHeaderItem(10)
-    assert risco_hdr is not None
-    assert risco_hdr.text() == "Risco"
+    assert screen._table.columnCount() == 13
+    assert screen.COL_COMPRAR == 4
+    assert screen.COL_CONFIDENCE == 12
+    assert screen.COL_RISCO == 11
+    assert screen._table.horizontalHeaderItem(
+        screen.COL_COMPRAR).text() == "Compre até"
+    assert screen._table.horizontalHeaderItem(
+        screen.COL_CONFIDENCE).text() == "Confiança"
+    assert screen._table.horizontalHeaderItem(
+        screen.COL_RISCO).text() == "Risco"
+
+
+# ── coluna "Compre até" ───────────────────────────────
+#
+# Transforma "score 88" em instrução. O teto e' o maximo a pagar pra,
+# revendendo na mediana, sobrar MARGEM_ALVO_PCT -- ja' descontada a taxa
+# de 15% da Steam, que incide sobre o valor do vendedor (anuncia 115,
+# recebe 100). Aritmetica em portfolio.max_buy_price, testada a' parte.
+
+
+def _scanner_com(resultado):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    s = ScannerScreen(PriceCache(ttl=3600))
+    s._scan_results = [resultado]
+    s._populate()
+    return s
+
+
+def _res(price=100.0, median=230.0):
+    return {
+        "name": "AK-47 | Redline (Field-Tested)", "price": price,
+        "median": median, "score": 70, "verdict": "abaixo",
+        "verdict_color": "#3FB950", "spread": "—", "book": "—",
+        "trend": "—", "sd_label": "—", "data_quality": {"level": "high"},
+    }
+
+
+def test_compre_ate_usa_a_mediana_e_a_margem():
+    from skinvault import portfolio
+    s = _scanner_com(_res(median=230.0))
+    esperado = portfolio.max_buy_price(230.0, s.MARGEM_ALVO_PCT)
+    txt = s._table.item(0, s.COL_COMPRAR).text()
+    assert "{:.2f}".format(esperado).replace(".", ",") in txt
+
+
+def test_compre_ate_fica_verde_quando_o_preco_cabe():
+    from skinvault.ui import theme as t
+    s = _scanner_com(_res(price=100.0, median=230.0))   # teto ~166
+    cor = s._table.item(0, s.COL_COMPRAR).foreground().color().name()
+    assert cor == t.POSITIVE.lower()
+
+
+def test_compre_ate_nao_fica_verde_quando_esta_caro():
+    from skinvault.ui import theme as t
+    s = _scanner_com(_res(price=200.0, median=230.0))   # teto ~166
+    cor = s._table.item(0, s.COL_COMPRAR).foreground().color().name()
+    assert cor == t.TEXT_MUTED.lower()
+
+
+def test_compre_ate_sem_mediana_mostra_travessao():
+    s = _scanner_com(_res(median=None))
+    assert s._table.item(0, s.COL_COMPRAR).text() == "—"
+
+
+def test_compre_ate_e_sempre_menor_que_a_mediana():
+    """Se o teto passasse da mediana, comprar la' daria prejuizo garantido."""
+    from skinvault import portfolio
+    for mediana in (1.0, 50.0, 230.0, 5000.0):
+        teto = portfolio.max_buy_price(mediana, 20.0)
+        assert teto < mediana
 
 
 def test_scanner_populate_preenche_confianca_alta():
@@ -857,7 +920,7 @@ def test_scanner_scan_item_happy(monkeypatch):
     monkeypatch.setattr("skinvault.signals.multi_trend",
                         lambda ph: {"label": "Alta", "delta": 10})
     monkeypatch.setattr("skinvault.cases.case_status",
-                        lambda name: {"label": "Case: Operation"})
+                        lambda name, **kw: {"label": "Case: Operation"})
     monkeypatch.setattr("skinvault.signals.enhanced_score",
                         lambda *a, **kw: (75, [{"label": "Spread", "delta": 20}]))
     monkeypatch.setattr("skinvault.signals.supply_demand_ratio",
@@ -922,7 +985,7 @@ def test_scanner_scan_item_no_page(monkeypatch):
                                        "trend_verdict": ""})
     monkeypatch.setattr("skinvault.signals.record_item_price", lambda *a, **kw: None)
     monkeypatch.setattr("skinvault.cases.case_status",
-                        lambda name: {"label": ""})
+                        lambda name, **kw: {"label": ""})
     monkeypatch.setattr("skinvault.signals.enhanced_score",
                         lambda *a, **kw: (50, []))
     monkeypatch.setattr("skinvault.signals.supply_demand_ratio",
@@ -969,7 +1032,7 @@ def test_scanner_on_scan_starts_thread(monkeypatch, tmp_path):
                                        "trend_verdict": ""})
     monkeypatch.setattr("skinvault.signals.record_item_price", lambda *a, **kw: None)
     monkeypatch.setattr("skinvault.cases.case_status",
-                        lambda name: {"label": ""})
+                        lambda name, **kw: {"label": ""})
     monkeypatch.setattr("skinvault.signals.enhanced_score",
                         lambda *a, **kw: (50, []))
     monkeypatch.setattr("skinvault.signals.supply_demand_ratio",
@@ -994,6 +1057,39 @@ def test_scanner_on_scan_starts_thread(monkeypatch, tmp_path):
 
     screen._on_scan()
     assert "Escaneando" in screen._status.text()
+
+
+def test_scanner_discovery_default_off(tmp_path):
+    """Descoberta e' opt-in: sem settings ligadas, o scanner nao muda."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    assert screen._discovery_ligada() is False
+
+
+def test_scanner_discovery_le_settings(monkeypatch, tmp_path):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    monkeypatch.setattr(
+        "skinvault.settings.load_settings",
+        lambda *a, **kw: {"scanner_discovery": True})
+    assert screen._discovery_ligada() is True
+
+
+def test_scanner_discovery_settings_quebrado_nao_derruba(monkeypatch,
+                                                         tmp_path):
+    """Settings ilegivel nao pode impedir o scan -- so' desliga a descoberta."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+
+    def boom(*a, **kw):
+        raise OSError("settings corrompido")
+
+    monkeypatch.setattr("skinvault.settings.load_settings", boom)
+    assert screen._discovery_ligada() is False
+
 
 def test_scanner_on_scan_all_categories(monkeypatch, tmp_path):
     """_on_scan with 'Todas as categorias' scans all items."""
@@ -1327,7 +1423,6 @@ def test_screen_router_navigate_all_screens(monkeypatch):
         ("scanner", router._scanner_screen),
         ("market", router._market_screen),
         ("trades", router._trades_screen),
-        ("simulador", router._simulador_screen),
         ("watchlist", router._watchlist_screen),
         ("account", router._account_screen),
     ]
@@ -1382,11 +1477,12 @@ def test_price_worker_start(monkeypatch):
     from skinvault.prices import PriceCache
     from skinvault.ui._price_worker import PriceWorker
 
+    from skinvault import steam_api
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio",
                         lambda: [{"name": "AK", "cost": 100.0, "quantity": 1}])
-    monkeypatch.setattr("skinvault.prices.cached_price",
-                        lambda n, c: 150.0)
+    monkeypatch.setattr("skinvault.prices.cached_price_status",
+                        lambda n, c: (steam_api.PRICE_OK, 150.0))
 
     cache = PriceCache(ttl=3600)
     worker = PriceWorker(cache)
@@ -1399,6 +1495,69 @@ def test_price_worker_start(monkeypatch):
     d = results[0]
     assert d["totals"]["pnl"] == pytest.approx(30.43, abs=0.01)
     assert len(d["rows"]) == 1
+    assert d["rate_limited"] is False
+
+
+def test_price_worker_corta_o_lote_no_primeiro_429(monkeypatch):
+    """O 429 e' do IP/conta, nao do item. Continuar batendo so' gasta o
+    backoff de cada um -- medido: 24 itens viravam minutos de espera."""
+    from PyQt6.QtWidgets import QApplication
+    from skinvault import steam_api
+    from skinvault.prices import PriceCache
+    from skinvault.ui._price_worker import PriceWorker
+
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr(
+        "skinvault.portfolio.load_portfolio",
+        lambda: [{"name": f"Item{i}", "cost": 10.0, "quantity": 1}
+                 for i in range(20)])
+    consultados = []
+
+    def _fake(n, c):
+        consultados.append(n)
+        return steam_api.PRICE_RATE_LIMITED, None
+
+    monkeypatch.setattr("skinvault.prices.cached_price_status", _fake)
+
+    worker = PriceWorker(PriceCache(ttl=3600))
+    results = []
+    worker.eval_done.connect(results.append)
+    worker.start()
+    QApplication.processEvents()
+
+    # Bateu na rede uma vez; os outros 19 sairam do cache/sem rede.
+    assert len(consultados) == 1
+    assert results[0]["rate_limited"] is True
+    assert len(results[0]["rows"]) == 20  # as linhas continuam aparecendo
+
+
+def test_price_worker_apos_corte_ainda_usa_o_cache(monkeypatch):
+    """Cortar a rede nao pode esconder preco que ja' estava em cache."""
+    from PyQt6.QtWidgets import QApplication
+    from skinvault import steam_api
+    from skinvault.prices import PriceCache
+    from skinvault.ui._price_worker import PriceWorker
+
+    monkeypatch.setattr("threading.Thread", _InlineThread)
+    monkeypatch.setattr(
+        "skinvault.portfolio.load_portfolio",
+        lambda: [{"name": "SemCache", "cost": 10.0, "quantity": 1},
+                 {"name": "ComCache", "cost": 10.0, "quantity": 1}])
+    monkeypatch.setattr(
+        "skinvault.prices.cached_price_status",
+        lambda n, c: (steam_api.PRICE_RATE_LIMITED, None))
+
+    cache = PriceCache(ttl=3600)
+    cache.put("ComCache", 99.0)
+    worker = PriceWorker(cache)
+    results = []
+    worker.eval_done.connect(results.append)
+    worker.start()
+    QApplication.processEvents()
+
+    por_nome = {r["name"]: r for r in results[0]["rows"]}
+    assert por_nome["ComCache"]["price"] == 99.0
+    assert por_nome["SemCache"]["price"] is None
 
 
 def test_price_worker_start_error(monkeypatch):
@@ -1975,7 +2134,7 @@ def test_streak_summary_wins():
     label, _color = _streak_summary([
         {"pnl": 50}, {"pnl": 30}, {"pnl": 10}, {"pnl": -5},
     ])
-    assert "3 vitorias" in label
+    assert "3 vitórias" in label
 
 
 def test_streak_summary_losses():
@@ -1998,7 +2157,7 @@ def test_streak_summary_zero_in_middle():
     label, _ = _streak_summary([
         {"pnl": 50}, {"pnl": 30}, {"pnl": 0}, {"pnl": 10},
     ])
-    assert "2 vitorias" in label
+    assert "2 vitórias" in label
 
 
 def test_recent_matches_strip_instantiation():
@@ -2041,7 +2200,7 @@ def test_recent_matches_strip_shows_streak():
         {"name": "a", "pnl": 50}, {"name": "b", "pnl": 30},
         {"name": "c", "pnl": -5},
     ])
-    assert "vitorias" in strip._streak.text()
+    assert "vitórias" in strip._streak.text()
 
 
 def test_recent_matches_strip_no_streak_clears_label():
@@ -2296,6 +2455,95 @@ class TestMarketScreen:
         )
         _save_recent(["AK"])  # nao crasha
 
+    # ── priceoverview limitado pela Steam ─────────────────
+    #
+    # Cenario medido em 2026-07-29: priceoverview devolvia 429 enquanto a
+    # listing page (outro host) respondia normalmente. A tela mostrava
+    # quatro travessoes e "Dados insuficientes para um veredito", sugerindo
+    # que o problema era o nome do item.
+
+    PAGE_SO = {
+        "price_history": [
+            {"time": 1704067200, "price_median": 200.0, "purchases": 10},
+            {"time": 1704153600, "price_median": 229.26, "purchases": 8},
+        ],
+        "order_book": {"buy_count": 2745, "sell_count": 69},
+        "order_book_approx": True,
+    }
+
+    def _screen(self):
+        from skinvault.prices import PriceCache
+        from skinvault.ui.market_screen import MarketScreen
+        return MarketScreen(PriceCache(ttl=3600))
+
+    def test_sem_overview_usa_mediana_do_historico(self):
+        from skinvault.ui.market_screen import _MEDIAN_LABEL_FALLBACK
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        assert "229,26" in screen._stat_median._value.text()
+        assert screen._stat_median._label.text() == _MEDIAN_LABEL_FALLBACK
+        # isVisibleTo, nao isVisible: a tela nunca foi exibida na suite, entao
+        # isVisible() e' False pra tudo e nao diria nada.
+        assert screen._stat_median._badge.isVisibleTo(screen._stat_median)
+
+    def test_sem_overview_nao_inventa_menor_listagem(self):
+        """O livro pode vir de outro wear (order_book_approx). Preencher
+        'menor listagem' com best_ask mostraria numero de outro item."""
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        assert screen._stat_lowest._value.text() == "—"
+        assert screen._stat_volume._value.text() == "—"
+        assert screen._stat_verdict._value.text() == "—"
+
+    def test_sem_overview_explica_o_rate_limit(self):
+        from skinvault.ui.market_screen import _THROTTLED_MSG
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        assert screen._detail_msg.text() == _THROTTLED_MSG
+
+    def test_rotulo_do_fallback_nao_vaza_pra_proxima_consulta(self):
+        """Sem reset, o item seguinte -- que tem mediana 24h de verdade --
+        herdaria o rotulo 'ultimo dia com venda'."""
+        from skinvault.ui.market_screen import _MEDIAN_LABEL
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        screen._on_data({
+            "name": "AWP",
+            "overview": {"lowest": 10.0, "median": 12.0, "volume": 100},
+        })
+        assert screen._stat_median._label.text() == _MEDIAN_LABEL
+        assert not screen._stat_median._badge.isVisibleTo(screen._stat_median)
+        assert "12,00" in screen._stat_median._value.text()
+
+    def test_on_clear_restaura_o_cartao(self):
+        from skinvault.ui.market_screen import _MEDIAN_LABEL
+        screen = self._screen()
+        screen._on_data({"name": "AK-47", "page": self.PAGE_SO})
+        screen._on_clear()
+        assert screen._stat_median._label.text() == _MEDIAN_LABEL
+        assert screen._stat_median._value.text() == "—"
+
+    def test_historico_vazio_nao_preenche_mediana(self):
+        screen = self._screen()
+        screen._on_data({
+            "name": "AK-47",
+            "page": {"price_history": [], "order_book": {}},
+        })
+        assert screen._stat_median._value.text() == "—"
+
+    def test_sem_overview_e_sem_page_continua_empty_state(self):
+        """Nada respondeu: o caminho antigo (empty state) tem que valer."""
+        screen = self._screen()
+        screen._on_data({"name": "AK-47"})
+        assert screen._empty.isVisibleTo(screen)
+        assert not screen._content.isVisibleTo(screen)
+
+    def test_statcard_set_label(self):
+        from skinvault.ui.cards import StatCard
+        sc = StatCard("Antes", "1")
+        sc.set_label("Depois")
+        assert sc._label.text() == "Depois"
+
     def test_clear_detail_grid_with_rows(self):
         from skinvault.prices import PriceCache
         from skinvault.ui.market_screen import MarketScreen
@@ -2514,7 +2762,13 @@ class TestMarketScreen:
         # Regressao: a serie do sparkline deve ser extraida de price_median
         # (bug antigo lia x["price"], que nao existe no SSR -> chart vazio)
         assert screen._sparkline._values == [210, 215]
-        assert screen._sparkline._timestamps == [1700000000, 1700086400]
+        # A serie e' agregada por dia -- a Steam mistura pontos diarios com
+        # horarios, e fatiar por contagem mostrava ~4 dias em vez de ~100.
+        # Cada ponto vira o inicio do dia UTC a que pertence.
+        assert screen._sparkline._timestamps == [
+            1700000000 // 86400 * 86400,
+            1700086400 // 86400 * 86400,
+        ]
 
     def test_on_data_page_approx(self, monkeypatch):
         from skinvault.prices import PriceCache
@@ -2702,6 +2956,181 @@ class TestTradesScreen:
         screen = TradesScreen()
         screen.refresh()
         assert screen._table.rowCount() == 2
+
+    # ── importacao do historico da Steam ──────────────────
+
+    # ── delta vs mes anterior ─────────────────────────────
+    #
+    # Era percentual, e percentual de P&L nao tem sentido: a base pode ser
+    # ~zero ou trocar de sinal. No historico real, junho R$ 0,03 -> julho
+    # R$ 1,63 virava "+5333,3%".
+
+    def _com_meses(self, monkeypatch, pnl_ant, pnl_atual):
+        from skinvault.ui.trades_screen import TradesScreen
+        monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+        monkeypatch.setattr("skinvault.trades.trade_stats",
+                            lambda trades=None: self.STATS)
+        monkeypatch.setattr(
+            "skinvault.trades.monthly_pnl",
+            lambda trades=None: [{"month": "2026-06", "trades": 1,
+                                  "pnl": pnl_ant},
+                                 {"month": "2026-07", "trades": 1,
+                                  "pnl": pnl_atual}])
+        s = TradesScreen()
+        s.refresh()
+        return s._stat_pnl._delta.text()
+
+    def test_delta_do_pnl_e_em_reais(self, monkeypatch):
+        txt = self._com_meses(monkeypatch, 0.03, 1.63)
+        assert "%" not in txt
+        assert "1,60" in txt
+        assert "mês anterior" in txt
+
+    def test_delta_negativo_marca_o_sinal(self, monkeypatch):
+        txt = self._com_meses(monkeypatch, 5.00, 1.00)
+        assert "−" in txt and "4,00" in txt
+
+    def test_delta_com_base_zero_nao_explode(self, monkeypatch):
+        """Divisao por zero era o caso que sumia com o delta inteiro."""
+        txt = self._com_meses(monkeypatch, 0.0, 2.50)
+        assert "2,50" in txt
+
+    def test_delta_com_troca_de_sinal(self, monkeypatch):
+        """De -8,92 pra +1,63: percentual aqui seria absurdo."""
+        txt = self._com_meses(monkeypatch, -8.92, 1.63)
+        assert "%" not in txt
+        assert "10,55" in txt
+
+    # ── ordenacao por valor ───────────────────────────────
+
+    ORDEM_DATA = [
+        {"sell_ts": 1_777_000_000, "buy_ts": 1_770_000_000, "name": "Maio",
+         "quantity": 1, "buy_cost": 1.0, "sell_price": 2.0,
+         "pnl": 1.63, "pnl_pct": 103.8, "source": "steam_sync", "notes": ""},
+        {"sell_ts": 1_775_000_000, "buy_ts": 1_770_000_000, "name": "Abril",
+         "quantity": 1, "buy_cost": 16.49, "sell_price": 9.0,
+         "pnl": -7.54, "pnl_pct": -45.7, "source": "steam_sync", "notes": ""},
+    ]
+
+    def _screen_ordenado(self, monkeypatch):
+        from skinvault.ui.trades_screen import TradesScreen
+        monkeypatch.setattr("skinvault.trades.load_trades",
+                            lambda: list(self.ORDEM_DATA))
+        monkeypatch.setattr("skinvault.trades.trade_stats",
+                            lambda trades=None: self.STATS)
+        s = TradesScreen()
+        s.refresh()
+        return s
+
+    def test_pnl_ordena_por_valor_nao_por_texto(self, monkeypatch):
+        """"R$ -7,54" > "R$ 1,63" como string. Quem ordenava por P&L pra
+        achar o melhor trade recebia o pior."""
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_PNL, Qt.SortOrder.DescendingOrder)
+        assert "1,63" in s._table.item(0, s.COL_PNL).text()
+
+    def test_data_ordena_cronologicamente(self, monkeypatch):
+        """Ordenava por dia do mes: 30/04 vinha antes de 29/05."""
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_DATE, Qt.SortOrder.DescendingOrder)
+        # coluna 1 = Item; o topo tem que ser o de sell_ts maior
+        assert s._table.item(0, 1).text() == "Maio"
+
+    def test_compra_ordena_por_valor(self, monkeypatch):
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_COST, Qt.SortOrder.DescendingOrder)
+        assert "16,49" in s._table.item(0, s.COL_COST).text()
+
+    def test_roi_ordena_por_valor(self, monkeypatch):
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(s.COL_ROI, Qt.SortOrder.DescendingOrder)
+        assert "+103.8%" == s._table.item(0, s.COL_ROI).text()
+
+    def test_colunas_textuais_seguem_ordenando_por_texto(self, monkeypatch):
+        from PyQt6.QtCore import Qt
+        s = self._screen_ordenado(monkeypatch)
+        s._table.sortItems(1, Qt.SortOrder.AscendingOrder)  # Item
+        assert s._table.item(0, 1).text() == "Abril"
+
+    def test_import_action_existe_no_overflow(self, monkeypatch):
+        """A acao mora no menu '⋯': a hierarquia de CTA do AGENTS.md manda
+        ter um unico botao primario por tela, e ele e' 'Adicionar trade'."""
+        screen = self._make_screen()
+        labels = [a.text() for a in screen._more_menu.actions()]
+        assert "Importar trades da Steam" in labels
+        assert screen._add_btn.text() == "Adicionar trade"
+
+    def test_import_sem_historico_avisa_e_nao_grava(self, monkeypatch):
+        from skinvault.ui.trades_screen import TradesScreen
+        monkeypatch.setattr("skinvault.trade_matcher.load_closed_trades",
+                            lambda: [])
+        gravou = []
+        monkeypatch.setattr("skinvault.trade_matcher.import_closed_trades",
+                            lambda *a, **kw: gravou.append(True))
+        toasts = []
+        monkeypatch.setattr(
+            "skinvault.ui.trades_screen.Toast.show_toast",
+            lambda parent, text, variant="info", **kw: toasts.append(
+                (text, variant)))
+        screen = TradesScreen()
+        screen._on_import_steam()
+        assert gravou == []
+        assert toasts and toasts[-1][1] == "warning"
+        assert "Sincronize" in toasts[-1][0]
+
+    def test_import_grava_e_atualiza_a_tela(self, monkeypatch):
+        from skinvault.ui.trades_screen import TradesScreen
+        from skinvault.trade_matcher import ClosedTrade
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.load_closed_trades",
+            lambda: [ClosedTrade("AK", "1 Jan", 10.0, "5 Jan", 20.0,
+                                 0.0, 7.0, 70.0)])
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.import_closed_trades",
+            lambda closed: {"imported": 1, "skipped": 0, "total": 1})
+        toasts = []
+        monkeypatch.setattr(
+            "skinvault.ui.trades_screen.Toast.show_toast",
+            lambda parent, text, variant="info", **kw: toasts.append(
+                (text, variant)))
+        screen = TradesScreen()
+        refreshed = []
+        monkeypatch.setattr(screen, "refresh",
+                            lambda: refreshed.append(True))
+        screen._on_import_steam()
+        assert refreshed == [True]
+        assert toasts[-1][1] == "success"
+        assert "1 trade(s) importado(s)" in toasts[-1][0]
+
+    def test_import_tudo_ja_importado_nao_refresha(self, monkeypatch):
+        """Reimportar sem novidade e' o caso comum -- nao vale repintar a
+        tabela nem dar um toast de sucesso enganoso."""
+        from skinvault.ui.trades_screen import TradesScreen
+        from skinvault.trade_matcher import ClosedTrade
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.load_closed_trades",
+            lambda: [ClosedTrade("AK", "1 Jan", 10.0, "5 Jan", 20.0,
+                                 0.0, 7.0, 70.0)])
+        monkeypatch.setattr(
+            "skinvault.trade_matcher.import_closed_trades",
+            lambda closed: {"imported": 0, "skipped": 1, "total": 1})
+        toasts = []
+        monkeypatch.setattr(
+            "skinvault.ui.trades_screen.Toast.show_toast",
+            lambda parent, text, variant="info", **kw: toasts.append(
+                (text, variant)))
+        screen = TradesScreen()
+        refreshed = []
+        monkeypatch.setattr(screen, "refresh",
+                            lambda: refreshed.append(True))
+        screen._on_import_steam()
+        assert refreshed == []
+        assert toasts[-1][1] == "info"
+        assert "Nada novo" in toasts[-1][0]
 
     def test_on_period(self, monkeypatch):
         from skinvault.ui.trades_screen import TradesScreen
@@ -2997,20 +3426,31 @@ STATS_DUMMY = {"total": 0, "pnl_total": 0, "pnl_medio": 0,
                "best": None, "worst": None, "monthly": [],
                "fees_total": 0.0, "avg_days": 0}
 
-def test_selected_index_no_item():
-    """_selected_index returns None when item is missing at row."""
+def test_selected_index_no_item(monkeypatch):
+    """_selected_index returns None when item is missing at row.
+
+    Precisa mockar `load_trades`: sem isso a tela le' o trades.json REAL do
+    usuario, e o teste so' passava enquanto o arquivo estava vazio. Quebrou
+    na primeira importacao de verdade (25 trades) -- `setRowCount(1)` nao
+    limpa os itens da linha 0 que ja' estavam la'.
+    """
     from skinvault.ui.trades_screen import TradesScreen
-    from skinvault.trades import trade_stats
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+    monkeypatch.setattr("skinvault.trades.trade_stats",
+                        lambda trades=None: STATS_DUMMY)
     screen = TradesScreen()
     screen._table.setRowCount(1)
     screen._table.setCurrentCell(0, 0)
     assert screen._selected_index() is None
 
-def test_selected_index_not_int():
+def test_selected_index_not_int(monkeypatch):
     """_selected_index returns None when UserRole data is not int."""
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QTableWidgetItem
     from skinvault.ui.trades_screen import TradesScreen
+    monkeypatch.setattr("skinvault.trades.load_trades", lambda: [])
+    monkeypatch.setattr("skinvault.trades.trade_stats",
+                        lambda trades=None: STATS_DUMMY)
     screen = TradesScreen()
     screen._table.setRowCount(1)
     item = QTableWidgetItem("data")
@@ -3120,161 +3560,6 @@ def test_trades_screen():
     assert screen is not None
 
 
-def test_simulador_screen():
-    """SimuladorScreen instancia sem erro."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    assert screen is not None
-
-
-def test_simulador_screen_clear():
-    """SimuladorScreen._on_clear reseta campos."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(100)
-    screen._sell_inp.setValue(200)
-    screen._qty_inp.setValue(2)
-    screen._on_clear()
-    assert screen._buy_inp.value() == 0
-    assert screen._sell_inp.value() == 0
-    assert screen._qty_inp.value() == 1
-
-
-def test_simulador_screen_invalid_input():
-    """_on_simular com valores invalidos mostra erro."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._on_simular()
-    assert "positivos" in screen._result_detail.text()
-
-
-def test_simulador_screen_profit():
-    """_on_simular com lucro mostra mensagem de lucro."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(100)
-    screen._sell_inp.setValue(200)
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert "Lucro" in screen._result_detail.text()
-
-
-def test_simulador_screen_loss():
-    """_on_simular com prejuizo mostra mensagem de loss."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(200)
-    screen._sell_inp.setValue(100)
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert "Preju" in screen._result_detail.text()
-
-
-def test_simulador_screen_rebuild_empty():
-    """_rebuild_history com historico vazio esconde seção."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._history = []
-    screen._rebuild_history()
-    assert screen._hist_lbl.isVisible() is False
-
-
-def test_simulador_screen_rebuild_populated():
-    """_rebuild_history com historico preenchido mostra label."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen.show()  # necessário para isVisible() considerar hierarquia
-    screen._history = [{"pnl": 50, "buy_price": 100, "sell_price": 130,
-                        "quantity": 1}]
-    screen._rebuild_history()
-    assert screen._hist_lbl.isVisible() is True
-
-
-def test_simulador_screen_break_even():
-    """_on_simular com PNL=0 mostra mensagem de break-even."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    # break-even: sell_price = buy_price * 1.15
-    screen._buy_inp.setValue(50)
-    screen._sell_inp.setValue(57.5)  # 50 * 1.15
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert "zero" in screen._result_detail.text()
-
-
-def test_simulador_screen_simulacao_updates_stats():
-    """_on_simular com valores validos atualiza stats e historico."""
-    from skinvault import portfolio
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(150)
-    screen._sell_inp.setValue(200)
-    screen._qty_inp.setValue(1)
-    screen._on_simular()
-    assert screen._stat_pnl._value != "—"
-    assert screen._stat_roi._value != "—"
-    assert len(screen._history) == 1
-    assert screen._history[0]["buy_price"] == 150
-
-
-def test_simulador_screen_push_history():
-    """_push_history insere no topo e respeita _HIST_CAP."""
-    from skinvault import portfolio
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    for buy in range(1, 8):
-        r = portfolio.simulate_trade(buy * 10, buy * 20, 1)
-        screen._push_history(r)
-    assert len(screen._history) == 5
-    assert screen._history[0]["buy_price"] == 70
-
-
-def test_simulador_screen_restore():
-    """_restore repoe campos e chama _on_simular."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    screen = SimuladorScreen()
-    screen._buy_inp.setValue(100)
-    r = {"buy_price": 50, "sell_price": 80, "quantity": 2,
-         "pnl": 10, "roi_pct": 5, "net_received": 128,
-         "break_even_price": 58.82, "steam_fee": 24,
-         "is_profit": True, "is_loss": False}
-    screen._restore(r)
-    assert screen._buy_inp.value() == 50
-    assert screen._sell_inp.value() == 80
-    assert screen._qty_inp.value() == 2
-    assert len(screen._history) == 1
-
-
-def test_simulador_history_chip_negative():
-    """_HistoryChip com pnl negativo mostra cor danger."""
-    from skinvault.ui.simulador_screen import _HistoryChip
-    from skinvault.ui import theme as t
-    snap = {"buy_price": 200, "sell_price": 100, "quantity": 1,
-            "pnl": -75}
-    chip = _HistoryChip(snap)
-    assert t.DANGER in chip.styleSheet()
-
-
-def test_simulador_history_chip_positive():
-    """_HistoryChip com pnl positivo mostra cor de lucro (POSITIVE verde)."""
-    from skinvault.ui.simulador_screen import _HistoryChip
-    from skinvault.ui import theme as t
-    snap = {"buy_price": 100, "sell_price": 200, "quantity": 1,
-            "pnl": 50}
-    chip = _HistoryChip(snap)
-    assert t.POSITIVE in chip.styleSheet()
-
-
-def test_account_screen_focus_filter():
-    """_focus_filter nao crasha (setFocus requer widget visivel)."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._filter_inp.setText("AK-47")
-    screen._focus_filter()
-    # setFocus pode nao funcionar sem show(), mas nao crasha
-
-
 def test_account_screen_reload_profile_no_session():
     """_reload_profile sem session mostra placeholder."""
     from skinvault.prices import PriceCache
@@ -3358,53 +3643,20 @@ def test_account_screen_on_eval_empty(monkeypatch):
     screen._on_eval({"rows": [], "totals": {}, "positions": []})
 
 
-def test_account_screen_on_eval_with_data():
-    """_on_eval com dados preenche tabela e stats."""
+def test_account_screen_nao_tem_mais_activity_feed():
+    """O feed saiu da tela de conta em 28/07/2026.
+
+    Tudo que ele mostrava ja' existia com mais contexto em outro lugar:
+    trades e eventos de mercado no Historico, alertas no log da Watchlist,
+    ranking na coluna DeltaPos do Scanner. Numa tela cujo objetivo e' o
+    inventario, ele custava metade da largura pra repetir informacao.
+
+    Se voltar, o lugar e' um dashboard -- nao esta tela.
+    """
     from skinvault.prices import PriceCache
     from skinvault.ui.account_screen import AccountScreen
     screen = AccountScreen(PriceCache(ttl=3600))
-    screen._on_eval({
-        "rows": [
-            {"name": "AK-47", "quantity": 2, "price": 100, "market": 200,
-             "net_if_sold": 170, "pnl": 30, "cost_total": 140},
-        ],
-        "totals": {"market": 200, "net_if_sold": 170, "pnl": 30},
-        "positions": [{"source": "steam_sync"}],
-    })
-    assert screen._stat_gross._value != "—"
-    assert screen._table.rowCount() == 1
-    assert screen._table.item(0, 0).text() == "AK-47"
-    assert screen._table.item(0, 6).text() == "Steam"  # origin
-
-
-def test_account_screen_apply_filter():
-    """_apply_filter esconde linhas que nao correspondem."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    import PyQt6.QtWidgets as qw
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._table.setSortingEnabled(False)
-    screen._table.insertRow(0)
-    screen._table.setItem(0, 0, qw.QTableWidgetItem("AK-47"))
-    screen._table.insertRow(1)
-    screen._table.setItem(1, 0, qw.QTableWidgetItem("AWP"))
-    screen._apply_filter("AK")
-    assert screen._table.isRowHidden(0) is False
-    assert screen._table.isRowHidden(1) is True
-
-
-def test_account_screen_reload_activity_populates_feed(monkeypatch):
-    """_reload_activity puxa eventos e atualiza o ActivityFeed."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    monkeypatch.setattr("skinvault.activity.load_recent_activity",
-                        lambda limit=10: [
-                            {"type": "trade", "ts": 1000, "title": "AK",
-                             "subtitle": "+50", "color": "green", "icon": "↑"},
-                        ])
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._reload_activity()
-    assert screen._activity_feed._list_lay.count() == 1
+    assert not hasattr(screen, "_activity_feed")
 
 
 def test_account_screen_reload_activity_swallows_exception(monkeypatch):
@@ -3874,71 +4126,94 @@ def test_sidebar_add_action_not_checkable():
 # ── LoginGate _on_connect ──────────────────────────────────────
 
 
-def test_login_gate_on_connect_cancelled(monkeypatch):
-    """Dialog cancelado nao emite session_connected."""
-    from PyQt6.QtWidgets import QDialog
+def test_login_gate_qr_visivel_sem_clique():
+    """As duas opcoes ficam lado a lado, como no login da Steam.
+
+    Nao existe mais botao "Conectar": esconder o QR atras de um clique era
+    um passo a mais pra a unica acao da tela.
+    """
     from skinvault.ui.login_gate import LoginGate
+    gate = LoginGate()
+    assert gate._qr_panel is not None
+    assert not hasattr(gate, "_connect_btn")
+    assert not hasattr(gate, "_stack")
 
-    class MockCancelDialog:
-        def exec(self):
-            return QDialog.DialogCode.Rejected
-        session = None
 
-    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
-                        lambda parent: MockCancelDialog())
+def test_login_gate_start_e_idempotente(monkeypatch):
+    """Reexibir a tela nao pode disparar uma segunda thread de poll."""
+    from skinvault.ui.login_gate import LoginGate
+    gate = LoginGate()
+    chamadas = []
+    monkeypatch.setattr("skinvault.steam_qr_auth.begin_session",
+                        lambda *a, **k: chamadas.append(1) or ("error", {}))
+    gate._qr_panel.start()
+    gate._qr_panel.start()
+    import time
+    time.sleep(0.2)
+    assert len(chamadas) <= 1, "segunda thread de poll foi criada"
+
+
+def test_login_gate_sessao_nula_nao_emite():
+    from skinvault.ui.login_gate import LoginGate
     gate = LoginGate()
     results = []
     gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_connect()
+    gate._on_session(None)
     assert results == []
 
 
 def test_login_gate_on_connect_incomplete_session(monkeypatch):
-    """Session incompleta mostra warning."""
-    from PyQt6.QtWidgets import QDialog, QMessageBox
+    """Session incompleta mostra warning e nao emite."""
+    from PyQt6.QtWidgets import QMessageBox
     from skinvault.steam_session import SteamSession
     from skinvault.ui.login_gate import LoginGate
 
-    class MockDialog:
-        def exec(self):
-            return QDialog.DialogCode.Accepted
-        session = SteamSession(steamid="", cookies={})
-
-    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
-                        lambda parent: MockDialog())
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **kw: None)
+    avisos = []
+    monkeypatch.setattr(QMessageBox, "warning",
+                        lambda *a, **kw: avisos.append(1))
     gate = LoginGate()
     results = []
     gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_connect()
+    gate._on_session(SteamSession(steamid="", cookies={}))
     assert results == []
+    assert avisos == [1]
 
 
 def test_login_gate_on_connect_success(monkeypatch):
     """Session valida persiste e emite."""
-    from PyQt6.QtWidgets import QDialog
     from skinvault.steam_session import SteamSession
     from skinvault.ui.login_gate import LoginGate
 
     sess = SteamSession(steamid="123", cookies={"steamLoginSecure": "tok"})
-
-    class MockDialog:
-        def exec(self):
-            return QDialog.DialogCode.Accepted
-        session = sess
-
     persist_calls = []
-    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
-                        lambda parent: MockDialog())
     monkeypatch.setattr("skinvault.steam_session.persist",
                         lambda s: persist_calls.append(s))
     gate = LoginGate()
     results = []
     gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_connect()
+    gate._on_session(sess)
     assert len(persist_calls) == 1
     assert len(results) == 1
     assert results[0].steamid == "123"
+
+
+def test_login_gate_botao_navegador_para_o_qr(monkeypatch):
+    """Pedir o navegador tem que interromper o poll do QR."""
+    from PyQt6.QtWidgets import QDialog
+    from skinvault.ui.login_gate import LoginGate
+
+    class MockDialog:
+        def exec(self):
+            return QDialog.DialogCode.Rejected
+        session = None
+
+    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
+                        lambda parent: MockDialog())
+    gate = LoginGate()
+    parou = []
+    monkeypatch.setattr(gate._qr_panel, "stop", lambda: parou.append(1))
+    gate._on_browser()
+    assert parou == [1], "o worker continuaria pollando em segundo plano"
 
 
 # ── HistoryScreen helpers ──────────────────────────────────
@@ -4211,7 +4486,32 @@ class TestHistoryScreen:
         from skinvault.ui.history_screen import HistoryScreen
         screen = HistoryScreen(PriceCache(ttl=3600))
         result = screen._fmt_ts(1_700_000_000)
-        assert "2023" in result or "2024" in result or "20" in result
+        # DD/MM/YY desde 2026-07-30, pra bater com _fmt_event_date: a
+        # coluna "Data" do segmento "Todos" tinha duas grafias, e o
+        # "%Y-%m-%d %H:%M" nem ordenava como data.
+        assert result == "14/11/23"
+
+    def test_fmt_ts_e_fmt_event_date_usam_o_mesmo_formato(self):
+        """Duas grafias na mesma coluna era o que fazia o historico parecer
+        desorganizado."""
+        import re
+        from skinvault.prices import PriceCache
+        from skinvault.ui.history_screen import HistoryScreen
+        screen = HistoryScreen(PriceCache(ttl=3600))
+        a = screen._fmt_ts(1_700_000_000)
+        b = screen._fmt_event_date({"date_str": "14 Nov, 2023"})
+        padrao = re.compile(r"^\d{2}/\d{2}/\d{2}$")
+        assert padrao.match(a), a
+        assert padrao.match(b), b
+
+    def test_data_do_historico_ordena_como_data(self):
+        """O formato antigo nao casava com sort_key_from_text, entao a
+        linha de trade ordenava como texto no meio das outras."""
+        from skinvault.prices import PriceCache
+        from skinvault.ui.components import sort_key_from_text
+        from skinvault.ui.history_screen import HistoryScreen
+        screen = HistoryScreen(PriceCache(ttl=3600))
+        assert sort_key_from_text(screen._fmt_ts(1_700_000_000)) is not None
 
     def test_fmt_source_steam(self):
         from skinvault.prices import PriceCache
@@ -4473,7 +4773,7 @@ class TestHistoryScreen:
                                       buy_date="2024-01-01")]
         screen._current_segment = "open"
         screen._on_update_prices()
-        assert "todos os precos" in screen._status.text()
+        assert "todos os preços" in screen._status.text()
 
     def test_on_prices_updated_refreshes_open(self, monkeypatch):
         """_on_prices_updated reativa botao e refresh se segmento open."""
@@ -5088,6 +5388,64 @@ def test_find_chrome_via_windows_path(monkeypatch):
     result = _find_chrome()
     assert result is not None
     assert "Program Files" in result or "LocalAppData" in result
+
+
+def _sem_browser_no_path(monkeypatch):
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+
+
+def test_find_chrome_aceita_edge(monkeypatch):
+    """Windows sem Chrome: Edge serve -- e' Chromium e fala CDP."""
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr("os.path.isfile", lambda p: "msedge.exe" in p)
+    result = _find_chrome()
+    assert result is not None and "msedge.exe" in result
+
+
+def test_find_chrome_aceita_vivaldi(monkeypatch):
+    """Sem Chrome nem Edge, Vivaldi resolve."""
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr("os.path.isfile", lambda p: "vivaldi.exe" in p)
+    result = _find_chrome()
+    assert result is not None and "vivaldi.exe" in result
+
+
+def test_find_chrome_aceita_brave(monkeypatch):
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr("os.path.isfile", lambda p: "brave.exe" in p)
+    result = _find_chrome()
+    assert result is not None and "brave.exe" in result
+
+
+def test_find_chrome_prefere_chrome_a_edge(monkeypatch):
+    """Com os dois instalados, Chrome ganha -- e' o mais testado aqui."""
+    from skinvault.steam_login_dialog import _find_chrome
+    _sem_browser_no_path(monkeypatch)
+    monkeypatch.setattr(
+        "os.path.isfile",
+        lambda p: "chrome.exe" in p or "msedge.exe" in p)
+    result = _find_chrome()
+    assert "chrome.exe" in result and "msedge.exe" not in result
+
+
+def test_find_chrome_edge_no_path(monkeypatch):
+    """msedge no PATH tambem vale."""
+    from skinvault.steam_login_dialog import _find_chrome
+    import subprocess as _sp
+
+    def run(args, *a, **kw):
+        if args[0] != "msedge":
+            raise FileNotFoundError()
+        return type("R", (), {"returncode": 0})()
+
+    monkeypatch.setattr("subprocess.run", run)
+    assert _find_chrome() == "msedge"
+    assert _sp is not None  # import usado so' pra manter o namespace real
 
 def test_show_manual_option(monkeypatch):
     """_show_manual_option inserts manual button and calls cleanup."""
@@ -5872,6 +6230,137 @@ def test_account_sem_rows_nao_grava_snapshot(monkeypatch):
     assert recorded == []
 
 
+# ── cartoes de desempenho: o denominador precisa se explicar ───────
+#
+# Bug de 30/07/2026: 31 posicoes, 2 com custo declarado. O cartao dizia
+# "Itens no lucro 0 de 2" e parecia que a carteira tinha 2 itens.
+
+
+def _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: None):
+    """Tela de conta avaliada com 3 posicoes, so' 1 com custo declarado."""
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [
+        {"name": "Comprado", "cost": 200.0, "quantity": 1, "source": "manual"},
+        {"name": "Sync A", "cost": 0.0, "quantity": 1, "source": "steam_sync"},
+        {"name": "Sync B", "cost": 0.0, "quantity": 1, "source": "steam_sync"},
+    ]
+    r = portfolio.evaluate_portfolio(posicoes, price_fn)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    return screen
+
+
+def test_cartao_lucro_diz_de_onde_vem_o_denominador(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._bd_profit_count._value.text() == "0 de 1"
+    # O que faltava: dizer que o "1" e' o recorte com custo, nao a carteira.
+    legenda = screen._bd_profit_count._delta.text()
+    assert "1" in legenda and "custo declarado" in legenda
+    # E o inventario inteiro continua contado em outro cartao.
+    assert screen._stat_items._value.text() == "3"
+
+
+def test_cartao_prejuizo_tem_a_mesma_legenda(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._bd_loss_count._value.text() == "0 de 1"
+    assert "custo declarado" in screen._bd_loss_count._delta.text()
+
+
+def test_total_investido_nao_zera_sem_cotacao(monkeypatch):
+    """Sem preco, o custo declarado continua existindo -- era R$ 0,00."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert "200" in screen._bd_invested._value.text()
+    legenda = screen._bd_invested._delta.text()
+    assert "1" in legenda and "3" in legenda
+
+
+def test_tooltip_conta_quantos_ficaram_de_fora(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    dica = screen._bd_profit_count.toolTip()
+    assert "1 de 3" in dica
+    assert "2" in dica and "sync" in dica.lower()
+
+
+def test_pnl_sem_preco_nao_manda_cadastrar_custo_ja_cadastrado(monkeypatch):
+    """P&L vazio por falta de cotacao != vazio por falta de custo."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._stat_pnl._value.text() == "—"
+    dica = screen._stat_pnl.toolTip()
+    assert "nao respondeu" in dica
+    assert "Nenhum dos" not in dica
+
+
+def test_pnl_sem_nenhum_custo_mantem_a_orientacao_antiga(monkeypatch):
+    """Sem custo nenhum, a dica certa continua sendo cadastrar o custo."""
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [{"name": "Sync A", "cost": 0.0, "quantity": 1,
+                 "source": "steam_sync"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: 100.0)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert "Nenhum dos 1 itens" in screen._stat_pnl.toolTip()
+    assert screen._bd_profit_count._value.text() == "—"
+    assert "nenhum" in screen._bd_profit_count._delta.text().lower()
+
+
+def test_sem_cotacao_valor_bruto_nao_vira_zero(monkeypatch):
+    """"Sem preco" nao e' "vale zero" -- e o delta do historico colado
+    nesse zero lia-se como variacao do numero exibido."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._stat_gross._value.text() == "—"
+    assert screen._stat_net._value.text() == "—"
+    # O delta pode trazer a legenda do motivo, mas nunca um PERCENTUAL:
+    # era o "+1,5% vs 04/06" do historico colado num zero de rate limit.
+    assert "%" not in screen._stat_gross._delta.text()
+    assert "respondeu" in screen._stat_gross.toolTip()
+
+
+def test_com_cotacao_o_valor_bruto_volta(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 100.0)
+    assert "300" in screen._stat_gross._value.text()
+
+
+def test_composicao_aparece_na_tela(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    grupos = screen._comp_chart._grupos
+    assert grupos, "cartao de composicao ficou vazio"
+    # Sem preco a barra mede contagem, e o rotulo precisa declarar isso.
+    assert "Quantidade" in screen._comp_lbl.text()
+
+
+def test_composicao_declara_quando_mede_valor(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 100.0)
+    assert "valor" in screen._comp_lbl.text().lower()
+
+
+def test_carteira_toda_com_custo_nao_ganha_legenda(monkeypatch):
+    """Sem posicao sem custo, a legenda nao acrescenta fato -- some."""
+    screen = _conta_com_custo_parcial(
+        monkeypatch, price_fn=lambda n: 100.0)
+    # troca pra uma carteira 100% declarada
+    from skinvault import portfolio
+    posicoes = [{"name": "A", "cost": 10.0, "quantity": 1, "source": "manual"},
+                {"name": "B", "cost": 20.0, "quantity": 1, "source": "manual"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: 100.0)
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert screen._bd_profit_count._value.text() == "2 de 2"
+    assert screen._bd_profit_count._delta.text() == ""
+    assert screen._bd_profit_count.toolTip() == ""
+
+
 def test_minisparkline_init():
     """MiniSparkline paints empty state."""
     from skinvault.ui.widgets import MiniSparkline
@@ -6146,7 +6635,12 @@ def test_paths_dev_branch():
     assert DATA_DIR.is_dir()
 
 def test_paths_frozen_branch():
-    """sys.frozen=True makes _paths use exec parent."""
+    """sys.frozen=True: BASE_DIR e' o exec parent, mas DATA_DIR NAO fica la'.
+
+    Dado ao lado do executavel some no rebuild do PyInstaller (dist/ e'
+    recriado) e Program Files nem e' gravavel. Congelado grava no perfil do
+    usuario; a pasta antiga vira LEGACY_DATA_DIR, so' pra migrar uma vez.
+    """
     import os
     import subprocess
     import sys
@@ -6155,15 +6649,20 @@ def test_paths_frozen_branch():
         "import importlib; "
         "import skinvault._paths; "
         "importlib.reload(skinvault._paths); "
-        "from skinvault._paths import BASE_DIR, DATA_DIR; "
+        "from skinvault._paths import BASE_DIR, DATA_DIR, LEGACY_DATA_DIR; "
         "assert BASE_DIR == type(BASE_DIR)(sys.executable).parent, f'{BASE_DIR} != {type(BASE_DIR)(sys.executable).parent}'; "
-        "assert DATA_DIR == BASE_DIR / 'data'; "
+        "assert DATA_DIR != BASE_DIR / 'data', f'DATA_DIR nao pode ficar junto do exe: {DATA_DIR}'; "
+        "assert LEGACY_DATA_DIR == BASE_DIR / 'data'; "
         "print('OK')"
     )
+    # Sem o override no env: com ele setado, DATA_DIR seria o override e o
+    # teste passaria sem exercitar o branch congelado.
+    env = {k: v for k, v in os.environ.items() if k != "SKINVAULT_DATA_DIR"}
     r = subprocess.run(
         [sys.executable, "-c", code],
         capture_output=True, text=True, timeout=15,
         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        env=env,
     )
     assert r.returncode == 0, f"stderr: {r.stderr}"
     assert r.stdout.strip() == "OK"
@@ -6279,6 +6778,90 @@ def test_settings_screen_reset(monkeypatch):
     assert saved
     assert saved[-1]["cache_ttl_hours"] == ss.DEFAULTS["cache_ttl_hours"]
     assert saved[-1]["fee_rate"] == ss.DEFAULTS["fee_rate"]
+
+
+# ── modo overlay na tela de Configuracoes ────────────────
+#
+# Ate' 29/07/2026 a opcao so' existia no menu de contexto da bandeja. Ela
+# muda o comportamento da JANELA (sempre no topo + sem roubar foco), e
+# ligada por engano o sintoma que aparece e' "o alt+tab parou de
+# funcionar", sem nada na UI apontando a causa.
+
+
+def test_overlay_aparece_nas_configuracoes(monkeypatch):
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    assert screen._overlay.isChecked() is False
+    assert "overlay" in screen._overlay.text().lower()
+
+
+def test_overlay_reflete_o_valor_salvo(monkeypatch):
+    """O usuario precisa CONSEGUIR VER que esta' ligado."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {"overlay_mode": True})
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    assert screen._overlay.isChecked() is True
+
+
+def test_overlay_tooltip_cita_o_alt_tab(monkeypatch):
+    """O sintoma pelo qual o usuario procura precisa estar escrito ali."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    assert "alt+tab" in screen._overlay.toolTip().lower()
+
+
+def test_overlay_usa_o_hook_da_janela(monkeypatch):
+    """set_overlay_mode ja' persiste E refaz as flags; passar pelo _set
+    gravaria duas vezes e nao reaplicaria nada."""
+    from PyQt6.QtWidgets import QWidget
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    gravou = []
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: gravou.append(s))
+    from skinvault.ui.settings_screen import SettingsScreen
+
+    chamadas = []
+
+    class FakeWin(QWidget):
+        def set_overlay_mode(self, v):
+            chamadas.append(v)
+
+    parent = FakeWin()
+    screen = SettingsScreen(parent)
+    screen._overlay.setChecked(True)
+    assert chamadas == [True]
+    assert gravou == []  # quem persiste e' a janela
+
+
+def test_overlay_sem_janela_persiste_sozinho(monkeypatch):
+    """Fora do MainWindow (testes, telas soltas) ainda tem que salvar."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    gravou = []
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: gravou.append(s))
+    from skinvault.ui.settings_screen import SettingsScreen
+    screen = SettingsScreen()
+    screen._overlay.setChecked(True)
+    assert gravou and gravou[-1]["overlay_mode"] is True
+
+
+def test_overlay_nao_dispara_ao_carregar(monkeypatch):
+    """_loading guarda contra salvar durante o preenchimento inicial."""
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {"overlay_mode": True})
+    gravou = []
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda s, *a, **kw: gravou.append(s))
+    from skinvault.ui.settings_screen import SettingsScreen
+    SettingsScreen()
+    assert gravou == []
 
 
 def test_settings_screen_theme_calls_window_hook(monkeypatch):
@@ -6567,6 +7150,82 @@ def test_mainwindow_init(monkeypatch):
     """MainWindow initializes without crashing."""
     win = _make_mw(monkeypatch)
     assert win.windowTitle() == "SkinVault"
+
+
+# ── barra lateral: rail <-> rotulos ────────────────────────────────
+
+
+def _mw_sidebar(monkeypatch):
+    """MainWindow com save_settings neutralizado.
+
+    O toggle persiste a preferencia; sem este mock o teste gravaria no
+    settings.json real do dono.
+    """
+    gravado = {}
+    monkeypatch.setattr("skinvault.gui.save_settings",
+                        lambda s: gravado.update(s))
+    return _make_mw(monkeypatch), gravado
+
+
+def test_sidebar_nasce_recolhida(monkeypatch):
+    """Rail e' o estado que o app sempre teve -- continua o default."""
+    win, _ = _mw_sidebar(monkeypatch)
+    assert win._sidebar_rail is True
+    assert win._sidebar.width() == 64
+
+
+def test_toggle_expande_com_rotulos(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    assert win._sidebar_rail is False
+    assert win._sidebar.width() == 220
+    # Rotulo visivel e' a diferenca entre os dois modos.
+    assert win._sidebar._items["account"].text() == "Minha Conta"
+
+
+def test_toggle_volta_pro_rail(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    win._toggle_sidebar()
+    assert win._sidebar_rail is True
+    assert win._sidebar.width() == 64
+    assert win._sidebar._items["account"].text() == ""
+
+
+def test_toggle_persiste_a_preferencia(monkeypatch):
+    win, gravado = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    assert gravado.get("sidebar_collapsed") is False
+
+
+def test_toggle_preserva_a_tela_selecionada(monkeypatch):
+    """Trocar de modo reconstroi a barra -- a selecao nao pode zerar."""
+    win, _ = _mw_sidebar(monkeypatch)
+    win._on_navigated("scanner")
+    win._toggle_sidebar()
+    assert win._sidebar._items["scanner"].isChecked() is True
+
+
+def test_toggle_preserva_a_sessao(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._on_session_changed("pedri", "76561198000000042")
+    win._toggle_sidebar()
+    assert win._sidebar._chip.isVisibleTo(win._sidebar) is True
+
+
+def test_largura_da_barra_nao_afeta_o_rail(monkeypatch):
+    """220px num rail so' produzia icone boiando no meio de uma barra
+    larga -- era o que a preferencia fazia antes do modo com rotulos."""
+    win, _ = _mw_sidebar(monkeypatch)
+    win._apply_sidebar_width(300)
+    assert win._sidebar.width() == 64
+
+
+def test_largura_da_barra_vale_quando_expandida(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    win._apply_sidebar_width(300)
+    assert win._sidebar.width() == 300
 
 
 def test_mainwindow_on_navigated(monkeypatch):
@@ -6943,6 +7602,38 @@ def test_steam_login_cleanup_rmtree_error(tmp_path, monkeypatch):
     assert dlg._user_data_dir is None  # linha apos o except
 
 
+class _FakeSignal:
+    """Stub de pyqtSignal pra FakeApp.aboutToQuit."""
+    def __init__(self):
+        self.slots = []
+    def connect(self, slot):
+        self.slots.append(slot)
+
+
+def _fake_guard(monkeypatch, acquired=True):
+    """Neutraliza o SingleInstance em testes de launch().
+
+    Sem isso cada teste abriria um named pipe de verdade e um dependeria da
+    ordem do outro. Devolve o guarda instanciado pra inspecao.
+    """
+    holder = {}
+
+    class FakeGuard:
+        def __init__(self):
+            self.callback = None
+            self.released = False
+            holder["guard"] = self
+        def try_acquire(self):
+            return acquired
+        def set_activate_callback(self, cb):
+            self.callback = cb
+        def release(self):
+            self.released = True
+
+    monkeypatch.setattr("skinvault.gui.SingleInstance", FakeGuard)
+    return holder
+
+
 def test_launch_start_minimized(monkeypatch):
     """launch() com start_minimized=True esconde a janela."""
     from skinvault._paths import DATA_DIR
@@ -6951,11 +7642,15 @@ def test_launch_start_minimized(monkeypatch):
     class FakeApp:
         exec_called = False
         def __init__(self, argv):
-            pass
+            self.aboutToQuit = _FakeSignal()
         def exec(self):
             FakeApp.exec_called = True
             return 0
         def setWindowIcon(self, *_a, **_kw):
+            pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
             pass
         @staticmethod
         def setAttribute(attr, val):
@@ -6965,6 +7660,7 @@ def test_launch_start_minimized(monkeypatch):
     monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings",
                         lambda: {"start_minimized": True})
+    _fake_guard(monkeypatch)
     hidden = []
     class FakeWin:
         _tray_icon = type("T", (), {})()
@@ -6972,6 +7668,8 @@ def test_launch_start_minimized(monkeypatch):
         def hide(self):
             hidden.append(True)
         def showMaximized(self):
+            pass
+        def activate(self):
             pass
     monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
     from skinvault.gui import launch
@@ -6988,10 +7686,14 @@ def test_launch_show_maximized(monkeypatch):
 
     class FakeApp:
         def __init__(self, argv):
-            pass
+            self.aboutToQuit = _FakeSignal()
         def exec(self):
             return 0
         def setWindowIcon(self, *_a, **_kw):
+            pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
             pass
         @staticmethod
         def setAttribute(attr, val):
@@ -7000,6 +7702,7 @@ def test_launch_show_maximized(monkeypatch):
     monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
     monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    _fake_guard(monkeypatch)
     shown = []
     class FakeWin:
         _tray_icon = None
@@ -7008,6 +7711,8 @@ def test_launch_show_maximized(monkeypatch):
             pass
         def showMaximized(self):
             shown.append(True)
+        def activate(self):
+            pass
     monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
     from skinvault.gui import launch
     result = launch()
@@ -7022,10 +7727,14 @@ def test_launch_login_mode_compact(monkeypatch):
 
     class FakeApp:
         def __init__(self, argv):
-            pass
+            self.aboutToQuit = _FakeSignal()
         def exec(self):
             return 0
         def setWindowIcon(self, *_a, **_kw):
+            pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
             pass
         @staticmethod
         def setAttribute(attr, val):
@@ -7034,6 +7743,7 @@ def test_launch_login_mode_compact(monkeypatch):
     monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
     monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    _fake_guard(monkeypatch)
     calls = {"show": 0, "max": 0}
     class FakeWin:
         _tray_icon = None
@@ -7044,12 +7754,213 @@ def test_launch_login_mode_compact(monkeypatch):
             calls["show"] += 1
         def showMaximized(self):
             calls["max"] += 1
+        def activate(self):
+            pass
     monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
     from skinvault.gui import launch
     result = launch()
     assert result == 0
     assert calls["show"] == 1
     assert calls["max"] == 0
+
+
+def test_launch_segunda_instancia_sai_sem_janela(monkeypatch):
+    """Com uma instancia viva, launch() sai 0 e nem constroi a MainWindow."""
+    from skinvault._paths import DATA_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    class FakeApp:
+        def __init__(self, argv):
+            self.aboutToQuit = _FakeSignal()
+        def exec(self):
+            raise AssertionError("nao deveria entrar no event loop")
+        def setWindowIcon(self, *_a, **_kw):
+            pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
+            pass
+        @staticmethod
+        def setAttribute(attr, val):
+            pass
+
+    monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
+    _fake_guard(monkeypatch, acquired=False)
+
+    def _boom():
+        raise AssertionError("MainWindow nao deveria ser construida")
+
+    monkeypatch.setattr("skinvault.gui.MainWindow", _boom)
+    from skinvault.gui import launch
+    assert launch() == 0
+
+
+def test_launch_liga_release_no_about_to_quit(monkeypatch):
+    """O guarda e' liberado quando o app encerra."""
+    from skinvault._paths import DATA_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    apps = []
+
+    class FakeApp:
+        def __init__(self, argv):
+            self.aboutToQuit = _FakeSignal()
+            apps.append(self)
+        def exec(self):
+            return 0
+        def setWindowIcon(self, *_a, **_kw):
+            pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
+            pass
+        @staticmethod
+        def setAttribute(attr, val):
+            pass
+
+    monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
+    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
+    holder = _fake_guard(monkeypatch)
+
+    class FakeWin:
+        _tray_icon = None
+        _login_mode = False
+        def hide(self):
+            pass
+        def showMaximized(self):
+            pass
+        def activate(self):
+            pass
+
+    win = FakeWin()
+    monkeypatch.setattr("skinvault.gui.MainWindow", lambda: win)
+    from skinvault.gui import launch
+    launch()
+
+    guard = holder["guard"]
+    # A janela e' quem sobe quando outra instancia bate na porta.
+    assert guard.callback == win.activate
+    assert guard.released is False
+    for slot in apps[-1].aboutToQuit.slots:
+        slot()
+    assert guard.released is True
+
+
+# ── avaliacao parcial nao entra no historico ──────────
+#
+# Em 11/06/2026 entrou um R$ 200,00 no history.json logo depois de um
+# R$ 979,42 completo -- era uma avaliacao com poucos itens precificados,
+# gravada como se fosse o valor da carteira. O cartao passou a exibir
+# "-79,6%": uma perda que nunca aconteceu.
+
+
+def _rows_com_preco(n_com, n_sem):
+    return ([{"name": f"C{i}", "price": 10.0} for i in range(n_com)]
+            + [{"name": f"S{i}", "price": None} for i in range(n_sem)])
+
+
+def test_avaliacao_completa_aceita_tudo_precificado():
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(10, 0)) is True
+
+
+def test_avaliacao_completa_tolera_poucos_sem_mercado():
+    """Item sem mercado existe de verdade; 100% travaria o grafico."""
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(19, 1)) is True
+
+
+def test_avaliacao_parcial_e_rejeitada():
+    from skinvault.ui.account_screen import AccountScreen
+    # o caso real: 7 de 31 com preco
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(7, 24)) is False
+
+
+def test_avaliacao_sem_nenhum_preco_e_rejeitada():
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa(_rows_com_preco(0, 31)) is False
+
+
+def test_avaliacao_vazia_e_rejeitada():
+    from skinvault.ui.account_screen import AccountScreen
+    assert AccountScreen._avaliacao_completa([]) is False
+
+
+# ── QMenu no tema escuro ──────────────────────────────
+#
+# QMenu e' popup (janela propria) e NAO herda o stylesheet do widget que o
+# abriu -- so' da raiz da cadeia. Ate' 2026-07-30 apenas o menu da bandeja
+# era estilizado, na mao, e os 6 QMenu das telas apareciam com o tema
+# CLARO do Qt: popup branco sobre app escuro, texto quase ilegivel.
+
+
+def test_mainwindow_estiliza_qmenu_globalmente(monkeypatch):
+    win = _make_mw(monkeypatch)
+    s = win.styleSheet()
+    assert "QMenu {" in s
+    assert "QMenu::item:selected" in s
+    assert "QMenu::separator" in s
+
+
+def test_menu_style_usa_tokens_do_tema():
+    """Cor fixa no lugar de token quebra o toggle de tema."""
+    from skinvault.ui import theme as t
+    s = t.menu_style()
+    assert t.BG_ELEVATED in s
+    assert t.TEXT in s
+    assert t.BORDER in s
+
+
+def test_menus_das_telas_nao_precisam_de_style_proprio(monkeypatch):
+    """Se uma tela voltar a setar style no proprio menu, a regra global
+    deixa de ser a fonte unica e o proximo menu novo nasce claro."""
+    win = _make_mw(monkeypatch)
+    r = win._router
+    for nome in ("_trades_screen", "_scanner_screen", "_history_screen"):
+        tela = getattr(r, nome, None)
+        menu = getattr(tela, "_more_menu", None) if tela else None
+        if menu is not None:
+            assert not menu.styleSheet(), nome
+
+
+def test_mainwindow_activate_visivel_nao_desmaximiza(monkeypatch):
+    """Janela visivel: activate() sobe o z-order sem chamar showNormal."""
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr(win, "isMinimized", lambda: False)
+    monkeypatch.setattr(win, "isVisible", lambda: True)
+    monkeypatch.setattr(win, "_restore_from_tray",
+                        lambda: calls.append("restore"))
+    monkeypatch.setattr(win, "raise_", lambda: calls.append("raise"))
+    monkeypatch.setattr(win, "activateWindow", lambda: calls.append("activate"))
+    win.activate()
+    assert calls == ["raise", "activate"]
+
+
+def test_mainwindow_activate_escondida_restaura(monkeypatch):
+    """Escondida na bandeja: activate() cai no caminho de restauracao."""
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr(win, "isMinimized", lambda: False)
+    monkeypatch.setattr(win, "isVisible", lambda: False)
+    monkeypatch.setattr(win, "_restore_from_tray",
+                        lambda: calls.append("restore"))
+    win.activate()
+    assert calls == ["restore"]
+
+
+def test_mainwindow_activate_minimizada_restaura(monkeypatch):
+    """Minimizada: mesmo caminho da bandeja."""
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr(win, "isMinimized", lambda: True)
+    monkeypatch.setattr(win, "isVisible", lambda: True)
+    monkeypatch.setattr(win, "_restore_from_tray",
+                        lambda: calls.append("restore"))
+    win.activate()
+    assert calls == ["restore"]
 
 
 # ── Validar score (AccountScreen) ────────
@@ -7181,57 +8092,6 @@ def _watchlist_row_by_name(screen, name):
         if cell and name in cell.text():
             return row
     return -1
-
-
-def test_account_tem_coluna_score():
-    """Tabela do AccountScreen tem 8 colunas com Score na ultima."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    assert screen._table.columnCount() == 8
-    assert screen.COL_SCORE == 7
-    hdr = screen._table.horizontalHeaderItem(7)
-    assert hdr.text() == "Score"
-
-
-def test_account_coluna_score_renderiza_valor():
-    """Position com current_score aparece na coluna como int."""
-    import time as _t
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
-             "net_if_sold": 85, "pnl": 10}]
-    positions = [{"name": "X", "cost": 90, "source": "manual",
-                  "current_score": 75, "score_ts": _t.time()}]
-    screen._populate_table(rows, positions)
-    assert screen._table.item(0, 7).text() == "75"
-
-
-def test_account_coluna_score_sem_valor_mostra_dash():
-    """Position sem current_score mostra '—'."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
-             "net_if_sold": 85, "pnl": 10}]
-    positions = [{"name": "X", "cost": 90, "source": "manual"}]
-    screen._populate_table(rows, positions)
-    assert screen._table.item(0, 7).text() == "—"
-
-
-def test_account_coluna_score_tooltip_age():
-    """Tooltip menciona idade do score."""
-    import time as _t
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    rows = [{"name": "X", "quantity": 1, "price": 100, "market": 100,
-             "net_if_sold": 85, "pnl": 10}]
-    positions = [{"name": "X", "cost": 90, "source": "manual",
-                  "current_score": 80, "score_ts": _t.time()}]
-    screen._populate_table(rows, positions)
-    assert "agora" in screen._table.item(0, 7).toolTip()
 
 
 def test_watchlist_tem_coluna_score():
@@ -7590,20 +8450,6 @@ def test_account_validating_guard_impede_concorrencia(monkeypatch):
     assert screen._validating
 
 
-def test_account_validating_flag_limpo_apos_finished(monkeypatch):
-    """_on_validate_finished limpa _validating."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
-    monkeypatch.setattr("skinvault.settings.load_settings",
-                        lambda: {"validate_interval_minutes": 30})
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._validating = True
-    screen._refresh_mode = True
-    screen._on_validate_finished()
-    assert not screen._validating
-
-
 # ── Modo overlay (fullscreen-friendly) ────────────────
 
 def test_overlay_mode_default_false(monkeypatch):
@@ -7734,16 +8580,191 @@ def test_spin_style_no_invalid_bi():
     assert "bi:" not in qss, "The invalid 'bi:' property was removed"
 
 
-def test_simulador_qspinbox_uses_spin_style():
-    """O QSpinBox de Quantidade no Simulador usa spin_style(), nao input_style()."""
-    from skinvault.ui.simulador_screen import SimuladorScreen
-    from PyQt6.QtWidgets import QSpinBox
-    screen = SimuladorScreen()
-    qty = screen.findChild(QSpinBox)
-    assert qty is not None, "SimuladorScreen deve ter um QSpinBox"
-    ss = qty.styleSheet()
-    assert ss != "", "QSpinBox deve ter styleSheet nao-vazio"
-    assert "up-button" in ss or "up-arrow" in ss, (
-        "styleSheet deve conter up-button/up-arrow de spin_style(), "
-        f"got: {ss[:200]}"
-    )
+
+
+# ── perfil: o cartao nao pode contradizer a faixa ──────────────────
+#
+# Bug visto em 31/07/2026: a faixa dizia "Conectado com Steam" e o cartao
+# logo abaixo dizia "Conecte sua conta para sincronizar", com nome "—" e
+# avatar "?". Sem perfil em cache, `_reload_profile` nao mexia nos rotulos
+# e eles ficavam no estado de deslogado.
+
+
+def _conta_com_sessao(monkeypatch, cached=None, remoto=None):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.ui.account_screen.load_cached_profile",
+                        lambda sid: cached)
+    monkeypatch.setattr("skinvault.ui.account_screen.fetch_public_profile",
+                        lambda sid: remoto)
+    monkeypatch.setattr("skinvault.ui.account_screen.load_avatar_bytes",
+                        lambda sid: None)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    sess = type("S", (), {"steamid": "76561198000000042"})()
+    screen._session = sess
+    screen._reload_profile()
+    return screen
+
+
+def test_sem_cache_mostra_o_steamid_e_nao_o_convite(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    assert "Conecte sua conta" not in screen._sub.text()
+    assert "76561198000000042" in screen._sub.text()
+
+
+def test_sem_cache_diz_que_esta_carregando(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    assert "Carregando" in screen._name.text()
+
+
+def test_perfil_que_falhou_admite_a_falha(monkeypatch):
+    """"Carregando" pra sempre e' pior que dizer que nao veio."""
+    screen = _conta_com_sessao(monkeypatch)
+    screen._on_profile({"steamid": "7656", "name": "", "_falhou": True})
+    assert "não carregou" in screen._name.text()
+
+
+def test_perfil_bom_mostra_o_apelido(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    screen._on_profile({"steamid": "7656", "name": "nokia"})
+    assert screen._name.text() == "nokia"
+
+
+def test_avatar_usa_a_inicial_no_lugar_do_interrogacao(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    screen._on_profile({"steamid": "7656", "name": "nokia"})
+    assert screen._avatar.text() == "N"
+
+
+def test_avatar_sem_nome_mantem_o_interrogacao(monkeypatch):
+    from skinvault.ui.components import Avatar
+    a = Avatar()
+    a.set_initials("")
+    assert a.text() == "?"
+
+
+def test_rodape_nao_promete_cache_vazio(monkeypatch):
+    """"Mostrando o que estava em cache" com a tela inteira em "—" promete
+    um dado que nao existe: sob 429 o cache pode estar vazio."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    screen._on_eval({"rows": [{"name": "A", "quantity": 1, "price": None,
+                               "has_cost": False}],
+                     "totals": {}, "positions": [], "rate_limited": True})
+    assert "não havia nada em cache" in screen._status.text()
+
+
+def test_rodape_conta_o_que_veio_do_cache(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    screen._on_eval({"rows": [{"name": "A", "quantity": 1, "price": 5.0,
+                               "market": 5.0, "has_cost": False}],
+                     "totals": {"market": 5.0}, "positions": [],
+                     "rate_limited": True})
+    assert "1 vieram do cache" in screen._status.text()
+
+
+def test_cartoes_de_valor_dizem_por_que_estao_vazios(monkeypatch):
+    """Tres cartoes em "—" lado a lado parecem tela quebrada, e ninguem
+    passa o mouse pra descobrir que o motivo e' a Steam."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert "Steam não respondeu" in screen._stat_gross._delta.text()
+    assert "Steam não respondeu" in screen._stat_net._delta.text()
+
+
+def test_valor_liquido_lembra_a_taxa(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 100.0)
+    assert "15%" in screen._stat_net._delta.text()
+
+
+# ── Market: autocomplete com os itens que o app ja' conhece ────────
+
+
+def _market(monkeypatch, nomes):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio",
+                        lambda *a, **k: [{"name": n} for n in nomes])
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist",
+                        lambda *a, **k: [])
+    return MarketScreen(PriceCache(ttl=3600))
+
+
+def test_market_sugere_itens_da_carteira(monkeypatch):
+    tela = _market(monkeypatch, ["AK-47 | Redline (Field-Tested)",
+                                 "Kilowatt Case"])
+    assert tela._completer.model().rowCount() == 2
+
+
+def test_market_acha_pelo_meio_do_nome(monkeypatch):
+    """O nome comeca pela ARMA -- match so' por prefixo nunca acharia
+    "redline"."""
+    tela = _market(monkeypatch, ["AK-47 | Redline (Field-Tested)"])
+    tela._completer.setCompletionPrefix("redline")
+    assert tela._completer.completionCount() == 1
+
+
+def test_market_ignora_maiuscula(monkeypatch):
+    tela = _market(monkeypatch, ["Kilowatt Case"])
+    tela._completer.setCompletionPrefix("KILOWATT")
+    assert tela._completer.completionCount() == 1
+
+
+def test_market_sem_itens_nao_instala_completer(monkeypatch):
+    tela = _market(monkeypatch, [])
+    assert getattr(tela, "_completer", None) is None
+
+
+def test_market_falha_de_leitura_nao_derruba_a_tela(monkeypatch):
+    """Autocomplete e' conveniencia: sem ele o campo continua aceitando o
+    nome digitado."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    def boom(*a, **k):
+        raise OSError("disco")
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", boom)
+    tela = MarketScreen(PriceCache(ttl=3600))
+    assert tela._search_inp is not None
+
+
+def test_pnl_vazio_tambem_diz_o_motivo(monkeypatch):
+    """Ele era o unico travessao mudo da fileira, entre dois vizinhos que
+    ja' diziam por que estavam vazios."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._stat_pnl._delta.text() != ""
+
+
+def test_pnl_com_valor_nao_carrega_legenda_de_vazio(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 500.0)
+    assert screen._stat_pnl._delta.text() == ""
+
+
+def test_cartao_de_caixas_lista_os_containers(monkeypatch):
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [{"name": "Kilowatt Case", "cost": 0.0, "quantity": 21,
+                 "source": "steam_sync"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: None)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert "Kilowatt Case" in screen._cx_lista.text()
+    assert "em drop" in screen._cx_lista.text()
+
+
+def test_cartao_de_caixas_sem_container(monkeypatch):
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [{"name": "AK-47 | Redline (Field-Tested)", "cost": 10.0,
+                 "quantity": 1, "source": "manual"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: None)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert "Nenhum container" in screen._cx_lista.text()

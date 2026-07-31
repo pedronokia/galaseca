@@ -9,6 +9,7 @@ callable sem argumentos e `icon` e' um nome de LineIcon (components).
 """
 from __future__ import annotations
 
+import unicodedata
 from typing import Callable
 
 from PyQt6.QtCore import Qt
@@ -31,6 +32,17 @@ from skinvault.ui.components import LineIcon
 
 
 # ── ranking fuzzy (puro) ──────────────────────────────────────
+def _dobra(s: str) -> str:
+    """minusculas SEM acento, pros dois lados da comparacao.
+
+    Rotulo em portugues tem acento ("Histórico", "Configurações") e o
+    teclado de quem busca nem sempre. Comparar cru fazia "historico" nao
+    achar "Histórico" -- o comando existia e a paleta dizia que nao.
+    """
+    sem = unicodedata.normalize("NFKD", s or "")
+    return "".join(c for c in sem if not unicodedata.combining(c)).lower()
+
+
 def _fuzzy_score(query: str, text: str) -> int | None:
     """Score de match de `query` em `text` (ambos lowercase).
 
@@ -73,12 +85,12 @@ def palette_rank(query: str, items: list[dict]) -> list[dict]:
     - sem match: item fica de fora.
     - empate de score: mantem a ordem original (estavel).
     """
-    q = (query or "").strip().lower()
+    q = _dobra((query or "").strip())
     if not q:
         return list(items)
     scored: list[tuple[int, int, dict]] = []
     for idx, item in enumerate(items):
-        label = (item.get("label") or "").lower()
+        label = _dobra(item.get("label") or "")
         score = _fuzzy_score(q, label)
         if score is not None:
             scored.append((score, idx, item))

@@ -54,6 +54,9 @@ WARN_TEXT   = "#D8C267"
 
 # Hover surface (row-hover, item:hover)
 SURFACE_HOV = "#3F3F3F"
+# Linha alternada da tabela. Era "#21212B" cravado no table_style() -- um
+# azulado que sobrou da paleta anterior e destoava do monocromatico.
+ROW_ALT     = "#1A1A1A"
 
 # Scrollbar (global, fina)
 SCROLL_THUMB    = "#383838"
@@ -107,10 +110,11 @@ def _reload_palette(theme: str) -> None:
     from skinvault.gui import THEMES as _T
     pal = _T.get(theme, _T["dark"])
     global BG, BG_ELEVATED, SURFACE, BORDER, TEXT, TEXT_MUTED
-    global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER
+    global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER, ROW_ALT
     BG = pal["bg"]
     BG_ELEVATED = pal["surface"]
     SURFACE = pal.get("surface2", pal["surface"])
+    ROW_ALT = "#F7F7F7" if theme == "light" else "#1A1A1A"
     TEXT = pal["text"]
     TEXT_MUTED = pal["muted"]
     BORDER = "#3A3A44" if theme == "light" else "#303030"
@@ -149,6 +153,32 @@ def brl(v: float | None) -> str:
 
 
 # ── Stylesheet helpers ───────────────────────────────────────
+def menu_style() -> str:
+    """Estilo de QMenu, aplicado UMA vez no stylesheet da janela.
+
+    Sem isto o QMenu herda o tema claro do Qt: popup branco sobre app
+    escuro, com o item selecionado em azul-sistema e texto quase
+    ilegivel. Ate' 2026-07-30 so' o menu da bandeja era estilizado, na
+    mao, e os 6 QMenu das telas (trades, scanner, history, market e os
+    dois de contexto de tabela) apareciam claros.
+
+    Como QMenu e' popup (janela propria), ele NAO herda o stylesheet do
+    widget pai -- por isso a regra tem que estar na QMainWindow, que e' a
+    raiz da cadeia de estilo pra todos os popups filhos dela.
+    """
+    return (
+        f"QMenu {{ background: {BG_ELEVATED}; color: {TEXT};"
+        f" border: 1px solid {BORDER}; border-radius: {RADIUS_MD}px;"
+        f" padding: 4px; }}"
+        f"QMenu::item {{ padding: 7px 22px; border-radius: 6px;"
+        f" margin: 1px 4px; }}"
+        f"QMenu::item:selected {{ background: {SURFACE}; color: {TEXT}; }}"
+        f"QMenu::item:disabled {{ color: {TEXT_MUTED}; }}"
+        f"QMenu::separator {{ height: 1px; background: {BORDER};"
+        f" margin: 4px 8px; }}"
+    )
+
+
 def input_style() -> str:
     return (
         f"QLineEdit, QDoubleSpinBox, QSpinBox"
@@ -312,11 +342,15 @@ def checkbox_style() -> str:
 def table_style() -> str:
     return (
         f"QTableWidget {{ background: {BG_ELEVATED};"
-        f" alternate-background-color: #21212B;"
+        f" alternate-background-color: {ROW_ALT};"
         f" gridline-color: transparent; border: 1px solid {BORDER};"
         f" border-radius: 10px; color: {TEXT}; font-size: {FS_BODY};"
         f" font-family: {FONT_FAMILY}; }}"
         f"QTableWidget::item {{ padding: 8px 12px; }}"
+        # O QHeaderView em si, nao so' a secao: a faixa do cabecalho DEPOIS
+        # da ultima coluna cai na paleta do sistema (branca no Windows).
+        # So' nao aparecia porque uma coluna esticava e nunca sobrava faixa.
+        f"QHeaderView {{ background: {BG_ELEVATED}; border: none; }}"
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER};"
@@ -335,6 +369,86 @@ def table_style() -> str:
         f" color: {TEXT}; }}"
         f"QTableView::item:selected:hover {{ background: {ACCENT_HOV}; }}"
     )
+
+
+def tooltip_style() -> str:
+    """Estilo do QToolTip, aplicado no QApplication inteiro.
+
+    Sem isso o tooltip cai na paleta do sistema: no Windows sai com fundo
+    claro, e como o texto herda a cor clara do tema escuro o resultado e'
+    quase invisivel. E' o tooltip que carrega a informacao mais densa do
+    app -- as cotacoes de todas as plataformas do item ficam ali.
+
+    `border` explicito porque sem borda o balao se funde com o conteudo
+    de tras quando o fundo atras tambem e' escuro.
+    """
+    return (
+        f"QToolTip {{ background: {BG_ELEVATED}; color: {TEXT};"
+        f" border: 1px solid {BORDER}; border-radius: {RADIUS_SM}px;"
+        f" padding: 6px 8px; font-size: {FS_MUTED};"
+        f" font-family: {FONT_FAMILY}; }}"
+    )
+
+
+def messagebox_style() -> str:
+    """Estilo do QMessageBox, tambem so' alcancavel pelo app-stylesheet.
+
+    Medido em 30/07/2026: o dialogo saia #FFFFFF puro dentro do tema
+    escuro. Sao 47 pontos de chamada -- "Sobre", confirmacoes de exclusao,
+    erros de sync -- e todos piscavam branco.
+
+    Os botoes precisam de regra propria: dentro do QMessageBox eles nao
+    herdam o btn_secondary() que o resto do app aplica widget a widget.
+    """
+    return (
+        f"QMessageBox {{ background: {BG_ELEVATED}; }}"
+        f"QMessageBox QLabel {{ color: {TEXT}; background: transparent;"
+        f" font-size: {FS_BODY}; font-family: {FONT_FAMILY}; }}"
+        f"QMessageBox QPushButton {{ color: {TEXT};"
+        f" background: {SURFACE}; border: 1px solid {BORDER};"
+        f" border-radius: {RADIUS_SM}px; padding: 6px 18px;"
+        f" min-width: 72px; font-size: {FS_BODY};"
+        f" font-family: {FONT_FAMILY}; }}"
+        f"QMessageBox QPushButton:hover {{ background: {SURFACE_HOV}; }}"
+        f"QMessageBox QPushButton:focus {{ border: 1px solid {TEXT_MUTED}; }}"
+    )
+
+
+def scrollbar_style() -> str:
+    """Barras de rolagem, em todo canto que rola.
+
+    Sem regra elas saem no cinza claro do Windows -- uma faixa clara na
+    borda de cada tabela do tema escuro. Nao dava pra resolver junto com
+    `table_style()` porque a barra aparece tambem em QScrollArea, na grade
+    do inventario e nas telas de configuracao.
+
+    Sem setas: o botao de seta do Windows nao aceita cor por stylesheet e
+    ficava como dois quadrados claros nas pontas.
+    """
+    return (
+        "QScrollBar:vertical { background: transparent; width: 10px;"
+        " margin: 0; }"
+        "QScrollBar:horizontal { background: transparent; height: 10px;"
+        " margin: 0; }"
+        f"QScrollBar::handle {{ background: {SURFACE_HOV};"
+        " border-radius: 5px; min-height: 28px; min-width: 28px; }}"
+        f"QScrollBar::handle:hover {{ background: {TEXT_MUTED}; }}"
+        "QScrollBar::add-line, QScrollBar::sub-line { height: 0; width: 0;"
+        " border: none; background: none; }"
+        "QScrollBar::add-page, QScrollBar::sub-page { background: none; }"
+    )
+
+
+def app_style() -> str:
+    """Stylesheet aplicado no QApplication inteiro.
+
+    Entra aqui o que nao da' pra resolver widget a widget: o que abre em
+    janela propria (tooltip, message box), fora do alcance do stylesheet
+    do dono, e o cromo que aparece em toda tela (barra de rolagem).
+    Estilo de UMA tela continua indo no widget dela -- jogar tudo aqui
+    faria uma regra de canto vazar pro app inteiro.
+    """
+    return tooltip_style() + messagebox_style() + scrollbar_style()
 
 
 def card_style(radius: int = 10) -> str:

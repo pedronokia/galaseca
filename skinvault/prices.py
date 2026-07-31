@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from skinvault import steam_api
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 
 _TTL_SECONDS = 6 * 3600
 _NEG_TTL_SECONDS = 60 * 60  # 1h pra entries "sem preco" (None cacheado)
@@ -43,8 +43,7 @@ class PriceCache:
 
     def _save(self) -> None:
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(json.dumps(self._data), encoding="utf-8")
+            atomic_write_text(self.path, json.dumps(self._data))
         except OSError as e:
             print(f"WARNING: failed to save price cache: {e}",
                   file=__import__('sys').stderr)
@@ -87,30 +86,60 @@ class PriceCache:
         return now - entry.get("ts", now)
 
 
-def _fetch_with_backoff(name: str, retries: int = 3) -> float | None:
-    """Tenta o preco com recuo exponencial -- cobre o 429 (rate-limit).
-    Limitacao conhecida (v1): nao distingue 429 de 'item sem preco', entao
-    item sem mercado consome as tentativas. Bom o bastante por enquanto."""
+def fetch_price_status(name: str,
+                       retries: int = 3) -> "tuple[str, float | None]":
+    """(status, preco) com recuo exponencial. status em {ok, rate_limited, error}.
+
+    A v1 nao distinguia 429 de 'item sem preco' e dormia 2+4+8s em qualquer
+    falha. Medido em 2026-07-29 com o priceoverview bloqueado: 24 itens sem
+    cache = 336s (5,6 min) antes de a tela mostrar qualquer coisa.
+
+    Agora o recuo e' so' pro 429, que e' o unico caso em que esperar ajuda.
+    Item sem mercado desiste na primeira tentativa -- insistir nele nunca
+    fez sentido, so' herdou o mesmo laco.
+    """
     delay = 2.0
-    for _ in range(retries):
-        price = steam_api.get_market_price(name)
-        if price is not None:
-            return price
-        time.sleep(delay)
-        delay *= 2
-    return None
+    for tentativa in range(retries):
+        status, price = steam_api.get_market_price_status(name)
+        if status != steam_api.PRICE_RATE_LIMITED:
+            return status, price  # ok / sem mercado / erro: repetir nao muda
+        if tentativa < retries - 1:
+            time.sleep(delay)
+            delay *= 2
+    return steam_api.PRICE_RATE_LIMITED, None
+
+
+def _fetch_with_backoff(name: str, retries: int = 3) -> float | None:
+    """Wrapper retrocompativel de `fetch_price_status`."""
+    return fetch_price_status(name, retries=retries)[1]
+
+
+def cached_price_status(name: str,
+                        cache: "PriceCache | None" = None,
+                        ) -> "tuple[str, float | None]":
+    """(status, preco) com cache. Hit devolve status `ok`/`no_price`.
+
+    Só grava no cache o que é fato sobre o ITEM. Antes, qualquer falha
+    virava entry negativa com TTL de 1h -- então um episódio de rate limit
+    marcava o portfolio inteiro como "sem preço" e ele continuava sumido
+    por uma hora depois de a Steam liberar.
+    """
+    cache = cache or PriceCache()
+    if cache.has(name):
+        preco = cache.get(name)
+        return (steam_api.PRICE_OK if preco is not None
+                else steam_api.PRICE_NO_PRICE), preco
+    status, preco = fetch_price_status(name)
+    if status in steam_api.PRICE_CACHEABLE:
+        cache.put(name, preco)
+    return status, preco
 
 
 def cached_price(name: str, cache: "PriceCache | None" = None) -> float | None:
     """Preco de UM item usando cache (so' bate na rede em miss). Reuso pro
     portfolio, que tem poucos itens. Itens sem preco no Steam tambem sao
     cacheados (TTL curto) para evitar re-fetch a cada startup."""
-    cache = cache or PriceCache()
-    if cache.has(name):
-        return cache.get(name)
-    price = _fetch_with_backoff(name)
-    cache.put(name, price)
-    return price
+    return cached_price_status(name, cache)[1]
 
 
 def value_inventory(

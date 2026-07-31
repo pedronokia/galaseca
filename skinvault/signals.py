@@ -11,7 +11,9 @@ import time
 from datetime import date
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 
 # EXPERIMENT 2026-06-08: vintage bonus — V4 APROVADO (Spearman criterion).
 # Trajetoria:
@@ -31,7 +33,27 @@ from skinvault._paths import DATA_DIR
 # 2/2 universos containers passam Sp >= 0.002. Bucket 85+ avg dentro
 # tolerancia (cai < 2pp em qualquer universo).
 # Detalhes: memory/vintage-v4-aprovado.md
-_VINTAGE_BONUS_ENABLED = True
+#
+# 2026-07-29: V4 DESLIGADO. A aprovacao acima media lookahead.
+# `enhanced_score` calculava a idade como `date.today().year - year`, sem
+# olhar o instante simulado -- entao TODA amostra de uma caixa de 2013
+# recebia o bonus, inclusive as de 2013, quando ela tinha 0 anos. O fator
+# virava uma constante por item, e o IC dele media "caixas lancadas ha'
+# muito tempo se sairam bem", sabendo de antemao quais eram.
+# Com `now_ts` passado pelo backtest (idade real no momento da amostra),
+# medido em 41 caixas com serie diaria completa:
+#   90d  -> Spearman -0.0002, Pearson -0.0031
+#   365d -> Spearman -0.0080, Pearson -0.0067
+# Nenhum passa o criterio de Sp >= +0.002; em 365d atrapalha claramente.
+# Bate com o estudo de coortes do mesmo dia (AGENTS.md 4c): dentro das
+# aposentadas, Spearman(idade, retorno) = -0.762. Premiar idade e' premiar
+# a ponta que DECAI -- o ganho esta' na aposentadoria recente, nao na
+# antiguidade.
+# RESSALVA: reavaliado so' em CAIXAS. A aprovacao do v4 exigia 2/2
+# universos (caixas + capsulas) e nao ha' serie de capsula em cache pra
+# refazer o teste. Como o vies era estrutural e atingia todo universo
+# igualmente, o +0.0031 das capsulas tambem esta' sob suspeita.
+_VINTAGE_BONUS_ENABLED = False
 _VINTAGE_AGE_YEARS = 8
 _VINTAGE_BONUS = 2
 
@@ -59,19 +81,54 @@ _DEFAULT_PATH = DATA_DIR / "item_history.json"
 _VOLUME_PATH = DATA_DIR / "volume_history.json"
 _SUPPLY_PATH = DATA_DIR / "supply_history.json"
 
-# Casos/containers notoriamente descontinuados (fonte: csgobackpack, community).
-# NUNCA afirme "vai valorizar" por estar aqui.
-_DISCONTINUED_NAMES = [
-    "CS:GO Weapon Case", "CS:GO Weapon Case 2", "CS:GO Weapon Case 3",
-    "Operation Bravo Case", "Operation Phoenix Case", "Operation Breakout Case",
-    "Operation Vanguard Case", "Operation Falchion Case", "Operation Shadow Case",
-    "Operation Wildfire Case", "Operation Bloodhound Case", "Operation Hydra Case",
-    "Operation Shattered Web Case", "Operation Broken Fang Case",
-    "Clutch Case", "Fracture Case", "Prisma Case", "Prisma 2 Case",
-    "Revolver Case", "Spectrum Case", "Spectrum 2 Case",
-    "Winter Offensive Case", "ESL One Cologne 2014", "ESL One Cologne 2015",
-    "EMS One 2014",
-]
+# _DISCONTINUED_NAMES removida em 2026-07-29. Era uma lista escrita a mao,
+# paralela ao catalogo de cases.py, e estava majoritariamente errada:
+# 11 das 25 entradas nao casavam com caixa nenhuma ("Operation Phoenix
+# Case" em vez de "...Weapon Case", "Operation Falchion Case" em vez de
+# "Falchion Case", etc.), e 22 das 36 caixas descontinuadas reais passavam
+# despercebidas -- 61% de falha, em silencio.
+# A fonte da verdade agora e' cases.case_status(), cujos nomes foram
+# verificados um a um contra a listing page da Steam.
+
+# EXPERIMENT 2026-07-30: nivel de preco absoluto.
+# Medido em 84 itens / 7541 amostras / 365d, cross-sectional por data
+# (AGENTS.md 4d): IC do preco absoluto = -0.2635 no geral, -0.3036 em
+# caixas, -0.0415 em skins. Negativo em 80% das janelas de 90d.
+# Mediana do retorno 365d por faixa: R$0-1 +73.0%, R$1-5 +41.1%,
+# R$5-20 +44.0%, R$20-100 +27.4%, R$100-500 +18.7%, R$500+ +8.7%.
+# O score nunca viu preco absoluto -- foi o que produziu o anti-padrao do
+# Clutch Case (memory/clutch-case-falling-knife).
+# Faixas em escala log, que e' onde o efeito e' ~linear.
+# APROVADO em 2026-07-30, CONTAINERS-ONLY. Medido ON x OFF, 153 itens:
+#   CAIXAS  90d  Sp +0.0052 / Pe +0.0087   passa
+#   CAIXAS 365d  Sp +0.0222 / Pe +0.0160   passa (o maior delta ja' medido)
+#   SKINS   90d  Sp -0.0130               REPROVA
+#   SKINS  365d  Sp +0.0007               abaixo do criterio
+# 2/2 nos universos de container, igual ao criterio do vintage v4. Em
+# skins o fator ATRAPALHA, o que bate com o IC (-0.30 caixas x -0.04
+# skins) -- dai' o filtro `is_container`, mesmo padrao do vintage.
+_PRICE_LEVEL_ENABLED = True
+_PRICE_LEVEL_BANDS = (
+    (5.0, 4, "abaixo de R$ 5"),
+    (50.0, 2, "entre R$ 5 e 50"),
+    (200.0, 0, "entre R$ 50 e 200"),
+    (float("inf"), -4, "acima de R$ 200"),
+)
+
+
+def price_level_band(price: "float | None") -> "tuple[int, str] | None":
+    """(delta, rotulo) da faixa de preco. None se nao ha' preco.
+
+    Publica pra a UI poder mostrar a faixa mesmo com o fator desligado --
+    mesmo padrao do `pump_risk`, que virou coluna antes de virar score.
+    """
+    if price is None or price <= 0:
+        return None
+    for teto, delta, rotulo in _PRICE_LEVEL_BANDS:
+        if price < teto:
+            return delta, rotulo
+    return None
+
 
 _MIN_VOLUME_LIQUID = 50
 
@@ -80,17 +137,15 @@ def record_item_price(name: str, price: float,
                       path: Path | str = _DEFAULT_PATH) -> None:
     """Registra um snapshot de preco pro item. Cap em 100 entradas."""
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else {}
-    except Exception:
+    data = load_json_record(p, {})
+    if not isinstance(data, dict):
         data = {}
     entry = data.setdefault(name, [])
     entry.append({"ts": time.time(), "price": price})
     if len(entry) > 100:
         entry[:] = entry[-100:]
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data), encoding="utf-8")
+        atomic_write_text(p, json.dumps(data))
     except OSError as e:
         print(f"WARNING: failed to save item history: {e}", file=sys.stderr)
 
@@ -99,35 +154,31 @@ def load_item_history(name: str,
                       path: Path | str = _DEFAULT_PATH) -> list[dict]:
     """Retorna a serie [{ts, price}] do item."""
     p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8")) if p.exists() else {}
-    except Exception:
+    data = load_json_record(p, {})
+    if not isinstance(data, dict):
         data = {}
     return data.get(name, [])
 
 
 def _record_metric(name: str, value: float, path: Path) -> None:
     """Registra um snapshot de metrica (volume/supply). Cap em 100 entradas."""
-    try:
-        data = json.loads(path.read_text("utf-8")) if path.exists() else {}
-    except Exception:
+    data = load_json_record(path, {})
+    if not isinstance(data, dict):
         data = {}
     entry = data.setdefault(name, [])
     entry.append({"ts": time.time(), "value": value})
     if len(entry) > 200:
         entry[:] = entry[-200:]
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data), encoding="utf-8")
+        atomic_write_text(path, json.dumps(data))
     except OSError as e:
         print(f"WARNING: failed to save metric: {e}", file=sys.stderr)
 
 
 def _load_metric_history(name: str, path: Path) -> list[dict]:
     """Retorna a serie [{ts, value}] de uma metrica."""
-    try:
-        data = json.loads(path.read_text("utf-8")) if path.exists() else {}
-    except Exception:
+    data = load_json_record(path, {})
+    if not isinstance(data, dict):
         data = {}
     return data.get(name, [])
 
@@ -294,6 +345,80 @@ def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> 
         }
 
     return result
+
+
+def daily_series(price_history: list[dict], days: int | None = None,
+                 now: float | None = None) -> list[dict]:
+    """Agrega o price_history em UM ponto por dia (UTC).
+
+    Existe porque a Steam serve granularidade MISTA: diaria no historico
+    antigo e HORARIA nos ultimos ~28 dias. Medido em 2026-07-28 na serie da
+    AK-47 Redline FT: 4510 intervalos de 86400s contra 641 de 3600s, em
+    5188 pontos. A transicao comecou em 28/06/2026.
+
+    O efeito e' que fatia por contagem mente: `[-15:]` cobre 15 dias na
+    regiao antiga e 15 HORAS na recente. E somar volume direto compara
+    hora com dia (mediana de `purchases`: 605 nos pontos diarios, 3 nos
+    horarios).
+
+    Cada dia vira {time, price_median, purchases}, com preco ponderado por
+    volume quando ha' `purchases` -- que e' o preco medio real das
+    transacoes do dia -- e media simples quando nao ha'.
+
+    Entries sem `time` sao ignorados; use `recent_prices()` quando o
+    historico puder vir sem timestamp.
+    """
+    if not price_history:
+        return []
+    baldes: dict = {}
+    for e in price_history:
+        t = e.get("time")
+        preco = e.get("price_median")
+        if t is None or preco is None:
+            continue
+        try:
+            dia = int(float(t) // 86400)
+        except (TypeError, ValueError):
+            continue
+        try:
+            vol = int(e.get("purchases") or 0)
+        except (TypeError, ValueError):
+            vol = 0
+        b = baldes.setdefault(dia, {"soma_pv": 0.0, "vol": 0,
+                                    "soma_p": 0.0, "n": 0})
+        b["soma_pv"] += float(preco) * vol
+        b["vol"] += vol
+        b["soma_p"] += float(preco)
+        b["n"] += 1
+
+    out = []
+    for dia in sorted(baldes):
+        b = baldes[dia]
+        preco = (b["soma_pv"] / b["vol"]) if b["vol"] else (b["soma_p"] / b["n"])
+        out.append({"time": dia * 86400,
+                    "price_median": preco,
+                    "purchases": b["vol"]})
+    if days is not None and days > 0:
+        ref = now if now is not None else (out[-1]["time"] if out else 0)
+        corte = ref - days * 86400
+        out = [d for d in out if d["time"] > corte]
+    return out
+
+
+def recent_prices(price_history: list[dict], days: int = 15,
+                  now: float | None = None) -> list[float]:
+    """Precos recentes respeitando TEMPO, com fallback por contagem.
+
+    Com `time` nos entries, agrega por dia e devolve os ultimos `days`.
+    Sem `time` (historico sintetico ou legado), cai pro comportamento
+    historico -- ultimos `days` pontos -- pra nao quebrar quem passa serie
+    crua sem timestamp.
+    """
+    diario = daily_series(price_history, days=days, now=now)
+    if diario:
+        return [d["price_median"] for d in diario]
+    return [e["price_median"] for e in price_history[-days:]
+            if e.get("price_median") is not None]
 
 
 def sma(values: list[float], period: int = 7) -> list[float | None]:
@@ -631,6 +756,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                    case_status: dict | None = None,
                    is_container: bool = False,
                    volume_history: list[dict] | None = None,
+                   now_ts: float | None = None,
                    ) -> tuple[int, list[dict]]:
     """Score 0-100 + breakdown com contribuicao de cada fator.
 
@@ -641,6 +767,14 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     is_container: usado pelo vintage bonus (V4, aprovado em 2026-06-08)
     quando a caixa eh descontinuada ha >= 8 anos. rel_ath aplica
     universal desde 2026-06-07, entao nao depende mais de is_container.
+
+    now_ts: instante de referencia pra IDADE do container. Default None =
+    agora, que e' o certo ao vivo. O backtest precisa passar o timestamp da
+    amostra: sem isso a idade era sempre "hoje menos o ano de lancamento",
+    entao uma amostra de 2013 numa caixa de 2013 recebia o bonus de
+    vintage como se ela ja' tivesse 13 anos (medido em 2026-07-29). O
+    fator virava uma constante por item, e o IC dele media conhecimento do
+    futuro.
     """
     score = 50.0
     breakdown: list[dict] = []
@@ -730,9 +864,16 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                 _add("drawdown", 5,
                      f"DD profundo {dd_pct:.0f}% + recuperacao (+5)")
 
-    # Momentum: preco atual vs media dos ultimos 15 pontos
+    # Momentum: preco atual vs media dos ultimos 15 DIAS.
+    # Era `price_history[-15:]` -- 15 pontos. Funcionava enquanto a Steam
+    # servia so' dado diario; com pontos horarios nos ultimos ~28 dias
+    # virou "media das ultimas 15 horas" em silencio. recent_prices()
+    # agrega por dia quando ha' timestamp e mantem o corte por contagem
+    # quando nao ha'.
     if price_history and len(price_history) >= 10:
-        prices_m = [e["price_median"] for e in price_history[-15:]]
+        prices_m = recent_prices(price_history, days=15)
+        if not prices_m:
+            prices_m = [e["price_median"] for e in price_history[-15:]]
         mean_recent = sum(prices_m) / len(prices_m)
         last_p = prices_m[-1]
         if last_p > mean_recent * 1.02:
@@ -780,6 +921,21 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                 _add("rel_ath", -10,
                      f"{pct:.0%} do ATH (topo histórico) (-10)")
 
+    # Nivel de preco absoluto (2026-07-30). O preco vem do ULTIMO ponto do
+    # prefixo, entao no backtest e' o preco no instante simulado -- sem
+    # lookahead, ao contrario do que acontecia com a idade do vintage.
+    if _PRICE_LEVEL_ENABLED and is_container and price_history:
+        try:
+            preco_atual = sorted(
+                price_history, key=lambda e: e["time"])[-1]["price_median"]
+        except (KeyError, IndexError, TypeError):
+            preco_atual = None
+        faixa = price_level_band(preco_atual)
+        if faixa and faixa[0]:
+            delta, rotulo = faixa
+            _add("price_level", delta,
+                 f"Preço {rotulo} ({delta:+d})")
+
     # Caixa descontinuada / rara (F7)
     if case_status:
         if case_status.get("is_discontinued"):
@@ -796,7 +952,9 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                 and case_status.get("is_discontinued")):
             year = case_status.get("year")
             if year:
-                age = date.today().year - year
+                ano_ref = (date.today().year if now_ts is None
+                           else time.localtime(now_ts).tm_year)
+                age = ano_ref - year
                 if age >= _VINTAGE_AGE_YEARS:
                     score += _VINTAGE_BONUS
                     breakdown.append({
@@ -883,14 +1041,33 @@ def score_age_text(score_ts: float | None) -> str:
 
 
 def discontinued_flag(name: str) -> dict:
-    """Sinal de oferta: item pode ser descontinuado (caixa antiga).
+    """Sinal de oferta: o item E' um container descontinuado.
 
-    Retorna {is_discontinued, flag}. Apenas informativo."""
-    lower = name.lower()
-    for known in _DISCONTINUED_NAMES:
-        if known.lower() in lower:
-            return {
-                "is_discontinued": True,
-                "flag": "Caixa descontinuada — oferta nao cresce mais",
-            }
+    Retorna {is_discontinued, flag}. Apenas informativo.
+
+    Dispara so' quando o proprio item e' o container. `case_status` tambem
+    resolve SKIN -> caixa de origem, e usar isso aqui marcaria toda skin de
+    caixa antiga como "descontinuada" -- outra afirmacao, que mudaria o
+    significado do sinal.
+    """
+    alvo = (name or "").strip().lower()
+    if not alvo:
+        return {"is_discontinued": False, "flag": ""}
+    from skinvault import cases
+    # `case_status` casa por nome exato; canonicaliza antes pra "clutch case"
+    # continuar valendo, como valia com o match case-insensitive antigo.
+    canonico = name
+    for catalogo in (cases._CASES, cases._CAPSULES,
+                     cases._AUTOGRAPH_CAPSULES):
+        achado = next((k for k in catalogo if k.lower() == alvo), None)
+        if achado:
+            canonico = achado
+            break
+    st = cases.case_status(canonico)
+    container = (st.get("case") or "").strip().lower()
+    if st.get("is_discontinued") and container == canonico.strip().lower():
+        return {
+            "is_discontinued": True,
+            "flag": "Caixa descontinuada — oferta nao cresce mais",
+        }
     return {"is_discontinued": False, "flag": ""}

@@ -6,7 +6,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.settings import load_settings
 
 _BACKUP_DIR = DATA_DIR / "backups"
@@ -33,6 +33,15 @@ _DATA_FILES = [
     # Watcher de arquivos do jogo (gamedata.py)
     "gamedata_state.json",
     "gamedata_events.json",
+    # Caches de dados da Steam. Sao regeneraveis em teoria, mas na pratica
+    # custam horas: os endpoints sao agressivamente rate-limited (medido em
+    # 2026-07-28, bloqueio de dezenas de minutos). Reconstruir do zero e'
+    # bem mais caro que carregar no backup.
+    "ssr_cache.json",
+    "discovery_cache.json",
+    # Precos de mercado fora da Steam + cambio (markets.py)
+    "market_prices.json",
+    "fx_rate.json",
 ]
 
 
@@ -115,7 +124,7 @@ def restore_backup(path: str) -> int:
                 if fname not in allowed:
                     continue
                 data = z.read(fname)
-                (DATA_DIR / fname).write_bytes(data)
+                atomic_write_bytes(DATA_DIR / fname, data)
                 count += 1
         return count
     except Exception:

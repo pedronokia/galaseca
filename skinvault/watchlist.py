@@ -9,25 +9,21 @@ import json
 import time
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text, load_json_record
 
 _DEFAULT_PATH = DATA_DIR / "watchlist.json"
 
 
 def load_watchlist(path: Path | str = _DEFAULT_PATH) -> list[dict]:
-    try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_json_record(path, [])
+    return data if isinstance(data, list) else []
 
 
 def save_watchlist(items: list[dict],
                    path: Path | str = _DEFAULT_PATH) -> None:
     p = Path(path)
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(items, indent=2), encoding="utf-8")
+        atomic_write_text(p, json.dumps(items, indent=2))
     except OSError as e:
         print(f"WARNING: failed to save watchlist: {e}", file=__import__('sys').stderr)
 

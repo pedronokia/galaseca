@@ -276,3 +276,185 @@ class TestSummarize:
         assert s["losers"] == 1
         assert s["total_pnl"] == pytest.approx(3.0)
         assert s["win_rate"] == pytest.approx(200 / 3)
+
+
+# ── buy_ts ─────────────────────────────────────────────────────────
+
+def test_closed_trade_carrega_buy_ts():
+    """O trade importado precisa do buy_ts pra alimentar avg_days e os
+    filtros de periodo da tela."""
+    now = trade_matcher.parse_steam_date("1 Jun, 2024")
+    closed = trade_matcher.match_events([
+        {"name": "AK", "side": "buy", "price": 10.0, "date_str": "1 Jan, 2024"},
+        {"name": "AK", "side": "sell", "price": 20.0, "date_str": "5 Jan, 2024"},
+    ], now=now)
+    assert len(closed) == 1
+    assert closed[0].buy_ts == trade_matcher.parse_steam_date(
+        "1 Jan, 2024", now=now)
+    assert closed[0].buy_ts < closed[0].sell_ts
+
+
+def test_closed_trade_construcao_posicional_continua_valendo():
+    """buy_ts entrou com default no fim justamente pra nao quebrar isso."""
+    tr = trade_matcher.ClosedTrade("X", "1 Jan", 10.0, "5 Jan", 20.0,
+                                   0.0, +5.0, 0.5)
+    assert tr.buy_ts == 0.0
+
+
+# ── chaves de dedupe ───────────────────────────────────────────────
+
+class TestClosedTradeKey:
+    def _tr(self, **kw):
+        base = dict(name="AK", buy_date="1 Jan", buy_price=10.0,
+                    sell_date="5 Jan", sell_price=20.0, sell_ts=0.0,
+                    pnl=7.0, pnl_pct=70.0, buy_ts=0.0)
+        base.update(kw)
+        return trade_matcher.ClosedTrade(**base)
+
+    def test_estavel(self):
+        assert trade_matcher.closed_trade_key(self._tr()) == \
+            trade_matcher.closed_trade_key(self._tr())
+
+    def test_preco_diferente_muda_chave(self):
+        assert trade_matcher.closed_trade_key(self._tr()) != \
+            trade_matcher.closed_trade_key(self._tr(sell_price=21.0))
+
+    def test_nome_diferente_muda_chave(self):
+        assert trade_matcher.closed_trade_key(self._tr()) != \
+            trade_matcher.closed_trade_key(self._tr(name="AWP"))
+
+    def test_normaliza_html_do_nome(self):
+        """Parsers diferentes dao '&amp;' vs '&' pro mesmo item."""
+        assert trade_matcher.closed_trade_key(self._tr(name="A &amp; B")) == \
+            trade_matcher.closed_trade_key(self._tr(name="A & B"))
+
+    def test_data_vira_iso_quando_ha_timestamp(self):
+        """AGENTS.md #4: o Steam omite o ano do ano corrente, entao '5 Jan'
+        e '5 Jan, 2024' sao o MESMO evento visto em anos diferentes. Se a
+        chave usasse a string crua, tudo seria reimportado na virada."""
+        ts_2024 = trade_matcher.parse_steam_date("5 Jan, 2024")
+        sem_ano = self._tr(sell_date="5 Jan", sell_ts=ts_2024)
+        com_ano = self._tr(sell_date="5 Jan, 2024", sell_ts=ts_2024)
+        assert trade_matcher.closed_trade_key(sem_ano) == \
+            trade_matcher.closed_trade_key(com_ano)
+
+    def test_pnl_nao_entra_na_chave(self):
+        """Senao mudar a taxa da Steam reimportaria o historico inteiro."""
+        assert trade_matcher.closed_trade_key(self._tr(pnl=7.0)) == \
+            trade_matcher.closed_trade_key(self._tr(pnl=999.0))
+
+    def test_repeticoes_ganham_sufixo(self):
+        """3 compras+vendas iguais no mesmo dia sao 3 trades, nao 1."""
+        iguais = [self._tr(), self._tr(), self._tr()]
+        chaves = [k for k, _ in trade_matcher.assign_keys(iguais)]
+        assert len(set(chaves)) == 3
+
+    def test_sufixo_e_deterministico(self):
+        iguais = [self._tr(), self._tr()]
+        assert [k for k, _ in trade_matcher.assign_keys(iguais)] == \
+            [k for k, _ in trade_matcher.assign_keys(iguais)]
+
+
+# ── importacao ─────────────────────────────────────────────────────
+
+class TestImportClosedTrades:
+    def _closed(self, n=2):
+        return [
+            trade_matcher.ClosedTrade(
+                name="AK-{}".format(i), buy_date="1 Jan, 2024", buy_price=10.0,
+                sell_date="5 Jan, 2024", sell_price=20.0,
+                sell_ts=1704412800.0, pnl=7.0, pnl_pct=70.0,
+                buy_ts=1704067200.0,
+            )
+            for i in range(n)
+        ]
+
+    def test_grava_trades(self, tmp_path):
+        from skinvault import trades as trades_mod
+        p = tmp_path / "trades.json"
+        res = trade_matcher.import_closed_trades(self._closed(2), path=p)
+        assert res == {"imported": 2, "skipped": 0, "total": 2}
+        gravados = trades_mod.load_trades(p)
+        assert len(gravados) == 2
+        assert all(tr["source"] == "steam_sync" for tr in gravados)
+        assert all(tr["steam_event_id"] for tr in gravados)
+
+    def test_reimportar_nao_duplica(self, tmp_path):
+        """Idempotencia: e' o unico jeito de reimportar depois de um sync
+        novo sem inflar o arquivo."""
+        from skinvault import trades as trades_mod
+        p = tmp_path / "trades.json"
+        closed = self._closed(2)
+        trade_matcher.import_closed_trades(closed, path=p)
+        res = trade_matcher.import_closed_trades(closed, path=p)
+        assert res == {"imported": 0, "skipped": 2, "total": 2}
+        assert len(trades_mod.load_trades(p)) == 2
+
+    def test_importa_so_o_que_e_novo(self, tmp_path):
+        from skinvault import trades as trades_mod
+        p = tmp_path / "trades.json"
+        trade_matcher.import_closed_trades(self._closed(2), path=p)
+        res = trade_matcher.import_closed_trades(self._closed(3), path=p)
+        assert res["imported"] == 1
+        assert res["skipped"] == 2
+        assert len(trades_mod.load_trades(p)) == 3
+
+    def test_nao_mexe_em_trade_manual(self, tmp_path):
+        """Regra do sync (sync.py): source='manual' e' intocavel."""
+        from skinvault import trades as trades_mod
+        p = tmp_path / "trades.json"
+        trades_mod.record_trade("AK-0", 5.0, 9.0, notes="minha nota", path=p)
+        trade_matcher.import_closed_trades(self._closed(1), path=p)
+        gravados = trades_mod.load_trades(p)
+        manual = [tr for tr in gravados if tr["source"] == "manual"]
+        assert len(manual) == 1
+        assert manual[0]["notes"] == "minha nota"
+
+    def test_preserva_datas_originais(self, tmp_path):
+        """Sem isso todo trade importado teria a data da importacao e os
+        filtros de periodo da tela ficariam inuteis."""
+        from skinvault import trades as trades_mod
+        p = tmp_path / "trades.json"
+        trade_matcher.import_closed_trades(self._closed(1), path=p)
+        tr = trades_mod.load_trades(p)[0]
+        assert tr["buy_ts"] == 1704067200.0
+        assert tr["sell_ts"] == 1704412800.0
+
+    def test_pnl_recalculado_com_a_taxa(self, tmp_path):
+        """O P&L gravado vem de net_proceeds, nao do campo do ClosedTrade."""
+        from skinvault import portfolio, trades as trades_mod
+        p = tmp_path / "trades.json"
+        trade_matcher.import_closed_trades(self._closed(1), path=p)
+        tr = trades_mod.load_trades(p)[0]
+        esperado = portfolio.net_proceeds(20.0) - 10.0
+        assert tr["pnl"] == pytest.approx(round(esperado, 2))
+
+    def test_lista_vazia(self, tmp_path):
+        p = tmp_path / "trades.json"
+        res = trade_matcher.import_closed_trades([], path=p)
+        assert res == {"imported": 0, "skipped": 0, "total": 0}
+
+    def test_sem_argumento_carrega_do_sync(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("skinvault.sync.load_market_events", lambda: [
+            {"name": "AK", "side": "buy", "price": 10.0,
+             "date_str": "1 Jan, 2024"},
+            {"name": "AK", "side": "sell", "price": 20.0,
+             "date_str": "5 Jan, 2024"},
+        ])
+        res = trade_matcher.import_closed_trades(path=tmp_path / "t.json")
+        assert res["imported"] == 1
+
+    def test_tres_trades_identicos_viram_tres_linhas(self, tmp_path):
+        from skinvault import trades as trades_mod
+        p = tmp_path / "trades.json"
+        iguais = [
+            trade_matcher.ClosedTrade(
+                "AK", "1 Jan, 2024", 10.0, "5 Jan, 2024", 20.0,
+                1704412800.0, 7.0, 70.0, 1704067200.0)
+            for _ in range(3)
+        ]
+        res = trade_matcher.import_closed_trades(iguais, path=p)
+        assert res["imported"] == 3
+        assert len(trades_mod.load_trades(p)) == 3
+        # E reimportar continua nao duplicando.
+        assert trade_matcher.import_closed_trades(iguais, path=p)["imported"] == 0

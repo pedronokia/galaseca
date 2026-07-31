@@ -24,7 +24,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Callable
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 
 _EVENTS_PATH = DATA_DIR / "steam_market_events.json"
 _LISTING_URL_TPL = "https://steamcommunity.com/market/listings/730/{name}"
@@ -79,10 +79,9 @@ def _load_events(path: Path) -> list[dict]:
 
 
 def _save_events(path: Path, events: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    atomic_write_text(
+        path,
         json.dumps(events, ensure_ascii=False, indent=2),
-        encoding="utf-8",
     )
 
 

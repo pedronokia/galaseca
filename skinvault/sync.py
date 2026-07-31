@@ -22,7 +22,9 @@ from typing import Callable
 
 from skinvault import portfolio as portfolio_mod
 from skinvault import steam_api
-from skinvault._paths import DATA_DIR
+from skinvault._paths import (
+    DATA_DIR, atomic_write_text, load_json_record,
+)
 from skinvault.steam_session import SteamSession
 
 _EVENTS_PATH = DATA_DIR / "steam_market_events.json"
@@ -37,18 +39,14 @@ _HISTORY_THROTTLE_S = 1.5
 
 # ── utilitarios JSON ──────────────────────────────────────────
 def _load_json_list(path: Path) -> list[dict]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
+    data = load_json_record(path, [])
+    return data if isinstance(data, list) else []
 
 
 def _save_json_list(path: Path, data: list[dict]) -> None:
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False),
-                        encoding="utf-8")
+        atomic_write_text(path,
+                          json.dumps(data, indent=2, ensure_ascii=False))
     except OSError as e:
         print(f"WARNING: failed to save {path.name}: {e}",
               file=__import__('sys').stderr)
@@ -85,6 +83,38 @@ def market_event_key(event: dict) -> str:
     ])
 
 
+def trade_event_key(event: dict) -> str:
+    """ID estavel pra uma troca. Usa tradeofferid quando existe.
+
+    A pagina `/tradehistory` **nao expoe** tradeofferid (verificado no HTML
+    inteiro em 2026-07-30: zero ocorrencias). Ate' entao o sync fazia
+    `if not ev.tradeofferid: continue` e descartava TODAS as trocas -- por
+    isso `trade_history.json` nunca chegou a ser criado, mesmo com 30
+    trocas por pagina disponiveis.
+
+    Sem ele, hash composto de data ISO + parceiro + itens dos dois lados.
+    Mesma normalizacao de data do `market_event_key`: a Steam omite o ano
+    no ano corrente (gotcha #4).
+    """
+    tid = event.get("tradeofferid")
+    if tid:
+        return f"T:{tid}"
+    from skinvault.trade_matcher import parse_steam_date
+    raw = event.get("date_str") or ""
+    ts = parse_steam_date(raw)
+    data = (time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+            if ts is not None else raw)
+    dados = [
+        data,
+        event.get("partner_steamid") or "",
+        ",".join(sorted(_html.unescape(x) for x in
+                        (event.get("items_given") or []))),
+        ",".join(sorted(_html.unescape(x) for x in
+                        (event.get("items_received") or []))),
+    ]
+    return "|".join(dados)
+
+
 # ── sync individual ───────────────────────────────────────────
 def sync_inventory(session: SteamSession,
                    path: Path | str = portfolio_mod._DEFAULT_PATH) -> dict:
@@ -98,24 +128,40 @@ def sync_inventory(session: SteamSession,
         return {"status": status, "added": 0, "skipped": 0}
 
     positions = portfolio_mod.load_portfolio(path)
-    existing_names = {p.get("name") for p in positions}
+    por_nome = {p.get("name"): p for p in positions if p.get("name")}
     added = 0
+    enriched = 0
     for it in items:
         name = it.get("name")
-        if not name or name in existing_names:
+        if not name:
             continue
-        qty = int(it.get("quantity", 1))
+        existente = por_nome.get(name)
+        if existente is not None:
+            # Backfill de icone/tipo. Sem isto, posicao sincronizada antes
+            # destes campos existirem nunca ganharia imagem: o laco so'
+            # olhava nomes NOVOS, e a grade do inventario ficava sem icone
+            # pra sempre. Nao sobrescreve valor ja' preenchido.
+            mudou = False
+            for campo in ("icon", "type"):
+                if it.get(campo) and not existente.get(campo):
+                    existente[campo] = it[campo]
+                    mudou = True
+            if mudou:
+                enriched += 1
+            continue
         positions.append({
             "name": name,
             "cost": 0.0,
-            "quantity": qty,
+            "quantity": int(it.get("quantity", 1)),
             "added_ts": time.time(),
             "source": "steam_sync",
+            "icon": it.get("icon"),
+            "type": it.get("type"),
         })
-        existing_names.add(name)
+        por_nome[name] = positions[-1]
         added += 1
     portfolio_mod.save_portfolio(positions, path)
-    return {"status": status, "added": added,
+    return {"status": status, "added": added, "enriched": enriched,
             "skipped": len(items) - added}
 
 
@@ -243,7 +289,7 @@ def sync_trade_offers(session: SteamSession,
     Dedupe via tradeofferid."""
     p = Path(path)
     stored = _load_json_list(p)
-    known = {t.get("tradeofferid") for t in stored if t.get("tradeofferid")}
+    known = {trade_event_key(t) for t in stored}
 
     new_trades: list[dict] = []
     fetched = 0
@@ -257,10 +303,13 @@ def sync_trade_offers(session: SteamSession,
             break
         added_this_page = 0
         for ev in parsed:
-            if not ev.tradeofferid or ev.tradeofferid in known:
-                continue
-            known.add(ev.tradeofferid)
             d = dataclasses.asdict(ev)
+            # Dedupe por chave composta: a pagina nao traz tradeofferid, e
+            # exigir ele descartava 100% das trocas (ver trade_event_key).
+            chave = trade_event_key(d)
+            if chave in known:
+                continue
+            known.add(chave)
             d["synced_at"] = time.time()
             new_trades.append(d)
             added_this_page += 1

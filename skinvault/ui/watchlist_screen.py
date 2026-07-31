@@ -41,7 +41,7 @@ from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState, FormRow, LoadingState, PageHeader, SectionHeader, StatCard,
-    ToggleSwitch,
+    ToggleSwitch, score_table_item, SortableItem, auto_cell,
 )
 
 
@@ -296,7 +296,7 @@ class WatchlistScreen(QWidget):
         # Tabela
         self._table = QTableWidget(0, 8)
         self._table.setHorizontalHeaderLabels(
-            ["Item", "Preco alvo", "Distância ao alvo", "Preco atual",
+            ["Item", "Preço alvo", "Distância ao alvo", "Preço atual",
              "Status", "Regras", "Score", "Confiança"]
         )
         t.configure_table(self._table)
@@ -382,16 +382,16 @@ class WatchlistScreen(QWidget):
             from skinvault.localization import localize_name as _ln
             self._table.setItem(i, self.COL_NAME, QTableWidgetItem(_ln(name)))
 
-            # Target
+            # Target (auto_cell pra ordenar por valor, nao por texto)
             self._table.setItem(i, self.COL_TARGET,
-                                QTableWidgetItem(t.brl(target) if target else "—"))
+                                auto_cell(t.brl(target) if target else "—"))
 
             # Distancia ao alvo
             price_curr = self._cache.get(name)
             if target and price_curr:
                 dist_pct = (price_curr - target) / target * 100
                 dist_txt = f"{dist_pct:+.1f}%".replace(".", ",")
-                dist_item = QTableWidgetItem(dist_txt)
+                dist_item = SortableItem(dist_txt, dist_pct)
                 if price_curr <= target:
                     # Favoravel pra compra (atual <= alvo)
                     dist_item.setForeground(QBrush(QColor(t.POSITIVE)))
@@ -404,13 +404,15 @@ class WatchlistScreen(QWidget):
                     "Valores positivos = item acima do alvo."
                 )
             else:
-                dist_item = QTableWidgetItem("—")
+                # -inf: linha sem distancia vai pro fim, nao se mistura
+                dist_item = SortableItem("—", float("-inf"))
                 dist_item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
             self._table.setItem(i, self.COL_DISTANCE, dist_item)
 
             # Preco atual (try cache)
-            price_item = QTableWidgetItem(
-                t.brl(price_curr) if price_curr else "Consultando…"
+            price_item = SortableItem(
+                t.brl(price_curr) if price_curr else "Consultando…",
+                price_curr if price_curr else float("-inf"),
             )
             if price_curr:
                 price_item.setForeground(QBrush(QColor(t.TEXT)))
@@ -447,37 +449,10 @@ class WatchlistScreen(QWidget):
                 QTableWidgetItem(alerts.format_rules_summary(rules)),
             )
 
-            # Score atual (persistido pelo Validar score)
-            cur_score = item.get("current_score")
-            score_ts = item.get("score_ts")
-            if cur_score is None:
-                score_item = QTableWidgetItem("—")
-                score_item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
-                score_item.setToolTip(
-                    "Clique em 'Validar score' para calcular."
-                )
-            else:
-                score_item = QTableWidgetItem(str(int(cur_score)))
-                stale = signals.is_score_stale(score_ts)
-                if stale:
-                    color = t.WARN
-                elif cur_score >= 70:
-                    color = t.POSITIVE
-                elif cur_score >= 45:
-                    color = t.WARN
-                else:
-                    color = t.DANGER
-                score_item.setForeground(QBrush(QColor(color)))
-                age_txt = signals.score_age_text(score_ts)
-                stale_tag = " [DESATUALIZADO]" if stale else ""
-                score_item.setToolTip(
-                    f"Score {int(cur_score)} — calculado {age_txt}."
-                    f"{stale_tag}\n"
-                    f"Empíricamente:\n"
-                    f"  70-84 containers → +33%, skins → +8% em 90d\n"
-                    f"  85+ containers → +52%, skins → +21% em 90d"
-                )
-            self._table.setItem(i, self.COL_SCORE, score_item)
+            # Score atual (persistido pelo Validar score). A celula e'
+            # compartilhada com o Inventario -- ver components.
+            self._table.setItem(i, self.COL_SCORE, score_table_item(
+                item.get("current_score"), item.get("score_ts")))
 
             # Confianca (data quality)
             dq = item.get("data_quality") or {}
@@ -735,7 +710,7 @@ class WatchlistScreen(QWidget):
         target_inp.setPrefix("R$ ")
         target_inp.setDecimals(2)
         target_inp.setStyleSheet(t.input_style())
-        lay.addWidget(FormRow("Preco alvo:", target_inp))
+        lay.addWidget(FormRow("Preço alvo:", target_inp))
 
         btn_row = QHBoxLayout()
         cancel = QPushButton("Cancelar")

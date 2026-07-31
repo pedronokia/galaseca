@@ -32,7 +32,8 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import (
-    icon_backfill, icons, portfolio, sync, trade_matcher, trades, watchlist,
+    alerts, icon_backfill, icons, portfolio, sync, trade_matcher, trades,
+    watchlist,
 )
 from skinvault.prices import PriceCache
 from skinvault.settings import load_settings, save_settings
@@ -45,6 +46,7 @@ from skinvault.ui.components import (
     LoadingState,
     PageHeader,
     SectionHeader,
+    auto_cell,
     SegmentedControl,
     Toolbar,
 )
@@ -407,6 +409,22 @@ class _IconBackfillThread(QThread):
 class HistoryScreen(QWidget):
     """Tela 2 -- Historico unificado + Watchlist + Simulador."""
 
+    # Teto e piso da coluna "Item". O teto existe pra ela nao empurrar os
+    # numeros pra longe numa janela larga; o piso, pra nome de skin nao
+    # virar reticencia numa janela estreita.
+    _ITEM_COL_MIN = 200
+    _ITEM_COL_MAX = 460
+
+    # Cabecalhos que carregam numero. Usado so' pra decidir qual coluna pode
+    # esticar -- numero esticado vira numero longe do nome.
+    _NUMERICO = ("preço", "preco", "valor", "p&l", "roi", "compra", "venda",
+                 "qtd", "%")
+
+    @classmethod
+    def _e_coluna_numerica(cls, header: str) -> bool:
+        h = (header or "").strip().lower()
+        return any(termo in h for termo in cls._NUMERICO)
+
     SEGMENTS = [
         ("all", "Todos"),
         ("trades", "Trades"),
@@ -458,7 +476,7 @@ class HistoryScreen(QWidget):
         self._seg.segment_changed.connect(self._on_segment)
         tb.add_left(self._seg)
 
-        self._update_prices_btn = QPushButton("Atualizar precos")
+        self._update_prices_btn = QPushButton("Atualizar preços")
         self._update_prices_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._update_prices_btn.setStyleSheet(
             t.btn_ghost(padding="8px 14px", fs=t.FS_BODY)
@@ -620,18 +638,18 @@ class HistoryScreen(QWidget):
         ]
         if not names_missing:
             self._status.setText(
-                self._status.text() + "  (todos os precos ja' estao em cache)"
+                self._status.text() + "  (todos os preços já estão em cache)"
             )
             return
         self._update_prices_btn.setEnabled(False)
         self._update_prices_btn.setText("Atualizando...")
-        self._loading.set_label("Atualizando precos…")
+        self._loading.set_label("Atualizando preços…")
         self._loading.setVisible(True)
         self._price_worker.start(names_missing)
 
     def _on_prices_updated(self) -> None:
         self._update_prices_btn.setEnabled(True)
-        self._update_prices_btn.setText("Atualizar precos")
+        self._update_prices_btn.setText("Atualizar preços")
         self._loading.setVisible(False)
         if self._current_segment == "open":
             self.refresh()
@@ -695,11 +713,43 @@ class HistoryScreen(QWidget):
                 f"{len(opens)} compras abertas • {t.brl(total)} investido"
             )
         else:
-            txt = f"{count} registro(s)"
+            # Diz quantos EXISTEM, nao so' quantos passaram no filtro.
+            # O periodo fica salvo entre sessoes (history_last_periodo), e
+            # com "7d" gravado o usuario abria vendo 2 de 416 registros sem
+            # nada indicando que um filtro escondia os outros 414.
+            total_bruto = self._total_sem_filtro_de_periodo()
+            if total_bruto > count:
+                periodo = self._filter_panel.periodo
+                rotulo = {"7d": "últimos 7 dias", "30d": "últimos 30 dias",
+                          "90d": "últimos 90 dias"}.get(periodo, periodo)
+                txt = (f"{count} de {total_bruto} registros"
+                       f" • filtro: {rotulo}")
+            else:
+                txt = f"{count} registro(s)"
             if seg == "trades" and self._month_filter:
                 txt += (f" • mês: {month_label_full(self._month_filter)}"
                         " (clique na barra de novo pra limpar)")
             self._status.setText(txt)
+
+    def _total_sem_filtro_de_periodo(self) -> int:
+        """Quantos registros existem no segmento, ignorando o periodo.
+
+        Best-effort: serve pra avisar que um filtro esta' escondendo coisa,
+        entao errar pra menos e' aceitavel -- nunca pode explodir a tela.
+        """
+        seg = self._current_segment
+        try:
+            if seg in ("market", "all"):
+                return len(sync.load_market_events())
+            if seg == "offers":
+                return len(sync.load_trade_offers())
+            if seg == "trades":
+                return len(trades.load_trades())
+            if seg == "watchlist":
+                return len(alerts.load_alerts_log())
+        except Exception:
+            pass
+        return 0
 
     # ── loaders ──────────────────────────────────────────
     def _load_trades(self):
@@ -787,8 +837,8 @@ class HistoryScreen(QWidget):
                 pnl_str,
             ])
         return (
-            ["Comprado em", "Item", "Preco de compra",
-             "Preco atual", "P&L se vender hoje"],
+            ["Comprado em", "Item", "Preço de compra",
+             "Preço atual", "P&L se vender hoje"],
             rows, len(rows), 4, pnl_vals,
         )
 
@@ -942,9 +992,18 @@ class HistoryScreen(QWidget):
 
     # ── helpers ──────────────────────────────────────────
     def _fmt_ts(self, ts: float) -> str:
+        """Data de um timestamp, no MESMO formato de `_fmt_event_date`.
+
+        Antes devolvia "%Y-%m-%d %H:%M" enquanto os eventos de market e as
+        trocas usavam DD/MM/YY -- duas grafias na mesma coluna "Data" do
+        segmento "Todos", e a linha de trade destoava no meio da lista.
+        Pior: "2026-07-04 00:00" nao casa com nenhum formato que
+        `components.sort_key_from_text` reconhece, entao aquela linha
+        ordenava como texto enquanto as outras ordenavam como data.
+        """
         if not ts:
             return "—"
-        return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts))
+        return time.strftime("%d/%m/%y", time.localtime(ts))
 
     def _fmt_source(self, src: str) -> str:
         return "Steam" if src in ("steam", "steam_sync") else "Manual"
@@ -1013,7 +1072,10 @@ class HistoryScreen(QWidget):
             for c, val in enumerate(row):
                 if c in name_cols:
                     val = _ln(val)
-                it = QTableWidgetItem(val)
+                # auto_cell: deriva a chave de ordenacao do proprio texto.
+                # Esta tabela e' generica (a linha chega ja' formatada), e
+                # sem chave "R$ 16,49" caia abaixo de "R$ 9,66".
+                it = auto_cell(val)
                 # cores: P&L verde/vermelho (numeric)
                 if pnl_col is not None and c == pnl_col and pnl_vals:
                     pnl = pnl_vals[i] if i < len(pnl_vals) else None
@@ -1058,16 +1120,45 @@ class HistoryScreen(QWidget):
         )
         money_cols = {
             i for i, h in enumerate(headers)
-            if h in ("Valor", "Preço", "Preco", "P&L", "Preco atual",
-                     "P&L se vender hoje", "Preco de compra")
+            if h in ("Valor", "Preço", "P&L", "Preço atual",
+                     "P&L se vender hoje", "Preço de compra")
         }
         for i in range(self._table.columnCount()):
-            if i == item_col:
-                hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
-            else:
-                hh.setSectionResizeMode(
-                    i, QHeaderView.ResizeMode.ResizeToContents,
-                )
+            hh.setSectionResizeMode(
+                i, QHeaderView.ResizeMode.ResizeToContents,
+            )
+        # "Item" era Stretch: numa janela de 1900px ela engolia ~900px e
+        # jogava o valor pra borda oposta, entao ler "quanto rendeu este
+        # item" custava atravessar a linha inteira. Agora ela tem teto e as
+        # colunas ficam encostadas — a folga sobra na direita.
+        #
+        # Esticar a ULTIMA em vez da Item nao serve: em "Pareados" ela e'
+        # ROI e em "Abertas" e' P&L, colunas numericas que empurrariam o
+        # numero pro mesmo lugar longe.
+        if item_col >= 0:
+            hh.setSectionResizeMode(item_col,
+                                    QHeaderView.ResizeMode.Interactive)
+            largura = self._table.sizeHintForColumn(item_col) + 16
+            self._table.setColumnWidth(
+                item_col, max(self._ITEM_COL_MIN,
+                              min(largura, self._ITEM_COL_MAX)))
+
+        # Com tudo encostado a' esquerda, o fundo da linha (zebra e tinta de
+        # compra/venda) terminava na ultima coluna e deixava um rabo cortado
+        # ate' a borda. Esticar a ultima coluna resolve -- mas so' quando ela
+        # nao carrega numero: em "Pareados" (ROI) e "Abertas" (P&L) isso
+        # mandaria justamente o numero que importa pra longe do nome.
+        ultima = self._table.columnCount() - 1
+        estica = ultima > 0 and not self._e_coluna_numerica(headers[ultima])
+        if estica:
+            hh.setSectionResizeMode(ultima, QHeaderView.ResizeMode.Stretch)
+            # O cabecalho do Qt centraliza; a celula e' alinhada a esquerda.
+            # Numa coluna estreita ninguem nota, mas esticada o titulo fica
+            # boiando no meio, longe do dado que ele nomeia.
+            hi = self._table.horizontalHeaderItem(ultima)
+            if hi is not None:
+                hi.setTextAlignment(Qt.AlignmentFlag.AlignLeft
+                                    | Qt.AlignmentFlag.AlignVCenter)
         # Alinhamento por coluna
         center_cols: set[int] = set()
         if side_op_col is not None and headers[side_op_col] in ("Operação", "Tipo"):

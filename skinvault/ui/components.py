@@ -6,6 +6,8 @@ Sidebar e Card/StatCard estao em .sidebar e .cards respectivamente.
 """
 from __future__ import annotations
 
+import re
+
 from PyQt6.QtCore import (
     QEasingCurve,
     QPropertyAnimation,
@@ -29,12 +31,161 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLayout,
     QPushButton,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from .cards import Card, StatCard
 from .sidebar import _SidebarItem, Sidebar
+
+
+class SortableItem(QTableWidgetItem):
+    """Celula de tabela que ordena pelo VALOR, nao pelo texto exibido.
+
+    `QTableWidgetItem` compara por DisplayRole, entao qualquer coluna
+    formatada ordenava como string. Medido em 2026-07-30 nos 25 trades
+    reais, ordenando P&L decrescente:
+
+        R$ -7,54 | R$ -1,96 | R$ -1,94 | R$ 1,63 | R$ -0,85 ...
+
+    O maior PREJUIZO aparecia no topo, porque '7' > '1' como caractere.
+    Data ordenava por dia do mes (30/04/2026 antes de 29/05/2026) e
+    R$ 16,49 ficava abaixo de R$ 9,66.
+
+    `key` e' o valor cru (float, int ou timestamp). Use float("-inf") pra
+    ausente, pra ele cair no fim da ordem decrescente.
+    """
+
+    def __init__(self, text: str, key) -> None:
+        super().__init__(text)
+        self._sort_key = key
+
+    def __lt__(self, other) -> bool:
+        outro = getattr(other, "_sort_key", None)
+        if outro is None:
+            return super().__lt__(other)
+        try:
+            return self._sort_key < outro
+        except TypeError:
+            return str(self._sort_key) < str(outro)
+
+
+_RE_BRL = re.compile(r"^R\$\s*(-?[\d.]+,\d{2})$")
+_RE_PCT = re.compile(r"^([+-]?\d+(?:[.,]\d+)?)\s*%$")
+# Duas grafias convivem: as tabelas usam DD/MM/AAAA e o Historico usa
+# DD/MM/AA. Ambas precisam ordenar, e entre si tambem.
+_RE_DATA = re.compile(r"^(\d{2})/(\d{2})/(\d{2}|\d{4})$")
+_RE_INT = re.compile(r"^[+-]?\d+$")
+
+
+def sort_key_from_text(texto: str):
+    """Deriva chave de ordenacao do texto ja' formatado. None se nao der.
+
+    Existe pras tabelas genericas (Historico, Scanner) que montam a linha
+    a partir de strings prontas e nao tem mais o valor cru na mao. Passar
+    a chave por ali exigiria refatorar todos os segmentos; derivar do
+    texto cobre os tres formatos que os helpers do projeto produzem --
+    `t.brl`, `_fmt_date` e f"{x:+.1f}%".
+
+    Formato desconhecido devolve None e a celula volta a ordenar por
+    texto, que e' o comportamento antigo. Nunca piora.
+    """
+    if not texto:
+        return None
+    s = texto.strip()
+    m = _RE_BRL.match(s)
+    if m:
+        try:
+            return float(m.group(1).replace(".", "").replace(",", "."))
+        except ValueError:
+            return None
+    m = _RE_PCT.match(s)
+    if m:
+        try:
+            return float(m.group(1).replace(",", "."))
+        except ValueError:
+            return None
+    m = _RE_DATA.match(s)
+    if m:
+        d, mes, a = (int(g) for g in m.groups())
+        if a < 100:                # DD/MM/AA -> seculo 21
+            a += 2000
+        return a * 10000 + mes * 100 + d      # AAAAMMDD, ordena igual data
+    if _RE_INT.match(s):
+        try:
+            return int(s)
+        except ValueError:
+            return None
+    return None
+
+
+def auto_cell(texto: str):
+    """Celula que se ordena sozinha quando o texto e' reconhecivel."""
+    chave = sort_key_from_text(texto)
+    return QTableWidgetItem(texto) if chave is None else SortableItem(
+        texto, chave)
+
+
+def num_cell(text: str, key, color: str | None = None):
+    """Celula numerica: alinhada a' direita e ordenada por valor.
+
+    `key` None vira -inf: linha sem valor vai pro fim na ordem
+    decrescente, em vez de se misturar com os numeros.
+    """
+    from PyQt6.QtGui import QBrush
+    item = SortableItem(text, float("-inf") if key is None else key)
+    item.setTextAlignment(
+        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    if color:
+        item.setForeground(QBrush(QColor(color)))
+    return item
+
+
+def score_table_item(current_score, score_ts):
+    """Celula de tabela para o score persistido pelo "Validar score".
+
+    Vive aqui porque duas telas mostram o mesmo numero -- Watchlist e
+    Inventario. A regra de cor e os numeros empiricos do tooltip sao
+    conhecimento medido (ver AGENTS.md #4b); duplicar seria deixar as duas
+    telas divergirem na proxima recalibragem.
+
+    Score desatualizado fica ambar independente do valor: um 90 de tres
+    semanas atras nao e' uma oportunidade, e' um dado velho.
+    """
+    from PyQt6.QtGui import QBrush
+    from PyQt6.QtWidgets import QTableWidgetItem
+
+    from skinvault import signals
+    from skinvault.ui import theme as t
+
+    if current_score is None:
+        item = SortableItem("—", float("-inf"))
+        item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+        item.setToolTip("Clique em 'Validar score' para calcular.")
+        return item
+
+    item = SortableItem(str(int(current_score)), int(current_score))
+    stale = signals.is_score_stale(score_ts)
+    if stale:
+        color = t.WARN
+    elif current_score >= 70:
+        color = t.POSITIVE
+    elif current_score >= 45:
+        color = t.WARN
+    else:
+        color = t.DANGER
+    item.setForeground(QBrush(QColor(color)))
+    age_txt = signals.score_age_text(score_ts)
+    stale_tag = " [DESATUALIZADO]" if stale else ""
+    item.setToolTip(
+        f"Score {int(current_score)} — calculado {age_txt}."
+        f"{stale_tag}\n"
+        f"Empíricamente:\n"
+        f"  70-84 containers → +33%, skins → +8% em 90d\n"
+        f"  85+ containers → +52%, skins → +21% em 90d"
+    )
+    return item
 
 
 def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
@@ -352,6 +503,12 @@ class LineIcon(QWidget):
         p.drawEllipse(QRectF(10.5, 10.5, 4.5, 4.5))  # circulo inf
         p.drawLine(QPointF(13, 4), QPointF(5, 14))  # barra
 
+    def _draw_menu(self, p: QPainter) -> None:
+        # tres linhas: alterna entre a barra estreita e a com rotulos
+        p.drawLine(QPointF(3, 5), QPointF(15, 5))
+        p.drawLine(QPointF(3, 9), QPointF(15, 9))
+        p.drawLine(QPointF(3, 13), QPointF(15, 13))
+
     def _draw_calendar(self, p: QPainter) -> None:
         # calendario: retangulo + 2 ticks no topo + linha
         p.drawRoundedRect(QRectF(3, 5, 12, 10), 1.5, 1.5)
@@ -368,6 +525,32 @@ class LineIcon(QWidget):
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawEllipse(QRectF(10.5, 2.5, 5, 5))         # pino sup-dir
         p.drawLine(QPointF(6.6, 11), QPointF(13, 5))   # cano ligando os dois
+
+    def _draw_broom(self, p: QPainter) -> None:
+        # vassoura: cabo diagonal + cabeca trapezoidal + 2 cerdas
+        p.drawLine(QPointF(14.5, 3), QPointF(8.5, 9))
+        path = QPainterPath()
+        path.moveTo(9.5, 7.5)
+        path.lineTo(12.5, 10.5)
+        path.lineTo(9, 15)
+        path.lineTo(3.5, 12)
+        path.closeSubpath()
+        p.drawPath(path)
+        p.drawLine(QPointF(6, 10.5), QPointF(4.6, 13.6))   # cerda esq
+        p.drawLine(QPointF(8.6, 11.4), QPointF(7.4, 14.6))  # cerda dir
+
+    def _draw_trash(self, p: QPainter) -> None:
+        # lixeira: alca + tampa + corpo afunilado + 2 ranhuras
+        p.drawLine(QPointF(7, 4), QPointF(11, 4))          # alca
+        p.drawLine(QPointF(3.5, 6), QPointF(14.5, 6))      # tampa
+        path = QPainterPath()
+        path.moveTo(5, 6)
+        path.lineTo(5.9, 15)
+        path.lineTo(12.1, 15)
+        path.lineTo(13, 6)
+        p.drawPath(path)
+        p.drawLine(QPointF(7.8, 8.5), QPointF(8, 12.5))
+        p.drawLine(QPointF(10.2, 8.5), QPointF(10, 12.5))
 
     def _draw_fallback(self, p: QPainter) -> None:
         p.drawEllipse(QRectF(3, 3, 12, 12))
@@ -536,23 +719,50 @@ class SegmentedControl(QWidget):
 
 
 # ── Avatar widget ────────────────────────────────────────────
-class Avatar(QLabel):
-    """QLabel circular pra avatar Steam. Aceita bytes ou path."""
+class Avatar(QWidget):
+    """Avatar Steam redondo, pintado com QPainter.
+
+    Era um QLabel com `border-radius` no stylesheet e a foto em
+    `setPixmap`. Qt NAO recorta pixmap pelo border-radius: ele desenha a
+    caixa arredondada e estampa a imagem quadrada por cima, sem clipe --
+    dai' o avatar sair quadrado. E o desenho ficava deslocado porque a
+    borda de 1px encolhe a area de conteudo e o QLabel centraliza a
+    imagem nessa area menor, nao no circulo.
+
+    Com QPainter o clipe e' explicito, e o mesmo caminho serve pra foto e
+    pra inicial (convencao do projeto: QPainter em vez de gambiarra de
+    stylesheet).
+    """
 
     def __init__(self, size: int = 72, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._size = size
-        self.setStyleSheet(
-            f"background: {t.SURFACE}; border: 1px solid {t.BORDER};"
-            f" border-radius: {size // 2}px;"
-        )
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Placeholder
-        self.setText("?")
-        self.setStyleSheet(self.styleSheet() +
-                           f"color: {t.TEXT_MUTED}; font-size: {t.FS_ICON_SM};"
-                           f" font-family: {t.FONT_FAMILY};")
+        self._pix: QPixmap | None = None
+        self._texto = "?"
+
+    # API preservada: as telas ja' chamam text()/setText().
+    def text(self) -> str:
+        return self._texto
+
+    def setText(self, texto: str) -> None:  # noqa: N802
+        self._texto = texto or ""
+        self.update()
+
+    def pixmap(self) -> QPixmap | None:
+        return self._pix
+
+    def set_initials(self, name: str) -> None:
+        """Inicial no lugar do "?" enquanto nao ha' imagem.
+
+        "?" nao identifica ninguem e, ao lado de uma faixa dizendo
+        "Conectado", parecia erro. Com foto ja' posta, nao mexe: a foto
+        vale mais que a inicial.
+        """
+        if self._pix is not None and not self._pix.isNull():
+            return
+        nome = (name or "").strip()
+        self.setText(nome[0].upper() if nome else "?")
 
     def set_image(self, data: bytes | str | None) -> None:
         if not data:
@@ -564,18 +774,52 @@ class Avatar(QLabel):
             pix.load(str(data))
         if pix.isNull():
             return
-        scaled = pix.scaled(
+        # Expanding e nao KeepAspectRatio: avatar nao-quadrado tem que
+        # COBRIR o circulo, senao sobra fundo em duas bordas.
+        self._pix = pix.scaled(
             self._size, self._size,
             Qt.AspectRatioMode.KeepAspectRatioByExpanding,
             Qt.TransformationMode.SmoothTransformation,
         )
-        # Mask circular: usar setStyleSheet com border-radius e setPixmap
-        self.setText("")
-        self.setPixmap(scaled)
-        self.setStyleSheet(
-            f"background: {t.SURFACE}; border: 1px solid {t.BORDER};"
-            f" border-radius: {self._size // 2}px;"
-        )
+        self._texto = ""
+        self.update()
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Meio pixel pra dentro: sem isso a borda sai serrilhada porque o
+        # traco fica metade fora do widget.
+        area = QRectF(0.5, 0.5, self._size - 1, self._size - 1)
+
+        caminho = QPainterPath()
+        caminho.addEllipse(area)
+        p.setClipPath(caminho)
+
+        p.setBrush(QColor(t.SURFACE))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(area)
+
+        if self._pix is not None and not self._pix.isNull():
+            # Centrado no CIRCULO. O QLabel centrava na area de conteudo,
+            # ja' descontada da borda, e a foto saia deslocada.
+            x = (self._size - self._pix.width()) / 2
+            y = (self._size - self._pix.height()) / 2
+            p.drawPixmap(int(x), int(y), self._pix)
+        elif self._texto:
+            p.setPen(QColor(t.TEXT_MUTED))
+            fonte = p.font()
+            fonte.setPointSize(max(10, self._size // 3))
+            fonte.setFamily("Segoe UI")
+            p.setFont(fonte)
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._texto)
+
+        # Borda por ultimo, por cima da foto: desenhada antes, o pixmap a
+        # cobriria.
+        p.setClipping(False)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(QColor(t.BORDER), 1))
+        p.drawEllipse(area)
+        p.end()
 
 
 # ── Lock overlay ─────────────────────────────────────────────
@@ -832,7 +1076,9 @@ def _streak_summary(trades: list[dict]) -> tuple[str, str] | None:
             break
     if count < 2:
         return None
-    label = f"{count} vitorias em sequencia" if is_win else f"{count} derrotas em sequencia"
+    plural = "s" if count != 1 else ""
+    termo = f"vitória{plural}" if is_win else f"derrota{plural}"
+    label = f"{count} {termo} em sequência"
     return (label, t.POSITIVE if is_win else t.DANGER)
 
 
@@ -878,7 +1124,7 @@ class RecentMatchesStrip(Card):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(12)
 
-        title = QLabel("Ultimos resultados")
+        title = QLabel("Últimos resultados")
         title.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-weight: 600; font-family: {t.FONT_FAMILY};"

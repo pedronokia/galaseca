@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text, load_json_record
 
 _DEFAULT_PATH = DATA_DIR / "settings.json"
 
@@ -23,27 +23,38 @@ DEFAULTS = {
     "window_position": {},
     "last_scenario": {},
     "sidebar_width": 220,
+    # Barra lateral recolhida (rail de icones) contra expandida com
+    # rotulos. Default recolhida: e' o estado que o app sempre teve.
+    "sidebar_collapsed": True,
+    # Visao do inventario: "grid" (cards) ou "table" (tabela detalhada).
+    "inventory_view": "grid",
     "scanner_unlocked": False,
     "welcome_seen": False,
     "overlay_mode": False,  # janela "stays on top" + show sem roubar foco
     "scanner_hide_low_confidence": False,
     "validate_interval_minutes": 30,  # 0 = desliga schedule automatico
+    # Descoberta de itens por faceta no Market em vez da lista fixa do
+    # scanner. Default OFF: o caminho de rede ainda nao foi validado
+    # ponta a ponta contra a Steam (bloqueio de rate limit persistente em
+    # 2026-07-28). Ligado, cai na lista fixa em qualquer falha.
+    "scanner_discovery": False,
+    # Tela de Limpeza: quais alvos vem marcados. A lixeira nunca persiste
+    # marcada (alvo destrutivo) -- vide CleanupScreen._load_selection.
+    "cleanup_selected": [],
+    "cleanup_last_ts": 0,
 }
 
 
 def load_settings(path: Path | str = _DEFAULT_PATH) -> dict:
-    p = Path(path)
-    try:
-        data = json.loads(p.read_text("utf-8"))
-        return {**DEFAULTS, **data}
-    except Exception:
+    data = load_json_record(path, None)
+    if not isinstance(data, dict):
         return dict(DEFAULTS)
+    return {**DEFAULTS, **data}
 
 
 def save_settings(settings: dict, path: Path | str = _DEFAULT_PATH) -> None:
     p = Path(path)
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+        atomic_write_text(p, json.dumps(settings, indent=2))
     except OSError as e:
         print(f"WARNING: failed to save settings: {e}", file=__import__('sys').stderr)

@@ -76,9 +76,20 @@ def test_unknown_flag_shows_banner(_data_dir):
     assert "SkinVault" in r.stdout
 
 
-def test_flag_like_value_shows_banner(_data_dir):
-    r = _run(_data_dir, "--ui")
-    assert r.returncode == 0
+# NAO adicione um teste de subprocess para `--ui`.
+#
+# Existiu um (`test_flag_like_value_shows_banner`) e ele VAZAVA uma instancia
+# real do app por rodada da suite. No Windows, `python -m skinvault --ui` cai
+# no branch de relaunch do __main__ e dispara um `pythonw` destacado; o pai
+# sai 0 (o que o teste conferia) e o filho fica vivo pra sempre, segurando
+# ~75 MB. Medido em 2026-07-29: 10 rodadas da suite = 10 pythonw orfaos.
+#
+# Foi tambem o que fabricou o susto das "29 instancias simultaneas" que
+# motivou o single_instance -- 29 rodadas de teste, nao 29 aberturas do app.
+#
+# Os tres branches do `--ui` ja' estao cobertos com Popen mockado, logo
+# abaixo: test_main_ui_non_win, test_main_ui_win32_pythonw_found e
+# test_main_ui_win32_pythonw_not_found.
 
 
 # ── Unit tests (coverage via import direto) ─────────────────────

@@ -27,9 +27,11 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import (
-    backtest, cases, ranking, signals, ssr_cache, steam_api, valve_events,
+    backtest, cases, discovery, portfolio as portfolio_mod, ranking,
+    settings as sv_settings, signals, ssr_cache, steam_api, valve_events,
 )
 from skinvault._paths import DATA_DIR
+from skinvault.ui.components import auto_cell
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
@@ -121,14 +123,23 @@ class ScannerScreen(QWidget):
     COL_SINAL = 1
     COL_PRECO = 2
     COL_JUSTO = 3
-    COL_VEREDITO = 4
-    COL_SPREAD = 5
-    COL_BOOK = 6
-    COL_TREND = 7
-    COL_SD = 8
-    COL_SCORE = 9
-    COL_RISCO = 10
-    COL_CONFIDENCE = 11
+    # "Compre ate'" fica colado no "Preço justo" porque deriva dele: e' o
+    # maximo a pagar pra, revendendo na mediana, sobrar a margem.
+    COL_COMPRAR = 4
+    COL_VEREDITO = 5
+    COL_SPREAD = 6
+    COL_BOOK = 7
+    COL_TREND = 8
+    COL_SD = 9
+    COL_SCORE = 10
+    COL_RISCO = 11
+    COL_CONFIDENCE = 12
+
+    # Margem-alvo da coluna "Compre ate'". 20% e' folgado o bastante pra
+    # cobrir o break-even de 15% da Steam e ainda sobrar -- o quintil
+    # superior do score rende +13,64% brutos, que NAO cobre a taxa
+    # (AGENTS.md 4b). Comprar com desconto e' o que fecha a conta.
+    MARGEM_ALVO_PCT = 20.0
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -305,12 +316,23 @@ class ScannerScreen(QWidget):
         root.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
 
         # Tabela
-        self._table = QTableWidget(0, 12)
+        self._table = QTableWidget(0, 13)
         self._table.setHorizontalHeaderLabels([
-            "Item", "Sinal", "Preco", "Preco justo", "Veredito",
-            "Spread", "Book", "Tendencia", "Oferta/Demanda", "Score", "Risco", "Confiança",
+            "Item", "Sinal", "Preço", "Preço justo", "Compre até",
+            "Veredito", "Spread", "Book", "Tendência", "Oferta/Demanda",
+            "Score", "Risco", "Confiança",
         ])
         t.configure_table(self._table)
+        compra_hdr = self._table.horizontalHeaderItem(self.COL_COMPRAR)
+        if compra_hdr:
+            compra_hdr.setToolTip(
+                "Máximo a pagar hoje pra, revendendo no preço justo, "
+                f"sobrar {self.MARGEM_ALVO_PCT:.0f}% de margem.\n"
+                "Já desconta a taxa de 15% da Steam — que incide sobre o "
+                "valor do vendedor: você anuncia por R$ 115 e recebe "
+                "R$ 100.\n"
+                "Verde quando o preço atual está abaixo do teto."
+            )
         score_hdr = self._table.horizontalHeaderItem(self.COL_SCORE)
         if score_hdr:
             score_hdr.setToolTip(
@@ -320,7 +342,7 @@ class ScannerScreen(QWidget):
             )
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        for i in range(1, 12):
+        for i in range(1, 13):
             hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
         self._table.doubleClicked.connect(
             lambda _idx: self._on_explain_selected()
@@ -375,15 +397,26 @@ class ScannerScreen(QWidget):
         self._regime_banner.setToolTip(ev["summary"])
         self._regime_banner.setVisible(True)
 
+    def _discovery_ligada(self) -> bool:
+        """Descoberta e' opt-in (settings.scanner_discovery, default OFF).
+
+        Desligada, o scanner se comporta exatamente como sempre: lista fixa.
+        """
+        try:
+            return bool(
+                sv_settings.load_settings().get("scanner_discovery"))
+        except Exception:
+            return False
+
     def _on_scan(self) -> None:
         cat = self._cat_combo.currentText()
-        items: list[str] = []
         if cat == "Todas as categorias":
-            for v in _SCAN_BY_CATEGORY.values():
-                items.extend(v)
+            alvos = list(_SCAN_BY_CATEGORY.items())
         else:
-            items = _SCAN_BY_CATEGORY.get(cat, [])
-        if not items:
+            alvos = [(cat, _SCAN_BY_CATEGORY.get(cat, []))]
+        usar_descoberta = self._discovery_ligada()
+        # Sem descoberta e sem lista fixa nao ha' o que escanear.
+        if not usar_descoberta and not any(fb for _, fb in alvos):
             return
 
         self._scan_cancelled = False
@@ -395,11 +428,33 @@ class ScannerScreen(QWidget):
         self._scan_btn.setEnabled(False)
         self._rank_btn.setEnabled(False)
         self._validate_btn.setEnabled(False)
-        self._status.setText(f"Escaneando {len(items)} itens...")
-        self._loading.set_label(f"Escaneando {len(items)} itens...")
+        if usar_descoberta:
+            # Total so' se sabe depois da busca por faceta, ja' na worker.
+            rotulo = "Descobrindo itens no Mercado..."
+        else:
+            rotulo = f"Escaneando {sum(len(fb) for _, fb in alvos)} itens..."
+        self._status.setText(rotulo)
+        self._loading.set_label(rotulo)
         self._loading.setVisible(True)
 
         def _worker():
+            # Resolver a lista pode ir a' rede (busca por faceta). Roda AQUI,
+            # nunca em _on_scan -- la' e' a thread da UI e a janela travaria.
+            items: list[str] = []
+            vistos = set()
+            for nome_cat, fallback in alvos:
+                if self._scan_cancelled:
+                    break
+                achados, _origem = discovery.resolve_scan_items(
+                    nome_cat, fallback, enabled=usar_descoberta,
+                )
+                for nome in achados:
+                    if nome not in vistos:
+                        vistos.add(nome)
+                        items.append(nome)
+            if not items:
+                self._bridge.progress.emit("FIM")
+                return
             for i, name in enumerate(items):
                 if self._scan_cancelled:
                     break
@@ -443,12 +498,16 @@ class ScannerScreen(QWidget):
         self._cache.put(name, lowest)
 
         ob = page.get("order_book") if page else None
+        # Metadados oficiais da Steam (tags da description) -- vem na mesma
+        # pagina, sem requisicao extra.
+        meta = (page.get("meta") or {}) if page else {}
         verdict = steam_api.fair_value_verdict(
             lowest, median,
             spread=ob.get("spread") if ob else None,
             buy_count=ob.get("buy_count") if ob else None,
             sell_count=ob.get("sell_count") if ob else None,
             price_history=page.get("price_history") if page else None,
+            tradable_restriction=meta.get("tradable_restriction"),
         ) if page else steam_api.fair_value_verdict(lowest, median)
         signals.record_item_price(name, lowest)
         if volume:
@@ -460,7 +519,9 @@ class ScannerScreen(QWidget):
         multi = signals.multi_trend(
             page.get("price_history", [])
         ) if page and page.get("price_history") else None
-        cs = cases.case_status(name)
+        # A colecao vem da tag ItemSet da Steam: resolve item que o mapa
+        # manual _SKIN_TO_CASE nao cobre, sem sobrescrever o que ja' cobre.
+        cs = cases.case_status(name, collection=meta.get("collection"))
         is_cont = cases.is_container(name)
 
         score, breakdown = signals.enhanced_score(
@@ -561,11 +622,26 @@ class ScannerScreen(QWidget):
             risk_labels = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
             risk_color = risk_colors.get(risk_level, t.TEXT_MUTED)
             risk_label = risk_labels.get(risk_level, "—")
+            # Teto de compra: quanto pagar pra, revendendo na mediana,
+            # sobrar MARGEM_ALVO_PCT. Verde quando o preco atual cabe.
+            teto = None
+            if r.get("median"):
+                teto = portfolio_mod.max_buy_price(
+                    r["median"], self.MARGEM_ALVO_PCT)
+            preco_atual = r.get("price")
+            if teto is None:
+                teto_txt, teto_cor = "—", t.TEXT_MUTED
+            else:
+                teto_txt = t.brl(teto)
+                teto_cor = (t.POSITIVE
+                            if preco_atual and preco_atual <= teto
+                            else t.TEXT_MUTED)
             cells = [
                 (_ln(r["name"]), None),
                 (label, score_color),
                 (r.get("price_str", t.brl(r["price"])), None),
                 (t.brl(r["median"]), None),
+                (teto_txt, teto_cor),
                 (r["verdict"], r["verdict_color"]),
                 (r["spread"], None),
                 (r["book"], None),
@@ -576,7 +652,9 @@ class ScannerScreen(QWidget):
                 (dq_label, dq_color),
             ]
             for col, (val, color) in enumerate(cells):
-                item = QTableWidgetItem(str(val))
+                # auto_cell: chave de ordenacao derivada do texto. Sem ela,
+                # Preco/Justo/Spread/Score ordenavam como string.
+                item = auto_cell(str(val))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
                 if col == self.COL_NAME:
@@ -631,7 +709,8 @@ class ScannerScreen(QWidget):
                         " Pode diferir do preço real de listagem."
                     )
         # Alinhamento por coluna: dinheiro → direita, status → centro
-        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_SCORE}
+        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_COMPRAR,
+                      self.COL_SCORE}
         center_cols = {
             self.COL_SINAL, self.COL_VEREDITO, self.COL_SPREAD,
             self.COL_BOOK, self.COL_TREND, self.COL_SD,
@@ -840,9 +919,9 @@ class ScannerScreen(QWidget):
             return
         import csv, io
         cols = [
-            "Item", "Score", "Veredito", "Preco", "Justo",
-            "Spread", "Book", "Tendencia", "Oferta/Demanda",
-            "Confianca", "Categoria", "Risco",
+            "Item", "Score", "Veredito", "Preço", "Justo",
+            "Spread", "Book", "Tendência", "Oferta/Demanda",
+            "Confiança", "Categoria", "Risco",
         ]
         try:
             with io.open(path, "w", newline="", encoding="utf-8-sig") as f:

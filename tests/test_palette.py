@@ -40,6 +40,21 @@ class TestPaletteRank:
         out = palette_rank("ist", _items("Inativos sem trade", "Historico"))
         assert out[0]["label"] == "Historico"
 
+    def test_acento_nao_atrapalha_a_busca(self):
+        """Os rotulos sao em portugues; o teclado de quem busca nem sempre.
+
+        Sem dobrar acento, digitar "historico" nao achava "Histórico" -- o
+        comando existia e a paleta dizia que nao.
+        """
+        out = palette_rank("historico", _items("Histórico"))
+        assert len(out) == 1 and out[0]["label"] == "Histórico"
+        assert palette_rank("configuracoes", _items("Configurações"))
+        assert palette_rank("preco", _items("Preço justo"))
+
+    def test_busca_acentuada_tambem_acha(self):
+        """A dobra vale dos dois lados: query com acento, rotulo sem."""
+        assert palette_rank("histórico", _items("Historico"))
+
     def test_subsequence_matches_scattered(self):
         # "stt" casa espalhado em "Sincronizar Trade Total"
         out = palette_rank("stt", _items("Sincronizar Trade Total"))

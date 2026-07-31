@@ -74,8 +74,8 @@ def shoot():
         (sr.SCREEN_SCANNER, "03-scanner"),
         (sr.SCREEN_MARKET, "04-market"),
         (sr.SCREEN_TRADES, "05-trades"),
-        (sr.SCREEN_SIMULADOR, "06-simulador"),
-        (sr.SCREEN_WATCHLIST, "07-watchlist"),
+        (sr.SCREEN_WATCHLIST, "06-watchlist"),
+        (sr.SCREEN_CLEANUP, "07-cleanup"),
         (sr.SCREEN_SETTINGS, "08-settings"),
     ]
 
@@ -83,6 +83,16 @@ def shoot():
         win._router.navigate(screen)
         app.processEvents()
         app.processEvents()
+        if screen == sr.SCREEN_CLEANUP:
+            # A medicao roda em worker; sem esperar, o print sai com
+            # "Medindo..." em vez dos tamanhos.
+            import time
+            for _ in range(40):
+                if not win._router._cleanup_screen._scan_worker.running:
+                    break
+                time.sleep(0.25)
+                app.processEvents()
+            app.processEvents()
         pix = win.grab()
         pix.save(str(OUT / f"{name}.png"))
         print(f"  salvo: prints/{name}.png")

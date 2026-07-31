@@ -12,6 +12,7 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QCompleter,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -23,7 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import cases, signals, steam_api
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
@@ -52,11 +53,19 @@ def _load_recent() -> list[str]:
 
 def _save_recent(items: list[str]) -> None:
     try:
-        _RECENT_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _RECENT_PATH.write_text(json.dumps(items[:8]), encoding="utf-8")
+        atomic_write_text(_RECENT_PATH, json.dumps(items[:8]))
     except OSError:
         pass
 
+
+_MEDIAN_LABEL = "Mediana 24h"
+_MEDIAN_LABEL_FALLBACK = "Mediana (último dia com venda)"
+
+_THROTTLED_MSG = (
+    "A Steam limitou as consultas de preço agora. O histórico e o livro de "
+    "ofertas vieram da página do item; menor listagem, volume 24h e o "
+    "veredito voltam sozinhos quando o limite passar."
+)
 
 _VERDICT_COLOR = {
     "below_median": t.POSITIVE,
@@ -119,6 +128,7 @@ class MarketScreen(QWidget):
         self._search_inp.setClearButtonEnabled(True)
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.returnPressed.connect(self._on_search)
+        self._instalar_autocomplete()
         search_row.addWidget(self._search_inp, 1)
 
         self._search_btn = QPushButton("Consultar item")
@@ -318,6 +328,53 @@ class MarketScreen(QWidget):
             )
         self._recent_act.setVisible(bool(self._recent))
 
+    def _nomes_conhecidos(self) -> list:
+        """Nomes CRUS que o app ja' conhece: carteira + watchlist.
+
+        Cru e nao localizado de proposito -- e' o `market_hash_name` que a
+        Steam entende, e a tela pede exatamente isso.
+        """
+        nomes = set()
+        try:
+            from skinvault import portfolio, watchlist
+            for p in portfolio.load_portfolio():
+                if p.get("name"):
+                    nomes.add(p["name"])
+            for w in watchlist.load_watchlist():
+                if isinstance(w, dict) and w.get("name"):
+                    nomes.add(w["name"])
+        except Exception:
+            # Autocomplete e' conveniencia: se a leitura falhar, o campo
+            # continua aceitando o nome digitado.
+            return []
+        return sorted(nomes)
+
+    def _instalar_autocomplete(self) -> None:
+        """Sugere itens da propria carteira enquanto se digita.
+
+        A tela exige o `market_hash_name` EXATO -- com wear e StatTrak no
+        lugar certo -- e errar um caractere devolve "sem dados", que se
+        confunde com item sem historico. Os 31 itens do dono ja' estao em
+        disco; nao ha' motivo pra faze-lo digitar de novo.
+        """
+        nomes = self._nomes_conhecidos()
+        if not nomes:
+            return
+        comp = QCompleter(nomes, self._search_inp)
+        comp.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        # "redline" tem que achar "AK-47 | Redline (Field-Tested)": o nome
+        # comeca pela ARMA, e um match so' por prefixo nunca acharia.
+        comp.setFilterMode(Qt.MatchFlag.MatchContains)
+        comp.setMaxVisibleItems(12)
+        popup = comp.popup()
+        popup.setStyleSheet(
+            f"background: {t.BG_ELEVATED}; color: {t.TEXT};"
+            f" border: 1px solid {t.BORDER};"
+            f" selection-background-color: {t.SURFACE_HOV};"
+            f" font-family: {t.FONT_FAMILY}; font-size: {t.FS_BODY};")
+        self._search_inp.setCompleter(comp)
+        self._completer = comp
+
     def _show_recent_menu(self) -> None:
         if self._recent:
             inp = self._search_inp
@@ -374,6 +431,44 @@ class MarketScreen(QWidget):
         self._detail_grid.addWidget(lbl, row, 0)
         self._detail_grid.addWidget(val, row, 1)
 
+    def _reset_median_card(self) -> None:
+        """Devolve o cartao de mediana ao significado padrao.
+
+        Rotulo e badge sobrevivem entre consultas: sem este reset, um item
+        consultado durante o rate limit deixaria "último dia com venda"
+        colado no cartao do proximo item, que veio com mediana 24h de fato.
+        """
+        self._stat_median.set_label(_MEDIAN_LABEL)
+        self._stat_median.clear_badge()
+        self._stat_median.setToolTip(
+            "Mediana das vendas das últimas 24h. Referência de \"preço justo\"."
+        )
+
+    def _fill_median_from_page(self, page: dict) -> None:
+        """Preenche a mediana com o último dia do histórico da página.
+
+        Não é a mediana de 24h: é a do último dia em que houve venda, que
+        pode ser mais antigo. O rótulo e o badge dizem isso — um número com
+        o rótulo errado seria pior que travessão.
+        """
+        diario = signals.daily_series(page.get("price_history") or [])
+        if not diario:
+            return
+        ultimo = diario[-1]
+        preco = ultimo.get("price_median")
+        if preco is None:
+            return
+        self._stat_median.set_label(_MEDIAN_LABEL_FALLBACK)
+        self._stat_median.set_value(t.brl(preco), accent=t.TEXT)
+        self._stat_median.set_badge("do histórico")
+        quando = time.strftime("%d/%m/%Y", time.localtime(ultimo["time"])) \
+            if ultimo.get("time") else "data desconhecida"
+        self._stat_median.setToolTip(
+            "A Steam limitou o endpoint de preço, então esta mediana vem do "
+            "histórico da página do item.\n"
+            f"Refere-se a {quando}, não às últimas 24h."
+        )
+
     # ── acoes ─────────────────────────────────────────────
     def _on_search(self) -> None:
         name = self._search_inp.text().strip()
@@ -416,6 +511,7 @@ class MarketScreen(QWidget):
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict):
             sc.set_value("—", accent=t.TEXT)
+        self._reset_median_card()
         self._sparkline.set_series([])
         self._sparkline.set_sma([])
         self._sparkline.set_sr({})
@@ -458,6 +554,12 @@ class MarketScreen(QWidget):
 
         # Stats
         verdict: dict = {}
+        # `page` sem `overview` significa que o nome existe (a pagina do item
+        # resolveu) mas o priceoverview nao respondeu -- rate limit ou rede,
+        # nunca item invalido. Da' pra mostrar algo em vez de quatro
+        # travessoes e um "dados insuficientes" que sugere culpa do usuario.
+        throttled = bool(page) and not overview
+        self._reset_median_card()
         if overview:
             lowest = overview.get("lowest")
             median = overview.get("median")
@@ -494,6 +596,8 @@ class MarketScreen(QWidget):
                         f"Anomalia detectada: {anom.get('label', '')}"
                     )
             self._stat_volume.set_value(vol_label, accent=vol_color)
+        elif throttled:
+            self._fill_median_from_page(page)
 
         # Charts
         if page:
@@ -502,19 +606,32 @@ class MarketScreen(QWidget):
 
             if price_history:
                 # Entries SSR: {time: unix, price_median: float, purchases}
-                series = [(x.get("time"), x["price_median"])
-                          for x in price_history if "price_median" in x]
-                if series:
+                # A Steam serve pontos HORARIOS nos ultimos ~28 dias. Fatiar
+                # por contagem mostraria ~4 dias no lugar de ~100, e a SMA
+                # de 7 periodos viraria media de 7 horas. Agrega por dia
+                # quando ha' timestamp; sem timestamp, mantem o corte antigo.
+                diario = signals.daily_series(price_history)
+                if diario:
+                    todos = [d["price_median"] for d in diario]
+                    sma_vals = signals.sma(todos, period=7)[-100:]
+                    janela = diario[-100:]
+                    valores = [d["price_median"] for d in janela]
+                    tempos = [d["time"] for d in janela]
+                    base_sr = janela
+                else:
+                    series = [(x.get("time"), x["price_median"])
+                              for x in price_history if "price_median" in x]
                     recent = series[-100:]
-                    self._sparkline.set_series(
-                        [pr for _, pr in recent],
-                        timestamps=[ts for ts, _ in recent],
-                    )
+                    valores = [pr for _, pr in recent]
+                    tempos = [ts for ts, _ in recent]
                     sma_vals = signals.sma([pr for _, pr in series],
-                                           period=7)
+                                           period=7)[-100:]
+                    base_sr = price_history[-100:]
+                if valores:
+                    self._sparkline.set_series(valores, timestamps=tempos)
                     if sma_vals:
-                        self._sparkline.set_sma(sma_vals[-100:])
-                    sr = signals.find_support_resistance(price_history[-100:])
+                        self._sparkline.set_sma(sma_vals)
+                    sr = signals.find_support_resistance(base_sr)
                     if sr:
                         self._sparkline.set_sr(sr)
                 self._spark_meta.setText(
@@ -550,6 +667,12 @@ class MarketScreen(QWidget):
                                          t.TEXT)
             self._detail_msg.setStyleSheet(
                 f"color: {v_color}; font-size: {t.FS_BODY};"
+                f" font-weight: 600; font-family: {t.FONT_FAMILY};"
+            )
+        elif throttled:
+            self._detail_msg.setText(_THROTTLED_MSG)
+            self._detail_msg.setStyleSheet(
+                f"color: {t.WARN}; font-size: {t.FS_BODY};"
                 f" font-weight: 600; font-family: {t.FONT_FAMILY};"
             )
         else:

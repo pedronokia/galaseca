@@ -26,13 +26,14 @@ from skinvault import settings as settings_mod, steam_session
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.account_screen import AccountScreen
+from skinvault.ui.cleanup_screen import CleanupScreen
+from skinvault.ui.inventory_screen import InventoryScreen
 from skinvault.ui.components import Breadcrumb, LineIcon, fade_in
 from skinvault.ui.history_screen import HistoryScreen
 from skinvault.ui.login_gate import LoginGate
 from skinvault.ui.market_screen import MarketScreen
 from skinvault.ui.scanner_screen import ScannerScreen
 from skinvault.ui.settings_screen import SettingsScreen
-from skinvault.ui.simulador_screen import SimuladorScreen
 from skinvault.ui.trades_screen import TradesScreen
 from skinvault.ui.watchlist_screen import WatchlistScreen
 
@@ -40,12 +41,16 @@ logger = logging.getLogger(__name__)
 
 
 SCREEN_ACCOUNT = "account"
+SCREEN_INVENTORY = "inventory"
 SCREEN_HISTORY = "history"
 SCREEN_SCANNER = "scanner"
 SCREEN_MARKET = "market"
 SCREEN_TRADES = "trades"
-SCREEN_SIMULADOR = "simulador"
+# SCREEN_SIMULADOR removido em 28/07/2026: o simulador calculava P&L de um
+# trade hipotetico, mas o mesmo numero ja' sai do veredito do Market e do
+# proprio inventario, com dado real em vez de digitado a mao.
 SCREEN_WATCHLIST = "watchlist"
+SCREEN_CLEANUP = "cleanup"
 SCREEN_SETTINGS = "settings"
 
 
@@ -136,6 +141,16 @@ class ScreenRouter(QWidget):
         self._account_screen.request_sync.connect(self._request_sync)
         self._stack.addWidget(self._account_screen)
 
+        # O inventario e' tela propria, mas quem avalia continua sendo a
+        # AccountScreen -- ela tem o PriceWorker. Duplicar a avaliacao
+        # dobraria o custo num endpoint ja' rate-limited.
+        self._inventory_screen = InventoryScreen(self)
+        self._account_screen.inventory_ready.connect(
+            self._inventory_screen.set_data)
+        self._account_screen.inventory_progress.connect(
+            self._inventory_screen.set_loading)
+        self._stack.addWidget(self._inventory_screen)
+
         self._history_screen = HistoryScreen(self._cache, self)
         self._stack.addWidget(self._history_screen)
 
@@ -148,14 +163,15 @@ class ScreenRouter(QWidget):
         self._trades_screen = TradesScreen(self)
         self._stack.addWidget(self._trades_screen)
 
-        self._simulador_screen = SimuladorScreen(self)
-        self._stack.addWidget(self._simulador_screen)
 
         self._watchlist_screen = WatchlistScreen(self._cache, self)
         self._watchlist_screen.notification_requested.connect(
             self.notification_requested,
         )
         self._stack.addWidget(self._watchlist_screen)
+
+        self._cleanup_screen = CleanupScreen(self)
+        self._stack.addWidget(self._cleanup_screen)
 
         self._settings_screen = SettingsScreen(self)
         self._stack.addWidget(self._settings_screen)
@@ -234,12 +250,20 @@ class ScreenRouter(QWidget):
         self.sidebar_visibility_changed.emit(False)
 
     def _set_surface(self, login: bool) -> None:
-        """No login a janela inteira e' uma superficie clara (BG_ELEVATED),
-        sem cartao flutuando sobre fundo escuro; no app volta ao BG escuro
-        com telas/cards por cima."""
+        """No login, a janela INTEIRA e' um tom so' (BG_ELEVATED).
+
+        Qualquer diferenca de tom no login vira moldura escura em volta do
+        conteudo -- foi o que aconteceu quando o router ficou em BG e o
+        conteudo em BG_ELEVATED. No app o contraste e' desejado (telas e
+        cards sobre BG), no login nao ha' nada pra destacar.
+
+        O breadcrumb tambem some no login: "Bem-vindo" e' texto de
+        enchimento, nao caminho de navegacao.
+        """
         bg = t.BG_ELEVATED if login else t.BG
         self.setStyleSheet(f"QWidget#ScreenRouter {{ background: {bg}; }}")
         self._breadcrumb.set_surface(bg)
+        self._breadcrumb.setVisible(not login)
         # Perfil leva a "Minha Conta" (exige sessao) — sem login e' peso
         # morto; some no gate, fica so o toggle de tema.
         self._profile_btn.setVisible(not login)
@@ -290,12 +314,13 @@ class ScreenRouter(QWidget):
     def navigate(self, screen: str) -> None:
         mapping = {
             SCREEN_ACCOUNT: (self._account_screen, "Minha Conta"),
-            SCREEN_HISTORY: (self._history_screen, "Historico"),
+            SCREEN_INVENTORY: (self._inventory_screen, "Inventário"),
+            SCREEN_HISTORY: (self._history_screen, "Histórico"),
             SCREEN_SCANNER: (self._scanner_screen, "Scanner"),
             SCREEN_MARKET: (self._market_screen, "Market"),
             SCREEN_TRADES: (self._trades_screen, "Trades"),
-            SCREEN_SIMULADOR: (self._simulador_screen, "Simulador"),
             SCREEN_WATCHLIST: (self._watchlist_screen, "Watchlist"),
+            SCREEN_CLEANUP: (self._cleanup_screen, "Limpeza"),
             SCREEN_SETTINGS: (self._settings_screen, "Configurações"),
         }
         widget, label = mapping.get(screen, (None, ""))
@@ -315,6 +340,8 @@ class ScreenRouter(QWidget):
             self._account_screen.refresh()
         elif screen == SCREEN_WATCHLIST:
             self._watchlist_screen.refresh()
+        elif screen == SCREEN_CLEANUP:
+            self._cleanup_screen.refresh()
         elif screen == SCREEN_SETTINGS:
             self._settings_screen.refresh()
 

@@ -417,23 +417,83 @@ def test_parse_volume_with_commas():
 # ── get_market_price / get_market_overview ─────────────────────────
 
 
+# get_market_price virou wrapper de get_market_price_status, que precisa do
+# STATUS HTTP pra distinguir 429 de "item sem preco" -- entao ele le' o
+# _http_get direto, que e' o ponto de mock canonico (AGENTS.md).
+def _fake_http(code, body):
+    return lambda url, timeout=15.0: (code, body)
+
+
 def test_get_market_price_no_data(monkeypatch):
-    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: None)
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(500, None))
     assert steam_api.get_market_price("AK") is None
 
 
 def test_get_market_price_not_successful(monkeypatch):
-    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {"success": False})
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, '{"success": false}'))
     assert steam_api.get_market_price("AK") is None
 
 
 def test_get_market_price_falls_back_to_median(monkeypatch):
     """Sem lowest_price, usa median_price."""
-    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {
-        "success": True,
-        "median_price": "R$ 200,00",
-    })
+    monkeypatch.setattr(
+        "skinvault.steam_api._http_get",
+        _fake_http(200, '{"success": true, "median_price": "R$ 200,00"}'))
     assert steam_api.get_market_price("AK") == 200.0
+
+
+# ── status do priceoverview ────────────────────────────────────────
+
+def test_price_status_ok(monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.steam_api._http_get",
+        _fake_http(200, '{"success": true, "lowest_price": "R$ 150,00"}'))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_OK, 150.0)
+
+
+def test_price_status_429_e_rate_limited(monkeypatch):
+    """O caso que antes virava 'sem preco' e envenenava o cache por 1h."""
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(429, None))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_RATE_LIMITED, None)
+
+
+def test_price_status_sem_mercado(monkeypatch):
+    """Steam respondeu: o item nao tem preco. Isso e' fato sobre o item."""
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, '{"success": false}'))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_NO_PRICE, None)
+
+
+def test_price_status_erro_de_rede(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(0, None))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_ERROR, None)
+
+
+def test_price_status_json_quebrado(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, "{nao e json"))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_ERROR, None)
+
+
+def test_price_status_sucesso_sem_preco_parseavel(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        _fake_http(200, '{"success": true}'))
+    assert steam_api.get_market_price_status("AK") == (
+        steam_api.PRICE_NO_PRICE, None)
+
+
+def test_apenas_ok_e_no_price_sao_cacheaveis():
+    """A lista que separa fato sobre o ITEM de estado da REDE."""
+    assert steam_api.PRICE_OK in steam_api.PRICE_CACHEABLE
+    assert steam_api.PRICE_NO_PRICE in steam_api.PRICE_CACHEABLE
+    assert steam_api.PRICE_RATE_LIMITED not in steam_api.PRICE_CACHEABLE
+    assert steam_api.PRICE_ERROR not in steam_api.PRICE_CACHEABLE
 
 
 def test_get_market_overview_no_data(monkeypatch):
@@ -811,3 +871,328 @@ def test_parse_myhistory_fixture():
     assert len(lids) == 3, (
         f"3 Kilowatt Case com listing_ids colapsados: {lids}"
     )
+
+
+# ── search_market: camada de descoberta ────────────────────────────
+
+
+def _search_body(results, total=0, success=True):
+    return json.dumps(
+        {"success": success, "total_count": total, "results": results})
+
+
+def test_search_url_monta_facetas_e_prefixo_tag():
+    """Chave da faceta vira category_730_X[] e ganha prefixo tag_."""
+    url = steam_api._search_url(
+        "", {"type": "CSGO_Type_Rifle", "exterior": ["WearCategory2"]},
+        "quantity", True, 0, 100, 7)
+    assert "category_730_Type%5B%5D=tag_CSGO_Type_Rifle" in url
+    assert "category_730_Exterior%5B%5D=tag_WearCategory2" in url
+    assert "currency=7" in url and "norender=1" in url
+
+
+def test_search_url_nao_duplica_prefixo_tag():
+    """Tag que ja' vem com tag_ nao vira tag_tag_."""
+    url = steam_api._search_url(
+        "", {"type": "tag_CSGO_Type_Knife"}, "price", False, 0, 100, 7)
+    assert "tag_CSGO_Type_Knife" in url
+    assert "tag_tag_" not in url
+    assert "sort_dir=asc" in url
+
+
+def test_search_url_par_invertido_quality_rarity():
+    """A Steam inverte: 'category' -> _Quality, 'rarity' -> _Rarity.
+
+    Trocar os dois nao gera erro, so' resultado errado -- por isso o teste.
+    """
+    url = steam_api._search_url(
+        "", {"category": "strange", "rarity": "Rarity_Ancient_Weapon"},
+        "quantity", True, 0, 100, 7)
+    assert "category_730_Quality%5B%5D=tag_strange" in url
+    assert "category_730_Rarity%5B%5D=tag_Rarity_Ancient_Weapon" in url
+
+
+def test_search_url_ignora_faceta_desconhecida_e_sort_invalido():
+    url = steam_api._search_url(
+        "ak", {"nao_existe": "x"}, "bogus", True, 0, 100, 7)
+    assert "nao_existe" not in url
+    assert "sort_column=quantity" in url
+    assert "query=ak" in url
+
+
+def test_parse_search_results_usa_centavos():
+    """sell_price vem em centavos da moeda pedida."""
+    rows = steam_api._parse_search_results({"results": [
+        {"name": "AK-47 | Redline (FT)", "hash_name": "AK-47 | Redline (FT)",
+         "sell_price": 12345, "sell_listings": 42},
+    ]})
+    assert rows[0]["price"] == pytest.approx(123.45)
+    assert rows[0]["listings"] == 42
+
+
+def test_parse_search_results_ignora_sem_nome():
+    rows = steam_api._parse_search_results(
+        {"results": [{"sell_price": 100}, {"hash_name": "X", "sell_price": 0,
+                                           "sell_listings": "nao-numero"}]})
+    assert len(rows) == 1
+    assert rows[0]["hash_name"] == "X"
+    assert rows[0]["listings"] == 0
+
+
+def test_search_market_ok(monkeypatch):
+    body = _search_body(
+        [{"hash_name": "Kilowatt Case", "sell_price": 122,
+          "sell_listings": 1000}], total=611)
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (200, body))
+    status, items, total = steam_api.search_market()
+    assert status == steam_api.SEARCH_OK
+    assert total == 611
+    assert items[0]["hash_name"] == "Kilowatt Case"
+
+
+def test_search_market_rate_limited(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (429, None))
+    status, items, total = steam_api.search_market()
+    assert status == steam_api.SEARCH_RATE_LIMITED
+    assert items == [] and total == 0
+
+
+def test_search_market_success_false_vira_erro(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (200, _search_body([], success=False)))
+    status, _, _ = steam_api.search_market()
+    assert status == steam_api.SEARCH_ERROR
+
+
+def test_search_market_json_invalido(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (200, "nao json"))
+    status, _, _ = steam_api.search_market()
+    assert status == steam_api.SEARCH_ERROR
+
+
+def test_search_market_all_pagina_ate_o_total(monkeypatch):
+    """Avanca por len(resultados) e para ao alcancar total_count."""
+    def fake(url):
+        start = int(url.split("start=")[1].split("&")[0])
+        if start >= 20:
+            return 200, _search_body([], total=20)
+        rows = [{"hash_name": f"item{start + i}", "sell_price": 100,
+                 "sell_listings": 1} for i in range(10)]
+        return 200, _search_body(rows, total=20)
+
+    monkeypatch.setattr("skinvault.steam_api._http_get", fake)
+    status, items, total = steam_api.search_market_all()
+    assert status == steam_api.SEARCH_OK
+    assert total == 20
+    assert len(items) == 20
+    assert items[0]["hash_name"] == "item0"
+    assert items[-1]["hash_name"] == "item19"
+
+
+def test_search_market_all_respeita_max_items(monkeypatch):
+    rows = [{"hash_name": f"i{i}", "sell_price": 100, "sell_listings": 1}
+            for i in range(10)]
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (200, _search_body(rows, total=9999)))
+    status, items, _ = steam_api.search_market_all(max_items=25)
+    assert status == steam_api.SEARCH_OK
+    assert len(items) == 25
+
+
+def test_search_market_all_para_em_pagina_vazia(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (200, _search_body([], total=500)))
+    status, items, _ = steam_api.search_market_all()
+    assert status == steam_api.SEARCH_OK
+    assert items == []
+
+
+# ── _find_query: exato tem que vencer substring ────────────────────
+
+
+def _q(nome, data):
+    return {"queryKey": ["market", "pricehistory", 730, nome],
+            "state": {"data": data}}
+
+
+AK_FT = "AK-47 | Redline (Field-Tested)"
+
+
+def test_find_query_exato_vence_souvenir_que_vem_antes():
+    """Caso real do SSR: Souvenir aparece antes e CONTEM o nome pedido.
+
+    Medido em 28/07/2026 numa listing page real -- a Souvenir tinha 1 ponto
+    de historico e a correta 5188, na mesma resposta.
+    """
+    queries = [
+        _q("Souvenir AK-47 | Redline (Field-Tested)", "souvenir"),
+        _q(AK_FT, "correto"),
+        _q("StatTrak™ AK-47 | Redline (Field-Tested)", "stattrak"),
+    ]
+    assert _find_query(queries, "pricehistory", AK_FT) == "correto"
+
+
+def test_find_query_exato_vence_mesmo_sendo_o_ultimo():
+    """A escolha nao pode depender da ordem de iteracao do SSR."""
+    queries = [
+        _q("StatTrak™ AK-47 | Redline (Field-Tested)", "stattrak"),
+        _q("Souvenir AK-47 | Redline (Field-Tested)", "souvenir"),
+        _q(AK_FT, "correto"),
+    ]
+    assert _find_query(queries, "pricehistory", AK_FT) == "correto"
+
+
+def test_find_query_substring_ainda_funciona_sem_exato():
+    """Compatibilidade: nome parcial do chamador continua casando."""
+    queries = [_q(AK_FT, "ak_ft")]
+    assert _find_query(queries, "pricehistory", "AK-47 | Redline") == "ak_ft"
+
+
+def test_find_query_loose_nao_ganha_do_exato():
+    """Com exato disponivel, loose_match nao deve desviar pra outro wear."""
+    queries = [
+        _q("AK-47 | Redline (Minimal Wear)", "outro_wear"),
+        _q(AK_FT, "correto"),
+    ]
+    assert _find_query(
+        queries, "pricehistory", AK_FT, loose_match=True) == "correto"
+
+
+def test_find_query_loose_so_quando_nao_ha_exato_nem_substring():
+    """Comportamento do orderbook: SSR so' traz um wear, aceita o root."""
+    queries = [_q("AK-47 | Redline (Minimal Wear)", "mw")]
+    assert _find_query(queries, "orderbook", AK_FT) is None
+    assert _find_query(
+        queries, "pricehistory", AK_FT, loose_match=True) == "mw"
+
+
+def test_find_query_ignora_case_no_exato():
+    queries = [_q("ak-47 | redline (field-tested)", "case_diff")]
+    assert _find_query(queries, "pricehistory", AK_FT) == "case_diff"
+
+
+# ── _collect_variants: colher as irmas da mesma pagina ─────────────
+
+
+def test_collect_variants_pega_todas_as_series():
+    queries = [
+        _q(AK_FT, {"prices": [1, 2, 3]}),
+        _q("AK-47 | Redline (Minimal Wear)", {"prices": [1, 2]}),
+        _q("StatTrak™ AK-47 | Redline (Field-Tested)", {"prices": [1]}),
+    ]
+    v = steam_api._collect_variants(queries)
+    assert set(v) == {
+        AK_FT,
+        "AK-47 | Redline (Minimal Wear)",
+        "StatTrak™ AK-47 | Redline (Field-Tested)",
+    }
+    assert v[AK_FT] == [1, 2, 3]
+
+
+def test_collect_variants_omite_series_vazias():
+    queries = [
+        _q(AK_FT, {"prices": []}),
+        _q("AK-47 | Redline (Well-Worn)", {"prices": [1]}),
+    ]
+    v = steam_api._collect_variants(queries)
+    assert AK_FT not in v
+    assert v == {"AK-47 | Redline (Well-Worn)": [1]}
+
+
+def test_collect_variants_ignora_outras_chaves_e_querykey_curta():
+    queries = [
+        {"queryKey": ["market", "orderbook", 730, AK_FT],
+         "state": {"data": {"prices": [1, 2]}}},
+        {"queryKey": ["market", "pricehistory"],
+         "state": {"data": {"prices": [1, 2]}}},
+        {"queryKey": "nao e' lista", "state": {"data": {"prices": [1]}}},
+    ]
+    assert steam_api._collect_variants(queries) == {}
+
+
+def test_collect_variants_aceita_data_como_lista_crua():
+    queries = [_q(AK_FT, [{"t": 1}])]
+    assert steam_api._collect_variants(queries) == {AK_FT: [{"t": 1}]}
+
+
+# ── facetas: catalogo ao vivo ──────────────────────────────────────
+
+
+_FACETS_RAW = {
+    "Rarity": {
+        "appid": 730, "name": "Rarity", "localized_name": "Quality",
+        "tags": {"Rarity_Ancient_Weapon": {"localized_name": "Covert"}},
+    },
+    "Quality": {
+        "appid": 730, "name": "Quality", "localized_name": "Category",
+        "tags": {"normal": {"localized_name": "Normal"},
+                 "strange": {"localized_name": "StatTrak™"}},
+    },
+}
+
+
+def test_normalize_facets_usa_name_como_chave():
+    """A chave e' `name` (vai na URL), nao o localized_name (rotulo de UI)."""
+    f = steam_api._normalize_facets(_FACETS_RAW)
+    assert set(f) == {"Rarity", "Quality"}
+    # O par invertido da Steam preservado: chave Rarity, rotulo "Quality".
+    assert f["Rarity"]["label"] == "Quality"
+    assert f["Quality"]["label"] == "Category"
+    assert f["Quality"]["tags"]["strange"] == "StatTrak™"
+
+
+def test_normalize_facets_tolera_lixo():
+    assert steam_api._normalize_facets(None) == {}
+    assert steam_api._normalize_facets({"a": "nao e' dict"}) == {}
+    assert steam_api._normalize_facets({"a": {"sem_name": 1}}) == {}
+
+
+def test_normalize_facets_tag_sem_metadata():
+    f = steam_api._normalize_facets(
+        {"T": {"name": "Type", "tags": {"CSGO_Type_Rifle": None}}})
+    assert f["Type"]["tags"]["CSGO_Type_Rifle"] == "CSGO_Type_Rifle"
+
+
+def test_collect_facets_acha_no_ssr():
+    queries = [
+        {"queryKey": ["market", "pricehistory", 730, AK_FT],
+         "state": {"data": {"prices": [1]}}},
+        {"queryKey": ["market", "app_facets", 730],
+         "state": {"data": _FACETS_RAW}},
+    ]
+    f = steam_api._collect_facets(queries)
+    assert f["Quality"]["tags"]["normal"] == "Normal"
+
+
+def test_collect_facets_ausente_devolve_vazio():
+    assert steam_api._collect_facets([]) == {}
+
+
+def test_fetch_market_facets_ok(monkeypatch):
+    body = json.dumps({"success": True, "facets": _FACETS_RAW})
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (200, body))
+    f = steam_api.fetch_market_facets()
+    assert f["Rarity"]["tags"]["Rarity_Ancient_Weapon"] == "Covert"
+
+
+def test_fetch_market_facets_falha_devolve_vazio(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (500, None))
+    assert steam_api.fetch_market_facets() == {}
+    monkeypatch.setattr(
+        "skinvault.steam_api._http_get",
+        lambda url: (200, json.dumps({"success": False})))
+    assert steam_api.fetch_market_facets() == {}
+
+
+def test_market_facets_bate_com_as_chaves_do_catalogo():
+    """MARKET_FACETS so' pode apontar pra chaves que a Steam expoe."""
+    f = steam_api._normalize_facets(_FACETS_RAW)
+    for chave in ("Rarity", "Quality"):
+        assert chave in f
+    assert steam_api.MARKET_FACETS["rarity"] == "Rarity"
+    assert steam_api.MARKET_FACETS["category"] == "Quality"

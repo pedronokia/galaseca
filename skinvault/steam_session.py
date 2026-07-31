@@ -19,7 +19,7 @@ import urllib.request
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, atomic_write_text
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +65,11 @@ def extract_steamid_from_cookie(cookies: dict) -> str | None:
 def persist(session: SteamSession, path: Path | str = _DEFAULT_PATH) -> None:
     p = Path(path)
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "_warning": "CONTEM CREDENCIAIS DE SESSAO STEAM. NAO COMPARTILHAR.",
             **asdict(session),
         }
-        p.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        atomic_write_text(p, json.dumps(payload, indent=2))
     except OSError as exc:
         logger.exception("Falha ao persistir sessao em %s: %s", p, exc)
 

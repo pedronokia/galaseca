@@ -24,6 +24,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -32,11 +34,14 @@ from PyQt6.QtWidgets import (
 
 from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
-from skinvault import history, prices, signals, ssr_cache, steam_session
+from skinvault import (
+    history, markets, prices, signals, ssr_cache, steam_session,
+)
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
-from skinvault.ui.components import ActivityFeed, Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
-from skinvault.ui.widgets import ValueChart
+from skinvault.ui.inventory_grid import InventoryGrid
+from skinvault.ui.components import Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
+from skinvault.ui.widgets import CompositionChart, ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
     load_avatar_bytes,
@@ -57,16 +62,19 @@ class _PortfolioValidationBridge(QObject):
 class AccountScreen(QWidget):
     """Tela 1 -- Minha Conta + Inventario."""
 
-    COL_NAME = 0
-    COL_QTY = 1
-    COL_PRICE = 2
-    COL_SUBTOTAL = 3
-    COL_RECEIVED = 4
-    COL_PNL = 5
-    COL_ORIGIN = 6
-    COL_SCORE = 7
 
     request_sync = pyqtSignal()
+    # (rows, positions) ja' avaliados. Quem consome e' a InventoryScreen --
+    # esta tela mantem o PriceWorker porque avaliar em dois lugares
+    # dobraria o custo num endpoint rate-limited.
+    # (rows, positions, rate_limited). O terceiro campo existe porque "31
+    # itens sem preco" e "a Steam bloqueou" sao indistinguiveis na tabela.
+    inventory_ready = pyqtSignal(list, list, bool)
+    # Progresso da avaliacao (done, total). A InventoryScreen precisa disso
+    # pra distinguir "ainda avaliando" de "vazio" -- sob rate limit da Steam
+    # a avaliacao leva minutos, e o estado intermediario e' o que mais
+    # aparece pro usuario.
+    inventory_progress = pyqtSignal(int, int)
 
     def __init__(self, cache: prices.PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -284,16 +292,81 @@ class AccountScreen(QWidget):
         bd_row.addStretch(1)
         bd_lay.addLayout(bd_row)
 
-        vc_lbl = QLabel("Evolução do valor bruto — cada avaliação grava um ponto")
-        vc_lbl.setStyleSheet(t.label_caption())
-        bd_lay.addWidget(vc_lbl)
-        self._value_chart = ValueChart()
-        bd_lay.addWidget(self._value_chart)
-        self._reload_value_series()
-
         breakdown_card.layout().addLayout(bd_lay)
         self._breakdown_card = breakdown_card
+        # Os cartoes de cima informam; o inventario e' o objetivo da tela.
+        # Sem travar a altura deles, sobravam ~150px pra lista -- 5 linhas
+        # visiveis num monitor de 1080p.
+        for card in (header, breakdown_card):
+            card.setSizePolicy(QSizePolicy.Policy.Preferred,
+                               QSizePolicy.Policy.Maximum)
         root.addWidget(breakdown_card)
+
+        # ── Evolucao + composicao, lado a lado ────────────────
+        #
+        # Estes dois cartoes ocupam a metade de baixo da tela, que ficou
+        # vazia quando o inventario virou aba propria em 28/07. O grafico
+        # de valor morava espremido em 90px dentro do cartao de desempenho,
+        # teto posto quando ele disputava altura com a lista -- disputa que
+        # nao existe mais.
+        fundo = QHBoxLayout()
+        fundo.setSpacing(16)
+
+        chart_card = Card(self, padding=t.CARD_PAD_MD)
+        ch_lay = QVBoxLayout()
+        ch_lay.setSpacing(8)
+        ch_title = QLabel("Evolução do valor")
+        ch_title.setStyleSheet(t.label_section())
+        ch_lay.addWidget(ch_title)
+        self._vc_lbl = QLabel(
+            "Valor bruto da carteira — cada avaliação grava um ponto")
+        self._vc_lbl.setStyleSheet(t.label_caption())
+        ch_lay.addWidget(self._vc_lbl)
+        self._value_chart = ValueChart()
+        self._value_chart.setMinimumHeight(150)
+        ch_lay.addWidget(self._value_chart, 1)
+        chart_card.layout().addLayout(ch_lay)
+        fundo.addWidget(chart_card, 3)
+
+        comp_card = Card(self, padding=t.CARD_PAD_MD)
+        cp_lay = QVBoxLayout()
+        cp_lay.setSpacing(8)
+        cp_title = QLabel("Composição da carteira")
+        cp_title.setStyleSheet(t.label_section())
+        cp_lay.addWidget(cp_title)
+        self._comp_lbl = QLabel("Onde estão os seus itens")
+        self._comp_lbl.setStyleSheet(t.label_caption())
+        cp_lay.addWidget(self._comp_lbl)
+        self._comp_chart = CompositionChart()
+        cp_lay.addWidget(self._comp_chart)
+        cp_lay.addStretch(1)
+        comp_card.layout().addLayout(cp_lay)
+        fundo.addWidget(comp_card, 2)
+
+        # Caixas: o unico painel desta tela que continua inteiro sob rate
+        # limit -- estado de drop vem do catalogo local, nao da Steam. E' a
+        # tese que a pesquisa sustenta (container recem-aposentado).
+        cx_card = Card(self, padding=t.CARD_PAD_MD)
+        cx_lay = QVBoxLayout()
+        cx_lay.setSpacing(8)
+        cx_title = QLabel("Caixas e cápsulas")
+        cx_title.setStyleSheet(t.label_section())
+        cx_lay.addWidget(cx_title)
+        self._cx_lbl = QLabel("Containers da carteira e o estado do drop")
+        self._cx_lbl.setStyleSheet(t.label_caption())
+        cx_lay.addWidget(self._cx_lbl)
+        self._cx_lista = QLabel("—")
+        self._cx_lista.setTextFormat(Qt.TextFormat.RichText)
+        self._cx_lista.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._cx_lista.setWordWrap(True)
+        self._cx_lista.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        cx_lay.addWidget(self._cx_lista)
+        cx_lay.addStretch(1)
+        cx_card.layout().addLayout(cx_lay)
+        fundo.addWidget(cx_card, 2)
+
+        root.addLayout(fundo, 1)
+        self._reload_value_series()
 
         # Coluna esquerda (filtro + tabela + status) + ActivityFeed lateral
         split = QHBoxLayout()
@@ -302,17 +375,11 @@ class AccountScreen(QWidget):
         left_col = QVBoxLayout()
         left_col.setSpacing(12)
 
-        # Filtro
-        filt = QLineEdit()
-        filt.setPlaceholderText("Filtrar por nome do item...")
-        filt.setToolTip(
-            "Filtra a tabela por nome (case-insensitive). Ctrl+F foca; Esc limpa."
-        )
-        filt.setClearButtonEnabled(True)
-        filt.setStyleSheet(t.input_style())
-        filt.textChanged.connect(self._apply_filter)
-        self._filter_inp = filt
-        left_col.addWidget(filt)
+        # Filtro, grade, tabela e empty state migraram pra InventoryScreen
+        # em 28/07/2026. Aqui eles disputavam espaco com perfil, quatro
+        # cartoes de valor, cinco de desempenho e um grafico -- sobrava
+        # rodape pro conteudo principal. Esta tela agora avalia e repassa
+        # via `inventory_ready`.
 
         # Progress bar (indeterminate, hidden by default)
         self._progress = QProgressBar()
@@ -332,55 +399,25 @@ class AccountScreen(QWidget):
         self._loading.setVisible(False)
         left_col.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
 
-        # Tabela
-        self._table = QTableWidget(0, 8)
-        self._table.setHorizontalHeaderLabels([
-            "Item", "Qtd", "Preço atual", "Subtotal", "Recebido (-15%)",
-            "P&L", "Origem", "Score",
-        ])
-        t.configure_table(self._table)
-        hh = self._table.horizontalHeader()
-        hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
-        for i in range(max(self.COL_QTY, self.COL_SCORE + 1)):
-            if i != self.COL_NAME:
-                hh.setSectionResizeMode(
-                    i, QHeaderView.ResizeMode.ResizeToContents)
-        left_col.addWidget(self._table, 1)
-
-        # Empty state: inventario vazio (apos sync, sem itens marketable)
-        self._empty_hero = EmptyState(
-            icon="◇",
-            title="Inventário vazio",
-            subtitle=("Sincronize sua conta com a Steam pra puxar seu inventário\n"
-                       "ou adicione posições manualmente pelo CLI."),
-            cta_label="Sincronizar com Steam",
-            on_cta=self.request_sync.emit,
-        )
-        left_col.addWidget(self._empty_hero, 1)
-        self._empty_hero.setVisible(False)
-
         # Status
         self._status = QLabel("")
         self._status.setStyleSheet(t.label_caption())
         left_col.addWidget(self._status)
 
+        # Sem coluna lateral: o inventario usa a largura inteira.
+        #
+        # Aqui existia um ActivityFeed. Removido em 28/07/2026 porque tudo
+        # que ele mostrava ja' existia com mais contexto em outro lugar --
+        # trades e eventos de mercado na tela de Historico, alertas no log
+        # da Watchlist, ranking na coluna DeltaPos do Scanner. Numa tela
+        # cujo objetivo e' o inventario, ele custava metade da largura pra
+        # repetir informacao. O modulo activity.py continua existindo; se
+        # voltar, o lugar e' um dashboard, nao esta tela.
+        # Sem stretch aqui: quem estica agora e' a faixa de graficos acima.
+        # Com o stretch nos dois, o espaco livre ia metade pra um rodape
+        # que tem tres widgets de altura fixa.
         split.addLayout(left_col, 1)
-
-        # Coluna direita: Activity Feed
-        self._activity_feed = ActivityFeed(self)
-        split.addWidget(self._activity_feed, 0)
-
-        root.addLayout(split, 1)
-
-        from PyQt6.QtGui import QKeySequence, QShortcut
-        find_sc = QShortcut(QKeySequence("Ctrl+F"), self)
-        find_sc.activated.connect(self._focus_filter)
-        esc_sc = QShortcut(QKeySequence("Esc"), self)
-        esc_sc.activated.connect(self._filter_inp.clear)
-
-    def _focus_filter(self) -> None:
-        self._filter_inp.setFocus()
-        self._filter_inp.selectAll()
+        root.addLayout(split, 0)
 
     # ── perfil ───────────────────────────────────────────
     def _reload_profile(self) -> None:
@@ -394,6 +431,16 @@ class AccountScreen(QWidget):
         cached = load_cached_profile(s.steamid)
         if cached:
             self._on_profile(cached)
+        else:
+            # Sem cache, o cartao ficava com nome "—" e "Conecte sua conta
+            # para sincronizar" enquanto a faixa acima dizia "Conectado com
+            # Steam" -- as duas coisas na mesma tela, uma delas falsa. O
+            # SteamID ja' e' conhecido aqui; so' o apelido e o avatar e' que
+            # dependem da rede.
+            self._sub.setText(f"SteamID: {s.steamid}")
+            self._name.setText("Carregando perfil…")
+            self._profile_link.setText("Ver perfil na Steam ›")
+            self._profile_link.setVisible(True)
 
         # 2. atualiza em background
         steamid = s.steamid
@@ -402,6 +449,12 @@ class AccountScreen(QWidget):
             data = fetch_public_profile(steamid)
             if data:
                 self._bridge.profile_ready.emit(data)
+            else:
+                # Falhou (rate limit, perfil privado, sem rede). "Carregando"
+                # pra sempre e' pior que dizer que nao veio -- e o SteamID
+                # continua valendo.
+                self._bridge.profile_ready.emit(
+                    {"steamid": steamid, "name": "", "_falhou": True})
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -412,7 +465,14 @@ class AccountScreen(QWidget):
 
     def _on_profile(self, data: dict) -> None:
         steamid = data.get("steamid", "")
-        self._name.setText(data.get("name") or "—")
+        nome = data.get("name") or ""
+        if not nome and data.get("_falhou") and steamid:
+            # Sem apelido, mas conectado: o SteamID identifica a conta e o
+            # rotulo diz por que o nome nao veio.
+            self._name.setText("Perfil não carregou")
+        else:
+            self._name.setText(nome or "—")
+        self._avatar.set_initials(nome)
         self._update_strip()
         self._sub.setText(f"SteamID: {steamid}")
         if steamid:
@@ -433,24 +493,52 @@ class AccountScreen(QWidget):
         """Avalia portfolio em thread e atualiza tabela + stats."""
         self._progress.setVisible(True)
         self._status.setText("Avaliando inventário...")
+        self.inventory_progress.emit(0, 0)
         self._price_worker.start()
         self._reload_activity()
 
     def _reload_activity(self) -> None:
-        """Atualiza o feed de atividade recente (sem I/O de rede)."""
-        from skinvault import activity as _act
-        try:
-            events = _act.load_recent_activity(limit=10)
-        except Exception:
-            events = []
-        self._activity_feed.set_events(events)
+        """No-op: o feed saiu da tela de conta (ver comentario no _build).
+
+        Mantido como metodo vazio porque e' chamado no __init__ e no ciclo
+        de avaliacao; remover as chamadas tambem so' espalharia o diff.
+        """
+        return
 
     def _reload_value_series(self) -> None:
-        """Recarrega data/history.json no grafico de evolucao do valor."""
+        """Recarrega data/history.json no grafico de evolucao do valor.
+
+        O piso pra desenhar e' 3 e nao 2 de proposito: dois pontos viram
+        uma reta, que nao informa tendencia nenhuma e ainda aparece como
+        uma diagonal vermelha atravessando a tela.
+
+        Abaixo disso o grafico NAO some mais -- ele diz quantos pontos ja'
+        existem. Sumir fazia sentido quando ele disputava altura com o
+        inventario; agora que tem cartao proprio, esconder deixava um
+        cartao so' com titulo, que parece defeito.
+        """
         series = history.load_history()
-        self._value_chart.set_series(
-            [p.get("total", 0.0) for p in series]
-        )
+        pontos = [p.get("total", 0.0) for p in series]
+        self._value_chart.set_series(pontos)
+        if len(pontos) >= 3:
+            self._vc_lbl.setText(
+                "Valor bruto da carteira — cada avaliação grava um ponto")
+        else:
+            self._vc_lbl.setText(
+                "A evolução aparece a partir de 3 avaliações")
+
+    # Cobertura minima pra considerar a avaliacao boa o bastante pro
+    # historico. Nao e' 100% porque item sem mercado na Steam existe de
+    # verdade (souvenir sem liquidez) e travaria o grafico pra sempre.
+    _COBERTURA_MINIMA = 0.9
+
+    @staticmethod
+    def _avaliacao_completa(rows: list) -> bool:
+        """True se preco suficiente pra o total representar a carteira."""
+        if not rows:
+            return False
+        com_preco = sum(1 for r in rows if r.get("price") is not None)
+        return (com_preco / len(rows)) >= AccountScreen._COBERTURA_MINIMA
 
     def _record_value_snapshot(self, total: float) -> None:
         """Grava ponto de valor — pula se igual ao ultimo (o schedule de
@@ -463,6 +551,7 @@ class AccountScreen(QWidget):
 
     def _on_eval_progress(self, done: int, total: int) -> None:
         self._status.setText(f"Avaliando inventário... {done}/{total}")
+        self.inventory_progress.emit(done, total)
 
     # ── Validar score ───────────────────────
     def _on_refresh_scores(self) -> None:
@@ -569,7 +658,7 @@ class AccountScreen(QWidget):
             result = portfolio_mod.evaluate_portfolio(positions,
                                                        lambda n: None)
             rows = result["rows"]
-            self._populate_table(rows, positions)
+            # _on_eval ja' repassa pra InventoryScreen via inventory_ready.
             self._on_eval({"rows": rows, "totals": result["totals"],
                           "positions": positions})
             return
@@ -608,156 +697,263 @@ class AccountScreen(QWidget):
         self._progress.setVisible(False)
         # Toggle empty state: sem rows mostra hero
         is_empty = not rows
-        self._table.setVisible(not is_empty)
-        self._empty_hero.setVisible(is_empty)
+        # "Sem cotacao" nao e' "vale zero". Com a Steam racionada todos os
+        # precos vem None; exibir R$ 0,00 afirma que a carteira nao vale
+        # nada, e um delta do historico colado nesse zero (o "+1,5% vs
+        # 04/06") lia-se como variacao do numero exibido.
+        com_preco = [r for r in rows if r.get("price") is not None]
+        sem_cotacao = bool(rows) and not com_preco
+        dica_sem_cotacao = (
+            f"Nenhum dos {len(rows)} itens tem preço agora — a Steam não\n"
+            "respondeu às consultas. O valor volta quando a cotação voltar.")
+
         # Atualiza stats
-        self._stat_gross.set_value(t.brl(totals.get("market") or 0))
-        # Delta do valor bruto vs penultimo ponto do historico
-        _series = history.load_history()
-        if len(_series) >= 2:
-            _prev = _series[-2].get("total", 0) or 0
-            _curr = _series[-1].get("total", 0) or 0
-            if _prev and _curr:
-                self._stat_gross.set_delta(
-                    (_curr - _prev) / _prev * 100)
+        if sem_cotacao:
+            # Legenda visivel, nao so' tooltip: tres cartoes em "—" lado a
+            # lado parecem tela quebrada, e ninguem passa o mouse pra
+            # descobrir que o motivo e' a Steam.
+            self._stat_gross.set_value("—")
+            self._stat_gross.set_delta(None, "a Steam não respondeu")
+            self._stat_gross.setToolTip(dica_sem_cotacao)
+            self._stat_net.set_value("—")
+            self._stat_net.set_delta(None, "a Steam não respondeu")
+            self._stat_net.setToolTip(dica_sem_cotacao)
+        else:
+            self._stat_gross.setToolTip(
+                "Valor de mercado da carteira (Steam Market).")
+            self._stat_net.setToolTip(
+                "Valor bruto menos a taxa Steam de 15%.")
+            self._stat_net.set_delta(None, "já com a taxa de 15%")
+            self._stat_gross.set_value(t.brl(totals.get("market") or 0))
+            # Delta do valor bruto vs penultimo ponto do historico
+            _series = history.load_history()
+            if len(_series) >= 2:
+                _prev = _series[-2].get("total", 0) or 0
+                _curr = _series[-1].get("total", 0) or 0
+                _prev_ts = _series[-2].get("ts", 0)
+                if _prev and _curr:
+                    # Diz CONTRA O QUE esta' comparando. Sem a data,
+                    # "-79,6%" parecia queda de hoje quando comparava dois
+                    # pontos de junho.
+                    _quando = (time.strftime("%d/%m",
+                                             time.localtime(_prev_ts))
+                               if _prev_ts else "")
+                    self._stat_gross.set_delta(
+                        (_curr - _prev) / _prev * 100,
+                        f"vs {_quando}" if _quando else "",
+                    )
+                else:
+                    self._stat_gross.set_delta(None)
             else:
                 self._stat_gross.set_delta(None)
-        else:
-            self._stat_gross.set_delta(None)
-        self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
-                                 accent=t.STEAM_BLUE)
-        pnl = totals.get("pnl") or 0
-        pnl_color = t.POSITIVE if pnl >= 0 else t.DANGER
-        self._stat_pnl.set_value(t.brl(pnl), accent=pnl_color)
-        pnl_pct = totals.get("pnl_pct")
-        if pnl_pct is not None and len(rows) > 0:
-            sign = "+" if pnl_pct >= 0 else ""
-            kind = "positive" if pnl_pct >= 0 else "danger"
-            self._stat_pnl.set_badge(f"{sign}{pnl_pct:.1f}%", kind)
-        else:
+            self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
+                                     accent=t.STEAM_BLUE)
+        # P&L so' existe onde ha' custo. Item vindo do sync tem custo
+        # DESCONHECIDO (a Steam nao informa), e exibir R$ 0,00 como se fosse
+        # o custo transformava o inventario inteiro em "lucro".
+        pnl = totals.get("pnl")
+        com_custo = [r for r in rows if r.get("has_cost")]
+        sem_custo = totals.get("unknown_cost") or 0
+        if pnl is None:
+            self._stat_pnl.set_value("—")
             self._stat_pnl.clear_badge()
+            # Sem legenda ele era o unico travessao mudo da fileira, entre
+            # dois vizinhos que ja' dizem o motivo.
+            if not com_custo:
+                self._stat_pnl.set_delta(None, "precisa de custo declarado")
+            elif sem_cotacao:
+                self._stat_pnl.set_delta(None, "a Steam não respondeu")
+            else:
+                self._stat_pnl.set_delta(None, "sem preço para calcular")
+            # Duas razoes diferentes zeram o P&L, e dizer a errada manda o
+            # dono cadastrar um custo que ele ja' cadastrou.
+            if not com_custo:
+                self._stat_pnl.setToolTip(
+                    f"Nenhum dos {len(rows)} itens tem custo registrado.\n"
+                    "Itens vindos do sync nao trazem quanto voce pagou — sem\n"
+                    "isso nao da' pra dizer se houve lucro ou prejuizo.\n"
+                    "Informe o custo pelo CLI: --add \"<nome>\" <custo>")
+            elif not any(r.get("price") is not None for r in com_custo):
+                self._stat_pnl.setToolTip(
+                    f"{len(com_custo)} de {len(rows)} itens tem custo "
+                    "registrado, mas\nnenhum deles tem preço agora — a Steam "
+                    "nao respondeu.\nO P&L volta quando a cotacao voltar.")
+            else:
+                self._stat_pnl.setToolTip(
+                    f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"
+                    f"{sem_custo} sem custo registrado ficaram de fora.")
+        else:
+            # Com P&L de verdade, o badge de porcentagem ja' diz tudo -- a
+            # legenda do ramo vazio nao pode sobrar aqui.
+            self._stat_pnl.set_delta(None)
+            self._stat_pnl.set_value(
+                t.brl(pnl), accent=t.POSITIVE if pnl >= 0 else t.DANGER)
+            pnl_pct = totals.get("pnl_pct")
+            if pnl_pct is not None:
+                sign = "+" if pnl_pct >= 0 else ""
+                self._stat_pnl.set_badge(
+                    f"{sign}{pnl_pct:.1f}%",
+                    "positive" if pnl_pct >= 0 else "danger")
+            else:
+                self._stat_pnl.clear_badge()
+            self._stat_pnl.setToolTip(
+                f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"
+                f"{sem_custo} sem custo registrado ficaram de fora.")
         self._stat_items.set_value(str(len(rows)))
+        # "31" sozinho nao diz se e' carteira concentrada ou espalhada; a
+        # composicao ja' esta' calculada logo abaixo.
+        _cats = len(portfolio_mod.composition(rows))
+        self._stat_items.set_delta(
+            None, f"em {_cats} categoria{'s' if _cats != 1 else ''}"
+            if _cats else "")
 
-        # Portfolio breakdown
-        total_cost = sum(
-            r.get("cost_total", 0) or 0 for r in rows
-        )
-        profit_items = sum(1 for r in rows if (r.get("pnl") or 0) > 0)
-        loss_items = sum(1 for r in rows if (r.get("pnl") or 0) < 0)
-        best = max(rows, key=lambda r: r.get("pnl") or 0) if rows else None
-        worst = min(rows, key=lambda r: r.get("pnl") or 0) if rows else None
-        self._bd_invested.set_value(t.brl(total_cost))
+        # Portfolio breakdown -- tudo aqui e' sobre P&L, entao so' conta
+        # item com custo conhecido. Denominador tambem: "0 de 25" mentiria.
+        #
+        # Mas "0 de 2" sozinho tambem mentia, por omissao: lido de relance
+        # parece que a carteira tem 2 itens, quando tem 31 e apenas 2 com
+        # custo declarado. O numero fica; o denominador ganha a legenda que
+        # diz de onde ele saiu.
+        n = len(com_custo)
+        total_pos = len(rows)
+        # `cost_known` soma o custo declarado mesmo sem cotacao; somar as
+        # linhas so' funciona porque elas passaram a carregar `cost_total`
+        # tambem quando o preco falta. O fallback cobre totals de fora.
+        total_cost = totals.get("cost_known")
+        if total_cost is None:
+            total_cost = sum(r.get("cost_total", 0) or 0 for r in com_custo)
+        profit_items = sum(1 for r in com_custo if (r.get("pnl") or 0) > 0)
+        loss_items = sum(1 for r in com_custo if (r.get("pnl") or 0) < 0)
+        best = max(com_custo, key=lambda r: r.get("pnl") or 0) if n else None
+        worst = min(com_custo, key=lambda r: r.get("pnl") or 0) if n else None
+
+        if not total_pos:
+            legenda = invest_legenda = dica = ""
+        elif not n:
+            legenda = invest_legenda = (
+                f"nenhum dos {total_pos} itens tem custo declarado")
+            dica = ("Sem custo declarado nao ha' lucro nem prejuizo a "
+                    "medir.\nInforme o custo pelo CLI: "
+                    "--add \"<nome>\" <custo>")
+        elif sem_custo:
+            legenda = f"entre os {n} com custo declarado"
+            invest_legenda = f"{n} de {total_pos} itens com custo declarado"
+            dica = (f"{n} de {total_pos} itens tem custo declarado.\n"
+                    f"{sem_custo} vieram do sync, que nao informa quanto "
+                    "voce pagou —\nesses ficam de fora da conta de lucro e "
+                    "prejuizo.\nInforme o custo pelo CLI: "
+                    "--add \"<nome>\" <custo>")
+        else:
+            # Todo item tem custo: o denominador ja' e' o inventario todo e
+            # legenda nenhuma acrescenta fato.
+            legenda = invest_legenda = dica = ""
+
+        self._bd_invested.set_value(t.brl(total_cost) if n else "—")
+        self._bd_invested.set_delta(None, invest_legenda)
+        self._bd_invested.setToolTip(dica)
         self._bd_profit_count.set_value(
-            f"{profit_items} ({profit_items/len(rows)*100:.0f}%)" if rows else "0",
-            accent=t.POSITIVE
-        )
+            f"{profit_items} de {n}" if n else "—", accent=t.POSITIVE)
+        self._bd_profit_count.set_delta(None, legenda)
+        self._bd_profit_count.setToolTip(dica)
         self._bd_loss_count.set_value(
-            f"{loss_items} ({loss_items/len(rows)*100:.0f}%)" if rows else "0",
-            accent=t.DANGER
-        )
+            f"{loss_items} de {n}" if n else "—", accent=t.DANGER)
+        self._bd_loss_count.set_delta(None, legenda)
+        self._bd_loss_count.setToolTip(dica)
+        # Melhor/Pior P&L ficavam como "—" mudos. Um travessao sem legenda
+        # nao distingue "nao ha' o que medir" de "a tela falhou" -- e aqui
+        # ha' DUAS causas distintas, custo ausente e cotacao ausente.
         from skinvault.localization import localize_name as _ln
+        tem_pnl = best is not None and best.get("pnl") is not None
+        if tem_pnl:
+            extremo_legenda = f"entre os {n} com custo declarado"
+        elif not n:
+            extremo_legenda = "precisa de custo declarado"
+        else:
+            extremo_legenda = "sem preço para calcular"
+
         self._bd_best.set_value(
-            t.brl(best['pnl']) if best else "—",
-            accent=t.POSITIVE
-        )
-        self._bd_best.setToolTip(_ln(best.get("name", "")) if best else "")
+            t.brl(best["pnl"]) if tem_pnl else "—", accent=t.POSITIVE)
+        self._bd_best.set_delta(None, "" if tem_pnl else extremo_legenda)
+        self._bd_best.setToolTip(
+            _ln(best.get("name", "")) if tem_pnl else dica)
+        tem_pior = worst is not None and worst.get("pnl") is not None
         self._bd_worst.set_value(
-            t.brl(worst['pnl']) if worst else "—",
-            accent=t.DANGER
-        )
-        self._bd_worst.setToolTip(_ln(worst.get("name", "")) if worst else "")
+            t.brl(worst["pnl"]) if tem_pior else "—", accent=t.DANGER)
+        self._bd_worst.set_delta(None, "" if tem_pior else extremo_legenda)
+        self._bd_worst.setToolTip(
+            _ln(worst.get("name", "")) if tem_pior else dica)
+
+        grupos = portfolio_mod.composition(rows)
+        self._comp_chart.set_groups(grupos)
+        # O rotulo declara a unidade da barra: com a Steam racionada nao ha'
+        # valor, e a barra passa a medir contagem.
+        tem_valor = any((g.get("value") or 0) > 0 for g in grupos)
+        self._comp_lbl.setText(
+            "Participação por valor de mercado" if tem_valor
+            else "Quantidade por categoria — sem preço no momento")
+        self._comp_chart.setToolTip(
+            "\n".join(f"{g['label']}: {g['count']} item(ns)" for g in grupos))
+
+        caixas = portfolio_mod.containers(rows)
+        if not caixas:
+            self._cx_lista.setText(
+                f"<span style='color:{t.TEXT_MUTED}'>Nenhum container "
+                "mapeado na carteira.</span>")
+        else:
+            n_desc = sum(1 for c in caixas if c["discontinued"])
+            self._cx_lbl.setText(
+                f"{len(caixas)} tipos · {n_desc} não caem mais em drop"
+                if n_desc else f"{len(caixas)} tipos · todos ainda em drop")
+            linhas = []
+            for c in caixas[:8]:
+                estado = ("não cai mais" if c["discontinued"]
+                          else "em drop")
+                cor = t.TEXT if c["discontinued"] else t.TEXT_MUTED
+                ano = f" · {c['year']}" if c.get("year") else ""
+                linhas.append(
+                    f"<div style='margin-bottom:4px'>"
+                    f"<span style='color:{t.TEXT}'>{c['name']}</span>"
+                    f"<span style='color:{t.TEXT_MUTED}'> ×{c['qty']}</span>"
+                    f"<br><span style='color:{cor}'>{estado}</span>"
+                    f"<span style='color:{t.TEXT_MUTED}'>{ano}</span></div>")
+            self._cx_lista.setText("".join(linhas))
 
         # Evolucao do valor: grava snapshot (GUI alimenta o mesmo
-        # history.json do CLI) e re-renderiza a serie
+        # history.json do CLI) e re-renderiza a serie.
+        #
+        # So' grava avaliacao COMPLETA. Uma parcial vira um ponto que
+        # parece queda da carteira: em 11/06/2026 entrou um R$ 200,00 no
+        # history.json (poucos itens com preco em cache) logo depois de um
+        # R$ 979,42 completo, e o cartao passou a exibir "-79,6%" -- uma
+        # perda que nunca aconteceu.
         total_market = totals.get("market")
-        if rows and total_market:
+        if rows and total_market and self._avaliacao_completa(rows):
             self._record_value_snapshot(total_market)
         self._reload_value_series()
 
-        # Atualiza tabela
-        self._populate_table(rows, data["positions"])
+        # O inventario vive na aba propria desde 28/07/2026; aqui so' se
+        # avalia e se repassa.
+        rate_limited = bool(data.get("rate_limited"))
+        self.inventory_ready.emit(
+            list(rows), list(data["positions"]), rate_limited)
         now = time.strftime('%H:%M')
-        self._status.setText(
-            f"{len(rows)} item(ns) • atualizado {now}"
-        )
-        self._strip_last_sync.setText(f"Ultima sync: {now}")
+        if rate_limited:
+            # "Mostrando o que estava em cache" com a tela inteira em "—"
+            # promete um dado que nao existe. Sob 429 o cache pode estar
+            # vazio, e ai' o certo e' dizer isso.
+            if com_preco:
+                self._status.setText(
+                    f"{len(rows)} item(ns) • a Steam limitou as consultas "
+                    f"de preço; {len(com_preco)} vieram do cache ({now})"
+                )
+            else:
+                self._status.setText(
+                    f"{len(rows)} item(ns) • a Steam limitou as consultas "
+                    f"de preço e não havia nada em cache ({now})"
+                )
+        else:
+            self._status.setText(
+                f"{len(rows)} item(ns) • atualizado {now}"
+            )
+        self._strip_last_sync.setText(f"Última sync: {now}")
 
-    def _populate_table(self, rows: list[dict],
-                        positions: list[dict]) -> None:
-        was_sorting = self._table.isSortingEnabled()
-        self._table.setSortingEnabled(False)
-        self._table.setRowCount(0)
-        for i, r in enumerate(rows):
-            self._table.insertRow(i)
-            pos = positions[i] if i < len(positions) else {}
-            src = pos.get("source", "manual")
-            origin = "Steam" if src == "steam_sync" else "Manual"
-            cur_score = pos.get("current_score")
-            score_ts = pos.get("score_ts")
-            score_txt = str(int(cur_score)) if cur_score is not None else "—"
-            from skinvault.localization import localize_name as _ln
-            cells = [
-                _ln(r.get("name") or "") or "—",
-                str(r.get("quantity") or 1),
-                t.brl(r.get("price")),
-                t.brl(r.get("market")),
-                t.brl(r.get("net_if_sold")),
-                t.brl(r.get("pnl")),
-                origin,
-                score_txt,
-            ]
-            for col, val in enumerate(cells):
-                item = QTableWidgetItem(val)
-                if col == self.COL_PNL:
-                    pnl = r.get("pnl")
-                    if pnl is not None:
-                        item.setForeground(
-                            QBrush(QColor(t.POSITIVE if pnl >= 0 else t.DANGER))
-                        )
-                elif col == self.COL_ORIGIN and origin == "Steam":
-                    item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
-                elif col == self.COL_SCORE:
-                    if cur_score is None:
-                        item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
-                        item.setToolTip(
-                            "Clique 'Validar score' "
-                            "para calcular."
-                        )
-                    else:
-                        stale = signals.is_score_stale(score_ts)
-                        if stale:
-                            color = t.WARN
-                        elif cur_score >= 70:
-                            color = t.POSITIVE
-                        elif cur_score >= 45:
-                            color = t.WARN
-                        else:
-                            color = t.DANGER
-                        item.setForeground(QBrush(QColor(color)))
-                        age_txt = signals.score_age_text(score_ts)
-                        stale_tag = " [DESATUALIZADO]" if stale else ""
-                        item.setToolTip(
-                            f"Score {int(cur_score)} — calculado "
-                            f"{age_txt}.{stale_tag}\n"
-                            f"Empíricamente:\n"
-                            f"  70-84 containers → +33%, "
-                            f"skins → +8% em 90d\n"
-                            f"  85+ containers → +52%, "
-                            f"skins → +21% em 90d"
-                        )
-                self._table.setItem(i, col, item)
-        # Alinhamento por coluna: qtd/dinheiro → direita, origem → centro
-        right_cols = {
-            self.COL_QTY, self.COL_PRICE, self.COL_SUBTOTAL,
-            self.COL_RECEIVED, self.COL_PNL, self.COL_SCORE,
-        }
-        center_cols = {self.COL_ORIGIN}
-        t.align_table_columns(self._table, right=right_cols, center=center_cols)
-        self._table.setSortingEnabled(was_sorting)
-
-    def _apply_filter(self, text: str) -> None:
-        text = (text or "").strip().lower()
-        for row in range(self._table.rowCount()):
-            name = self._table.item(row, 0)
-            visible = not text or (name and text in name.text().lower())
-            self._table.setRowHidden(row, not visible)

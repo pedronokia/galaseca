@@ -1,347 +1,169 @@
-# SkinVault — Handoff (2026-06-09, sessão 3: UI polish)
+# HANDOFF — estado em 2026-07-30
 
-Documento auto-suficiente para continuar a sessão em outra ferramenta
-(OpenCode/etc).
+Ponto de partida pra quem continuar (opencode ou outro agente). Substitui
+o handoff de 2026-06-09.
 
-## Estado atual
+**Leia primeiro:** [AGENTS.md](AGENTS.md). As armadilhas **#10, #11, #12**
+e as seções **4b/4c/4d** foram escritas nesta sessão e resumem o que
+custou caro descobrir.
 
-- **1284 testes passando**
-- Python 3.9 compat, PyQt6 GUI, Steam-only
-- 5 telas com tabelas redesenhadas em **Win11 dark** (HistoryScreen na
-  sessão anterior; Scanner/Watchlist/Account/Trades nesta sessão)
-- **4 arquivos não commitados** (alinhamento por coluna):
-  - `skinvault/ui/scanner_screen.py` (+35 linhas)
-  - `skinvault/ui/watchlist_screen.py` (+28 linhas)
-  - `skinvault/ui/account_screen.py` (+31 linhas)
-  - `skinvault/ui/trades_screen.py` (+31 linhas)
+---
+
+## Estado
+
+- Branch: `feat/multi-market-e-inventario`
+- **35 commits**. **Não há remote configurado** — não é decisão pendente,
+  não existe pra onde enviar.
+- Suíte: **1967 testes**, ~70s. `cd C:\SkinVault && python -m pytest -q`
+- App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
+- Working tree limpo.
+
+**A Steam está com rate limit há mais de 24h** em `priceoverview`,
+`search/render`, `pricehistory` e `/inventory/`. A listing page e o CDN de
+ícone respondem — mas a listing page tem orçamento próprio e falha em
+silêncio (AGENTS.md #12).
 
 ## Filosofia (NÃO mudar)
 
-- **Nunca prever futuro; apenas descrever dados factualmente**
-- Tudo em `gui.py` salvo lógica pura; análise vai em `signals.py`/
-  `cases.py`/`alerts.py`/`backtest.py`/`valve_events.py`
-- Steam-only por enquanto
-- **Updates da Valve são o maior catalyst E maior risco** — pesquisar
-  updates recentes antes de recomendar investimento em uma categoria
-
-## Padrão visual Win11 dark (estabelecido nas últimas 2 sessões)
-
-Aplicado a `theme.py` + 5 telas com tabela:
-
-### Em `theme.py` (commit `7cdb13e`)
-- `table_style()`: `QTableWidget::item` padding `4px 12px`; header com
-  `border-bottom: 1px solid BORDER`, padding `10px 12px`. Visual estilo
-  Win11/Fluent.
-
-### Em cada tela com tabela (5 arquivos)
-1. **Stretch dinâmico** em coluna `Item`/`Itens` (HistoryScreen detecta
-   pelo header; demais usam `COL_NAME` constante)
-2. **`ResizeToContents`** em todas as outras colunas
-3. **Alinhamento por coluna** no fim de `_populate`:
-   - Dinheiro/quantidade/score → `AlignRight | AlignVCenter`
-   - Status/categórico/origem → `AlignCenter`
-   - Headers acompanham o alinhamento dos cells
-4. **Cores side-aware** (HistoryScreen apenas): texto verde/vermelho
-   sem background cheio — estilo Future/Bloomberg
-
-### Alinhamento por tela
-
-| Tela | Direita | Centralizado |
-|---|---|---|
-| HistoryScreen | Valor, Preço, P&L | Tipo, Operação |
-| ScannerScreen | Preco, Preco justo, Score | Sinal, Veredito, Spread, Book, Tendencia, S/D, Risco, Conf. |
-| WatchlistScreen | Preco alvo, Preco atual | Status, Score, Confiança |
-| AccountScreen | Qtd, Preço, Subtotal, Recebido, P&L, Score | Origem |
-| TradesScreen | Qtd, Compra, Venda, P&L, ROI | Data, Origem |
+- **Nunca prever futuro; apenas descrever dados factualmente.**
+- Análise vai em `signals.py` / `cases.py` / `alerts.py` / `backtest.py`.
+- UI modular em `skinvault/ui/`, uma tela por arquivo.
+- Cores só via tokens de `theme.py`.
+- **Ao mexer no score, meça antes e depois.** A infraestrutura existe
+  (`simulate_item` + `correlation` + `factor_ic`).
 
 ---
 
-## Plano para a próxima sessão (OpenCode)
+## O que ficou pronto nesta sessão
 
-Ordenadas por valor/custo. **A FASE 1 é refactor obrigatório antes de
-expandir o pattern** — caso contrário 4 cópias do mesmo bloco vão virar
-5+.
+**Infraestrutura**
+- Instância única (`single_instance.py`).
+- Escrita atômica em todo `data/` + quarentena de arquivo corrompido
+  (`_paths.atomic_write_text` / `load_json_record`).
+- 429 deixou de virar "sem preço" no cache; o lote corta na primeira
+  recusa — 1 chamada em vez de 31, 7s em vez de 434s.
 
-### FASE 1 — Refactor do helper de alinhamento (1h, CRÍTICO)
+**Produto**
+- Importação de trades do Steam Market (25 trades reais, P&L −R$ 14,56,
+  32% de acerto). Idempotente.
+- Sync de trocas: separa entregue de recebido; dedupe por hash composto
+  (a página não expõe `tradeofferid`).
+- Inventário mostra o item em **todas as plataformas** no tooltip,
+  ordenado pelo líquido. CSGOTM (5%) costuma pagar mais que Skinport (12%).
+- `portfolio.sell_guidance()` e `portfolio.max_buy_price()` — a lógica de
+  "por quanto vender" e "quanto pagar". **Ainda não aparece na UI.**
+- Ordenação de tabela por valor (era por texto: P&L decrescente mostrava
+  o maior prejuízo no topo).
 
-**Por quê:** as 5 telas têm ~30 linhas idênticas de alinhamento por
-coluna. Extrair pra `theme.py` antes de propagar mais.
-
-**Onde:** `skinvault/ui/theme.py`
-
-**O quê adicionar:**
-
-```python
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QTableWidget
-
-def align_table_columns(
-    table: QTableWidget,
-    right: set[int] | None = None,
-    center: set[int] | None = None,
-) -> None:
-    """Aplica alinhamento por coluna estilo trading-app (Win11 dark).
-
-    - Colunas em `right`: AlignRight | AlignVCenter (dinheiro, números)
-    - Colunas em `center`: AlignCenter (status, categóricos)
-    - Demais colunas: padrão (esquerda)
-    - Headers também alinham pra bater com cells
-
-    Deve ser chamado no fim do _populate(), após inserir todos os rows.
-    """
-    right = right or set()
-    center = center or set()
-    for i in range(table.rowCount()):
-        for c in range(table.columnCount()):
-            cell = table.item(i, c)
-            if cell is None:
-                continue
-            if c in right:
-                cell.setTextAlignment(
-                    Qt.AlignmentFlag.AlignRight
-                    | Qt.AlignmentFlag.AlignVCenter,
-                )
-            elif c in center:
-                cell.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-    for c in right:
-        hi = table.horizontalHeaderItem(c)
-        if hi is not None:
-            hi.setTextAlignment(
-                Qt.AlignmentFlag.AlignRight
-                | Qt.AlignmentFlag.AlignVCenter,
-            )
-    for c in center:
-        hi = table.horizontalHeaderItem(c)
-        if hi is not None:
-            hi.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-```
-
-**Substituir nas 5 telas:**
-
-1. `skinvault/ui/history_screen.py` — bloco no `_populate()` que
-   detecta `money_cols` dinamicamente por nome do header. **Manter a
-   detecção dinâmica** (HistoryScreen muda headers por segmento) — só
-   chamar o helper depois de construir os sets.
-2. `skinvault/ui/scanner_screen.py` — fim do `_populate()`,
-   `right_cols = {COL_PRECO, COL_JUSTO, COL_SCORE}`,
-   `center_cols = {COL_SINAL, COL_VEREDITO, COL_SPREAD, COL_BOOK,
-   COL_TREND, COL_SD, COL_RISCO, COL_CONFIDENCE}`.
-3. `skinvault/ui/watchlist_screen.py` — fim do `_populate()`,
-   `right_cols = {COL_TARGET, COL_PRICE}`,
-   `center_cols = {COL_STATUS, COL_SCORE, COL_CONFIDENCE}`.
-4. `skinvault/ui/account_screen.py` — fim do `_populate_table()`,
-   `right_cols = {COL_QTY, COL_PRICE, COL_SUBTOTAL, COL_RECEIVED,
-   COL_PNL, COL_SCORE}`, `center_cols = {COL_ORIGIN}`.
-5. `skinvault/ui/trades_screen.py` — fim do `_populate()`,
-   `right_cols = {COL_QTY, COL_COST, COL_SELL, COL_PNL, COL_ROI}`,
-   `center_cols = {COL_DATE, COL_SOURCE}`.
-
-**Critério de aceite:**
-- `python -m pytest` → 1284 testes
-- 5 telas continuam visualmente idênticas após refactor (rodar
-  `python -m skinvault --ui` e abrir cada tela)
-- Cada chamada do helper substitui ~30 linhas → redução de ~125 linhas
-  totais
+**Pesquisa** — detalhes em AGENTS.md 4b/4c/4d
+- Aposentadoria de caixa é um **salto de 4x** que depois decai com a idade.
+- **O teto de valorização é o preço absoluto** (IC −0,26; −0,30 em caixas).
+- Vintage v4 **desligado**: a aprovação media lookahead.
+- Fator de nível de preço **aprovado e ligado** (containers-only).
+- Break-even da Steam é **15%**, não 17,65% — o backtest estava errado.
 
 ---
 
-### FASE 2 — Auditoria de dialogs (1h)
+## Já entregue depois do handoff original (30/07, tarde)
 
-**Por quê:** o pattern Win11 está nos 5 screens principais, mas
-dialogs (popups) podem estar com visual inconsistente.
+- **Painel do inventário** diz por quanto anunciar, o que sobra em saldo,
+  o cenário de venda rápida, as plataformas de fora ordenadas pelo
+  líquido, e o piso pra empatar quando há custo.
+- **Scanner** ganhou a coluna "Compre até" (verde quando o preço cabe no
+  teto de 20% de margem).
+- **Tabela do inventário**: "Melhor fora" + "Onde" no lugar da parede de
+  travessões; rodapé soma R$ 1.510,86; rótulo "-15%" corrigido.
+- **Histórico**: data unificada em DD/MM/YY (havia duas grafias, e uma
+  não ordenava como data); rodapé avisa quando um filtro esconde
+  registros.
+- Removido do `history.json` o snapshot parcial que gerava "-79,6%"
+  (backup em `history.json.bak-parcial`).
 
-**Dialogs a auditar:**
+## Entregue em 30/07 à noite (sessão Claude Code)
 
-| Arquivo | Classe | O que checar |
-|---|---|---|
-| `history_screen.py` | `SimulateTradeDialog` | bg, padding, button styles |
-| `watchlist_screen.py` | `_RulesDialog` | form layout, spacing |
-| `scanner_screen.py` | `_ScoreBreakdownDialog` | já tem `BG_ELEVATED` ✓ |
-| `scanner_screen.py` | `_BacktestResultDialog` | tabela interna usa `table_style()` ✓ |
-| `trades_screen.py` | `_TradeDialog` | form layout, spacing |
-| `welcome_dialog.py` | (welcome wizard) | typography vs theme |
-| `login_gate.py` | login flow | typography vs theme |
+- **Cartão "0 de 2"** (era fila #1): os três cartões de desempenho ganharam
+  a legenda do denominador. No caminho apareceu número ERRADO, não só sem
+  contexto: `evaluate_portfolio` contabilizava custo dentro do ramo que só
+  roda com preço, então com a Steam em 429 o "Total investido" exibia
+  R$ 0,00 pra quem tem R$ 850,00 declarados, e `unknown_cost` vinha 0 com
+  29 posições sem custo. Agora há `cost_known` (desembolso) separado de
+  `cost` (custo que lastreia o P&L).
+- **Grade do inventário** (era fila #3): tile cai pro melhor líquido de
+  fora quando falta o saldo, com a **origem** impressa junto — saldo
+  travado e dinheiro não são a mesma moeda. Ordenação passou a usar o
+  valor exibido (era `steam_net`, None em tudo). "?" virou o primeiro
+  trecho do nome.
+- **Tela Minha Conta**: a metade vazia recebeu "Evolução do valor" (o
+  gráfico saiu dos 90px pra cartão próprio) e "Composição da carteira"
+  (barras por categoria; mede valor com preço, contagem sem). "Valor
+  bruto R$ 0,00" com "+1,5%" ao lado virou "—" + tooltip.
+- **Barra lateral** alterna rail ↔ rótulos (`sidebar_collapsed`). A
+  preferência "largura da barra" já existia mas só esticava o rail.
+- **Acentuação** das strings visíveis + `palette_rank` ignorando acento
+  dos dois lados. Camada de análise ficou de fora de propósito (os
+  rótulos de breakdown vão pro rankings.json).
 
-**Checklist por dialog:**
-- [ ] `setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")`
-- [ ] `setContentsMargins(20, 18, 20, 18)` no root layout
-- [ ] `setSpacing(14)` no root layout
-- [ ] Botões via `t.btn_primary()` / `t.btn_secondary()` / `t.btn_ghost()`
-- [ ] Labels com `font-family: {t.FONT_FAMILY}`
-- [ ] Inputs via `t.input_style()`
-- [ ] Tamanho mínimo (`setMinimumWidth(420)` ou similar)
+Suíte: **1967 testes**.
 
-**Critério de aceite:** lista escrita de inconsistências (sem
-necessariamente corrigir tudo — priorizar pelos visíveis com mais
-frequência: `_TradeDialog`, `_RulesDialog`).
+## Fila, em ordem
 
----
+### 1. Coluna "Origem" do inventário
+100% "Steam" nas 31 linhas. Ocupa espaço sem informar. Ou some, ou só
+aparece quando há mistura com posições manuais.
 
-### FASE 3 — Polish Market & Simulador (30min)
+### 2. Acentuar a camada de análise
+`signals.py` / `steam_api.py` / `alerts.py` ainda produzem "Tendencia:
+caindo", "Preco subindo", "Confianca". São visíveis (dialog de breakdown,
+log de alertas), mas viajam em dicts que vão pro `rankings.json` — mudar
+é migração de dado, não tipografia. Decidir se vale.
 
-**Por quê:** essas 2 telas **não têm tabelas** (`market_screen.py`,
-`simulador_screen.py`) — usam `StatCard`, `DepthChart`,
-`MiniSparkline`. Mesmo assim, verificar:
+### 3. `scanner_discovery` (bloqueado por fora)
+`discovery.py` escrito e testado, flag `scanner_discovery = False`. Nunca
+completou uma chamada real. Quando a Steam liberar: rodar `search_market`
+uma vez; se vier `ok`, ligar a flag.
 
-- [ ] Typography consistente (`FS_TITLE`, `FS_BODY`, `FS_MUTED`)
-- [ ] Padding/margins consistentes (`24, 20, 24, 20`)
-- [ ] Cards com `Card` widget de `components.py`
-- [ ] Cores via constantes de `theme.py` (não hardcoded)
+### 4. Buff163 fora do ar
+`markets.fetch_market("buff163")` retorna erro, 0 itens. É a menor taxa
+(2,5%). Não investigado.
 
-**Critério de aceite:** lista de issues; aplicar fixes triviais
-(typos, hardcoded colors).
-
----
-
-### FASE 4 — Verificação visual + commit (15min)
-
-**Comandos:**
-
-```powershell
-python -m pytest                          # esperado: 1284 passing
-python -m skinvault --ui                  # rodar app
-# Visitar cada tela: History, Scanner, Watchlist, Account, Trades,
-# Market, Simulador
-```
-
-**Commit sugerido (após FASE 1):**
-
-```
-refactor: extract align_table_columns helper to theme.py
-
-DRY pass nas 5 telas com tabelas após o Win11 dark redesign.
-Move o bloco de alinhamento por coluna (~30 linhas) pra theme.py.
-
-Comportamento idêntico, ~125 linhas a menos no total.
-```
+### 5. Ponto ruim no `history.json`
+Os deltas já foram corrigidos, mas sobrou o ponto de 11/06 (R$ 200,00,
+avaliação parcial). Remover muda o gráfico de valor — decisão do dono.
 
 ---
 
-## Score: fatores integrados (signals.enhanced_score) — referência
+## Não repita
 
-| Fator | Peso | Sinal | Status |
-|---|---|---|---|
-| mediana (diff_pct) | ±35 | preço vs mediana histórica | ✓ |
-| spread | ±25 | spread bid/ask | ✓ |
-| book | ±20 | dominância buy vs sell | ✓ |
-| trend | ±15 | direção dos últimos preços | ✓ |
-| supply_demand | ±15 | volume/sell_count | ✓ |
-| multi_period | ±10 | concordância 24h/7d/30d/90d | ✓ |
-| rel_ath | ±10 | distância ao all-time high (universal) | ✓ |
-| momentum | ±5 | preço vs SMA recente | ✓ |
-| liquidity | +5 | volume alto | ✓ |
-| case | +5/+3 | caixa descontinuada/rara | ✓ |
-| **vintage v4** | +2 | descontinuado >= 8 anos, containers-only | **enabled** |
-| **pump_risk v3** | -5 | level=='high' (combinação >= 2 flags) | **enabled** |
+- **Não use `Path.write_text` em `data/`.** Use `_paths.atomic_write_text`.
+- **Não cacheie resultado de 429** como se fosse fato sobre o item.
+- **Não confie em `page` sem `price_history`** numa varredura: pode ser
+  throttle silencioso (200 com corpo grande e vazio de dado). Três vazios
+  seguidos = pare.
+- **Não meça fator de score sem controlar por data.** O regime de mercado
+  produz correlação onde não há sinal — quase virou "comprar depois de
+  alta funciona", que o corte cross-sectional dissolveu.
+- **Não confie em render offscreen pra julgar glifo ou animação** (#11).
+- **Não escreva teste que leia `data/` do usuário.** Um lia `trades.json`
+  e só passava enquanto o arquivo estava vazio.
+- **Não rode a suíte com `--ui` em subprocess.** Vazava uma instância do
+  app por rodada.
 
-## Descobertas empíricas chave (memória persistida)
+---
 
-Ver `~/.claude/projects/C--SkinVault/memory/`:
-- **caixas-amplificam-bucket-alto** — 22 caixas, Pearson +0.1243;
-  bucket 85+ a +56.0% / 71% hit (n=312)
-- **capsulas-amplificam-mais-que-caixas** — 58 cápsulas, Pearson +0.0383;
-  bucket 70-84 é sweet spot (+22% / 64% hit, n=872)
-- **score-90d-horizon** — score é sinal de 60-90d
-- **bucket-85-outliers** — bucket 85+ dominado por cases descontinuadas
-- **clutch-case-falling-knife** — anti-padrão; squeeze tardio
-- **feedback-valve-updates-influenciam-mercado** — pesquisar updates
-  Valve antes de qualquer recomendação
+## Contexto do dono
 
-## Arquivos chave
+Quer o app pra **revenda de skins**. As três prioridades que ele nomeou:
 
-```
-skinvault/
-  signals.py           — enhanced_score + pump_risk + vintage gated
-  backtest.py          — case_status passado
-  ssr_cache.py         — cache 24h de price_history
-  cases.py             — _CAPSULES (58), _AUTOGRAPH_CAPSULES (30),
-                         _CASES, case_status, is_container
-  valve_events.py      — catálogo updates Valve + helpers
-  alerts.py            — engine de regras
-  __main__.py          — CLI com --backtest, --no-cache
-  gui.py               — MainWindow, tray, overlay
-  ui/
-    theme.py           — Win11 dark + helpers de stylesheet
-    history_screen.py  — segmented control + 7 segmentos
-    scanner_screen.py  — 7 categorias + score breakdown
-    watchlist_screen.py
-    account_screen.py
-    trades_screen.py
-    market_screen.py   — sem tabela
-    simulador_screen.py — sem tabela
-    components.py      — Card, StatCard, SegmentedControl,
-                         ActivityFeed, RecentMatchesStrip, EmptyState
-    widgets.py         — DepthChart, MiniSparkline, MonthBarChart,
-                         ValueChart
-    screen_router.py
-memory/                — descobertas empíricas
-```
+1. entender a lógica da revenda **dentro da Steam**
+2. saber analisar preço de skins
+3. analisar o inventário e **apontar por quanto vender** e se vale a pena
+   comprar pelo scan
 
-## Methodology (preservar — funcionou em 2 sessões)
+Ele também troca skins por saldo em sites externos — esse caminho não
+passa pelo Market, e por isso não aparece no P&L dos 25 trades.
 
-```
-1. Observação: pattern X tem comportamento Y
-2. Hipótese mecânica: explicação concreta com critério verificável
-3. Implementar com gate fácil de reverter
-4. Backtest agregado em N universos diversos
-5. Critério de sucesso pré-acordado
-6. Decidir: keep se passa, revert se não, e DOCUMENTAR ambos
-7. Negative findings também viram memória
-```
-
-## Comandos úteis
-
-```bash
-# Rodar testes
-python -m pytest
-
-# Rodar app
-python -m skinvault --ui
-
-# Backtest CLI
-python -m skinvault --backtest "AK-47 | Redline (Field-Tested)"
-python -m skinvault --backtest "Chroma 2 Case"
-python -m skinvault --backtest --from-portfolio
-python -m skinvault --backtest "<item>" --no-cache
-```
-
-## Para o próximo Claude/OpenCode
-
-1. **Leia primeiro:** este arquivo + `MEMORY.md` em
-   `~/.claude/projects/C--SkinVault/memory/`
-2. **Confirme estado:** `python -m pytest` (1284 esperados) e
-   `git log --oneline -10`
-3. **Antes de qualquer experimento de score:** confirme que
-   `backtest.simulate_item` / `score_from_history` passam `case_status`
-   pra `enhanced_score` (corrigido em sessão anterior, mas vale
-   verificar)
-4. **Antes de adicionar nova categoria:** pesquise updates recentes da
-   Valve nessa categoria via WebSearch
-5. **Sempre gate + backtest + memória.** Methodology funcionou — não
-   pule passos
-6. **Negative findings são tão valiosos quanto positivos** — documente
-   sempre
-
-## Próximas direções de score (suspensas para FASE 1-4 de UI)
-
-Estes itens vão pro próximo ciclo, após terminar o polish UI:
-
-### S1. Pre-2020 capsule names — resolver os ~12 sem dados SSR
-
-- **Arquivos:** `skinvault/cases.py` (`_CAPSULES`)
-- **O quê fazer:** buscar nome exato do `market_hash_name` no Steam
-  Community Market para Cologne 2015/2016, Cluj-Napoca 2015, Atlanta
-  2017, Krakow 2017, Boston/London 2018, Katowice/Berlin 2019
-- **Custo:** 30-45min
-- **Critério:** cobertura backtest cápsulas sobe de 58/58 para 70/70
-
-### S2. pump_risk v4 refinements
-
-- **Hipótese:** v3 (penalty -5 em 'high') passou critério mas é
-  conservador. Variantes a testar:
-  - Exclusão por `valve_events.latest_regime_change(category)`
-    (suspende filtro quando há catalyst Valve recente <30d)
-  - Rally +20% em 30d (em vez de +30% em 14d) — mais sensível
-- **Critério:** Δ Spearman > +0.002 em ≥ 2 universos E bucket 85+ avg
-  intacto E pega Clutch
-- **Custo:** 1h
+Números que condicionam tudo: a Steam pede ~36% a mais que mercados com
+dinheiro real, e o break-even da taxa é 15%. O quintil superior do score
+rende +13,64% brutos em 90d → **−1,18% líquidos**. Flip de curto prazo
+dentro da Steam não fecha. A tese que fecha é container recém-aposentado
+em horizonte de ano (+25,8% líquidos).

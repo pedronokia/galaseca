@@ -53,8 +53,9 @@ except ImportError:
     QSystemTrayIcon = None
 
 from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
-from skinvault._paths import DATA_DIR
+from skinvault._paths import DATA_DIR, ensure_data_dir
 from skinvault.settings import DEFAULTS, load_settings, save_settings
+from skinvault.single_instance import SingleInstance
 from skinvault.ui import theme as t
 from skinvault.ui.components import Sidebar, Toast
 
@@ -300,8 +301,8 @@ class _GamedataBridge(QObject):
 
 class SteamSyncDialog(QDialog):
     _STEPS = (
-        ("inventory", "Inventario CS2"),
-        ("market", "Historico do Steam Market"),
+        ("inventory", "Inventário CS2"),
+        ("market", "Histórico do Steam Market"),
         ("listings", "Listagens ativas"),
         ("trades", "Trade offers"),
     )
@@ -475,7 +476,10 @@ class MainWindow(QMainWindow):
         self._router.navigated.connect(self._on_navigated)
         self._router.theme_toggled.connect(self._on_theme_changed)
         self._router.sidebar_visibility_changed.connect(self._on_sidebar_visibility)
-        self._router.session_changed.connect(self._sidebar.set_session)
+        # Via metodo, nao direto no widget: `_toggle_sidebar` troca a barra
+        # inteira, e uma conexao presa a instancia antiga alimentaria um
+        # widget destruido.
+        self._router.session_changed.connect(self._on_session_changed)
         self._router.start()
 
         self._setup_shortcuts()
@@ -502,12 +506,16 @@ class MainWindow(QMainWindow):
     def _apply_stylesheet(self) -> None:
         from skinvault.ui.theme import (
             BG, BG_ELEVATED, BORDER, TEXT, TEXT_MUTED,
-            FONT_FAMILY, SCROLL_THUMB, SCROLL_THUMB_HOV,
+            FONT_FAMILY, SCROLL_THUMB, SCROLL_THUMB_HOV, menu_style,
         )
         self.setStyleSheet(
             f"QMainWindow {{ background: {BG}; }}"
             f"* {{ color: {TEXT};"
             f" font-family: '{FONT_FAMILY}', 'Segoe UI', system-ui; }}"
+            # QMenu e' popup (janela propria) e nao herda o stylesheet do
+            # widget que o abriu -- so' da raiz. Sem esta linha os menus
+            # das telas saem com o tema claro do Qt (ver theme.menu_style).
+            + menu_style() +
             # ── Scrollbar global fina ──
             f"QScrollBar:vertical {{ width: 10px;"
             f" background: transparent; margin: 0; }}"
@@ -564,28 +572,54 @@ class MainWindow(QMainWindow):
         title_bar = QWidget()
         self._sidebar_dock.setTitleBarWidget(title_bar)
 
-        from skinvault.ui.theme import SIZE_SIDEBAR_RAIL
-        sw = SIZE_SIDEBAR_RAIL
-        self._sidebar_dock.setMinimumWidth(sw)
-        self._sidebar_dock.setMaximumWidth(sw)
+        # Rail ou barra com rotulos, lembrado entre sessoes. Um rail de
+        # icones exige decorar sete glifos; com o rotulo do lado o alvo do
+        # clique tambem cresce. Quem ja' decorou colapsa e recupera a
+        # largura.
+        self._sidebar = None
+        self._sidebar_screen = "account"
+        self._sidebar_sessao = ("", "")
+        self._sidebar_rail = bool(settings.get("sidebar_collapsed", True))
+        self._sidebar_dock.setWidget(self._build_sidebar(self._sidebar_rail))
+        self._apply_sidebar_metrics()
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
+                           self._sidebar_dock)
 
-        sidebar = Sidebar(width=sw, rail=True)
+    _SIDEBAR_ITENS = (
+        ("account", "user", "Minha Conta"),
+        ("inventory", "wallet", "Inventário"),
+        ("history", "history", "Histórico"),
+        ("scanner", "radar", "Scanner"),
+        ("market", "chart", "Market"),
+        ("trades", "swap", "Trades"),
+        ("watchlist", "eye", "Watchlist"),
+    )
+
+    def _build_sidebar(self, rail: bool) -> Sidebar:
+        """Monta a barra do zero no modo pedido.
+
+        Reconstruir em vez de alternar propriedade widget a widget: o chip
+        de sessao tem estrutura diferente nos dois modos (bolinha de 32px
+        contra nome + subtitulo), e alternar no lugar deixava metade do
+        estado do modo anterior.
+        """
+        from skinvault.ui.theme import SIZE_SIDEBAR_RAIL, SIZE_SIDEBAR_W
+        largura = SIZE_SIDEBAR_RAIL if rail else SIZE_SIDEBAR_W
+        sidebar = Sidebar(width=largura, rail=rail)
+        sidebar.add_action("menu", "Recolher barra" if not rail
+                           else "Expandir barra", self._toggle_sidebar)
         # Icones de linha (QPainter) por nome — vide components.LineIcon
-        for key, icon, label in [
-            ("account", "user", "Minha Conta"),
-            ("history", "history", "Historico"),
-            ("scanner", "radar", "Scanner"),
-            ("market", "chart", "Market"),
-            ("trades", "swap", "Trades"),
-            ("simulador", "calc", "Simulador"),
-            ("watchlist", "eye", "Watchlist"),
-        ]:
+        for key, icon, label in self._SIDEBAR_ITENS:
             sidebar.add_item(key, icon, label)
         sidebar.add_stretch()
 
+        # Limpeza e' utilitario de maquina, nao etapa do fluxo de mercado:
+        # fica depois do stretch, junto de Configuracoes.
+        sidebar.add_item("cleanup", "trash", "Limpeza")
+
         # Configuracoes virou tela (Frente K): item de navegacao com
         # estado ativo, nao mais acao modal. Sobre/Backups seguem acoes.
-        sidebar.add_item("settings", "gear", "Configuracoes")
+        sidebar.add_item("settings", "gear", "Configurações")
         for icon, label, cb in [
             ("info", "Sobre", self._open_about),
             ("archive", "Backups", self._open_backups),
@@ -593,12 +627,45 @@ class MainWindow(QMainWindow):
             sidebar.add_action(icon, label, cb)
 
         sidebar.add_session_chip()
-
         sidebar.item_selected.connect(self._router.navigate)
         self._sidebar = sidebar
-        self._sidebar_dock.setWidget(sidebar)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
-                           self._sidebar_dock)
+        return sidebar
+
+    def _apply_sidebar_metrics(self) -> None:
+        from skinvault.ui.theme import SIZE_SIDEBAR_RAIL
+        largura = (SIZE_SIDEBAR_RAIL if self._sidebar_rail
+                   else self._sidebar_largura_expandida())
+        self._sidebar_dock.setMinimumWidth(largura)
+        self._sidebar_dock.setMaximumWidth(largura)
+        if self._sidebar is not None:
+            self._sidebar.setFixedWidth(largura)
+
+    def _sidebar_largura_expandida(self) -> int:
+        """Largura escolhida em Configuracoes, no mesmo range do settings."""
+        from skinvault.ui.theme import SIZE_SIDEBAR_W
+        try:
+            valor = int(load_settings().get("sidebar_width", SIZE_SIDEBAR_W))
+        except (TypeError, ValueError):
+            valor = SIZE_SIDEBAR_W
+        return max(160, min(400, valor))
+
+    def _toggle_sidebar(self) -> None:
+        """Alterna rail <-> rotulos, preservando selecao e sessao."""
+        self._sidebar_rail = not self._sidebar_rail
+        anterior = self._sidebar
+        nome, steamid = self._sidebar_sessao
+        nova = self._build_sidebar(self._sidebar_rail)
+        self._sidebar_dock.setWidget(nova)
+        if anterior is not None:
+            anterior.setParent(None)
+            anterior.deleteLater()
+        self._apply_sidebar_metrics()
+        nova.select(self._sidebar_screen)
+        if nome or steamid:
+            nova.set_session(nome, steamid)
+        s = load_settings()
+        s["sidebar_collapsed"] = self._sidebar_rail
+        save_settings(s)
 
         # estado inicial
         visible = self._router.sidebar_visible
@@ -627,9 +694,16 @@ class MainWindow(QMainWindow):
             self.showMaximized()
 
     def _on_navigated(self, screen: str) -> None:
+        # Guardado pra sobreviver a um rebuild da barra (toggle rail).
+        self._sidebar_screen = screen
         sidebar = self._sidebar_dock.widget()
         if sidebar and hasattr(sidebar, 'select'):
             sidebar.select(screen)
+
+    def _on_session_changed(self, name: str, steamid: str) -> None:
+        self._sidebar_sessao = (name, steamid)
+        if self._sidebar is not None:
+            self._sidebar.set_session(name, steamid)
 
     # ── shortcuts ─────────────────────────────────────────────
     def _setup_shortcuts(self) -> None:
@@ -672,7 +746,7 @@ class MainWindow(QMainWindow):
             "F5 &nbsp;&nbsp; Recarregar tela atual<br>"
             "Ctrl+F &nbsp;&nbsp; Foco no filtro<br>"
             "Ctrl+N &nbsp;&nbsp; Nova posicao (Settings)<br>"
-            "Ctrl+, &nbsp;&nbsp; Configuracoes<br>"
+            "Ctrl+, &nbsp;&nbsp; Configurações<br>"
             "? &nbsp;&nbsp; Mostra esta janela",
         )
 
@@ -737,6 +811,22 @@ class MainWindow(QMainWindow):
         self.showNormal()
         self.activateWindow()
         self.raise_()
+
+    def activate(self) -> None:
+        """Traz a janela pra frente. Chamado quando outra instancia tenta abrir.
+
+        Escondida na bandeja ou minimizada: mesmo caminho da restauracao pelo
+        tray. Ja' visivel: so' sobe o z-order -- `showNormal()` aqui
+        desmaximizaria a janela so' porque o usuario clicou no atalho de novo.
+        """
+        if self.isMinimized() or not self.isVisible():
+            self._restore_from_tray()
+            return
+        self.setWindowState(
+            self.windowState() | Qt.WindowState.WindowActive
+        )
+        self.raise_()
+        self.activateWindow()
 
     def _on_tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -857,8 +947,16 @@ class MainWindow(QMainWindow):
 
     def _apply_sidebar_width(self, width: int) -> None:
         """Aplica a largura da sidebar ao vivo (chamado pela tela de
-        Configuracoes). Clampa no mesmo range do settings."""
+        Configuracoes). Clampa no mesmo range do settings.
+
+        Sem efeito com a barra recolhida: o rail tem largura propria, e
+        aplicar 220px nele so' produzia um rail largo com os icones
+        boiando no meio -- que era o que a preferencia fazia antes de
+        existir o modo com rotulos.
+        """
         width = max(160, min(400, int(width)))
+        if getattr(self, "_sidebar_rail", False):
+            return
         dock = getattr(self, "_sidebar_dock", None)
         if dock is not None:
             dock.setMinimumWidth(width)
@@ -875,6 +973,12 @@ class MainWindow(QMainWindow):
         self._current_theme = theme
         set_theme(theme)
         self._apply_stylesheet()
+        # O balao do tooltip e' janela propria e so' obedece o stylesheet
+        # da aplicacao; sem reaplicar aqui ele ficaria com as cores do
+        # tema anterior ate' o proximo start.
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(t.app_style())
         # Re-aplica sidebar dock style
         self._sidebar_dock.setStyleSheet(
             f"QDockWidget {{ background: {t.BG_ELEVATED}; }}"
@@ -890,7 +994,7 @@ class MainWindow(QMainWindow):
             self, "Sobre o SkinVault",
             "<b>SkinVault</b> v1.0<br><br>"
             "Avaliação de inventário CS2 sem login.<br>"
-            "Precos publicos da Steam Community Market.<br><br>"
+            "Preços públicos da Steam Community Market.<br><br>"
             "Lucro real apos taxa de 15% da Steam.<br>"
             "Nao preve futuro — so' dados factuais.<br><br>"
             "Feito por Pedro S. | 2026",
@@ -905,11 +1009,11 @@ class MainWindow(QMainWindow):
         """Registro estatico de comandos (navegacao + acoes globais)."""
         nav = [
             ("account", "user", "Minha Conta"),
-            ("history", "history", "Historico"),
+            ("inventory", "wallet", "Inventário"),
+            ("history", "history", "Histórico"),
             ("scanner", "radar", "Scanner"),
             ("market", "chart", "Market"),
             ("trades", "swap", "Trades"),
-            ("simulador", "calc", "Simulador"),
             ("watchlist", "eye", "Watchlist"),
         ]
         cmds: list[dict] = [
@@ -929,7 +1033,7 @@ class MainWindow(QMainWindow):
              "icon": "eye", "run": lambda: self._router.navigate("watchlist")},
             {"label": "Gerenciar backups", "category": "Acao",
              "icon": "archive", "run": self._open_backups},
-            {"label": "Configuracoes", "category": "Acao", "icon": "gear",
+            {"label": "Configurações", "category": "Ação", "icon": "gear",
              "run": self._open_settings},
         ]
         # "Exportar CSV" so' entra quando a tela atual suporta — evita
@@ -989,14 +1093,29 @@ def _setup_logging() -> None:
 
 
 def launch() -> int:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_data_dir()
     _setup_logging()
     QApplication.setAttribute(
         Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True
     )
     app = QApplication([])
     app.setWindowIcon(_app_icon())
+    # Tooltip e message box abrem em janela propria: so' o stylesheet de
+    # APLICACAO os alcanca, setStyleSheet no widget dono nao.
+    app.setStyleSheet(t.app_style())
+
+    # Antes de qualquer janela: com minimize_to_tray_on_close ligado, o X
+    # esconde em vez de encerrar, e reabrir pelo atalho empilha processos
+    # gravando nos mesmos JSON sem lock (ver single_instance).
+    guard = SingleInstance()
+    if not guard.try_acquire():
+        logging.getLogger(__name__).info(
+            "Ja' existe uma instancia rodando; trazendo pra frente.")
+        return 0
+    app.aboutToQuit.connect(guard.release)
+
     win = MainWindow()
+    guard.set_activate_callback(win.activate)
     settings = load_settings()
     if settings.get("start_minimized", False) and win._tray_icon is not None:
         win.hide()

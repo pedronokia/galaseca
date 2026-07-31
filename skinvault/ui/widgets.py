@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QToolTip, QWidget
 
@@ -104,7 +104,7 @@ class MonthBarChart(QWidget):
             if key and key == self._selected:
                 txt += "\nClique de novo pra limpar o filtro."
             else:
-                txt += "\nClique pra filtrar o historico neste mes."
+                txt += "\nClique pra filtrar o histórico neste mês."
             QToolTip.showText(evt.globalPosition().toPoint(), txt, self)
             self.setCursor(Qt.CursorShape.PointingHandCursor)
         else:
@@ -195,10 +195,32 @@ class ValueChart(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
-        if len(self._values) < 2:
+        if len(self._values) < 3:
+            # Mostra os pontos que JA' existem, nao so' quantos faltam. Sao
+            # avaliacoes reais da carteira; escondê-las pra escrever uma
+            # contagem regressiva desperdicava o cartao inteiro.
+            n = len(self._values)
             p.setPen(QColor(t.TEXT_MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Avalie 2x+ pra ver a evolução do valor")
+            if n == 0:
+                p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
+                           "Nenhuma avaliação registrada ainda")
+                p.end()
+                return
+            faltam = 3 - n
+            msg = (f"{n} avaliação registrada" if n == 1
+                   else f"{n} avaliações registradas")
+            msg += (f" — falta {faltam} pra desenhar a linha" if faltam == 1
+                    else f" — faltam {faltam} pra desenhar a linha")
+            p.drawText(QRectF(0, h / 2 - 34, w, 18),
+                       Qt.AlignmentFlag.AlignCenter, msg)
+            fonte = p.font()
+            fonte.setPointSize(12)
+            fonte.setBold(True)
+            p.setFont(fonte)
+            p.setPen(QColor(t.TEXT))
+            valores = "     ".join(t.brl(v) for v in self._values)
+            p.drawText(QRectF(0, h / 2 - 10, w, 30),
+                       Qt.AlignmentFlag.AlignCenter, valores)
             p.end()
             return
         vmin, vmax = min(self._values), max(self._values)
@@ -290,7 +312,7 @@ class MiniSparkline(QWidget):
         if len(self._values) < 2:
             p.setPen(QColor(t.TEXT_MUTED))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Sem historico")
+                       "Sem histórico")
             p.end()
             return
         vmin, vmax = min(self._values), max(self._values)
@@ -555,4 +577,88 @@ class DepthChart(QWidget):
             p.drawText(mid_x - text_w // 2, h - margin - 14, text_w, 14,
                        Qt.AlignmentFlag.AlignCenter, spread_text)
 
+        p.end()
+
+
+class CompositionChart(QWidget):
+    """Barras horizontais: onde a carteira esta' concentrada.
+
+    Monocromatico de proposito. Verde e vermelho no projeto significam
+    lucro e prejuizo (theme.POSITIVE/DANGER); categoria nao e' nem um nem
+    outro, e colorir por categoria roubaria esse significado.
+
+    A barra mede VALOR quando ha' preco e CONTAGEM quando nao ha'. Os dois
+    modos ficam declarados no rotulo da direita -- uma barra que muda de
+    unidade sem avisar e' pior que barra nenhuma.
+    """
+
+    _LINHA_H = 26
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._grupos: list[dict] = []
+        self.setMinimumHeight(self._LINHA_H * 3)
+
+    def set_groups(self, grupos: list) -> None:
+        self._grupos = [g for g in (grupos or []) if isinstance(g, dict)]
+        alt = max(1, len(self._grupos)) * self._LINHA_H
+        self.setMinimumHeight(alt)
+        self.setMaximumHeight(alt)
+        self.updateGeometry()
+        self.update()
+
+    def _por_valor(self) -> bool:
+        return any((g.get("value") or 0) > 0 for g in self._grupos)
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if not self._grupos:
+            p.setPen(QColor(t.TEXT_MUTED))
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
+                       "Sem itens avaliados")
+            p.end()
+            return
+
+        por_valor = self._por_valor()
+        chave = "value" if por_valor else "count"
+        maior = max((g.get(chave) or 0) for g in self._grupos) or 1
+
+        w = self.width()
+        rotulo_w = 150
+        valor_w = 110
+        barra_x = rotulo_w + 8
+        barra_max = max(20, w - rotulo_w - valor_w - 16)
+
+        fonte = p.font()
+        fonte.setPointSize(9)
+        p.setFont(fonte)
+
+        for i, g in enumerate(self._grupos):
+            y = i * self._LINHA_H
+            centro = y + self._LINHA_H // 2
+
+            p.setPen(QColor(t.TEXT))
+            p.drawText(0, y, rotulo_w, self._LINHA_H,
+                       Qt.AlignmentFlag.AlignLeft
+                       | Qt.AlignmentFlag.AlignVCenter,
+                       str(g.get("label", "")))
+
+            larg = int(barra_max * ((g.get(chave) or 0) / maior))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(t.SURFACE))
+            p.drawRoundedRect(barra_x, centro - 5, barra_max, 10, 5, 5)
+            if larg > 0:
+                p.setBrush(QColor(t.TEXT_MUTED))
+                p.drawRoundedRect(barra_x, centro - 5, max(larg, 6), 10, 5, 5)
+
+            qtd = g.get("count") or 0
+            if por_valor:
+                texto = f"{t.brl(g.get('value') or 0)}  ·  {qtd}"
+            else:
+                texto = f"{qtd} {'item' if qtd == 1 else 'itens'}"
+            p.setPen(QColor(t.TEXT_MUTED))
+            p.drawText(w - valor_w, y, valor_w, self._LINHA_H,
+                       Qt.AlignmentFlag.AlignRight
+                       | Qt.AlignmentFlag.AlignVCenter, texto)
         p.end()

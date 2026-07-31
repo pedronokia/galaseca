@@ -80,6 +80,10 @@ class StatCard(Card):
     def set_delta(self, pct: float | None,
                   label: str = "") -> None:
         if pct is None and not label:
+            # Limpar o texto junto: esconder sozinho deixava a legenda
+            # antiga guardada, e a proxima avaliacao que voltasse a mostrar
+            # o rotulo exibia por um instante o numero da avaliacao anterior.
+            self._delta.setText("")
             self._delta.setVisible(False)
             return
         self._delta.setVisible(True)
@@ -109,6 +113,15 @@ class StatCard(Card):
     @staticmethod
     def _value_color(value: str, accent: str) -> str:
         return t.TEXT_MUTED if value.strip() in ("—", "") else accent
+
+    def set_label(self, text: str) -> None:
+        """Troca o rotulo do cartao.
+
+        Existe porque um cartao pode passar a mostrar outra coisa quando a
+        fonte primaria falha -- e manter o rotulo antigo mentiria sobre o
+        que o numero significa.
+        """
+        self._label.setText(text)
 
     def set_value(self, value: str, accent: str | None = None) -> None:
         self._value.setText(value)

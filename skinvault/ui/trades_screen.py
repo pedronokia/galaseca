@@ -29,7 +29,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import trades as trades_mod
 from skinvault.ui import theme as t
-from skinvault.ui.components import FormRow, PageHeader, RecentMatchesStrip, SectionHeader, SegmentedControl, StatCard, Toast
+from skinvault.ui.components import FormRow, PageHeader, RecentMatchesStrip, SectionHeader, SegmentedControl, SortableItem, StatCard, Toast
 
 
 _PERIODS = [
@@ -183,6 +183,18 @@ class TradesScreen(QWidget):
         self._act_edit.triggered.connect(self._on_edit_selected)
         self._act_remove = self._more_menu.addAction("Remover selecionado")
         self._act_remove.triggered.connect(self._on_remove_selected)
+        self._more_menu.addSeparator()
+        self._act_import = self._more_menu.addAction(
+            "Importar trades da Steam"
+        )
+        self._act_import.setToolTip(
+            "Pareia as compras e vendas do seu histórico do Steam Market e "
+            "registra cada par como um trade.\n"
+            "Usa o que o último sync baixou — não acessa a rede.\n"
+            "Pode rodar quantas vezes quiser: trades já importados são "
+            "ignorados."
+        )
+        self._act_import.triggered.connect(self._on_import_steam)
         self._more_menu.addSeparator()
         self._act_clear = self._more_menu.addAction("Limpar tudo…")
         self._act_clear.triggered.connect(self._on_clear)
@@ -393,19 +405,25 @@ class TradesScreen(QWidget):
             sell_ts = tr.get("sell_ts") or tr.get("buy_ts") or 0
             roi = (tr.get("pnl_pct") or 0)
             from skinvault.localization import localize_name as _ln
+            # 3o campo = chave de ordenacao. None -> ordena pelo texto, que
+            # e' o certo pras colunas textuais (item, origem, notas).
+            # Sem chave, "R$ -7,54" vinha antes de "R$ 1,63" e 30/04 antes
+            # de 29/05 -- ver components.SortableItem.
             cells = [
-                (_fmt_date(sell_ts), None),
-                (_ln(tr.get("name", "")), None),
-                (str(tr.get("quantity", 1)), None),
-                (t.brl(tr.get("buy_cost", 0)), None),
-                (t.brl(tr.get("sell_price", 0)), None),
-                (t.brl(pnl), pnl_color),
-                (f"{roi:+.1f}%", pnl_color),
-                (src_label, src_color),
-                (tr.get("notes", ""), None),
+                (_fmt_date(sell_ts), None, sell_ts),
+                (_ln(tr.get("name", "")), None, None),
+                (str(tr.get("quantity", 1)), None, tr.get("quantity", 1)),
+                (t.brl(tr.get("buy_cost", 0)), None, tr.get("buy_cost", 0)),
+                (t.brl(tr.get("sell_price", 0)), None,
+                 tr.get("sell_price", 0)),
+                (t.brl(pnl), pnl_color, pnl),
+                (f"{roi:+.1f}%", pnl_color, roi),
+                (src_label, src_color, None),
+                (tr.get("notes", ""), None, None),
             ]
-            for col, (val, color) in enumerate(cells):
-                item = QTableWidgetItem(str(val))
+            for col, (val, color, chave) in enumerate(cells):
+                item = (QTableWidgetItem(str(val)) if chave is None
+                        else SortableItem(str(val), chave))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
                 if row_tint is not None:
@@ -434,16 +452,19 @@ class TradesScreen(QWidget):
         else:
             pnl_c = t.POSITIVE if pnl >= 0 else t.DANGER
         self._stat_pnl.set_value(t.brl(pnl), accent=pnl_c)
-        # Delta vs mes anterior
+        # Delta vs mes anterior, em REAIS e nao em porcentagem.
+        #
+        # Variacao percentual de P&L nao tem sentido: a base pode ser ~zero
+        # ou trocar de sinal. Com o historico real do usuario, junho fechou
+        # em R$ 0,03 e julho em R$ 1,63 -- a conta dava "+5333,3%", correta
+        # e inutil. A diferenca absoluta responde a mesma pergunta ("melhorou
+        # quanto?") e vale em qualquer base.
         _monthly = trades_mod.monthly_pnl(trades=self._trades)
         if len(_monthly) >= 2:
-            _prev_pnl = _monthly[-2]["pnl"]
-            _curr_pnl = _monthly[-1]["pnl"]
-            if _prev_pnl:
-                _dp = (_curr_pnl - _prev_pnl) / abs(_prev_pnl) * 100
-                self._stat_pnl.set_delta(_dp, "vs mês anterior")
-            else:
-                self._stat_pnl.set_delta(None)
+            _diff = _monthly[-1]["pnl"] - _monthly[-2]["pnl"]
+            _sinal = "+" if _diff >= 0 else "−"
+            self._stat_pnl.set_delta(
+                None, f"{_sinal}{t.brl(abs(_diff))} vs mês anterior")
         else:
             self._stat_pnl.set_delta(None)
 
@@ -457,7 +478,9 @@ class TradesScreen(QWidget):
             wr_c = t.WARN
         else:
             wr_c = t.DANGER
-        wr_extra = f"  ({stats['win_count']}W / {stats['loss_count']}L)"
+        # V/D e nao W/L: a faixa de resultados logo acima (RecentMatchesStrip)
+        # ja' marca vitoria e derrota assim, e a tela inteira e' em portugues.
+        wr_extra = f"  ({stats['win_count']}V / {stats['loss_count']}D)"
         self._stat_winrate.set_value(f"{wr:.0f}%{wr_extra}", accent=wr_c)
         # Badge no P&L com a taxa de acerto
         if stats["total"] > 0 and wr >= 0:
@@ -553,6 +576,41 @@ class TradesScreen(QWidget):
             return
         trades_mod.remove_trade(idx)
         self.refresh()
+
+    def _on_import_steam(self) -> None:
+        """Importa o historico do Steam Market ja' sincronizado.
+
+        Le' `steam_market_events.json` -- o que `sync.py` baixou -- e nao
+        toca na rede. Se o arquivo esta vazio, o caminho e' sincronizar
+        primeiro na tela de Conta, e a mensagem diz isso.
+        """
+        from skinvault import trade_matcher
+
+        closed = trade_matcher.load_closed_trades()
+        if not closed:
+            Toast.show_toast(
+                self,
+                "Nenhuma compra pareada com venda no histórico da Steam. "
+                "Sincronize sua conta primeiro.",
+                "warning",
+            )
+            return
+
+        result = trade_matcher.import_closed_trades(closed)
+        if not result["imported"]:
+            Toast.show_toast(
+                self,
+                f"Nada novo — os {result['total']} trades da Steam já "
+                "estavam importados.",
+                "info",
+            )
+            return
+
+        self.refresh()
+        msg = f"{result['imported']} trade(s) importado(s) da Steam."
+        if result["skipped"]:
+            msg += f" {result['skipped']} já estava(m) aqui."
+        Toast.show_toast(self, msg, "success")
 
     def _on_clear(self) -> None:
         if not self._trades:
