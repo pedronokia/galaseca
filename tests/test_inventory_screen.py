@@ -381,17 +381,30 @@ def test_celula_de_score_e_a_mesma_da_watchlist():
 
 def test_comeca_na_grade(tela):
     assert tela._views.currentIndex() == 0
-    assert tela._view_btn.text() == "Ver em tabela"
-    assert tela._filter.isEnabled() is False
 
 
-def test_toggle_vai_e_volta(tela):
-    tela._toggle_view()
+def test_segmentado_leva_pra_visao_pedida(tela):
+    """A chave diz o DESTINO. O botao antigo derivava do estado atual, e
+    ler o estado na ordem errada ja' inverteu o filtro aqui uma vez."""
+    tela._on_view_segment("table")
     assert tela._views.currentIndex() == 1
-    assert tela._filter.isEnabled() is True
-    tela._toggle_view()
+    tela._on_view_segment("grid")
     assert tela._views.currentIndex() == 0
-    assert tela._filter.isEnabled() is False
+
+
+def test_segmentado_e_idempotente(tela):
+    """Pedir duas vezes a mesma visao nao pode alternar."""
+    tela._on_view_segment("table")
+    tela._on_view_segment("table")
+    assert tela._views.currentIndex() == 1
+
+
+def test_filtro_vale_nas_duas_visoes(tela):
+    """O campo ficava desabilitado na grade -- caixa de busca grande e
+    morta no topo, justamente na visao que abre por padrao."""
+    assert tela._filter.isEnabled() is True
+    tela._on_view_segment("table")
+    assert tela._filter.isEnabled() is True
 
 
 def test_filtro_esconde_linhas(tela):

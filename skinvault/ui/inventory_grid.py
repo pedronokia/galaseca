@@ -458,6 +458,7 @@ class InventoryGrid(QWidget):
         super().__init__(parent)
         self._columns = max(1, columns)
         self._tiles: list[InventoryTile] = []
+        self._visiveis: list[InventoryTile] = []
 
         raiz = QHBoxLayout(self)
         raiz.setContentsMargins(0, 0, 0, 0)
@@ -513,9 +514,33 @@ class InventoryGrid(QWidget):
             self._grid.addWidget(tile, idx // self._columns,
                                  idx % self._columns)
             self._tiles.append(tile)
+        self._visiveis = list(self._tiles)
         self._detail.show_item(ordenados[0] if ordenados else None)
         if self._tiles:
             self._tiles[0].set_selected(True)
+
+    def set_filter(self, texto: str) -> int:
+        """Esconde os tiles que nao casam, recompacta e devolve quantos ficaram.
+
+        Sem recompactar, esconder deixaria buracos: o QGridLayout guarda a
+        posicao de cada tile, entao o item escondido levaria a celula dele
+        junto e a grade viraria um tabuleiro furado.
+        """
+        alvo = (texto or "").strip().lower()
+        visiveis = []
+        for tile in self._tiles:
+            casa = not alvo or alvo in (tile.item.get("name") or "").lower()
+            tile.setVisible(casa)
+            if casa:
+                visiveis.append(tile)
+        for pos, tile in enumerate(visiveis):
+            self._grid.addWidget(tile, pos // self._columns,
+                                 pos % self._columns)
+        self._visiveis = visiveis
+        return len(visiveis)
+
+    def visible_count(self) -> int:
+        return len(getattr(self, "_visiveis", self._tiles))
 
     def _on_tile(self, item: dict) -> None:
         for tile in self._tiles:

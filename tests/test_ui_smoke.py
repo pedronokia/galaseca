@@ -7646,6 +7646,10 @@ def test_launch_start_minimized(monkeypatch):
             return 0
         def setWindowIcon(self, *_a, **_kw):
             pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
+            pass
         @staticmethod
         def setAttribute(attr, val):
             pass
@@ -7685,6 +7689,10 @@ def test_launch_show_maximized(monkeypatch):
             return 0
         def setWindowIcon(self, *_a, **_kw):
             pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
+            pass
         @staticmethod
         def setAttribute(attr, val):
             pass
@@ -7721,6 +7729,10 @@ def test_launch_login_mode_compact(monkeypatch):
         def exec(self):
             return 0
         def setWindowIcon(self, *_a, **_kw):
+            pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
             pass
         @staticmethod
         def setAttribute(attr, val):
@@ -7762,6 +7774,10 @@ def test_launch_segunda_instancia_sai_sem_janela(monkeypatch):
             raise AssertionError("nao deveria entrar no event loop")
         def setWindowIcon(self, *_a, **_kw):
             pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
+            pass
         @staticmethod
         def setAttribute(attr, val):
             pass
@@ -7792,6 +7808,10 @@ def test_launch_liga_release_no_about_to_quit(monkeypatch):
         def exec(self):
             return 0
         def setWindowIcon(self, *_a, **_kw):
+            pass
+        def setStyleSheet(self, *_a, **_kw):
+            # O app real recebe o estilo do QToolTip aqui (balao e' janela
+            # propria e so' obedece stylesheet de aplicacao).
             pass
         @staticmethod
         def setAttribute(attr, val):

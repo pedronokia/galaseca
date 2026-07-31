@@ -35,6 +35,7 @@ from skinvault.ui.components import (
     EmptyState,
     LoadingState,
     PageHeader,
+    SegmentedControl,
     SortableItem,
     score_table_item,
 )
@@ -88,16 +89,19 @@ class InventoryScreen(QWidget):
         self._filter.setClearButtonEnabled(True)
         self._filter.setStyleSheet(t.input_style())
         self._filter.textChanged.connect(self._apply_filter)
-        self._filter.setEnabled(False)   # comeca na grade
         linha.addWidget(self._filter, 1)
 
-        self._view_btn = QPushButton("Ver em tabela")
-        self._view_btn.setToolTip(
-            "Alterna entre grade de ícones (estilo Steam) e tabela detalhada.")
-        self._view_btn.setStyleSheet(t.btn_ghost())
-        self._view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._view_btn.clicked.connect(self._toggle_view)
-        linha.addWidget(self._view_btn, 0)
+        # Alternador de visao em vez de um botao que troca de rotulo: com
+        # "Ver em tabela" o usuario le' o nome da visao em que NAO esta', e
+        # nada indica quantas opcoes existem. O segmentado mostra as duas e
+        # marca a atual.
+        self._view_seg = SegmentedControl()
+        self._view_seg.add("grid", "Grade")   # o primeiro ja' nasce marcado
+        self._view_seg.add("table", "Tabela")
+        self._view_seg.setToolTip(
+            "Grade de ícones (estilo Steam) ou tabela detalhada.")
+        self._view_seg.segment_changed.connect(self._on_view_segment)
+        linha.addWidget(self._view_seg, 0)
         root.addLayout(linha)
 
         self._grid = InventoryGrid(columns=8)
@@ -427,18 +431,24 @@ class InventoryScreen(QWidget):
 
     # ── interacao ─────────────────────────────────────────
 
-    def _toggle_view(self) -> None:
-        """`indo_pra_tabela` e' o estado DEPOIS do clique -- ler o anterior
-        aqui inverte o filtro, que ja' foi bug nesta tela."""
-        indo_pra_tabela = self._views.currentIndex() == 0
-        self._views.setCurrentIndex(1 if indo_pra_tabela else 0)
-        self._view_btn.setText(
-            "Ver em grade" if indo_pra_tabela else "Ver em tabela")
-        self._filter.setEnabled(indo_pra_tabela)
+    def _on_view_segment(self, key: str) -> None:
+        """O segmentado manda o destino, nao um 'inverta'.
+
+        O botao antigo derivava o destino do estado atual, e ler o estado
+        na ordem errada ja' inverteu o filtro aqui uma vez. Agora a chave
+        diz pra onde ir e nao ha' o que inverter.
+        """
+        self._views.setCurrentIndex(1 if key == "table" else 0)
 
     def _apply_filter(self, texto: str) -> None:
+        """Filtra as DUAS visoes.
+
+        O campo ficava desabilitado na grade -- uma caixa de busca grande e
+        morta no topo da tela, e a grade e' a visao que abre por padrao.
+        """
         alvo = (texto or "").strip().lower()
         for i in range(self._table.rowCount()):
             item = self._table.item(i, self.COL_NAME)
             nome = item.text().lower() if item else ""
             self._table.setRowHidden(i, bool(alvo) and alvo not in nome)
+        self._grid.set_filter(alvo)

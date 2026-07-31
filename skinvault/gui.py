@@ -973,6 +973,12 @@ class MainWindow(QMainWindow):
         self._current_theme = theme
         set_theme(theme)
         self._apply_stylesheet()
+        # O balao do tooltip e' janela propria e so' obedece o stylesheet
+        # da aplicacao; sem reaplicar aqui ele ficaria com as cores do
+        # tema anterior ate' o proximo start.
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(t.tooltip_style())
         # Re-aplica sidebar dock style
         self._sidebar_dock.setStyleSheet(
             f"QDockWidget {{ background: {t.BG_ELEVATED}; }}"
@@ -1094,6 +1100,9 @@ def launch() -> int:
     )
     app = QApplication([])
     app.setWindowIcon(_app_icon())
+    # QToolTip so' obedece stylesheet de aplicacao -- setStyleSheet no
+    # widget dono nao alcanca o balao, que e' uma janela propria.
+    app.setStyleSheet(t.tooltip_style())
 
     # Antes de qualquer janela: com minimize_to_tray_on_close ligado, o X
     # esconde em vez de encerrar, e reabrir pelo atalho empilha processos

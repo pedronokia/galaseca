@@ -371,6 +371,25 @@ def table_style() -> str:
     )
 
 
+def tooltip_style() -> str:
+    """Estilo do QToolTip, aplicado no QApplication inteiro.
+
+    Sem isso o tooltip cai na paleta do sistema: no Windows sai com fundo
+    claro, e como o texto herda a cor clara do tema escuro o resultado e'
+    quase invisivel. E' o tooltip que carrega a informacao mais densa do
+    app -- as cotacoes de todas as plataformas do item ficam ali.
+
+    `border` explicito porque sem borda o balao se funde com o conteudo
+    de tras quando o fundo atras tambem e' escuro.
+    """
+    return (
+        f"QToolTip {{ background: {BG_ELEVATED}; color: {TEXT};"
+        f" border: 1px solid {BORDER}; border-radius: {RADIUS_SM}px;"
+        f" padding: 6px 8px; font-size: {FS_MUTED};"
+        f" font-family: {FONT_FAMILY}; }}"
+    )
+
+
 def card_style(radius: int = 10) -> str:
     return (
         f"QWidget#Card {{ background: {BG_ELEVATED};"

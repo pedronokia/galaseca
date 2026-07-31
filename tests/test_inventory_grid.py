@@ -430,3 +430,64 @@ def test_painel_lista_plataformas_ordenadas_pelo_liquido(app):
     assert txt.index("CS.MONEY/TM") < txt.index("Skinport")
     assert "155,75" in txt and "135,85" in txt
     assert "taxa 5%" in txt and "taxa 12%" in txt
+
+
+# ── filtro da grade ────────────────────────────────────────────────
+#
+# O campo de busca ficava desabilitado na grade: uma caixa grande e morta
+# no topo da tela, justamente na visao que abre por padrao.
+
+
+def test_filtro_esconde_o_que_nao_casa(app):
+    g = InventoryGrid()
+    g.set_items([_item("AK-47 | Redline"), _item("AWP | Asiimov"),
+                 _item("Kilowatt Case")])
+    assert g.set_filter("awp") == 1
+    visiveis = [tl for tl in g._tiles if tl.isVisibleTo(g)]
+    assert len(visiveis) == 1
+    assert visiveis[0].item["name"] == "AWP | Asiimov"
+
+
+def test_filtro_e_case_insensitive(app):
+    g = InventoryGrid()
+    g.set_items([_item("AWP | Asiimov")])
+    assert g.set_filter("ASIIMOV") == 1
+
+
+def test_filtro_vazio_traz_todos_de_volta(app):
+    g = InventoryGrid()
+    g.set_items([_item("a"), _item("b"), _item("c")])
+    g.set_filter("a")
+    assert g.set_filter("") == 3
+    assert all(tl.isVisibleTo(g) for tl in g._tiles)
+
+
+def test_filtro_recompacta_a_grade(app):
+    """Sem recompactar, o tile escondido levava a celula junto e a grade
+    virava um tabuleiro furado."""
+    g = InventoryGrid(columns=2)
+    g.set_items([_item("zzz1"), _item("alvo A"), _item("zzz2"),
+                 _item("alvo B")])
+    g.set_filter("alvo")
+    posicoes = []
+    for tl in g._tiles:
+        if not tl.isVisibleTo(g):
+            continue
+        idx = g._grid.indexOf(tl)
+        r, c, _, _ = g._grid.getItemPosition(idx)
+        posicoes.append((r, c))
+    assert sorted(posicoes) == [(0, 0), (0, 1)]
+
+
+def test_filtro_sem_match_zera(app):
+    g = InventoryGrid()
+    g.set_items([_item("AWP | Asiimov")])
+    assert g.set_filter("nao existe") == 0
+
+
+def test_repovoar_reseta_o_filtro(app):
+    g = InventoryGrid()
+    g.set_items([_item("a"), _item("b")])
+    g.set_filter("a")
+    g.set_items([_item("x"), _item("y"), _item("z")])
+    assert g.visible_count() == 3
