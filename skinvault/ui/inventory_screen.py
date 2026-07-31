@@ -103,6 +103,21 @@ class InventoryScreen(QWidget):
             "table" if _ls().get("inventory_view") == "table" else "grid")
         self._view_seg.setToolTip(
             "Grade de ícones (estilo Steam) ou tabela detalhada.")
+        # Ordenacao: a grade era sempre por valor. Quem procura "aquela
+        # caixa" quer alfabetica; quem olha lote quer por quantidade.
+        self._ordem_seg = SegmentedControl()
+        self._ordem_seg.add("valor", "Valor")
+        self._ordem_seg.add("nome", "Nome")
+        self._ordem_seg.add("qtd", "Qtd")
+        self._ordem_seg.setToolTip(
+            "Ordem dos cards. “Valor” usa o total do lote, não o preço "
+            "unitário:\n21 caixas de R$ 1 pesam mais que uma skin de R$ 15.")
+        # Lambda, nao `self._grid.set_order`: a grade so' e' construida
+        # adiante neste mesmo _build, e ligar o metodo agora explodiria.
+        self._ordem_seg.segment_changed.connect(
+            lambda k: self._grid.set_order(k))
+        linha.addWidget(self._ordem_seg, 0)
+
         self._view_seg.segment_changed.connect(self._on_view_segment)
         linha.addWidget(self._view_seg, 0)
         root.addLayout(linha)
@@ -275,13 +290,25 @@ class InventoryScreen(QWidget):
 
         fora = 0.0
         tem_fora = False
+        from collections import Counter
+        por_plataforma: Counter = Counter()
         for r in self._rows:
             mercados = self._mercados.get(r.get("name") or "") or []
             if mercados:
                 tem_fora = True
                 fora += mercados[0]["net_brl"] * (r.get("quantity") or 1)
+                por_plataforma[mercados[0]["source"]] += 1
         if tem_fora:
             partes.append(f"{t.brl(fora)} vendendo fora (dinheiro)")
+            # O total de fora e' a soma do MELHOR liquido item a item, e o
+            # melhor nem sempre e' a mesma plataforma. Dizer qual lidera
+            # evita ler o total como "e' tudo num lugar so'".
+            if por_plataforma:
+                nome, quantos = por_plataforma.most_common(1)[0]
+                rotulo = InventoryTile._NOME_MERCADO.get(nome, nome)
+                partes.append(
+                    f"{rotulo} paga mais em {quantos} de "
+                    f"{sum(por_plataforma.values())}")
 
         saldo = sum((r.get("net_if_sold") or 0) * 1
                     for r in self._rows if r.get("net_if_sold"))

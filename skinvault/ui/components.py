@@ -737,6 +737,18 @@ class Avatar(QLabel):
                            f"color: {t.TEXT_MUTED}; font-size: {t.FS_ICON_SM};"
                            f" font-family: {t.FONT_FAMILY};")
 
+    def set_initials(self, name: str) -> None:
+        """Iniciais no lugar do "?" enquanto nao ha' imagem.
+
+        "?" nao identifica ninguem e, ao lado de uma faixa dizendo
+        "Conectado", parecia erro. Com pixmap ja' posto, nao mexe: a foto
+        vale mais que a inicial.
+        """
+        if self.pixmap() is not None and not self.pixmap().isNull():
+            return
+        nome = (name or "").strip()
+        self.setText(nome[0].upper() if nome else "?")
+
     def set_image(self, data: bytes | str | None) -> None:
         if not data:
             return

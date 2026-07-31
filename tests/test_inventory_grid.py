@@ -742,3 +742,71 @@ def test_lote_sem_cotacao_nao_inventa_total(app):
                  "market_net": None, "type": "Rifle"})
     assert "×7" in p._tipo.text()
     assert "total" not in p._tipo.text()
+
+
+# ── ordenacao ──────────────────────────────────────────────────────
+
+
+def test_ordem_padrao_e_por_valor_do_lote(app):
+    """21 caixas de R$ 1 pesam mais que uma skin de R$ 15."""
+    g = InventoryGrid()
+    g.set_items([_item("skin", steam=15.0), _item("lote", steam=1.0, qty=21)])
+    assert g._tiles[0].item["name"] == "lote"
+
+
+def test_ordem_por_nome(app):
+    g = InventoryGrid()
+    g.set_items([_item("Zulu", steam=99.0), _item("Alfa", steam=1.0)])
+    g.set_order("nome")
+    assert [tl.item["name"] for tl in g._tiles] == ["Alfa", "Zulu"]
+
+
+def test_ordem_por_quantidade(app):
+    g = InventoryGrid()
+    g.set_items([_item("um", qty=1), _item("muitos", qty=21),
+                 _item("alguns", qty=5)])
+    g.set_order("qtd")
+    assert [tl.item["name"] for tl in g._tiles] == ["muitos", "alguns", "um"]
+
+
+def test_reordenar_nao_recria_os_tiles(app):
+    """Recriar perderia a selecao e o icone ja' carregado."""
+    g = InventoryGrid()
+    g.set_items([_item("a", steam=1.0), _item("b", steam=2.0)])
+    antes = set(id(tl) for tl in g._tiles)
+    g.set_order("nome")
+    assert set(id(tl) for tl in g._tiles) == antes
+
+
+def test_ordem_desconhecida_e_ignorada(app):
+    g = InventoryGrid()
+    g.set_items([_item("a")])
+    g.set_order("inexistente")
+    assert g._ordem == "valor"
+
+
+# ── teto de compra ─────────────────────────────────────────────────
+
+
+def test_painel_diz_ate_quanto_pagar(app):
+    """A tela sabia dizer por quanto VENDER e nao por quanto COMPRAR."""
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1,
+                 "guidance": {"target_list": 100.0}})
+    txt = _texto(p._compra)
+    assert "empatar" in txt and "R$" in txt
+    assert "20%" in txt
+
+
+def test_teto_de_compra_fica_abaixo_do_alvo(app):
+    """Pagar o proprio preco de venda ja' nasce no prejuizo: ha' taxa."""
+    from skinvault import portfolio
+    assert portfolio.max_buy_price(100.0) < 100.0
+    assert portfolio.max_buy_price(100.0, margin_pct=20.0) < \
+        portfolio.max_buy_price(100.0)
+
+
+def test_sem_referencia_nao_inventa_teto(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    assert "referência" in _texto(p._compra)

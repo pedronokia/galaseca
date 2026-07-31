@@ -409,6 +409,16 @@ class AccountScreen(QWidget):
         cached = load_cached_profile(s.steamid)
         if cached:
             self._on_profile(cached)
+        else:
+            # Sem cache, o cartao ficava com nome "—" e "Conecte sua conta
+            # para sincronizar" enquanto a faixa acima dizia "Conectado com
+            # Steam" -- as duas coisas na mesma tela, uma delas falsa. O
+            # SteamID ja' e' conhecido aqui; so' o apelido e o avatar e' que
+            # dependem da rede.
+            self._sub.setText(f"SteamID: {s.steamid}")
+            self._name.setText("Carregando perfil…")
+            self._profile_link.setText("Ver perfil na Steam ›")
+            self._profile_link.setVisible(True)
 
         # 2. atualiza em background
         steamid = s.steamid
@@ -417,6 +427,12 @@ class AccountScreen(QWidget):
             data = fetch_public_profile(steamid)
             if data:
                 self._bridge.profile_ready.emit(data)
+            else:
+                # Falhou (rate limit, perfil privado, sem rede). "Carregando"
+                # pra sempre e' pior que dizer que nao veio -- e o SteamID
+                # continua valendo.
+                self._bridge.profile_ready.emit(
+                    {"steamid": steamid, "name": "", "_falhou": True})
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -427,7 +443,14 @@ class AccountScreen(QWidget):
 
     def _on_profile(self, data: dict) -> None:
         steamid = data.get("steamid", "")
-        self._name.setText(data.get("name") or "—")
+        nome = data.get("name") or ""
+        if not nome and data.get("_falhou") and steamid:
+            # Sem apelido, mas conectado: o SteamID identifica a conta e o
+            # rotulo diz por que o nome nao veio.
+            self._name.setText("Perfil não carregou")
+        else:
+            self._name.setText(nome or "—")
+        self._avatar.set_initials(nome)
         self._update_strip()
         self._sub.setText(f"SteamID: {steamid}")
         if steamid:
@@ -739,6 +762,12 @@ class AccountScreen(QWidget):
                 f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"
                 f"{sem_custo} sem custo registrado ficaram de fora.")
         self._stat_items.set_value(str(len(rows)))
+        # "31" sozinho nao diz se e' carteira concentrada ou espalhada; a
+        # composicao ja' esta' calculada logo abaixo.
+        _cats = len(portfolio_mod.composition(rows))
+        self._stat_items.set_delta(
+            None, f"em {_cats} categoria{'s' if _cats != 1 else ''}"
+            if _cats else "")
 
         # Portfolio breakdown -- tudo aqui e' sobre P&L, entao so' conta
         # item com custo conhecido. Denominador tambem: "0 de 25" mentiria.

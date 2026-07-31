@@ -172,9 +172,19 @@ class InventoryTile(QFrame):
         p.drawRoundedRect(corpo, t.RADIUS_MD, t.RADIUS_MD)
 
         if self._selected:
+            # Anel mais grosso quando a grade tem o foco do teclado: andar
+            # de seta em seta sem saber onde se esta' e' pior que nao ter
+            # seta nenhuma.
+            pai = self.parent()
+            com_foco = False
+            while pai is not None:
+                if isinstance(pai, InventoryGrid):
+                    com_foco = pai.hasFocus()
+                    break
+                pai = pai.parent()
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(QColor(t.TEXT), 2))
-            p.drawRoundedRect(corpo.adjusted(1, 1, -1, -1),
+            p.setPen(QPen(QColor(t.TEXT), 3 if com_foco else 2))
+            p.drawRoundedRect(corpo.adjusted(2, 2, -2, -2),
                               t.RADIUS_MD, t.RADIUS_MD)
 
         if self._pix:
@@ -337,6 +347,18 @@ class ItemDetailPanel(QFrame):
         # unico dado desta tela que nao depende da Steam responder: a
         # procedencia. Container aposentado nao cai mais em drop -- e' fato
         # sobre a oferta, nao previsao de preco.
+        # ── COMPRAR MAIS ──────────────────────────────────
+        # A tela sabia dizer por quanto VENDER e nao por quanto COMPRAR --
+        # metade da decisao de quem revende. `max_buy_price` ja' existia,
+        # usada so' pelo Scanner.
+        v.addSpacing(t.SPACE_MD)
+        self._titulo_compra = self._secao(v, "Comprar mais")
+        self._compra = QLabel("—")
+        self._compra.setWordWrap(True)
+        self._compra.setTextFormat(Qt.TextFormat.RichText)
+        self._compra.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        v.addWidget(self._compra)
+
         v.addSpacing(t.SPACE_MD)
         self._titulo_origem = self._secao(v, "De onde vem")
         self._origem = QLabel("—")
@@ -385,6 +407,7 @@ class ItemDetailPanel(QFrame):
             self._fora.setText("—")
             self._piso.setText("")
             self._premio.setText("")
+            self._compra.setText("—")
             self._origem.setText("—")
             return
 
@@ -420,6 +443,7 @@ class ItemDetailPanel(QFrame):
         self._preencher_steam(item)
         self._preencher_fora(item)
         self._preencher_piso(item)
+        self._preencher_compra(item)
         self._preencher_origem(item)
 
         prem = item.get("premium_pct")
@@ -478,6 +502,30 @@ class ItemDetailPanel(QFrame):
                 f"<span style='color:{t.TEXT_MUTED}'>"
                 f"(taxa {m['fee'] * 100:.0f}%)</span></div>")
         self._fora.setText("".join(partes))
+
+    def _preencher_compra(self, item: dict) -> None:
+        """Teto de compra pra este item, na Steam.
+
+        Nao e' recomendacao: e' o preco de indiferenca dada a taxa. Pagar
+        acima disso ja' nasce no prejuizo mesmo que a venda saia no preco
+        de referencia.
+        """
+        from skinvault import portfolio
+
+        g = item.get("guidance") or {}
+        alvo = g.get("target_list") or item.get("steam_price")
+        if alvo is None:
+            self._compra.setText(
+                f"<span style='color:{t.TEXT_MUTED}'>Sem preço de "
+                "referência agora.</span>")
+            return
+        empate = portfolio.max_buy_price(alvo)
+        margem20 = portfolio.max_buy_price(alvo, margin_pct=20.0)
+        self._compra.setText(
+            f"<span style='color:{t.TEXT_MUTED}'>Pra empatar, pague até</span> "
+            f"<b>{t.brl(empate)}</b>"
+            f"<br><span style='color:{t.TEXT_MUTED}'>Pra 20% de margem, "
+            f"até</span> <b>{t.brl(margem20)}</b>")
 
     def _preencher_origem(self, item: dict) -> None:
         """Procedencia do item: a caixa de onde ele sai, e se ela ainda cai.
@@ -566,6 +614,8 @@ class InventoryGrid(QWidget):
         self._columns = max(1, columns)
         self._tiles: list[InventoryTile] = []
         self._visiveis: list[InventoryTile] = []
+        self._itens: list[dict] = []
+        self._ordem = "valor"
         # Sem foco a grade nao recebe tecla nenhuma.
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -610,14 +660,8 @@ class InventoryGrid(QWidget):
             tile.deleteLater()
         self._tiles = []
 
-        # Ordena pelo valor que o tile EXIBE. Ordenar so' por steam_net
-        # deixava a grade em ordem arbitraria sempre que a Steam estava
-        # racionada: a chave era None em todas as linhas.
-        ordenados = sorted(
-            [i for i in (items or []) if isinstance(i, dict)],
-            key=lambda i: ((_valor_do_tile(i)[0] or 0) * (i.get("qty") or 1)),
-            reverse=True,
-        )
+        self._itens = [i for i in (items or []) if isinstance(i, dict)]
+        ordenados = self._ordenar(self._itens)
         for item in ordenados:
             tile = InventoryTile(item)
             tile.clicked.connect(self._on_tile)
@@ -627,6 +671,33 @@ class InventoryGrid(QWidget):
         self._detail.show_item(ordenados[0] if ordenados else None)
         if self._tiles:
             self._tiles[0].set_selected(True)
+
+    # Chaves de ordenacao. "valor" e' o total do lote, nao o unitario: 21
+    # caixas de R$ 1 pesam mais na carteira que uma skin de R$ 15.
+    _ORDENS = ("valor", "nome", "qtd")
+
+    def _ordenar(self, itens: list) -> list:
+        if self._ordem == "nome":
+            return sorted(itens, key=lambda i: (i.get("name") or "").lower())
+        if self._ordem == "qtd":
+            return sorted(itens, key=lambda i: (i.get("qty") or 1),
+                          reverse=True)
+        return sorted(
+            itens,
+            key=lambda i: ((_valor_do_tile(i)[0] or 0) * (i.get("qty") or 1)),
+            reverse=True,
+        )
+
+    def set_order(self, ordem: str) -> None:
+        """Reordena sem refazer os tiles (recriar perde a selecao)."""
+        if ordem not in self._ORDENS or ordem == self._ordem:
+            return
+        self._ordem = ordem
+        chave = {id(t.item): t for t in self._tiles}
+        self._tiles = [chave[id(i)] for i in self._ordenar(self._itens)
+                       if id(i) in chave]
+        self._visiveis = [t for t in self._tiles if t.isVisibleTo(self)]
+        self._reposicionar()
 
     def set_filter(self, texto: str) -> int:
         """Esconde os tiles que nao casam, recompacta e devolve quantos ficaram.

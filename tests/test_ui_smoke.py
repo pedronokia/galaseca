@@ -8578,3 +8578,64 @@ def test_spin_style_no_invalid_bi():
     assert "bi:" not in qss, "The invalid 'bi:' property was removed"
 
 
+
+
+# ── perfil: o cartao nao pode contradizer a faixa ──────────────────
+#
+# Bug visto em 31/07/2026: a faixa dizia "Conectado com Steam" e o cartao
+# logo abaixo dizia "Conecte sua conta para sincronizar", com nome "—" e
+# avatar "?". Sem perfil em cache, `_reload_profile` nao mexia nos rotulos
+# e eles ficavam no estado de deslogado.
+
+
+def _conta_com_sessao(monkeypatch, cached=None, remoto=None):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.ui.account_screen.load_cached_profile",
+                        lambda sid: cached)
+    monkeypatch.setattr("skinvault.ui.account_screen.fetch_public_profile",
+                        lambda sid: remoto)
+    monkeypatch.setattr("skinvault.ui.account_screen.load_avatar_bytes",
+                        lambda sid: None)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    sess = type("S", (), {"steamid": "76561198000000042"})()
+    screen._session = sess
+    screen._reload_profile()
+    return screen
+
+
+def test_sem_cache_mostra_o_steamid_e_nao_o_convite(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    assert "Conecte sua conta" not in screen._sub.text()
+    assert "76561198000000042" in screen._sub.text()
+
+
+def test_sem_cache_diz_que_esta_carregando(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    assert "Carregando" in screen._name.text()
+
+
+def test_perfil_que_falhou_admite_a_falha(monkeypatch):
+    """"Carregando" pra sempre e' pior que dizer que nao veio."""
+    screen = _conta_com_sessao(monkeypatch)
+    screen._on_profile({"steamid": "7656", "name": "", "_falhou": True})
+    assert "não carregou" in screen._name.text()
+
+
+def test_perfil_bom_mostra_o_apelido(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    screen._on_profile({"steamid": "7656", "name": "nokia"})
+    assert screen._name.text() == "nokia"
+
+
+def test_avatar_usa_a_inicial_no_lugar_do_interrogacao(monkeypatch):
+    screen = _conta_com_sessao(monkeypatch)
+    screen._on_profile({"steamid": "7656", "name": "nokia"})
+    assert screen._avatar.text() == "N"
+
+
+def test_avatar_sem_nome_mantem_o_interrogacao(monkeypatch):
+    from skinvault.ui.components import Avatar
+    a = Avatar()
+    a.set_initials("")
+    assert a.text() == "?"
