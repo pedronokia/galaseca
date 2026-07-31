@@ -301,8 +301,8 @@ class _GamedataBridge(QObject):
 
 class SteamSyncDialog(QDialog):
     _STEPS = (
-        ("inventory", "Inventario CS2"),
-        ("market", "Historico do Steam Market"),
+        ("inventory", "Inventário CS2"),
+        ("market", "Histórico do Steam Market"),
         ("listings", "Listagens ativas"),
         ("trades", "Trade offers"),
     )
@@ -587,8 +587,8 @@ class MainWindow(QMainWindow):
 
     _SIDEBAR_ITENS = (
         ("account", "user", "Minha Conta"),
-        ("inventory", "wallet", "Inventario"),
-        ("history", "history", "Historico"),
+        ("inventory", "wallet", "Inventário"),
+        ("history", "history", "Histórico"),
         ("scanner", "radar", "Scanner"),
         ("market", "chart", "Market"),
         ("trades", "swap", "Trades"),
@@ -619,7 +619,7 @@ class MainWindow(QMainWindow):
 
         # Configuracoes virou tela (Frente K): item de navegacao com
         # estado ativo, nao mais acao modal. Sobre/Backups seguem acoes.
-        sidebar.add_item("settings", "gear", "Configuracoes")
+        sidebar.add_item("settings", "gear", "Configurações")
         for icon, label, cb in [
             ("info", "Sobre", self._open_about),
             ("archive", "Backups", self._open_backups),
@@ -746,7 +746,7 @@ class MainWindow(QMainWindow):
             "F5 &nbsp;&nbsp; Recarregar tela atual<br>"
             "Ctrl+F &nbsp;&nbsp; Foco no filtro<br>"
             "Ctrl+N &nbsp;&nbsp; Nova posicao (Settings)<br>"
-            "Ctrl+, &nbsp;&nbsp; Configuracoes<br>"
+            "Ctrl+, &nbsp;&nbsp; Configurações<br>"
             "? &nbsp;&nbsp; Mostra esta janela",
         )
 
@@ -988,7 +988,7 @@ class MainWindow(QMainWindow):
             self, "Sobre o SkinVault",
             "<b>SkinVault</b> v1.0<br><br>"
             "Avaliação de inventário CS2 sem login.<br>"
-            "Precos publicos da Steam Community Market.<br><br>"
+            "Preços públicos da Steam Community Market.<br><br>"
             "Lucro real apos taxa de 15% da Steam.<br>"
             "Nao preve futuro — so' dados factuais.<br><br>"
             "Feito por Pedro S. | 2026",
@@ -1003,8 +1003,8 @@ class MainWindow(QMainWindow):
         """Registro estatico de comandos (navegacao + acoes globais)."""
         nav = [
             ("account", "user", "Minha Conta"),
-            ("inventory", "wallet", "Inventario"),
-            ("history", "history", "Historico"),
+            ("inventory", "wallet", "Inventário"),
+            ("history", "history", "Histórico"),
             ("scanner", "radar", "Scanner"),
             ("market", "chart", "Market"),
             ("trades", "swap", "Trades"),
@@ -1027,7 +1027,7 @@ class MainWindow(QMainWindow):
              "icon": "eye", "run": lambda: self._router.navigate("watchlist")},
             {"label": "Gerenciar backups", "category": "Acao",
              "icon": "archive", "run": self._open_backups},
-            {"label": "Configuracoes", "category": "Acao", "icon": "gear",
+            {"label": "Configurações", "category": "Ação", "icon": "gear",
              "run": self._open_settings},
         ]
         # "Exportar CSV" so' entra quando a tela atual suporta — evita

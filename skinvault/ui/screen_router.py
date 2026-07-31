@@ -315,7 +315,7 @@ class ScreenRouter(QWidget):
         mapping = {
             SCREEN_ACCOUNT: (self._account_screen, "Minha Conta"),
             SCREEN_INVENTORY: (self._inventory_screen, "Inventário"),
-            SCREEN_HISTORY: (self._history_screen, "Historico"),
+            SCREEN_HISTORY: (self._history_screen, "Histórico"),
             SCREEN_SCANNER: (self._scanner_screen, "Scanner"),
             SCREEN_MARKET: (self._market_screen, "Market"),
             SCREEN_TRADES: (self._trades_screen, "Trades"),

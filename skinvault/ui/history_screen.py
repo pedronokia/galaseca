@@ -460,7 +460,7 @@ class HistoryScreen(QWidget):
         self._seg.segment_changed.connect(self._on_segment)
         tb.add_left(self._seg)
 
-        self._update_prices_btn = QPushButton("Atualizar precos")
+        self._update_prices_btn = QPushButton("Atualizar preços")
         self._update_prices_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._update_prices_btn.setStyleSheet(
             t.btn_ghost(padding="8px 14px", fs=t.FS_BODY)
@@ -622,18 +622,18 @@ class HistoryScreen(QWidget):
         ]
         if not names_missing:
             self._status.setText(
-                self._status.text() + "  (todos os precos ja' estao em cache)"
+                self._status.text() + "  (todos os preços já estão em cache)"
             )
             return
         self._update_prices_btn.setEnabled(False)
         self._update_prices_btn.setText("Atualizando...")
-        self._loading.set_label("Atualizando precos…")
+        self._loading.set_label("Atualizando preços…")
         self._loading.setVisible(True)
         self._price_worker.start(names_missing)
 
     def _on_prices_updated(self) -> None:
         self._update_prices_btn.setEnabled(True)
-        self._update_prices_btn.setText("Atualizar precos")
+        self._update_prices_btn.setText("Atualizar preços")
         self._loading.setVisible(False)
         if self._current_segment == "open":
             self.refresh()
@@ -821,8 +821,8 @@ class HistoryScreen(QWidget):
                 pnl_str,
             ])
         return (
-            ["Comprado em", "Item", "Preco de compra",
-             "Preco atual", "P&L se vender hoje"],
+            ["Comprado em", "Item", "Preço de compra",
+             "Preço atual", "P&L se vender hoje"],
             rows, len(rows), 4, pnl_vals,
         )
 
@@ -1104,8 +1104,8 @@ class HistoryScreen(QWidget):
         )
         money_cols = {
             i for i, h in enumerate(headers)
-            if h in ("Valor", "Preço", "Preco", "P&L", "Preco atual",
-                     "P&L se vender hoje", "Preco de compra")
+            if h in ("Valor", "Preço", "P&L", "Preço atual",
+                     "P&L se vender hoje", "Preço de compra")
         }
         for i in range(self._table.columnCount()):
             if i == item_col:

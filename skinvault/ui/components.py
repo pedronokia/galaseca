@@ -1015,7 +1015,9 @@ def _streak_summary(trades: list[dict]) -> tuple[str, str] | None:
             break
     if count < 2:
         return None
-    label = f"{count} vitorias em sequencia" if is_win else f"{count} derrotas em sequencia"
+    plural = "s" if count != 1 else ""
+    termo = f"vitória{plural}" if is_win else f"derrota{plural}"
+    label = f"{count} {termo} em sequência"
     return (label, t.POSITIVE if is_win else t.DANGER)
 
 
@@ -1061,7 +1063,7 @@ class RecentMatchesStrip(Card):
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(12)
 
-        title = QLabel("Ultimos resultados")
+        title = QLabel("Últimos resultados")
         title.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
             f" font-weight: 600; font-family: {t.FONT_FAMILY};"

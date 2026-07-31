@@ -296,7 +296,7 @@ class WatchlistScreen(QWidget):
         # Tabela
         self._table = QTableWidget(0, 8)
         self._table.setHorizontalHeaderLabels(
-            ["Item", "Preco alvo", "Distância ao alvo", "Preco atual",
+            ["Item", "Preço alvo", "Distância ao alvo", "Preço atual",
              "Status", "Regras", "Score", "Confiança"]
         )
         t.configure_table(self._table)
@@ -710,7 +710,7 @@ class WatchlistScreen(QWidget):
         target_inp.setPrefix("R$ ")
         target_inp.setDecimals(2)
         target_inp.setStyleSheet(t.input_style())
-        lay.addWidget(FormRow("Preco alvo:", target_inp))
+        lay.addWidget(FormRow("Preço alvo:", target_inp))
 
         btn_row = QHBoxLayout()
         cancel = QPushButton("Cancelar")

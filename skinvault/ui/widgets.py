@@ -104,7 +104,7 @@ class MonthBarChart(QWidget):
             if key and key == self._selected:
                 txt += "\nClique de novo pra limpar o filtro."
             else:
-                txt += "\nClique pra filtrar o historico neste mes."
+                txt += "\nClique pra filtrar o histórico neste mês."
             QToolTip.showText(evt.globalPosition().toPoint(), txt, self)
             self.setCursor(Qt.CursorShape.PointingHandCursor)
         else:
@@ -299,7 +299,7 @@ class MiniSparkline(QWidget):
         if len(self._values) < 2:
             p.setPen(QColor(t.TEXT_MUTED))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Sem historico")
+                       "Sem histórico")
             p.end()
             return
         vmin, vmax = min(self._values), max(self._values)

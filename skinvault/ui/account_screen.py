@@ -718,7 +718,7 @@ class AccountScreen(QWidget):
             elif not any(r.get("price") is not None for r in com_custo):
                 self._stat_pnl.setToolTip(
                     f"{len(com_custo)} de {len(rows)} itens tem custo "
-                    "registrado, mas\nnenhum deles tem preco agora — a Steam "
+                    "registrado, mas\nnenhum deles tem preço agora — a Steam "
                     "nao respondeu.\nO P&L volta quando a cotacao voltar.")
             else:
                 self._stat_pnl.setToolTip(
@@ -841,5 +841,5 @@ class AccountScreen(QWidget):
             self._status.setText(
                 f"{len(rows)} item(ns) • atualizado {now}"
             )
-        self._strip_last_sync.setText(f"Ultima sync: {now}")
+        self._strip_last_sync.setText(f"Última sync: {now}")
 

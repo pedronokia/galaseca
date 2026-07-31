@@ -123,7 +123,7 @@ class ScannerScreen(QWidget):
     COL_SINAL = 1
     COL_PRECO = 2
     COL_JUSTO = 3
-    # "Compre ate'" fica colado no "Preco justo" porque deriva dele: e' o
+    # "Compre ate'" fica colado no "Preço justo" porque deriva dele: e' o
     # maximo a pagar pra, revendendo na mediana, sobrar a margem.
     COL_COMPRAR = 4
     COL_VEREDITO = 5
@@ -318,8 +318,8 @@ class ScannerScreen(QWidget):
         # Tabela
         self._table = QTableWidget(0, 13)
         self._table.setHorizontalHeaderLabels([
-            "Item", "Sinal", "Preco", "Preco justo", "Compre até",
-            "Veredito", "Spread", "Book", "Tendencia", "Oferta/Demanda",
+            "Item", "Sinal", "Preço", "Preço justo", "Compre até",
+            "Veredito", "Spread", "Book", "Tendência", "Oferta/Demanda",
             "Score", "Risco", "Confiança",
         ])
         t.configure_table(self._table)
@@ -919,9 +919,9 @@ class ScannerScreen(QWidget):
             return
         import csv, io
         cols = [
-            "Item", "Score", "Veredito", "Preco", "Justo",
-            "Spread", "Book", "Tendencia", "Oferta/Demanda",
-            "Confianca", "Categoria", "Risco",
+            "Item", "Score", "Veredito", "Preço", "Justo",
+            "Spread", "Book", "Tendência", "Oferta/Demanda",
+            "Confiança", "Categoria", "Risco",
         ]
         try:
             with io.open(path, "w", newline="", encoding="utf-8-sig") as f:

@@ -217,7 +217,7 @@ class QrLoginPanel(QWidget):
             self.session_ready.emit(sess)
             return
         self._lbl.setText({
-            qr.EXPIRED: "Codigo expirado. Reabra para gerar outro.",
+            qr.EXPIRED: "Código expirado. Reabra para gerar outro.",
             qr.ERROR: "Falha de conexao com a Steam.",
         }.get(status, "Nao foi possivel concluir o login."))
         self.failed.emit(status)

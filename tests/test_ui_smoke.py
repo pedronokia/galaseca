@@ -2134,7 +2134,7 @@ def test_streak_summary_wins():
     label, _color = _streak_summary([
         {"pnl": 50}, {"pnl": 30}, {"pnl": 10}, {"pnl": -5},
     ])
-    assert "3 vitorias" in label
+    assert "3 vitórias" in label
 
 
 def test_streak_summary_losses():
@@ -2157,7 +2157,7 @@ def test_streak_summary_zero_in_middle():
     label, _ = _streak_summary([
         {"pnl": 50}, {"pnl": 30}, {"pnl": 0}, {"pnl": 10},
     ])
-    assert "2 vitorias" in label
+    assert "2 vitórias" in label
 
 
 def test_recent_matches_strip_instantiation():
@@ -2200,7 +2200,7 @@ def test_recent_matches_strip_shows_streak():
         {"name": "a", "pnl": 50}, {"name": "b", "pnl": 30},
         {"name": "c", "pnl": -5},
     ])
-    assert "vitorias" in strip._streak.text()
+    assert "vitórias" in strip._streak.text()
 
 
 def test_recent_matches_strip_no_streak_clears_label():
@@ -4773,7 +4773,7 @@ class TestHistoryScreen:
                                       buy_date="2024-01-01")]
         screen._current_segment = "open"
         screen._on_update_prices()
-        assert "todos os precos" in screen._status.text()
+        assert "todos os preços" in screen._status.text()
 
     def test_on_prices_updated_refreshes_open(self, monkeypatch):
         """_on_prices_updated reativa botao e refresh se segmento open."""

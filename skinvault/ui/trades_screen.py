@@ -478,7 +478,9 @@ class TradesScreen(QWidget):
             wr_c = t.WARN
         else:
             wr_c = t.DANGER
-        wr_extra = f"  ({stats['win_count']}W / {stats['loss_count']}L)"
+        # V/D e nao W/L: a faixa de resultados logo acima (RecentMatchesStrip)
+        # ja' marca vitoria e derrota assim, e a tela inteira e' em portugues.
+        wr_extra = f"  ({stats['win_count']}V / {stats['loss_count']}D)"
         self._stat_winrate.set_value(f"{wr:.0f}%{wr_extra}", accent=wr_c)
         # Badge no P&L com a taxa de acerto
         if stats["total"] > 0 and wr >= 0:
