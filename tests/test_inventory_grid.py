@@ -168,6 +168,71 @@ def test_grade_ordena_por_valor_total(app):
     assert g._tiles[2].item["name"] == "meio"           # 8.0
 
 
+# ── etiqueta do tile: valor e de onde ele vem ──────────────────────
+#
+# Com a Steam racionada, `steam_net` e' None em tudo e a grade virava uma
+# parede de travessoes -- com o valor de fora ja' dentro do dict do item.
+
+
+def test_etiqueta_prefere_o_saldo_da_steam(app):
+    from skinvault.ui.inventory_grid import _valor_do_tile
+    assert _valor_do_tile(_item("x", steam=10.0, market=7.0)) == (10.0, "saldo")
+
+
+def test_etiqueta_cai_pro_valor_de_fora_sem_saldo(app):
+    from skinvault.ui.inventory_grid import _valor_do_tile
+    assert _valor_do_tile(
+        _item("x", steam=None, market=7.0)) == (7.0, "fora")
+
+
+def test_etiqueta_usa_o_melhor_mercado_quando_ha_lista(app):
+    """`mercados` ja' vem ordenado pelo liquido -- o primeiro paga mais."""
+    from skinvault.ui.inventory_grid import _valor_do_tile
+    it = _item("x", steam=None, market=7.0)
+    it["mercados"] = [{"source": "csgotm", "net_brl": 9.5, "fee": 0.05},
+                      {"source": "skinport", "net_brl": 8.0, "fee": 0.12}]
+    assert _valor_do_tile(it) == (9.5, "fora")
+
+
+def test_etiqueta_sem_nenhuma_cotacao(app):
+    from skinvault.ui.inventory_grid import _valor_do_tile
+    assert _valor_do_tile(_item("x", steam=None, market=None)) == (None, "")
+
+
+def test_origem_viaja_junto_com_o_numero(app):
+    """Saldo travado e dinheiro nao sao a mesma moeda -- nao podem sair
+    com a mesma etiqueta."""
+    from skinvault.ui.inventory_grid import _valor_do_tile
+    _, origem_steam = _valor_do_tile(_item("x", steam=10.0))
+    _, origem_fora = _valor_do_tile(_item("x", steam=None, market=10.0))
+    assert origem_steam != origem_fora
+
+
+def test_grade_ordena_pelo_valor_exibido_sem_saldo(app):
+    """Sem steam_net a chave era None em tudo e a ordem saia arbitraria."""
+    g = InventoryGrid()
+    g.set_items([
+        _item("barata", steam=None, market=1.0, qty=1),
+        _item("cara", steam=None, market=30.0, qty=1),
+        _item("media", steam=None, market=5.0, qty=1),
+    ])
+    assert [tl.item["name"] for tl in g._tiles] == ["cara", "media", "barata"]
+
+
+def test_tile_sem_icone_usa_o_nome_no_lugar_do_interrogacao(app):
+    tile = InventoryTile(_item("AK-47 | Redline (Testada em Campo)"))
+    assert tile._rotulo_sem_icone() == "AK-47"
+
+
+def test_rotulo_sem_icone_aguenta_nome_vazio(app):
+    assert InventoryTile(_item("")). _rotulo_sem_icone() == "?"
+
+
+def test_rotulo_sem_icone_sem_barra_usa_o_nome(app):
+    tile = InventoryTile(_item("Caixa Kilowatt"))
+    assert tile._rotulo_sem_icone() == "Caixa Kilowatt"
+
+
 def test_grade_seleciona_o_primeiro_automaticamente(app):
     g = InventoryGrid()
     g.set_items([_item("a"), _item("b")])

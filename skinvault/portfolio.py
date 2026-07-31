@@ -222,6 +222,68 @@ def evaluate_portfolio(positions: list[dict], price_fn,
     return {"rows": rows, "totals": totals}
 
 
+_PREFIXO_CATEGORIA = (
+    ("Sticker |", "Adesivos"),
+    ("Sealed Graffiti |", "Grafites"),
+    ("Patch |", "Patches"),
+    ("Music Kit |", "Music Kits"),
+)
+
+
+def classify_item(name: str) -> str:
+    """Categoria do item pelo NOME cru (market_hash_name).
+
+    Descritivo, nao analitico: serve pra dizer onde a carteira esta'
+    concentrada. O que nao casa com nenhuma regra vira "Outros" em vez de
+    ser empurrado pra uma categoria vizinha -- item novo da Valve aparece
+    todo mes, e chutar a categoria dele seria afirmar o que nao se sabe.
+    """
+    from skinvault import cases
+
+    nome = (name or "").strip()
+    if not nome:
+        return "Outros"
+    # Facas e luvas antes do teste de "|": elas tambem tem barra no nome.
+    if nome.startswith("★"):
+        return "Facas e luvas"
+    for prefixo, categoria in _PREFIXO_CATEGORIA:
+        if nome.startswith(prefixo):
+            return categoria
+    if cases.is_container(nome):
+        return "Caixas e cápsulas"
+    if "|" in nome:
+        return "Skins"
+    return "Outros"
+
+
+def composition(rows: list[dict]) -> list[dict]:
+    """Agrupa linhas avaliadas por categoria.
+
+    Conta SEMPRE e soma valor SO' onde ha' preco, em campos separados. Com
+    a Steam racionada o valor vem zerado e a contagem continua valendo --
+    um total unico faria a carteira inteira parecer vazia.
+    """
+    grupos: dict = {}
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        cat = classify_item(r.get("name") or "")
+        g = grupos.setdefault(
+            cat, {"label": cat, "count": 0, "value": 0.0, "priced": 0})
+        try:
+            qty = int(r.get("quantity") or 1)
+        except (TypeError, ValueError):
+            qty = 1
+        g["count"] += qty
+        valor = r.get("market")
+        if valor is not None:
+            g["value"] += valor
+            g["priced"] += 1
+    out = list(grupos.values())
+    out.sort(key=lambda g: (g["value"], g["count"]), reverse=True)
+    return out
+
+
 # --- persistencia local -------------------------------------------------------
 def load_portfolio(path: Path | str = _DEFAULT_PATH) -> list[dict]:
     data = load_json_record(path, [])

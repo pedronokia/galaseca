@@ -41,7 +41,7 @@ from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
 from skinvault.ui.inventory_grid import InventoryGrid
 from skinvault.ui.components import Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
-from skinvault.ui.widgets import ValueChart
+from skinvault.ui.widgets import CompositionChart, ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
     load_avatar_bytes,
@@ -292,20 +292,6 @@ class AccountScreen(QWidget):
         bd_row.addStretch(1)
         bd_lay.addLayout(bd_row)
 
-        self._vc_lbl = QLabel(
-            "Evolução do valor bruto — cada avaliação grava um ponto")
-        self._vc_lbl.setStyleSheet(t.label_caption())
-        bd_lay.addWidget(self._vc_lbl)
-        self._value_chart = ValueChart()
-        # O ValueChart nasce com setMinimumHeight(120), e minimo vence
-        # maximo -- por isso o teto precisa vir DEPOIS de baixar o piso.
-        # Sem isso o grafico crescia pra ~140px e empurrava o inventario,
-        # que e' o conteudo principal da tela, pro rodape.
-        self._value_chart.setMinimumHeight(0)
-        self._value_chart.setMaximumHeight(90)
-        bd_lay.addWidget(self._value_chart)
-        self._reload_value_series()
-
         breakdown_card.layout().addLayout(bd_lay)
         self._breakdown_card = breakdown_card
         # Os cartoes de cima informam; o inventario e' o objetivo da tela.
@@ -315,6 +301,50 @@ class AccountScreen(QWidget):
             card.setSizePolicy(QSizePolicy.Policy.Preferred,
                                QSizePolicy.Policy.Maximum)
         root.addWidget(breakdown_card)
+
+        # ── Evolucao + composicao, lado a lado ────────────────
+        #
+        # Estes dois cartoes ocupam a metade de baixo da tela, que ficou
+        # vazia quando o inventario virou aba propria em 28/07. O grafico
+        # de valor morava espremido em 90px dentro do cartao de desempenho,
+        # teto posto quando ele disputava altura com a lista -- disputa que
+        # nao existe mais.
+        fundo = QHBoxLayout()
+        fundo.setSpacing(16)
+
+        chart_card = Card(self, padding=t.CARD_PAD_MD)
+        ch_lay = QVBoxLayout()
+        ch_lay.setSpacing(8)
+        ch_title = QLabel("Evolução do valor")
+        ch_title.setStyleSheet(t.label_section())
+        ch_lay.addWidget(ch_title)
+        self._vc_lbl = QLabel(
+            "Valor bruto da carteira — cada avaliação grava um ponto")
+        self._vc_lbl.setStyleSheet(t.label_caption())
+        ch_lay.addWidget(self._vc_lbl)
+        self._value_chart = ValueChart()
+        self._value_chart.setMinimumHeight(150)
+        ch_lay.addWidget(self._value_chart, 1)
+        chart_card.layout().addLayout(ch_lay)
+        fundo.addWidget(chart_card, 3)
+
+        comp_card = Card(self, padding=t.CARD_PAD_MD)
+        cp_lay = QVBoxLayout()
+        cp_lay.setSpacing(8)
+        cp_title = QLabel("Composição da carteira")
+        cp_title.setStyleSheet(t.label_section())
+        cp_lay.addWidget(cp_title)
+        self._comp_lbl = QLabel("Onde estão os seus itens")
+        self._comp_lbl.setStyleSheet(t.label_caption())
+        cp_lay.addWidget(self._comp_lbl)
+        self._comp_chart = CompositionChart()
+        cp_lay.addWidget(self._comp_chart)
+        cp_lay.addStretch(1)
+        comp_card.layout().addLayout(cp_lay)
+        fundo.addWidget(comp_card, 2)
+
+        root.addLayout(fundo, 1)
+        self._reload_value_series()
 
         # Coluna esquerda (filtro + tabela + status) + ActivityFeed lateral
         split = QHBoxLayout()
@@ -361,9 +391,11 @@ class AccountScreen(QWidget):
         # cujo objetivo e' o inventario, ele custava metade da largura pra
         # repetir informacao. O modulo activity.py continua existindo; se
         # voltar, o lugar e' um dashboard, nao esta tela.
-        left_col.addStretch(1)
+        # Sem stretch aqui: quem estica agora e' a faixa de graficos acima.
+        # Com o stretch nos dois, o espaco livre ia metade pra um rodape
+        # que tem tres widgets de altura fixa.
         split.addLayout(left_col, 1)
-        root.addLayout(split, 1)
+        root.addLayout(split, 0)
 
     # ── perfil ───────────────────────────────────────────
     def _reload_profile(self) -> None:
@@ -431,21 +463,24 @@ class AccountScreen(QWidget):
     def _reload_value_series(self) -> None:
         """Recarrega data/history.json no grafico de evolucao do valor.
 
-        Com menos de 3 pontos nao ha' evolucao pra desenhar. Antes o
-        grafico continuava ocupando ~200px so' pra escrever "Avalie 2x+",
-        e o inventario -- que e' o objetivo da tela -- sobrava espremido no
-        rodape. Sem serie, o bloco inteiro some.
+        O piso pra desenhar e' 3 e nao 2 de proposito: dois pontos viram
+        uma reta, que nao informa tendencia nenhuma e ainda aparece como
+        uma diagonal vermelha atravessando a tela.
 
-        O piso e' 3 e nao 2 de proposito: dois pontos viram uma reta, que
-        nao informa tendencia nenhuma e ainda aparece como uma diagonal
-        vermelha atravessando a tela.
+        Abaixo disso o grafico NAO some mais -- ele diz quantos pontos ja'
+        existem. Sumir fazia sentido quando ele disputava altura com o
+        inventario; agora que tem cartao proprio, esconder deixava um
+        cartao so' com titulo, que parece defeito.
         """
         series = history.load_history()
         pontos = [p.get("total", 0.0) for p in series]
         self._value_chart.set_series(pontos)
-        tem_serie = len(pontos) >= 3
-        self._value_chart.setVisible(tem_serie)
-        self._vc_lbl.setVisible(tem_serie)
+        if len(pontos) >= 3:
+            self._vc_lbl.setText(
+                "Valor bruto da carteira — cada avaliação grava um ponto")
+        else:
+            self._vc_lbl.setText(
+                "A evolução aparece a partir de 3 avaliações")
 
     # Cobertura minima pra considerar a avaliacao boa o bastante pro
     # historico. Nao e' 100% porque item sem mercado na Steam existe de
@@ -617,30 +652,52 @@ class AccountScreen(QWidget):
         self._progress.setVisible(False)
         # Toggle empty state: sem rows mostra hero
         is_empty = not rows
+        # "Sem cotacao" nao e' "vale zero". Com a Steam racionada todos os
+        # precos vem None; exibir R$ 0,00 afirma que a carteira nao vale
+        # nada, e um delta do historico colado nesse zero (o "+1,5% vs
+        # 04/06") lia-se como variacao do numero exibido.
+        com_preco = [r for r in rows if r.get("price") is not None]
+        sem_cotacao = bool(rows) and not com_preco
+        dica_sem_cotacao = (
+            f"Nenhum dos {len(rows)} itens tem preço agora — a Steam não\n"
+            "respondeu às consultas. O valor volta quando a cotação voltar.")
+
         # Atualiza stats
-        self._stat_gross.set_value(t.brl(totals.get("market") or 0))
-        # Delta do valor bruto vs penultimo ponto do historico
-        _series = history.load_history()
-        if len(_series) >= 2:
-            _prev = _series[-2].get("total", 0) or 0
-            _curr = _series[-1].get("total", 0) or 0
-            _prev_ts = _series[-2].get("ts", 0)
-            if _prev and _curr:
-                # Diz CONTRA O QUE esta' comparando. Sem a data, "-79,6%"
-                # parecia queda de hoje quando comparava dois pontos de
-                # junho.
-                _quando = (time.strftime("%d/%m", time.localtime(_prev_ts))
-                           if _prev_ts else "")
-                self._stat_gross.set_delta(
-                    (_curr - _prev) / _prev * 100,
-                    f"vs {_quando}" if _quando else "",
-                )
+        if sem_cotacao:
+            self._stat_gross.set_value("—")
+            self._stat_gross.set_delta(None)
+            self._stat_gross.setToolTip(dica_sem_cotacao)
+            self._stat_net.set_value("—")
+            self._stat_net.setToolTip(dica_sem_cotacao)
+        else:
+            self._stat_gross.setToolTip(
+                "Valor de mercado da carteira (Steam Market).")
+            self._stat_net.setToolTip(
+                "Valor bruto menos a taxa Steam de 15%.")
+            self._stat_gross.set_value(t.brl(totals.get("market") or 0))
+            # Delta do valor bruto vs penultimo ponto do historico
+            _series = history.load_history()
+            if len(_series) >= 2:
+                _prev = _series[-2].get("total", 0) or 0
+                _curr = _series[-1].get("total", 0) or 0
+                _prev_ts = _series[-2].get("ts", 0)
+                if _prev and _curr:
+                    # Diz CONTRA O QUE esta' comparando. Sem a data,
+                    # "-79,6%" parecia queda de hoje quando comparava dois
+                    # pontos de junho.
+                    _quando = (time.strftime("%d/%m",
+                                             time.localtime(_prev_ts))
+                               if _prev_ts else "")
+                    self._stat_gross.set_delta(
+                        (_curr - _prev) / _prev * 100,
+                        f"vs {_quando}" if _quando else "",
+                    )
+                else:
+                    self._stat_gross.set_delta(None)
             else:
                 self._stat_gross.set_delta(None)
-        else:
-            self._stat_gross.set_delta(None)
-        self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
-                                 accent=t.STEAM_BLUE)
+            self._stat_net.set_value(t.brl(totals.get("net_if_sold") or 0),
+                                     accent=t.STEAM_BLUE)
         # P&L so' existe onde ha' custo. Item vindo do sync tem custo
         # DESCONHECIDO (a Steam nao informa), e exibir R$ 0,00 como se fosse
         # o custo transformava o inventario inteiro em "lucro".
@@ -744,6 +801,17 @@ class AccountScreen(QWidget):
             t.brl(worst["pnl"]) if worst and worst.get("pnl") is not None
             else "—", accent=t.DANGER)
         self._bd_worst.setToolTip(_ln(worst.get("name", "")) if worst else "")
+
+        grupos = portfolio_mod.composition(rows)
+        self._comp_chart.set_groups(grupos)
+        # O rotulo declara a unidade da barra: com a Steam racionada nao ha'
+        # valor, e a barra passa a medir contagem.
+        tem_valor = any((g.get("value") or 0) > 0 for g in grupos)
+        self._comp_lbl.setText(
+            "Participação por valor de mercado" if tem_valor
+            else "Quantidade por categoria — sem preço no momento")
+        self._comp_chart.setToolTip(
+            "\n".join(f"{g['label']}: {g['count']} item(ns)" for g in grupos))
 
         # Evolucao do valor: grava snapshot (GUI alimenta o mesmo
         # history.json do CLI) e re-renderiza a serie.

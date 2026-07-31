@@ -6315,6 +6315,34 @@ def test_pnl_sem_nenhum_custo_mantem_a_orientacao_antiga(monkeypatch):
     assert "nenhum" in screen._bd_profit_count._delta.text().lower()
 
 
+def test_sem_cotacao_valor_bruto_nao_vira_zero(monkeypatch):
+    """"Sem preco" nao e' "vale zero" -- e o delta do historico colado
+    nesse zero lia-se como variacao do numero exibido."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._stat_gross._value.text() == "—"
+    assert screen._stat_net._value.text() == "—"
+    assert screen._stat_gross._delta.text() == ""
+    assert "respondeu" in screen._stat_gross.toolTip()
+
+
+def test_com_cotacao_o_valor_bruto_volta(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 100.0)
+    assert "300" in screen._stat_gross._value.text()
+
+
+def test_composicao_aparece_na_tela(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    grupos = screen._comp_chart._grupos
+    assert grupos, "cartao de composicao ficou vazio"
+    # Sem preco a barra mede contagem, e o rotulo precisa declarar isso.
+    assert "Quantidade" in screen._comp_lbl.text()
+
+
+def test_composicao_declara_quando_mede_valor(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 100.0)
+    assert "valor" in screen._comp_lbl.text().lower()
+
+
 def test_carteira_toda_com_custo_nao_ganha_legenda(monkeypatch):
     """Sem posicao sem custo, a legenda nao acrescenta fato -- some."""
     screen = _conta_com_custo_parcial(

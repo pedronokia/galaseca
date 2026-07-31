@@ -31,7 +31,30 @@ from skinvault import icons
 from skinvault.ui import theme as t
 
 TILE = 96
-_BADGE_H = 20
+# Duas linhas: o valor e de ONDE ele vem. Com uma linha so' o tile teria
+# que escolher entre mentir (numero de fora exibido como saldo Steam) e
+# nao dizer nada (a parede de travessoes quando a Steam esta' racionada).
+_BADGE_H = 32
+
+
+def _valor_do_tile(item: dict) -> tuple:
+    """(valor, origem) do que a etiqueta deve mostrar.
+
+    Prefere o saldo da Steam, que e' o numero que a Steam exibe. Quando ele
+    falta -- 429, item nao listado -- cai pro melhor liquido de fora, que
+    ja' vem calculado no dict. Sao moedas diferentes (saldo travado contra
+    dinheiro), entao a origem viaja junto com o numero.
+    """
+    saldo = item.get("steam_net")
+    if saldo is not None:
+        return saldo, "saldo"
+    mercados = item.get("mercados") or []
+    if mercados:
+        return mercados[0].get("net_brl"), "fora"
+    fora = item.get("market_net")
+    if fora is not None:
+        return fora, "fora"
+    return None, ""
 
 
 class InventoryTile(QFrame):
@@ -149,8 +172,18 @@ class InventoryTile(QFrame):
             y = (TILE - self._pix.height()) // 2
             p.drawPixmap(x, y, self._pix)
         else:
+            # Sem icone em cache, "?" nao distingue um tile do outro. O
+            # primeiro trecho do nome ja' identifica ("AK-47", "Caixa",
+            # "Adesivo") e e' o que o dono usa pra reconhecer.
             p.setPen(QColor(t.TEXT_MUTED))
-            p.drawText(corpo, Qt.AlignmentFlag.AlignCenter, "?")
+            fonte = p.font()
+            fonte.setPointSize(9)
+            p.setFont(fonte)
+            rotulo = p.fontMetrics().elidedText(
+                self._rotulo_sem_icone(), Qt.TextElideMode.ElideRight,
+                TILE - 12)
+            p.drawText(corpo, Qt.AlignmentFlag.AlignCenter
+                       | Qt.TextFlag.TextWordWrap, rotulo)
 
         qtd = self.item.get("qty", 1)
         if qtd > 1:
@@ -159,13 +192,33 @@ class InventoryTile(QFrame):
                        Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
                        f"{qtd}")
 
-        # Etiqueta de preco: saldo Steam, que e' o numero que a Steam mostra.
-        preco = self.item.get("steam_net")
+        # Etiqueta: valor em cima, origem embaixo.
+        preco, origem = _valor_do_tile(self.item)
+        fonte = p.font()
+        fonte.setPointSize(9)
+        p.setFont(fonte)
         p.setPen(QColor(t.TEXT if preco is not None else t.TEXT_MUTED))
-        p.drawText(QRect(0, TILE, TILE, _BADGE_H),
+        p.drawText(QRect(0, TILE, TILE, 16),
                    Qt.AlignmentFlag.AlignCenter,
                    t.brl(preco) if preco is not None else "—")
+        if origem:
+            fonte.setPointSize(7)
+            p.setFont(fonte)
+            p.setPen(QColor(t.TEXT_MUTED))
+            p.drawText(QRect(0, TILE + 15, TILE, 14),
+                       Qt.AlignmentFlag.AlignCenter, origem)
         p.end()
+
+    def _rotulo_sem_icone(self) -> str:
+        """Identificacao textual quando nao ha' icone em cache.
+
+        "AK-47 | Redline (Testada em Campo)" -> "AK-47". O trecho antes da
+        barra e' o que diferencia os tiles entre si.
+        """
+        nome = (self.item.get("name") or "").strip()
+        if not nome:
+            return "?"
+        return (nome.split("|")[0].strip() or nome)[:14]
 
 
 class ItemDetailPanel(QFrame):
@@ -446,9 +499,12 @@ class InventoryGrid(QWidget):
             tile.deleteLater()
         self._tiles = []
 
+        # Ordena pelo valor que o tile EXIBE. Ordenar so' por steam_net
+        # deixava a grade em ordem arbitraria sempre que a Steam estava
+        # racionada: a chave era None em todas as linhas.
         ordenados = sorted(
             [i for i in (items or []) if isinstance(i, dict)],
-            key=lambda i: ((i.get("steam_net") or 0) * (i.get("qty") or 1)),
+            key=lambda i: ((_valor_do_tile(i)[0] or 0) * (i.get("qty") or 1)),
             reverse=True,
         )
         for idx, item in enumerate(ordenados):

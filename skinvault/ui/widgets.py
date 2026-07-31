@@ -195,10 +195,19 @@ class ValueChart(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
-        if len(self._values) < 2:
+        if len(self._values) < 3:
+            # Diz quanto ja' existe, nao so' que falta. Dois pontos viram
+            # uma reta que nao informa tendencia nenhuma -- por isso o piso
+            # e' 3 e nao 2.
+            n = len(self._values)
+            if n == 0:
+                msg = "Nenhuma avaliação registrada ainda"
+            elif n == 1:
+                msg = "1 avaliação registrada — faltam 2 pra desenhar"
+            else:
+                msg = "2 avaliações registradas — falta 1 pra desenhar"
             p.setPen(QColor(t.TEXT_MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Avalie 2x+ pra ver a evolução do valor")
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, msg)
             p.end()
             return
         vmin, vmax = min(self._values), max(self._values)
@@ -555,4 +564,88 @@ class DepthChart(QWidget):
             p.drawText(mid_x - text_w // 2, h - margin - 14, text_w, 14,
                        Qt.AlignmentFlag.AlignCenter, spread_text)
 
+        p.end()
+
+
+class CompositionChart(QWidget):
+    """Barras horizontais: onde a carteira esta' concentrada.
+
+    Monocromatico de proposito. Verde e vermelho no projeto significam
+    lucro e prejuizo (theme.POSITIVE/DANGER); categoria nao e' nem um nem
+    outro, e colorir por categoria roubaria esse significado.
+
+    A barra mede VALOR quando ha' preco e CONTAGEM quando nao ha'. Os dois
+    modos ficam declarados no rotulo da direita -- uma barra que muda de
+    unidade sem avisar e' pior que barra nenhuma.
+    """
+
+    _LINHA_H = 26
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._grupos: list[dict] = []
+        self.setMinimumHeight(self._LINHA_H * 3)
+
+    def set_groups(self, grupos: list) -> None:
+        self._grupos = [g for g in (grupos or []) if isinstance(g, dict)]
+        alt = max(1, len(self._grupos)) * self._LINHA_H
+        self.setMinimumHeight(alt)
+        self.setMaximumHeight(alt)
+        self.updateGeometry()
+        self.update()
+
+    def _por_valor(self) -> bool:
+        return any((g.get("value") or 0) > 0 for g in self._grupos)
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if not self._grupos:
+            p.setPen(QColor(t.TEXT_MUTED))
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
+                       "Sem itens avaliados")
+            p.end()
+            return
+
+        por_valor = self._por_valor()
+        chave = "value" if por_valor else "count"
+        maior = max((g.get(chave) or 0) for g in self._grupos) or 1
+
+        w = self.width()
+        rotulo_w = 150
+        valor_w = 110
+        barra_x = rotulo_w + 8
+        barra_max = max(20, w - rotulo_w - valor_w - 16)
+
+        fonte = p.font()
+        fonte.setPointSize(9)
+        p.setFont(fonte)
+
+        for i, g in enumerate(self._grupos):
+            y = i * self._LINHA_H
+            centro = y + self._LINHA_H // 2
+
+            p.setPen(QColor(t.TEXT))
+            p.drawText(0, y, rotulo_w, self._LINHA_H,
+                       Qt.AlignmentFlag.AlignLeft
+                       | Qt.AlignmentFlag.AlignVCenter,
+                       str(g.get("label", "")))
+
+            larg = int(barra_max * ((g.get(chave) or 0) / maior))
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(t.SURFACE))
+            p.drawRoundedRect(barra_x, centro - 5, barra_max, 10, 5, 5)
+            if larg > 0:
+                p.setBrush(QColor(t.TEXT_MUTED))
+                p.drawRoundedRect(barra_x, centro - 5, max(larg, 6), 10, 5, 5)
+
+            qtd = g.get("count") or 0
+            if por_valor:
+                texto = f"{t.brl(g.get('value') or 0)}  ·  {qtd}"
+            else:
+                texto = f"{qtd} {'item' if qtd == 1 else 'itens'}"
+            p.setPen(QColor(t.TEXT_MUTED))
+            p.drawText(w - valor_w, y, valor_w, self._LINHA_H,
+                       Qt.AlignmentFlag.AlignRight
+                       | Qt.AlignmentFlag.AlignVCenter, texto)
         p.end()

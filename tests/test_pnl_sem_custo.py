@@ -161,3 +161,60 @@ def test_quantidade_entra_no_cost_known():
     tot = portfolio.evaluate_portfolio(
         [dict(COMPRADO, quantity=2)], lambda n: None)["totals"]
     assert tot["cost_known"] == 120.0
+
+
+# ── composicao da carteira ─────────────────────────────────────────
+
+
+def test_classifica_pelas_regras_conhecidas():
+    assert portfolio.classify_item("Kilowatt Case") == "Caixas e cápsulas"
+    assert portfolio.classify_item("Sticker | rallen | Paris 2023") == "Adesivos"
+    assert portfolio.classify_item(
+        "Sealed Graffiti | Bling (War Pig Pink)") == "Grafites"
+    assert portfolio.classify_item("AK-47 | Redline (Field-Tested)") == "Skins"
+
+
+def test_faca_nao_cai_em_skins():
+    """Faca tambem tem '|' no nome -- a regra do estrela vem antes."""
+    assert portfolio.classify_item(
+        "★ Falchion Knife | Autotronic (Field-Tested)") == "Facas e luvas"
+
+
+def test_item_desconhecido_vira_outros():
+    """Chutar a categoria seria afirmar o que nao se sabe."""
+    assert portfolio.classify_item("Sealed Genesis Terminal") == "Outros"
+    assert portfolio.classify_item("") == "Outros"
+
+
+def test_composicao_conta_mesmo_sem_preco():
+    """Com a Steam racionada a contagem e' tudo o que sobra -- e vale."""
+    rows = [{"name": "Kilowatt Case", "quantity": 3, "market": None},
+            {"name": "AK-47 | Redline (Field-Tested)", "quantity": 1,
+             "market": None}]
+    grupos = {g["label"]: g for g in portfolio.composition(rows)}
+    assert grupos["Caixas e cápsulas"]["count"] == 3
+    assert grupos["Caixas e cápsulas"]["value"] == 0.0
+    assert grupos["Skins"]["count"] == 1
+
+
+def test_composicao_soma_valor_quando_ha():
+    rows = [{"name": "Kilowatt Case", "quantity": 2, "market": 10.0},
+            {"name": "Revolution Case", "quantity": 1, "market": 5.0}]
+    grupos = portfolio.composition(rows)
+    assert len(grupos) == 1
+    assert grupos[0]["value"] == 15.0
+    assert grupos[0]["count"] == 3
+    assert grupos[0]["priced"] == 2
+
+
+def test_composicao_ordena_pelo_maior():
+    rows = [{"name": "AK-47 | Redline (Field-Tested)", "quantity": 1,
+             "market": 1.0},
+            {"name": "Kilowatt Case", "quantity": 1, "market": 90.0}]
+    assert portfolio.composition(rows)[0]["label"] == "Caixas e cápsulas"
+
+
+def test_composicao_vazia_e_segura():
+    assert portfolio.composition([]) == []
+    assert portfolio.composition(None) == []
+    assert portfolio.composition(["lixo", None]) == []
