@@ -18,6 +18,14 @@ def test_evaluate_price_below_not_reached():
     assert fired == []
 
 
+def test_evaluate_price_below_from_rules():
+    """price_below em rules (RulesDialog) dispara igual ao target legado."""
+    item = {"name": "Test", "rules": {"price_below": 100.0}}
+    fired = alerts.evaluate_item(item, current_price=95.0)
+    assert len(fired) == 1
+    assert fired[0]["rule"] == "price_below"
+
+
 def test_evaluate_price_drop_pct():
     item = {
         "name": "Test",
@@ -131,14 +139,16 @@ def test_format_rules_summary_empty():
 
 def test_format_rules_summary_multi():
     s = alerts.format_rules_summary({
+        "price_below": 120,
         "price_drop_pct": 15,
         "volume_spike": 3.0,
         "supply_drop": 2.0,
         "score_above": 85,
     })
+    assert "abaixo de R$ 120" in s
     assert "queda 15%" in s
-    assert "vol 3.0x" in s
-    assert "oferta 2.0x" in s
+    assert "vol 3x" in s
+    assert "oferta 2x" in s
     assert "score >=85" in s
 
 

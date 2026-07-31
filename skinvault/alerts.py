@@ -45,8 +45,9 @@ def evaluate_item(
     rules = item.get("rules") or {}
     name = item.get("name", "")
 
-    # 1. Preco abaixo do alvo (target legado funciona como price_below)
-    target = item.get("target")
+    # 1. Preco abaixo do alvo (target legado funciona como price_below;
+    # regra vinda do RulesDialog tambem vale — o dialog grava em rules)
+    target = item.get("target") or (rules.get("price_below") or None)
     if target and current_price is not None and current_price <= target:
         alerts.append({
             "rule": "price_below",
@@ -171,12 +172,15 @@ def format_rules_summary(rules: dict | None) -> str:
     if not rules:
         return ""
     parts = []
+    if rules.get("price_below"):
+        parts.append(f"abaixo de R$ {rules['price_below']:.0f}")
     if rules.get("price_drop_pct"):
-        parts.append(f"queda {rules['price_drop_pct']}%")
+        # price_drop_pct e' ponto percentual 0-100 (AGENTS.md #1)
+        parts.append(f"queda {rules['price_drop_pct']:g}%")
     if rules.get("volume_spike"):
-        parts.append(f"vol {rules['volume_spike']}x")
+        parts.append(f"vol {rules['volume_spike']:g}x")
     if rules.get("supply_drop"):
-        parts.append(f"oferta {rules['supply_drop']}x")
+        parts.append(f"oferta {rules['supply_drop']:g}x")
     if rules.get("score_above"):
         parts.append(f"score >={int(rules['score_above'])}")
     return ", ".join(parts)

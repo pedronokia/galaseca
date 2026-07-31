@@ -10,7 +10,7 @@ import threading
 import time
 
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor
+from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QDialog,
     QDoubleSpinBox,
@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QSpinBox,
     QTabWidget,
@@ -147,7 +148,9 @@ class _RulesDialog(QDialog):
             rules["price_below"] = v
         v = self._drop_pct.value()
         if v > 0:
-            rules["price_drop_pct"] = v / 100.0
+            # Pontos percentuais 0-100 (convencao AGENTS.md #1) — a engine
+            # avalia `change <= -abs(price_drop_pct)`, entao 10 = queda de 10%.
+            rules["price_drop_pct"] = v
         v = self._volume_spike.value()
         if v > 0:
             rules["volume_spike"] = v
@@ -267,6 +270,20 @@ class WatchlistScreen(QWidget):
                    self._stat_triggered, self._stat_recent):
             sc.setMaximumWidth(280)
             stats_row.addWidget(sc)
+        self._stat_total.setToolTip(
+            "Itens atualmente na watchlist.\n"
+            "Clique com o botão direito numa linha para editar regras, "
+            "alterar o preço alvo ou remover o item.")
+        self._stat_rules.setToolTip(
+            "Itens com pelo menos uma regra ativa (preço, queda, volume, "
+            "oferta ou score).")
+        self._stat_triggered.setToolTip(
+            "Itens com alerta disparado agora.\n"
+            "Verifique a coluna Status e o log de alertas em "
+            "data/alerts_log.json.")
+        self._stat_recent.setToolTip(
+            "Alertas registrados nas últimas 24h.\n"
+            "Inclui disparos que já foram resetados.")
         stats_row.addStretch(1)
         root.addLayout(stats_row)
 
@@ -286,6 +303,22 @@ class WatchlistScreen(QWidget):
         )
         filt_row.addWidget(_lbl)
         filt_row.addStretch(1)
+
+        # Busca por nome (mesmo padrão do Inventário/Histórico). Ctrl+F
+        # foca o campo; Esc limpa — o gui.py `_focus_filter` também pega
+        # via duck-typing do atributo `_search_inp`.
+        self._search_inp = QLineEdit()
+        self._search_inp.setPlaceholderText("Filtrar por nome do item...")
+        self._search_inp.setClearButtonEnabled(True)
+        self._search_inp.setMaximumWidth(320)
+        self._search_inp.setStyleSheet(t.input_style())
+        self._search_inp.textChanged.connect(self._apply_confidence_filter)
+        filt_row.addWidget(self._search_inp)
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
+            self._search_inp.setFocus)
+        QShortcut(QKeySequence("Esc"), self).activated.connect(
+            self._clear_search)
+
         root.addLayout(filt_row)
 
         # Loading state (mostrado durante validacao)
@@ -311,6 +344,13 @@ class WatchlistScreen(QWidget):
         # Score e Confianca: ocultos ate Validar score
         self._table.setColumnHidden(self.COL_SCORE, True)
         self._table.setColumnHidden(self.COL_CONFIDENCE, True)
+        # Acoes por linha: menu de contexto (padrao de edicao pesada) +
+        # Delete para remover a linha selecionada (padrao do Trades).
+        self._table.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu)
+        self._table.customContextMenuRequested.connect(self._on_row_menu)
+        QShortcut(QKeySequence("Delete"), self._table).activated.connect(
+            self._on_delete_selected)
         root.addWidget(self._table, 1)
 
         # Empty state (mostrado quando watchlist vazia)
@@ -321,7 +361,9 @@ class WatchlistScreen(QWidget):
                        "e configurar alertas personalizados."),
             steps=["Adicione um item digitando o nome exato da skin.",
                    "Configure regras de alerta (preço alvo, queda, volume).",
-                   "Receba notificações nativas quando o mercado se mexer."],
+                   "Receba notificações nativas quando o mercado se mexer.",
+                   "Depois de adicionado, clique com o botão direito na "
+                   "linha para editar regras e alvo."],
             cta_label="+ Adicionar item",
             on_cta=self._on_add,
         )
@@ -378,9 +420,12 @@ class WatchlistScreen(QWidget):
             rules = item.get("rules") or {}
             baseline = item.get("baseline_price")
 
-            # Nome (display localizado; nome original fica no dict do item)
+            # Nome (display localizado; nome original fica no UserRole pra
+            # as acoes da linha funcionarem mesmo com nome traduzido)
             from skinvault.localization import localize_name as _ln
-            self._table.setItem(i, self.COL_NAME, QTableWidgetItem(_ln(name)))
+            _name_item = QTableWidgetItem(_ln(name))
+            _name_item.setData(Qt.ItemDataRole.UserRole, name)
+            self._table.setItem(i, self.COL_NAME, _name_item)
 
             # Target (auto_cell pra ordenar por valor, nao por texto)
             self._table.setItem(i, self.COL_TARGET,
@@ -443,10 +488,10 @@ class WatchlistScreen(QWidget):
                 )
             self._table.setItem(i, self.COL_STATUS, st)
 
-            # Regras summary
+            # Regras summary + tooltip verboso com o breakdown por regra
             self._table.setItem(
                 i, self.COL_RULES,
-                QTableWidgetItem(alerts.format_rules_summary(rules)),
+                self._rules_cell(item, rules),
             )
 
             # Score atual (persistido pelo Validar score). A celula e'
@@ -470,8 +515,8 @@ class WatchlistScreen(QWidget):
             conf_item.setToolTip(dq.get("label", ""))
             self._table.setItem(i, self.COL_CONFIDENCE, conf_item)
 
-            # Acoes (context menu via botoes na ultima coluna ou botoes inline)
-            # Usa botoes simples: Editar e Remover
+            # Acoes por linha vivem no menu de contexto (_on_row_menu) e no
+            # Delete — editar regras, editar alvo, resetar alerta, remover.
         # Alinhamento por coluna: preco → direita, status → centro
         right_cols = {self.COL_TARGET, self.COL_DISTANCE, self.COL_PRICE}
         center_cols = {self.COL_STATUS}
@@ -482,6 +527,162 @@ class WatchlistScreen(QWidget):
             f"{len([x for x in self._items if x.get('triggered')])} alertas ativos"
         )
         self._apply_confidence_filter()
+
+    # ── Acoes por linha (menu de contexto + Delete) ──────
+    def _rules_cell(self, item: dict, rules: dict) -> QTableWidgetItem:
+        cell = QTableWidgetItem(alerts.format_rules_summary(rules))
+        cell.setToolTip(self._rules_tooltip(item, rules))
+        return cell
+
+    def _rules_tooltip(self, item: dict, rules: dict) -> str:
+        if not rules:
+            return ("Sem regras configuradas.\n"
+                    "Clique com o botão direito na linha para adicionar "
+                    "alertas de preço, queda, volume ou score.")
+        lines = ["Regras ativas:"]
+        target = item.get("target") or rules.get("price_below")
+        if target:
+            lines.append(f"• Preço abaixo de {t.brl(target)}")
+        if rules.get("price_drop_pct"):
+            lines.append(
+                f"• Queda de {rules['price_drop_pct']:g}% vs baseline")
+        if rules.get("volume_spike"):
+            lines.append(
+                f"• Volume {rules['volume_spike']:g}x acima da média")
+        if rules.get("supply_drop"):
+            lines.append(f"• Oferta caindo {rules['supply_drop']:g}x")
+        if rules.get("score_above"):
+            lines.append(
+                f"• Score acima de {int(rules['score_above'])}")
+        lines.append("\nBotão direito na linha para editar.")
+        return "\n".join(lines)
+
+    def _item_from_row(self, row: int) -> dict | None:
+        cell = self._table.item(row, self.COL_NAME)
+        if not cell:
+            return None
+        name = cell.data(Qt.ItemDataRole.UserRole) or cell.text()
+        for it in (self._items or []):
+            if it.get("name") == name:
+                return it
+        return None
+
+    def _on_row_menu(self, pos) -> None:
+        row = self._table.rowAt(pos.y())
+        if row < 0:
+            return
+        item = self._item_from_row(row)
+        if item is None:
+            return
+        menu = QMenu(self)
+        menu.setStyleSheet(f"QMenu {{ background: {t.BG_ELEVATED};"
+                           f" color: {t.TEXT}; border: 1px solid {t.BORDER};"
+                           " padding: 6px; }}")
+        act_rules = menu.addAction("Editar regras")
+        act_target = menu.addAction("Editar preço alvo")
+        act_reset = menu.addAction("Resetar alerta")
+        act_reset.setEnabled(bool(item.get("triggered")))
+        menu.addSeparator()
+        act_remove = menu.addAction("Remover item")
+        chosen = menu.exec(self._table.viewport().mapToGlobal(pos))
+        if chosen is act_rules:
+            self._on_edit_rules(item)
+        elif chosen is act_target:
+            self._on_edit_target(item)
+        elif chosen is act_reset:
+            self._on_reset_trigger(item)
+        elif chosen is act_remove:
+            self._on_remove_item(item)
+
+    def _on_edit_rules(self, item: dict) -> None:
+        dlg = _RulesDialog(item, parent=self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        rules = dlg.get_rules()
+        if rules:
+            item["rules"] = rules
+        else:
+            item.pop("rules", None)
+        wl.save_watchlist(self._items)
+        self.refresh()
+
+    def _on_edit_target(self, item: dict) -> None:
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Editar preço alvo")
+        dlg.setMinimumWidth(420)
+        dlg.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(20, 18, 20, 18)
+        lay.setSpacing(14)
+
+        target_inp = QDoubleSpinBox()
+        target_inp.setRange(0, 99999)
+        target_inp.setPrefix("R$ ")
+        target_inp.setDecimals(2)
+        target_inp.setValue(item.get("target", 0) or 0)
+        target_inp.setStyleSheet(t.input_style())
+        lay.addWidget(FormRow("Preço alvo:", target_inp))
+
+        btn_row = QHBoxLayout()
+        cancel = QPushButton("Cancelar")
+        cancel.setStyleSheet(t.btn_ghost())
+        cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel.setToolTip("Fecha o dialogo sem salvar.")
+        cancel.clicked.connect(dlg.reject)
+        ok = QPushButton("Salvar")
+        ok.setStyleSheet(t.btn_primary())
+        ok.setCursor(Qt.CursorShape.PointingHandCursor)
+        ok.setToolTip("Salva o novo preço alvo.")
+
+        def on_save():
+            val = target_inp.value()
+            if val <= 0:
+                return
+            wl.update_target(item["name"], val)
+            self.refresh()
+            dlg.accept()
+
+        ok.clicked.connect(on_save)
+        btn_row.addStretch()
+        btn_row.addWidget(cancel)
+        btn_row.addWidget(ok)
+        lay.addLayout(btn_row)
+        dlg.exec()
+
+    def _on_reset_trigger(self, item: dict) -> None:
+        wl.reset_trigger(item["name"])
+        self.refresh()
+
+    def _on_remove_item(self, item: dict) -> None:
+        idx = next((i for i, it in enumerate(self._items)
+                    if it.get("name") == item["name"]), None)
+        if idx is not None:
+            wl.remove_watch(idx)
+            self.refresh()
+
+    def _on_delete_selected(self) -> None:
+        names: list[str] = []
+        for idx in self._table.selectedIndexes():
+            item = self._item_from_row(idx.row())
+            if item is not None and item["name"] not in names:
+                names.append(item["name"])
+        if not names:
+            return
+        for name in names:
+            pos = next((i for i, it in enumerate(self._items)
+                        if it.get("name") == name), None)
+            if pos is not None:
+                # remove_watch opera por indice do arquivo; reload a cada
+                # remocao mantem os indices validos.
+                wl.remove_watch(pos)
+                self._items = wl.load_watchlist()
+        self.refresh()
+        self._status.setText(
+            f"{len(names)} item(ns) removido(s) da watchlist.")
+
+    def _clear_search(self) -> None:
+        self._search_inp.clear()
+        self._table.clearFocus()
 
     # ── Validar score + Avaliar alertas ───────────────────
     def _on_validate_watchlist(self) -> None:
@@ -611,24 +812,32 @@ class WatchlistScreen(QWidget):
         severity = alert.get("severity", "info")
         self.notification_requested.emit(title, body, severity)
 
-    # ── Filtro de confiança ─────────────────────────────
+    # ── Filtro de confiança + busca ─────────────────────
     def _apply_confidence_filter(self) -> int:
+        """Aplica os dois filtros da tabela: baixa confiança e busca.
+
+        Unificados no mesmo passe porque ambos usam setRowHidden — um
+        sobrescreveria o outro se rodassem separados.
+        """
         if not hasattr(self, "_hide_low_conf_cb"):
             return 0
         active = self._hide_low_conf_cb.isChecked()
+        q = self._search_inp.text().strip().lower()
         hidden = 0
         for row in range(self._table.rowCount()):
             cell = self._table.item(row, self.COL_NAME)
             if not cell:
                 continue
+            name = cell.data(Qt.ItemDataRole.UserRole) or cell.text()
             dq = None
-            item_name = cell.text()
             for it in (self._items or []):
-                if it.get("name") == item_name:
+                if it.get("name") == name:
                     dq = it.get("data_quality") or {}
                     break
             level = dq.get("level", "none") if dq else "none"
-            should_hide = active and level in ("low", "very_low")
+            low_conf = active and level in ("low", "very_low")
+            not_matching = bool(q) and q not in cell.text().lower()
+            should_hide = low_conf or not_matching
             self._table.setRowHidden(row, should_hide)
             if should_hide:
                 hidden += 1
@@ -732,6 +941,23 @@ class WatchlistScreen(QWidget):
             wl.add_watch(name, target)
             self.refresh()
             dlg.accept()
+            # Regras sao o que faz a watchlist vigiar: oferece configurar
+            # na hora, em vez de deixar o item monitorado sem regra.
+            item = next((it for it in self._items
+                         if it.get("name") == name), None)
+            if item is not None:
+                rules_dlg = _RulesDialog(item, parent=self)
+                if rules_dlg.exec() == QDialog.DialogCode.Accepted:
+                    rules = rules_dlg.get_rules()
+                    if rules:
+                        item["rules"] = rules
+                    else:
+                        item.pop("rules", None)
+                    wl.save_watchlist(self._items)
+                    self.refresh()
+            self._status.setText(
+                "Item adicionado. Clique com o botão direito na linha para "
+                "editar regras e preço alvo.")
 
         ok.clicked.connect(on_ok)
         btn_row.addStretch()

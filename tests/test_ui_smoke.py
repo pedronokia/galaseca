@@ -3697,12 +3697,12 @@ def test_rules_dialog_get_rules_all():
     from skinvault.ui.watchlist_screen import _RulesDialog
     dlg = _RulesDialog({"name": "AK-47"})
     dlg._below_target.setValue(50)
-    dlg._drop_pct.setValue(10)  # 10% → stored as 0.10
+    dlg._drop_pct.setValue(10)  # 10% → stored as 10 (pontos, nao fração)
     dlg._volume_spike.setValue(2.5)
     dlg._supply_drop.setValue(15)
     rules = dlg.get_rules()
     assert rules["price_below"] == 50
-    assert rules["price_drop_pct"] == 0.10
+    assert rules["price_drop_pct"] == 10
     assert rules["volume_spike"] == 2.5
     assert rules["supply_drop"] == 15
 
@@ -3852,6 +3852,136 @@ def test_watchlist_on_add_success(monkeypatch):
     screen._on_add()
     assert len(add_called) == 1
     assert add_called[0] == ("AK-47", 50.0)
+
+
+def test_watchlist_edit_rules_saves(monkeypatch, tmp_path):
+    """_on_edit_rules salva as regras do dialog no item."""
+    from PyQt6.QtWidgets import QDialog
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    items = [{"name": "AK-47", "target": 100, "triggered": False}]
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist",
+                        lambda: items)
+    monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
+    saved = []
+    monkeypatch.setattr("skinvault.watchlist.save_watchlist",
+                        lambda lst: saved.append(list(lst)))
+
+    class FakeRulesDialog:
+        def __init__(self, item, parent=None):
+            self.item = item
+
+        def exec(self):
+            return QDialog.DialogCode.Accepted
+
+        def get_rules(self):
+            return {"price_below": 80, "price_drop_pct": 10}
+
+    monkeypatch.setattr("skinvault.ui.watchlist_screen._RulesDialog",
+                        FakeRulesDialog)
+    screen = WatchlistScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    item = screen._items[0]
+    screen._on_edit_rules(item)
+    assert item["rules"] == {"price_below": 80, "price_drop_pct": 10}
+    assert saved[-1][0]["rules"]["price_drop_pct"] == 10
+
+
+def test_watchlist_remove_item(monkeypatch, tmp_path):
+    """_on_remove_item chama remove_watch no indice certo."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: [
+        {"name": "AK-47", "target": 100, "triggered": False}])
+    monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
+    removed = []
+    monkeypatch.setattr("skinvault.watchlist.remove_watch",
+                        lambda idx: removed.append(idx))
+    screen = WatchlistScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    screen._on_remove_item(screen._items[0])
+    assert removed == [0]
+
+
+def test_watchlist_reset_trigger(monkeypatch, tmp_path):
+    """_on_reset_trigger reseta o flag triggered do item."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: [
+        {"name": "AK-47", "target": 100, "triggered": True}])
+    monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
+    resets = []
+    monkeypatch.setattr("skinvault.watchlist.reset_trigger",
+                        lambda name: resets.append(name))
+    screen = WatchlistScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    screen._on_reset_trigger(screen._items[0])
+    assert resets == ["AK-47"]
+
+
+def test_watchlist_edit_target_saves(monkeypatch, tmp_path):
+    """_on_edit_target chama update_target com o novo valor."""
+    from PyQt6.QtWidgets import QDialog, QDoubleSpinBox, QPushButton
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: [
+        {"name": "AK-47", "target": 100, "triggered": False}])
+    monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
+    updated = []
+    monkeypatch.setattr("skinvault.watchlist.update_target",
+                        lambda name, val: updated.append((name, val)))
+
+    def controlled(self):
+        for child in self.findChildren(QDoubleSpinBox):
+            child.setValue(200.0)
+            break
+        for child in self.findChildren(QPushButton):
+            if child.text() == "Salvar":
+                child.click()
+                break
+        return QDialog.DialogCode.Accepted
+
+    monkeypatch.setattr(QDialog, "exec", controlled)
+    screen = WatchlistScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    screen._on_edit_target(screen._items[0])
+    assert updated == [("AK-47", 200.0)]
+
+
+def test_watchlist_search_filtra_linhas(monkeypatch, tmp_path):
+    """A busca oculta linhas que nao casam com o nome."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: [
+        {"name": "AK-47 | Redline", "target": 100, "triggered": False},
+        {"name": "AWP | Dragon Lore", "target": 100, "triggered": False}])
+    monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
+    screen = WatchlistScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    screen._search_inp.setText("ak")
+    screen._apply_confidence_filter()
+
+    def find_row(sub):
+        for r in range(screen._table.rowCount()):
+            if sub in screen._table.item(r, screen.COL_NAME).text().lower():
+                return r
+        return None
+
+    ak_row = find_row("ak-47")
+    awp_row = find_row("awp")
+    assert ak_row is not None and awp_row is not None
+    assert not screen._table.isRowHidden(ak_row)
+    assert screen._table.isRowHidden(awp_row)
+
+
+def test_watchlist_rules_cell_tooltip(monkeypatch, tmp_path):
+    """Coluna Regras traz tooltip verboso com o breakdown."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: [])
+    monkeypatch.setattr("skinvault.alerts.load_alerts_log", lambda: [])
+    screen = WatchlistScreen(PriceCache(tmp_path / "p.json", ttl=3600))
+    item = {"name": "AK-47", "target": 0, "triggered": False,
+            "rules": {"price_drop_pct": 10, "volume_spike": 3}}
+    cell = screen._rules_cell(item, item["rules"])
+    tip = cell.toolTip().lower()
+    assert "queda de 10%" in tip
+    assert "volume 3x" in tip
 
 
 def test_watchlist_screen():
