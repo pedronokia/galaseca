@@ -476,7 +476,10 @@ class MainWindow(QMainWindow):
         self._router.navigated.connect(self._on_navigated)
         self._router.theme_toggled.connect(self._on_theme_changed)
         self._router.sidebar_visibility_changed.connect(self._on_sidebar_visibility)
-        self._router.session_changed.connect(self._sidebar.set_session)
+        # Via metodo, nao direto no widget: `_toggle_sidebar` troca a barra
+        # inteira, e uma conexao presa a instancia antiga alimentaria um
+        # widget destruido.
+        self._router.session_changed.connect(self._on_session_changed)
         self._router.start()
 
         self._setup_shortcuts()
@@ -569,22 +572,44 @@ class MainWindow(QMainWindow):
         title_bar = QWidget()
         self._sidebar_dock.setTitleBarWidget(title_bar)
 
-        from skinvault.ui.theme import SIZE_SIDEBAR_RAIL
-        sw = SIZE_SIDEBAR_RAIL
-        self._sidebar_dock.setMinimumWidth(sw)
-        self._sidebar_dock.setMaximumWidth(sw)
+        # Rail ou barra com rotulos, lembrado entre sessoes. Um rail de
+        # icones exige decorar sete glifos; com o rotulo do lado o alvo do
+        # clique tambem cresce. Quem ja' decorou colapsa e recupera a
+        # largura.
+        self._sidebar = None
+        self._sidebar_screen = "account"
+        self._sidebar_sessao = ("", "")
+        self._sidebar_rail = bool(settings.get("sidebar_collapsed", True))
+        self._sidebar_dock.setWidget(self._build_sidebar(self._sidebar_rail))
+        self._apply_sidebar_metrics()
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
+                           self._sidebar_dock)
 
-        sidebar = Sidebar(width=sw, rail=True)
+    _SIDEBAR_ITENS = (
+        ("account", "user", "Minha Conta"),
+        ("inventory", "wallet", "Inventario"),
+        ("history", "history", "Historico"),
+        ("scanner", "radar", "Scanner"),
+        ("market", "chart", "Market"),
+        ("trades", "swap", "Trades"),
+        ("watchlist", "eye", "Watchlist"),
+    )
+
+    def _build_sidebar(self, rail: bool) -> Sidebar:
+        """Monta a barra do zero no modo pedido.
+
+        Reconstruir em vez de alternar propriedade widget a widget: o chip
+        de sessao tem estrutura diferente nos dois modos (bolinha de 32px
+        contra nome + subtitulo), e alternar no lugar deixava metade do
+        estado do modo anterior.
+        """
+        from skinvault.ui.theme import SIZE_SIDEBAR_RAIL, SIZE_SIDEBAR_W
+        largura = SIZE_SIDEBAR_RAIL if rail else SIZE_SIDEBAR_W
+        sidebar = Sidebar(width=largura, rail=rail)
+        sidebar.add_action("menu", "Recolher barra" if not rail
+                           else "Expandir barra", self._toggle_sidebar)
         # Icones de linha (QPainter) por nome — vide components.LineIcon
-        for key, icon, label in [
-            ("account", "user", "Minha Conta"),
-            ("inventory", "wallet", "Inventario"),
-            ("history", "history", "Historico"),
-            ("scanner", "radar", "Scanner"),
-            ("market", "chart", "Market"),
-            ("trades", "swap", "Trades"),
-            ("watchlist", "eye", "Watchlist"),
-        ]:
+        for key, icon, label in self._SIDEBAR_ITENS:
             sidebar.add_item(key, icon, label)
         sidebar.add_stretch()
 
@@ -602,12 +627,45 @@ class MainWindow(QMainWindow):
             sidebar.add_action(icon, label, cb)
 
         sidebar.add_session_chip()
-
         sidebar.item_selected.connect(self._router.navigate)
         self._sidebar = sidebar
-        self._sidebar_dock.setWidget(sidebar)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,
-                           self._sidebar_dock)
+        return sidebar
+
+    def _apply_sidebar_metrics(self) -> None:
+        from skinvault.ui.theme import SIZE_SIDEBAR_RAIL
+        largura = (SIZE_SIDEBAR_RAIL if self._sidebar_rail
+                   else self._sidebar_largura_expandida())
+        self._sidebar_dock.setMinimumWidth(largura)
+        self._sidebar_dock.setMaximumWidth(largura)
+        if self._sidebar is not None:
+            self._sidebar.setFixedWidth(largura)
+
+    def _sidebar_largura_expandida(self) -> int:
+        """Largura escolhida em Configuracoes, no mesmo range do settings."""
+        from skinvault.ui.theme import SIZE_SIDEBAR_W
+        try:
+            valor = int(load_settings().get("sidebar_width", SIZE_SIDEBAR_W))
+        except (TypeError, ValueError):
+            valor = SIZE_SIDEBAR_W
+        return max(160, min(400, valor))
+
+    def _toggle_sidebar(self) -> None:
+        """Alterna rail <-> rotulos, preservando selecao e sessao."""
+        self._sidebar_rail = not self._sidebar_rail
+        anterior = self._sidebar
+        nome, steamid = self._sidebar_sessao
+        nova = self._build_sidebar(self._sidebar_rail)
+        self._sidebar_dock.setWidget(nova)
+        if anterior is not None:
+            anterior.setParent(None)
+            anterior.deleteLater()
+        self._apply_sidebar_metrics()
+        nova.select(self._sidebar_screen)
+        if nome or steamid:
+            nova.set_session(nome, steamid)
+        s = load_settings()
+        s["sidebar_collapsed"] = self._sidebar_rail
+        save_settings(s)
 
         # estado inicial
         visible = self._router.sidebar_visible
@@ -636,9 +694,16 @@ class MainWindow(QMainWindow):
             self.showMaximized()
 
     def _on_navigated(self, screen: str) -> None:
+        # Guardado pra sobreviver a um rebuild da barra (toggle rail).
+        self._sidebar_screen = screen
         sidebar = self._sidebar_dock.widget()
         if sidebar and hasattr(sidebar, 'select'):
             sidebar.select(screen)
+
+    def _on_session_changed(self, name: str, steamid: str) -> None:
+        self._sidebar_sessao = (name, steamid)
+        if self._sidebar is not None:
+            self._sidebar.set_session(name, steamid)
 
     # ── shortcuts ─────────────────────────────────────────────
     def _setup_shortcuts(self) -> None:
@@ -882,8 +947,16 @@ class MainWindow(QMainWindow):
 
     def _apply_sidebar_width(self, width: int) -> None:
         """Aplica a largura da sidebar ao vivo (chamado pela tela de
-        Configuracoes). Clampa no mesmo range do settings."""
+        Configuracoes). Clampa no mesmo range do settings.
+
+        Sem efeito com a barra recolhida: o rail tem largura propria, e
+        aplicar 220px nele so' produzia um rail largo com os icones
+        boiando no meio -- que era o que a preferencia fazia antes de
+        existir o modo com rotulos.
+        """
         width = max(160, min(400, int(width)))
+        if getattr(self, "_sidebar_rail", False):
+            return
         dock = getattr(self, "_sidebar_dock", None)
         if dock is not None:
             dock.setMinimumWidth(width)

@@ -23,6 +23,9 @@ DEFAULTS = {
     "window_position": {},
     "last_scenario": {},
     "sidebar_width": 220,
+    # Barra lateral recolhida (rail de icones) contra expandida com
+    # rotulos. Default recolhida: e' o estado que o app sempre teve.
+    "sidebar_collapsed": True,
     "scanner_unlocked": False,
     "welcome_seen": False,
     "overlay_mode": False,  # janela "stays on top" + show sem roubar foco

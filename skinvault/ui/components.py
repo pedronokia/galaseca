@@ -503,6 +503,12 @@ class LineIcon(QWidget):
         p.drawEllipse(QRectF(10.5, 10.5, 4.5, 4.5))  # circulo inf
         p.drawLine(QPointF(13, 4), QPointF(5, 14))  # barra
 
+    def _draw_menu(self, p: QPainter) -> None:
+        # tres linhas: alterna entre a barra estreita e a com rotulos
+        p.drawLine(QPointF(3, 5), QPointF(15, 5))
+        p.drawLine(QPointF(3, 9), QPointF(15, 9))
+        p.drawLine(QPointF(3, 13), QPointF(15, 13))
+
     def _draw_calendar(self, p: QPainter) -> None:
         # calendario: retangulo + 2 ticks no topo + linha
         p.drawRoundedRect(QRectF(3, 5, 12, 10), 1.5, 1.5)

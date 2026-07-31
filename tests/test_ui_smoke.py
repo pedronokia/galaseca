@@ -7150,6 +7150,82 @@ def test_mainwindow_init(monkeypatch):
     assert win.windowTitle() == "SkinVault"
 
 
+# ── barra lateral: rail <-> rotulos ────────────────────────────────
+
+
+def _mw_sidebar(monkeypatch):
+    """MainWindow com save_settings neutralizado.
+
+    O toggle persiste a preferencia; sem este mock o teste gravaria no
+    settings.json real do dono.
+    """
+    gravado = {}
+    monkeypatch.setattr("skinvault.gui.save_settings",
+                        lambda s: gravado.update(s))
+    return _make_mw(monkeypatch), gravado
+
+
+def test_sidebar_nasce_recolhida(monkeypatch):
+    """Rail e' o estado que o app sempre teve -- continua o default."""
+    win, _ = _mw_sidebar(monkeypatch)
+    assert win._sidebar_rail is True
+    assert win._sidebar.width() == 64
+
+
+def test_toggle_expande_com_rotulos(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    assert win._sidebar_rail is False
+    assert win._sidebar.width() == 220
+    # Rotulo visivel e' a diferenca entre os dois modos.
+    assert win._sidebar._items["account"].text() == "Minha Conta"
+
+
+def test_toggle_volta_pro_rail(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    win._toggle_sidebar()
+    assert win._sidebar_rail is True
+    assert win._sidebar.width() == 64
+    assert win._sidebar._items["account"].text() == ""
+
+
+def test_toggle_persiste_a_preferencia(monkeypatch):
+    win, gravado = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    assert gravado.get("sidebar_collapsed") is False
+
+
+def test_toggle_preserva_a_tela_selecionada(monkeypatch):
+    """Trocar de modo reconstroi a barra -- a selecao nao pode zerar."""
+    win, _ = _mw_sidebar(monkeypatch)
+    win._on_navigated("scanner")
+    win._toggle_sidebar()
+    assert win._sidebar._items["scanner"].isChecked() is True
+
+
+def test_toggle_preserva_a_sessao(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._on_session_changed("pedri", "76561198000000042")
+    win._toggle_sidebar()
+    assert win._sidebar._chip.isVisibleTo(win._sidebar) is True
+
+
+def test_largura_da_barra_nao_afeta_o_rail(monkeypatch):
+    """220px num rail so' produzia icone boiando no meio de uma barra
+    larga -- era o que a preferencia fazia antes do modo com rotulos."""
+    win, _ = _mw_sidebar(monkeypatch)
+    win._apply_sidebar_width(300)
+    assert win._sidebar.width() == 64
+
+
+def test_largura_da_barra_vale_quando_expandida(monkeypatch):
+    win, _ = _mw_sidebar(monkeypatch)
+    win._toggle_sidebar()
+    win._apply_sidebar_width(300)
+    assert win._sidebar.width() == 300
+
+
 def test_mainwindow_on_navigated(monkeypatch):
     """_on_navigated calls sidebar.select."""
     win = _make_mw(monkeypatch)
