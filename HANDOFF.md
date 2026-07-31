@@ -12,7 +12,7 @@ custou caro descobrir.
 ## Estado
 
 - Branch: `feat/multi-market-e-inventario`
-- **30 commits**. **Não há remote configurado** — não é decisão pendente,
+- **35 commits**. **Não há remote configurado** — não é decisão pendente,
   não existe pra onde enviar.
 - Suíte: **1923 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
@@ -79,32 +79,54 @@ silêncio (AGENTS.md #12).
 - Removido do `history.json` o snapshot parcial que gerava "-79,6%"
   (backup em `history.json.bak-parcial`).
 
+## Entregue em 30/07 à noite (sessão Claude Code)
+
+- **Cartão "0 de 2"** (era fila #1): os três cartões de desempenho ganharam
+  a legenda do denominador. No caminho apareceu número ERRADO, não só sem
+  contexto: `evaluate_portfolio` contabilizava custo dentro do ramo que só
+  roda com preço, então com a Steam em 429 o "Total investido" exibia
+  R$ 0,00 pra quem tem R$ 850,00 declarados, e `unknown_cost` vinha 0 com
+  29 posições sem custo. Agora há `cost_known` (desembolso) separado de
+  `cost` (custo que lastreia o P&L).
+- **Grade do inventário** (era fila #3): tile cai pro melhor líquido de
+  fora quando falta o saldo, com a **origem** impressa junto — saldo
+  travado e dinheiro não são a mesma moeda. Ordenação passou a usar o
+  valor exibido (era `steam_net`, None em tudo). "?" virou o primeiro
+  trecho do nome.
+- **Tela Minha Conta**: a metade vazia recebeu "Evolução do valor" (o
+  gráfico saiu dos 90px pra cartão próprio) e "Composição da carteira"
+  (barras por categoria; mede valor com preço, contagem sem). "Valor
+  bruto R$ 0,00" com "+1,5%" ao lado virou "—" + tooltip.
+- **Barra lateral** alterna rail ↔ rótulos (`sidebar_collapsed`). A
+  preferência "largura da barra" já existia mas só esticava o rail.
+- **Acentuação** das strings visíveis + `palette_rank` ignorando acento
+  dos dois lados. Camada de análise ficou de fora de propósito (os
+  rótulos de breakdown vão pro rankings.json).
+
+Suíte: **1967 testes**.
+
 ## Fila, em ordem
 
-### 1. Cartão "Itens no lucro 0 de 2" na tela de Conta — enganoso
-Só 2 das 31 posições têm custo registrado, então o P&L agrega 2. O cartão
-diz "0 de 2" e parece que o usuário tem 2 itens. Precisa dizer que são 2
-**com custo conhecido** de 31 — `portfolio.evaluate_portfolio` já devolve
-`totals.unknown_cost` justamente pra isso, e ninguém usa.
-
-### 2. Coluna "Origem" do inventário
+### 1. Coluna "Origem" do inventário
 100% "Steam" nas 31 linhas. Ocupa espaço sem informar. Ou some, ou só
 aparece quando há mistura com posições manuais.
 
-### 3. Grade do inventário
-Cada tile mostra "—" embaixo. O valor de fora já existe (`market_net` no
-dict do tile) e podia aparecer ali.
+### 2. Acentuar a camada de análise
+`signals.py` / `steam_api.py` / `alerts.py` ainda produzem "Tendencia:
+caindo", "Preco subindo", "Confianca". São visíveis (dialog de breakdown,
+log de alertas), mas viajam em dicts que vão pro `rankings.json` — mudar
+é migração de dado, não tipografia. Decidir se vale.
 
-### 4. `scanner_discovery` (bloqueado por fora)
+### 3. `scanner_discovery` (bloqueado por fora)
 `discovery.py` escrito e testado, flag `scanner_discovery = False`. Nunca
 completou uma chamada real. Quando a Steam liberar: rodar `search_market`
 uma vez; se vier `ok`, ligar a flag.
 
-### 5. Buff163 fora do ar
+### 4. Buff163 fora do ar
 `markets.fetch_market("buff163")` retorna erro, 0 itens. É a menor taxa
 (2,5%). Não investigado.
 
-### 6. Ponto ruim no `history.json`
+### 5. Ponto ruim no `history.json`
 Os deltas já foram corrigidos, mas sobrou o ponto de 11/06 (R$ 200,00,
 avaliação parcial). Remover muda o gráfico de valor — decisão do dono.
 
