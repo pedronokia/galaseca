@@ -290,6 +290,30 @@ class TradesScreen(QWidget):
         self._table.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )
+        _tips = {
+            self.COL_DATE: "Quando a venda aconteceu (data do encerramento do trade).",
+            self.COL_NAME: "Item negociado.",
+            self.COL_QTY: "Quantidade do lote.",
+            self.COL_COST: (
+                "Quanto você pagou pela entrada, por unidade. A Steam não "
+                "cobra taxa na compra — só na venda."),
+            self.COL_SELL: (
+                "Preço de listagem da venda na Steam, por unidade. A taxa "
+                "de 15% (incidente sobre o valor do vendedor) já sai no "
+                "P&L."),
+            self.COL_PNL: (
+                "Lucro/prejuízo líquido em R$: recebido (venda com taxa "
+                "descontada) − custo da compra."),
+            self.COL_ROI: (
+                "Retorno sobre o investimento: P&L ÷ custo total, em "
+                "percentual 0–100."),
+            self.COL_SOURCE: "Origem do registro: manual ou importado.",
+            self.COL_NOTES: "Observação livre anotada no trade.",
+        }
+        for col, tip in _tips.items():
+            cab = self._table.horizontalHeaderItem(col)
+            if cab is not None:
+                cab.setToolTip(tip)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for i in (self.COL_DATE, self.COL_QTY, self.COL_COST, self.COL_SELL,

@@ -353,6 +353,30 @@ class WatchlistScreen(QWidget):
              "Status", "Regras", "Score", "Confiança"]
         )
         t.configure_table(self._table)
+        _tips = {
+            self.COL_NAME: "Item monitorado. Duplo clique abre a página da Steam.",
+            self.COL_TARGET: (
+                "Seu preço alvo (configurado nas regras). É a referência "
+                "para o alerta de preço abaixo."),
+            self.COL_DISTANCE: (
+                "Distância do preço atual até o alvo, em percentual. "
+                "Negativo = abaixo do alvo."),
+            self.COL_PRICE: "Preço atual de listagem na Steam.",
+            self.COL_STATUS: (
+                "Situação do item: aguardando dado, válido ou "
+                "desatualizado."),
+            self.COL_RULES: "Regras de alerta ativas para este item.",
+            self.COL_SCORE: (
+                "Score (0–100) calculado no botão 'Validar score'. "
+                "Oculto até validar."),
+            self.COL_CONFIDENCE: (
+                "Qualidade do histórico usado no score. Oculto até "
+                "validar."),
+        }
+        for col, tip in _tips.items():
+            cab = self._table.horizontalHeaderItem(col)
+            if cab is not None:
+                cab.setToolTip(tip)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for col in (self.COL_TARGET, self.COL_DISTANCE, self.COL_PRICE,

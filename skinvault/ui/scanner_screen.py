@@ -378,6 +378,43 @@ class ScannerScreen(QWidget):
                 " do score por fator (mediana, spread, book, tendência,"
                 " oferta/demanda, etc.)."
             )
+        # Mesmo padrao de tooltip por coluna do inventario.
+        for _col, _tip in {
+            self.COL_SINAL: (
+                "Ação sugerida pelo score: COMPRA (≥70), ATENÇÃO (45–69) "
+                "ou EVITAR (<45). Baseado em dados passados — você decide."),
+            self.COL_PRECO: (
+                "Preço de listagem atual na Steam. '*' indica preço "
+                "aproximado derivado do histórico, sem overview."),
+            self.COL_JUSTO: (
+                "Preço justo estimado: mediana do histórico recente "
+                "ponderada por volume. A referência de valor."),
+            self.COL_VEREDITO: (
+                "Comparação do preço atual com o preço justo: comprar "
+                "abaixo do justo, evitar acima."),
+            self.COL_SPREAD: (
+                "Margem percentual entre compra e venda no order book, "
+                "considerando a taxa da Steam. '~' = order book aproximado "
+                "(de outro wear do mesmo skin)."),
+            self.COL_BOOK: (
+                "Força relativa do order book (compras vs. vendas). "
+                "'~' = order book aproximado."),
+            self.COL_TREND: (
+                "Direção da tendência de preço no histórico recente."),
+            self.COL_SD: (
+                "Relação oferta/demanda: volume de vendas vs. itens "
+                "listados. Abaixo de 1 = oferta acima da demanda."),
+            self.COL_RISCO: (
+                "Risco de pump-and-dump / falling knife, de sinais "
+                "factuais (ATH + rally + volume). NÃO penaliza o score — "
+                "é informação visual."),
+            self.COL_CONFIDENCE: (
+                "Qualidade do histórico usado no score. Empiricamente, "
+                "score em item com baixa confiança é anti-preditivo."),
+        }.items():
+            _hdr = self._table.horizontalHeaderItem(_col)
+            if _hdr is not None:
+                _hdr.setToolTip(_tip)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for i in range(1, 13):

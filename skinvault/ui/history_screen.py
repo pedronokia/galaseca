@@ -1026,6 +1026,40 @@ class HistoryScreen(QWidget):
         self._table.clear()
         self._table.setColumnCount(len(headers))
         self._table.setHorizontalHeaderLabels(headers)
+        # Tooltips por coluna (mesmo padrao do inventario). A tabela do
+        # historico e' dinamica: o header muda por segmento, entao o mapa
+        # e' por ROTULO, nao por indice — header desconhecido fica sem tip.
+        _header_tips = {
+            "Data": "Data do evento (formato DD/MM/AA).",
+            "Vendido em": "Data da venda.",
+            "Comprado em": "Data da compra.",
+            "Item": "Item negociado. Duplo clique abre a página da Steam.",
+            "Itens": "Itens envolvidos na troca.",
+            "Qtd": "Quantidade do lote.",
+            "Compra": "Quanto você pagou (custo de entrada).",
+            "Venda": "Quanto você recebeu (valor de venda).",
+            "P&L": "Lucro/prejuízo líquido em R$, taxas da Steam incluídas.",
+            "P&L liquido": "Lucro/prejuízo líquido em R$, taxas incluídas.",
+            "ROI": (
+                "Retorno sobre o investimento, em percentual 0–100: "
+                "P&L (taxas da Steam incluídas) ÷ custo de compra."),
+            "Origem": "Origem do registro: manual, sync da Steam etc.",
+            "Operação": "Lado da transação: compra ou venda.",
+            "Preço": "Preço do item na operação.",
+            "Listing ID": "Identificador da listagem no Steam Market.",
+            "Parceiro (SteamID)": "SteamID do usuário do outro lado da troca.",
+            "Trade Offer ID": "Identificador da oferta de troca.",
+            "Preço-alvo": "Preço alvo configurado na watchlist.",
+            "Status": "Situação do item na watchlist.",
+            "Adicionado": "Quando o item entrou na watchlist.",
+            "Tipo": "Tipo do evento de mercado (compra/venda).",
+            "Valor": "Valor do item no evento.",
+        }
+        for col in range(len(headers)):
+            cab = self._table.horizontalHeaderItem(col)
+            tip = _header_tips.get(cab.text() if cab else "")
+            if cab is not None and tip:
+                cab.setToolTip(tip)
         self._table.setRowCount(0)
         # Colunas onde valor e nome de item (aplicar localize_name)
         name_cols = {
