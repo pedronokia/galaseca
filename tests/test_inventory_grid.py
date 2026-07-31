@@ -646,3 +646,99 @@ def test_filtro_e_largura_usam_o_mesmo_calculo(app):
     g._columns = 5
     g.set_filter("alvo")
     assert _posicoes(g) == [(0, 0), (0, 1)]
+
+
+# ── colunas: quando ler a largura ──────────────────────────────────
+
+
+def test_colunas_recalculam_quando_o_viewport_muda(app):
+    """Ler a largura no resizeEvent DESTA widget nao funciona: quando ele
+    dispara, o layout dos filhos ainda nao rodou e o viewport responde a
+    largura anterior -- quase zero no arranque. A grade travava em 2-3
+    colunas e nenhum resize novo chegava pra corrigir."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QApplication
+    g = InventoryGrid()
+    g.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    g.show()
+    g.resize(1500, 700)
+    QApplication.instance().processEvents()
+    largo = g._columns
+    g.resize(560, 700)
+    QApplication.instance().processEvents()
+    assert largo > g._columns >= 1
+
+
+# ── navegacao por teclado ──────────────────────────────────────────
+
+
+def _grade_com(n, cols=3):
+    g = InventoryGrid()
+    g.set_items([_item(f"i{k}", steam=float(n - k)) for k in range(n)])
+    g._columns = cols
+    g._reposicionar()
+    return g
+
+
+def test_seta_direita_anda_um(app):
+    g = _grade_com(6)
+    g.selecionar_por_indice(0)
+    g.selecionar_por_indice(g._indice_selecionado() + 1)
+    assert g._indice_selecionado() == 1
+
+
+def test_seta_baixo_anda_uma_linha(app):
+    g = _grade_com(9, cols=3)
+    g.selecionar_por_indice(0)
+    g.selecionar_por_indice(g._indice_selecionado() + g._columns)
+    assert g._indice_selecionado() == 3
+
+
+def test_selecao_nao_sai_da_grade(app):
+    """Andar antes do primeiro ou depois do ultimo tem que grudar."""
+    g = _grade_com(4)
+    g.selecionar_por_indice(-5)
+    assert g._indice_selecionado() == 0
+    g.selecionar_por_indice(99)
+    assert g._indice_selecionado() == 3
+
+
+def test_teclado_em_grade_vazia_nao_quebra(app):
+    g = InventoryGrid()
+    g.selecionar_por_indice(0)
+    assert g._indice_selecionado() == -1
+
+
+def test_navegacao_respeita_o_filtro(app):
+    """Andar tem que percorrer o que esta' VISIVEL, nao o inventario todo."""
+    g = InventoryGrid()
+    g.set_items([_item("alvo A"), _item("zzz"), _item("alvo B")])
+    g.set_filter("alvo")
+    g.selecionar_por_indice(1)
+    assert g._visiveis[g._indice_selecionado()].item["name"] == "alvo B"
+
+
+# ── total do lote no painel ────────────────────────────────────────
+
+
+def test_painel_mostra_o_total_do_lote(app):
+    """21 caixas de R$ 0,99 sao R$ 20,79 -- o unitario nao decide nada."""
+    p = ItemDetailPanel()
+    p.show_item({"name": "Kilowatt Case", "qty": 21, "steam_net": 0.99,
+                 "type": "Container"})
+    assert "×21" in p._tipo.text()
+    assert "20,79" in p._tipo.text()
+
+
+def test_item_unico_nao_ganha_total(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1, "steam_net": 5.0, "type": "Rifle"})
+    assert "total" not in p._tipo.text()
+
+
+def test_lote_sem_cotacao_nao_inventa_total(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 7, "steam_net": None,
+                 "market_net": None, "type": "Rifle"})
+    assert "×7" in p._tipo.text()
+    assert "total" not in p._tipo.text()

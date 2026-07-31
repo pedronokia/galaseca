@@ -14,7 +14,7 @@ Sem rede: recebe os dados prontos e le' icone so' do cache local.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import QRect, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QRect, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QFrame,
@@ -391,7 +391,18 @@ class ItemDetailPanel(QFrame):
         self._nome.setText(item.get("name", ""))
         qtd = item.get("qty", 1)
         tipo = item.get("type") or ""
-        self._tipo.setText(f"{tipo}   ×{qtd}" if qtd > 1 else tipo)
+        # Num lote, o preco unitario nao e' o numero que decide nada: 21
+        # caixas de R$ 0,99 sao R$ 20,79, e era esse total que faltava.
+        if qtd > 1:
+            unit, _ = _valor_do_tile(item)
+            if unit is not None:
+                self._tipo.setText(
+                    f"{tipo}   ×{qtd}  ·  {t.brl(unit * qtd)} no total"
+                    if tipo else f"×{qtd}  ·  {t.brl(unit * qtd)} no total")
+            else:
+                self._tipo.setText(f"{tipo}   ×{qtd}" if tipo else f"×{qtd}")
+        else:
+            self._tipo.setText(tipo)
 
         # Sem icone o QLabel mantinha os 120px de minimumHeight e sobrava um
         # bloco vazio empurrando o nome pra baixo. Esconder colapsa o espaco.
@@ -555,6 +566,8 @@ class InventoryGrid(QWidget):
         self._columns = max(1, columns)
         self._tiles: list[InventoryTile] = []
         self._visiveis: list[InventoryTile] = []
+        # Sem foco a grade nao recebe tecla nenhuma.
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
         raiz = QHBoxLayout(self)
         raiz.setContentsMargins(0, 0, 0, 0)
@@ -563,6 +576,7 @@ class InventoryGrid(QWidget):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.viewport().installEventFilter(self)
         # QScrollArea pinta o viewport com a cor Base da paleta do sistema
         # -- branco no Windows. Sem isto a grade vira um retangulo claro no
         # meio do tema escuro.
@@ -649,10 +663,22 @@ class InventoryGrid(QWidget):
         passo = TILE + self._grid.spacing()
         return max(1, (largura + self._grid.spacing()) // passo)
 
-    def resizeEvent(self, evt) -> None:  # noqa: N802
-        """Grade responsiva: 8 colunas fixas deixavam ~700px mortos numa
-        janela larga e forcavam rolagem numa estreita."""
-        super().resizeEvent(evt)
+    def eventFilter(self, obj, evt):  # noqa: N802
+        """Recalcula as colunas quando o VIEWPORT muda de tamanho.
+
+        Fazer isso no resizeEvent desta widget nao funciona: quando ele
+        dispara, o layout dos filhos ainda nao rodou e
+        `viewport().width()` responde a largura ANTERIOR. No arranque a
+        anterior e' quase zero, entao a grade travava em 2-3 colunas e
+        nunca mais recalculava -- nenhum resize novo chegava pra
+        corrigir. O viewport, esse, e' redimensionado exatamente quando a
+        largura util muda.
+        """
+        if obj is self._scroll.viewport() and evt.type() == QEvent.Type.Resize:
+            self._ajustar_colunas()
+        return super().eventFilter(obj, evt)
+
+    def _ajustar_colunas(self) -> None:
         cabem = self._colunas_que_cabem()
         if cabem != self._columns:
             self._columns = cabem
@@ -666,6 +692,52 @@ class InventoryGrid(QWidget):
             tile.set_selected(tile.item is item)
         self._detail.show_item(item)
         self.item_selected.emit(item)
+
+    # ── navegacao por teclado ─────────────────────────────
+    def _indice_selecionado(self) -> int:
+        for i, tile in enumerate(self._visiveis):
+            if tile._selected:
+                return i
+        return -1
+
+    def selecionar_por_indice(self, idx: int) -> None:
+        if not self._visiveis:
+            return
+        idx = max(0, min(idx, len(self._visiveis) - 1))
+        alvo = self._visiveis[idx]
+        # `_on_tile` recebe o DICT do item, nao o tile -- a selecao compara
+        # `tile.item is item`, e passar o widget deixava tudo desmarcado.
+        self._on_tile(alvo.item)
+        self._scroll.ensureWidgetVisible(alvo)
+
+    def keyPressEvent(self, evt) -> None:  # noqa: N802
+        """Setas andam na grade; Home/End vao aos extremos.
+
+        A grade so' respondia a mouse. Com 31 cards e o painel de detalhe
+        do lado, conferir item a item exigia um clique em cada um.
+        """
+        atual = self._indice_selecionado()
+        passos = {
+            Qt.Key.Key_Right: 1,
+            Qt.Key.Key_Left: -1,
+            Qt.Key.Key_Down: self._columns,
+            Qt.Key.Key_Up: -self._columns,
+        }
+        tecla = evt.key()
+        if tecla in passos:
+            self.selecionar_por_indice(
+                (atual if atual >= 0 else 0) + passos[tecla])
+            evt.accept()
+            return
+        if tecla == Qt.Key.Key_Home:
+            self.selecionar_por_indice(0)
+            evt.accept()
+            return
+        if tecla == Qt.Key.Key_End:
+            self.selecionar_por_indice(len(self._visiveis) - 1)
+            evt.accept()
+            return
+        super().keyPressEvent(evt)
 
     def count(self) -> int:
         return len(self._tiles)

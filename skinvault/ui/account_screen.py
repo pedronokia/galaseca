@@ -792,15 +792,29 @@ class AccountScreen(QWidget):
             f"{loss_items} de {n}" if n else "—", accent=t.DANGER)
         self._bd_loss_count.set_delta(None, legenda)
         self._bd_loss_count.setToolTip(dica)
+        # Melhor/Pior P&L ficavam como "—" mudos. Um travessao sem legenda
+        # nao distingue "nao ha' o que medir" de "a tela falhou" -- e aqui
+        # ha' DUAS causas distintas, custo ausente e cotacao ausente.
         from skinvault.localization import localize_name as _ln
+        tem_pnl = best is not None and best.get("pnl") is not None
+        if tem_pnl:
+            extremo_legenda = f"entre os {n} com custo declarado"
+        elif not n:
+            extremo_legenda = "precisa de custo declarado"
+        else:
+            extremo_legenda = "sem preço para calcular"
+
         self._bd_best.set_value(
-            t.brl(best["pnl"]) if best and best.get("pnl") is not None
-            else "—", accent=t.POSITIVE)
-        self._bd_best.setToolTip(_ln(best.get("name", "")) if best else "")
+            t.brl(best["pnl"]) if tem_pnl else "—", accent=t.POSITIVE)
+        self._bd_best.set_delta(None, "" if tem_pnl else extremo_legenda)
+        self._bd_best.setToolTip(
+            _ln(best.get("name", "")) if tem_pnl else dica)
+        tem_pior = worst is not None and worst.get("pnl") is not None
         self._bd_worst.set_value(
-            t.brl(worst["pnl"]) if worst and worst.get("pnl") is not None
-            else "—", accent=t.DANGER)
-        self._bd_worst.setToolTip(_ln(worst.get("name", "")) if worst else "")
+            t.brl(worst["pnl"]) if tem_pior else "—", accent=t.DANGER)
+        self._bd_worst.set_delta(None, "" if tem_pior else extremo_legenda)
+        self._bd_worst.setToolTip(
+            _ln(worst.get("name", "")) if tem_pior else dica)
 
         grupos = portfolio_mod.composition(rows)
         self._comp_chart.set_groups(grupos)

@@ -15,7 +15,7 @@ Duas visoes, de proposito: a grade serve pra RECONHECER item pelo icone
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QBrush, QColor
+from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
@@ -98,11 +98,26 @@ class InventoryScreen(QWidget):
         self._view_seg = SegmentedControl()
         self._view_seg.add("grid", "Grade")   # o primeiro ja' nasce marcado
         self._view_seg.add("table", "Tabela")
+        from skinvault.settings import load_settings as _ls
+        self._view_inicial = (
+            "table" if _ls().get("inventory_view") == "table" else "grid")
         self._view_seg.setToolTip(
             "Grade de ícones (estilo Steam) ou tabela detalhada.")
         self._view_seg.segment_changed.connect(self._on_view_segment)
         linha.addWidget(self._view_seg, 0)
         root.addLayout(linha)
+        if self._view_inicial == "table":
+            self._view_seg.select("table")
+
+        # Ctrl+F e' o gesto que todo mundo ja' tem no dedo pra buscar; sem
+        # ele o caminho era achar o campo com o mouse. Esc limpa -- filtro
+        # esquecido ligado faz o inventario parecer que perdeu itens.
+        # Kwarg `activated=` no construtor nao funciona em toda versao
+        # (AGENTS.md #8).
+        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
+            self._focar_filtro)
+        QShortcut(QKeySequence("Esc"), self).activated.connect(
+            self._limpar_filtro)
 
         self._grid = InventoryGrid(columns=8)
         self._table = QTableWidget(0, 9)
@@ -144,6 +159,15 @@ class InventoryScreen(QWidget):
         self._views.addWidget(self._grid)
         self._views.addWidget(self._table)
         root.addWidget(self._views, 1)
+
+        # Filtro sem resultado deixava a tela em branco: indistinguivel de
+        # inventario vazio ou de falha ao carregar.
+        self._sem_match = QLabel(
+            "Nenhum item casa com o filtro. Limpe o campo pra ver todos.")
+        self._sem_match.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._sem_match.setStyleSheet(t.label_caption())
+        self._sem_match.setVisible(False)
+        root.addWidget(self._sem_match)
 
         self._empty = EmptyState(
             icon="◇",
@@ -224,12 +248,13 @@ class InventoryScreen(QWidget):
         # A soma e' a informacao que o usuario quer -- quanto vale isto.
         total = self._resumo_de_valor()
         if rate_limited:
-            self._status.setText(
+            self._rodape_base = (
                 f"{total} • a Steam limitou as consultas; "
                 f"{sem_preco} sem preço agora (volta sozinho)"
             )
         else:
-            self._status.setText(total)
+            self._rodape_base = total
+        self._status.setText(self._rodape_base)
         self._apply_filter(self._filter.text())
         # Icone e' host separado do preco: vale tentar mesmo sob rate limit.
         self._icon_worker.start(
@@ -431,6 +456,14 @@ class InventoryScreen(QWidget):
 
     # ── interacao ─────────────────────────────────────────
 
+    def _focar_filtro(self) -> None:
+        self._filter.setFocus()
+        self._filter.selectAll()
+
+    def _limpar_filtro(self) -> None:
+        if self._filter.text():
+            self._filter.clear()
+
     def _on_view_segment(self, key: str) -> None:
         """O segmentado manda o destino, nao um 'inverta'.
 
@@ -439,6 +472,12 @@ class InventoryScreen(QWidget):
         diz pra onde ir e nao ha' o que inverter.
         """
         self._views.setCurrentIndex(1 if key == "table" else 0)
+        # Quem prefere a tabela reescolhia a cada abertura do app.
+        from skinvault.settings import load_settings, save_settings
+        s = load_settings()
+        if s.get("inventory_view") != key:
+            s["inventory_view"] = key
+            save_settings(s)
 
     def _apply_filter(self, texto: str) -> None:
         """Filtra as DUAS visoes.
@@ -451,4 +490,22 @@ class InventoryScreen(QWidget):
             item = self._table.item(i, self.COL_NAME)
             nome = item.text().lower() if item else ""
             self._table.setRowHidden(i, bool(alvo) and alvo not in nome)
-        self._grid.set_filter(alvo)
+        sobraram = self._grid.set_filter(alvo)
+
+        # Filtro sem resultado deixava a grade em branco, sem uma palavra --
+        # indistinguivel de inventario vazio ou de falha de carregamento.
+        base = getattr(self, "_rodape_base", "")
+        if not alvo:
+            self._status.setText(base)
+            self._sem_match.setVisible(False)
+            return
+        total = self._grid.count()
+        self._sem_match.setVisible(sobraram == 0 and total > 0)
+        if sobraram:
+            self._status.setText(
+                f"Mostrando {sobraram} de {total} itens • filtro "
+                f"“{texto.strip()}”")
+        else:
+            self._status.setText(
+                f"Nenhum dos {total} itens casa com "
+                f"“{texto.strip()}”")

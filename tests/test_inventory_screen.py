@@ -30,7 +30,21 @@ def tela(monkeypatch):
     monkeypatch.setattr("skinvault.markets.cached_market",
                         lambda *a, **k: {"Kilowatt Case": 0.24})
     monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.11)
-    return InventoryScreen()
+    # A escolha Grade/Tabela e' persistida. Sem este mock a suite grava no
+    # settings.json REAL do dono -- ja' aconteceu: uma rodada deixou o app
+    # abrindo na tabela sem ninguem ter pedido.
+    #
+    # Os DOIS lados precisam do mesmo armazenamento falso: `_on_view_segment`
+    # so' grava quando o valor mudou, e mockar so' o save deixaria o load
+    # lendo o disco real e discordando do que acabou de ser "gravado".
+    gravado = {}
+    monkeypatch.setattr("skinvault.settings.save_settings",
+                        lambda s, *a, **k: gravado.update(s))
+    monkeypatch.setattr("skinvault.settings.load_settings",
+                        lambda *a, **k: dict(gravado))
+    tela = InventoryScreen()
+    tela._settings_gravado = gravado
+    return tela
 
 
 ROWS = [
@@ -664,3 +678,66 @@ def test_router_navega_pro_inventario(tmp_path):
     r = ScreenRouter(PriceCache(tmp_path / "p.json", ttl=3600))
     r.navigate(SCREEN_INVENTORY)
     assert r._stack.currentWidget() is r._inventory_screen
+
+
+# ── filtro: contexto no rodape e aviso de zero ─────────────────────
+#
+# Filtrar ate' zero deixava a tela em branco sem uma palavra --
+# indistinguivel de inventario vazio ou de falha ao carregar.
+
+
+def test_rodape_diz_quantos_o_filtro_deixou(tela):
+    tela.set_data(ROWS, POS)
+    tela._apply_filter("kilowatt")
+    txt = tela._status.text()
+    assert "Mostrando 1 de 2" in txt
+    assert "kilowatt" in txt
+
+
+def test_filtro_sem_resultado_avisa(tela):
+    tela.set_data(ROWS, POS)
+    tela._apply_filter("nao existe nada assim")
+    assert tela._sem_match.isVisibleTo(tela) is True
+    assert "Nenhum dos 2 itens" in tela._status.text()
+
+
+def test_limpar_filtro_volta_o_rodape(tela):
+    tela.set_data(ROWS, POS)
+    base = tela._status.text()
+    tela._apply_filter("kilowatt")
+    tela._apply_filter("")
+    assert tela._status.text() == base
+    assert tela._sem_match.isVisibleTo(tela) is False
+
+
+# ── atalhos ────────────────────────────────────────────────────────
+
+
+def test_ctrl_f_foca_o_filtro(tela):
+    """Selecionar tudo importa: o gesto e' buscar de novo, e digitar
+    por cima do termo anterior tem que substituir, nao concatenar."""
+    tela._filter.setText("kilowatt")
+    tela._focar_filtro()
+    assert tela._filter.hasSelectedText() is True
+
+
+def test_esc_limpa_o_filtro(tela):
+    """Filtro esquecido ligado faz o inventario parecer que perdeu itens."""
+    tela.set_data(ROWS, POS)
+    tela._filter.setText("kilowatt")
+    tela._limpar_filtro()
+    assert tela._filter.text() == ""
+
+
+# ── visao persistida ───────────────────────────────────────────────
+
+
+def test_escolher_tabela_persiste(tela):
+    tela._on_view_segment("table")
+    assert tela._settings_gravado.get("inventory_view") == "table"
+
+
+def test_voltar_pra_grade_persiste(tela):
+    tela._on_view_segment("table")
+    tela._on_view_segment("grid")
+    assert tela._settings_gravado.get("inventory_view") == "grid"
