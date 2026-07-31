@@ -876,10 +876,19 @@ class AccountScreen(QWidget):
             list(rows), list(data["positions"]), rate_limited)
         now = time.strftime('%H:%M')
         if rate_limited:
-            self._status.setText(
-                f"{len(rows)} item(ns) • a Steam limitou as consultas de "
-                f"preço; mostrando o que estava em cache ({now})"
-            )
+            # "Mostrando o que estava em cache" com a tela inteira em "—"
+            # promete um dado que nao existe. Sob 429 o cache pode estar
+            # vazio, e ai' o certo e' dizer isso.
+            if com_preco:
+                self._status.setText(
+                    f"{len(rows)} item(ns) • a Steam limitou as consultas "
+                    f"de preço; {len(com_preco)} vieram do cache ({now})"
+                )
+            else:
+                self._status.setText(
+                    f"{len(rows)} item(ns) • a Steam limitou as consultas "
+                    f"de preço e não havia nada em cache ({now})"
+                )
         else:
             self._status.setText(
                 f"{len(rows)} item(ns) • atualizado {now}"

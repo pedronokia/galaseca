@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QToolTip, QWidget
 
@@ -196,18 +196,31 @@ class ValueChart(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
         if len(self._values) < 3:
-            # Diz quanto ja' existe, nao so' que falta. Dois pontos viram
-            # uma reta que nao informa tendencia nenhuma -- por isso o piso
-            # e' 3 e nao 2.
+            # Mostra os pontos que JA' existem, nao so' quantos faltam. Sao
+            # avaliacoes reais da carteira; escondê-las pra escrever uma
+            # contagem regressiva desperdicava o cartao inteiro.
             n = len(self._values)
-            if n == 0:
-                msg = "Nenhuma avaliação registrada ainda"
-            elif n == 1:
-                msg = "1 avaliação registrada — faltam 2 pra desenhar"
-            else:
-                msg = "2 avaliações registradas — falta 1 pra desenhar"
             p.setPen(QColor(t.TEXT_MUTED))
-            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, msg)
+            if n == 0:
+                p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
+                           "Nenhuma avaliação registrada ainda")
+                p.end()
+                return
+            faltam = 3 - n
+            msg = (f"{n} avaliação registrada" if n == 1
+                   else f"{n} avaliações registradas")
+            msg += (f" — falta {faltam} pra desenhar a linha" if faltam == 1
+                    else f" — faltam {faltam} pra desenhar a linha")
+            p.drawText(QRectF(0, h / 2 - 34, w, 18),
+                       Qt.AlignmentFlag.AlignCenter, msg)
+            fonte = p.font()
+            fonte.setPointSize(12)
+            fonte.setBold(True)
+            p.setFont(fonte)
+            p.setPen(QColor(t.TEXT))
+            valores = "     ".join(t.brl(v) for v in self._values)
+            p.drawText(QRectF(0, h / 2 - 10, w, 30),
+                       Qt.AlignmentFlag.AlignCenter, valores)
             p.end()
             return
         vmin, vmax = min(self._values), max(self._values)

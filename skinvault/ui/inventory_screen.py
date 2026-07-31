@@ -387,6 +387,11 @@ class InventoryScreen(QWidget):
                 "market_net": melhor["net_brl"] if melhor else None,
                 "premium_pct": melhor["premium_pct"] if melhor else None,
                 "mercados": mercados,
+                # O score ja' vivia na position (gravado pelo "Validar
+                # score") e so' aparecia numa coluna da tabela -- quem usa
+                # a grade nunca o via.
+                "score": pos.get("current_score"),
+                "score_ts": pos.get("score_ts"),
             })
         self._grid.set_items(itens)
 

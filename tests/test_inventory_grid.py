@@ -810,3 +810,47 @@ def test_sem_referencia_nao_inventa_teto(app):
     p = ItemDetailPanel()
     p.show_item({"name": "X", "qty": 1})
     assert "referência" in _texto(p._compra)
+
+
+# ── score no painel ────────────────────────────────────────────────
+#
+# O score ja' vivia na position (gravado pelo "Validar score") e so'
+# aparecia numa coluna da tabela -- quem usa a grade nunca o via.
+
+
+def test_painel_mostra_o_score(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1, "score": 78})
+    assert "78" in _texto(p._score)
+
+
+def test_score_diz_a_idade(app):
+    """Score e' sinal de 60-90d mas foi calculado num preco de algum
+    momento: sem a data, numero velho passa por leitura de agora."""
+    import time
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1, "score": 78,
+                 "score_ts": time.time() - 3 * 86400})
+    assert "3 dias" in _texto(p._score)
+
+
+def test_score_de_hoje(app):
+    import time
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1, "score": 90, "score_ts": time.time()})
+    assert "hoje" in _texto(p._score)
+
+
+def test_sem_score_a_linha_some(app):
+    """Linha vazia ocupando espaco e' pior que linha nenhuma."""
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    assert p._score.text() == ""
+
+
+def test_score_sem_data_nao_inventa_idade(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1, "score": 55})
+    txt = _texto(p._score)
+    assert "55" in txt
+    assert "dias" not in txt and "hoje" not in txt

@@ -307,6 +307,11 @@ class ItemDetailPanel(QFrame):
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};")
         v.addWidget(self._tipo)
 
+        self._score = QLabel("")
+        self._score.setTextFormat(Qt.TextFormat.RichText)
+        self._score.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        v.addWidget(self._score)
+
         v.addSpacing(t.SPACE_MD)
 
         # ── POR QUANTO VENDER ─────────────────────────────
@@ -409,6 +414,8 @@ class ItemDetailPanel(QFrame):
             self._premio.setText("")
             self._compra.setText("—")
             self._origem.setText("—")
+            self._score.setText("")
+            self._score.setVisible(False)
             return
 
         self._nome.setText(item.get("name", ""))
@@ -440,6 +447,7 @@ class ItemDetailPanel(QFrame):
             self._icon.clear()
             self._icon.setVisible(False)
 
+        self._preencher_score(item)
         self._preencher_steam(item)
         self._preencher_fora(item)
         self._preencher_piso(item)
@@ -502,6 +510,35 @@ class ItemDetailPanel(QFrame):
                 f"<span style='color:{t.TEXT_MUTED}'>"
                 f"(taxa {m['fee'] * 100:.0f}%)</span></div>")
         self._fora.setText("".join(partes))
+
+    def _preencher_score(self, item: dict) -> None:
+        """Score persistido pelo "Validar score", com a idade dele.
+
+        A idade importa: score e' sinal de 60-90 dias, mas foi calculado
+        num preco de algum momento. Sem a data, um numero de tres semanas
+        atras passa por leitura de agora.
+        """
+        score = item.get("score")
+        if score is None:
+            self._score.setText("")
+            self._score.setVisible(False)
+            return
+        self._score.setVisible(True)
+        ts = item.get("score_ts")
+        quando = ""
+        if ts:
+            import time as _t
+            dias = int((_t.time() - ts) // 86400)
+            if dias <= 0:
+                quando = " · de hoje"
+            elif dias == 1:
+                quando = " · de ontem"
+            else:
+                quando = f" · de {dias} dias atrás"
+        self._score.setText(
+            f"<span style='color:{t.TEXT_MUTED}'>Score</span> "
+            f"<b>{int(score)}</b>"
+            f"<span style='color:{t.TEXT_MUTED}'>{quando}</span>")
 
     def _preencher_compra(self, item: dict) -> None:
         """Teto de compra pra este item, na Steam.

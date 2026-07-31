@@ -8639,3 +8639,22 @@ def test_avatar_sem_nome_mantem_o_interrogacao(monkeypatch):
     a = Avatar()
     a.set_initials("")
     assert a.text() == "?"
+
+
+def test_rodape_nao_promete_cache_vazio(monkeypatch):
+    """"Mostrando o que estava em cache" com a tela inteira em "—" promete
+    um dado que nao existe: sob 429 o cache pode estar vazio."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    screen._on_eval({"rows": [{"name": "A", "quantity": 1, "price": None,
+                               "has_cost": False}],
+                     "totals": {}, "positions": [], "rate_limited": True})
+    assert "não havia nada em cache" in screen._status.text()
+
+
+def test_rodape_conta_o_que_veio_do_cache(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch)
+    screen._on_eval({"rows": [{"name": "A", "quantity": 1, "price": 5.0,
+                               "market": 5.0, "has_cost": False}],
+                     "totals": {"market": 5.0}, "positions": [],
+                     "rate_limited": True})
+    assert "1 vieram do cache" in screen._status.text()
