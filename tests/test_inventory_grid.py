@@ -903,3 +903,58 @@ def test_esqueleto_zera_a_selecao(app):
     g.set_items([_item("a")])
     g.set_skeleton(5)
     assert g._indice_selecionado() == -1
+
+
+# ── filtro por categoria (layout do Mercado da Comunidade) ─────────
+
+
+def _cat(nome, **kw):
+    it = _item(nome, **kw)
+    it["raw_name"] = nome
+    return it
+
+
+def test_categorias_saem_dos_itens(app):
+    g = InventoryGrid()
+    g.set_items([_cat("Kilowatt Case"), _cat("Revolution Case"),
+                 _cat("AK-47 | Redline (Field-Tested)")])
+    assert dict(g.categorias()) == {"Caixas e cápsulas": 2, "Skins": 1}
+
+
+def test_filtrar_por_categoria(app):
+    g = InventoryGrid()
+    g.set_items([_cat("Kilowatt Case"),
+                 _cat("AK-47 | Redline (Field-Tested)")])
+    assert g.set_category("Caixas e cápsulas") == 1
+    assert g._visiveis[0].item["name"] == "Kilowatt Case"
+
+
+def test_categoria_none_traz_todos(app):
+    g = InventoryGrid()
+    g.set_items([_cat("Kilowatt Case"),
+                 _cat("AK-47 | Redline (Field-Tested)")])
+    g.set_category("Skins")
+    assert g.set_category(None) == 2
+
+
+def test_categoria_compoe_com_o_texto(app):
+    """Escolher "Caixas" e digitar "kilo" tem que sobrar so' as caixas
+    cujo nome casa -- um filtro nao substitui o outro."""
+    g = InventoryGrid()
+    g.set_items([_cat("Kilowatt Case"), _cat("Revolution Case"),
+                 _cat("AK-47 | Redline (Field-Tested)")])
+    g.set_category("Caixas e cápsulas")
+    assert g.set_filter("kilo") == 1
+
+
+def test_limpar_texto_mantem_a_categoria(app):
+    g = InventoryGrid()
+    g.set_items([_cat("Kilowatt Case"),
+                 _cat("AK-47 | Redline (Field-Tested)")])
+    g.set_category("Caixas e cápsulas")
+    g.set_filter("kilo")
+    assert g.set_filter("") == 1, "limpar o texto nao pode limpar a categoria"
+
+
+def test_categorias_vazias_sem_itens(app):
+    assert InventoryGrid().categorias() == []

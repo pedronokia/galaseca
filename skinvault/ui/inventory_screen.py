@@ -313,10 +313,30 @@ class InventoryScreen(QWidget):
             hh.setSectionResizeMode(
                 i, QHeaderView.ResizeMode.ResizeToContents)
 
+        # Corpo: filtros a' esquerda + visao a' direita, como o Mercado da
+        # Comunidade. As categorias saem de `portfolio.classify_item`, as
+        # mesmas do cartao de composicao da Conta.
+        corpo = QHBoxLayout()
+        corpo.setSpacing(t.SPACE_LG)
+
+        self._cat_panel = QWidget()
+        self._cat_panel.setFixedWidth(190)
+        cat_lay = QVBoxLayout(self._cat_panel)
+        cat_lay.setContentsMargins(0, 0, 0, 0)
+        cat_lay.setSpacing(2)
+        cat_titulo = QLabel("Filtros")
+        cat_titulo.setStyleSheet(t.label_section())
+        cat_lay.addWidget(cat_titulo)
+        self._cat_botoes: dict = {}
+        self._cat_lay = cat_lay
+        cat_lay.addStretch(1)
+        corpo.addWidget(self._cat_panel, 0)
+
         self._views = QStackedWidget()
         self._views.addWidget(self._grid)
         self._views.addWidget(self._table)
-        root.addWidget(self._views, 1)
+        corpo.addWidget(self._views, 1)
+        root.addLayout(corpo, 1)
 
         # Filtro sem resultado deixava a tela em branco: indistinguivel de
         # inventario vazio ou de falha ao carregar.
@@ -425,6 +445,7 @@ class InventoryScreen(QWidget):
             )
             return
         self._populate_grid()
+        self._montar_categorias()
         self._populate_table()
         sem_preco = sum(1 for r in self._rows if r.get("price") is None)
         # O rodape dizia so' "31 item(ns)" com R$ 1.374 de cotacao na tela.
@@ -665,6 +686,41 @@ class InventoryScreen(QWidget):
         self._table.setSortingEnabled(True)
 
     # ── interacao ─────────────────────────────────────────
+
+    def _montar_categorias(self) -> None:
+        """(Re)constroi os botoes de categoria a partir do que ha' na grade.
+
+        Reconstroi em vez de atualizar: as categorias mudam quando o
+        inventario muda, e manter um botao de categoria que ficou sem item
+        levaria a um filtro que nao devolve nada.
+        """
+        for b in self._cat_botoes.values():
+            b.setParent(None)
+            b.deleteLater()
+        self._cat_botoes = {}
+        cats = self._grid.categorias()
+        if not cats:
+            self._cat_panel.setVisible(False)
+            return
+        self._cat_panel.setVisible(True)
+        total = sum(n for _, n in cats)
+        for chave, rotulo, n in [(None, "Todos", total)] + [
+                (c, c, n) for c, n in cats]:
+            btn = QPushButton(f"{rotulo}   {n}")
+            btn.setCheckable(True)
+            btn.setAutoExclusive(True)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet(t.btn_ghost(padding="7px 10px"))
+            btn.setChecked(chave is None)
+            btn.clicked.connect(
+                lambda _=False, c=chave: self._on_categoria(c))
+            # antes do stretch final, senao os botoes vao pro rodape
+            self._cat_lay.insertWidget(self._cat_lay.count() - 1, btn)
+            self._cat_botoes[chave] = btn
+
+    def _on_categoria(self, categoria) -> None:
+        self._grid.set_category(categoria)
+        self._apply_filter(self._filter.text())
 
     def _focar_filtro(self) -> None:
         self._filter.setFocus()

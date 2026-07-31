@@ -30,19 +30,21 @@ from PyQt6.QtWidgets import (
 from skinvault import icons
 from skinvault.ui import theme as t
 
-# Card no formato dos sites de troca (tradeit/CS.MONEY): imagem grande em
-# cima, nome e preco embaixo. O tile antigo tinha 96px e so' cabia o icone
-# -- pra saber QUAL skin era, so' passando o mouse.
-TILE_W = 152
-TILE_ICON_H = 96
-# Duas linhas de texto: nome, e o valor com a ORIGEM. Com uma linha so' o
-# tile teria que escolher entre mentir (numero de fora exibido como saldo
-# Steam) e nao dizer nada (a parede de travessoes sob rate limit).
-TILE_TEXT_H = 44
-TILE_H = TILE_ICON_H + TILE_TEXT_H
+# Card no formato do Mercado da Comunidade Steam: categoria e NOME em
+# cima, imagem no meio, quantidade, e o valor numa faixa destacada no pe'.
+# O nome em cima e' o ponto -- com ele embaixo, uma grade de 30 itens
+# obriga a percorrer imagem por imagem pra achar um item pelo nome.
+TILE_W = 232
+TILE_PAD = 12
+TILE_CAT_H = 15        # "Caixa", "Skin" -- categoria, corpo pequeno
+TILE_NOME_H = 34       # ate' 2 linhas
+TILE_ICON_H = 108
+TILE_QTD_H = 17
+TILE_FAIXA_H = 32      # faixa do valor, com borda
+TILE_H = (TILE_PAD + TILE_CAT_H + TILE_NOME_H + TILE_ICON_H
+          + TILE_QTD_H + TILE_FAIXA_H + TILE_PAD)
 
-# Mantido: `TILE` era a medida do tile quadrado antigo e ainda serve de
-# passo horizontal em quem calcula quantas colunas cabem.
+# Mantido: e' o passo horizontal de quem calcula quantas colunas cabem.
 TILE = TILE_W
 
 
@@ -164,7 +166,6 @@ class InventoryTile(QFrame):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         corpo = QRect(0, 0, TILE_W, TILE_H)
-        area_icone = QRect(0, 0, TILE_W, TILE_ICON_H)
 
         fundo = t.SURFACE_HOV if (self._hover or self._selected) else t.SURFACE
         p.setBrush(QColor(fundo))
@@ -187,67 +188,109 @@ class InventoryTile(QFrame):
             p.drawRoundedRect(corpo.adjusted(2, 2, -2, -2),
                               t.RADIUS_MD, t.RADIUS_MD)
 
-        if self._pix:
-            x = (TILE_W - self._pix.width()) // 2
-            y = (TILE_ICON_H - self._pix.height()) // 2
-            p.drawPixmap(x, y, self._pix)
-
-        qtd = self.item.get("qty", 1)
-        if qtd > 1:
-            p.setPen(QColor(t.TEXT_MUTED))
-            fonte = p.font()
-            fonte.setPointSize(8)
-            p.setFont(fonte)
-            p.drawText(area_icone.adjusted(0, 6, -8, 0),
-                       Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
-                       f"x{qtd}")
-
-        # Nome: o tile antigo so' tinha o icone, e saber QUAL skin era
-        # exigia passar o mouse. Elidido -- "Asiimov" cabe, o nome inteiro
-        # com arma e desgaste nao.
+        larg = TILE_W - TILE_PAD * 2
+        y = TILE_PAD
         fonte = p.font()
-        fonte.setPointSize(8)
+
+        # 1. Categoria, como o "Recipiente (Nivel Basico)" do Mercado.
+        fonte.setPointSize(7)
+        fonte.setBold(False)
         p.setFont(fonte)
         p.setPen(QColor(t.TEXT_MUTED))
-        nome = p.fontMetrics().elidedText(
-            self._rotulo_curto(), Qt.TextElideMode.ElideRight, TILE_W - 12)
-        p.drawText(QRect(6, TILE_ICON_H, TILE_W - 12, 16),
-                   Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
-                   nome)
+        p.drawText(QRect(TILE_PAD, y, larg, TILE_CAT_H),
+                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                   self._categoria())
+        y += TILE_CAT_H
 
-        # Valor e de ONDE ele vem, na mesma linha.
+        # 2. NOME em cima da imagem -- o ponto do layout. Com o nome
+        # embaixo, achar um item numa grade de 30 obriga a percorrer
+        # imagem por imagem.
+        fonte.setPointSize(9)
+        fonte.setBold(True)
+        p.setFont(fonte)
+        p.setPen(QColor(t.TEXT))
+        p.drawText(QRect(TILE_PAD, y, larg, TILE_NOME_H),
+                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+                   | Qt.TextFlag.TextWordWrap,
+                   self._nome_em_duas_linhas(p, larg))
+        y += TILE_NOME_H
+
+        # 3. Imagem.
+        if self._pix:
+            px = TILE_PAD + (larg - self._pix.width()) // 2
+            py = y + (TILE_ICON_H - self._pix.height()) // 2
+            p.drawPixmap(px, py, self._pix)
+        y += TILE_ICON_H
+
+        # 4. Quantidade, no lugar do "Quantidade a' venda" do Mercado.
+        fonte.setPointSize(7)
+        fonte.setBold(False)
+        p.setFont(fonte)
+        p.setPen(QColor(t.TEXT_MUTED))
+        qtd = self.item.get("qty", 1)
+        p.drawText(QRect(TILE_PAD, y, larg, TILE_QTD_H),
+                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                   f"Quantidade: {qtd}" if qtd > 1 else "Quantidade: 1")
+        y += TILE_QTD_H
+
+        # 5. Faixa do valor, com borda -- o "A partir de R$ X" do Mercado.
+        faixa = QRect(TILE_PAD, y, larg, TILE_FAIXA_H - 2)
         preco, origem = _valor_do_tile(self.item)
-        fonte.setPointSize(10)
+        p.setBrush(QColor(t.BG_ELEVATED))
+        p.setPen(QPen(QColor(t.BORDER), 1))
+        p.drawRoundedRect(faixa, t.RADIUS_SM, t.RADIUS_SM)
+        fonte.setPointSize(9)
         fonte.setBold(True)
         p.setFont(fonte)
         p.setPen(QColor(t.TEXT if preco is not None else t.TEXT_MUTED))
-        texto = t.brl(preco) if preco is not None else "—"
-        largura_preco = p.fontMetrics().horizontalAdvance(texto)
-        fonte.setBold(False)
-        fonte.setPointSize(7)
-        largura_origem = 0
-        if origem:
-            p.setFont(fonte)
-            largura_origem = p.fontMetrics().horizontalAdvance(" " + origem)
-        inicio = max(4, (TILE_W - largura_preco - largura_origem) // 2)
-
-        fonte.setPointSize(10)
-        fonte.setBold(True)
-        p.setFont(fonte)
-        p.drawText(QRect(inicio, TILE_ICON_H + 16, largura_preco, 22),
-                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                   texto)
-        if origem:
+        if preco is None:
+            p.drawText(faixa, Qt.AlignmentFlag.AlignCenter, "sem preço")
+        else:
+            # Origem colada no numero: saldo travado e dinheiro nao sao a
+            # mesma moeda, e o numero sozinho nao diz qual e'.
+            texto = t.brl(preco)
+            larg_preco = p.fontMetrics().horizontalAdvance(texto)
             fonte.setPointSize(7)
             fonte.setBold(False)
             p.setFont(fonte)
-            p.setPen(QColor(t.TEXT_MUTED))
-            p.drawText(
-                QRect(inicio + largura_preco, TILE_ICON_H + 16,
-                      largura_origem + 4, 22),
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                " " + origem)
+            larg_origem = p.fontMetrics().horizontalAdvance(" " + origem)                 if origem else 0
+            inicio = TILE_PAD + max(4, (larg - larg_preco - larg_origem) // 2)
+            fonte.setPointSize(9)
+            fonte.setBold(True)
+            p.setFont(fonte)
+            p.drawText(QRect(inicio, y, larg_preco, TILE_FAIXA_H - 2),
+                       Qt.AlignmentFlag.AlignLeft
+                       | Qt.AlignmentFlag.AlignVCenter, texto)
+            if origem:
+                fonte.setPointSize(7)
+                fonte.setBold(False)
+                p.setFont(fonte)
+                p.setPen(QColor(t.TEXT_MUTED))
+                p.drawText(QRect(inicio + larg_preco, y,
+                                 larg_origem + 4, TILE_FAIXA_H - 2),
+                           Qt.AlignmentFlag.AlignLeft
+                           | Qt.AlignmentFlag.AlignVCenter, " " + origem)
         p.end()
+
+    def _categoria(self) -> str:
+        from skinvault import portfolio
+        return portfolio.classify_item(self.item.get("raw_name")
+                                       or self.item.get("name") or "")
+
+    def _nome_em_duas_linhas(self, p, larg: int) -> str:
+        """Nome inteiro, cortado em ate' duas linhas.
+
+        Diferente do card anterior, que mostrava so' o acabamento
+        ("Asiimov"): com o nome em cima e espaco pra duas linhas, cabe a
+        arma junto -- e e' assim que o Mercado identifica o item.
+        """
+        nome = (self.item.get("name") or "").strip()
+        if not nome:
+            return ""
+        fm = p.fontMetrics()
+        if fm.horizontalAdvance(nome) <= larg * 2:
+            return nome
+        return fm.elidedText(nome, Qt.TextElideMode.ElideRight, larg * 2)
 
     def _rotulo_curto(self) -> str:
         """Nome que cabe no card.
@@ -684,6 +727,8 @@ class InventoryGrid(QWidget):
         self._visiveis: list[InventoryTile] = []
         self._itens: list[dict] = []
         self._ordem = "valor"
+        self._categoria: str | None = None
+        self._texto_filtro = ""
         # Sem foco a grade nao recebe tecla nenhuma.
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
@@ -788,6 +833,26 @@ class InventoryGrid(QWidget):
         self._reposicionar()
         self._detail.show_item(None)
 
+    def set_category(self, categoria: str | None) -> int:
+        """Filtra por categoria (a mesma de `portfolio.classify_item`).
+
+        Guardada separada do filtro de texto: os dois compoem, entao
+        escolher "Caixas" e digitar "kilo" tem que sobrar so' as caixas
+        cujo nome casa -- e limpar um nao pode limpar o outro.
+        """
+        self._categoria = categoria or None
+        return self.set_filter(self._texto_filtro)
+
+    def categorias(self) -> list:
+        """[(categoria, quantos)] pelos itens carregados, maior primeiro."""
+        from collections import Counter
+        from skinvault import portfolio
+        c: Counter = Counter()
+        for it in self._itens:
+            c[portfolio.classify_item(it.get("raw_name")
+                                      or it.get("name") or "")] += 1
+        return c.most_common()
+
     def set_filter(self, texto: str) -> int:
         """Esconde os tiles que nao casam, recompacta e devolve quantos ficaram.
 
@@ -795,6 +860,8 @@ class InventoryGrid(QWidget):
         posicao de cada tile, entao o item escondido levaria a celula dele
         junto e a grade viraria um tabuleiro furado.
         """
+        from skinvault import portfolio
+        self._texto_filtro = texto or ""
         alvo = (texto or "").strip().lower()
         visiveis = []
         for tile in self._tiles:
@@ -806,6 +873,11 @@ class InventoryGrid(QWidget):
                 visiveis.append(tile)
                 continue
             casa = not alvo or alvo in (item.get("name") or "").lower()
+            # Categoria COMPOE com o texto, nao substitui.
+            if casa and self._categoria:
+                cat = portfolio.classify_item(
+                    item.get("raw_name") or item.get("name") or "")
+                casa = cat == self._categoria
             tile.setVisible(casa)
             if casa:
                 visiveis.append(tile)
