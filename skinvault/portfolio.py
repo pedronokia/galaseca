@@ -284,6 +284,42 @@ def composition(rows: list[dict]) -> list[dict]:
     return out
 
 
+def containers(rows: list) -> list:
+    """Containers da carteira com o estado de drop de cada um.
+
+    Descritivo: "descontinuada" e' fato sobre a OFERTA (parou de entrar em
+    drop), nao previsao de preco. Item que o catalogo nao conhece fica de
+    fora em vez de ser chutado como ativo -- `cases.case_status` devolve
+    `is_discontinued: False` pra desconhecido, e ler esse False como
+    "ainda cai" seria afirmar o que nao se sabe.
+    """
+    from skinvault import cases
+
+    out = []
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        nome = r.get("name") or ""
+        if not cases.is_container(nome):
+            continue
+        info = cases.case_status(nome) or {}
+        if info.get("status") == "unknown" or not info.get("case"):
+            continue
+        try:
+            qty = int(r.get("quantity") or 1)
+        except (TypeError, ValueError):
+            qty = 1
+        out.append({
+            "name": nome,
+            "qty": qty,
+            "year": info.get("year"),
+            "discontinued": bool(info.get("is_discontinued")),
+        })
+    # Descontinuadas primeiro, depois as mais antigas: e' a ordem da tese.
+    out.sort(key=lambda c: (not c["discontinued"], c["year"] or 9999))
+    return out
+
+
 # --- persistencia local -------------------------------------------------------
 def load_portfolio(path: Path | str = _DEFAULT_PATH) -> list[dict]:
     data = load_json_record(path, [])

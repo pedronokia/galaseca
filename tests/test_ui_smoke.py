@@ -8723,3 +8723,48 @@ def test_market_falha_de_leitura_nao_derruba_a_tela(monkeypatch):
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", boom)
     tela = MarketScreen(PriceCache(ttl=3600))
     assert tela._search_inp is not None
+
+
+def test_pnl_vazio_tambem_diz_o_motivo(monkeypatch):
+    """Ele era o unico travessao mudo da fileira, entre dois vizinhos que
+    ja' diziam por que estavam vazios."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert screen._stat_pnl._delta.text() != ""
+
+
+def test_pnl_com_valor_nao_carrega_legenda_de_vazio(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 500.0)
+    assert screen._stat_pnl._delta.text() == ""
+
+
+def test_cartao_de_caixas_lista_os_containers(monkeypatch):
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [{"name": "Kilowatt Case", "cost": 0.0, "quantity": 21,
+                 "source": "steam_sync"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: None)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert "Kilowatt Case" in screen._cx_lista.text()
+    assert "em drop" in screen._cx_lista.text()
+
+
+def test_cartao_de_caixas_sem_container(monkeypatch):
+    from skinvault import portfolio
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    posicoes = [{"name": "AK-47 | Redline (Field-Tested)", "cost": 10.0,
+                 "quantity": 1, "source": "manual"}]
+    r = portfolio.evaluate_portfolio(posicoes, lambda n: None)
+    screen = AccountScreen(PriceCache(ttl=3600))
+    screen._on_eval({"rows": r["rows"], "totals": r["totals"],
+                     "positions": posicoes})
+    assert "Nenhum container" in screen._cx_lista.text()

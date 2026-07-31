@@ -343,6 +343,28 @@ class AccountScreen(QWidget):
         comp_card.layout().addLayout(cp_lay)
         fundo.addWidget(comp_card, 2)
 
+        # Caixas: o unico painel desta tela que continua inteiro sob rate
+        # limit -- estado de drop vem do catalogo local, nao da Steam. E' a
+        # tese que a pesquisa sustenta (container recem-aposentado).
+        cx_card = Card(self, padding=t.CARD_PAD_MD)
+        cx_lay = QVBoxLayout()
+        cx_lay.setSpacing(8)
+        cx_title = QLabel("Caixas e cápsulas")
+        cx_title.setStyleSheet(t.label_section())
+        cx_lay.addWidget(cx_title)
+        self._cx_lbl = QLabel("Containers da carteira e o estado do drop")
+        self._cx_lbl.setStyleSheet(t.label_caption())
+        cx_lay.addWidget(self._cx_lbl)
+        self._cx_lista = QLabel("—")
+        self._cx_lista.setTextFormat(Qt.TextFormat.RichText)
+        self._cx_lista.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._cx_lista.setWordWrap(True)
+        self._cx_lista.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        cx_lay.addWidget(self._cx_lista)
+        cx_lay.addStretch(1)
+        cx_card.layout().addLayout(cx_lay)
+        fundo.addWidget(cx_card, 2)
+
         root.addLayout(fundo, 1)
         self._reload_value_series()
 
@@ -735,6 +757,14 @@ class AccountScreen(QWidget):
         if pnl is None:
             self._stat_pnl.set_value("—")
             self._stat_pnl.clear_badge()
+            # Sem legenda ele era o unico travessao mudo da fileira, entre
+            # dois vizinhos que ja' dizem o motivo.
+            if not com_custo:
+                self._stat_pnl.set_delta(None, "precisa de custo declarado")
+            elif sem_cotacao:
+                self._stat_pnl.set_delta(None, "a Steam não respondeu")
+            else:
+                self._stat_pnl.set_delta(None, "sem preço para calcular")
             # Duas razoes diferentes zeram o P&L, e dizer a errada manda o
             # dono cadastrar um custo que ele ja' cadastrou.
             if not com_custo:
@@ -753,6 +783,9 @@ class AccountScreen(QWidget):
                     f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"
                     f"{sem_custo} sem custo registrado ficaram de fora.")
         else:
+            # Com P&L de verdade, o badge de porcentagem ja' diz tudo -- a
+            # legenda do ramo vazio nao pode sobrar aqui.
+            self._stat_pnl.set_delta(None)
             self._stat_pnl.set_value(
                 t.brl(pnl), accent=t.POSITIVE if pnl >= 0 else t.DANGER)
             pnl_pct = totals.get("pnl_pct")
@@ -860,6 +893,30 @@ class AccountScreen(QWidget):
             else "Quantidade por categoria — sem preço no momento")
         self._comp_chart.setToolTip(
             "\n".join(f"{g['label']}: {g['count']} item(ns)" for g in grupos))
+
+        caixas = portfolio_mod.containers(rows)
+        if not caixas:
+            self._cx_lista.setText(
+                f"<span style='color:{t.TEXT_MUTED}'>Nenhum container "
+                "mapeado na carteira.</span>")
+        else:
+            n_desc = sum(1 for c in caixas if c["discontinued"])
+            self._cx_lbl.setText(
+                f"{len(caixas)} tipos · {n_desc} não caem mais em drop"
+                if n_desc else f"{len(caixas)} tipos · todos ainda em drop")
+            linhas = []
+            for c in caixas[:8]:
+                estado = ("não cai mais" if c["discontinued"]
+                          else "em drop")
+                cor = t.TEXT if c["discontinued"] else t.TEXT_MUTED
+                ano = f" · {c['year']}" if c.get("year") else ""
+                linhas.append(
+                    f"<div style='margin-bottom:4px'>"
+                    f"<span style='color:{t.TEXT}'>{c['name']}</span>"
+                    f"<span style='color:{t.TEXT_MUTED}'> ×{c['qty']}</span>"
+                    f"<br><span style='color:{cor}'>{estado}</span>"
+                    f"<span style='color:{t.TEXT_MUTED}'>{ano}</span></div>")
+            self._cx_lista.setText("".join(linhas))
 
         # Evolucao do valor: grava snapshot (GUI alimenta o mesmo
         # history.json do CLI) e re-renderiza a serie.

@@ -218,3 +218,44 @@ def test_composicao_vazia_e_segura():
     assert portfolio.composition([]) == []
     assert portfolio.composition(None) == []
     assert portfolio.composition(["lixo", None]) == []
+
+
+# ── containers da carteira ─────────────────────────────────────────
+
+
+def test_containers_traz_so_container():
+    rows = [{"name": "Kilowatt Case", "quantity": 21},
+            {"name": "AK-47 | Redline (Field-Tested)", "quantity": 1}]
+    out = portfolio.containers(rows)
+    assert [c["name"] for c in out] == ["Kilowatt Case"]
+    assert out[0]["qty"] == 21
+
+
+def test_containers_marca_descontinuada():
+    out = portfolio.containers([{"name": "Chroma 2 Case", "quantity": 1}])
+    assert out[0]["discontinued"] is True
+    assert out[0]["year"] == 2015
+
+
+def test_containers_marca_ativa():
+    out = portfolio.containers([{"name": "Kilowatt Case", "quantity": 1}])
+    assert out[0]["discontinued"] is False
+
+
+def test_containers_ignora_desconhecido():
+    """`case_status` devolve is_discontinued=False pra desconhecido; ler
+    esse False como "ainda cai em drop" seria afirmar o que nao se sabe."""
+    assert portfolio.containers(
+        [{"name": "Sealed Genesis Terminal", "quantity": 1}]) == []
+
+
+def test_containers_ordena_descontinuada_primeiro():
+    rows = [{"name": "Kilowatt Case", "quantity": 1},
+            {"name": "Chroma 2 Case", "quantity": 1}]
+    assert portfolio.containers(rows)[0]["name"] == "Chroma 2 Case"
+
+
+def test_containers_vazio_e_seguro():
+    assert portfolio.containers([]) == []
+    assert portfolio.containers(None) == []
+    assert portfolio.containers(["lixo"]) == []
