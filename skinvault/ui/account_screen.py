@@ -687,16 +687,21 @@ class AccountScreen(QWidget):
 
         # Atualiza stats
         if sem_cotacao:
+            # Legenda visivel, nao so' tooltip: tres cartoes em "—" lado a
+            # lado parecem tela quebrada, e ninguem passa o mouse pra
+            # descobrir que o motivo e' a Steam.
             self._stat_gross.set_value("—")
-            self._stat_gross.set_delta(None)
+            self._stat_gross.set_delta(None, "a Steam não respondeu")
             self._stat_gross.setToolTip(dica_sem_cotacao)
             self._stat_net.set_value("—")
+            self._stat_net.set_delta(None, "a Steam não respondeu")
             self._stat_net.setToolTip(dica_sem_cotacao)
         else:
             self._stat_gross.setToolTip(
                 "Valor de mercado da carteira (Steam Market).")
             self._stat_net.setToolTip(
                 "Valor bruto menos a taxa Steam de 15%.")
+            self._stat_net.set_delta(None, "já com a taxa de 15%")
             self._stat_gross.set_value(t.brl(totals.get("market") or 0))
             # Delta do valor bruto vs penultimo ponto do historico
             _series = history.load_history()

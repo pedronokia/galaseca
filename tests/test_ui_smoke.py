@@ -6321,7 +6321,9 @@ def test_sem_cotacao_valor_bruto_nao_vira_zero(monkeypatch):
     screen = _conta_com_custo_parcial(monkeypatch)
     assert screen._stat_gross._value.text() == "—"
     assert screen._stat_net._value.text() == "—"
-    assert screen._stat_gross._delta.text() == ""
+    # O delta pode trazer a legenda do motivo, mas nunca um PERCENTUAL:
+    # era o "+1,5% vs 04/06" do historico colado num zero de rate limit.
+    assert "%" not in screen._stat_gross._delta.text()
     assert "respondeu" in screen._stat_gross.toolTip()
 
 
@@ -8658,3 +8660,66 @@ def test_rodape_conta_o_que_veio_do_cache(monkeypatch):
                      "totals": {"market": 5.0}, "positions": [],
                      "rate_limited": True})
     assert "1 vieram do cache" in screen._status.text()
+
+
+def test_cartoes_de_valor_dizem_por_que_estao_vazios(monkeypatch):
+    """Tres cartoes em "—" lado a lado parecem tela quebrada, e ninguem
+    passa o mouse pra descobrir que o motivo e' a Steam."""
+    screen = _conta_com_custo_parcial(monkeypatch)
+    assert "Steam não respondeu" in screen._stat_gross._delta.text()
+    assert "Steam não respondeu" in screen._stat_net._delta.text()
+
+
+def test_valor_liquido_lembra_a_taxa(monkeypatch):
+    screen = _conta_com_custo_parcial(monkeypatch, price_fn=lambda n: 100.0)
+    assert "15%" in screen._stat_net._delta.text()
+
+
+# ── Market: autocomplete com os itens que o app ja' conhece ────────
+
+
+def _market(monkeypatch, nomes):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio",
+                        lambda *a, **k: [{"name": n} for n in nomes])
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist",
+                        lambda *a, **k: [])
+    return MarketScreen(PriceCache(ttl=3600))
+
+
+def test_market_sugere_itens_da_carteira(monkeypatch):
+    tela = _market(monkeypatch, ["AK-47 | Redline (Field-Tested)",
+                                 "Kilowatt Case"])
+    assert tela._completer.model().rowCount() == 2
+
+
+def test_market_acha_pelo_meio_do_nome(monkeypatch):
+    """O nome comeca pela ARMA -- match so' por prefixo nunca acharia
+    "redline"."""
+    tela = _market(monkeypatch, ["AK-47 | Redline (Field-Tested)"])
+    tela._completer.setCompletionPrefix("redline")
+    assert tela._completer.completionCount() == 1
+
+
+def test_market_ignora_maiuscula(monkeypatch):
+    tela = _market(monkeypatch, ["Kilowatt Case"])
+    tela._completer.setCompletionPrefix("KILOWATT")
+    assert tela._completer.completionCount() == 1
+
+
+def test_market_sem_itens_nao_instala_completer(monkeypatch):
+    tela = _market(monkeypatch, [])
+    assert getattr(tela, "_completer", None) is None
+
+
+def test_market_falha_de_leitura_nao_derruba_a_tela(monkeypatch):
+    """Autocomplete e' conveniencia: sem ele o campo continua aceitando o
+    nome digitado."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    def boom(*a, **k):
+        raise OSError("disco")
+    monkeypatch.setattr("skinvault.portfolio.load_portfolio", boom)
+    tela = MarketScreen(PriceCache(ttl=3600))
+    assert tela._search_inp is not None

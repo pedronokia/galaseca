@@ -12,6 +12,7 @@ from pathlib import Path
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QCompleter,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -127,6 +128,7 @@ class MarketScreen(QWidget):
         self._search_inp.setClearButtonEnabled(True)
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.returnPressed.connect(self._on_search)
+        self._instalar_autocomplete()
         search_row.addWidget(self._search_inp, 1)
 
         self._search_btn = QPushButton("Consultar item")
@@ -325,6 +327,53 @@ class MarketScreen(QWidget):
                 lambda _checked=False, nm=n: self._search_and_run(nm)
             )
         self._recent_act.setVisible(bool(self._recent))
+
+    def _nomes_conhecidos(self) -> list:
+        """Nomes CRUS que o app ja' conhece: carteira + watchlist.
+
+        Cru e nao localizado de proposito -- e' o `market_hash_name` que a
+        Steam entende, e a tela pede exatamente isso.
+        """
+        nomes = set()
+        try:
+            from skinvault import portfolio, watchlist
+            for p in portfolio.load_portfolio():
+                if p.get("name"):
+                    nomes.add(p["name"])
+            for w in watchlist.load_watchlist():
+                if isinstance(w, dict) and w.get("name"):
+                    nomes.add(w["name"])
+        except Exception:
+            # Autocomplete e' conveniencia: se a leitura falhar, o campo
+            # continua aceitando o nome digitado.
+            return []
+        return sorted(nomes)
+
+    def _instalar_autocomplete(self) -> None:
+        """Sugere itens da propria carteira enquanto se digita.
+
+        A tela exige o `market_hash_name` EXATO -- com wear e StatTrak no
+        lugar certo -- e errar um caractere devolve "sem dados", que se
+        confunde com item sem historico. Os 31 itens do dono ja' estao em
+        disco; nao ha' motivo pra faze-lo digitar de novo.
+        """
+        nomes = self._nomes_conhecidos()
+        if not nomes:
+            return
+        comp = QCompleter(nomes, self._search_inp)
+        comp.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        # "redline" tem que achar "AK-47 | Redline (Field-Tested)": o nome
+        # comeca pela ARMA, e um match so' por prefixo nunca acharia.
+        comp.setFilterMode(Qt.MatchFlag.MatchContains)
+        comp.setMaxVisibleItems(12)
+        popup = comp.popup()
+        popup.setStyleSheet(
+            f"background: {t.BG_ELEVATED}; color: {t.TEXT};"
+            f" border: 1px solid {t.BORDER};"
+            f" selection-background-color: {t.SURFACE_HOV};"
+            f" font-family: {t.FONT_FAMILY}; font-size: {t.FS_BODY};")
+        self._search_inp.setCompleter(comp)
+        self._completer = comp
 
     def _show_recent_menu(self) -> None:
         if self._recent:
