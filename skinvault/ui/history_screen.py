@@ -409,6 +409,22 @@ class _IconBackfillThread(QThread):
 class HistoryScreen(QWidget):
     """Tela 2 -- Historico unificado + Watchlist + Simulador."""
 
+    # Teto e piso da coluna "Item". O teto existe pra ela nao empurrar os
+    # numeros pra longe numa janela larga; o piso, pra nome de skin nao
+    # virar reticencia numa janela estreita.
+    _ITEM_COL_MIN = 200
+    _ITEM_COL_MAX = 460
+
+    # Cabecalhos que carregam numero. Usado so' pra decidir qual coluna pode
+    # esticar -- numero esticado vira numero longe do nome.
+    _NUMERICO = ("preço", "preco", "valor", "p&l", "roi", "compra", "venda",
+                 "qtd", "%")
+
+    @classmethod
+    def _e_coluna_numerica(cls, header: str) -> bool:
+        h = (header or "").strip().lower()
+        return any(termo in h for termo in cls._NUMERICO)
+
     SEGMENTS = [
         ("all", "Todos"),
         ("trades", "Trades"),
@@ -1108,12 +1124,41 @@ class HistoryScreen(QWidget):
                      "P&L se vender hoje", "Preço de compra")
         }
         for i in range(self._table.columnCount()):
-            if i == item_col:
-                hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
-            else:
-                hh.setSectionResizeMode(
-                    i, QHeaderView.ResizeMode.ResizeToContents,
-                )
+            hh.setSectionResizeMode(
+                i, QHeaderView.ResizeMode.ResizeToContents,
+            )
+        # "Item" era Stretch: numa janela de 1900px ela engolia ~900px e
+        # jogava o valor pra borda oposta, entao ler "quanto rendeu este
+        # item" custava atravessar a linha inteira. Agora ela tem teto e as
+        # colunas ficam encostadas — a folga sobra na direita.
+        #
+        # Esticar a ULTIMA em vez da Item nao serve: em "Pareados" ela e'
+        # ROI e em "Abertas" e' P&L, colunas numericas que empurrariam o
+        # numero pro mesmo lugar longe.
+        if item_col >= 0:
+            hh.setSectionResizeMode(item_col,
+                                    QHeaderView.ResizeMode.Interactive)
+            largura = self._table.sizeHintForColumn(item_col) + 16
+            self._table.setColumnWidth(
+                item_col, max(self._ITEM_COL_MIN,
+                              min(largura, self._ITEM_COL_MAX)))
+
+        # Com tudo encostado a' esquerda, o fundo da linha (zebra e tinta de
+        # compra/venda) terminava na ultima coluna e deixava um rabo cortado
+        # ate' a borda. Esticar a ultima coluna resolve -- mas so' quando ela
+        # nao carrega numero: em "Pareados" (ROI) e "Abertas" (P&L) isso
+        # mandaria justamente o numero que importa pra longe do nome.
+        ultima = self._table.columnCount() - 1
+        estica = ultima > 0 and not self._e_coluna_numerica(headers[ultima])
+        if estica:
+            hh.setSectionResizeMode(ultima, QHeaderView.ResizeMode.Stretch)
+            # O cabecalho do Qt centraliza; a celula e' alinhada a esquerda.
+            # Numa coluna estreita ninguem nota, mas esticada o titulo fica
+            # boiando no meio, longe do dado que ele nomeia.
+            hi = self._table.horizontalHeaderItem(ultima)
+            if hi is not None:
+                hi.setTextAlignment(Qt.AlignmentFlag.AlignLeft
+                                    | Qt.AlignmentFlag.AlignVCenter)
         # Alinhamento por coluna
         center_cols: set[int] = set()
         if side_op_col is not None and headers[side_op_col] in ("Operação", "Tipo"):

@@ -54,6 +54,9 @@ WARN_TEXT   = "#D8C267"
 
 # Hover surface (row-hover, item:hover)
 SURFACE_HOV = "#3F3F3F"
+# Linha alternada da tabela. Era "#21212B" cravado no table_style() -- um
+# azulado que sobrou da paleta anterior e destoava do monocromatico.
+ROW_ALT     = "#1A1A1A"
 
 # Scrollbar (global, fina)
 SCROLL_THUMB    = "#383838"
@@ -107,10 +110,11 @@ def _reload_palette(theme: str) -> None:
     from skinvault.gui import THEMES as _T
     pal = _T.get(theme, _T["dark"])
     global BG, BG_ELEVATED, SURFACE, BORDER, TEXT, TEXT_MUTED
-    global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER
+    global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER, ROW_ALT
     BG = pal["bg"]
     BG_ELEVATED = pal["surface"]
     SURFACE = pal.get("surface2", pal["surface"])
+    ROW_ALT = "#F7F7F7" if theme == "light" else "#1A1A1A"
     TEXT = pal["text"]
     TEXT_MUTED = pal["muted"]
     BORDER = "#3A3A44" if theme == "light" else "#303030"
@@ -338,11 +342,15 @@ def checkbox_style() -> str:
 def table_style() -> str:
     return (
         f"QTableWidget {{ background: {BG_ELEVATED};"
-        f" alternate-background-color: #21212B;"
+        f" alternate-background-color: {ROW_ALT};"
         f" gridline-color: transparent; border: 1px solid {BORDER};"
         f" border-radius: 10px; color: {TEXT}; font-size: {FS_BODY};"
         f" font-family: {FONT_FAMILY}; }}"
         f"QTableWidget::item {{ padding: 8px 12px; }}"
+        # O QHeaderView em si, nao so' a secao: a faixa do cabecalho DEPOIS
+        # da ultima coluna cai na paleta do sistema (branca no Windows).
+        # So' nao aparecia porque uma coluna esticava e nunca sobrava faixa.
+        f"QHeaderView {{ background: {BG_ELEVATED}; border: none; }}"
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER};"
