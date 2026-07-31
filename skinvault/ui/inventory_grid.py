@@ -30,11 +30,20 @@ from PyQt6.QtWidgets import (
 from skinvault import icons
 from skinvault.ui import theme as t
 
-TILE = 96
-# Duas linhas: o valor e de ONDE ele vem. Com uma linha so' o tile teria
-# que escolher entre mentir (numero de fora exibido como saldo Steam) e
-# nao dizer nada (a parede de travessoes quando a Steam esta' racionada).
-_BADGE_H = 32
+# Card no formato dos sites de troca (tradeit/CS.MONEY): imagem grande em
+# cima, nome e preco embaixo. O tile antigo tinha 96px e so' cabia o icone
+# -- pra saber QUAL skin era, so' passando o mouse.
+TILE_W = 152
+TILE_ICON_H = 96
+# Duas linhas de texto: nome, e o valor com a ORIGEM. Com uma linha so' o
+# tile teria que escolher entre mentir (numero de fora exibido como saldo
+# Steam) e nao dizer nada (a parede de travessoes sob rate limit).
+TILE_TEXT_H = 44
+TILE_H = TILE_ICON_H + TILE_TEXT_H
+
+# Mantido: `TILE` era a medida do tile quadrado antigo e ainda serve de
+# passo horizontal em quem calcula quantas colunas cabem.
+TILE = TILE_W
 
 
 def _valor_do_tile(item: dict) -> tuple:
@@ -72,7 +81,7 @@ class InventoryTile(QFrame):
         self._selected = False
         self._hover = False
         self._pix: QPixmap | None = None
-        self.setFixedSize(TILE, TILE + _BADGE_H)
+        self.setFixedSize(TILE_W, TILE_H)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self._load_icon()
@@ -84,7 +93,7 @@ class InventoryTile(QFrame):
             pm = QPixmap(str(p))
             if not pm.isNull():
                 self._pix = pm.scaled(
-                    TILE - 12, TILE - 12,
+                    TILE_W - 16, TILE_ICON_H - 12,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation)
 
@@ -154,71 +163,98 @@ class InventoryTile(QFrame):
     def paintEvent(self, e) -> None:  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        corpo = QRect(0, 0, TILE, TILE)
+        corpo = QRect(0, 0, TILE_W, TILE_H)
+        area_icone = QRect(0, 0, TILE_W, TILE_ICON_H)
 
         fundo = t.SURFACE_HOV if (self._hover or self._selected) else t.SURFACE
         p.setBrush(QColor(fundo))
         p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(corpo, t.RADIUS_SM, t.RADIUS_SM)
+        p.drawRoundedRect(corpo, t.RADIUS_MD, t.RADIUS_MD)
 
         if self._selected:
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.setPen(QPen(QColor(t.TEXT), 2))
             p.drawRoundedRect(corpo.adjusted(1, 1, -1, -1),
-                              t.RADIUS_SM, t.RADIUS_SM)
+                              t.RADIUS_MD, t.RADIUS_MD)
 
         if self._pix:
-            x = (TILE - self._pix.width()) // 2
-            y = (TILE - self._pix.height()) // 2
+            x = (TILE_W - self._pix.width()) // 2
+            y = (TILE_ICON_H - self._pix.height()) // 2
             p.drawPixmap(x, y, self._pix)
-        else:
-            # Sem icone em cache, "?" nao distingue um tile do outro. O
-            # primeiro trecho do nome ja' identifica ("AK-47", "Caixa",
-            # "Adesivo") e e' o que o dono usa pra reconhecer.
-            p.setPen(QColor(t.TEXT_MUTED))
-            fonte = p.font()
-            fonte.setPointSize(9)
-            p.setFont(fonte)
-            rotulo = p.fontMetrics().elidedText(
-                self._rotulo_sem_icone(), Qt.TextElideMode.ElideRight,
-                TILE - 12)
-            p.drawText(corpo, Qt.AlignmentFlag.AlignCenter
-                       | Qt.TextFlag.TextWordWrap, rotulo)
 
         qtd = self.item.get("qty", 1)
         if qtd > 1:
-            p.setPen(QColor(t.TEXT))
-            p.drawText(corpo.adjusted(0, 4, -6, 0),
+            p.setPen(QColor(t.TEXT_MUTED))
+            fonte = p.font()
+            fonte.setPointSize(8)
+            p.setFont(fonte)
+            p.drawText(area_icone.adjusted(0, 6, -8, 0),
                        Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight,
-                       f"{qtd}")
+                       f"x{qtd}")
 
-        # Etiqueta: valor em cima, origem embaixo.
-        preco, origem = _valor_do_tile(self.item)
+        # Nome: o tile antigo so' tinha o icone, e saber QUAL skin era
+        # exigia passar o mouse. Elidido -- "Asiimov" cabe, o nome inteiro
+        # com arma e desgaste nao.
         fonte = p.font()
-        fonte.setPointSize(9)
+        fonte.setPointSize(8)
+        p.setFont(fonte)
+        p.setPen(QColor(t.TEXT_MUTED))
+        nome = p.fontMetrics().elidedText(
+            self._rotulo_curto(), Qt.TextElideMode.ElideRight, TILE_W - 12)
+        p.drawText(QRect(6, TILE_ICON_H, TILE_W - 12, 16),
+                   Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter,
+                   nome)
+
+        # Valor e de ONDE ele vem, na mesma linha.
+        preco, origem = _valor_do_tile(self.item)
+        fonte.setPointSize(10)
+        fonte.setBold(True)
         p.setFont(fonte)
         p.setPen(QColor(t.TEXT if preco is not None else t.TEXT_MUTED))
-        p.drawText(QRect(0, TILE, TILE, 16),
-                   Qt.AlignmentFlag.AlignCenter,
-                   t.brl(preco) if preco is not None else "—")
+        texto = t.brl(preco) if preco is not None else "—"
+        largura_preco = p.fontMetrics().horizontalAdvance(texto)
+        fonte.setBold(False)
+        fonte.setPointSize(7)
+        largura_origem = 0
+        if origem:
+            p.setFont(fonte)
+            largura_origem = p.fontMetrics().horizontalAdvance(" " + origem)
+        inicio = max(4, (TILE_W - largura_preco - largura_origem) // 2)
+
+        fonte.setPointSize(10)
+        fonte.setBold(True)
+        p.setFont(fonte)
+        p.drawText(QRect(inicio, TILE_ICON_H + 16, largura_preco, 22),
+                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                   texto)
         if origem:
             fonte.setPointSize(7)
+            fonte.setBold(False)
             p.setFont(fonte)
             p.setPen(QColor(t.TEXT_MUTED))
-            p.drawText(QRect(0, TILE + 15, TILE, 14),
-                       Qt.AlignmentFlag.AlignCenter, origem)
+            p.drawText(
+                QRect(inicio + largura_preco, TILE_ICON_H + 16,
+                      largura_origem + 4, 22),
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                " " + origem)
         p.end()
 
-    def _rotulo_sem_icone(self) -> str:
-        """Identificacao textual quando nao ha' icone em cache.
+    def _rotulo_curto(self) -> str:
+        """Nome que cabe no card.
 
-        "AK-47 | Redline (Testada em Campo)" -> "AK-47". O trecho antes da
-        barra e' o que diferencia os tiles entre si.
+        "AWP | Asiimov (Testada em Campo)" -> "Asiimov". Com o icone ao
+        lado, o que identifica e' o acabamento, nao a arma -- e' assim que
+        os sites de troca rotulam. Container mantem o nome inteiro, que ja'
+        e' curto.
         """
         nome = (self.item.get("name") or "").strip()
         if not nome:
-            return "?"
-        return (nome.split("|")[0].strip() or nome)[:14]
+            return ""
+        if "|" in nome:
+            nome = nome.split("|")[1].strip()
+        if "(" in nome:
+            nome = nome.split("(")[0].strip()
+        return nome
 
 
 class ItemDetailPanel(QFrame):
@@ -634,5 +670,12 @@ class InventoryGrid(QWidget):
     def count(self) -> int:
         return len(self._tiles)
 
+    # Largura nominal do sizeHint. NAO pode sair de `_columns`: `_columns`
+    # passou a vir da largura, e um sizeHint que dependesse dele fecharia o
+    # ciclo -- o layout encolhia o widget, o widget pedia menos colunas, e
+    # a grade estabilizava em 3 colunas com meia tela vazia ao lado.
+    _COLUNAS_NOMINAIS = 8
+
     def sizeHint(self) -> QSize:  # noqa: N802
-        return QSize(self._columns * (TILE + t.SPACE_SM) + 280, 520)
+        return QSize(
+            self._COLUNAS_NOMINAIS * (TILE_W + t.SPACE_SM) + 280, 520)

@@ -219,18 +219,37 @@ def test_grade_ordena_pelo_valor_exibido_sem_saldo(app):
     assert [tl.item["name"] for tl in g._tiles] == ["cara", "media", "barata"]
 
 
-def test_tile_sem_icone_usa_o_nome_no_lugar_do_interrogacao(app):
-    tile = InventoryTile(_item("AK-47 | Redline (Testada em Campo)"))
-    assert tile._rotulo_sem_icone() == "AK-47"
+# ── rotulo do card ─────────────────────────────────────────────────
+#
+# O card mostra o nome SEMPRE, nao so' quando falta icone: com 96px e so'
+# a imagem, saber qual skin era exigia passar o mouse em cada tile.
 
 
-def test_rotulo_sem_icone_aguenta_nome_vazio(app):
-    assert InventoryTile(_item("")). _rotulo_sem_icone() == "?"
+def test_rotulo_usa_o_acabamento_nao_a_arma(app):
+    """Com o icone ao lado, o que identifica e' o acabamento -- e' assim
+    que os sites de troca rotulam."""
+    tile = InventoryTile(_item("AWP | Asiimov (Testada em Campo)"))
+    assert tile._rotulo_curto() == "Asiimov"
 
 
-def test_rotulo_sem_icone_sem_barra_usa_o_nome(app):
+def test_rotulo_tira_o_desgaste(app):
+    tile = InventoryTile(_item("AK-47 | Redline (Field-Tested)"))
+    assert tile._rotulo_curto() == "Redline"
+
+
+def test_rotulo_de_faca_ignora_a_estrela(app):
+    tile = InventoryTile(_item("★ Falchion Knife | Autotronic (FT)"))
+    assert tile._rotulo_curto() == "Autotronic"
+
+
+def test_rotulo_de_container_mantem_o_nome(app):
+    """Nome de caixa ja' e' curto e nao tem barra pra cortar."""
     tile = InventoryTile(_item("Caixa Kilowatt"))
-    assert tile._rotulo_sem_icone() == "Caixa Kilowatt"
+    assert tile._rotulo_curto() == "Caixa Kilowatt"
+
+
+def test_rotulo_aguenta_nome_vazio(app):
+    assert InventoryTile(_item(""))._rotulo_curto() == ""
 
 
 def test_grade_seleciona_o_primeiro_automaticamente(app):
