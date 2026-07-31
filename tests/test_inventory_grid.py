@@ -553,3 +553,77 @@ def test_painel_limpo_zera_a_procedencia(app):
     p.show_item({"name": "Kilowatt Case", "qty": 1})
     p.show_item(None)
     assert _texto(p._origem).strip() == "—"
+
+
+# ── grade responsiva ───────────────────────────────────────────────
+#
+# 8 colunas fixas deixavam ~700px mortos numa janela larga e forcavam
+# rolagem numa estreita.
+
+
+def _posicoes(g):
+    out = []
+    for tl in g._visiveis:
+        idx = g._grid.indexOf(tl)
+        r, c, _, _ = g._grid.getItemPosition(idx)
+        out.append((r, c))
+    return out
+
+
+def _com_largura(g, w, h=600):
+    """Aplica largura de verdade.
+
+    `resize()` sozinho nao chega no viewport do QScrollArea: sem passe de
+    layout ele mantem o tamanho anterior. WA_DontShowOnScreen faz o layout
+    rodar sem abrir janela nem roubar foco.
+    """
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QApplication
+    g.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    g.show()
+    g.resize(w, h)
+    QApplication.instance().processEvents()
+    return g
+
+
+def test_colunas_acompanham_a_largura(app):
+    g = InventoryGrid()
+    largo = _com_largura(g, 1400)._colunas_que_cabem()
+    estreito = _com_largura(g, 500)._colunas_que_cabem()
+    assert largo > estreito >= 1
+
+
+def test_nunca_zero_colunas(app):
+    """Largura minuscula nao pode virar divisao por zero no reposicionar."""
+    g = InventoryGrid()
+    assert _com_largura(g, 10, 10)._colunas_que_cabem() >= 1
+
+
+def test_reposicionar_preenche_linha_a_linha(app):
+    g = InventoryGrid()
+    g.set_items([_item(f"i{n}") for n in range(5)])
+    g._columns = 3
+    g._reposicionar()
+    assert _posicoes(g) == [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)]
+
+
+def test_resize_reflui_os_tiles(app):
+    g = InventoryGrid()
+    g.set_items([_item(f"i{n}") for n in range(12)])
+    g._columns = 2
+    g._reposicionar()
+    antes = max(r for r, _ in _posicoes(g))
+    g._columns = 6
+    g._reposicionar()
+    depois = max(r for r, _ in _posicoes(g))
+    assert depois < antes, "mais colunas tem que dar menos linhas"
+
+
+def test_filtro_e_largura_usam_o_mesmo_calculo(app):
+    """Filtrar depois de mudar a largura nao pode voltar pro layout
+    antigo -- os dois passam pelo mesmo _reposicionar."""
+    g = InventoryGrid()
+    g.set_items([_item("alvo 1"), _item("zzz"), _item("alvo 2")])
+    g._columns = 5
+    g.set_filter("alvo")
+    assert _posicoes(g) == [(0, 0), (0, 1)]

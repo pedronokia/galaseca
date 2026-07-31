@@ -568,13 +568,12 @@ class InventoryGrid(QWidget):
             key=lambda i: ((_valor_do_tile(i)[0] or 0) * (i.get("qty") or 1)),
             reverse=True,
         )
-        for idx, item in enumerate(ordenados):
+        for item in ordenados:
             tile = InventoryTile(item)
             tile.clicked.connect(self._on_tile)
-            self._grid.addWidget(tile, idx // self._columns,
-                                 idx % self._columns)
             self._tiles.append(tile)
         self._visiveis = list(self._tiles)
+        self._reposicionar()
         self._detail.show_item(ordenados[0] if ordenados else None)
         if self._tiles:
             self._tiles[0].set_selected(True)
@@ -593,11 +592,35 @@ class InventoryGrid(QWidget):
             tile.setVisible(casa)
             if casa:
                 visiveis.append(tile)
-        for pos, tile in enumerate(visiveis):
+        self._visiveis = visiveis
+        self._reposicionar()
+        return len(visiveis)
+
+    def _reposicionar(self) -> None:
+        """(Re)coloca os tiles visiveis em linha, na largura atual.
+
+        Ponto unico de posicionamento: povoar, filtrar e redimensionar
+        chamam daqui. Antes cada um tinha sua copia do calculo de linha e
+        coluna, e o filtro esquecia de recompactar.
+        """
+        for pos, tile in enumerate(self._visiveis):
             self._grid.addWidget(tile, pos // self._columns,
                                  pos % self._columns)
-        self._visiveis = visiveis
-        return len(visiveis)
+
+    def _colunas_que_cabem(self) -> int:
+        """Quantos tiles cabem na largura util do scroll."""
+        largura = self._scroll.viewport().width()
+        passo = TILE + self._grid.spacing()
+        return max(1, (largura + self._grid.spacing()) // passo)
+
+    def resizeEvent(self, evt) -> None:  # noqa: N802
+        """Grade responsiva: 8 colunas fixas deixavam ~700px mortos numa
+        janela larga e forcavam rolagem numa estreita."""
+        super().resizeEvent(evt)
+        cabem = self._colunas_que_cabem()
+        if cabem != self._columns:
+            self._columns = cabem
+            self._reposicionar()
 
     def visible_count(self) -> int:
         return len(getattr(self, "_visiveis", self._tiles))
