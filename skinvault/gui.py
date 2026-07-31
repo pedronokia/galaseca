@@ -748,6 +748,7 @@ class MainWindow(QMainWindow):
             "Esc &nbsp;&nbsp; Limpa a busca (Inventário, Watchlist, Histórico)<br>"
             "Delete &nbsp;&nbsp; Remove a linha selecionada (Trades, Watchlist)<br>"
             "Ctrl+L &nbsp;&nbsp; Foca a busca no Market<br>"
+            "Ctrl+Enter &nbsp;&nbsp; Escaneia a categoria no Scanner<br>"
             "Ctrl+N / Ctrl+, &nbsp;&nbsp; Configurações<br>"
             "Ctrl+K &nbsp;&nbsp; Abre a paleta<br>"
             "? &nbsp;&nbsp; Mostra esta janela",

@@ -12,7 +12,7 @@ import time
 from urllib.parse import quote
 
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QBrush, QColor, QDesktopServices
+from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -195,6 +195,9 @@ class ScannerScreen(QWidget):
         )
         self._scan_tooltip = self._scan_btn.toolTip()
         self._scan_btn.clicked.connect(self._on_scan)
+        # Ctrl+Enter dispara o scan direto do teclado (foco nao importa).
+        sc = QShortcut(QKeySequence("Ctrl+Return"), self)
+        sc.activated.connect(self._on_scan)
 
         # Acoes secundarias agrupadas em menu ⋯ (Frente CC: max 2 botoes
         # diretos no header).

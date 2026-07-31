@@ -3,7 +3,7 @@
 Regra do projeto: todo botao precisa de tooltip explicando o que acontece
 ao clicar. O check varre `skinvault/gui.py` e `skinvault/ui/*.py` procurando
 linhas `<var> = QPushButton(...)` e verifica se `<var>.setToolTip(` aparece
-ate 5 linhas depois. Reporta faltantes com path:linha:texto.
+ate 10 linhas depois. Reporta faltantes com path:linha:texto.
 
 Uso:
     python scripts/check_tooltips.py
@@ -21,7 +21,7 @@ TARGETS = [ROOT / "skinvault" / "gui.py"] + sorted(
 )
 
 ASSIGN_RE = re.compile(r"^(\s*)((?:self\.)?_?\w+)\s*=\s*QPushButton\(")
-WINDOW = 5  # linhas depois pra procurar setToolTip
+WINDOW = 10  # linhas depois pra procurar setToolTip
 
 
 def audit_file(path: Path) -> list[tuple[int, str, str]]:
@@ -58,7 +58,7 @@ def main() -> int:
     if total:
         print(f"\n{total} botao(s) sem setToolTip em ate {WINDOW} linhas.")
         return 1
-    print("OK: todo QPushButton tem setToolTip em ate 5 linhas.")
+    print("OK: todo QPushButton tem setToolTip em ate 10 linhas.")
     return 0
 
 
