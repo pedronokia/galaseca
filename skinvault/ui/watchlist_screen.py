@@ -919,6 +919,10 @@ class WatchlistScreen(QWidget):
         target_inp.setRange(0, 99999)
         target_inp.setPrefix("R$ ")
         target_inp.setDecimals(2)
+        target_inp.setSpecialValueText("R$ 0,00 — sem alvo")
+        target_inp.setToolTip(
+            "Preço que dispara o alerta de queda. Deixe em R$ 0,00 para "
+            "monitorar apenas por regras (queda %, volume, oferta, score).")
         target_inp.setStyleSheet(t.input_style())
         lay.addWidget(FormRow("Preço alvo:", target_inp))
 
@@ -937,6 +941,12 @@ class WatchlistScreen(QWidget):
             name = name_inp.text().strip()
             target = target_inp.value()
             if not name:
+                return
+            if any(it.get("name") == name for it in self._items):
+                self._status.setText(
+                    f"“{name}” já está na watchlist — edite as regras pelo "
+                    "menu de contexto da linha.")
+                dlg.accept()
                 return
             wl.add_watch(name, target)
             self.refresh()

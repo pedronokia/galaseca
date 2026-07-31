@@ -55,10 +55,12 @@ def test_add_negative_target_raises(tmp_path):
         watchlist.add_watch("AK", -1.0, path=tmp_path / "w.json")
 
 
-def test_add_zero_target_raises(tmp_path):
-    import pytest
-    with pytest.raises(ValueError):
-        watchlist.add_watch("AK", 0, path=tmp_path / "w.json")
+def test_add_zero_target_allowed(tmp_path):
+    """target 0 = sem preco alvo (item monitora por regras)."""
+    p = tmp_path / "w.json"
+    items = watchlist.add_watch("AK", 0, path=p)
+    assert len(items) == 1
+    assert items[0]["target"] == 0.0
 
 
 def test_update_target(tmp_path):

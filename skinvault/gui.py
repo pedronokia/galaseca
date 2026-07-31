@@ -744,9 +744,12 @@ class MainWindow(QMainWindow):
             self, "Atalhos de teclado",
             "<b>Atalhos:</b><br>"
             "F5 &nbsp;&nbsp; Recarregar tela atual<br>"
-            "Ctrl+F &nbsp;&nbsp; Foco no filtro<br>"
-            "Ctrl+N &nbsp;&nbsp; Nova posicao (Settings)<br>"
-            "Ctrl+, &nbsp;&nbsp; Configurações<br>"
+            "Ctrl+F &nbsp;&nbsp; Foco no filtro ou busca da tela<br>"
+            "Esc &nbsp;&nbsp; Limpa a busca (Inventário, Watchlist, Histórico)<br>"
+            "Delete &nbsp;&nbsp; Remove a linha selecionada (Trades, Watchlist)<br>"
+            "Ctrl+L &nbsp;&nbsp; Foca a busca no Market<br>"
+            "Ctrl+N / Ctrl+, &nbsp;&nbsp; Configurações<br>"
+            "Ctrl+K &nbsp;&nbsp; Abre a paleta<br>"
             "? &nbsp;&nbsp; Mostra esta janela",
         )
 
@@ -765,9 +768,9 @@ class MainWindow(QMainWindow):
         if hasattr(QMenu, "setStyleSheet"):
             menu.setStyleSheet(
                 f"QMenu {{ background: {t.BG_ELEVATED}; color: {t.TEXT};"
-                " border: 1px solid #3A3A44; padding: 4px; }"
+                f" border: 1px solid {t.BORDER}; padding: 4px; }}"
                 "QMenu::item { padding: 6px 20px; }"
-                "QMenu::item:selected { background: #2A2A33; }"
+                f"QMenu::item:selected {{ background: {t.SURFACE_HOV}; }}"
             )
         restore_action = menu.addAction("Abrir SkinVault")
         restore_action.triggered.connect(self._restore_from_tray)

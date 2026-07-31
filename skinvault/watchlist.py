@@ -30,8 +30,10 @@ def save_watchlist(items: list[dict],
 
 def add_watch(name: str, target: float,
               path: Path | str = _DEFAULT_PATH) -> list[dict]:
-    if target <= 0:
-        raise ValueError("target deve ser > 0")
+    """Adiciona um item. target 0 = sem preco alvo (monitora so' por
+    regras: queda, volume, oferta, score). Negativo e' erro."""
+    if target < 0:
+        raise ValueError("target deve ser >= 0")
     items = load_watchlist(path)
     for it in items:
         if it["name"] == name:

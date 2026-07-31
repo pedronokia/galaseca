@@ -3854,6 +3854,64 @@ def test_watchlist_on_add_success(monkeypatch):
     assert add_called[0] == ("AK-47", 50.0)
 
 
+def test_watchlist_on_add_sem_alvo(monkeypatch):
+    """_on_add sem preco alvo (0) adiciona sem crash — regras cobrem."""
+    from PyQt6.QtWidgets import QDialog, QLineEdit, QPushButton
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr(
+        "skinvault.watchlist.load_watchlist", lambda: [])
+    monkeypatch.setattr(
+        "skinvault.alerts.load_alerts_log", lambda: [])
+    add_called = []
+    monkeypatch.setattr(
+        "skinvault.watchlist.add_watch",
+        lambda name, target: add_called.append((name, target)))
+    def controlled(self):
+        for child in self.findChildren(QLineEdit):
+            child.setText("AK-47")
+            break
+        for child in self.findChildren(QPushButton):
+            if child.text() == "Adicionar":
+                child.click()
+                break
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(QDialog, "exec", controlled)
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._on_add()
+    assert add_called == [("AK-47", 0.0)]
+
+
+def test_watchlist_on_add_duplicado_avisa(monkeypatch):
+    """_on_add avisa quando o item ja esta na watchlist (nao duplica)."""
+    from PyQt6.QtWidgets import QDialog, QLineEdit, QPushButton
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr(
+        "skinvault.watchlist.load_watchlist", lambda: [])
+    monkeypatch.setattr(
+        "skinvault.alerts.load_alerts_log", lambda: [])
+    add_called = []
+    monkeypatch.setattr(
+        "skinvault.watchlist.add_watch",
+        lambda name, target: add_called.append((name, target)))
+    def controlled(self):
+        for child in self.findChildren(QLineEdit):
+            child.setText("AK-47")
+            break
+        for child in self.findChildren(QPushButton):
+            if child.text() == "Adicionar":
+                child.click()
+                break
+        return QDialog.DialogCode.Accepted
+    monkeypatch.setattr(QDialog, "exec", controlled)
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._items = [{"name": "AK-47", "target": 50.0, "triggered": False}]
+    screen._on_add()
+    assert add_called == []
+    assert "já está na watchlist" in screen._status.text()
+
+
 def test_watchlist_edit_rules_saves(monkeypatch, tmp_path):
     """_on_edit_rules salva as regras do dialog no item."""
     from PyQt6.QtWidgets import QDialog
