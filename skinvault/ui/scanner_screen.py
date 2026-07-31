@@ -279,15 +279,15 @@ class ScannerScreen(QWidget):
             checked=bool(_s.get("scanner_hide_low_confidence", False))
         )
         self._hide_low_conf_cb.setToolTip(
-            "Itens com score < 45 sao classificados como baixa confianca. "
-            "Ative para filtrar ruido visual."
+            "Itens com score < 45 são classificados como baixa confiança. "
+            "Ative para filtrar ruído visual."
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
         _lbl1 = QLabel("Baixa confiança")
         _lbl1.setStyleSheet(t.label_caption())
         _lbl1.setToolTip(
-            "Itens com score < 45 sao classificados como baixa confianca."
+            "Itens com score < 45 são classificados como baixa confiança."
         )
         filt_row.addWidget(_lbl1)
 
@@ -721,7 +721,7 @@ class ScannerScreen(QWidget):
 
         # Aplica filtro de order book approx (so esconde, nunca mostra)
         self._apply_approx_filter()
-        # Aplica filtro de baixa confianca (roda por ultimo para nao
+        # Aplica filtro de baixa confiança (roda por ultimo para nao
         # ser sobrescrito pelo filtro de approx)
         hidden = self._apply_confidence_filter()
 
@@ -741,7 +741,7 @@ class ScannerScreen(QWidget):
             self._status.setText(f"{n} itens escaneados")
 
     def _apply_confidence_filter(self) -> int:
-        """Aplica/remove esconder baixa confianca. Retorna # ocultas."""
+        """Aplica/remove esconder baixa confiança. Retorna # ocultas."""
         if not hasattr(self, "_hide_low_conf_cb"):
             return 0
         active = self._hide_low_conf_cb.isChecked()

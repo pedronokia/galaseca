@@ -249,13 +249,7 @@ class _FilterBar(QWidget):
             " Esc limpa."
         )
         self._search.setClearButtonEnabled(True)
-        self._search.setStyleSheet(
-            f"QLineEdit {{ background: {t.SURFACE}; color: {t.TEXT};"
-            f" border: 1px solid {t.BORDER}; border-radius: 6px;"
-            f" padding: 4px 10px; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY}; min-width: 240px; }}"
-            f"QLineEdit:focus {{ border-color: {t.ACCENT}; }}"
-        )
+        self._search.setStyleSheet(t.input_style())
         self._search.textChanged.connect(self._on_search_changed)
         root.addWidget(self._search)
 
@@ -267,12 +261,7 @@ class _FilterBar(QWidget):
             "Reseta o filtro de busca por nome/nota (Esc tambem funciona)."
         )
         clear_btn.setStyleSheet(
-            f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
-            f" border: 1px solid {t.BORDER}; border-radius: 6px;"
-            f" padding: 4px 12px; font-size: {t.FS_MUTED}; font-weight: 500;"
-            f" font-family: {t.FONT_FAMILY}; }}"
-            f"QPushButton:hover {{ color: {t.TEXT}; border-color: {t.TEXT_MUTED}; }}"
-        )
+            t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
         clear_btn.clicked.connect(self._clear)
         root.addWidget(clear_btn)
 

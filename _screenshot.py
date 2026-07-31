@@ -70,13 +70,14 @@ def shoot():
 
     screens = [
         (sr.SCREEN_ACCOUNT, "01-account"),
-        (sr.SCREEN_HISTORY, "02-history"),
-        (sr.SCREEN_SCANNER, "03-scanner"),
-        (sr.SCREEN_MARKET, "04-market"),
-        (sr.SCREEN_TRADES, "05-trades"),
-        (sr.SCREEN_WATCHLIST, "06-watchlist"),
-        (sr.SCREEN_CLEANUP, "07-cleanup"),
-        (sr.SCREEN_SETTINGS, "08-settings"),
+        (sr.SCREEN_INVENTORY, "02-inventory"),
+        (sr.SCREEN_HISTORY, "03-history"),
+        (sr.SCREEN_SCANNER, "04-scanner"),
+        (sr.SCREEN_MARKET, "05-market"),
+        (sr.SCREEN_TRADES, "06-trades"),
+        (sr.SCREEN_WATCHLIST, "07-watchlist"),
+        (sr.SCREEN_CLEANUP, "08-cleanup"),
+        (sr.SCREEN_SETTINGS, "09-settings"),
     ]
 
     for screen, name in screens:

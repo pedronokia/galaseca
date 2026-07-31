@@ -1,6 +1,6 @@
 """Tela — Watchlist + Alertas (F11).
 
-Tabela de itens monitorados com preco alvo, regras configur井eis,
+Tabela de itens monitorados com preço alvo, regras configuráveis,
 e log de alertas disparados.
 """
 from __future__ import annotations
@@ -270,11 +270,11 @@ class WatchlistScreen(QWidget):
         stats_row.addStretch(1)
         root.addLayout(stats_row)
 
-        # Filtro de confianca (mesmo padrao do Scanner)
+        # Filtro de confiança (mesmo padrão do Scanner)
         filt_row = QHBoxLayout()
         self._hide_low_conf_cb = ToggleSwitch()
         self._hide_low_conf_cb.setToolTip(
-            "Oculta itens onde a confianca dos dados e 'low' ou 'very_low'."
+            "Oculta itens onde a confiança dos dados é 'low' ou 'very_low'."
             " Disponivel apenas apos 'Validar score'."
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
@@ -282,7 +282,7 @@ class WatchlistScreen(QWidget):
         _lbl = QLabel("Baixa confiança")
         _lbl.setStyleSheet(t.label_caption())
         _lbl.setToolTip(
-            "Oculta itens com confianca 'low' ou 'very_low'."
+            "Oculta itens com confiança 'low' ou 'very_low'."
         )
         filt_row.addWidget(_lbl)
         filt_row.addStretch(1)
@@ -495,6 +495,7 @@ class WatchlistScreen(QWidget):
             self._status.setText(
                 "Watchlist vazia. Adicione itens antes de validar."
             )
+            self._refresh_mode = False
             return
         self._validate_samples = []
         self._validate_items_count = len(names)
@@ -550,7 +551,7 @@ class WatchlistScreen(QWidget):
                     if item and current_score is not None:
                         item["current_score"] = int(current_score)
                         item["score_ts"] = time.time()
-                    # Data quality (confianca) — computada do mesmo price_history
+                    # Data quality (confiança) — computada do mesmo price_history
                     if item and ph:
                         try:
                             dq = signals.data_quality(ph)
@@ -610,7 +611,7 @@ class WatchlistScreen(QWidget):
         severity = alert.get("severity", "info")
         self.notification_requested.emit(title, body, severity)
 
-    # ── Filtro de confianca ─────────────────────────────
+    # ── Filtro de confiança ─────────────────────────────
     def _apply_confidence_filter(self) -> int:
         if not hasattr(self, "_hide_low_conf_cb"):
             return 0
