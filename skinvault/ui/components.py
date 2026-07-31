@@ -719,32 +719,47 @@ class SegmentedControl(QWidget):
 
 
 # ── Avatar widget ────────────────────────────────────────────
-class Avatar(QLabel):
-    """QLabel circular pra avatar Steam. Aceita bytes ou path."""
+class Avatar(QWidget):
+    """Avatar Steam redondo, pintado com QPainter.
+
+    Era um QLabel com `border-radius` no stylesheet e a foto em
+    `setPixmap`. Qt NAO recorta pixmap pelo border-radius: ele desenha a
+    caixa arredondada e estampa a imagem quadrada por cima, sem clipe --
+    dai' o avatar sair quadrado. E o desenho ficava deslocado porque a
+    borda de 1px encolhe a area de conteudo e o QLabel centraliza a
+    imagem nessa area menor, nao no circulo.
+
+    Com QPainter o clipe e' explicito, e o mesmo caminho serve pra foto e
+    pra inicial (convencao do projeto: QPainter em vez de gambiarra de
+    stylesheet).
+    """
 
     def __init__(self, size: int = 72, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._size = size
-        self.setStyleSheet(
-            f"background: {t.SURFACE}; border: 1px solid {t.BORDER};"
-            f" border-radius: {size // 2}px;"
-        )
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Placeholder
-        self.setText("?")
-        self.setStyleSheet(self.styleSheet() +
-                           f"color: {t.TEXT_MUTED}; font-size: {t.FS_ICON_SM};"
-                           f" font-family: {t.FONT_FAMILY};")
+        self._pix: QPixmap | None = None
+        self._texto = "?"
+
+    # API preservada: as telas ja' chamam text()/setText().
+    def text(self) -> str:
+        return self._texto
+
+    def setText(self, texto: str) -> None:  # noqa: N802
+        self._texto = texto or ""
+        self.update()
+
+    def pixmap(self) -> QPixmap | None:
+        return self._pix
 
     def set_initials(self, name: str) -> None:
-        """Iniciais no lugar do "?" enquanto nao ha' imagem.
+        """Inicial no lugar do "?" enquanto nao ha' imagem.
 
         "?" nao identifica ninguem e, ao lado de uma faixa dizendo
-        "Conectado", parecia erro. Com pixmap ja' posto, nao mexe: a foto
+        "Conectado", parecia erro. Com foto ja' posta, nao mexe: a foto
         vale mais que a inicial.
         """
-        if self.pixmap() is not None and not self.pixmap().isNull():
+        if self._pix is not None and not self._pix.isNull():
             return
         nome = (name or "").strip()
         self.setText(nome[0].upper() if nome else "?")
@@ -759,18 +774,52 @@ class Avatar(QLabel):
             pix.load(str(data))
         if pix.isNull():
             return
-        scaled = pix.scaled(
+        # Expanding e nao KeepAspectRatio: avatar nao-quadrado tem que
+        # COBRIR o circulo, senao sobra fundo em duas bordas.
+        self._pix = pix.scaled(
             self._size, self._size,
             Qt.AspectRatioMode.KeepAspectRatioByExpanding,
             Qt.TransformationMode.SmoothTransformation,
         )
-        # Mask circular: usar setStyleSheet com border-radius e setPixmap
-        self.setText("")
-        self.setPixmap(scaled)
-        self.setStyleSheet(
-            f"background: {t.SURFACE}; border: 1px solid {t.BORDER};"
-            f" border-radius: {self._size // 2}px;"
-        )
+        self._texto = ""
+        self.update()
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Meio pixel pra dentro: sem isso a borda sai serrilhada porque o
+        # traco fica metade fora do widget.
+        area = QRectF(0.5, 0.5, self._size - 1, self._size - 1)
+
+        caminho = QPainterPath()
+        caminho.addEllipse(area)
+        p.setClipPath(caminho)
+
+        p.setBrush(QColor(t.SURFACE))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(area)
+
+        if self._pix is not None and not self._pix.isNull():
+            # Centrado no CIRCULO. O QLabel centrava na area de conteudo,
+            # ja' descontada da borda, e a foto saia deslocada.
+            x = (self._size - self._pix.width()) / 2
+            y = (self._size - self._pix.height()) / 2
+            p.drawPixmap(int(x), int(y), self._pix)
+        elif self._texto:
+            p.setPen(QColor(t.TEXT_MUTED))
+            fonte = p.font()
+            fonte.setPointSize(max(10, self._size // 3))
+            fonte.setFamily("Segoe UI")
+            p.setFont(fonte)
+            p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self._texto)
+
+        # Borda por ultimo, por cima da foto: desenhada antes, o pixmap a
+        # cobriria.
+        p.setClipping(False)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(QColor(t.BORDER), 1))
+        p.drawEllipse(area)
+        p.end()
 
 
 # ── Lock overlay ─────────────────────────────────────────────
