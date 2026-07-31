@@ -14,13 +14,15 @@ Duas visoes, de proposito: a grade serve pra RECONHECER item pelo icone
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QStackedWidget,
     QTableWidget,
@@ -33,14 +35,133 @@ from skinvault import markets, portfolio
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState,
+    FormRow,
     LoadingState,
     PageHeader,
     SegmentedControl,
     SortableItem,
+    Toast,
     score_table_item,
 )
 from skinvault.ui._price_worker import IconWorker
 from skinvault.ui.inventory_grid import InventoryGrid, InventoryTile
+
+
+class _CostDialog(QDialog):
+    """Dialog para definir o custo (unitario) de uma posicao.
+
+    Custo e' o dado que falta pro P&L existir -- posicao de sync Steam
+    grava cost=0.0 pra "nao sei". O dialogo aceita os formatos do
+    `_parse_brl` ("199,90", "1.234,50") e mostra o ponto de equilibrio
+    da Steam ao vivo, pra nao obrigar o usuario a lembrar dos 15%.
+    """
+
+    def __init__(self, name: str, quantity: int = 1,
+                 current_cost: float | None = None,
+                 parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Definir custo")
+        self.setMinimumWidth(420)
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
+        self._cost: float | None = None
+        self._build(name, quantity, current_cost)
+
+    def _build(self, name: str, quantity: int,
+               current_cost: float | None) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(12)
+
+        nome = QLabel(name)
+        nome.setStyleSheet(t.label_body_muted())
+        nome.setWordWrap(True)
+        layout.addWidget(nome)
+
+        caption = QLabel(
+            f"Preço unitário — {quantity} item(ns) no total.")
+        caption.setStyleSheet(t.label_caption())
+        caption.setWordWrap(True)
+        layout.addWidget(caption)
+
+        self._inp = QLineEdit()
+        if current_cost is not None:
+            self._inp.setText(f"{current_cost:g}".replace(".", ","))
+        self._inp.setPlaceholderText("ex.: 199,90 — zero = drop")
+        self._inp.setStyleSheet(t.input_style())
+        self._inp.textChanged.connect(self._atualizar_hint)
+        layout.addWidget(FormRow("Custo por item (R$):", self._inp))
+
+        # Ponto de equilibrio da Steam ao vivo. A taxa incide sobre o valor
+        # do VENDEDOR: listar por cost*1,15 devolve o cost de volta. Sem
+        # esse numero o usuario le' o custo no vacuo e decide no chute.
+        self._be_label = QLabel("")
+        self._be_label.setStyleSheet(t.label_caption())
+        self._be_label.setWordWrap(True)
+        layout.addWidget(self._be_label)
+
+        self._err_label = QLabel("")
+        self._err_label.setStyleSheet(
+            f"color: {t.DANGER}; font-size: {t.FS_MUTED};")
+        self._err_label.setWordWrap(True)
+        self._err_label.setVisible(False)
+        layout.addWidget(self._err_label)
+
+        btn_row = QHBoxLayout()
+        cancel = QPushButton("Cancelar")
+        cancel.setStyleSheet(t.btn_ghost())
+        cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel.setToolTip("Fecha sem alterar o custo.")
+        cancel.clicked.connect(self.reject)
+        ok = QPushButton("Salvar custo")
+        ok.setStyleSheet(t.btn_primary())
+        ok.setCursor(Qt.CursorShape.PointingHandCursor)
+        ok.setToolTip("Grava o custo e reavalia o item.")
+        ok.clicked.connect(self._on_ok)
+        btn_row.addStretch()
+        btn_row.addWidget(cancel)
+        btn_row.addWidget(ok)
+        layout.addLayout(btn_row)
+
+        self._atualizar_hint()
+        self._inp.setFocus()
+
+    def _parse(self) -> float | None:
+        try:
+            v = portfolio._parse_brl(self._inp.text())
+        except ValueError:
+            return None
+        if v < 0:
+            return None
+        return v
+
+    def _atualizar_hint(self) -> None:
+        v = self._parse()
+        if v is None:
+            self._be_label.setText("")
+            return
+        if v == 0:
+            self._be_label.setText(
+                "Custo zero (drop): qualquer venda é lucro.")
+            return
+        be = portfolio.break_even_price(v)
+        self._be_label.setText(
+            f"Para empatar na Steam, venda por {t.brl(be)} "
+            f"({t.brl(be - v)} acima do custo — 15% de taxa).")
+
+    def _on_ok(self) -> None:
+        v = self._parse()
+        if v is None:
+            self._err_label.setText(
+                "Custo inválido — use números, ex.: 199,90 (ou 0 para drop).")
+            self._err_label.setVisible(True)
+            self._inp.setFocus()
+            self._inp.selectAll()
+            return
+        self._cost = round(v, 2)
+        self.accept()
+
+    def cost(self) -> float | None:
+        return self._cost
 
 
 class InventoryScreen(QWidget):
@@ -59,9 +180,10 @@ class InventoryScreen(QWidget):
     COL_RECEIVED = 3
     COL_BEST_OUT = 4
     COL_WHERE = 5
-    COL_PNL = 6
-    COL_SCORE = 7
-    COL_ORIGIN = 8
+    COL_COST = 6
+    COL_PNL = 7
+    COL_SCORE = 8
+    COL_ORIGIN = 9
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -71,6 +193,10 @@ class InventoryScreen(QWidget):
         self._icon_worker = IconWorker(self)
         self._icon_worker.done.connect(self._on_icons_ready)
         self._build()
+
+    # Pedido de reavaliacao depois que o custo muda (o PriceWorker vive na
+    # AccountScreen; quem consome e' o ScreenRouter, via refresh()).
+    request_reeval = pyqtSignal()
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
@@ -135,10 +261,10 @@ class InventoryScreen(QWidget):
             self._limpar_filtro)
 
         self._grid = InventoryGrid(columns=8)
-        self._table = QTableWidget(0, 9)
+        self._table = QTableWidget(0, 10)
         self._table.setHorizontalHeaderLabels([
             "Item", "Qtd", "Anúncio Steam", "Recebe (saldo)",
-            "Melhor fora", "Onde", "P&L", "Score", "Origem",
+            "Melhor fora", "Onde", "Custo", "P&L", "Score", "Origem",
         ])
         _tips = {
             self.COL_PRICE: (
@@ -153,6 +279,11 @@ class InventoryScreen(QWidget):
                 "Já desconta a taxa de cada uma (5% a 12%) — por isso o "
                 "maior preço anunciado nem sempre é quem paga mais."),
             self.COL_WHERE: "Plataforma que paga o melhor líquido.",
+            self.COL_COST: (
+                "Quanto você pagou pelo item (ou zero se foi drop).\n"
+                "Duplo clique na coluna para definir.\n"
+                "É daqui que o P&L sai: sem custo, não há lucro que se "
+                "possa afirmar."),
             self.COL_SCORE: (
                 "Score do item (0-100), calculado pelo botão 'Validar score' "
                 "na tela Minha Conta.\n"
@@ -164,6 +295,13 @@ class InventoryScreen(QWidget):
             if cab is not None:
                 cab.setToolTip(tip)
         t.configure_table(self._table)
+        # Custo se edita na tabela: duplo clique na coluna ou menu de
+        # contexto na linha. A grade so' mostra o custo, nao edita -- o
+        # reconhecimento por icone nao e' o momento de digitar numero.
+        self._table.cellDoubleClicked.connect(self._on_cost_double_click)
+        self._table.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu)
+        self._table.customContextMenuRequested.connect(self._on_context_menu)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
         for i in range(1, self.COL_ORIGIN + 1):
@@ -444,6 +582,11 @@ class InventoryScreen(QWidget):
             origem = ("Steam" if pos.get("source") == "steam_sync"
                       else "Manual")
             pnl = r.get("pnl")
+            # Custo com has_cost_basis: sync grava cost=0.0 pra "nao sei",
+            # e exibir "R$ 0,00" mentiria que o item nao custou nada (a
+            # regra da grade, linha ~382, e' a mesma).
+            tem_custo = portfolio.has_cost_basis(pos)
+            custo = pos.get("cost") if tem_custo else None
             # 3o campo = chave de ordenacao (None = ordena pelo texto).
             # Sem ela, moeda ordenava como string: R$ 16,49 caia abaixo de
             # R$ 9,66 -- ver components.SortableItem.
@@ -466,6 +609,9 @@ class InventoryScreen(QWidget):
                  t.brl(melhor["net_brl"]) if melhor else "—",
                  melhor["net_brl"] if melhor else None),
                 (self.COL_WHERE, onde, None),
+                (self.COL_COST,
+                 t.brl(custo) if tem_custo else "—",
+                 custo if tem_custo else None),
                 (self.COL_PNL, t.brl(pnl) if pnl is not None else "—", pnl),
                 (self.COL_ORIGIN, origem, None),
             ]
@@ -478,6 +624,8 @@ class InventoryScreen(QWidget):
                 elif col == self.COL_BEST_OUT and melhor:
                     item.setForeground(QBrush(QColor(t.POSITIVE)))
                 elif col == self.COL_WHERE and melhor:
+                    item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+                elif col == self.COL_COST and tem_custo:
                     item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
                 elif col == self.COL_ORIGIN and origem == "Steam":
                     item.setForeground(QBrush(QColor(t.STEAM_BLUE)))
@@ -502,6 +650,59 @@ class InventoryScreen(QWidget):
     def _focar_filtro(self) -> None:
         self._filter.setFocus()
         self._filter.selectAll()
+
+    def _on_cost_double_click(self, row: int, col: int) -> None:
+        if col == self.COL_COST:
+            self._editar_custo_linha(row)
+
+    def _on_context_menu(self, pos) -> None:
+        item = self._table.itemAt(pos)
+        if item is None:
+            return
+        row = item.row()
+        if row >= len(self._rows):
+            return
+        menu = QMenu(self._table)
+        acao = menu.addAction("Definir custo…")
+        acao.setToolTip(
+            "Quanto você pagou pelo item (ou zero se foi drop).\n"
+            "É daqui que o P&L sai.")
+        if menu.exec(self._table.viewport().mapToGlobal(pos)) == acao:
+            self._editar_custo_linha(row)
+
+    def _editar_custo_linha(self, row: int) -> None:
+        """Abre o dialogo de custo pra linha e reavalia a posicao.
+
+        Reavaliacao e' pedida via sinal em vez de feita aqui: o PriceWorker
+        vive na AccountScreen, e duplicar a avaliacao dobraria o custo de
+        rede (AGENTS.md: worker na tela que tem os dados).
+        """
+        if row >= len(self._rows) or row >= len(self._positions):
+            return
+        r = self._rows[row]
+        pos = self._positions[row]
+        nome = r.get("name") or pos.get("name") or ""
+        qty = r.get("quantity") or pos.get("quantity") or 1
+        atual = pos.get("cost") if portfolio.has_cost_basis(pos) else None
+        dlg = _CostDialog(nome, qty, atual, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        novo = dlg.cost()
+        if novo is None:
+            return
+        self._salvar_custo(nome, novo)
+
+    def _salvar_custo(self, nome: str, custo: float) -> None:
+        res = portfolio.update_position_cost(nome, custo)
+        if res is None:
+            # Nome fora do portfolio (filtro manual desalinhado): cria a
+            # posicao manual e a reavaliacao abaixo traz as linhas novas.
+            portfolio.add_position(nome, custo, 1)
+        else:
+            self._positions = res
+        self.request_reeval.emit()
+        Toast(self, f"Custo de “{nome}” salvo — reavaliando…",
+              "success").show()
 
     def _limpar_filtro(self) -> None:
         if self._filter.text():

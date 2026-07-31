@@ -149,6 +149,10 @@ class ScreenRouter(QWidget):
             self._inventory_screen.set_data)
         self._account_screen.inventory_progress.connect(
             self._inventory_screen.set_loading)
+        # Custo editado na tabela pede reavaliacao: a posicao mudou e o P&L
+        # calculado na ultima passada ficou velho.
+        self._inventory_screen.request_reeval.connect(
+            self._account_screen.refresh)
         self._stack.addWidget(self._inventory_screen)
 
         self._history_screen = HistoryScreen(self._cache, self)

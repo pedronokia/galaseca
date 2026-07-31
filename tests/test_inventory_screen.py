@@ -280,8 +280,8 @@ def test_score_nao_desloca_a_coluna_origem(tela):
     tabela mostraria 'Steam' na coluna errada."""
     tela.set_data(ROWS, POS)
     assert tela._table.item(0, tela.COL_ORIGIN).text() == "Steam"
-    # 9 desde 2026-07-30: "Melhor fora" e "Onde" entraram, "Subtotal" saiu
-    assert tela._table.columnCount() == 9
+    # 10 desde 2026-07-31: "Custo" entrou entre "Onde" e "P&L"
+    assert tela._table.columnCount() == 10
 
 
 # ── a tabela mostra o valor de fora ────────────────────────────────
@@ -763,3 +763,95 @@ def test_voltar_pra_grade_persiste(tela):
     tela._on_view_segment("table")
     tela._on_view_segment("grid")
     assert tela._settings_gravado.get("inventory_view") == "grid"
+
+
+# ── custo: coluna, dialogo e reavaliacao ───────────────────────────
+#
+# Custo e' o dado que faltava pro P&L existir: o sync grava cost=0.0 pra
+# "nao sei" e a unica entrada era o CLI. A coluna e o dialogo sao a porta
+# de dentro do app.
+
+
+def test_coluna_custo_mostra_travessao_sem_custo(tela):
+    """Posicao do sync nao tem custo -> "—", nao "R$ 0,00" (mentiria
+    que o item nao custou nada)."""
+    tela.set_data(ROWS, POS)
+    assert tela._table.item(0, tela.COL_COST).text() == "—"
+
+
+def test_coluna_custo_mostra_valor_declarado(tela):
+    pos = [dict(POS[0], cost=150.0, source="manual"),
+           dict(POS[1], cost=0.0, source="manual")]
+    tela.set_data(ROWS, pos)
+    # A tabela ordena por nome (default do QTableWidget, decrescente), entao
+    # a linha do item se acha pelo nome, nao pelo indice.
+    redline = _linha_por_nome(tela, "Redline")
+    kilowatt = _linha_por_nome(tela, "Kilowatt")
+    assert tela._table.item(redline, tela.COL_COST).text() == "R$ 150,00"
+    # zero DECLARADO (drop) e' custo de verdade -- aparece como zero
+    assert tela._table.item(kilowatt, tela.COL_COST).text() == "R$ 0,00"
+
+
+def _linha_por_nome(tela, trecho: str) -> int:
+    for i in range(tela._table.rowCount()):
+        if trecho in tela._table.item(i, tela.COL_NAME).text():
+            return i
+    raise AssertionError(f"linha com '{trecho}' nao encontrada")
+
+
+def test_salvar_custo_persiste_e_pede_reavaliacao(tela, monkeypatch):
+    """Salvar nao recalcula aqui: o PriceWorker vive na AccountScreen, e a
+    reavaliacao e' pedida por sinal pro router acionar o refresh."""
+    gravado = {}
+    monkeypatch.setattr("skinvault.portfolio.update_position_cost",
+                        lambda nome, custo: gravado.update(
+                            nome=nome, custo=custo) or [{"name": nome}])
+    reeval = []
+    tela.request_reeval.connect(lambda: reeval.append(1))
+    tela.set_data(ROWS, POS)
+    tela._salvar_custo("AK-47 | Redline (Battle-Scarred)", 150.0)
+    assert gravado == {"nome": "AK-47 | Redline (Battle-Scarred)",
+                       "custo": 150.0}
+    assert reeval == [1]
+
+
+def test_salvar_custo_nome_fora_do_portfolio_cria_posicao(tela, monkeypatch):
+    monkeypatch.setattr("skinvault.portfolio.update_position_cost",
+                        lambda *a, **k: None)
+    criado = {}
+    monkeypatch.setattr("skinvault.portfolio.add_position",
+                        lambda nome, custo, qtd: criado.update(
+                            nome=nome, custo=custo, qtd=qtd))
+    tela._salvar_custo("Kilowatt Case", 12.5)
+    assert criado == {"nome": "Kilowatt Case", "custo": 12.5, "qtd": 1}
+
+
+def test_dialogo_aceita_formato_br_e_calcula_equilibrio(app):
+    from skinvault.ui.inventory_screen import _CostDialog
+    dlg = _CostDialog("Kilowatt Case", quantity=21)
+    dlg._inp.setText("199,90")
+    assert dlg._parse() == 199.9
+    dlg._on_ok()
+    assert dlg.cost() == 199.9
+    # break-even ao vivo: 199,90 x 1,15 = 229,88 (taxa do VENDEDOR)
+    assert "229,88" in dlg._be_label.text()
+
+
+def test_dialogo_rejeita_invalido_e_negativo(app):
+    from skinvault.ui.inventory_screen import _CostDialog
+    dlg = _CostDialog("Kilowatt Case")
+    dlg._inp.setText("abc")
+    assert dlg._parse() is None
+    dlg._inp.setText("-5")
+    assert dlg._parse() is None
+    dlg._on_ok()
+    assert dlg.cost() is None
+    assert dlg._err_label.isVisibleTo(dlg) is True
+
+
+def test_dialogo_zero_e_drop(app):
+    from skinvault.ui.inventory_screen import _CostDialog
+    dlg = _CostDialog("Drop")
+    dlg._inp.setText("0")
+    assert dlg._parse() == 0.0
+    assert "qualquer venda é lucro" in dlg._be_label.text()

@@ -347,6 +347,27 @@ def add_position(name: str, cost: float, quantity: int = 1,
     return positions
 
 
+def update_position_cost(name: str, cost: float,
+                         path: Path | str = _DEFAULT_PATH):
+    """Define o custo de uma posicao existente (entrada pela UI).
+
+    Troca `source` pra "manual" de proposito: `has_cost_basis` trata
+    posicao de sync com cost 0.0 como "custo desconhecido", e quem
+    declara custo zero pelo dialogo esta' dizendo que SABE que o item
+    nao custou nada (ex.: drop) -- a distincao e' origem, nao valor.
+    Devolve a lista de positions, ou None se o nome nao existe.
+    """
+    positions = load_portfolio(path)
+    alvo = [p for p in positions if p.get("name") == name]
+    if not alvo:
+        return None
+    for p in alvo:
+        p["cost"] = round(float(cost), 2)
+        p["source"] = "manual"
+    save_portfolio(positions, path)
+    return positions
+
+
 def simulate_trade(buy_price: float, sell_price: float, quantity: int = 1,
                    fee_rate: float = STEAM_FEE) -> dict:
     """Simula uma transacao buy->sell e retorna breakdown completo pra UI.

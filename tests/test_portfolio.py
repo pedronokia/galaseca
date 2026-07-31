@@ -81,6 +81,36 @@ def test_persistencia_roundtrip(tmp_path):
     assert loaded[1]["quantity"] == 2 and loaded[1]["cost"] == 700.0
 
 
+def test_update_position_cost_redefine_e_persiste(tmp_path):
+    p = tmp_path / "pf.json"
+    portfolio.add_position("Kilowatt Case", 0.0, 21,
+                           source="steam_sync", path=p)
+    res = portfolio.update_position_cost("Kilowatt Case", 12.50, path=p)
+    assert res is not None
+    loaded = portfolio.load_portfolio(p)
+    assert loaded[0]["cost"] == pytest.approx(12.50)
+    # Declarar custo tira a posicao do "nao sei" do sync: vira manual e
+    # passa a ter custo real (zero digitado = drop afirmado).
+    assert loaded[0]["source"] == "manual"
+    assert portfolio.has_cost_basis(loaded[0]) is True
+
+
+def test_update_position_cost_nome_inexistente(tmp_path):
+    p = tmp_path / "pf.json"
+    portfolio.add_position("AK-47 | Redline (FT)", 180.0, 1, path=p)
+    assert portfolio.update_position_cost("Nao Existe", 10.0, path=p) is None
+    assert portfolio.load_portfolio(p)[0]["cost"] == 180.0
+
+
+def test_update_position_cost_zero_e_drop_declarado(tmp_path):
+    """Zero digitado no dialogo = 'eu sei que nao custou nada', nao 'nao sei'."""
+    p = tmp_path / "pf.json"
+    portfolio.add_position("Drop", 0.0, 1, source="steam_sync", path=p)
+    portfolio.update_position_cost("Drop", 0.0, path=p)
+    loaded = portfolio.load_portfolio(p)
+    assert portfolio.has_cost_basis(loaded[0]) is True
+
+
 def test_import_csv_basic(tmp_path):
     p = tmp_path / "pf.json"
     csv = (

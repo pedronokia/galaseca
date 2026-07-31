@@ -772,7 +772,7 @@ class AccountScreen(QWidget):
                     f"Nenhum dos {len(rows)} itens tem custo registrado.\n"
                     "Itens vindos do sync não trazem quanto você pagou — sem\n"
                     "isso não dá pra dizer se houve lucro ou prejuízo.\n"
-                    "Informe o custo pelo CLI: --add \"<nome>\" <custo>")
+                    "Informe o custo na aba Inventário, coluna Custo.")
             elif not any(r.get("price") is not None for r in com_custo):
                 self._stat_pnl.setToolTip(
                     f"{len(com_custo)} de {len(rows)} itens tem custo "
@@ -833,16 +833,16 @@ class AccountScreen(QWidget):
             legenda = invest_legenda = (
                 f"nenhum dos {total_pos} itens tem custo declarado")
             dica = ("Sem custo declarado não há lucro nem prejuízo a "
-                    "medir.\nInforme o custo pelo CLI: "
-                    "--add \"<nome>\" <custo>")
+                    "medir.\nInforme o custo na aba Inventário, coluna "
+                    "Custo.")
         elif sem_custo:
             legenda = f"entre os {n} com custo declarado"
             invest_legenda = f"{n} de {total_pos} itens com custo declarado"
             dica = (f"{n} de {total_pos} itens tem custo declarado.\n"
                     f"{sem_custo} vieram do sync, que não informa quanto "
                     "você pagou —\nesses ficam de fora da conta de lucro e "
-                    "prejuízo.\nInforme o custo pelo CLI: "
-                    "--add \"<nome>\" <custo>")
+                    "prejuízo.\nInforme o custo na aba Inventário, coluna "
+                    "Custo.")
         else:
             # Todo item tem custo: o denominador ja' e' o inventario todo e
             # legenda nenhuma acrescenta fato.
