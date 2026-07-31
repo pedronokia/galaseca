@@ -155,6 +155,7 @@ class ScannerScreen(QWidget):
         self._scan_results: list[dict] = []
         self._validate_samples: list[dict] = []
         self._scan_cancelled = False
+        self._scanning = False
         self._build()
 
     def hideEvent(self, event) -> None:
@@ -192,6 +193,7 @@ class ScannerScreen(QWidget):
             "Escaneia todos os itens da categoria, calcula score 0-100"
             " e veredito (COMPRA / ATENÇÃO / EVITAR)."
         )
+        self._scan_tooltip = self._scan_btn.toolTip()
         self._scan_btn.clicked.connect(self._on_scan)
 
         # Acoes secundarias agrupadas em menu ⋯ (Frente CC: max 2 botoes
@@ -261,10 +263,22 @@ class ScannerScreen(QWidget):
         stats_row.setSpacing(16)
         self._stat_count = StatCard("Itens escaneados", "0", icon="radar")
         self._stat_count.setMaximumWidth(300)
+        self._stat_count.setToolTip(
+            "Total de itens da categoria que o scan conseguiu avaliar."
+        )
         self._stat_best = StatCard("Melhor score", "—", icon="trophy")
         self._stat_best.setMaximumWidth(300)
-        self._stat_avg = StatCard("Score medio", "—", icon="chart")
+        self._stat_best.setToolTip(
+            "Maior score 0-100 entre os itens escaneados. Score alto = o"
+            " item combina preço abaixo do justo, book equilibrado e"
+            " liquidez."
+        )
+        self._stat_avg = StatCard("Score médio", "—", icon="chart")
         self._stat_avg.setMaximumWidth(300)
+        self._stat_avg.setToolTip(
+            "Média aritmética dos scores da categoria. Compare com o"
+            " melhor score para ver se a oportunidade é geral ou pontual."
+        )
         for sc in (self._stat_count, self._stat_best, self._stat_avg):
             stats_row.addWidget(sc)
         stats_row.addStretch(1)
@@ -409,6 +423,15 @@ class ScannerScreen(QWidget):
             return False
 
     def _on_scan(self) -> None:
+        if self._scanning:
+            # Mesmo botao vira "Cancelar scan" durante o scan: o clique
+            # sinaliza o worker, que para entre itens e reporta.
+            self._scan_cancelled = True
+            self._scan_btn.setEnabled(False)
+            self._scan_btn.setText("Cancelando...")
+            self._status.setText("Cancelando scan...")
+            return
+
         cat = self._cat_combo.currentText()
         if cat == "Todas as categorias":
             alvos = list(_SCAN_BY_CATEGORY.items())
@@ -420,12 +443,19 @@ class ScannerScreen(QWidget):
             return
 
         self._scan_cancelled = False
+        self._scanning = True
         self._scan_results.clear()
         self._table.setRowCount(0)
         # Mostra a tabela vazia (vai encher progressivamente) e esconde hero
         self._empty_hero.setVisible(False)
         self._table.setVisible(True)
-        self._scan_btn.setEnabled(False)
+        # O botao primario vira "Cancelar scan" e fica habilitado.
+        self._scan_btn.setEnabled(True)
+        self._scan_btn.setText("Cancelar scan")
+        self._scan_btn.setToolTip(
+            "Cancela o scan em andamento. Resultados já coletados "
+            "permanecem na tabela."
+        )
         self._rank_btn.setEnabled(False)
         self._validate_btn.setEnabled(False)
         if usar_descoberta:
@@ -455,8 +485,10 @@ class ScannerScreen(QWidget):
             if not items:
                 self._bridge.progress.emit("FIM")
                 return
+            cancelado = False
             for i, name in enumerate(items):
                 if self._scan_cancelled:
+                    cancelado = True
                     break
                 self._bridge.progress.emit(
                     f"[{i+1}/{len(items)}] {name}"
@@ -465,7 +497,7 @@ class ScannerScreen(QWidget):
                 if result:
                     self._bridge.result_ready.emit(result)
                 time.sleep(2.0)  # rate-limit respect
-            self._bridge.progress.emit("FIM")
+            self._bridge.progress.emit("CANCELADO" if cancelado else "FIM")
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -803,15 +835,23 @@ class ScannerScreen(QWidget):
             self._populate()
 
     def _on_progress(self, msg: str) -> None:
-        if msg == "FIM":
+        if msg in ("FIM", "CANCELADO"):
+            self._scanning = False
+            self._scan_btn.setText("Escanear categoria")
+            self._scan_btn.setToolTip(self._scan_tooltip)
             self._scan_btn.setEnabled(True)
             self._rank_btn.setEnabled(True)
             self._validate_btn.setEnabled(True)
             self._export_btn.setEnabled(True)
             self._loading.setVisible(False)
-            self._status.setText(
-                f"Scan concluido: {len(self._scan_results)} itens"
-            )
+            if msg == "CANCELADO":
+                self._status.setText(
+                    f"Scan cancelado: {len(self._scan_results)} itens coletados"
+                )
+            else:
+                self._status.setText(
+                    f"Scan concluido: {len(self._scan_results)} itens"
+                )
         else:
             self._loading.setVisible(True)
             self._loading.set_label(msg)

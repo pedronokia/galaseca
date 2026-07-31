@@ -1108,6 +1108,32 @@ def test_scanner_on_scan_all_categories(monkeypatch, tmp_path):
     monkeypatch.setattr(OrigThread, "start", sync_start)
     screen._on_scan()
 
+def test_scanner_scan_cancel_toggle(monkeypatch, tmp_path):
+    """Durante o scan o botao vira 'Cancelar scan'; 2o clique cancela."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    monkeypatch.setattr(
+        "skinvault.ui.scanner_screen._SCAN_BY_CATEGORY",
+        {"Rifles": ["AK-47"]})
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    screen = ScannerScreen(PriceCache(tmp_path / "prices.json", ttl=3600))
+    screen._scan_item = lambda name: None
+    screen._on_scan()
+    assert screen._scanning is True
+    assert screen._scan_btn.isEnabled()
+    assert screen._scan_btn.text() == "Cancelar scan"
+    screen._on_scan()  # segundo clique cancela
+    assert screen._scan_cancelled is True
+    assert screen._scan_btn.isEnabled() is False
+    assert screen._scan_btn.text() == "Cancelando..."
+    assert "Cancelando" in screen._status.text()
+    screen._on_progress("CANCELADO")
+    assert screen._scanning is False
+    assert screen._scan_btn.text() == "Escanear categoria"
+    assert screen._scan_btn.isEnabled()
+    assert screen._scan_btn.toolTip() == screen._scan_tooltip
+    assert "cancelado" in screen._status.text()
+
 def test_scanner_populate_with_tooltips():
     """_populate sets score tooltip and order_book_approx warning."""
     from PyQt6.QtCore import Qt
