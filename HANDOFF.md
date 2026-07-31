@@ -14,7 +14,7 @@ custou caro descobrir.
 - Branch: `feat/multi-market-e-inventario`
 - **35 commits**. **Não há remote configurado** — não é decisão pendente,
   não existe pra onde enviar.
-- Suíte: **1923 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **1967 testes**, ~70s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 
