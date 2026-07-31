@@ -3718,6 +3718,15 @@ def test_rules_dialog_with_rules():
     assert dlg._volume_spike.value() == 3
     assert dlg._supply_drop.value() == 20
 
+def test_rules_dialog_campos_tem_tooltip():
+    """Todo campo de regra explica o que dispara (regra do projeto)."""
+    from skinvault.ui.watchlist_screen import _RulesDialog
+    dlg = _RulesDialog({"name": "AK-47"})
+    for campo in ("_below_target", "_drop_pct", "_volume_spike",
+                  "_supply_drop", "_score_above"):
+        assert dlg.__getattribute__(campo).toolTip(), campo
+    assert dlg._score_above.toolTip()
+
 def test_rules_dialog_get_rules_all():
     """get_rules returns all active rules."""
     from skinvault.ui.watchlist_screen import _RulesDialog
@@ -6506,7 +6515,7 @@ def test_pnl_sem_preco_nao_manda_cadastrar_custo_ja_cadastrado(monkeypatch):
     screen = _conta_com_custo_parcial(monkeypatch)
     assert screen._stat_pnl._value.text() == "—"
     dica = screen._stat_pnl.toolTip()
-    assert "nao respondeu" in dica
+    assert "não respondeu" in dica
     assert "Nenhum dos" not in dica
 
 

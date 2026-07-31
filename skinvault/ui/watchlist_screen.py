@@ -69,7 +69,11 @@ class _RulesDialog(QDialog):
         self._below_target.setPrefix("R$ ")
         self._below_target.setValue(rules.get("price_below", 0))
         self._below_target.setStyleSheet(t.input_style())
-        layout.addWidget(FormRow("Alerta abaixo de:", self._below_target))
+        layout.addWidget(FormRow(
+            "Alerta abaixo de:", self._below_target,
+            tooltip="Dispara quando o preço do item cair abaixo deste valor."
+                    " É a regra mais simples: preço alvo clássico.",
+        ))
 
         # Drop %
         self._drop_pct = QDoubleSpinBox()
@@ -77,7 +81,11 @@ class _RulesDialog(QDialog):
         self._drop_pct.setSuffix(" %")
         self._drop_pct.setValue(rules.get("price_drop_pct", 0))
         self._drop_pct.setStyleSheet(t.input_style())
-        layout.addWidget(FormRow("Queda percentual:", self._drop_pct))
+        layout.addWidget(FormRow(
+            "Queda percentual:", self._drop_pct,
+            tooltip="Dispara quando o preço cair essa porcentagem em relação"
+                    " ao preço de base (baseline). Ex.: 15 = queda de 15%.",
+        ))
 
         # Volume spike
         self._volume_spike = QDoubleSpinBox()
@@ -85,7 +93,11 @@ class _RulesDialog(QDialog):
         self._volume_spike.setValue(rules.get("volume_spike", 0))
         self._volume_spike.setSpecialValueText("Desligado")
         self._volume_spike.setStyleSheet(t.input_style())
-        layout.addWidget(FormRow("Volume anomalia (x):", self._volume_spike))
+        layout.addWidget(FormRow(
+            "Volume anomalia (x):", self._volume_spike,
+            tooltip="Dispara quando o volume desviar mais de X vezes a média"
+                    " histórica do item. Ex.: 2 = volume acima de 2x o normal.",
+        ))
 
         # Supply drop
         qb = QGroupBox("Supply drop")
@@ -102,7 +114,15 @@ class _RulesDialog(QDialog):
         self._supply_drop.setValue(rules.get("supply_drop", 0))
         self._supply_drop.setSpecialValueText("Desligado")
         self._supply_drop.setStyleSheet(t.input_style())
-        qb_lay.addWidget(QLabel("Limiar de queda na oferta:"))
+        sup_lbl = QLabel("Limiar de queda na oferta:")
+        sup_tip = (
+            "Dispara quando a oferta (sell_count) cair essa porcentagem em"
+            " relação à média. Oferta baixa + demanda constante costuma"
+            " pressionar o preço para cima."
+        )
+        sup_lbl.setToolTip(sup_tip)
+        self._supply_drop.setToolTip(sup_tip)
+        qb_lay.addWidget(sup_lbl)
         qb_lay.addWidget(self._supply_drop)
         layout.addWidget(qb)
 

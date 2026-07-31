@@ -301,6 +301,8 @@ class QrLoginDialog(QDialog):
         self._btn = QPushButton("Cancelar")
         self._btn.setStyleSheet(t.btn_ghost())
         self._btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn.setToolTip(
+            "Cancela o login pelo QR Code. Você pode tentar de novo depois.")
         self._btn.clicked.connect(self.reject)
         linha.addWidget(self._btn)
         v.addLayout(linha)
