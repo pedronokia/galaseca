@@ -235,7 +235,7 @@ class LoginGate(QWidget):
         if not sess.is_complete():
             QMessageBox.warning(
                 self, "Login incompleto",
-                "Nao foi possivel capturar a sessao. Tente novamente."
+                "Não foi possível capturar a sessão. Tente novamente."
             )
             return
         steam_session.persist(sess)

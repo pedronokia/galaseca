@@ -106,6 +106,6 @@ class WelcomeDialog(QDialog):
         cta = QPushButton("Vamos lá")
         cta.setCursor(Qt.CursorShape.PointingHandCursor)
         cta.setStyleSheet(t.btn_primary(padding="14px 36px", fs=t.FS_INPUT))
-        cta.setToolTip("Fecha este modal e abre o app. Voce nao vera mais.")
+        cta.setToolTip("Fecha este modal e abre o app. Você não verá mais.")
         cta.clicked.connect(self.accept)
         outer.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)

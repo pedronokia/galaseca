@@ -173,7 +173,7 @@ class QrLoginPanel(QWidget):
         # o QR, que e' a acao principal da tela.
         self._btn_browser = QPushButton("Prefiro logar pelo navegador")
         self._btn_browser.setToolTip(
-            "Fluxo antigo: abre o Chrome pra voce logar na Steam.")
+            "Fluxo antigo: abre o Chrome pra você logar na Steam.")
         self._btn_browser.setFlat(True)
         self._btn_browser.setStyleSheet(
             f"QPushButton {{ color: {cor_texto}; background: transparent;"
@@ -260,7 +260,7 @@ class QrLoginPanel(QWidget):
             self._bridge.concluido.emit(qr.EXPIRED, None)
             return
 
-        self._bridge.estado.emit("Confirmado. Obtendo sessao...")
+        self._bridge.estado.emit("Confirmado. Obtendo sessão...")
         token = dados.get("refresh_token", "")
         st, fin = qr.finalize(token)
         if st != qr.OK:

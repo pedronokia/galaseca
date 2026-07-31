@@ -194,7 +194,7 @@ class AccountScreen(QWidget):
         self._strip_sync_btn.setStyleSheet(t.btn_steam())
         self._strip_sync_btn.setToolTip(
             "Puxa seu inventário, market history, listings ativas e trade "
-            "offers da Steam. Usa cookies salvos da sessao."
+            "offers da Steam. Usa cookies salvos da sessão."
         )
         self._strip_sync_btn.clicked.connect(self.request_sync.emit)
         strip_lay.addWidget(self._strip_sync_btn)
@@ -770,14 +770,14 @@ class AccountScreen(QWidget):
             if not com_custo:
                 self._stat_pnl.setToolTip(
                     f"Nenhum dos {len(rows)} itens tem custo registrado.\n"
-                    "Itens vindos do sync nao trazem quanto voce pagou — sem\n"
-                    "isso nao da' pra dizer se houve lucro ou prejuizo.\n"
+                    "Itens vindos do sync não trazem quanto você pagou — sem\n"
+                    "isso não dá pra dizer se houve lucro ou prejuízo.\n"
                     "Informe o custo pelo CLI: --add \"<nome>\" <custo>")
             elif not any(r.get("price") is not None for r in com_custo):
                 self._stat_pnl.setToolTip(
                     f"{len(com_custo)} de {len(rows)} itens tem custo "
                     "registrado, mas\nnenhum deles tem preço agora — a Steam "
-                    "nao respondeu.\nO P&L volta quando a cotacao voltar.")
+                    "não respondeu.\nO P&L volta quando a cotação voltar.")
             else:
                 self._stat_pnl.setToolTip(
                     f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"
@@ -832,16 +832,16 @@ class AccountScreen(QWidget):
         elif not n:
             legenda = invest_legenda = (
                 f"nenhum dos {total_pos} itens tem custo declarado")
-            dica = ("Sem custo declarado nao ha' lucro nem prejuizo a "
+            dica = ("Sem custo declarado não há lucro nem prejuízo a "
                     "medir.\nInforme o custo pelo CLI: "
                     "--add \"<nome>\" <custo>")
         elif sem_custo:
             legenda = f"entre os {n} com custo declarado"
             invest_legenda = f"{n} de {total_pos} itens com custo declarado"
             dica = (f"{n} de {total_pos} itens tem custo declarado.\n"
-                    f"{sem_custo} vieram do sync, que nao informa quanto "
-                    "voce pagou —\nesses ficam de fora da conta de lucro e "
-                    "prejuizo.\nInforme o custo pelo CLI: "
+                    f"{sem_custo} vieram do sync, que não informa quanto "
+                    "você pagou —\nesses ficam de fora da conta de lucro e "
+                    "prejuízo.\nInforme o custo pelo CLI: "
                     "--add \"<nome>\" <custo>")
         else:
             # Todo item tem custo: o denominador ja' e' o inventario todo e

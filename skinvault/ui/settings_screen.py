@@ -161,7 +161,7 @@ class SettingsScreen(QWidget):
         self._restore_btn.setStyleSheet(t.btn_ghost())
         self._restore_btn.setToolTip(
             "Abre um seletor de backup para restaurar dados de um "
-            "ponto anterior. Os dados atuais sao substituidos."
+            "ponto anterior. Os dados atuais são substituídos."
         )
         self._restore_btn.clicked.connect(self._on_restore_backup)
         btn_row.addWidget(self._restore_btn)

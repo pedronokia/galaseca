@@ -93,7 +93,7 @@ class SimulateTradeDialog(QDialog):
         btn.setStyleSheet(t.btn_primary())
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setToolTip(
-            "Calcula P&L liquido apos taxa Steam de 15% e o preco minimo "
+            "Calcula P&L líquido após taxa Steam de 15% e o preço mínimo "
             "de venda para empatar."
         )
         btn.clicked.connect(self._calc)
@@ -258,7 +258,7 @@ class _FilterBar(QWidget):
         clear_btn = QPushButton("Limpar")
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_btn.setToolTip(
-            "Reseta o filtro de busca por nome/nota (Esc tambem funciona)."
+            "Reseta o filtro de busca por nome/nota (Esc também funciona)."
         )
         clear_btn.setStyleSheet(
             t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
@@ -471,7 +471,7 @@ class HistoryScreen(QWidget):
             t.btn_ghost(padding="8px 14px", fs=t.FS_BODY)
         )
         self._update_prices_btn.setToolTip(
-            "Busca o preco atual de cada item aberto na Steam Market"
+            "Busca o preço atual de cada item aberto na Steam Market"
             " (em segundo plano)."
         )
         self._update_prices_btn.clicked.connect(self._on_update_prices)
