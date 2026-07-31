@@ -224,8 +224,19 @@ class InventoryScreen(QWidget):
                 self._status.setText(
                     f"{len(self._rows)} item(ns) • reavaliando {done}/{total}…")
             return
-        self._views.setVisible(False)
         self._empty.setVisible(False)
+        # Esqueleto na grade em vez de um spinner num vazio: sob rate limit
+        # a avaliacao leva minutos, e o fantasma ja' diz quanta coisa vem e
+        # onde cada parte vai cair -- a tela nao "salta" quando os dados
+        # chegam. So' vale se o total for conhecido; sem ele, o spinner
+        # continua sendo a leitura honesta.
+        if total and self._views.currentIndex() == 0:
+            self._grid.set_skeleton(total)
+            self._views.setVisible(True)
+            self._loading.setVisible(False)
+            self._status.setText(f"Avaliando inventário… {done}/{total}")
+            return
+        self._views.setVisible(False)
         self._loading.setVisible(True)
         self._loading.set_label(
             f"Avaliando inventário… {done}/{total}" if total

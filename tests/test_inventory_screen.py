@@ -139,9 +139,30 @@ def test_loading_substitui_o_empty_state(tela):
     assert tela._views.isVisibleTo(tela) is False
 
 
+def _progresso_visivel(tela):
+    """O progresso pode aparecer no rodape (grade com esqueleto) ou no
+    rotulo do spinner (sem total conhecido) -- o que importa e' o usuario
+    ver quanto falta."""
+    return tela._status.text() + " " + tela._loading._lbl.text()
+
+
 def test_loading_mostra_o_progresso(tela):
     tela.set_loading(4, 31)
-    assert "4/31" in tela._loading._lbl.text()
+    assert "4/31" in _progresso_visivel(tela)
+
+
+def test_loading_com_total_usa_esqueleto(tela):
+    """Sob rate limit a avaliacao leva minutos: o fantasma diz quanta
+    coisa vem, em vez de um spinner num vazio."""
+    tela.set_loading(0, 31)
+    assert tela._grid.count() == 31
+    assert tela._views.isVisibleTo(tela) is True
+
+
+def test_esqueleto_some_quando_os_dados_chegam(tela):
+    tela.set_loading(0, 31)
+    tela.set_data(ROWS, POS)
+    assert tela._grid.count() == 2
 
 
 def test_loading_sem_total_nao_inventa_numero(tela):
@@ -188,7 +209,8 @@ def test_account_emite_progresso_pra_inventory(monkeypatch):
     from skinvault.ui.screen_router import ScreenRouter
     router = ScreenRouter(PriceCache(ttl=3600))
     router._account_screen.inventory_progress.emit(3, 31)
-    assert "3/31" in router._inventory_screen._loading._lbl.text()
+    inv = router._inventory_screen
+    assert "3/31" in (inv._status.text() + " " + inv._loading._lbl.text())
 
 
 # ── coluna Score ───────────────────────────────────────────────────

@@ -854,3 +854,52 @@ def test_score_sem_data_nao_inventa_idade(app):
     txt = _texto(p._score)
     assert "55" in txt
     assert "dias" not in txt and "hoje" not in txt
+
+
+# ── esqueleto de carregamento ──────────────────────────────────────
+#
+# Sob rate limit a avaliacao leva minutos (backoff por item) e a tela
+# ficava com um spinner centralizado num vazio.
+
+
+def test_esqueleto_cria_a_quantidade_pedida(app):
+    g = InventoryGrid()
+    g.set_skeleton(31)
+    assert g.count() == 31
+
+
+def test_esqueleto_tem_teto(app):
+    """Inventario gigante nao pode virar centenas de widgets so' pra
+    dizer 'carregando'."""
+    g = InventoryGrid()
+    g.set_skeleton(5000)
+    assert g.count() <= 60
+
+
+def test_dados_substituem_o_esqueleto(app):
+    g = InventoryGrid()
+    g.set_skeleton(20)
+    g.set_items([_item("a"), _item("b")])
+    assert g.count() == 2
+    assert all(getattr(tl, "item", None) is not None for tl in g._tiles)
+
+
+def test_filtrar_durante_o_carregamento_nao_quebra(app):
+    """Fantasma nao tem `.item`; filtrar nao pode explodir nem escondê-los."""
+    g = InventoryGrid()
+    g.set_skeleton(10)
+    assert g.set_filter("qualquer coisa") == 10
+
+
+def test_ordenar_durante_o_carregamento_nao_quebra(app):
+    g = InventoryGrid()
+    g.set_skeleton(10)
+    g.set_order("nome")
+    assert g.count() == 10
+
+
+def test_esqueleto_zera_a_selecao(app):
+    g = InventoryGrid()
+    g.set_items([_item("a")])
+    g.set_skeleton(5)
+    assert g._indice_selecionado() == -1

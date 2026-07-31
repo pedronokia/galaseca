@@ -267,6 +267,37 @@ class InventoryTile(QFrame):
         return nome
 
 
+class SkeletonTile(QFrame):
+    """Card fantasma: a FORMA do conteudo enquanto ele nao chega.
+
+    Sob rate limit da Steam a avaliacao leva minutos (backoff por item), e
+    nesse intervalo a tela mostrava um spinner centralizado num vazio. O
+    esqueleto diz quanta coisa vem e onde cada parte vai cair, entao a
+    tela nao "salta" quando os dados chegam.
+
+    Sem animacao de brilho de proposito: o shimmer exigiria um timer por
+    tile, e sao dezenas deles.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(TILE_W, TILE_H)
+
+    def paintEvent(self, _evt) -> None:  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(t.SURFACE))
+        p.drawRoundedRect(QRect(0, 0, TILE_W, TILE_H),
+                          t.RADIUS_MD, t.RADIUS_MD)
+        # Blocos nos lugares exatos do icone, do nome e do preco.
+        p.setBrush(QColor(t.SURFACE_HOV))
+        p.drawRoundedRect(QRect(28, 18, TILE_W - 56, TILE_ICON_H - 36), 4, 4)
+        p.drawRoundedRect(QRect(34, TILE_ICON_H + 3, TILE_W - 68, 9), 4, 4)
+        p.drawRoundedRect(QRect(48, TILE_ICON_H + 20, TILE_W - 96, 12), 4, 4)
+        p.end()
+
+
 class ItemDetailPanel(QFrame):
     """Painel lateral: as duas avaliacoes do item selecionado."""
 
@@ -730,11 +761,32 @@ class InventoryGrid(QWidget):
         if ordem not in self._ORDENS or ordem == self._ordem:
             return
         self._ordem = ordem
-        chave = {id(t.item): t for t in self._tiles}
+        if not self._itens:
+            return          # so' esqueletos na tela: nao ha' o que ordenar
+        chave = {id(t.item): t for t in self._tiles
+                 if getattr(t, "item", None) is not None}
         self._tiles = [chave[id(i)] for i in self._ordenar(self._itens)
                        if id(i) in chave]
         self._visiveis = [t for t in self._tiles if t.isVisibleTo(self)]
         self._reposicionar()
+
+    def set_skeleton(self, quantos: int) -> None:
+        """Enche a grade de cards fantasma enquanto a avaliacao roda.
+
+        Limpa igual ao `set_items` -- se os dados chegarem enquanto os
+        fantasmas estao na tela, `set_items` os remove pelo mesmo caminho.
+        """
+        for tile in self._tiles:
+            tile.setParent(None)
+            tile.deleteLater()
+        self._tiles = []
+        self._itens = []
+        for _ in range(max(0, min(quantos, 60))):
+            tile = SkeletonTile()
+            self._tiles.append(tile)
+        self._visiveis = list(self._tiles)
+        self._reposicionar()
+        self._detail.show_item(None)
 
     def set_filter(self, texto: str) -> int:
         """Esconde os tiles que nao casam, recompacta e devolve quantos ficaram.
@@ -746,7 +798,14 @@ class InventoryGrid(QWidget):
         alvo = (texto or "").strip().lower()
         visiveis = []
         for tile in self._tiles:
-            casa = not alvo or alvo in (tile.item.get("name") or "").lower()
+            # Fantasma nao tem item: filtrar durante o carregamento nao pode
+            # explodir nem esconder os esqueletos.
+            item = getattr(tile, "item", None)
+            if item is None:
+                tile.setVisible(True)
+                visiveis.append(tile)
+                continue
+            casa = not alvo or alvo in (item.get("name") or "").lower()
             tile.setVisible(casa)
             if casa:
                 visiveis.append(tile)
@@ -803,8 +862,10 @@ class InventoryGrid(QWidget):
 
     # ── navegacao por teclado ─────────────────────────────
     def _indice_selecionado(self) -> int:
+        # getattr: durante o carregamento os tiles sao fantasmas, que nao
+        # tem `_selected`. Uma seta apertada nesse intervalo derrubava o app.
         for i, tile in enumerate(self._visiveis):
-            if tile._selected:
+            if getattr(tile, "_selected", False):
                 return i
         return -1
 
@@ -813,9 +874,12 @@ class InventoryGrid(QWidget):
             return
         idx = max(0, min(idx, len(self._visiveis) - 1))
         alvo = self._visiveis[idx]
+        item = getattr(alvo, "item", None)
+        if item is None:
+            return          # fantasma de carregamento nao e' selecionavel
         # `_on_tile` recebe o DICT do item, nao o tile -- a selecao compara
         # `tile.item is item`, e passar o widget deixava tudo desmarcado.
-        self._on_tile(alvo.item)
+        self._on_tile(item)
         self._scroll.ensureWidgetVisible(alvo)
 
     def keyPressEvent(self, evt) -> None:  # noqa: N802
