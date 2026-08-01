@@ -647,7 +647,12 @@ class ItemDetailPanel(QFrame):
         """
         from skinvault import cases
 
-        nome = item.get("name") or ""
+        # `raw_name` e nao `name`: o catalogo indexa pelo market_hash_name
+        # em ingles, e `name` vem LOCALIZADO. "Caixa Kilowatt" nao casa com
+        # nada e o painel dizia "nao esta' mapeado numa caixa" pra uma caixa
+        # que ele conhece. Skins escapavam porque "AWP | Asiimov" e' igual
+        # nos dois idiomas -- so' o container muda de nome inteiro.
+        nome = item.get("raw_name") or item.get("name") or ""
         info = cases.case_status(nome) or {}
         caixa = info.get("case")
         # `case_status` NUNCA devolve vazio: item desconhecido volta com
@@ -660,8 +665,13 @@ class ItemDetailPanel(QFrame):
                 "mapeado numa caixa.</span>")
             return
 
+        from skinvault.localization import localize_name as _ln
         ano = info.get("year")
         proprio = caixa == nome        # o item E' o container
+        # Consulta pelo cru, EXIBE traduzido: o resto da tela diz "Caixa
+        # Kilowatt", e "Vem de Operation Phoenix Weapon Case" no meio disso
+        # destoa.
+        caixa = _ln(caixa) or caixa
         if info.get("is_discontinued"):
             estado = "não cai mais em drop"
             cor = t.TEXT

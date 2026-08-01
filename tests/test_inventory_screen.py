@@ -880,3 +880,59 @@ def test_dialogo_zero_e_drop(app):
     dlg._inp.setText("0")
     assert dlg._parse() == 0.0
     assert "qualquer venda é lucro" in dlg._be_label.text()
+
+
+# ── painel de filtros ──────────────────────────────────────────────
+
+
+def test_filtros_listam_categorias_com_contagem(tela):
+    tela.set_data(ROWS, POS)
+    rotulos = {b._rotulo.text(): b._contagem.text()
+               for b in tela._cat_botoes.values()}
+    assert rotulos["Todos"] == "2"
+    assert rotulos["Skins"] == "1"
+    assert rotulos["Caixas e cápsulas"] == "1"
+
+
+def test_contagem_fica_em_label_separado(tela):
+    """Com tudo num setText unico, alinhar a contagem exigiria contar
+    espacos -- e a coluna saia irregular, porque a fonte nao e'
+    monoespacada."""
+    tela.set_data(ROWS, POS)
+    btn = tela._cat_botoes[None]
+    assert btn._rotulo.text() == "Todos"
+    assert btn._contagem.text().isdigit()
+
+
+def test_rotulos_nao_comem_o_clique(tela):
+    """Sem WA_TransparentForMouseEvents o clique morre no label e o botao
+    nunca dispara."""
+    from PyQt6.QtCore import Qt
+    tela.set_data(ROWS, POS)
+    btn = tela._cat_botoes[None]
+    for w in (btn._rotulo, btn._contagem):
+        assert w.testAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents) is True
+
+
+def test_categoria_ativa_fica_destacada(tela):
+    """O `:checked` do stylesheet pinta o BOTAO, nao os QLabels dentro --
+    sem repintar, nao dava pra saber qual filtro estava valendo."""
+    from skinvault.ui import theme as t
+    tela.set_data(ROWS, POS)
+    tela._on_categoria("Skins")
+    assert t.TEXT in tela._cat_botoes["Skins"]._rotulo.styleSheet()
+    assert t.TEXT_MUTED in tela._cat_botoes[None]._rotulo.styleSheet()
+
+
+def test_filtros_somem_sem_itens(tela):
+    assert tela._cat_panel.isVisibleTo(tela) is False
+
+
+def test_filtros_reconstroem_a_cada_carga(tela):
+    """Categoria que ficou sem item viraria um filtro que nao devolve
+    nada."""
+    tela.set_data(ROWS, POS)
+    assert "Caixas e cápsulas" in tela._cat_botoes
+    tela.set_data([ROWS[0]], [POS[0]])
+    assert "Caixas e cápsulas" not in tela._cat_botoes

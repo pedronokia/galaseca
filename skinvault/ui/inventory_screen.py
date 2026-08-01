@@ -330,6 +330,9 @@ class InventoryScreen(QWidget):
         self._cat_botoes: dict = {}
         self._cat_lay = cat_lay
         cat_lay.addStretch(1)
+        # Escondido ate' haver item: senao a tela vazia mostra o titulo
+        # "Filtros" com nada embaixo. `_montar_categorias` reexibe.
+        self._cat_panel.setVisible(False)
         corpo.addWidget(self._cat_panel, 0)
 
         self._views = QStackedWidget()
@@ -706,21 +709,72 @@ class InventoryScreen(QWidget):
         total = sum(n for _, n in cats)
         for chave, rotulo, n in [(None, "Todos", total)] + [
                 (c, c, n) for c, n in cats]:
-            btn = QPushButton(f"{rotulo}   {n}")
-            btn.setCheckable(True)
-            btn.setAutoExclusive(True)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(t.btn_ghost(padding="7px 10px"))
-            btn.setChecked(chave is None)
+            btn = self._botao_categoria(rotulo, n, chave is None)
             btn.clicked.connect(
                 lambda _=False, c=chave: self._on_categoria(c))
             # antes do stretch final, senao os botoes vao pro rodape
             self._cat_lay.insertWidget(self._cat_lay.count() - 1, btn)
             self._cat_botoes[chave] = btn
 
+    @staticmethod
+    def _botao_categoria(rotulo: str, n: int, marcado: bool) -> QPushButton:
+        """Linha de filtro: rotulo a' esquerda, contagem a' direita.
+
+        Com o texto num `setText` unico, alinhar a contagem exigiria contar
+        espacos -- e a coluna saia irregular, porque a fonte nao e'
+        monoespacada. Dois QLabels num layout resolvem de verdade.
+
+        Os rotulos ficam transparentes ao mouse: sem isso o clique morre no
+        label e o botao nunca dispara.
+        """
+        btn = QPushButton()
+        btn.setCheckable(True)
+        btn.setAutoExclusive(True)
+        btn.setChecked(marcado)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setMinimumHeight(30)
+        btn.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: none;"
+            f" border-radius: {t.RADIUS_SM}px; padding: 0 10px;"
+            f" text-align: left; }}"
+            f"QPushButton:hover {{ background: {t.SURFACE}; }}"
+            f"QPushButton:checked {{ background: {t.SURFACE}; }}"
+            f"QPushButton:focus {{ background: {t.SURFACE}; }}"
+        )
+        lay = QHBoxLayout(btn)
+        lay.setContentsMargins(10, 0, 10, 0)
+        lay.setSpacing(8)
+        cor = t.TEXT if marcado else t.TEXT_MUTED
+        peso = "600" if marcado else "500"
+        lbl = QLabel(rotulo)
+        lbl.setStyleSheet(
+            f"color: {cor}; font-size: {t.FS_BODY}; font-weight: {peso};"
+            f" font-family: {t.FONT_FAMILY}; background: transparent;")
+        cnt = QLabel(str(n))
+        cnt.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY}; background: transparent;")
+        for w in (lbl, cnt):
+            w.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        lay.addWidget(lbl)
+        lay.addStretch(1)
+        lay.addWidget(cnt)
+        btn._rotulo, btn._contagem = lbl, cnt
+        return btn
+
     def _on_categoria(self, categoria) -> None:
         self._grid.set_category(categoria)
         self._apply_filter(self._filter.text())
+        # O `:checked` do stylesheet pinta o BOTAO, nao os QLabels dentro
+        # dele -- sem repintar aqui, a categoria ativa ficava com a mesma
+        # cor das outras e nao dava pra saber qual estava valendo.
+        for chave, btn in self._cat_botoes.items():
+            ativo = chave == categoria
+            btn._rotulo.setStyleSheet(
+                f"color: {t.TEXT if ativo else t.TEXT_MUTED};"
+                f" font-size: {t.FS_BODY};"
+                f" font-weight: {'600' if ativo else '500'};"
+                f" font-family: {t.FONT_FAMILY}; background: transparent;")
 
     def _focar_filtro(self) -> None:
         self._filter.setFocus()

@@ -527,7 +527,8 @@ def test_container_mostra_o_proprio_nome(app):
     p = ItemDetailPanel()
     p.show_item({"name": "Kilowatt Case", "qty": 1})
     txt = _texto(p._origem)
-    assert "Kilowatt Case" in txt
+    # Exibido traduzido, como o resto da tela.
+    assert "Caixa Kilowatt" in txt
     assert "Vem de" not in txt, "o container nao 'vem de' si mesmo"
 
 
@@ -536,7 +537,7 @@ def test_skin_aponta_a_caixa_de_origem(app):
     p.show_item({"name": "AWP | Asiimov (Field-Tested)", "qty": 1})
     txt = _texto(p._origem)
     assert "Vem de" in txt
-    assert "Operation Phoenix Weapon Case" in txt
+    assert "Caixa Fênix da Operação" in txt
 
 
 def test_descontinuada_diz_que_nao_cai_mais(app):
@@ -958,3 +959,46 @@ def test_limpar_texto_mantem_a_categoria(app):
 
 def test_categorias_vazias_sem_itens(app):
     assert InventoryGrid().categorias() == []
+
+
+# ── procedencia com nome localizado ────────────────────────────────
+#
+# A tela exibe o nome traduzido ("Caixa Kilowatt") e o catalogo indexa
+# pelo market_hash_name ingles ("Kilowatt Case"). Consultar pelo nome
+# exibido fazia o painel dizer "nao esta' mapeado numa caixa" pra uma
+# caixa que o app conhece. Skin escapava porque "AWP | Asiimov" e' igual
+# nos dois idiomas -- so' o container muda de nome inteiro.
+
+
+def test_container_localizado_ainda_e_reconhecido(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "Caixa Kilowatt", "raw_name": "Kilowatt Case",
+                 "qty": 21})
+    txt = _texto(p._origem)
+    assert "não está mapeado" not in txt
+    assert "em drop" in txt
+
+
+def test_procedencia_e_exibida_traduzida(app):
+    """O resto da tela diz "Caixa Kilowatt"; "Vem de Operation Phoenix
+    Weapon Case" no meio disso destoa."""
+    p = ItemDetailPanel()
+    p.show_item({"name": "AWP | Asiimov (Testada em Campo)",
+                 "raw_name": "AWP | Asiimov (Field-Tested)", "qty": 1})
+    txt = _texto(p._origem)
+    assert "Caixa Fênix da Operação" in txt
+    assert "Operation Phoenix" not in txt
+
+
+def test_sem_raw_name_cai_no_name(app):
+    """Item vindo de outro caminho pode nao ter raw_name."""
+    p = ItemDetailPanel()
+    p.show_item({"name": "Kilowatt Case", "qty": 1})
+    assert "em drop" in _texto(p._origem)
+
+
+def test_categoria_do_card_usa_o_nome_cru(app):
+    """Mesma armadilha no rotulo de categoria do card."""
+    tile = InventoryTile({"name": "Caixa Kilowatt",
+                          "raw_name": "Kilowatt Case", "qty": 21})
+    assert tile._categoria() == "Caixas e cápsulas"
