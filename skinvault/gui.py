@@ -942,6 +942,28 @@ class MainWindow(QMainWindow):
         if sidebar is not None:
             sidebar.setFixedWidth(width)
 
+    def _apply_table_density(self, density: str) -> None:
+        """Aplica a densidade de tabela ao vivo (chamado pela tela de
+        Configuracoes) em toda tela ja construida que tenha uma `_table`.
+
+        Mesmo padrao de `_apply_sidebar_width`/`_on_theme_changed`: as
+        telas sao construidas uma vez so' no ScreenRouter.__init__, entao
+        mudar o settings sozinho nao afeta quem ja' esta' de pe -- precisa
+        de um passo explicito que ache cada tabela e reaplique.
+        """
+        from skinvault.ui import theme as t
+        router = getattr(self, "_router", None)
+        if router is None:
+            return
+        for attr in ("_account_screen", "_inventory_screen",
+                     "_history_screen", "_scanner_screen",
+                     "_market_screen", "_trades_screen",
+                     "_watchlist_screen", "_cleanup_screen"):
+            screen = getattr(router, attr, None)
+            table = getattr(screen, "_table", None)
+            if table is not None:
+                t.set_table_density(table, density)
+
     def _on_theme_changed(self) -> None:
         s = load_settings()
         theme = s.get("theme", "dark")

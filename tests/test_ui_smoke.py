@@ -8161,6 +8161,154 @@ def test_largura_da_barra_vale_quando_expandida(monkeypatch):
     assert win._sidebar.width() == 300
 
 
+# ── Densidade de tabela ──────────────────────────────────────
+
+def test_configure_table_default_density_preserva_altura_historica():
+    """Sem density explicito, a altura de linha continua 32px -- ninguem
+    que ja chama configure_table(table) pode ver a tabela mudar de
+    tamanho so por causa desta feature."""
+    from PyQt6.QtWidgets import QTableWidget
+    from skinvault.ui import theme as t
+    table = QTableWidget(0, 1)
+    t.configure_table(table)
+    assert table.verticalHeader().defaultSectionSize() == 32
+
+
+def test_configure_table_aplica_densidade_pedida():
+    from PyQt6.QtWidgets import QTableWidget
+    from skinvault.ui import theme as t
+    table = QTableWidget(0, 1)
+    t.configure_table(table, density="compact")
+    assert (table.verticalHeader().defaultSectionSize()
+            == t.TABLE_ROW_H["compact"])
+
+
+def test_set_table_density_troca_altura_ao_vivo():
+    """A troca ao vivo (chamada pela tela de Configuracoes) reconfigura
+    uma tabela ja construida, sem precisar recriar o widget."""
+    from PyQt6.QtWidgets import QTableWidget
+    from skinvault.ui import theme as t
+    table = QTableWidget(0, 1)
+    t.configure_table(table)  # nasce "standard"
+    assert table.verticalHeader().defaultSectionSize() == 32
+    t.set_table_density(table, "comfortable")
+    assert (table.verticalHeader().defaultSectionSize()
+            == t.TABLE_ROW_H["comfortable"])
+    t.set_table_density(table, "compact")
+    assert (table.verticalHeader().defaultSectionSize()
+            == t.TABLE_ROW_H["compact"])
+
+
+def test_set_table_density_invalida_cai_no_standard():
+    from PyQt6.QtWidgets import QTableWidget
+    from skinvault.ui import theme as t
+    table = QTableWidget(0, 1)
+    t.set_table_density(table, "gigante")
+    assert table.verticalHeader().defaultSectionSize() == t.SIZE_ROW_H
+
+
+def test_settings_screen_density_calla_window_hook(monkeypatch):
+    """Trocar a densidade aciona _apply_table_density via window()."""
+    from PyQt6.QtWidgets import QWidget
+    monkeypatch.setattr("skinvault.ui.settings_screen.load_settings",
+                        lambda *a, **kw: {})
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda *a, **kw: None)
+    from skinvault.ui.settings_screen import SettingsScreen
+    called = []
+    parent = QWidget()
+    parent._apply_table_density = lambda d: called.append(d)
+    screen = SettingsScreen(parent)
+    screen._density_seg.select("comfortable")
+    assert called == ["comfortable"]
+
+
+def test_settings_screen_density_carrega_do_settings(monkeypatch):
+    from PyQt6.QtWidgets import QWidget
+    monkeypatch.setattr(
+        "skinvault.ui.settings_screen.load_settings",
+        lambda *a, **kw: {"table_density": "compact"})
+    monkeypatch.setattr("skinvault.ui.settings_screen.save_settings",
+                        lambda *a, **kw: None)
+    from skinvault.ui.settings_screen import SettingsScreen
+    parent = QWidget()  # referencia viva: sem isto o widget e' coletado
+    screen = SettingsScreen(parent)
+    assert screen._density_seg._items["compact"].isChecked() is True
+
+
+def test_apply_table_density_percorre_todas_as_telas(monkeypatch):
+    """MainWindow._apply_table_density acha a _table de cada tela ja
+    construida no router real e reaplica a densidade nela."""
+    from skinvault.gui import MainWindow
+    from skinvault.ui import theme as t
+    router = _make_router()
+
+    class _FakeWin:
+        _router = router
+
+    MainWindow._apply_table_density(_FakeWin(), "compact")
+    alvo = t.TABLE_ROW_H["compact"]
+    for attr in ("_inventory_screen", "_history_screen", "_scanner_screen",
+                 "_trades_screen", "_watchlist_screen"):
+        table = getattr(router, attr)._table
+        assert table.verticalHeader().defaultSectionSize() == alvo, attr
+
+
+# ── ViewModeSwitcher ───────────────────────────────────────────
+
+def test_view_mode_switcher_tem_grade_e_tabela():
+    from skinvault.ui.components import ViewModeSwitcher
+    sw = ViewModeSwitcher()
+    assert set(sw._items) == {"grid", "table"}
+    assert sw._items["grid"].isChecked() is True  # Grade nasce marcada
+
+
+def test_view_mode_switcher_emite_ao_selecionar():
+    from skinvault.ui.components import ViewModeSwitcher
+    sw = ViewModeSwitcher()
+    recebidos = []
+    sw.segment_changed.connect(recebidos.append)
+    sw.select("table")
+    assert recebidos == ["table"]
+
+
+def test_inventory_usa_view_mode_switcher():
+    from skinvault.ui.inventory_screen import InventoryScreen
+    from skinvault.ui.components import ViewModeSwitcher
+    screen = InventoryScreen()
+    assert isinstance(screen._view_seg, ViewModeSwitcher)
+
+
+# ── P&L no card do inventario ──────────────────────────────────
+
+def test_inventory_tile_mostra_pnl_positivo_e_negativo():
+    from skinvault.ui.inventory_grid import InventoryTile
+    lucro = InventoryTile({"name": "AK-47 | Redline", "pnl": 12.5})
+    prejuizo = InventoryTile({"name": "AWP | Asiimov", "pnl": -8.0})
+    sem_custo = InventoryTile({"name": "Kilowatt Case", "pnl": None})
+    # grab() forca o paintEvent a rodar de ponta a ponta -- se a secao
+    # nova de P&L tivesse um bug de indice/tipo, quebraria aqui.
+    for tile in (lucro, prejuizo, sem_custo):
+        pix = tile.grab()
+        assert not pix.isNull()
+
+
+def test_populate_grid_inclui_pnl(monkeypatch, tmp_path):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.inventory_screen import InventoryScreen
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda *a, **k: {})
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.11)
+    screen = InventoryScreen()
+    rows = [{"name": "AK-47 | Redline (Field-Tested)", "quantity": 1,
+             "price": 100.0, "net_if_sold": 85.0, "pnl": -5.25}]
+    positions = [{"source": "steam_sync", "cost": 105.25}]
+    screen.set_data(rows, positions)
+    itens = screen._grid._itens
+    assert len(itens) == 1
+    assert itens[0]["pnl"] == -5.25
+
+
 def test_mainwindow_on_navigated(monkeypatch):
     """_on_navigated calls sidebar.select."""
     win = _make_mw(monkeypatch)

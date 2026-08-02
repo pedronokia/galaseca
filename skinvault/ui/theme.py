@@ -90,7 +90,9 @@ SPACE_2XL = 32
 # Use em setFixedHeight/setFixedWidth/setMinimumHeight
 SIZE_INPUT_H    = 32
 SIZE_BTN_H      = 34
-SIZE_ROW_H      = 32   # altura de linha em QTableWidget (Win11 density)
+SIZE_ROW_H      = 32   # altura de linha em QTableWidget (Win11 density) --
+                       # e' o mesmo valor de TABLE_ROW_H["standard"], mantido
+                       # pra nao quebrar quem ainda le' SIZE_ROW_H direto.
 SIZE_ICON_SM    = 14
 SIZE_ICON_MD    = 18
 SIZE_ICON_LG    = 22
@@ -384,14 +386,34 @@ def checkbox_style() -> str:
     )
 
 
-def table_style() -> str:
+# ── Densidade de tabela ──────────────────────────────────────
+# 3 niveis: altura de linha + padding de celula mudam juntos (senao o
+# texto fica espremido numa linha baixa ou boiando solto numa alta).
+# Persistido em settings["table_density"]; aplicado por configure_table()
+# na construcao e por set_table_density() pra trocar ao vivo.
+TABLE_ROW_H = {
+    "compact": 24,
+    "standard": SIZE_ROW_H,      # 32 -- default historico, sem mudanca
+    "comfortable": 44,
+}
+TABLE_CELL_PAD = {
+    "compact": "4px 10px",
+    "standard": "9px 14px",      # default historico, sem mudanca
+    "comfortable": "14px 18px",
+}
+TABLE_DENSITIES = ("compact", "standard", "comfortable")
+_DEFAULT_DENSITY = "standard"
+
+
+def table_style(density: str = _DEFAULT_DENSITY) -> str:
+    pad = TABLE_CELL_PAD.get(density, TABLE_CELL_PAD[_DEFAULT_DENSITY])
     return (
         f"QTableWidget {{ background: {BG_ELEVATED};"
         f" alternate-background-color: {ROW_ALT};"
         f" gridline-color: transparent; border: 1px solid {BORDER};"
         f" border-radius: 12px; color: {TEXT}; font-size: {FS_BODY};"
         f" font-family: {FONT_FAMILY}; }}"
-        f"QTableWidget::item {{ padding: 9px 14px; }}"
+        f"QTableWidget::item {{ padding: {pad}; }}"
         # O QHeaderView em si, nao so' a secao: a faixa do cabecalho DEPOIS
         # da ultima coluna cai na paleta do sistema (branca no Windows).
         # So' nao aparecia porque uma coluna esticava e nunca sobrava faixa.
@@ -399,7 +421,7 @@ def table_style() -> str:
         f"QHeaderView::section {{ background: {BG_ELEVATED};"
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER};"
-         f" padding: 9px 14px 9px 14px;"
+         f" padding: {pad};"
         f" font-weight: 600; font-size: {FS_MUTED}; }}"
         # Cabecalho e' clicavel (ordena a coluna) mas nao dava nenhum
         # feedback ao passar o mouse -- parecia so' rotulo estatico.
@@ -644,25 +666,42 @@ def row_tint(pnl: float | None) -> QColor | None:
     return c
 
 
-def configure_table(table: QTableWidget) -> None:
+def configure_table(table: QTableWidget,
+                    density: str = _DEFAULT_DENSITY) -> None:
     """Aplica os defaults visuais Win11 trading-app a uma QTableWidget.
 
     Consolida ~7 linhas de boilerplate duplicadas em todas as telas com
     tabela (account, history, scanner, trades, watchlist). Ponto unico
     de controle pra futuros polishes (ex: setShowGrid, focus row).
 
-    Configuracoes especificas (sort, header resize modes, selection mode
-    custom) continuam inline na tela.
+    `density`: "compact" | "standard" | "comfortable" -- normalmente lido
+    de settings["table_density"] pela tela antes de chamar. Configuracoes
+    especificas (sort, header resize modes, selection mode custom)
+    continuam inline na tela.
     """
     h = table.verticalHeader()
     h.setVisible(False)
-    h.setDefaultSectionSize(SIZE_ROW_H)
     table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
     table.setSelectionBehavior(
         QAbstractItemView.SelectionBehavior.SelectRows
     )
     table.setAlternatingRowColors(True)
     table.setSortingEnabled(True)
-    table.setStyleSheet(table_style())
     hh = table.horizontalHeader()
     hh.setMinimumSectionSize(120)
+    set_table_density(table, density)
+
+
+def set_table_density(table: QTableWidget,
+                      density: str = _DEFAULT_DENSITY) -> None:
+    """Reaplica so' a parte dependente de densidade numa tabela JA
+    construida -- usado pela troca ao vivo na tela de Configuracoes.
+
+    Nao mexe em edit triggers/selecao/sort: isso e' setup de uma vez so,
+    feito por configure_table(). Chamar de novo aqui seria inofensivo mas
+    desnecessario.
+    """
+    if density not in TABLE_DENSITIES:
+        density = _DEFAULT_DENSITY
+    table.verticalHeader().setDefaultSectionSize(TABLE_ROW_H[density])
+    table.setStyleSheet(table_style(density))

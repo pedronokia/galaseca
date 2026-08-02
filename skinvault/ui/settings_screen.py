@@ -113,6 +113,19 @@ class SettingsScreen(QWidget):
             "Largura da barra lateral", self._sidebar_w,
             tooltip="Largura em pixels da barra de navegação à esquerda.",
         ))
+
+        self._density_seg = SegmentedControl()
+        self._density_seg.add("compact", "Compacta")
+        self._density_seg.add("standard", "Padrão")
+        self._density_seg.add("comfortable", "Confortável")
+        self._density_seg.segment_changed.connect(self._on_density_segment)
+        lay.addWidget(FormRow(
+            "Densidade das tabelas", self._density_seg,
+            tooltip="Altura de linha e espaçamento interno de todas as "
+                    "tabelas do app (Inventário, Histórico, Scanner, "
+                    "Trades, Watchlist). Aplica na hora, nas telas já "
+                    "abertas.",
+        ))
         return card
 
     def _build_behavior(self) -> Card:
@@ -269,6 +282,14 @@ class SettingsScreen(QWidget):
         self._set("theme", key)
         self._apply_theme_live()
 
+    def _on_density_segment(self, key: str) -> None:
+        if self._loading:
+            return
+        self._set("table_density", key)
+        w = self.window()
+        if hasattr(w, "_apply_table_density"):
+            w._apply_table_density(key)
+
     def _on_sidebar_width(self, value: int) -> None:
         if self._loading:
             return
@@ -365,6 +386,7 @@ class SettingsScreen(QWidget):
             theme = "dark" if s.get("theme", "dark") == "dark" else "light"
             self._theme_seg.select(theme)
             self._sidebar_w.setValue(int(s.get("sidebar_width", 220)))
+            self._density_seg.select(s.get("table_density", "standard"))
             self._auto_backup.setChecked(bool(s.get("auto_backup", True)))
             self._keep_backups.setValue(int(s.get("keep_backups", 10)))
             self._start_min.setChecked(

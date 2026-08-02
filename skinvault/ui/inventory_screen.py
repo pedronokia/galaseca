@@ -41,6 +41,7 @@ from skinvault.ui.components import (
     SegmentedControl,
     SortableItem,
     Toast,
+    ViewModeSwitcher,
     score_table_item,
 )
 from skinvault.ui._price_worker import IconWorker
@@ -220,10 +221,9 @@ class InventoryScreen(QWidget):
         # Alternador de visao em vez de um botao que troca de rotulo: com
         # "Ver em tabela" o usuario le' o nome da visao em que NAO esta', e
         # nada indica quantas opcoes existem. O segmentado mostra as duas e
-        # marca a atual.
-        self._view_seg = SegmentedControl()
-        self._view_seg.add("grid", "Grade")   # o primeiro ja' nasce marcado
-        self._view_seg.add("table", "Tabela")
+        # marca a atual. ViewModeSwitcher formaliza o par grid/table que
+        # essa tela criava na mao -- Grade ja' nasce marcada.
+        self._view_seg = ViewModeSwitcher()
         from skinvault.settings import load_settings as _ls
         self._view_inicial = (
             "table" if _ls().get("inventory_view") == "table" else "grid")
@@ -303,7 +303,9 @@ class InventoryScreen(QWidget):
             cab = self._table.horizontalHeaderItem(col)
             if cab is not None:
                 cab.setToolTip(tip)
-        t.configure_table(self._table)
+        from skinvault.settings import load_settings as _ls
+        t.configure_table(
+            self._table, density=_ls().get("table_density", "standard"))
         # Custo se edita na tabela: duplo clique na coluna ou menu de
         # contexto na linha. A grade so' mostra o custo, nao edita -- o
         # reconhecimento por icone nao e' o momento de digitar numero.
@@ -588,6 +590,7 @@ class InventoryScreen(QWidget):
                 # a grade nunca o via.
                 "score": pos.get("current_score"),
                 "score_ts": pos.get("score_ts"),
+                "pnl": r.get("pnl"),
             })
         self._grid.set_items(itens)
 

@@ -795,6 +795,30 @@ class SegmentedControl(QWidget):
         )
 
 
+class ViewModeSwitcher(SegmentedControl):
+    """Alternador discreto Grade (cards) x Tabela pra telas de listagem.
+
+    Fachada fina sobre SegmentedControl com as duas opcoes e as chaves
+    ("grid"/"table") ja padronizadas -- antes cada tela que precisava
+    disso remontava o par na mao (foi assim que o Inventario nasceu com
+    o proprio, ver commit da Fase 3 da UI). Uso:
+
+        self._view_seg = ViewModeSwitcher()
+        self._view_seg.segment_changed.connect(self._on_view_segment)
+        self._view_seg.select("table" if settings.get("x_view") == "table"
+                              else "grid")
+
+    A persistencia continua responsabilidade de quem usa (settings.py
+    nao e' importado aqui -- components.py fica livre de I/O), igual ao
+    padrao ja existente pra tema/densidade/sidebar.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.add("grid", "Grade")
+        self.add("table", "Tabela")
+
+
 # ── Avatar widget ────────────────────────────────────────────
 class Avatar(QWidget):
     """Avatar Steam redondo, pintado com QPainter.

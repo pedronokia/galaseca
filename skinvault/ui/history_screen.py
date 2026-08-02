@@ -540,7 +540,9 @@ class HistoryScreen(QWidget):
         root.addWidget(self._loading)
 
         self._table = QTableWidget(0, 0)
-        t.configure_table(self._table)
+        t.configure_table(
+            self._table,
+            density=load_settings().get("table_density", "standard"))
 
         self._empty = EmptyState(
             "◇", "Nenhum registro",

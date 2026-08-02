@@ -286,7 +286,9 @@ class TradesScreen(QWidget):
             ["Data", "Item", "Qtd", "Compra", "Venda",
              "P&L líquido", "ROI", "Origem", "Notas"]
         )
-        t.configure_table(self._table)
+        from skinvault.settings import load_settings as _ls
+        t.configure_table(
+            self._table, density=_ls().get("table_density", "standard"))
         self._table.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )

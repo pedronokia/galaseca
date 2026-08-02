@@ -367,7 +367,10 @@ class ScannerScreen(QWidget):
             "Veredito", "Spread", "Book", "Tendência", "Oferta/Demanda",
             "Score", "Risco", "Confiança",
         ])
-        t.configure_table(self._table)
+        t.configure_table(
+            self._table,
+            density=sv_settings.load_settings().get(
+                "table_density", "standard"))
         compra_hdr = self._table.horizontalHeaderItem(self.COL_COMPRAR)
         if compra_hdr:
             compra_hdr.setToolTip(

@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from skinvault.ui.theme import (
+    TABLE_CELL_PAD,
+    TABLE_DENSITIES,
+    TABLE_ROW_H,
     brl,
     btn_danger,
     btn_ghost,
@@ -81,3 +84,36 @@ def test_table_style_header_has_hover_and_pressed():
 
 def test_input_style_has_focus_ring():
     assert ":focus" in input_style()
+
+
+# ── Densidade de tabela ──────────────────────────────────────
+
+def test_table_densities_tem_os_tres_niveis():
+    assert set(TABLE_DENSITIES) == {"compact", "standard", "comfortable"}
+    assert set(TABLE_ROW_H) == set(TABLE_DENSITIES)
+    assert set(TABLE_CELL_PAD) == set(TABLE_DENSITIES)
+
+
+def test_table_row_h_cresce_com_a_densidade():
+    assert (TABLE_ROW_H["compact"] < TABLE_ROW_H["standard"]
+            < TABLE_ROW_H["comfortable"])
+
+
+def test_table_style_padding_muda_por_densidade():
+    paddings = {d: TABLE_CELL_PAD[d] for d in TABLE_DENSITIES}
+    for densidade, pad in paddings.items():
+        assert f"padding: {pad}" in table_style(densidade)
+    # os tres tem que ser strings diferentes -- senao a densidade nao
+    # mudaria nada visivel na celula.
+    assert len(set(paddings.values())) == 3
+
+
+def test_table_style_default_preserva_o_padding_historico():
+    """Sem argumento, table_style() nao pode mudar o visual de quem ja
+    chama sem density -- e' o "standard" que o app sempre teve."""
+    assert "padding: 9px 14px" in table_style()
+    assert "padding: 9px 14px" in table_style("standard")
+
+
+def test_table_style_densidade_invalida_cai_no_standard():
+    assert table_style("bagunca") == table_style("standard")

@@ -352,7 +352,9 @@ class WatchlistScreen(QWidget):
             ["Item", "Preço alvo", "Distância ao alvo", "Preço atual",
              "Status", "Regras", "Score", "Confiança"]
         )
-        t.configure_table(self._table)
+        from skinvault.settings import load_settings as _ls
+        t.configure_table(
+            self._table, density=_ls().get("table_density", "standard"))
         _tips = {
             self.COL_NAME: "Item monitorado. Duplo clique abre a página da Steam.",
             self.COL_TARGET: (

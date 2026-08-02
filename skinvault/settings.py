@@ -28,6 +28,9 @@ DEFAULTS = {
     "sidebar_collapsed": True,
     # Visao do inventario: "grid" (cards) ou "table" (tabela detalhada).
     "inventory_view": "grid",
+    # Densidade das tabelas do app inteiro: "compact" | "standard" |
+    # "comfortable". Ver theme.TABLE_ROW_H / theme.TABLE_CELL_PAD.
+    "table_density": "standard",
     "scanner_unlocked": False,
     "welcome_seen": False,
     "overlay_mode": False,  # janela "stays on top" + show sem roubar foco

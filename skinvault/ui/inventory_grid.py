@@ -41,8 +41,9 @@ TILE_NOME_H = 34       # ate' 2 linhas
 TILE_ICON_H = 108
 TILE_QTD_H = 17
 TILE_FAIXA_H = 32      # faixa do valor, com borda
+TILE_PNL_H = 16        # P&L do item -- so' aparece com custo conhecido
 TILE_H = (TILE_PAD + TILE_CAT_H + TILE_NOME_H + TILE_ICON_H
-          + TILE_QTD_H + TILE_FAIXA_H + TILE_PAD)
+          + TILE_QTD_H + TILE_FAIXA_H + TILE_PNL_H + TILE_PAD)
 
 # Mantido: e' o passo horizontal de quem calcula quantas colunas cabem.
 TILE = TILE_W
@@ -269,6 +270,24 @@ class InventoryTile(QFrame):
                                  larg_origem + 4, TILE_FAIXA_H - 2),
                            Qt.AlignmentFlag.AlignLeft
                            | Qt.AlignmentFlag.AlignVCenter, " " + origem)
+        y += TILE_FAIXA_H
+
+        # 6. P&L -- so' afirma lucro/prejuizo com custo conhecido (mesma
+        # regra da coluna P&L da tabela: sync grava cost=0.0 pra "nao sei",
+        # entao pnl vem None em vez de inventar zero).
+        pnl = self.item.get("pnl")
+        fonte.setPointSize(8)
+        fonte.setBold(pnl is not None)
+        p.setFont(fonte)
+        if pnl is None:
+            p.setPen(QColor(t.TEXT_MUTED))
+            texto_pnl = "P&L —"
+        else:
+            p.setPen(QColor(t.POSITIVE if pnl >= 0 else t.DANGER))
+            texto_pnl = f"P&L {t.brl(pnl)}"
+        p.drawText(QRect(TILE_PAD, y, larg, TILE_PNL_H),
+                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+                   texto_pnl)
         p.end()
 
     def _categoria(self) -> str:
