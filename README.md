@@ -45,3 +45,48 @@ aqui é aposta de **portfólio EM CIMA** de renda ativa (freela) — não no lug
 ## Status
 Pré-MVP. Esqueleto montado. **Próximo passo:** o "momento mágico" — `steam_api.py`
 puxando o valor de um inventário real a partir de um SteamID.
+
+## 🛠️ Guia Rápido de Execução e Testes
+
+### 1. Ambiente
+```bash
+# Criar venv (uma vez só)
+python -m venv venv
+
+# Ativar venv (Linux/macOS)
+source venv/bin/activate
+
+# Ativar venv (Windows PowerShell)
+.\venv\Scripts\Activate.ps1
+```
+
+### 2. Instalar dependências
+```bash
+pip install -r requirements.txt
+```
+Os testes usam `pytest`, que é dependência de dev e não está no
+`requirements.txt` (esse arquivo é só runtime do app). Pra rodar a
+suíte: `pip install pytest`.
+
+### 3. Rodar o app
+```bash
+pythonw -m skinvault --ui
+```
+Rodar sempre a partir da raiz do repositório.
+
+### 4. Testes
+```bash
+# Suíte completa
+pytest
+
+# Modo detalhado
+pytest -v
+
+# Testes específicos de mercado e análise
+pytest tests/test_markets.py
+pytest tests/test_signals.py
+pytest tests/test_steam_api.py
+
+# Reexecutar apenas as falhas
+pytest --lf
+```
