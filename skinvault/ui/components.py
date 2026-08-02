@@ -13,12 +13,15 @@ from PyQt6.QtCore import (
     QPropertyAnimation,
     QPointF,
     QRectF,
+    QUrl,
+    QVariantAnimation,
     Qt,
     QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import (
     QColor,
+    QDesktopServices,
     QFontMetrics,
     QPainter,
     QPainterPath,
@@ -32,6 +35,7 @@ from PyQt6.QtWidgets import (
     QLayout,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -1680,6 +1684,250 @@ class ToggleSwitch(QWidget):
         p.drawEllipse(QRectF(thumb_x, 1, 14, 18))
 
 
+# ── ItemDetailDrawer ─────────────────────────────────────────
+def _wear_e_tags(nome: str) -> tuple[str, list[str]]:
+    """(condicao, tags) extraidos do nome cru do item.
+
+    "AK-47 | Redline (Field-Tested)" -> ("Field-Tested", []).
+    "StatTrak™ AWP | Asiimov (Well-Worn)" -> ("Well-Worn", ["StatTrak™"]).
+    Sem float: a Steam publica nao expoe o valor de float sem ferramenta
+    de terceiro, e o projeto marcou isso fora de escopo (ver AGENTS.md/
+    ROADMAP -- "float, pattern, pro players" ficam de fora). Condicao
+    (o wear-name) e' o dado real que a Steam da', e e' o que aparece aqui.
+    """
+    nome = nome or ""
+    tags = []
+    if "StatTrak" in nome:
+        tags.append("StatTrak™")
+    if "Souvenir" in nome:
+        tags.append("Souvenir")
+    condicao = ""
+    if "(" in nome and nome.rstrip().endswith(")"):
+        condicao = nome[nome.rfind("(") + 1:-1].strip()
+    return condicao, tags
 
 
+class ItemDetailDrawer(QWidget):
+    """Painel lateral (direita) com o resumo de um item, deslizando.
+
+    Abre com show_item(dict), fecha com close_drawer() (ou o X interno) --
+    fechar NAO mexe na selecao da tabela/grid que o abriu, so' esconde o
+    drawer. Largura anima 0<->OPEN_WIDTH via QVariantAnimation (mesmo
+    espirito do fade_in: so' anima com a janela visivel, senao trava
+    seco no valor final -- necessario pra grab()/_screenshot.py e pros
+    testes ficarem deterministicos).
+
+    dict esperado por show_item: {name, icon (path opcional), price,
+    pnl (opcional), raw_name (opcional, pro link/tags -- cai pra name)}.
+
+    Uso:
+        self._drawer = ItemDetailDrawer(self)
+        layout.addWidget(self._drawer)
+        ...
+        self._drawer.show_item({"name": "...", "price": 12.5, "pnl": -1.0})
+        self._drawer.close_drawer()
+    """
+
+    closed = pyqtSignal()
+    OPEN_WIDTH = 300
+    _DURATION_MS = 180
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._item: dict | None = None
+        self._anim: QVariantAnimation | None = None
+        self.setMinimumWidth(0)
+        self.setMaximumWidth(0)
+        self.setSizePolicy(QSizePolicy.Policy.Fixed,
+                           QSizePolicy.Policy.Expanding)
+        self.setStyleSheet(
+            f"ItemDetailDrawer {{ background: {t.BG_ELEVATED};"
+            f" border-left: 1px solid {t.BORDER}; }}")
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(t.SPACE_LG, t.SPACE_LG, t.SPACE_LG, t.SPACE_LG)
+        root.setSpacing(t.SPACE_SM)
+
+        head = QHBoxLayout()
+        head.addWidget(QLabel(""))  # espaco simetrico ao botao X
+        head.addStretch(1)
+        self._close_btn = QPushButton("✕")
+        self._close_btn.setFixedSize(24, 24)
+        self._close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._close_btn.setStyleSheet(t.btn_ghost(padding="0"))
+        self._close_btn.setToolTip(
+            "Fecha o painel de detalhes. Não altera a seleção na lista.")
+        self._close_btn.clicked.connect(self.close_drawer)
+        head.addWidget(self._close_btn)
+        root.addLayout(head)
+
+        self._icon = QLabel()
+        self._icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._icon.setMinimumHeight(140)
+        root.addWidget(self._icon)
+
+        self._nome = QLabel("")
+        self._nome.setWordWrap(True)
+        self._nome.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY};")
+        root.addWidget(self._nome)
+
+        self._tags_row = QHBoxLayout()
+        self._tags_row.setSpacing(6)
+        root.addLayout(self._tags_row)
+
+        root.addSpacing(t.SPACE_SM)
+
+        self._preco = self._metrica(root, "Preço")
+        self._pnl = self._metrica(root, "P&L")
+        self._condicao = self._metrica(root, "Condição")
+
+        root.addSpacing(t.SPACE_MD)
+
+        self._steam_btn = QPushButton("Abrir no Mercado Steam")
+        self._steam_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._steam_btn.setStyleSheet(t.btn_steam())
+        self._steam_btn.setToolTip(
+            "Abre a página de anúncios deste item no navegador.")
+        self._steam_btn.clicked.connect(self._abrir_no_steam)
+        root.addWidget(self._steam_btn)
+
+        root.addStretch(1)
+
+    def _metrica(self, layout, rotulo: str) -> QLabel:
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        cap = QLabel(rotulo)
+        cap.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};")
+        val = QLabel("—")
+        val.setAlignment(Qt.AlignmentFlag.AlignRight
+                         | Qt.AlignmentFlag.AlignVCenter)
+        val.setStyleSheet(f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+                          " font-weight: 600;")
+        row.addWidget(cap)
+        row.addStretch(1)
+        row.addWidget(val)
+        layout.addLayout(row)
+        return val
+
+    def _limpar_tags(self) -> None:
+        while self._tags_row.count():
+            filho = self._tags_row.takeAt(0)
+            w = filho.widget()
+            if w is not None:
+                w.setParent(None)
+                w.deleteLater()
+
+    def _tag_chip(self, texto: str) -> QLabel:
+        chip = QLabel(texto)
+        chip.setStyleSheet(
+            f"background: {t.SURFACE}; color: {t.TEXT_MUTED};"
+            f" font-size: {t.FS_MUTED}; padding: 2px 8px;"
+            f" border-radius: {t.RADIUS_SM}px;")
+        return chip
+
+    def show_item(self, item: dict) -> None:
+        """Popula os campos e abre o drawer."""
+        self._item = dict(item or {})
+        nome = self._item.get("name") or ""
+        self._nome.setText(nome)
+
+        icon_path = self._item.get("icon")
+        pix = None
+        if icon_path:
+            from skinvault import icons
+            p = icons.local_path(icon_path)
+            if p:
+                pm = QPixmap(str(p))
+                if not pm.isNull():
+                    pix = pm.scaled(
+                        200, 140, Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation)
+        if pix is not None:
+            self._icon.setPixmap(pix)
+            self._icon.setVisible(True)
+        else:
+            self._icon.clear()
+            self._icon.setVisible(False)
+
+        self._preco.setText(t.brl(self._item.get("price")))
+        pnl = self._item.get("pnl")
+        self._pnl.setText(t.brl(pnl) if pnl is not None else "—")
+        self._pnl.setStyleSheet(
+            f"font-size: {t.FS_BODY}; font-weight: 600; color: "
+            + (t.TEXT_MUTED if pnl is None
+               else t.POSITIVE if pnl >= 0 else t.DANGER) + ";")
+
+        raw_nome = self._item.get("raw_name") or nome
+        # Condicao vem do nome EXIBIDO (localizado, "Pouco Usada") -- o
+        # resto da tela ja fala pt-BR, e mostrar "Minimal Wear" ali destoa.
+        # Tags (StatTrak/Souvenir) nao mudam de idioma, entao usam o nome
+        # cru mesmo -- e' o mesmo texto nos dois casos.
+        condicao, _tags_ignoradas = _wear_e_tags(nome)
+        _, tags = _wear_e_tags(raw_nome)
+        self._condicao.setText(condicao or "—")
+
+        self._limpar_tags()
+        for tg in tags:
+            self._tags_row.addWidget(self._tag_chip(tg))
+        self._tags_row.addStretch(1)
+
+        self._abrir()
+
+    def _abrir_no_steam(self) -> None:
+        if not self._item:
+            return
+        from urllib.parse import quote
+        nome = self._item.get("raw_name") or self._item.get("name") or ""
+        if not nome:
+            return
+        url = f"https://steamcommunity.com/market/listings/730/{quote(nome)}"
+        QDesktopServices.openUrl(QUrl(url))
+
+    def close_drawer(self) -> None:
+        """Esconde o drawer. NAO limpa self._item nem mexe em selecao --
+        quem chamou (tabela/grid) decide o que fazer com a linha."""
+        self._animar_para(0)
+        self.closed.emit()
+
+    def is_open(self) -> bool:
+        return self.maximumWidth() > 0
+
+    def current_item(self) -> "dict | None":
+        return self._item
+
+    def _abrir(self) -> None:
+        self.setVisible(True)
+        self._animar_para(self.OPEN_WIDTH)
+
+    def _animar_para(self, alvo: int) -> None:
+        # So' anima com a janela de verdade visivel -- em teste/grab() a
+        # janela nunca foi mostrada, e um QVariantAnimation com duracao
+        # real deixaria o widget num estado intermediario logo apos a
+        # chamada, quebrando qualquer assert sincrono (mesma logica do
+        # fade_in em components.py).
+        se_visivel = self.window() is not self and self.window().isVisible()
+        if not se_visivel:
+            self.setMinimumWidth(alvo)
+            self.setMaximumWidth(alvo)
+            if alvo == 0:
+                self.setVisible(False)
+            return
+        anim = QVariantAnimation(self)
+        anim.setDuration(self._DURATION_MS)
+        anim.setStartValue(self.maximumWidth())
+        anim.setEndValue(alvo)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def _tick(v) -> None:
+            self.setMinimumWidth(v)
+            self.setMaximumWidth(v)
+
+        anim.valueChanged.connect(_tick)
+        if alvo == 0:
+            anim.finished.connect(lambda: self.setVisible(False))
+        self._anim = anim
+        anim.start()
 

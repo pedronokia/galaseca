@@ -604,14 +604,39 @@ class MainWindow(QMainWindow):
         self._sidebar = sidebar
         return sidebar
 
-    def _apply_sidebar_metrics(self) -> None:
+    def _apply_sidebar_metrics(self, animate: bool = False) -> None:
         from skinvault.ui.theme import SIZE_SIDEBAR_RAIL
         largura = (SIZE_SIDEBAR_RAIL if self._sidebar_rail
                    else self._sidebar_largura_expandida())
-        self._sidebar_dock.setMinimumWidth(largura)
-        self._sidebar_dock.setMaximumWidth(largura)
+        # A sidebar NOVA (rail ou com rotulos) ja' nasce na largura final
+        # -- so' o DOCK que a envolve anima, revelando/escondendo o
+        # excedente aos poucos em vez de trocar seco.
         if self._sidebar is not None:
             self._sidebar.setFixedWidth(largura)
+        if animate and self.isVisible():
+            self._animar_largura_sidebar(largura)
+        else:
+            self._sidebar_dock.setMinimumWidth(largura)
+            self._sidebar_dock.setMaximumWidth(largura)
+
+    def _animar_largura_sidebar(self, alvo: int) -> None:
+        from PyQt6.QtCore import QEasingCurve, QVariantAnimation
+        dock = self._sidebar_dock
+        anim = QVariantAnimation(dock)
+        anim.setDuration(180)
+        anim.setStartValue(dock.width())
+        anim.setEndValue(alvo)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def _tick(v) -> None:
+            dock.setMinimumWidth(v)
+            dock.setMaximumWidth(v)
+
+        anim.valueChanged.connect(_tick)
+        # Referencia guardada no dock: sem isto o objeto Python e' coletado
+        # antes da animacao terminar e ela para no meio.
+        dock._sidebar_width_anim = anim
+        anim.start()
 
     def _sidebar_largura_expandida(self) -> int:
         """Largura escolhida em Configuracoes, no mesmo range do settings."""
@@ -632,7 +657,7 @@ class MainWindow(QMainWindow):
         if anterior is not None:
             anterior.setParent(None)
             anterior.deleteLater()
-        self._apply_sidebar_metrics()
+        self._apply_sidebar_metrics(animate=True)
         nova.select(self._sidebar_screen)
         if nome or steamid:
             nova.set_session(nome, steamid)

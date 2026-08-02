@@ -8309,6 +8309,239 @@ def test_populate_grid_inclui_pnl(monkeypatch, tmp_path):
     assert itens[0]["pnl"] == -5.25
 
 
+# ── Sidebar: transicao suave ao alternar rail/rotulos ───────────────
+
+def test_apply_sidebar_metrics_sem_janela_visivel_e_instantaneo(monkeypatch):
+    """Sem show(), animate=True nao pode deixar o dock num estado
+    intermediario -- testes precisam do valor final logo apos a chamada
+    (mesma logica do fade_in)."""
+    win = _make_mw(monkeypatch)
+    win._sidebar_rail = True
+    win._apply_sidebar_metrics(animate=True)
+    from skinvault.ui.theme import SIZE_SIDEBAR_RAIL
+    assert win._sidebar_dock.minimumWidth() == SIZE_SIDEBAR_RAIL
+    assert win._sidebar_dock.maximumWidth() == SIZE_SIDEBAR_RAIL
+
+
+def test_apply_sidebar_metrics_anima_com_janela_visivel(monkeypatch):
+    """Com a janela visivel, o toggle inicia uma QVariantAnimation de
+    verdade em vez de trocar a largura na hora."""
+    win = _make_mw(monkeypatch)
+    win.resize(1000, 700)
+    win.show()
+    try:
+        win._sidebar_rail = True
+        win._apply_sidebar_metrics(animate=True)
+        anim = getattr(win._sidebar_dock, "_sidebar_width_anim", None)
+        assert anim is not None
+        from PyQt6.QtCore import QAbstractAnimation
+        assert anim.state() == QAbstractAnimation.State.Running
+    finally:
+        win.close()
+
+
+def test_sidebar_rail_mantem_tooltip_com_o_rotulo(monkeypatch):
+    """Modo compacto so' mostra icone -- o rotulo tem que sobreviver como
+    tooltip, senao a navegacao vira uma fileira de glifos sem nome."""
+    win = _make_mw(monkeypatch)
+    assert win._sidebar_rail is True  # rail e' o default
+    item = win._sidebar._items["scanner"]
+    assert item.text() == ""
+    assert "Scanner" in item.toolTip()
+
+
+# ── ItemDetailDrawer ─────────────────────────────────────────────
+
+def test_drawer_comeca_fechado():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    assert d.is_open() is False
+    assert d.maximumWidth() == 0
+
+
+def test_drawer_show_item_abre_e_popula():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "AK-47 | Redline (Field-Tested)",
+                 "price": 120.5, "pnl": 8.0})
+    assert d.is_open() is True
+    assert d.maximumWidth() == ItemDetailDrawer.OPEN_WIDTH
+    assert d._nome.text() == "AK-47 | Redline (Field-Tested)"
+    assert "120,50" in d._preco.text()
+    assert "8,00" in d._pnl.text()
+    assert d._condicao.text() == "Field-Tested"
+
+
+def test_drawer_condicao_usa_o_nome_localizado():
+    """Validado manualmente na app rodando: 'name' localizado dizia
+    'Pouco Usada' mas Condicao mostrava 'Minimal Wear' (do raw_name em
+    ingles) -- destoava do resto da tela, que e' pt-BR. Condicao tem que
+    ler do nome EXIBIDO; raw_name continua servindo so' pro link Steam."""
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({
+        "name": "SSG 08 | Calligrafaux (Pouco Usada)",
+        "raw_name": "SSG 08 | Calligrafaux (Minimal Wear)",
+        "price": 1.5,
+    })
+    assert d._condicao.text() == "Pouco Usada"
+
+
+def test_drawer_pnl_negativo_e_desconhecido():
+    from skinvault.ui.components import ItemDetailDrawer
+    from skinvault.ui import theme as t
+    d = ItemDetailDrawer()
+    d.show_item({"name": "X", "price": 10.0, "pnl": -3.0})
+    assert t.DANGER.lower() in d._pnl.styleSheet().lower()
+    d.show_item({"name": "Y", "price": 10.0, "pnl": None})
+    assert d._pnl.text() == "—"
+    assert t.TEXT_MUTED.lower() in d._pnl.styleSheet().lower()
+
+
+def test_drawer_close_nao_apaga_o_item_atual():
+    """Fechar e' so' visual -- current_item() continua valendo pra quem
+    quiser reabrir sem reconsultar a linha."""
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "AK-47", "price": 10.0})
+    d.close_drawer()
+    assert d.is_open() is False
+    assert d.current_item() is not None
+    assert d.current_item()["name"] == "AK-47"
+
+
+def test_drawer_troca_de_item_reabre_com_dado_novo():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "AK-47", "price": 10.0})
+    d.show_item({"name": "AWP | Asiimov", "price": 500.0})
+    assert d._nome.text() == "AWP | Asiimov"
+    assert d.current_item()["name"] == "AWP | Asiimov"
+
+
+def test_drawer_closed_signal_emite_ao_fechar():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    recebidos = []
+    d.closed.connect(lambda: recebidos.append(True))
+    d.show_item({"name": "X", "price": 1.0})
+    d.close_drawer()
+    assert recebidos == [True]
+
+
+def test_drawer_abre_no_steam(monkeypatch):
+    from skinvault.ui.components import ItemDetailDrawer
+    abertas = []
+    monkeypatch.setattr(
+        "skinvault.ui.components.QDesktopServices.openUrl",
+        lambda url: abertas.append(url.toString()))
+    d = ItemDetailDrawer()
+    d.show_item({"name": "AK-47 | Redline (Field-Tested)",
+                 "raw_name": "AK-47 | Redline (Field-Tested)"})
+    d._steam_btn.click()
+    assert len(abertas) == 1
+    assert "steamcommunity.com/market/listings/730/" in abertas[0]
+    assert "AK-47" in abertas[0]
+
+
+def test_wear_e_tags_extrai_condicao_e_stattrak():
+    from skinvault.ui.components import _wear_e_tags
+    cond, tags = _wear_e_tags("StatTrak™ AWP | Asiimov (Well-Worn)")
+    assert cond == "Well-Worn"
+    assert tags == ["StatTrak™"]
+    cond2, tags2 = _wear_e_tags("AK-47 | Redline (Field-Tested)")
+    assert cond2 == "Field-Tested"
+    assert tags2 == []
+    cond3, tags3 = _wear_e_tags("Kilowatt Case")  # sem wear (nao e' skin)
+    assert cond3 == ""
+    assert tags3 == []
+
+
+# ── Drawer integrado na tabela do Inventario ────────────────────────
+
+def _inventory_com_dados(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.inventory_screen import InventoryScreen
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda *a, **k: {})
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.11)
+    screen = InventoryScreen()
+    rows = [
+        {"name": "AK-47 | Redline (Field-Tested)", "quantity": 1,
+         "price": 100.0, "net_if_sold": 85.0, "pnl": -5.25},
+        {"name": "Kilowatt Case", "quantity": 3,
+         "price": 1.5, "net_if_sold": 1.2, "pnl": 0.3},
+    ]
+    positions = [{"source": "steam_sync", "cost": 105.25},
+                 {"source": "steam_sync", "cost": 3.6}]
+    screen.set_data(rows, positions)
+    screen._view_seg.select("table")
+    return screen
+
+
+def _linha_por_nome(screen, fragmento: str) -> int:
+    """Acha o indice VISUAL da linha cujo nome contem `fragmento`.
+
+    Nao assumir ordem de insercao == ordem visual: a tabela roda com
+    setSortingEnabled (configure_table) e reordena sozinha (Qt aplica um
+    sort descendente na coluna 0 assim que o sorting e' ligado pela
+    primeira vez -- "Caixa Kilowatt" vem antes de "AK-47 | Redline..." em
+    ordem alfabetica reversa). Mesmo padrao de _score_cell no outro
+    arquivo de teste deste inventario.
+    """
+    for row in range(screen._table.rowCount()):
+        cell = screen._table.item(row, screen.COL_NAME)
+        if cell and fragmento.lower() in cell.text().lower():
+            return row
+    raise AssertionError("linha nao encontrada: " + fragmento)
+
+
+def test_click_na_linha_abre_o_drawer(monkeypatch):
+    screen = _inventory_com_dados(monkeypatch)
+    row = _linha_por_nome(screen, "AK-47")
+    screen._on_table_row_clicked(row, 0)
+    assert screen._drawer.is_open() is True
+    assert "AK-47" in screen._drawer.current_item()["name"]
+    assert screen._drawer.current_item()["pnl"] == -5.25
+
+
+def test_trocar_de_linha_atualiza_o_drawer(monkeypatch):
+    screen = _inventory_com_dados(monkeypatch)
+    screen._on_table_row_clicked(_linha_por_nome(screen, "AK-47"), 0)
+    screen._on_table_row_clicked(_linha_por_nome(screen, "Kilowatt"), 0)
+    assert "Kilowatt" in screen._drawer.current_item()["name"]
+
+
+def test_drawer_acompanha_a_linha_depois_de_ordenar(monkeypatch):
+    """Regressao: clicar a linha visual N e indexar self._rows[N] direto
+    dava o item ERRADO assim que a tabela estava ordenada de um jeito
+    diferente da insercao -- validado manualmente na app rodando (1a
+    linha visivel era "XM1014", o drawer abriu com "AK-47"). O clique
+    tem que casar pelo dado da PROPRIA celula (UserRole), nao pelo
+    indice."""
+    from PyQt6.QtCore import Qt as _Qt
+    screen = _inventory_com_dados(monkeypatch)
+    # Ordena pela coluna Preco, ascendente -- inverte a ordem de insercao
+    # (Kilowatt R$1,50 < AK-47 R$100,00).
+    screen._table.sortItems(screen.COL_PRICE, _Qt.SortOrder.AscendingOrder)
+    assert screen._table.item(0, screen.COL_NAME).text() != "AK-47 | Redline (Field-Tested)"
+    row_ak47 = _linha_por_nome(screen, "AK-47")
+    screen._on_table_row_clicked(row_ak47, 0)
+    assert "AK-47" in screen._drawer.current_item()["name"]
+    assert screen._drawer.current_item()["pnl"] == -5.25
+
+
+def test_fechar_drawer_nao_mexe_na_selecao_da_tabela(monkeypatch):
+    """Fechar o painel e' puramente visual -- a linha clicada continua
+    selecionada na tabela, e o dado do item continua acessivel."""
+    screen = _inventory_com_dados(monkeypatch)
+    screen._table.selectRow(0)
+    screen._on_table_row_clicked(0, 0)
+    screen._drawer.close_drawer()
+    assert screen._drawer.is_open() is False
+    assert screen._table.currentRow() == 0
+    assert len(screen._table.selectedItems()) > 0
+    assert screen._drawer.current_item() is not None
 def test_mainwindow_on_navigated(monkeypatch):
     """_on_navigated calls sidebar.select."""
     win = _make_mw(monkeypatch)

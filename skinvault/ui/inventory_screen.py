@@ -36,6 +36,7 @@ from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState,
     FormRow,
+    ItemDetailDrawer,
     LoadingState,
     PageHeader,
     SegmentedControl,
@@ -345,6 +346,15 @@ class InventoryScreen(QWidget):
         self._views.addWidget(self._grid)
         self._views.addWidget(self._table)
         corpo.addWidget(self._views, 1)
+
+        # A Grade ja' tem o proprio painel de detalhe fixo (InventoryTile
+        # + ItemDetailPanel). A Tabela nao tinha NENHUMA forma de ver
+        # detalhe de um item alem das celulas da propria linha -- o
+        # drawer cobre exatamente essa visao.
+        self._drawer = ItemDetailDrawer(self)
+        self._table.cellClicked.connect(self._on_table_row_clicked)
+        corpo.addWidget(self._drawer, 0)
+
         root.addLayout(corpo, 1)
 
         # Filtro sem resultado deixava a tela em branco: indistinguivel de
@@ -668,6 +678,13 @@ class InventoryScreen(QWidget):
             for col, val, chave in celulas:
                 item = (QTableWidgetItem(val) if chave is None
                         else SortableItem(val, chave))
+                if col == self.COL_NAME:
+                    # Nome cru no UserRole: a tabela e' sortable, entao a
+                    # linha visual N raramente e' self._rows[N] depois de
+                    # ordenar por qualquer coluna. O drawer (e qualquer
+                    # acao futura por linha) tem que casar pelo dado real
+                    # da celula, nao pelo indice de insercao.
+                    item.setData(Qt.ItemDataRole.UserRole, r.get("name") or "")
                 if col == self.COL_PNL and pnl is not None:
                     item.setForeground(QBrush(QColor(
                         t.POSITIVE if pnl >= 0 else t.DANGER)))
@@ -797,6 +814,39 @@ class InventoryScreen(QWidget):
     def _on_cost_double_click(self, row: int, col: int) -> None:
         if col == self.COL_COST:
             self._editar_custo_linha(row)
+
+    def _on_table_row_clicked(self, row: int, _col: int) -> None:
+        """Abre o drawer com o resumo da linha clicada.
+
+        So' clique -- duplo clique na coluna Custo continua abrindo o
+        editor (_on_cost_double_click), sinal separado, sem conflito.
+
+        NAO indexa self._rows[row]: a tabela e' sortable (configure_table
+        liga setSortingEnabled), entao a linha visual `row` so' bate com
+        self._rows na ordem de insercao original -- ordenar por qualquer
+        coluna (inclusive o duplo-clique em cabecalho) desalinha os dois e
+        o drawer abriria com o item errado (visto na validacao manual: 1a
+        linha visivel era "XM1014" e o drawer mostrou "AK-47"). Busca pelo
+        nome cru guardado no UserRole da propria celula clicada.
+        """
+        cell = self._table.item(row, self.COL_NAME)
+        if cell is None:
+            return
+        raw = cell.data(Qt.ItemDataRole.UserRole) or ""
+        idx = next((i for i, r in enumerate(self._rows)
+                    if (r.get("name") or "") == raw), None)
+        if idx is None:
+            return
+        from skinvault.localization import localize_name as _ln
+        r = self._rows[idx]
+        pos = self._positions[idx] if idx < len(self._positions) else {}
+        self._drawer.show_item({
+            "name": _ln(raw) or raw,
+            "raw_name": raw,
+            "icon": pos.get("icon") or r.get("icon"),
+            "price": r.get("price"),
+            "pnl": r.get("pnl"),
+        })
 
     def _on_context_menu(self, pos) -> None:
         item = self._table.itemAt(pos)
