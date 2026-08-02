@@ -27,12 +27,15 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2127 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2189 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
   consistência, `ROADMAP_UI_FASE4.md`) 100% concluídas** — todas as
   frentes ✅, nada pendente nesses dois documentos.
+- **Sprints de Microinterações & UX e de Layout & Ergonomia concluídas**
+  (ver seções dedicadas abaixo) — UI e fluxo de dados local em estado
+  maduro.
 
 **A Steam está com rate limit há mais de 24h** em `priceoverview`,
 `search/render`, `pricehistory` e `/inventory/`. A listing page e o CDN de
@@ -147,7 +150,94 @@ Suíte: **1967 testes**.
   cotação que estivesse aparecendo de verdade. Decisão de produto: sem
   reintegração de mercado externo novo daqui pra frente.
 
+## Sprint de Microinterações & UX (01-02/08)
+
+**Fase 1 — `dc6dc23`: Toast clicável, estados de botão, atalhos**
+- `Toast` (`components.py`) já existia (fade in/out, variants, auto-stack);
+  ganhou fechar ao clicar (`mousePressEvent` + guarda `_dismissing` contra
+  disparo duplo com o timer de auto-dismiss).
+- QSS: estado `:pressed` em todo `btn_*` (tokens `*_PRESSED`, um degrau
+  além do `:hover`) e hover/pressed no cabeçalho de coluna da tabela
+  (clicável pra ordenar, mas sem feedback nenhum antes).
+- Watchlist ganhou toast em adicionar (sucesso/duplicado) e remover
+  (linha única/seleção múltipla) — único fluxo do app sem feedback
+  transiente até então.
+- Conta ganhou botão "Copiar ID" ao lado do SteamID (clipboard + toast) —
+  não existia nenhuma ação de copiar em lugar nenhum do app.
+
+**Fase 2 — `8f3ad24`: Loading states e bug crítico de thread**
+- `set_button_loading(btn, bool, texto)` (`components.py`): desabilita,
+  troca o texto e esmaece a opacidade via `QPropertyAnimation`.
+- `sync_bar()`: barra fina indeterminada pra refresh em segundo plano sem
+  esconder dado já carregado (diferente do `LoadingState`, que substitui
+  o conteúdo); aplicada acima da tabela do Scanner.
+- **Bug crítico corrigido**: os workers em background thread do Mercado
+  (`_on_search`), do Scanner (`_on_scan`) e da Conta (`_reload_profile`)
+  não tinham `try/except` ao redor da chamada de rede — uma exceção
+  inesperada matava a thread ANTES de emitir o sinal de conclusão, e o
+  botão (mais o spinner) ficava travado desabilitado pra sempre. No
+  Mercado era o pior caso: tela em branco, sem conteúdo nem empty-state.
+  Corrigido com `try/except/finally` garantindo que o sinal de conclusão
+  sempre dispara, sucesso ou erro.
+
+**Fase 3 — `a4553b8`: Empty states e transições**
+- Scanner ganhou CTA "Escanear agora" no empty state — o glifo `◎` é
+  documentado em `EmptyState` como "pronto pra agir, com CTA imediato",
+  mas a tela só tinha passos em texto, quebrando o próprio contrato do
+  componente.
+- Label `_sem_match` no Scanner e na Watchlist quando a busca não acha
+  nada (mesmo padrão já corrigido no Inventário — sem isso a tabela
+  ficava em branco, indistinguível de "sem dados" ou falha silenciosa).
+- Orçamento de `fade_in()` travado em teste: 150-200ms (o default já
+  cumpria, 150ms).
+
+## Sprint de Layout & Ergonomia (02/08)
+
+**Densidade de tabelas — `fba4af0`**
+- 3 níveis (Compacta 24px / Padrão 32px / Confortável 44px), cada um com
+  padding de célula próprio; "Padrão" preserva exatamente os valores
+  históricos (32px, `9px 14px`).
+- `configure_table(table, density=...)` aplica na construção;
+  `set_table_density(table, density)` reaplica ao vivo numa tabela já
+  construída.
+- Persistido em `settings["table_density"]`; seção nova em Configurações
+  (Compacta/Padrão/Confortável) aplica na hora nas 5 telas com tabela
+  (Inventário, Histórico, Scanner, Trades, Watchlist).
+
+**ViewModeSwitcher + P&L no grid — `fba4af0`**
+- Componente `ViewModeSwitcher` formaliza o alternador Grade/Tabela que
+  o Inventário já montava na mão (par de `SegmentedControl` repetido).
+- Card do inventário ganhou P&L colorido (verde/vermelho, "P&L —" sem
+  custo conhecido) — era o único dado que faltava; ícone, nome e preço
+  já estavam lá.
+
+**Sidebar animada + ItemDetailDrawer — `926866f`**
+- Sidebar recolhível (rail ↔ rótulos) já existia madura e testada;
+  ganhou transição animada (`QVariantAnimation`, 180ms) ao trocar de
+  modo — antes era salto instantâneo de largura.
+- `ItemDetailDrawer` novo: painel lateral que desliza da direita ao
+  clicar numa linha da TABELA do Inventário (a Grade já tinha painel de
+  detalhe próprio, sem mudança ali). Mostra thumbnail, Preço, P&L,
+  Condição (wear extraído do nome — Float fica de fora de propósito: é
+  Steam-only e a Steam pública não expõe float sem ferramenta de
+  terceiro, ver `AGENTS.md`/ROADMAP), tags (StatTrak™/Souvenir) e atalho
+  "Abrir no Mercado Steam". Fechar só esconde — seleção da lista e dado
+  do item continuam intactos.
+- **2 bugs achados na validação manual com o app rodando de verdade**
+  (não pegos pelos testes automatizados, que coincidentemente também
+  assumiam a mesma ordem): clique na linha indexava a posição VISUAL em
+  vez do dado real — a tabela é sortable, e ordenar por qualquer coluna
+  desalinha visual de inserção, então o drawer abria com o item errado.
+  Corrigido guardando o nome cru no `UserRole` da própria célula clicada.
+  Achado também: a Condição lia do nome em inglês (`raw_name`) enquanto o
+  resto da tela já é pt-BR — corrigido pra ler do nome localizado. Os
+  dois com teste de regressão.
+
 ## Fila, em ordem
+
+A interface gráfica e o fluxo de dados local estão em estado maduro.
+Resta só a verificação externa abaixo, condicionada à Steam sair do
+rate limit — não é trabalho pendente do lado do app.
 
 ### 1. `scanner_discovery` (bloqueado por fora)
 `discovery.py` escrito e testado, flag `scanner_discovery = False`. Nunca
@@ -198,6 +288,12 @@ consequência do bloqueio externo, não um bug de dado.
   e só passava enquanto o arquivo estava vazio.
 - **Não rode a suíte com `--ui` em subprocess.** Vazava uma instância do
   app por rodada.
+- **Não indexe `self._rows[row]`/`self._positions[row]` pelo índice
+  VISUAL de uma `QTableWidget` com `setSortingEnabled`.** Ordenar por
+  qualquer coluna desalinha a ordem visual da ordem de inserção — pegou
+  o `ItemDetailDrawer` do Inventário (linha clicada ≠ item mostrado) e já
+  tinha pegado a coluna Score/Origem antes. Guarde o dado real no
+  `UserRole` da célula e busque por ele, nunca pela posição.
 
 ---
 
