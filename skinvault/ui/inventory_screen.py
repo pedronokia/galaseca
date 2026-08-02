@@ -294,6 +294,10 @@ class InventoryScreen(QWidget):
                 "na tela Minha Conta.\n"
                 "Fica âmbar quando está desatualizado. '—' significa que "
                 "ainda não foi calculado."),
+            self.COL_ORIGIN: (
+                "Se o item veio da sincronização com a Steam ou foi "
+                "lançado manualmente.\n"
+                "Só aparece quando o inventário mistura as duas origens."),
         }
         for col, tip in _tips.items():
             cab = self._table.horizontalHeaderItem(col)
@@ -686,6 +690,13 @@ class InventoryScreen(QWidget):
             score_item.setTextAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self._table.setItem(i, self.COL_SCORE, score_item)
+        # 31 linhas 100% "Steam" nao informa nada, so' ocupa espaco. So'
+        # vale mostrar a coluna quando o inventario de fato mistura origens.
+        origens = {
+            "Steam" if p.get("source") == "steam_sync" else "Manual"
+            for p in self._positions
+        }
+        self._table.setColumnHidden(self.COL_ORIGIN, len(origens) <= 1)
         self._table.setSortingEnabled(True)
 
     # ── interacao ─────────────────────────────────────────

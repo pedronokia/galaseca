@@ -309,6 +309,21 @@ def test_score_nao_desloca_a_coluna_origem(tela):
     assert tela._table.columnCount() == 10
 
 
+def test_coluna_origem_some_quando_nao_ha_mistura(tela):
+    """31 linhas 100% 'Steam' nao informa nada, so' ocupa espaco."""
+    tela.set_data(ROWS, POS)
+    assert tela._table.isColumnHidden(tela.COL_ORIGIN)
+
+
+def test_coluna_origem_aparece_quando_ha_mistura(tela):
+    pos = [dict(POS[0], source="steam_sync"), dict(POS[1], source="manual")]
+    tela.set_data(ROWS, pos)
+    assert not tela._table.isColumnHidden(tela.COL_ORIGIN)
+    cel = _score_cell(tela, "Kilowatt")  # reusa a busca por nome
+    row = cel.row()
+    assert tela._table.item(row, tela.COL_ORIGIN).text() == "Manual"
+
+
 # ── a tabela mostra o valor de fora ────────────────────────────────
 #
 # Ate' 2026-07-30 a tabela so' tinha colunas derivadas do preco da Steam.
