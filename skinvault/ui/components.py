@@ -1183,7 +1183,8 @@ class Toast(QWidget):
     """Notificacao nao-bloqueante, top-right do parent, auto-dismiss.
 
     Variants: 'info' (accent), 'success' (accent), 'warning' (warn),
-    'error' (danger). Auto-stack quando ha multiplos visiveis.
+    'error' (danger). Auto-stack quando ha multiplos visiveis. Clique em
+    qualquer parte do toast fecha na hora, sem esperar o timer.
     Uso: Toast.show_toast(parent, "Sincronizado.", "success").
     """
 
@@ -1200,7 +1201,12 @@ class Toast(QWidget):
                  duration_ms: int = 3000) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        # Antes era WA_TransparentForMouseEvents=True (clique atravessava o
+        # toast). Agora o toast intercepta o clique de proposito -- e' o
+        # fechamento antecipado (mousePressEvent).
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip("Clique para fechar.")
+        self._dismissing = False
         self.setObjectName("Toast")
         border_attr = self._VARIANT_BORDER.get(variant, "ACCENT")
         border_color = getattr(t, border_attr, t.ACCENT)
@@ -1285,9 +1291,19 @@ class Toast(QWidget):
         x = max(margin, parent.width() - self.width() - margin)
         self.move(x, y)
 
+    def mousePressEvent(self, event) -> None:
+        """Clique fecha na hora -- nao precisa esperar os 3s do timer."""
+        self._begin_dismiss()
+        super().mousePressEvent(event)
+
     def _begin_dismiss(self) -> None:
-        if not self.isVisible():
+        # Guarda contra disparo duplo: clique manual + o QTimer.singleShot
+        # do auto-dismiss podem chegar os dois depois que o fade-out ja
+        # comecou (reiniciar a mesma QPropertyAnimation no meio corta a
+        # curva e reagenda _on_faded_out).
+        if self._dismissing or not self.isVisible():
             return
+        self._dismissing = True
         self._fade_out.start()
 
     def _on_faded_out(self) -> None:

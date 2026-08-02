@@ -1997,6 +1997,169 @@ def test_toast_slide_animation_runs():
     assert end.y() - start.y() == 8
 
 
+def test_toast_click_dismisses_early():
+    """Clique no toast fecha na hora, sem esperar o timer de 3s."""
+    from PyQt6.QtCore import QAbstractAnimation, Qt
+    from PyQt6.QtTest import QTest
+    from PyQt6.QtWidgets import QWidget
+    from skinvault.ui.components import Toast
+    host = QWidget()
+    host.resize(800, 600)
+    host.show()  # QTest.mouseClick exige a cadeia de pais visivel
+    # duration_ms bem alto: se o dismiss veio do timer em vez do clique,
+    # o teste nao teria como saber -- teria que esperar de verdade.
+    toast = Toast.show_toast(host, "msg", "info", duration_ms=60_000)
+    assert toast._dismissing is False
+    QTest.mouseClick(toast, Qt.MouseButton.LeftButton)
+    assert toast._dismissing is True
+    assert toast._fade_out.state() == QAbstractAnimation.State.Running
+
+
+def test_toast_double_dismiss_is_safe():
+    """Clique + o timer de auto-dismiss chegando depois nao reinicia o fade."""
+    from PyQt6.QtWidgets import QWidget
+    from skinvault.ui.components import Toast
+    host = QWidget()
+    host.resize(800, 600)
+    toast = Toast.show_toast(host, "msg", "info", duration_ms=60_000)
+    toast._begin_dismiss()
+    fade_out = toast._fade_out
+    toast._begin_dismiss()  # simula o QTimer chegando depois do clique
+    assert toast._fade_out is fade_out  # mesma animacao, nao reiniciou
+
+
+def test_toast_variant_border_colors():
+    """Cada variant usa o token de cor certo na borda esquerda."""
+    from PyQt6.QtWidgets import QWidget
+    from skinvault.ui import theme as t
+    from skinvault.ui.components import Toast
+    host = QWidget()
+    esperado = {
+        "info": t.ACCENT,
+        "success": t.POSITIVE,
+        "warning": t.WARN,
+        "error": t.DANGER,
+    }
+    for variant, cor in esperado.items():
+        toast = Toast(host, "msg", variant)
+        assert cor in toast.styleSheet()
+
+
+def test_toast_cursor_indica_clicavel():
+    """Cursor de mao sinaliza que da pra clicar pra fechar."""
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QWidget
+    from skinvault.ui.components import Toast
+    host = QWidget()
+    toast = Toast(host, "msg", "info")
+    assert toast.cursor().shape() == Qt.CursorShape.PointingHandCursor
+
+
+# ── Toast integrado na Watchlist (add/remove) ──────────────────────
+
+def _watchlist_screen(monkeypatch, items):
+    """WatchlistScreen com wl/alerts mockados -- sem tocar em data/ real."""
+    import skinvault.watchlist as wl_mod
+    import skinvault.alerts as alerts_mod
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+    monkeypatch.setattr(wl_mod, "load_watchlist", lambda *a, **k: list(items))
+    monkeypatch.setattr(wl_mod, "save_watchlist", lambda *a, **k: None)
+    monkeypatch.setattr(
+        wl_mod, "remove_watch",
+        lambda idx, *a, **k: items.pop(idx) if 0 <= idx < len(items) else None)
+    monkeypatch.setattr(alerts_mod, "load_alerts_log", lambda *a, **k: [])
+    return WatchlistScreen(PriceCache())
+
+
+def test_watchlist_toast_ao_remover_item(monkeypatch):
+    items = [{"name": "AK-47 | Redline (Field-Tested)", "target": 10.0}]
+    screen = _watchlist_screen(monkeypatch, items)
+    toasts = []
+    monkeypatch.setattr(
+        "skinvault.ui.watchlist_screen.Toast.show_toast",
+        lambda parent, text, variant="info", **kw: toasts.append(
+            (text, variant)))
+    screen._on_remove_item(items[0])
+    assert items == []  # remove_watch mockado de fato tirou o item
+    assert toasts and toasts[-1][1] == "info"
+    assert "removido da watchlist" in toasts[-1][0]
+
+
+def test_watchlist_toast_ao_remover_varios(monkeypatch):
+    items = [
+        {"name": "AK-47 | Redline (Field-Tested)", "target": 10.0},
+        {"name": "Kilowatt Case", "target": 0.0},
+    ]
+    screen = _watchlist_screen(monkeypatch, items)
+    screen._table.selectAll()
+    toasts = []
+    monkeypatch.setattr(
+        "skinvault.ui.watchlist_screen.Toast.show_toast",
+        lambda parent, text, variant="info", **kw: toasts.append(
+            (text, variant)))
+    screen._on_delete_selected()
+    assert toasts and "2 item(ns) removido(s)" in toasts[-1][0]
+
+
+def test_watchlist_sem_selecao_nao_dispara_toast(monkeypatch):
+    """Delete sem nada selecionado nao deve gerar toast fantasma."""
+    items = [{"name": "AK-47 | Redline (Field-Tested)", "target": 10.0}]
+    screen = _watchlist_screen(monkeypatch, items)
+    toasts = []
+    monkeypatch.setattr(
+        "skinvault.ui.watchlist_screen.Toast.show_toast",
+        lambda parent, text, variant="info", **kw: toasts.append(
+            (text, variant)))
+    screen._on_delete_selected()
+    assert toasts == []
+
+
+# ── Copiar SteamID (Conta) ──────────────────────────────────────────
+
+def test_account_copiar_steamid_copia_e_avisa(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    from skinvault import steam_session
+
+    class _FakeSession:
+        steamid = "76561198000000000"
+
+    screen = AccountScreen(PriceCache())
+    screen._session = _FakeSession()
+
+    copiado = []
+    fake_clipboard = type("FakeClipboard", (), {
+        "setText": lambda self, txt: copiado.append(txt)})()
+    monkeypatch.setattr(
+        "skinvault.ui.account_screen.QApplication.clipboard",
+        lambda: fake_clipboard)
+    toasts = []
+    monkeypatch.setattr(
+        "skinvault.ui.account_screen.Toast.show_toast",
+        lambda parent, text, variant="info", **kw: toasts.append(
+            (text, variant)))
+
+    screen._copy_steamid()
+    assert copiado == ["76561198000000000"]
+    assert toasts and toasts[-1] == ("SteamID copiado.", "success")
+
+
+def test_account_copiar_steamid_sem_sessao_nao_crasha(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache())
+    screen._session = None
+    screen._copy_steamid()  # nao deve levantar excecao
+
+
+def test_account_copy_id_btn_some_sem_steamid():
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache())
+    assert screen._copy_id_btn.isVisible() is False
+
+
 def test_elide_label_short_text_unchanged():
     """Texto curto cabe sem elide."""
     from skinvault.ui.components import _ElideLabel

@@ -27,13 +27,16 @@ PRIMARY_BG     = "#F1F1F1"
 PRIMARY_FG     = "#0F0F0F"
 PRIMARY_BORDER = "#F1F1F1"
 PRIMARY_HOV    = "#E4E4E4"
+PRIMARY_PRESSED = "#D6D6D6"  # um degrau alem do hover -- feedback de clique
 PRIMARY_FOCUS  = "#9A9A9A"   # ring sobre o fill branco (visivel no CTA solido)
 STEAM_BLUE  = "#66C0F4"   # azul Steam (conta/sync)
 STEAM_DIM   = "rgba(102,192,244,0.14)"
 STEAM_HOV   = "rgba(102,192,244,0.24)"
+STEAM_PRESSED = "rgba(102,192,244,0.34)"
 DANGER      = "#EF4444"
 DANGER_DIM  = "rgba(239,68,68,0.16)"
 DANGER_HOV  = "rgba(239,68,68,0.26)"
+DANGER_PRESSED = "rgba(239,68,68,0.36)"
 WARN        = "#F59E0B"
 
 # Semantico de mercado/P&L — verde = lucro/alta/bom, DESACOPLADO do
@@ -62,6 +65,7 @@ WARN_TEXT   = "#D8C267"
 
 # Hover surface (row-hover, item:hover)
 SURFACE_HOV = "#3F3F3F"
+SURFACE_PRESSED = "#4A4A4A"  # um degrau alem do hover -- feedback de clique
 # Linha alternada da tabela. Era "#21212B" cravado no table_style() -- um
 # azulado que sobrou da paleta anterior e destoava do monocromatico.
 ROW_ALT     = "#1A1A1A"
@@ -244,6 +248,7 @@ def btn_primary(padding: str = "10px 22px", fs: str = FS_INPUT,
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {PRIMARY_HOV}; }}"
+        f"QPushButton:pressed {{ background: {PRIMARY_PRESSED}; }}"
         f"QPushButton:focus {{ border: 1px solid {PRIMARY_FOCUS};"
         f" background: {PRIMARY_HOV}; }}"
     )
@@ -262,6 +267,7 @@ def btn_steam(padding: str = "10px 22px", fs: str = FS_INPUT) -> str:
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {STEAM_HOV}; }}"
+        f"QPushButton:pressed {{ background: {STEAM_PRESSED}; }}"
         f"QPushButton:focus {{ border: 1px solid {FOCUS_STEAM};"
         f" background: {STEAM_HOV}; }}"
     )
@@ -280,6 +286,7 @@ def btn_secondary(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {SURFACE_HOV}; }}"
+        f"QPushButton:pressed {{ background: {SURFACE_PRESSED}; }}"
         f"QPushButton:focus {{ border: 1px solid {TEXT_MUTED};"
         f" background: {SURFACE_HOV}; }}"
     )
@@ -292,6 +299,7 @@ def btn_danger(padding: str = "8px 18px", fs: str = FS_BODY) -> str:
         f" padding: {padding}; font-size: {fs}; font-weight: 600;"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ background: {DANGER_HOV}; }}"
+        f"QPushButton:pressed {{ background: {DANGER_PRESSED}; }}"
         f"QPushButton:focus {{ border: 1px solid {FOCUS_RED};"
         f" background: {DANGER_HOV}; }}"
     )
@@ -305,6 +313,8 @@ def btn_ghost(padding: str = "6px 14px", fs: str = FS_MUTED) -> str:
         f" padding: {padding}; font-size: {fs};"
         f" font-family: {FONT_FAMILY}; }}"
         f"QPushButton:hover {{ color: {TEXT}; background: {SURFACE};"
+        f" border: 1px solid {BORDER}; }}"
+        f"QPushButton:pressed {{ color: {TEXT}; background: {SURFACE_HOV};"
         f" border: 1px solid {BORDER}; }}"
         f"QPushButton:focus {{ color: {TEXT}; background: {SURFACE};"
         f" border: 1px solid {TEXT_MUTED}; }}"
@@ -391,6 +401,12 @@ def table_style() -> str:
         f" border-bottom: 1px solid {BORDER};"
          f" padding: 9px 14px 9px 14px;"
         f" font-weight: 600; font-size: {FS_MUTED}; }}"
+        # Cabecalho e' clicavel (ordena a coluna) mas nao dava nenhum
+        # feedback ao passar o mouse -- parecia so' rotulo estatico.
+        f"QHeaderView::section:hover {{ background: {SURFACE_HOV};"
+        f" color: {TEXT}; }}"
+        f"QHeaderView::section:pressed {{ background: {SURFACE_PRESSED};"
+        f" color: {TEXT}; }}"
         f"QHeaderView::down-arrow {{ width: 8px; height: 8px;"
         f" subcontrol-origin: padding;"
         f" subcontrol-position: center right;"

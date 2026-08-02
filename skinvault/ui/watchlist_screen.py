@@ -42,7 +42,7 @@ from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState, FormRow, LoadingState, PageHeader, SectionHeader, StatCard,
-    ToggleSwitch, score_table_item, SortableItem, auto_cell,
+    ToggleSwitch, Toast, score_table_item, SortableItem, auto_cell,
 )
 
 
@@ -703,6 +703,8 @@ class WatchlistScreen(QWidget):
         if idx is not None:
             wl.remove_watch(idx)
             self.refresh()
+            Toast.show_toast(
+                self, f"“{item['name']}” removido da watchlist.", "info")
 
     def _on_delete_selected(self) -> None:
         names: list[str] = []
@@ -723,6 +725,8 @@ class WatchlistScreen(QWidget):
         self.refresh()
         self._status.setText(
             f"{len(names)} item(ns) removido(s) da watchlist.")
+        Toast.show_toast(
+            self, f"{len(names)} item(ns) removido(s) da watchlist.", "info")
 
     def _clear_search(self) -> None:
         self._search_inp.clear()
@@ -990,6 +994,8 @@ class WatchlistScreen(QWidget):
                 self._status.setText(
                     f"“{name}” já está na watchlist — edite as regras pelo "
                     "menu de contexto da linha.")
+                Toast.show_toast(
+                    self, f"“{name}” já está na watchlist.", "warning")
                 dlg.accept()
                 return
             wl.add_watch(name, target)
@@ -1012,6 +1018,8 @@ class WatchlistScreen(QWidget):
             self._status.setText(
                 "Item adicionado. Clique com o botão direito na linha para "
                 "editar regras e preço alvo.")
+            Toast.show_toast(
+                self, f"“{name}” adicionado à watchlist.", "success")
 
         ok.clicked.connect(on_ok)
         btn_row.addStretch()

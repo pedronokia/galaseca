@@ -17,6 +17,7 @@ import time
 from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -40,7 +41,7 @@ from skinvault import (
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
 from skinvault.ui.inventory_grid import InventoryGrid
-from skinvault.ui.components import Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard
+from skinvault.ui.components import Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard, Toast
 from skinvault.ui.widgets import CompositionChart, ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
@@ -231,6 +232,17 @@ class AccountScreen(QWidget):
         self._profile_link.setCursor(Qt.CursorShape.PointingHandCursor)
         self._profile_link.mousePressEvent = lambda _: self._open_steam_profile()
         sub_row.addWidget(self._profile_link)
+
+        # Botao pequeno pra copiar o SteamID sem digitar/selecionar manual
+        # (util pra colar em ferramenta de terceiro ou suporte). So aparece
+        # com SteamID conhecido -- mesmo gating do link de perfil.
+        self._copy_id_btn = QPushButton("Copiar ID")
+        self._copy_id_btn.setStyleSheet(t.btn_ghost())
+        self._copy_id_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._copy_id_btn.setToolTip("Copia o SteamID pra área de transferência.")
+        self._copy_id_btn.setVisible(False)
+        self._copy_id_btn.clicked.connect(self._copy_steamid)
+        sub_row.addWidget(self._copy_id_btn)
 
         sub_row.addStretch(1)
         ident.addLayout(sub_row)
@@ -441,6 +453,7 @@ class AccountScreen(QWidget):
             self._name.setText("Carregando perfil…")
             self._profile_link.setText("Ver perfil na Steam ›")
             self._profile_link.setVisible(True)
+            self._copy_id_btn.setVisible(True)
 
         # 2. atualiza em background
         steamid = s.steamid
@@ -463,6 +476,12 @@ class AccountScreen(QWidget):
             url = f"https://steamcommunity.com/profiles/{self._session.steamid}"
             QDesktopServices.openUrl(QUrl(url))
 
+    def _copy_steamid(self) -> None:
+        if not self._session or not self._session.steamid:
+            return
+        QApplication.clipboard().setText(self._session.steamid)
+        Toast.show_toast(self, "SteamID copiado.", "success")
+
     def _on_profile(self, data: dict) -> None:
         steamid = data.get("steamid", "")
         nome = data.get("name") or ""
@@ -478,8 +497,10 @@ class AccountScreen(QWidget):
         if steamid:
             self._profile_link.setText("Ver perfil na Steam ›")
             self._profile_link.setVisible(True)
+            self._copy_id_btn.setVisible(True)
         else:
             self._profile_link.setVisible(False)
+            self._copy_id_btn.setVisible(False)
         path = data.get("avatar_path")
         if path:
             self._avatar.set_image(path)
