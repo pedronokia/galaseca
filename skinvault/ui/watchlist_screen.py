@@ -414,6 +414,17 @@ class WatchlistScreen(QWidget):
         root.addWidget(self._empty_hero, 1)
         self._empty_hero.setVisible(False)
 
+        # Busca/filtro sem resultado escondia a tabela inteira sem dizer
+        # nada -- indistinguivel de watchlist vazia (mesmo bug ja corrigido
+        # no Inventario e no Scanner).
+        self._sem_match = QLabel(
+            "Nenhum item da watchlist casa com o filtro. Limpe a busca ou "
+            "desligue “Baixa confiança” pra ver todos.")
+        self._sem_match.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._sem_match.setStyleSheet(t.label_caption())
+        self._sem_match.setVisible(False)
+        root.addWidget(self._sem_match)
+
         self._status = QLabel("")
         self._status.setStyleSheet(t.label_caption())
         root.addWidget(self._status)
@@ -889,6 +900,8 @@ class WatchlistScreen(QWidget):
             self._table.setRowHidden(row, should_hide)
             if should_hide:
                 hidden += 1
+        total = self._table.rowCount()
+        self._sem_match.setVisible(total > 0 and hidden == total)
         return hidden
 
     def _on_hide_low_conf_toggle(self, checked: bool) -> None:

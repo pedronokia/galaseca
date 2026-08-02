@@ -2375,6 +2375,82 @@ def test_scanner_sync_bar_visivel_durante_scan(monkeypatch, tmp_path):
     assert screen._sync_bar.isVisible() is False
 
 
+# ── Fase 3: transicoes suaves & empty states elegantes ──────────────
+#
+# navigate()/fade_in() ja existiam (Frente J + ScreenRouter) e ja tinham
+# cobertura propria (test_fade_in_attaches_effect_and_runs,
+# test_router_navigate_*). O que faltava era travar explicitamente o
+# orcamento de 150-200ms pedido nesta fase, e os dois empty states que
+# nao cumpriam o proprio contrato documentado em EmptyState.
+
+def test_fade_in_duration_dentro_do_orcamento_da_sprint():
+    """150-200ms: rapido o suficiente pra nao parecer lento navegando."""
+    from skinvault.ui import components as comp
+    import inspect
+    default = inspect.signature(comp.fade_in).parameters["duration_ms"].default
+    assert 150 <= default <= 200
+
+
+def test_scanner_empty_hero_tem_cta_pronta_pra_agir():
+    """'◎' e' documentado em EmptyState como 'empty state com CTA
+    imediato' -- o Scanner usava o glifo sem a CTA, quebrando o proprio
+    contrato do componente."""
+    from PyQt6.QtWidgets import QPushButton
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    ctas = [b for b in screen._empty_hero.findChildren(QPushButton)
+            if b.text() == "Escanear agora"]
+    assert len(ctas) == 1
+
+
+def test_scanner_empty_hero_cta_dispara_scan(monkeypatch, tmp_path):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    monkeypatch.setattr(
+        "skinvault.ui.scanner_screen._SCAN_BY_CATEGORY",
+        {"Rifles": ["AK-47"]})
+    monkeypatch.setattr("threading.Thread", _InlineThreadSync)
+    monkeypatch.setattr("skinvault.discovery.resolve_scan_items",
+                        lambda cat, fb, enabled: (fb, "fallback"))
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    screen = ScannerScreen(PriceCache(tmp_path / "prices.json", ttl=3600))
+    screen._scan_item = lambda name: None
+    screen._empty_hero.cta_clicked.emit()
+    assert screen._scanning is False  # _InlineThreadSync ja concluiu o ciclo
+    assert screen._status.text() != "Pronto. Selecione uma categoria e clique em Escanear."
+
+
+def test_scanner_sem_match_aparece_e_some_com_busca(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen.show()  # isVisible() so' reflete estado real com a janela mostrada
+    screen._scan_results = [
+        {"name": "AK-47 | Redline", "score": 75, "price": 1, "median": 1,
+         "breakdown": [], "verdict": "X", "verdict_color": "#0f0",
+         "spread": "", "book": "", "trend": "", "sd_label": "",
+         "data_quality": {"level": "high", "confidence": 0.9, "n": 200}},
+    ]
+    screen._populate()
+    assert screen._sem_match.isVisible() is False
+    screen._search_inp.setText("nada que exista")
+    assert screen._sem_match.isVisible() is True
+    screen._search_inp.clear()
+    assert screen._sem_match.isVisible() is False
+
+
+def test_watchlist_sem_match_aparece_e_some_com_busca(monkeypatch):
+    items = [{"name": "AK-47 | Redline (Field-Tested)", "target": 10.0}]
+    screen = _watchlist_screen(monkeypatch, items)
+    screen.show()  # isVisible() so' reflete estado real com a janela mostrada
+    assert screen._sem_match.isVisible() is False
+    screen._search_inp.setText("nada que exista")
+    assert screen._sem_match.isVisible() is True
+    screen._search_inp.clear()
+    assert screen._sem_match.isVisible() is False
+
+
 def test_elide_label_short_text_unchanged():
     """Texto curto cabe sem elide."""
     from skinvault.ui.components import _ElideLabel

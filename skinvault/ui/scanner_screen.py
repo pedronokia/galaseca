@@ -444,10 +444,27 @@ class ScannerScreen(QWidget):
             steps=["Escolha uma categoria (Rifles, Facas, Luvas…).",
                    "Clique em Escanear para analisar preços e sinais.",
                    "Duplo-clique numa linha para ver o breakdown do score."],
+            # "◎" e' o glifo de "pronto pra agir" (ver docstring do
+            # EmptyState) -- precisa de uma CTA de verdade, nao so' os
+            # passos em texto. Escaneia a categoria ja' selecionada no
+            # combo acima (default = "Todas as categorias").
+            cta_label="Escanear agora",
+            on_cta=self._on_scan,
         )
         root.addWidget(self._empty_hero, 1)
         # Estado inicial: hero visivel, tabela escondida
         self._table.setVisible(False)
+
+        # Busca sem resultado escondia a tabela inteira sem dizer nada --
+        # indistinguivel de "ainda nao escaneei" ou de falha silenciosa
+        # (mesmo bug ja corrigido no Inventario, ver _sem_match la).
+        self._sem_match = QLabel(
+            "Nenhum item escaneado casa com a busca. Limpe o campo pra "
+            "ver todos.")
+        self._sem_match.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._sem_match.setStyleSheet(t.label_caption())
+        self._sem_match.setVisible(False)
+        root.addWidget(self._sem_match)
 
         # Progress/status
         self._status = QLabel("Pronto. Selecione uma categoria e clique em Escanear.")
@@ -896,9 +913,12 @@ class ScannerScreen(QWidget):
         alvo = (self._search_inp.text() or "").strip()
         if not alvo:
             self._status.setText(getattr(self, "_status_base", ""))
+            self._sem_match.setVisible(False)
             return
         visiveis = sum(1 for row in range(self._table.rowCount())
                        if not self._table.isRowHidden(row))
+        self._sem_match.setVisible(
+            visiveis == 0 and bool(self._scan_results))
         self._status.setText(
             f"{visiveis} de {len(self._scan_results)} itens • busca “{alvo}”")
 
