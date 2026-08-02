@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLayout,
+    QProgressBar,
     QPushButton,
     QTableWidgetItem,
     QVBoxLayout,
@@ -213,6 +214,82 @@ def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
 
     anim.finished.connect(lambda: QTimer.singleShot(0, _cleanup))
     anim.start()
+
+
+def set_button_loading(btn: QPushButton, loading: bool,
+                       text: str | None = None) -> None:
+    """Estado de loading num botao de acao: desabilita, troca o texto e
+    esmaece a opacidade (QPropertyAnimation, mesmo padrao do fade_in).
+
+    Uso -- SEMPRE em par, um de cada lado da chamada assincrona:
+        set_button_loading(self._btn, True, "Consultando…")
+        thread.start()
+        ...
+        # no handler de conclusao, ANTES de checar sucesso/erro:
+        set_button_loading(self._btn, False)
+
+    O ponto critico e' que o `False` tem que rodar mesmo quando o worker
+    falhou -- por isso ele pertence a' PRIMEIRA linha do handler de
+    conclusao (que o sinal do worker tem que emitir num try/finally),
+    nunca dentro de um bloco que só executa no caminho de sucesso.
+
+    Idempotente: chamar True duas vezes nao perde o texto original;
+    chamar False sem um True antes e' no-op.
+    """
+    if loading:
+        if btn.property("_loading_active"):
+            return
+        btn.setProperty("_loading_active", True)
+        btn.setProperty("_loading_orig_text", btn.text())
+        btn.setEnabled(False)
+        if text:
+            btn.setText(text)
+        eff = QGraphicsOpacityEffect(btn)
+        btn.setGraphicsEffect(eff)
+        anim = QPropertyAnimation(eff, b"opacity", eff)
+        anim.setDuration(150)
+        anim.setStartValue(1.0)
+        anim.setEndValue(0.55)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        # Exposto pra teste checar o alvo da animacao sem depender de
+        # tempo real decorrido (opacity() so' interpola com o event loop
+        # rodando -- ver test_button_loading_ativado_no_disparo).
+        btn._loading_anim = anim
+        anim.start()
+    else:
+        if not btn.property("_loading_active"):
+            return
+        btn.setProperty("_loading_active", False)
+        orig = btn.property("_loading_orig_text")
+        if orig is not None:
+            btn.setText(orig)
+        btn.setEnabled(True)
+        try:
+            btn.setGraphicsEffect(None)
+        except RuntimeError:
+            pass  # objeto C++ deletado, ignorar
+
+
+def sync_bar(parent: QWidget | None = None) -> QProgressBar:
+    """Barra fina indeterminada pra atualizacao em segundo plano.
+
+    Diferente do `LoadingState` (spinner grande que substitui o conteudo),
+    isto e' pra quando a tabela/card AINDA MOSTRA o dado antigo enquanto
+    busca o novo -- um refresh nao precisa apagar o que ja' esta na tela
+    pra avisar que esta' atualizando. Comeca escondida; quem usa faz
+    `bar.setVisible(True)` no inicio do fetch e `False` na conclusao
+    (sucesso ou erro).
+    """
+    bar = QProgressBar(parent)
+    bar.setRange(0, 0)  # indeterminado -- Qt anima um bloco vai-e-volta
+    bar.setTextVisible(False)
+    bar.setFixedHeight(3)
+    bar.setStyleSheet(
+        f"QProgressBar {{ background: {t.SURFACE}; border: none; }}"
+        f"QProgressBar::chunk {{ background: {t.ACCENT}; }}"
+    )
+    bar.setVisible(False)
+    return bar
 
 
 class EmptyState(QWidget):

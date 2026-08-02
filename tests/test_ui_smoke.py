@@ -2160,6 +2160,221 @@ def test_account_copy_id_btn_some_sem_steamid():
     assert screen._copy_id_btn.isVisible() is False
 
 
+# ── Fase 2: loading states & feedback de assincronismo ──────────────
+#
+# set_button_loading(): estado inicial -> ativado no disparo -> restaurado
+# no sucesso -> restaurado em caso de erro. Os dois ultimos casos so'
+# valem de verdade se o bug de origem (worker que morre sem emitir o sinal
+# de conclusao) estiver corrigido -- por isso os testes de regressao do
+# Scanner/Mercado abaixo forcam excecao dentro do worker.
+
+def test_button_loading_estado_inicial():
+    from PyQt6.QtWidgets import QPushButton
+    btn = QPushButton("Consultar item")
+    assert btn.isEnabled()
+    assert btn.graphicsEffect() is None
+
+
+def test_button_loading_ativado_no_disparo():
+    from PyQt6.QtCore import QAbstractAnimation
+    from PyQt6.QtWidgets import QPushButton
+    from skinvault.ui.components import set_button_loading
+    btn = QPushButton("Consultar item")
+    set_button_loading(btn, True, "Consultando…")
+    assert btn.isEnabled() is False
+    assert btn.text() == "Consultando…"
+    assert btn.graphicsEffect() is not None
+    # opacity() so' interpola com o event loop rodando; o que da' pra
+    # checar sem tempo real decorrido e' que a animacao foi de fato
+    # configurada e disparada pro valor esmaecido.
+    assert btn._loading_anim.endValue() == 0.55
+    assert btn._loading_anim.state() == QAbstractAnimation.State.Running
+
+
+def test_button_loading_restaurado_no_sucesso():
+    from PyQt6.QtWidgets import QPushButton
+    from skinvault.ui.components import set_button_loading
+    btn = QPushButton("Consultar item")
+    set_button_loading(btn, True, "Consultando…")
+    set_button_loading(btn, False)
+    assert btn.isEnabled() is True
+    assert btn.text() == "Consultar item"
+    assert btn.graphicsEffect() is None
+
+
+def test_button_loading_restaurado_apos_excecao_no_chamador():
+    """O padrao de uso e' try/finally no handler; um erro ANTES do finally
+    nao pode impedir a chamada de restauracao de rodar (o handler que
+    chama e' responsavel, mas o helper em si tem que aceitar False mesmo
+    vindo de um caminho de erro sem historico de sucesso)."""
+    from PyQt6.QtWidgets import QPushButton
+    from skinvault.ui.components import set_button_loading
+    btn = QPushButton("Consultar item")
+    set_button_loading(btn, True, "Consultando…")
+    try:
+        raise RuntimeError("falha simulada na rede")
+    except RuntimeError:
+        pass
+    finally:
+        set_button_loading(btn, False)
+    assert btn.isEnabled() is True
+    assert btn.text() == "Consultar item"
+
+
+def test_button_loading_e_idempotente():
+    from PyQt6.QtWidgets import QPushButton
+    from skinvault.ui.components import set_button_loading
+    btn = QPushButton("Consultar item")
+    set_button_loading(btn, True, "Consultando…")
+    set_button_loading(btn, True, "Consultando de novo…")  # nao pisa no orig
+    set_button_loading(btn, False)
+    assert btn.text() == "Consultar item"
+
+
+def test_button_loading_false_sem_true_e_no_op():
+    from PyQt6.QtWidgets import QPushButton
+    from skinvault.ui.components import set_button_loading
+    btn = QPushButton("Consultar item")
+    set_button_loading(btn, False)
+    assert btn.isEnabled() is True
+    assert btn.text() == "Consultar item"
+
+
+class _InlineThreadSync:
+    """Thread fake que roda o target no proprio start() -- usado pra
+    testar o ciclo assincrono completo (disparo -> worker -> handler de
+    conclusao) sem depender de timing de thread real nem de entrega
+    cross-thread de sinal Qt (emit e slot no mesmo thread = chamada
+    direta, deterministica)."""
+    def __init__(self, target=None, daemon=False):
+        self._target = target
+
+    def start(self):
+        if self._target:
+            self._target()
+
+
+def test_market_search_button_restaurado_no_sucesso(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    monkeypatch.setattr("threading.Thread", _InlineThreadSync)
+    monkeypatch.setattr("skinvault.steam_api.get_market_overview",
+                        lambda n: None)
+    monkeypatch.setattr("skinvault.steam_api.get_market_page_data",
+                        lambda n: None)
+    screen = MarketScreen(PriceCache(ttl=3600))
+    screen._search_inp.setText("Item Sem Cotacao")
+    orig_text = screen._search_btn.text()
+    screen._on_search()
+    # _InlineThreadSync roda o ciclo inteiro (worker + _on_data) dentro
+    # da propria chamada -- ao voltar, o botao ja' devia estar restaurado.
+    assert screen._search_btn.isEnabled() is True
+    assert screen._search_btn.text() == orig_text
+
+
+def test_market_search_button_restaurado_apos_excecao_no_worker(monkeypatch):
+    """Regressao: get_market_page_data levantando excecao matava a thread
+    ANTES de emitir data_ready -- botao + spinner ficavam presos pra
+    sempre com a tela em branco."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.market_screen import MarketScreen
+    monkeypatch.setattr("threading.Thread", _InlineThreadSync)
+    monkeypatch.setattr("skinvault.steam_api.get_market_overview",
+                        lambda n: None)
+
+    def boom(n):
+        raise RuntimeError("SSR mudou de formato")
+
+    monkeypatch.setattr("skinvault.steam_api.get_market_page_data", boom)
+    toasts = []
+    monkeypatch.setattr(
+        "skinvault.ui.market_screen.Toast.show_toast",
+        lambda parent, text, variant="info", **kw: toasts.append(
+            (text, variant)))
+
+    screen = MarketScreen(PriceCache(ttl=3600))
+    screen._search_inp.setText("AK-47")
+    orig_text = screen._search_btn.text()
+    screen._on_search()
+
+    assert screen._search_btn.isEnabled() is True
+    assert screen._search_btn.text() == orig_text
+    assert toasts and toasts[-1][1] == "error"
+    assert "SSR mudou de formato" in toasts[-1][0]
+
+
+def test_scanner_worker_excecao_ainda_reabilita_botoes(monkeypatch, tmp_path):
+    """Regressao: resolve_scan_items levantando excecao matava a thread
+    ANTES de emitir 'FIM'/'CANCELADO' -- o botao ficava preso como
+    'Cancelar scan' pra sempre, e o sync_bar nunca escondia."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    monkeypatch.setattr(
+        "skinvault.ui.scanner_screen._SCAN_BY_CATEGORY",
+        {"Rifles": ["AK-47"]})
+    monkeypatch.setattr("threading.Thread", _InlineThreadSync)
+    monkeypatch.setattr("skinvault.discovery.resolve_scan_items",
+                        lambda *a, **kw: (_ for _ in ()).throw(
+                            RuntimeError("Steam mudou a faceta")))
+
+    screen = ScannerScreen(PriceCache(tmp_path / "prices.json", ttl=3600))
+    screen._on_scan()
+
+    assert screen._scanning is False
+    assert screen._scan_btn.isEnabled() is True
+    assert screen._scan_btn.text() == "Escanear categoria"
+    assert screen._sync_bar.isVisible() is False
+    assert screen._rank_btn.isEnabled() is True
+    assert screen._validate_btn.isEnabled() is True
+
+
+def test_account_profile_excecao_ainda_sai_do_carregando(monkeypatch):
+    """Regressao: fetch_public_profile levantando excecao (em vez de so'
+    devolver None/falsy) matava a thread antes de emitir profile_ready --
+    o nome ficava preso em 'Carregando perfil…' pra sempre."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+
+    class _FakeSession:
+        steamid = "76561198000000000"
+
+    monkeypatch.setattr("threading.Thread", _InlineThreadSync)
+    monkeypatch.setattr(
+        "skinvault.ui.account_screen.load_cached_profile",
+        lambda steamid: None)
+    monkeypatch.setattr(
+        "skinvault.ui.account_screen.fetch_public_profile",
+        lambda steamid: (_ for _ in ()).throw(RuntimeError("XML invalido")))
+
+    screen = AccountScreen(PriceCache())
+    screen._session = _FakeSession()
+    screen._reload_profile()
+
+    assert screen._name.text() == "Perfil não carregou"
+    assert "76561198000000000" in screen._sub.text()
+
+
+def test_scanner_sync_bar_visivel_durante_scan(monkeypatch, tmp_path):
+    """A barra fina aparece junto do LoadingState grande -- a tabela do
+    Scanner enche progressivamente durante o scan, entao cobrir tudo com
+    o spinner grande esconderia resultado que ja' chegou."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    monkeypatch.setattr(
+        "skinvault.ui.scanner_screen._SCAN_BY_CATEGORY",
+        {"Rifles": ["AK-47"]})
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    screen = ScannerScreen(PriceCache(tmp_path / "prices.json", ttl=3600))
+    screen.show()  # isVisible() so' reflete estado real com a janela mostrada
+    screen._scan_item = lambda name: None
+    assert screen._sync_bar.isVisible() is False
+    screen._on_scan()  # nao mocka threading.Thread: so' checa o estado
+    # sincrono setado ANTES do thread.start(), que e' o mesmo em ambos.
+    assert screen._sync_bar.isVisible() is True
+    screen._on_progress("FIM")
+    assert screen._sync_bar.isVisible() is False
+
+
 def test_elide_label_short_text_unchanged():
     """Texto curto cabe sem elide."""
     from skinvault.ui.components import _ElideLabel

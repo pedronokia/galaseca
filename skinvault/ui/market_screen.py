@@ -36,6 +36,7 @@ from skinvault.ui.components import (
     SegmentedControl,
     StatCard,
     Toast,
+    set_button_loading,
 )
 from skinvault.ui.widgets import DepthChart, PriceHistoryChart
 
@@ -505,22 +506,30 @@ class MarketScreen(QWidget):
                 )
         from skinvault.localization import localize_name as _ln
         self._status.setText(f"Consultando {_ln(name)}…{cache_msg}")
-        self._search_btn.setEnabled(False)
+        set_button_loading(self._search_btn, True, "Consultando…")
         self._content.setVisible(False)
         self._empty.setVisible(False)
         self._loading.setVisible(True)
         self._started_at = time.time()
 
         def _worker():
-            data = {}
-            overview = steam_api.get_market_overview(name)
-            if overview:
-                data["overview"] = overview
-            page = steam_api.get_market_page_data(name)
-            if page:
-                data["page"] = page
-            data["name"] = name
-            self._bridge.data_ready.emit(data)
+            # try/except/finally: get_market_page_data faz parsing pesado de
+            # SSR (HTML/dict da Steam) com formato que pode mudar sem aviso;
+            # uma excecao aqui matava a thread ANTES de emitir data_ready,
+            # e o botao "Consultar item" + o spinner ficavam presos pra
+            # sempre com a tela em branco (achado no diagnostico da Fase 2).
+            data: dict = {"name": name}
+            try:
+                overview = steam_api.get_market_overview(name)
+                if overview:
+                    data["overview"] = overview
+                page = steam_api.get_market_page_data(name)
+                if page:
+                    data["page"] = page
+            except Exception as exc:
+                data["error"] = str(exc)
+            finally:
+                self._bridge.data_ready.emit(data)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -551,7 +560,10 @@ class MarketScreen(QWidget):
         )
 
     def _on_data(self, data: dict) -> None:
-        self._search_btn.setEnabled(True)
+        # set_button_loading(False) roda incondicionalmente, ANTES de
+        # olhar sucesso/erro -- o _worker agora tem try/finally e sempre
+        # chega aqui, entao o botao nunca mais fica preso desabilitado.
+        set_button_loading(self._search_btn, False)
         self._loading.setVisible(False)
         name = data.get("name", "")
         overview = data.get("overview")
@@ -561,12 +573,13 @@ class MarketScreen(QWidget):
         if not overview and not page:
             self._content.setVisible(False)
             self._empty.setVisible(True)
-            Toast.show_toast(
-                self,
+            erro = data.get("error")
+            msg = (
+                f"Erro ao consultar “{name}”: {erro}" if erro else
                 f"Não foi possível obter dados de “{name}”. "
-                "Verifique o nome (wear, StatTrak, espaços) ou tente novamente.",
-                "error",
+                "Verifique o nome (wear, StatTrak, espaços) ou tente novamente."
             )
+            Toast.show_toast(self, msg, "error")
             return
 
         self._empty.setVisible(False)

@@ -37,7 +37,7 @@ from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     Card, EmptyState, LoadingState, PageHeader, SectionHeader, StatCard,
-    Toast, ToggleSwitch,
+    Toast, ToggleSwitch, sync_bar,
 )
 from skinvault.ui.scanner_dialogs import _BacktestResultDialog, _ScoreBreakdownDialog
 from skinvault.ui.scanner_widgets import _ScannerBridge, _ValidationBridge
@@ -353,6 +353,13 @@ class ScannerScreen(QWidget):
         self._loading.setVisible(False)
         root.addWidget(self._loading, 0, Qt.AlignmentFlag.AlignCenter)
 
+        # Barra fina de sincronizacao: a tabela ja mostra resultado
+        # progressivamente durante o scan (streaming linha a linha), entao
+        # cobrir tudo com o LoadingState grande nao caberia aqui -- a barra
+        # avisa "ainda rodando" sem esconder o que ja' chegou.
+        self._sync_bar = sync_bar(self)
+        root.addWidget(self._sync_bar)
+
         # Tabela
         self._table = QTableWidget(0, 13)
         self._table.setHorizontalHeaderLabels([
@@ -527,38 +534,50 @@ class ScannerScreen(QWidget):
         self._status.setText(rotulo)
         self._loading.set_label(rotulo)
         self._loading.setVisible(True)
+        self._sync_bar.setVisible(True)
 
         def _worker():
             # Resolver a lista pode ir a' rede (busca por faceta). Roda AQUI,
             # nunca em _on_scan -- la' e' a thread da UI e a janela travaria.
-            items: list[str] = []
-            vistos = set()
-            for nome_cat, fallback in alvos:
-                if self._scan_cancelled:
-                    break
-                achados, _origem = discovery.resolve_scan_items(
-                    nome_cat, fallback, enabled=usar_descoberta,
-                )
-                for nome in achados:
-                    if nome not in vistos:
-                        vistos.add(nome)
-                        items.append(nome)
-            if not items:
-                self._bridge.progress.emit("FIM")
-                return
+            #
+            # try/except/finally: resolve_scan_items (rede) podia levantar
+            # excecao e derrubar a thread ANTES de emitir "FIM"/"CANCELADO"
+            # -- sem o sinal, _on_progress nunca reabilitava os botoes e o
+            # scanner ficava com "Cancelar scan" preso pra sempre (bug real,
+            # achado no diagnostico da Fase 2 de microinteracoes). O except
+            # loga e segue pro finally -- mesmo padrao de _scan_item logo
+            # abaixo, que ja' nao deixa excecao de item derrubar o scan.
             cancelado = False
-            for i, name in enumerate(items):
-                if self._scan_cancelled:
-                    cancelado = True
-                    break
-                self._bridge.progress.emit(
-                    f"[{i+1}/{len(items)}] {name}"
-                )
-                result = self._scan_item(name)
-                if result:
-                    self._bridge.result_ready.emit(result)
-                time.sleep(2.0)  # rate-limit respect
-            self._bridge.progress.emit("CANCELADO" if cancelado else "FIM")
+            try:
+                items: list[str] = []
+                vistos = set()
+                for nome_cat, fallback in alvos:
+                    if self._scan_cancelled:
+                        break
+                    achados, _origem = discovery.resolve_scan_items(
+                        nome_cat, fallback, enabled=usar_descoberta,
+                    )
+                    for nome in achados:
+                        if nome not in vistos:
+                            vistos.add(nome)
+                            items.append(nome)
+                if not items:
+                    return
+                for i, name in enumerate(items):
+                    if self._scan_cancelled:
+                        cancelado = True
+                        break
+                    self._bridge.progress.emit(
+                        f"[{i+1}/{len(items)}] {name}"
+                    )
+                    result = self._scan_item(name)
+                    if result:
+                        self._bridge.result_ready.emit(result)
+                    time.sleep(2.0)  # rate-limit respect
+            except Exception as e:
+                print(f"WARNING: scan worker falhou: {e}", file=sys.stderr)
+            finally:
+                self._bridge.progress.emit("CANCELADO" if cancelado else "FIM")
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -956,6 +975,7 @@ class ScannerScreen(QWidget):
             self._validate_btn.setEnabled(True)
             self._export_btn.setEnabled(True)
             self._loading.setVisible(False)
+            self._sync_bar.setVisible(False)
             if msg == "CANCELADO":
                 self._status.setText(
                     f"Scan cancelado: {len(self._scan_results)} itens coletados"

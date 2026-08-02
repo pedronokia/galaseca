@@ -459,7 +459,14 @@ class AccountScreen(QWidget):
         steamid = s.steamid
 
         def worker() -> None:
-            data = fetch_public_profile(steamid)
+            # try/except: fetch_public_profile ja' trata falha de rede
+            # devolvendo None, mas uma excecao inesperada (XML malformado,
+            # etc.) matava a thread sem emitir profile_ready -- o nome
+            # ficava preso em "Carregando perfil…" pra sempre.
+            try:
+                data = fetch_public_profile(steamid)
+            except Exception:
+                data = None
             if data:
                 self._bridge.profile_ready.emit(data)
             else:
