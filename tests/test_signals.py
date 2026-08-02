@@ -65,9 +65,9 @@ def test_trend_estavel():
          {"ts": now, "price": 150.0}]
     t = signals.trend(h)
     assert t is not None
-    assert t["direction"] == "estavel"
+    assert t["direction"] == "estável"
     assert t["change_pct"] == 0.0
-    assert "estavel" in t["label"]
+    assert "estável" in t["label"]
 
 
 def test_liquidity_liquid():

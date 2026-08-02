@@ -233,7 +233,7 @@ def volume_anomaly(history: list[dict], factor: float = 2.0) -> dict:
         "current": int(current),
         "avg": round(avg, 1),
         "direction": direction,
-        "label": f"Volume {direction} da media: {ratio:.1f}x" if is_anom else "",
+        "label": f"Volume {direction} da média: {ratio:.1f}x" if is_anom else "",
     }
 
 
@@ -250,9 +250,9 @@ def trend(history: list[dict]) -> dict | None:
         return None
     days = (history[-1]["ts"] - history[0]["ts"]) / 86400
     change_pct = ((last - first) / first) * 100
-    direction = "estavel" if change_pct == 0 else ("subiu" if change_pct > 0 else "caiu")
+    direction = "estável" if change_pct == 0 else ("subiu" if change_pct > 0 else "caiu")
     if change_pct == 0:
-        label = f"Preco estavel em {days:.0f}d" if days >= 1 else "Preco estavel"
+        label = f"Preço estável em {days:.0f}d" if days >= 1 else "Preço estável"
     else:
         label = (
             f"{direction} {abs(change_pct):.1f}% em {days:.0f}d"
@@ -279,7 +279,7 @@ def liquidity_flag(volume: int | None) -> dict:
         return {"level": "liquid", "flag": ""}
     return {
         "level": "low",
-        "flag": f"Volume baixo ({volume}/dia) — pode ser dificil revender",
+        "flag": f"Volume baixo ({volume}/dia) — pode ser difícil revender",
     }
 
 
@@ -333,7 +333,7 @@ def multi_trend(price_history: list[dict], periods: list[int] | None = None) -> 
 
         age_h = (now - candidate["time"]) / 3600
         change = ((last_price - first_price) / first_price) * 100
-        direction = "subiu" if change > 0.5 else ("caiu" if change < -0.5 else "estavel")
+        direction = "subiu" if change > 0.5 else ("caiu" if change < -0.5 else "estável")
         label = labels.get(period_h, f"{period_h}h")
 
         result[label] = {
@@ -563,7 +563,7 @@ def relative_to_ath(price_history: list[dict]) -> dict:
         "ath": round(ath, 4),
         "current": round(current, 4),
         "band": band,
-        "label": f"Preco a {pct:.0%} do ATH (${ath:.2f})",
+        "label": f"Preço a {pct:.0%} do ATH (${ath:.2f})",
     }
 
 
@@ -635,7 +635,7 @@ def pump_risk(price_history: list[dict] | None = None,
             if avg_baseline > 0 and avg_7 / avg_baseline >= 2.0:
                 flags += 1
                 reasons.append(
-                    f"Volume 7d {avg_7 / avg_baseline:.1f}x acima media 30d"
+                    f"Volume 7d {avg_7 / avg_baseline:.1f}x acima média 30d"
                 )
 
     if flags >= 2:
@@ -699,8 +699,8 @@ def data_quality(price_history: list[dict],
         "n": n,
         "age_days": round(age_days, 1),
         "level": level,
-        "label": f"Confianca {level} ({confidence:.2f}) — n={n}, "
-                  f"ultimo {age_days:.0f}d atras",
+        "label": f"Confiança {level} ({confidence:.2f}) — n={n}, "
+                  f"último {age_days:.0f}d atrás",
     }
 
 
@@ -745,7 +745,7 @@ def drawdown(price_history: list[dict], window_days: int = 90) -> dict:
         "current_price": round(current, 2),
         "days_since_max": round(days_since_max, 1),
         "band": band,
-        "label": f"DD {dd_pct:.1f}% ({band}), max {days_since_max:.0f}d atras",
+        "label": f"DD {dd_pct:.1f}% ({band}), max {days_since_max:.0f}d atrás",
     }
 
 
@@ -817,14 +817,14 @@ def enhanced_score(verdict: dict, volume: int | None = None,
 
     tv = verdict.get("trend_verdict", "")
     if tv == "rising":
-        _add("trend", 15, "Tendencia: subindo (+15)")
+        _add("trend", 15, "Tendência: subindo (+15)")
     elif tv == "falling":
         # EXPERIMENT 2026-06-07: fair_penalty_halving — REVERTIDO
         # Hipótese: trend falling quando preco esta "fair" (±5%) e' ruido.
         # Resultado: +0.0016 agg corr (56 itens, n=22014), abaixo do criterio
         # de +0.002. Keep: 85-100 intacto, 112 falsos negativos removidos.
         # Negative finding: efeito real mas marginal; nao justifica mudanca.
-        _add("trend", -10, "Tendencia: caindo (-10)")
+        _add("trend", -10, "Tendência: caindo (-10)")
 
     # Oferta / Demanda
     if volume is not None and supply is not None and supply > 0:
@@ -877,9 +877,9 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         mean_recent = sum(prices_m) / len(prices_m)
         last_p = prices_m[-1]
         if last_p > mean_recent * 1.02:
-            _add("momentum", 5, "Acima da media recente (+5)")
+            _add("momentum", 5, "Acima da média recente (+5)")
         elif last_p < mean_recent * 0.98:
-            _add("momentum", -5, "Abaixo da media recente (-5)")
+            _add("momentum", -5, "Abaixo da média recente (-5)")
 
     # Concordancia multi-periodo
     if multi_trend and len(multi_trend) >= 3:
@@ -1031,13 +1031,13 @@ def score_age_text(score_ts: float | None) -> str:
     if age_s < 60:
         return "agora"
     if age_s < 3600:
-        return f"{int(age_s / 60)}min atras"
+        return f"{int(age_s / 60)}min atrás"
     if age_s < 86400:
-        return f"{int(age_s / 3600)}h atras"
+        return f"{int(age_s / 3600)}h atrás"
     days = age_s / 86400
     if days < 30:
-        return f"{int(days)}d atras"
-    return f"{int(days)}d atras (desatualizado)"
+        return f"{int(days)}d atrás"
+    return f"{int(days)}d atrás (desatualizado)"
 
 
 def discontinued_flag(name: str) -> dict:
@@ -1068,6 +1068,6 @@ def discontinued_flag(name: str) -> dict:
     if st.get("is_discontinued") and container == canonico.strip().lower():
         return {
             "is_discontinued": True,
-            "flag": "Caixa descontinuada — oferta nao cresce mais",
+            "flag": "Caixa descontinuada — oferta não cresce mais",
         }
     return {"is_discontinued": False, "flag": ""}

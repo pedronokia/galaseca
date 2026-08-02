@@ -51,7 +51,7 @@ def evaluate_item(
     if target and current_price is not None and current_price <= target:
         alerts.append({
             "rule": "price_below",
-            "label": f"Preco atingiu alvo ({current_price:.2f} <= {target:.2f})",
+            "label": f"Preço atingiu alvo ({current_price:.2f} <= {target:.2f})",
             "value": current_price,
             "severity": "opportunity",
         })
@@ -76,7 +76,7 @@ def evaluate_item(
         if anom.get("is_anomaly") and anom.get("direction") == "acima":
             alerts.append({
                 "rule": "volume_spike",
-                "label": f"Volume {anom['ratio']:.1f}x acima da media (gatilho {vol_factor}x)",
+                "label": f"Volume {anom['ratio']:.1f}x acima da média (gatilho {vol_factor}x)",
                 "value": anom["ratio"],
                 "severity": "info",
             })
@@ -88,7 +88,7 @@ def evaluate_item(
         if anom_s.get("is_anomaly") and anom_s.get("direction") == "abaixo":
             alerts.append({
                 "rule": "supply_drop",
-                "label": f"Oferta {anom_s['ratio']:.2f}x da media (queda)",
+                "label": f"Oferta {anom_s['ratio']:.2f}x da média (queda)",
                 "value": anom_s["ratio"],
                 "severity": "opportunity",
             })

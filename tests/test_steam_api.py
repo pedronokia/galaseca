@@ -81,13 +81,13 @@ class TestFairValueVerdict:
         ph = [{"price_median": 100.0}] * 6 + [{"price_median": 115.0}]
         v = fair_value_verdict(100.0, 100.0, price_history=ph)
         assert v["trend_verdict"] == "rising"
-        assert "Preco subindo" in v["message"]
+        assert "Preço subindo" in v["message"]
 
     def test_with_falling_price_history(self):
         ph = [{"price_median": 115.0}] * 6 + [{"price_median": 100.0}]
         v = fair_value_verdict(100.0, 100.0, price_history=ph)
         assert v["trend_verdict"] == "falling"
-        assert "Preco caindo" in v["message"]
+        assert "Preço caindo" in v["message"]
 
     def test_insufficient_history_skips_trend(self):
         ph = [{"price_median": 100.0}] * 3

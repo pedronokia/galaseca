@@ -908,11 +908,11 @@ def fair_value_verdict(
     if diff_pct <= -5:
         verdict = "below_median"
         label = "abaixo da mediana"
-        msg = f"Menor listagem {abs(diff_pct):.0f}% abaixo da mediana. Bom negocio."
+        msg = f"Menor listagem {abs(diff_pct):.0f}% abaixo da mediana. Bom negócio."
     elif diff_pct <= 5:
         verdict = "fair"
-        label = "preco justo"
-        msg = "Preco dentro de 5% da mediana. Justo."
+        label = "preço justo"
+        msg = "Preço dentro de 5% da mediana. Justo."
     elif diff_pct <= 20:
         verdict = "slightly_above"
         label = "levemente acima"
@@ -940,9 +940,9 @@ def fair_value_verdict(
         elif extra.get("book_verdict") == "buyer_dominant":
             msg_parts.append("Demanda aquecida.")
         if extra.get("trend_verdict") == "falling":
-            msg_parts.append("Preco caindo nos ultimos dias.")
+            msg_parts.append("Preço caindo nos últimos dias.")
         elif extra.get("trend_verdict") == "rising":
-            msg_parts.append("Preco subindo nos ultimos dias.")
+            msg_parts.append("Preço subindo nos últimos dias.")
         result["message"] = " ".join(msg_parts)
 
     # Bloqueio pos-compra: fato, nao ajuste de score.
