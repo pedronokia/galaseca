@@ -39,9 +39,11 @@ _BASE = "https://prices.csgotrader.app/latest/{source}.json"
 # Mercados suportados e a taxa de VENDA de cada um (fracao).
 # A da Steam esta' aqui so' pra comparacao; quem cobra la' e' o proprio
 # steam_api/portfolio.
+# Buff163 saiu em 02/08/2026: nunca respondeu (fetch_market sempre
+# ERROR, 0 itens) e a decisao de produto fechou o escopo em Steam +
+# CSGOTM/Skinport -- sem novo mercado externo daqui pra frente.
 MARKET_FEES = {
     "skinport": 0.12,
-    "buff163": 0.025,
     "csgotm": 0.05,
 }
 

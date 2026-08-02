@@ -58,8 +58,8 @@ def test_fetch_usa_a_fonte_na_url(monkeypatch):
         return 200, json.dumps({"X": 1.0})
 
     monkeypatch.setattr(markets, "_http_get", fake)
-    markets.fetch_market("buff163")
-    assert "buff163.json" in vistos[0]
+    markets.fetch_market("csgotm")
+    assert "csgotm.json" in vistos[0]
 
 
 def test_fetch_erros(monkeypatch):
@@ -89,7 +89,7 @@ def test_cache_expira(tmp_path):
 def test_cache_separa_fontes(tmp_path):
     c = markets.MarketPriceCache(path=tmp_path / "m.json", ttl=3600)
     c.put("skinport", {"A": 1.0}, now=1000)
-    assert c.get("buff163", now=1000) is None
+    assert c.get("csgotm", now=1000) is None
 
 
 def test_cache_persiste(tmp_path):
@@ -167,8 +167,8 @@ def test_compare_wallet_vs_cash_sao_direcoes_opostas():
 
 def test_compare_desconta_a_taxa_certa_por_mercado():
     r_sp = markets.compare(10.0, 2.0, 5.0, source="skinport")
-    r_buff = markets.compare(10.0, 2.0, 5.0, source="buff163")
-    assert r_buff["market_net"] > r_sp["market_net"]
+    r_csm = markets.compare(10.0, 2.0, 5.0, source="csgotm")
+    assert r_csm["market_net"] > r_sp["market_net"]
 
 
 def test_compare_sem_preco_de_mercado_ainda_da_o_lado_steam():
@@ -190,7 +190,6 @@ def test_compare_sem_preco_de_mercado_ainda_da_o_lado_steam():
 def _mercados(monkeypatch):
     dados = {
         "skinport": {"AK": 30.0},    # bruto 150, taxa 12% -> 132
-        "buff163": {"AK": 29.0},     # bruto 145, taxa 2.5% -> 141.375
         "csgotm": {"AK": 28.0},      # bruto 140, taxa 5% -> 133
     }
     monkeypatch.setattr(markets, "cached_market",
@@ -201,7 +200,7 @@ def _mercados(monkeypatch):
 
 def test_compare_all_ordena_pelo_liquido(_mercados):
     r = markets.compare_all("AK")
-    assert [x["source"] for x in r] == ["buff163", "csgotm", "skinport"]
+    assert [x["source"] for x in r] == ["csgotm", "skinport"]
 
 
 def test_compare_all_maior_bruto_nao_vence(_mercados):
@@ -212,7 +211,7 @@ def test_compare_all_maior_bruto_nao_vence(_mercados):
 
 
 def test_best_market_e_o_primeiro(_mercados):
-    assert markets.best_market("AK")["source"] == "buff163"
+    assert markets.best_market("AK")["source"] == "csgotm"
 
 
 def test_compare_all_pula_fonte_sem_cotacao(_mercados):

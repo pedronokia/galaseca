@@ -101,7 +101,6 @@ class InventoryTile(QFrame):
 
     _NOME_MERCADO = {
         "skinport": "Skinport",
-        "buff163": "Buff163",
         "csgotm": "CS.MONEY/TM",
     }
 

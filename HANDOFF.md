@@ -1,22 +1,38 @@
-# HANDOFF — estado em 2026-07-30
+# HANDOFF — estado em 2026-08-02
 
 Ponto de partida pra quem continuar (opencode ou outro agente). Substitui
-o handoff de 2026-06-09.
+o handoff de 2026-07-30.
 
 **Leia primeiro:** [AGENTS.md](AGENTS.md). As armadilhas **#10, #11, #12**
-e as seções **4b/4c/4d** foram escritas nesta sessão e resumem o que
-custou caro descobrir.
+e as seções **4b/4c/4d** foram escritas em 30/07 e resumem o que custou
+caro descobrir.
+
+**Decisão de produto em 02/08: escopo 100% Mercado da Comunidade Steam.**
+Não haverá integração com mercados externos/paralelos daqui pra frente
+(Buff163 e similares). Análises, fair value, sinais e histórico dependem
+exclusivamente de dado Steam. Isso reafirma a regra original do
+`AGENTS.md` ("Steam-only... até reavaliação pós-uso real") — a
+reavaliação aconteceu (branch `feat/multi-market-e-inventario`, 51
+commits mergeados), e a conclusão foi recuar. **CSGOTM e Skinport
+continuam integrados** (comparação "Melhor fora"/"Onde" no inventário já
+é funcionalidade real e usada); só o Buff163 — que nunca funcionou — saiu
+do código. Se a intenção for descontinuar CSGOTM/Skinport também, isso é
+uma tarefa maior e separada (remove o card "Melhor fora", a composição
+"vendendo fora" da Conta e o painel de venda do inventário) — avisar
+antes de tocar nisso.
 
 ---
 
 ## Estado
 
-- Branch: `feat/multi-market-e-inventario`
-- **35 commits**. **Não há remote configurado** — não é decisão pendente,
-  não existe pra onde enviar.
-- Suíte: **1967 testes**, ~70s. `cd C:\SkinVault && python -m pytest -q`
+- Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
+  `dc349c7`).
+- Suíte: **2127 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
+- **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
+  consistência, `ROADMAP_UI_FASE4.md`) 100% concluídas** — todas as
+  frentes ✅, nada pendente nesses dois documentos.
 
 **A Steam está com rate limit há mais de 24h** em `priceoverview`,
 `search/render`, `pricehistory` e `/inventory/`. A listing page e o CDN de
@@ -105,30 +121,65 @@ silêncio (AGENTS.md #12).
 
 Suíte: **1967 testes**.
 
+## Entregue em 01-02/08 (sessão Claude Code)
+
+- **Commits ad-hoc pós Fase 4** (fora de roadmap formal): gráfico de
+  histórico completo no Market (eixo, volume, intervalo 7d/30d/tudo,
+  crosshair — `3fc3bc7`), busca por nome no Scanner (`1ef3950`),
+  tooltips nos cabeçalhos de tabela em trades/watchlist/history/scanner
+  ("front #4" — `b393325`), inventário no layout do Mercado da
+  Comunidade Steam (`9bae27e`), fix de alinhamento dos filtros do
+  inventário + procedência que negava caixa conhecida (`c559480`).
+- **Fila #1 resolvida** — coluna "Origem" do inventário agora usa
+  `setColumnHidden`: some quando todas as posições têm a mesma origem,
+  só aparece com mistura Steam/Manual de verdade (`a69800e`).
+- **Fila #2 resolvida** — acentuação de `signals.py`/`steam_api.py`/
+  `alerts.py` (labels, messages, flags de breakdown/alerta/veredito).
+  Levantamento confirmou que `rankings.json` não persiste esse texto
+  (schema real é só `{name, score, position}`) e nenhuma lógica compara
+  contra ele (comparações usam token em inglês: `verdict`, `level`,
+  `factor`) — sem migração de dado necessária. `alerts_log.json`
+  persiste `label` livre; registros antigos mantêm a grafia sem acento
+  até rolarem do cap de 500, inofensivo (`f8fcbe7`).
+- **Fila #4 resolvida** — Buff163 removido de `MARKET_FEES`
+  (`markets.py`) e de `_NOME_MERCADO` (`inventory_grid.py`); nunca
+  respondeu (sempre `ERROR`, 0 itens), então a remoção não tira nenhuma
+  cotação que estivesse aparecendo de verdade. Decisão de produto: sem
+  reintegração de mercado externo novo daqui pra frente.
+
 ## Fila, em ordem
 
-### 1. Coluna "Origem" do inventário
-100% "Steam" nas 31 linhas. Ocupa espaço sem informar. Ou some, ou só
-aparece quando há mistura com posições manuais.
-
-### 2. Acentuar a camada de análise
-`signals.py` / `steam_api.py` / `alerts.py` ainda produzem "Tendencia:
-caindo", "Preco subindo", "Confianca". São visíveis (dialog de breakdown,
-log de alertas), mas viajam em dicts que vão pro `rankings.json` — mudar
-é migração de dado, não tipografia. Decidir se vale.
-
-### 3. `scanner_discovery` (bloqueado por fora)
+### 1. `scanner_discovery` (bloqueado por fora)
 `discovery.py` escrito e testado, flag `scanner_discovery = False`. Nunca
 completou uma chamada real. Quando a Steam liberar: rodar `search_market`
 uma vez; se vier `ok`, ligar a flag.
 
-### 4. Buff163 fora do ar
-`markets.fetch_market("buff163")` retorna erro, 0 itens. É a menor taxa
-(2,5%). Não investigado.
+---
 
-### 5. Ponto ruim no `history.json`
-Os deltas já foram corrigidos, mas sobrou o ponto de 11/06 (R$ 200,00,
-avaliação parcial). Remover muda o gráfico de valor — decisão do dono.
+## Item fechado em 02/08: ponto ruim no `history.json`
+
+**Já estava resolvido** — a fila só não tinha sido atualizada. Conferido
+no dado real (`data/history.json` vs o backup
+`data/history.json.bak-parcial`):
+
+- Backup tem 3 pontos: 04/06 (R$ 964,93), 05/06 (R$ 979,42) e **11/06
+  10:37 (R$ 200,00)** — o ponto de avaliação parcial.
+- `history.json` **ao vivo** hoje só tem os 2 primeiros. O ponto de
+  200 já foi removido (entrada "Removido do `history.json` o snapshot
+  parcial que gerava -79,6%" na seção de 30/07 acima, feita na mesma
+  sessão que criou o backup).
+- Conferi a matemática: `(200 − 979,42) / 979,42 = −79,6%`, bate exato
+  com o que já estava documentado. É o mesmo ponto.
+
+**Nada a fazer nos dados** — não toquei em `history.json` nem no backup.
+O `.bak-parcial` fica onde está como registro de segurança (não é
+arquivo canônico, não entra na whitelist do `backup.py`). Só os 2 pontos
+limpos aparecem no gráfico hoje.
+
+O gráfico de valor está com poucos pontos (2, ambos de 04-05/06) porque
+`record_snapshot` só roda quando uma avaliação completa com sucesso, e a
+Steam andou em rate limit prolongado (ver topo do documento) — isso é
+consequência do bloqueio externo, não um bug de dado.
 
 ---
 
