@@ -453,6 +453,7 @@ class InventoryScreen(QWidget):
         # grade e a tabela. Cada dicionario tem ~25 mil entradas; resolver
         # por tela releria os tres duas vezes.
         self._mercados = self._resolver_mercados()
+        self._listados = self._carregar_listados()
         tem = bool(self._rows)
         self._loading.setVisible(False)
         self._views.setVisible(tem)
@@ -557,6 +558,23 @@ class InventoryScreen(QWidget):
                 nome, r.get("price"), cotacoes, fx)
         return out
 
+    def _carregar_listados(self) -> set:
+        """Nomes com pelo menos uma listagem ativa no Mercado da Steam.
+
+        Aproximacao por NOME, nao por asset individual: `sync.py` guarda
+        `active_listings.json` sem asset_id (extrai de results_html, ver
+        sync._extract_listings_from_response), entao 3 unidades do mesmo
+        item com so' 1 anunciada aparecem como "No Mercado" as tres. Mesma
+        granularidade que o resto da tela ja usa -- P&L e preco tambem sao
+        por nome agrupado, nao por unidade.
+        """
+        try:
+            from skinvault import sync
+            listagens = sync.load_active_listings()
+        except Exception:
+            return set()
+        return {lst.get("name") for lst in listagens if lst.get("name")}
+
     def _populate_grid(self) -> None:
         """Alimenta a grade com a avaliacao em TODAS as plataformas."""
         from skinvault.localization import localize_name as _ln
@@ -601,6 +619,7 @@ class InventoryScreen(QWidget):
                 "score": pos.get("current_score"),
                 "score_ts": pos.get("score_ts"),
                 "pnl": r.get("pnl"),
+                "listed": nome in self._listados,
             })
         self._grid.set_items(itens)
 
@@ -840,12 +859,16 @@ class InventoryScreen(QWidget):
         from skinvault.localization import localize_name as _ln
         r = self._rows[idx]
         pos = self._positions[idx] if idx < len(self._positions) else {}
+        mercados = self._mercados.get(raw) or []
         self._drawer.show_item({
             "name": _ln(raw) or raw,
             "raw_name": raw,
             "icon": pos.get("icon") or r.get("icon"),
             "price": r.get("price"),
+            "net_if_sold": r.get("net_if_sold"),
+            "melhor_fora": mercados[0] if mercados else None,
             "pnl": r.get("pnl"),
+            "listed": raw in self._listados,
         })
 
     def _on_context_menu(self, pos) -> None:

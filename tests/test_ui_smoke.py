@@ -8309,6 +8309,100 @@ def test_populate_grid_inclui_pnl(monkeypatch, tmp_path):
     assert itens[0]["pnl"] == -5.25
 
 
+# ── Badge "No Mercado" + listagens ativas ───────────────────────────
+
+def test_carregar_listados_marca_nome_com_anuncio_ativo(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.inventory_screen import InventoryScreen
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda *a, **k: {})
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.11)
+    monkeypatch.setattr(
+        "skinvault.sync.load_active_listings",
+        lambda *a, **k: [{"name": "AK-47 | Redline (Field-Tested)",
+                          "price": 100.0}])
+    screen = InventoryScreen()
+    rows = [
+        {"name": "AK-47 | Redline (Field-Tested)", "quantity": 1,
+         "price": 100.0, "net_if_sold": 85.0, "pnl": None},
+        {"name": "Kilowatt Case", "quantity": 3,
+         "price": 1.5, "net_if_sold": 1.2, "pnl": None},
+    ]
+    positions = [{"source": "steam_sync"}, {"source": "steam_sync"}]
+    screen.set_data(rows, positions)
+    itens = {i["raw_name"]: i for i in screen._grid._itens}
+    assert itens["AK-47 | Redline (Field-Tested)"]["listed"] is True
+    assert itens["Kilowatt Case"]["listed"] is False
+
+
+def test_carregar_listados_falha_de_rede_nao_derruba_a_tela(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.inventory_screen import InventoryScreen
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda *a, **k: {})
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.11)
+
+    def boom(*a, **k):
+        raise OSError("sem rede")
+
+    monkeypatch.setattr("skinvault.sync.load_active_listings", boom)
+    screen = InventoryScreen()
+    rows = [{"name": "AK-47 | Redline (Field-Tested)", "quantity": 1,
+             "price": 100.0, "net_if_sold": 85.0, "pnl": None}]
+    screen.set_data(rows, [{"source": "steam_sync"}])  # nao pode levantar
+    assert screen._grid._itens[0]["listed"] is False
+
+
+def test_inventory_tile_badge_no_mercado_smoke():
+    """grab() forca o paintEvent -- se o desenho do badge tivesse um bug
+    de indice/tipo, quebraria aqui."""
+    from skinvault.ui.inventory_grid import InventoryTile
+    com_badge = InventoryTile({"name": "AK-47", "pnl": 1.0, "listed": True})
+    sem_badge = InventoryTile({"name": "AWP", "pnl": 1.0, "listed": False})
+    for tile in (com_badge, sem_badge):
+        assert not tile.grab().isNull()
+
+
+def test_inventory_tile_selecao_reforcada_smoke():
+    """set_selected(True) usa fundo/borda proprios (ACCENT_DIM + borda
+    mais grossa) em vez de reaproveitar o do hover -- so' checa que o
+    novo caminho de pintura nao quebra em combinacao com hover."""
+    from skinvault.ui.inventory_grid import InventoryTile
+    tile = InventoryTile({"name": "AK-47", "pnl": None})
+    for selecionado in (False, True):
+        for hover in (False, True):
+            tile._selected = selecionado
+            tile._hover = hover
+            assert not tile.grab().isNull()
+
+
+def test_on_table_row_clicked_passa_cotacoes_completas(monkeypatch):
+    from skinvault.prices import PriceCache
+    from skinvault.ui.inventory_screen import InventoryScreen
+    monkeypatch.setattr("skinvault.markets.cached_market",
+                        lambda *a, **k: {})
+    monkeypatch.setattr("skinvault.markets.usd_brl", lambda *a, **k: 5.11)
+    monkeypatch.setattr(
+        "skinvault.sync.load_active_listings",
+        lambda *a, **k: [{"name": "AK-47 | Redline (Field-Tested)"}])
+    screen = InventoryScreen()
+    rows = [{"name": "AK-47 | Redline (Field-Tested)", "quantity": 1,
+             "price": 175.71, "net_if_sold": 149.35, "pnl": -5.25}]
+    screen.set_data(rows, [{"source": "steam_sync"}])
+    screen._view_seg.select("table")
+
+    row = 0
+    for r in range(screen._table.rowCount()):
+        if "AK-47" in screen._table.item(r, screen.COL_NAME).text():
+            row = r
+            break
+    screen._on_table_row_clicked(row, 0)
+
+    item = screen._drawer.current_item()
+    assert item["net_if_sold"] == 149.35
+    assert item["listed"] is True
+
+
 # ── Sidebar: transicao suave ao alternar rail/rotulos ───────────────
 
 def test_apply_sidebar_metrics_sem_janela_visivel_e_instantaneo(monkeypatch):
@@ -8367,7 +8461,7 @@ def test_drawer_show_item_abre_e_popula():
     assert d.is_open() is True
     assert d.maximumWidth() == ItemDetailDrawer.OPEN_WIDTH
     assert d._nome.text() == "AK-47 | Redline (Field-Tested)"
-    assert "120,50" in d._preco.text()
+    assert "120,50" in d._steam_preco.text()
     assert "8,00" in d._pnl.text()
     assert d._condicao.text() == "Field-Tested"
 
@@ -8385,6 +8479,81 @@ def test_drawer_condicao_usa_o_nome_localizado():
         "price": 1.5,
     })
     assert d._condicao.text() == "Pouco Usada"
+
+
+def test_drawer_cotacoes_agrupadas_steam_e_fora():
+    """Preco Steam e saldo Steam ficam num card; o melhor mercado de fora
+    (nome + liquido) fica no outro -- as duas moedas nao podem se
+    confundir na mesma lista de campos."""
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({
+        "name": "AK-47 | Redline (Field-Tested)",
+        "price": 175.71,
+        "net_if_sold": 149.35,
+        "melhor_fora": {"source": "csgotm", "net_brl": 135.94, "fee": 0.05},
+    })
+    assert "175,71" in d._steam_preco.text()
+    assert "149,35" in d._steam_recebe.text()
+    assert "CS.MONEY/TM" in d._fora_titulo.text()
+    assert "135,94" in d._fora_valor.text()
+
+
+def test_drawer_sem_cotacao_de_fora_mostra_travessao():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "Item Raro", "price": 5.0})
+    assert d._fora_valor.text() == "—"
+    assert "VENDENDO FORA" in d._fora_titulo.text()
+
+
+def test_drawer_tag_no_mercado_quando_listado(monkeypatch):
+    from skinvault.ui.components import ItemDetailDrawer
+    from PyQt6.QtWidgets import QLabel
+    d = ItemDetailDrawer()
+    d.show_item({"name": "AK-47", "price": 10.0, "listed": True})
+    chips = [w for i in range(d._tags_row.count())
+             if (w := d._tags_row.itemAt(i).widget()) is not None
+             and isinstance(w, QLabel)]
+    assert any(c.text() == "No Mercado" for c in chips)
+
+
+def test_drawer_sem_tag_no_mercado_quando_nao_listado():
+    from skinvault.ui.components import ItemDetailDrawer
+    from PyQt6.QtWidgets import QLabel
+    d = ItemDetailDrawer()
+    d.show_item({"name": "AK-47", "price": 10.0, "listed": False})
+    chips = [w for i in range(d._tags_row.count())
+             if (w := d._tags_row.itemAt(i).widget()) is not None
+             and isinstance(w, QLabel)]
+    assert not any(c.text() == "No Mercado" for c in chips)
+
+
+def test_drawer_copiar_nome(monkeypatch):
+    from skinvault.ui.components import ItemDetailDrawer
+    copiado = []
+    fake_clipboard = type("FakeClipboard", (), {
+        "setText": lambda self, txt: copiado.append(txt)})()
+    monkeypatch.setattr(
+        "skinvault.ui.components.QApplication.clipboard",
+        lambda: fake_clipboard)
+    toasts = []
+    monkeypatch.setattr(
+        "skinvault.ui.components.Toast.show_toast",
+        lambda parent, text, variant="info", **kw: toasts.append(
+            (text, variant)))
+    d = ItemDetailDrawer()
+    d.show_item({"name": "AK-47 | Redline (Field-Tested)", "price": 10.0})
+    d._copiar_btn.click()
+    assert copiado == ["AK-47 | Redline (Field-Tested)"]
+    assert toasts and toasts[-1][1] == "success"
+
+
+def test_drawer_botao_mercado_chama_ver_no_mercado():
+    """O rotulo mudou de 'Abrir no Mercado Steam' pra 'Ver no Mercado'."""
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    assert d._steam_btn.text() == "Ver no Mercado"
 
 
 def test_drawer_pnl_negativo_e_desconhecido():

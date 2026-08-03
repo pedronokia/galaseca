@@ -29,6 +29,7 @@ from PyQt6.QtGui import (
     QPixmap,
 )
 from PyQt6.QtWidgets import (
+    QApplication,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
@@ -1718,7 +1719,10 @@ class ItemDetailDrawer(QWidget):
     testes ficarem deterministicos).
 
     dict esperado por show_item: {name, icon (path opcional), price,
-    pnl (opcional), raw_name (opcional, pro link/tags -- cai pra name)}.
+    net_if_sold (opcional, saldo Steam), melhor_fora (opcional, dict
+    {source, net_brl, fee} do melhor mercado externo), pnl (opcional),
+    raw_name (opcional, pro link/tags -- cai pra name), listed (opcional,
+    bool -- tem anuncio ativo no Mercado da Steam)}.
 
     Uso:
         self._drawer = ItemDetailDrawer(self)
@@ -1726,11 +1730,21 @@ class ItemDetailDrawer(QWidget):
         ...
         self._drawer.show_item({"name": "...", "price": 12.5, "pnl": -1.0})
         self._drawer.close_drawer()
+
+    Sobre "Inspecionar no Jogo" (link steam://rungame/.../+csgo_econ_
+    action_preview): NAO da' pra oferecer de verdade. O link exige
+    asset_id + inspect ticket por UNIDADE, e nenhum lugar do sync capta
+    isso hoje (`sync.py` so' guarda nome/preco por listagem, sem asset).
+    Alem disso, inspecionar no jogo e' o proprio mecanismo de ver float/
+    pattern -- e o projeto marcou os dois fora de escopo (AGENTS.md/
+    ROADMAP, "Steam-only... float, pattern ficam de fora"). As acoes
+    rapidas daqui sao "Copiar nome" e "Ver no Mercado", que sao reais.
     """
 
     closed = pyqtSignal()
     OPEN_WIDTH = 300
     _DURATION_MS = 180
+    _NOME_MERCADO = {"skinport": "Skinport", "csgotm": "CS.MONEY/TM"}
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -1779,21 +1793,68 @@ class ItemDetailDrawer(QWidget):
 
         root.addSpacing(t.SPACE_SM)
 
-        self._preco = self._metrica(root, "Preço")
+        # Cotacoes agrupadas num card proprio: saldo Steam e dinheiro de
+        # fora sao moedas DIFERENTES (a Steam pede ~36% a mais justamente
+        # porque o saldo dela nao sai) -- antes as duas viviam soltas na
+        # mesma lista de campos, sem nada dizendo que nao sao comparaveis.
+        self._quotes_card = QWidget()
+        self._quotes_card.setStyleSheet(
+            f"background: {t.SURFACE}; border-radius: {t.RADIUS_MD}px;")
+        qc = QVBoxLayout(self._quotes_card)
+        qc.setContentsMargins(t.SPACE_MD, t.SPACE_SM, t.SPACE_MD, t.SPACE_SM)
+        qc.setSpacing(2)
+
+        qc.addWidget(self._secao_titulo("VENDENDO NA STEAM (SALDO)"))
+        self._steam_preco = self._metrica(qc, "Anuncie por")
+        self._steam_recebe = self._metrica(qc, "Você recebe")
+
+        qc.addSpacing(t.SPACE_XS)
+        divisor = QWidget()
+        divisor.setFixedHeight(1)
+        divisor.setStyleSheet(f"background: {t.BORDER};")
+        qc.addWidget(divisor)
+        qc.addSpacing(t.SPACE_XS)
+
+        self._fora_titulo = self._secao_titulo("VENDENDO FORA (DINHEIRO)")
+        qc.addWidget(self._fora_titulo)
+        self._fora_valor = self._metrica(qc, "Líquido")
+
+        root.addWidget(self._quotes_card)
+        root.addSpacing(t.SPACE_SM)
+
         self._pnl = self._metrica(root, "P&L")
         self._condicao = self._metrica(root, "Condição")
 
         root.addSpacing(t.SPACE_MD)
 
-        self._steam_btn = QPushButton("Abrir no Mercado Steam")
+        acoes = QHBoxLayout()
+        acoes.setSpacing(t.SPACE_SM)
+        self._copiar_btn = QPushButton("Copiar nome")
+        self._copiar_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._copiar_btn.setStyleSheet(t.btn_ghost())
+        self._copiar_btn.setToolTip(
+            "Copia o nome do item pra área de transferência.")
+        self._copiar_btn.clicked.connect(self._copiar_nome)
+        acoes.addWidget(self._copiar_btn)
+
+        self._steam_btn = QPushButton("Ver no Mercado")
         self._steam_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._steam_btn.setStyleSheet(t.btn_steam())
         self._steam_btn.setToolTip(
             "Abre a página de anúncios deste item no navegador.")
         self._steam_btn.clicked.connect(self._abrir_no_steam)
-        root.addWidget(self._steam_btn)
+        acoes.addWidget(self._steam_btn, 1)
+        root.addLayout(acoes)
 
         root.addStretch(1)
+
+    def _secao_titulo(self, texto: str) -> QLabel:
+        lbl = QLabel(texto)
+        lbl.setStyleSheet(
+            f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            " font-weight: 600; letter-spacing: 0.5px;"
+            " background: transparent;")
+        return lbl
 
     def _metrica(self, layout, rotulo: str) -> QLabel:
         row = QHBoxLayout()
@@ -1820,12 +1881,14 @@ class ItemDetailDrawer(QWidget):
                 w.setParent(None)
                 w.deleteLater()
 
-    def _tag_chip(self, texto: str) -> QLabel:
+    def _tag_chip(self, texto: str, steam: bool = False) -> QLabel:
         chip = QLabel(texto)
+        cor = t.STEAM_BLUE if steam else t.TEXT_MUTED
+        fundo = t.STEAM_DIM if steam else t.SURFACE
         chip.setStyleSheet(
-            f"background: {t.SURFACE}; color: {t.TEXT_MUTED};"
-            f" font-size: {t.FS_MUTED}; padding: 2px 8px;"
-            f" border-radius: {t.RADIUS_SM}px;")
+            f"background: {fundo}; color: {cor};"
+            f" font-size: {t.FS_MUTED}; font-weight: {600 if steam else 400};"
+            f" padding: 2px 8px; border-radius: {t.RADIUS_SM}px;")
         return chip
 
     def show_item(self, item: dict) -> None:
@@ -1852,7 +1915,19 @@ class ItemDetailDrawer(QWidget):
             self._icon.clear()
             self._icon.setVisible(False)
 
-        self._preco.setText(t.brl(self._item.get("price")))
+        self._steam_preco.setText(t.brl(self._item.get("price")))
+        self._steam_recebe.setText(t.brl(self._item.get("net_if_sold")))
+
+        melhor = self._item.get("melhor_fora")
+        if melhor:
+            nome_m = self._NOME_MERCADO.get(
+                melhor.get("source"), melhor.get("source") or "")
+            self._fora_titulo.setText(f"VENDENDO FORA · {nome_m.upper()}")
+            self._fora_valor.setText(t.brl(melhor.get("net_brl")))
+        else:
+            self._fora_titulo.setText("VENDENDO FORA (DINHEIRO)")
+            self._fora_valor.setText("—")
+
         pnl = self._item.get("pnl")
         self._pnl.setText(t.brl(pnl) if pnl is not None else "—")
         self._pnl.setStyleSheet(
@@ -1870,11 +1945,22 @@ class ItemDetailDrawer(QWidget):
         self._condicao.setText(condicao or "—")
 
         self._limpar_tags()
+        if self._item.get("listed"):
+            self._tags_row.addWidget(self._tag_chip("No Mercado", steam=True))
         for tg in tags:
             self._tags_row.addWidget(self._tag_chip(tg))
         self._tags_row.addStretch(1)
 
         self._abrir()
+
+    def _copiar_nome(self) -> None:
+        if not self._item:
+            return
+        nome = self._item.get("name") or ""
+        if not nome:
+            return
+        QApplication.clipboard().setText(nome)
+        Toast.show_toast(self, "Nome copiado.", "success")
 
     def _abrir_no_steam(self) -> None:
         if not self._item:

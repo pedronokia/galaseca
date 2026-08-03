@@ -167,7 +167,15 @@ class InventoryTile(QFrame):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         corpo = QRect(0, 0, TILE_W, TILE_H)
 
-        fundo = t.SURFACE_HOV if (self._hover or self._selected) else t.SURFACE
+        # Selecionado ganha fundo PROPRIO (ACCENT_DIM) -- antes usava o
+        # mesmo SURFACE_HOV do hover, e um card selecionado-mas-nao-sob-o-
+        # mouse ficava visualmente identico a um card so' de passagem.
+        if self._selected:
+            fundo = t.ACCENT_DIM
+        elif self._hover:
+            fundo = t.SURFACE_HOV
+        else:
+            fundo = t.SURFACE
         p.setBrush(QColor(fundo))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(corpo, t.RADIUS_MD, t.RADIUS_MD)
@@ -175,7 +183,9 @@ class InventoryTile(QFrame):
         if self._selected:
             # Anel mais grosso quando a grade tem o foco do teclado: andar
             # de seta em seta sem saber onde se esta' e' pior que nao ter
-            # seta nenhuma.
+            # seta nenhuma. Espessura subiu 2/3 -> 3/4 pra destacar contra
+            # o fundo ACCENT_DIM novo, que ja' e' mais claro que o SURFACE
+            # normal e afinava a diferenca visual da borda sozinha.
             pai = self.parent()
             com_foco = False
             while pai is not None:
@@ -184,7 +194,7 @@ class InventoryTile(QFrame):
                     break
                 pai = pai.parent()
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(QColor(t.TEXT), 3 if com_foco else 2))
+            p.setPen(QPen(QColor(t.ACCENT), 4 if com_foco else 3))
             p.drawRoundedRect(corpo.adjusted(2, 2, -2, -2),
                               t.RADIUS_MD, t.RADIUS_MD)
 
@@ -200,6 +210,25 @@ class InventoryTile(QFrame):
         p.drawText(QRect(TILE_PAD, y, larg, TILE_CAT_H),
                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                    self._categoria())
+
+        # 1b. Badge "No Mercado" -- so' quando o item TEM anuncio ativo de
+        # verdade (active_listings.json), nao quando so' existe cotacao de
+        # referencia. Canto direito da mesma linha da categoria: a grade
+        # ja' e' apertada, abrir uma linha nova so' pra isto desperdicaria
+        # espaco em ~90% dos cards (a maioria nao esta anunciada).
+        if self.item.get("listed"):
+            fonte.setPointSize(6)
+            fonte.setBold(True)
+            p.setFont(fonte)
+            rotulo = "NO MERCADO"
+            largura_txt = p.fontMetrics().horizontalAdvance(rotulo)
+            badge_w = largura_txt + 12
+            badge = QRect(TILE_PAD + larg - badge_w, y, badge_w, TILE_CAT_H)
+            p.setBrush(QColor(t.STEAM_DIM))
+            p.setPen(QPen(QColor(t.STEAM_BLUE), 1))
+            p.drawRoundedRect(badge, t.RADIUS_SM, t.RADIUS_SM)
+            p.setPen(QColor(t.STEAM_BLUE))
+            p.drawText(badge, Qt.AlignmentFlag.AlignCenter, rotulo)
         y += TILE_CAT_H
 
         # 2. NOME em cima da imagem -- o ponto do layout. Com o nome
