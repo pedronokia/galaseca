@@ -27,7 +27,7 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2189 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2200 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
@@ -232,6 +232,42 @@ Suíte: **1967 testes**.
   Achado também: a Condição lia do nome em inglês (`raw_name`) enquanto o
   resto da tela já é pt-BR — corrigido pra ler do nome localizado. Os
   dois com teste de regressão.
+
+## Refinamento Grid & ItemDetailDrawer (02-03/08) — `8459d65`
+
+Referência Steam/SIH, aplicada nos dois lugares que a sessão anterior
+tinha acabado de criar.
+
+- **Badge "No Mercado" no Grid**: canto superior direito do card, só
+  quando o item TEM anúncio ativo de verdade — não cotação de
+  referência. Novo `_carregar_listados()` no Inventário passou a
+  consumir `active_listings.json` (já existia via `sync.py`, nunca
+  tinha sido lido pela tela). Aproximação por nome, não por asset:
+  `sync.py` não guarda asset_id nas listagens, então 3 unidades do mesmo
+  item com só 1 anunciada aparecem como "No Mercado" as três — mesma
+  granularidade que o resto da tela já usa (P&L e preço também são por
+  nome agrupado).
+- **Seleção reforçada no Grid**: fundo próprio (`ACCENT_DIM`) em vez de
+  reaproveitar o `SURFACE_HOV` do hover, e borda mais grossa (2/3px →
+  3/4px). Antes um card selecionado-mas-não-sob-o-mouse ficava
+  visualmente idêntico a um card só de passagem.
+- **Drawer reestruturado**: cotações agrupadas num card próprio —
+  "Vendendo na Steam (saldo)" (anuncie por + você recebe) separado por
+  linha fina de "Vendendo fora (dinheiro real)" (plataforma + líquido).
+  As duas moedas não são comparáveis, e antes viviam soltas na mesma
+  lista de campos sem nada dizendo isso.
+- **Ações rápidas novas**: "Copiar nome" (clipboard + Toast) e "Ver no
+  Mercado" (renomeado de "Abrir no Mercado Steam").
+- **Decisão de escopo registrada**: "Inspecionar no Jogo"
+  (`steam://rungame/...`) NÃO foi implementado. O link exige asset_id +
+  inspect ticket por unidade que nenhum lugar do sync capta hoje, e
+  inspecionar no jogo é o próprio mecanismo de ver float/pattern —
+  mantém a trava Steam-only do `AGENTS.md`/ROADMAP. Documentado na
+  docstring do `ItemDetailDrawer` pra não reabrir a discussão.
+- Validado com o app rodando de verdade: badge ausente com
+  `active_listings.json` vazio (conta real sem anúncio ativo agora),
+  cotações Steam/Fora corretas no drawer, clipboard conferido via
+  `read_clipboard` após "Copiar nome".
 
 ## Fila, em ordem
 
