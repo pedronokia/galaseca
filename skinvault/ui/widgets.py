@@ -5,10 +5,20 @@ cores agora vem do tema (skinvault.ui.theme).
 """
 from __future__ import annotations
 
+import time
 from datetime import datetime
 
-from PyQt6.QtCore import QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
+from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QLinearGradient,
+    QPainter,
+    QPainterPath,
+    QPen,
+    QPolygonF,
+)
 from PyQt6.QtWidgets import QToolTip, QWidget
 
 from skinvault.ui import theme as t
@@ -180,30 +190,127 @@ class MonthBarChart(QWidget):
 
 
 class ValueChart(QWidget):
-    """Linha do valor do inventario no tempo (custom paint)."""
+    """Linha do valor do inventario no tempo (custom paint).
+
+    Preenchimento em gradiente sob a curva (POSITIVE/DANGER conforme a
+    tendencia, esmaecendo ate' transparente), crosshair com tooltip
+    rich-text no hover (data + valor + variacao % no periodo visivel) e
+    filtro rapido de periodo via set_range() -- "1d"/"7d"/"30d"/"365d"/
+    "all", tipicamente ligado a um SegmentedControl 1D/7D/1M/1A/Tudo.
+    """
+
+    RANGES = ("1d", "7d", "30d", "365d", "all")
+    _RANGE_DAYS = {"1d": 1, "7d": 7, "30d": 30, "365d": 365}
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self._values: list[float] = []
+        self._timestamps: list[float | None] | None = None
+        self._range = "all"
+        self._hover_idx: int | None = None
         self.setMinimumHeight(120)
+        self.setMouseTracking(True)
 
-    def set_series(self, totals: list[float]) -> None:
+    def set_series(self, totals: list[float],
+                   timestamps: list[float | None] | None = None) -> None:
+        """timestamps (unix, opcional): habilita o filtro de periodo.
+
+        Sem timestamp o widget continua funcionando exatamente como
+        antes -- set_range() so' tem o que cortar quando sabe QUANDO
+        cada ponto aconteceu.
+        """
         self._values = list(totals)
+        self._timestamps = list(timestamps) if timestamps else None
+        self._hover_idx = None
         self.update()
+
+    def set_range(self, key: str) -> None:
+        if key in self.RANGES and key != self._range:
+            self._range = key
+            self._hover_idx = None
+            self.update()
+
+    def range(self) -> str:
+        return self._range
+
+    def _visible(self) -> tuple[list[float], list[float | None]]:
+        """(valores, timestamps) recortados pelo periodo atual."""
+        if not self._timestamps or self._range == "all":
+            return self._values, (self._timestamps or [None] * len(self._values))
+        dias = self._RANGE_DAYS.get(self._range)
+        if dias is None:
+            return self._values, self._timestamps
+        cutoff = time.time() - dias * 86400
+        vals: list[float] = []
+        tss: list[float | None] = []
+        for v, ts in zip(self._values, self._timestamps):
+            if ts is not None and ts >= cutoff:
+                vals.append(v)
+                tss.append(ts)
+        return vals, tss
+
+    # ── interacao ──────────────────────────────────────────
+
+    def _hover_index_at(self, x: float, n: int) -> int:
+        step = (self.width() - 12) / (n - 1) if n > 1 else 1.0
+        idx = round((x - 6) / step) if step > 0 else 0
+        return max(0, min(n - 1, int(idx)))
+
+    def mouseMoveEvent(self, evt) -> None:  # noqa: N802
+        vals, tss = self._visible()
+        if len(vals) < 2:
+            super().mouseMoveEvent(evt)
+            return
+        idx = self._hover_index_at(evt.position().x(), len(vals))
+        if idx != self._hover_idx:
+            self._hover_idx = idx
+            self.update()
+        QToolTip.showText(evt.globalPosition().toPoint(),
+                          self._tooltip_html(vals, tss, idx), self)
+        super().mouseMoveEvent(evt)
+
+    def leaveEvent(self, evt) -> None:  # noqa: N802
+        if self._hover_idx is not None:
+            self._hover_idx = None
+            self.update()
+        super().leaveEvent(evt)
+
+    def _tooltip_html(self, vals: list[float],
+                      tss: list[float | None], idx: int) -> str:
+        """Rich-text: data + valor formatado + variacao % vs 1o ponto
+        visivel (o inicio do periodo escolhido, nao do historico todo)."""
+        linhas = []
+        ts = tss[idx] if idx < len(tss) else None
+        if ts:
+            linhas.append(
+                f"<b>{datetime.fromtimestamp(ts).strftime('%d/%m/%Y %H:%M')}</b>")
+        linhas.append(t.brl(vals[idx]))
+        base = vals[0]
+        if base:
+            var = (vals[idx] - base) / base * 100
+            cor = t.POSITIVE if var >= 0 else t.DANGER
+            linhas.append(
+                f"<span style='color:{cor}'>{var:+.1f}%</span> no período")
+        return "<br>".join(linhas)
 
     def paintEvent(self, _evt) -> None:  # noqa: N802
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
-        if len(self._values) < 3:
+        vals, _tss = self._visible()
+        if len(vals) < 3:
             # Mostra os pontos que JA' existem, nao so' quantos faltam. Sao
             # avaliacoes reais da carteira; escondê-las pra escrever uma
             # contagem regressiva desperdicava o cartao inteiro.
-            n = len(self._values)
+            n = len(vals)
             p.setPen(QColor(t.TEXT_MUTED))
             if n == 0:
-                p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                           "Nenhuma avaliação registrada ainda")
+                # Distingue "nunca avaliou" de "nao ha' avaliacao NESTE
+                # periodo" -- o historico pode existir fora do recorte.
+                msg = ("Nenhuma avaliação registrada ainda"
+                       if not self._values else
+                       "Nenhuma avaliação neste período")
+                p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, msg)
                 p.end()
                 return
             faltam = 3 - n
@@ -218,25 +325,57 @@ class ValueChart(QWidget):
             fonte.setBold(True)
             p.setFont(fonte)
             p.setPen(QColor(t.TEXT))
-            valores = "     ".join(t.brl(v) for v in self._values)
+            valores = "     ".join(t.brl(v) for v in vals)
             p.drawText(QRectF(0, h / 2 - 10, w, 30),
                        Qt.AlignmentFlag.AlignCenter, valores)
             p.end()
             return
-        vmin, vmax = min(self._values), max(self._values)
+        vmin, vmax = min(vals), max(vals)
         rng = (vmax - vmin) or 1.0
-        up = self._values[-1] >= self._values[0]
-        pen = QPen(QColor(t.POSITIVE if up else t.DANGER))
-        pen.setWidthF(2.0)
-        p.setPen(pen)
-        n = len(self._values)
-        prev = None
-        for i, v in enumerate(self._values):
+        up = vals[-1] >= vals[0]
+        cor_linha = QColor(t.POSITIVE if up else t.DANGER)
+        n = len(vals)
+        pontos = []
+        for i, v in enumerate(vals):
             x = 6 + i * ((w - 12) / (n - 1))
             y = h - 8 - ((v - vmin) / rng) * (h - 24)
-            if prev is not None:
-                p.drawLine(int(prev[0]), int(prev[1]), int(x), int(y))
-            prev = (x, y)
+            pontos.append(QPointF(x, y))
+
+        # Gradiente sob a curva: mesma cor da linha, esmaecendo ate'
+        # transparente na base -- reforca a tendencia sem competir com
+        # o traco (que continua solido, e' o que os testes de cor leem).
+        poligono = QPolygonF(
+            pontos + [QPointF(pontos[-1].x(), float(h)),
+                     QPointF(pontos[0].x(), float(h))])
+        grad = QLinearGradient(0, 0, 0, h)
+        topo = QColor(cor_linha)
+        topo.setAlpha(70)
+        base_cor = QColor(cor_linha)
+        base_cor.setAlpha(0)
+        grad.setColorAt(0.0, topo)
+        grad.setColorAt(1.0, base_cor)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(grad))
+        p.drawPolygon(poligono)
+
+        pen = QPen(cor_linha)
+        pen.setWidthF(2.0)
+        p.setPen(pen)
+        for i in range(1, n):
+            p.drawLine(pontos[i - 1], pontos[i])
+
+        if self._hover_idx is not None and self._hover_idx < n:
+            hx = pontos[self._hover_idx].x()
+            hy = pontos[self._hover_idx].y()
+            guide = QPen(QColor(t.TEXT_MUTED))
+            guide.setStyle(Qt.PenStyle.DashLine)
+            guide.setWidthF(1)
+            p.setPen(guide)
+            p.drawLine(QPointF(hx, 4), QPointF(hx, h - 4))
+            p.setBrush(cor_linha)
+            p.setPen(QPen(QColor(t.BG), 1.5))
+            p.drawEllipse(QRectF(hx - 4, hy - 4, 8, 8))
+
         p.end()
 
 
@@ -482,16 +621,32 @@ class PriceHistoryChart(QWidget):
         if idx != self._hover:
             self._hover = idx
             self.update()
+        QToolTip.showText(evt.globalPosition().toPoint(),
+                          self._tooltip_html(vis, idx), self)
+        super().mouseMoveEvent(evt)
+
+    def _tooltip_html(self, vis: list[dict], idx: int) -> str:
+        """Rich-text: data + preco + variacao % vs o 1o ponto do
+        intervalo visivel (o inicio do periodo escolhido em set_range)."""
         d = vis[idx]
-        txt = t.brl(d.get("price_median") or 0)
+        linhas = []
         ts = d.get("time")
         if ts:
-            txt += datetime.fromtimestamp(ts).strftime(" — %d/%m/%Y")
+            linhas.append(
+                f"<b>{datetime.fromtimestamp(ts).strftime('%d/%m/%Y')}</b>")
+        linhas.append(t.brl(d.get("price_median") or 0))
+        base = vis[0].get("price_median")
+        atual = d.get("price_median")
+        if base and atual is not None:
+            var = (atual - base) / base * 100
+            cor = t.POSITIVE if var >= 0 else t.DANGER
+            linhas.append(
+                f"<span style='color:{cor}'>{var:+.1f}%</span> no período")
         vol = d.get("purchases")
         if vol:
-            txt += f" — {vol} vendas"
-        QToolTip.showText(evt.globalPosition().toPoint(), txt, self)
-        super().mouseMoveEvent(evt)
+            linhas.append(
+                f"<span style='color:{t.TEXT_MUTED}'>{vol} vendas</span>")
+        return "<br>".join(linhas)
 
     def leaveEvent(self, evt) -> None:  # noqa: N802
         if self._hover is not None:
@@ -606,17 +761,37 @@ class PriceHistoryChart(QWidget):
                 p.drawLine(self._LEFT, int(_y(level)),
                            w - self._RIGHT, int(_y(level)))
 
-        # Linha de preco.
+        # Gradiente sob a linha de preco: mesma cor da tendencia,
+        # esmaecendo ate' transparente na BASE DA AREA DE PRECO (nao do
+        # widget inteiro -- a faixa de volume fica abaixo, invadi-la
+        # sobreporia as barras).
         up = vis[-1]["price_median"] >= vis[0]["price_median"]
-        pen = QPen(QColor(t.POSITIVE if up else t.DANGER))
+        cor_linha = QColor(t.POSITIVE if up else t.DANGER)
+        pontos_preco = [QPointF(_x(i), _y(d["price_median"]))
+                        for i, d in enumerate(vis)]
+        poligono = QPolygonF(
+            pontos_preco + [QPointF(pontos_preco[-1].x(), float(price_bottom)),
+                           QPointF(pontos_preco[0].x(), float(price_bottom))])
+        grad = QLinearGradient(0, price_top, 0, price_bottom)
+        topo = QColor(cor_linha)
+        topo.setAlpha(70)
+        base_cor = QColor(cor_linha)
+        base_cor.setAlpha(0)
+        grad.setColorAt(0.0, topo)
+        grad.setColorAt(1.0, base_cor)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(grad))
+        p.drawPolygon(poligono)
+
+        # Linha de preco.
+        pen = QPen(cor_linha)
         pen.setWidthF(2.0)
         p.setPen(pen)
         prev_pt = None
-        for i, d in enumerate(vis):
-            pt = (_x(i), _y(d["price_median"]))
+        for pt in pontos_preco:
             if prev_pt is not None:
-                p.drawLine(int(prev_pt[0]), int(prev_pt[1]),
-                           int(pt[0]), int(pt[1]))
+                p.drawLine(int(prev_pt.x()), int(prev_pt.y()),
+                           int(pt.x()), int(pt.y()))
             prev_pt = pt
 
         # SMA 7 (indigo).

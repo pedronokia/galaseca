@@ -1474,6 +1474,29 @@ def _fake_session():
     return SteamSession("76561198000000001", {"steamLoginSecure": "tok"})
 
 
+class _FakeWelcome:
+    """WelcomeDialog fake — exec() retorna na hora, sem modal.
+
+    Mesmo padrao de test_router_shows_welcome_first_time. Esses testes de
+    router leem o settings.json REAL do usuario (AGENTS.md proibe isso,
+    mas ja' existiam assim): se welcome_seen for False, o
+    WelcomeDialog.exec() vira um event loop modal que nunca fecha no
+    offscreen. O patch mantem o fluxo de _maybe_show_welcome (incluindo
+    o save de welcome_seen) sem abrir janela.
+    """
+
+    def __init__(self, parent=None):
+        pass
+
+    def exec(self):
+        return 0
+
+
+def _hermetic_welcome(monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.ui.welcome_dialog.WelcomeDialog", _FakeWelcome)
+
+
 def test_screen_router_builds(monkeypatch):
     """ScreenRouter instancia e mostra LoginGate (sem sessao)."""
     monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
@@ -1499,6 +1522,7 @@ def test_screen_router_check_session_valid(monkeypatch):
     # AccountScreen.set_session -> refresh -> PriceWorker -> HTTP. Mock pra inline.
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
+    _hermetic_welcome(monkeypatch)
     router = _make_router()
     router._check_session()
     assert router.session is not None
@@ -1543,6 +1567,7 @@ def test_screen_router_on_session(monkeypatch):
     """_on_session configura estado pos-login."""
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
+    _hermetic_welcome(monkeypatch)
     router = _make_router()
     sess = _fake_session()
     vis_changes = []
@@ -1573,6 +1598,7 @@ def test_screen_router_navigate_all_screens(monkeypatch):
     monkeypatch.setattr("skinvault.steam_session.persist", lambda s: None)
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
+    _hermetic_welcome(monkeypatch)
     router = _make_router()
     router._check_session()  # loga
     nav_log = []
@@ -6873,6 +6899,139 @@ def test_valuechart_flat():
     pix = w.grab()
     assert not pix.isNull()
 
+
+# ── ValueChart: gradiente, tooltip rich-text, filtro de periodo ─────
+
+def test_valuechart_gradiente_nao_quebra_e_pinta_algo_sob_a_linha():
+    """grab() forca o paintEvent -- o polygon do gradiente e' novo, se
+    tivesse erro de indice/tipo quebraria aqui. Bonus: um pixel logo
+    ABAIXO do topo da linha nao pode ser o fundo puro (BG), senao o
+    preenchimento nao pintou nada."""
+    from PyQt6.QtGui import QColor
+    from skinvault.ui import theme as t
+    from skinvault.ui.widgets import ValueChart
+    w = ValueChart()
+    w.resize(240, 120)
+    w.set_series([100.0, 150.0, 120.0])
+    pix = w.grab()
+    assert not pix.isNull()
+    img = pix.toImage()
+    fundo = QColor(t.BG).rgb()
+    algum_preenchido = any(
+        img.pixel(x, 100) != fundo for x in range(0, 240, 4))
+    assert algum_preenchido
+
+
+def test_valuechart_set_range_filtra_por_timestamp(monkeypatch):
+    from skinvault.ui.widgets import ValueChart
+    # Congela time.time pra o cutoff de _visible() bater exato com o
+    # agora do teste -- sem isso um ponto na fronteira da janela "7d"
+    # fica dependente de microssegundos (estava flaky: 7 ou 8 pontos).
+    AGORA = 1_700_000_000.0
+    monkeypatch.setattr("time.time", lambda: AGORA)
+    w = ValueChart()
+    valores = [float(i) for i in range(40)]
+    # um ponto por dia, do mais antigo (i=0) pro mais recente (i=39)
+    tss = [AGORA - (39 - i) * 86400 for i in range(40)]
+    w.set_series(valores, tss)
+    w.set_range("7d")
+    vals, _ = w._visible()
+    assert len(vals) == 8  # hoje + 7 dias anteriores
+    w.set_range("30d")
+    vals, _ = w._visible()
+    assert len(vals) == 31
+    w.set_range("all")
+    vals, _ = w._visible()
+    assert len(vals) == 40
+    assert w.range() == "all"
+
+
+def test_valuechart_sem_timestamp_ignora_o_filtro():
+    """set_series sem timestamps (chamador antigo) nao pode quebrar --
+    set_range fica sem o que cortar e devolve tudo, igual antes desta
+    feature existir."""
+    from skinvault.ui.widgets import ValueChart
+    w = ValueChart()
+    w.set_series([1.0, 2.0, 3.0, 4.0])
+    w.set_range("7d")
+    vals, _ = w._visible()
+    assert len(vals) == 4
+
+
+def test_valuechart_periodo_sem_pontos_nao_quebra(monkeypatch):
+    """Periodo filtrado pra fora de todo o historico -- 0 pontos
+    visiveis, mas o historico existe (mensagem tem que distinguir de
+    'nunca avaliou'). So' confere que nao crasha; o texto exato e'
+    verificado por leitura de codigo, grab() nao faz OCR."""
+    import time
+    from skinvault.ui.widgets import ValueChart
+    w = ValueChart()
+    w.resize(200, 100)
+    velho = time.time() - 400 * 86400
+    w.set_series([100.0, 110.0, 120.0], [velho, velho, velho])
+    w.set_range("1d")
+    vals, _ = w._visible()
+    assert vals == []
+    pix = w.grab()
+    assert not pix.isNull()
+
+
+def test_valuechart_tooltip_html_tem_data_valor_e_variacao():
+    from skinvault.ui.widgets import ValueChart
+    w = ValueChart()
+    ts0 = 1700000000.0
+    tss = [ts0, ts0 + 86400, ts0 + 2 * 86400]
+    vals = [100.0, 150.0, 90.0]
+    html = w._tooltip_html(vals, tss, 2)
+    assert "R$" in html
+    # Percentual segue o padrao ja' majoritario no projeto (ponto, nao
+    # virgula) -- history_screen/market_screen/trades_screen fazem
+    # igual; so' moeda via t.brl() e' sempre pt-BR.
+    assert "-10.0%" in html  # (90-100)/100
+    assert "<b>" in html  # data em negrito
+
+
+def test_valuechart_tooltip_variacao_positiva_usa_cor_positive():
+    from skinvault.ui import theme as t
+    from skinvault.ui.widgets import ValueChart
+    w = ValueChart()
+    html = w._tooltip_html([100.0, 130.0], [None, None], 1)
+    assert t.POSITIVE.lower() in html.lower()
+
+
+def test_valuechart_hover_mostra_tooltip(monkeypatch):
+    """mouseMoveEvent com >=2 pontos visiveis chama QToolTip.showText
+    com o html da variacao -- integra _tooltip_html ao evento real."""
+    from PyQt6.QtCore import QPoint, QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    from skinvault.ui.widgets import ValueChart
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.ui.widgets.QToolTip.showText",
+        lambda pos, txt, w=None: chamadas.append(txt))
+    w = ValueChart()
+    w.resize(200, 100)
+    w.set_series([100.0, 120.0, 90.0])
+    evt = QMouseEvent(
+        QMouseEvent.Type.MouseMove, QPointF(100, 50), QPointF(100, 50),
+        Qt.MouseButton.NoButton, Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier)
+    w.mouseMoveEvent(evt)
+    assert chamadas
+    assert "R$" in chamadas[-1]
+
+
+def test_account_screen_seletor_de_periodo_liga_no_chart(monkeypatch):
+    """Selecionar '7D' no segmentado da Conta muda o range do
+    ValueChart -- integracao real, nao so' o widget isolado."""
+    from skinvault.prices import PriceCache
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **k: [])
+    from skinvault.ui.account_screen import AccountScreen
+    screen = AccountScreen(PriceCache())
+    screen._vc_range_seg.select("7d")
+    assert screen._value_chart.range() == "7d"
+
+
 def test_month_label_pt_br():
     """month_label converte '%Y-%m' pra mes curto pt-BR (fix do '202')."""
     from skinvault.ui.widgets import month_label, month_label_full
@@ -7361,6 +7520,72 @@ def test_pricechart_range_fatia_a_serie():
     w.set_range("all")
     assert len(w._visible()) == 40
     assert w.range() == "all"
+
+
+# ── PriceHistoryChart: gradiente + tooltip rich-text com variacao ───
+
+def test_pricechart_gradiente_pinta_algo_sob_a_linha():
+    from PyQt6.QtGui import QColor
+    from skinvault.ui import theme as t
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    w.resize(400, 200)
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": 100.0 + i, "purchases": 5}
+                for i in range(20)])
+    pix = w.grab()
+    assert not pix.isNull()
+    img = pix.toImage()
+    fundo = QColor(t.BG_ELEVATED).rgb()
+    assert any(img.pixel(x, 60) != fundo for x in range(50, 400, 10))
+
+
+def test_pricechart_tooltip_html_tem_variacao_e_volume():
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    vis = [
+        {"time": 1700000000, "price_median": 100.0, "purchases": 3},
+        {"time": 1700086400, "price_median": 110.0, "purchases": 7},
+    ]
+    html = w._tooltip_html(vis, 1)
+    assert "R$" in html
+    assert "+10.0%" in html  # (110-100)/100
+    assert "7 vendas" in html
+    assert "<b>" in html
+
+
+def test_pricechart_tooltip_sem_base_nao_quebra():
+    """Preco base 0/None nao pode dividir por zero na variacao."""
+    from skinvault.ui.widgets import PriceHistoryChart
+    w = PriceHistoryChart()
+    vis = [
+        {"time": 1700000000, "price_median": 0.0, "purchases": 0},
+        {"time": 1700086400, "price_median": 50.0, "purchases": 1},
+    ]
+    html = w._tooltip_html(vis, 1)
+    assert "R$" in html  # nao levanta ZeroDivisionError
+
+
+def test_pricechart_hover_mostra_tooltip_rich_text(monkeypatch):
+    from PyQt6.QtCore import QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    from skinvault.ui.widgets import PriceHistoryChart
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.ui.widgets.QToolTip.showText",
+        lambda pos, txt, w=None: chamadas.append(txt))
+    w = PriceHistoryChart()
+    w.resize(400, 200)
+    w.set_data([{"time": 1700000000 + i * 86400,
+                 "price_median": 100.0 + i, "purchases": 2}
+                for i in range(10)])
+    evt = QMouseEvent(
+        QMouseEvent.Type.MouseMove, QPointF(200, 100), QPointF(200, 100),
+        Qt.MouseButton.NoButton, Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier)
+    w.mouseMoveEvent(evt)
+    assert chamadas
+    assert "%" in chamadas[-1]
 
 def test_pricechart_sma_alinhada_a_janela():
     """A SMA fatia junto com a janela visivel (tail da serie total)."""

@@ -41,7 +41,10 @@ from skinvault import (
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
 from skinvault.ui.inventory_grid import InventoryGrid
-from skinvault.ui.components import Avatar, Card, EmptyState, LoadingState, PageHeader, StatCard, Toast
+from skinvault.ui.components import (
+    Avatar, Card, EmptyState, LoadingState, PageHeader, SegmentedControl,
+    StatCard, Toast,
+)
 from skinvault.ui.widgets import CompositionChart, ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
@@ -327,15 +330,34 @@ class AccountScreen(QWidget):
         chart_card = Card(self, padding=t.CARD_PAD_MD)
         ch_lay = QVBoxLayout()
         ch_lay.setSpacing(8)
+        self._value_chart = ValueChart()
+        self._value_chart.setMinimumHeight(150)
+
+        ch_head = QHBoxLayout()
         ch_title = QLabel("Evolução do valor")
         ch_title.setStyleSheet(t.label_section())
-        ch_lay.addWidget(ch_title)
+        ch_head.addWidget(ch_title)
+        ch_head.addStretch(1)
+        # Filtro rapido de periodo: recorta a MESMA serie carregada por
+        # _reload_value_series, sem re-ler o disco -- so' o que o widget
+        # ja' tem em memoria.
+        self._vc_range_seg = SegmentedControl()
+        self._vc_range_seg.add("1d", "1D")
+        self._vc_range_seg.add("7d", "7D")
+        self._vc_range_seg.add("30d", "1M")
+        self._vc_range_seg.add("365d", "1A")
+        self._vc_range_seg.add("all", "Tudo")
+        self._vc_range_seg.setToolTip(
+            "Filtra o gráfico de evolução do valor por período.")
+        self._vc_range_seg.segment_changed.connect(self._value_chart.set_range)
+        self._vc_range_seg.select("all")
+        ch_head.addWidget(self._vc_range_seg)
+        ch_lay.addLayout(ch_head)
+
         self._vc_lbl = QLabel(
             "Valor bruto da carteira — cada avaliação grava um ponto")
         self._vc_lbl.setStyleSheet(t.label_caption())
         ch_lay.addWidget(self._vc_lbl)
-        self._value_chart = ValueChart()
-        self._value_chart.setMinimumHeight(150)
         ch_lay.addWidget(self._value_chart, 1)
         chart_card.layout().addLayout(ch_lay)
         fundo.addWidget(chart_card, 3)
@@ -547,7 +569,10 @@ class AccountScreen(QWidget):
         """
         series = history.load_history()
         pontos = [p.get("total", 0.0) for p in series]
-        self._value_chart.set_series(pontos)
+        # Timestamp habilita o filtro de periodo (1D/7D/1M/1A/Tudo) no
+        # chart -- sem ele set_range() nao teria o que cortar.
+        tss = [p.get("ts") for p in series]
+        self._value_chart.set_series(pontos, tss)
         if len(pontos) >= 3:
             self._vc_lbl.setText(
                 "Valor bruto da carteira — cada avaliação grava um ponto")
