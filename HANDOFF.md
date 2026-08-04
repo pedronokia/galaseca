@@ -1,4 +1,4 @@
-# HANDOFF — estado em 2026-08-02
+# HANDOFF — estado em 2026-08-03
 
 Ponto de partida pra quem continuar (opencode ou outro agente). Substitui
 o handoff de 2026-07-30.
@@ -27,7 +27,7 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2200 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2212 testes**, ~77s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
@@ -269,6 +269,41 @@ tinha acabado de criar.
   cotações Steam/Fora corretas no drawer, clipboard conferido via
   `read_clipboard` após "Copiar nome".
 
+## Gráficos & Visualização Financeira (03/08) — `14ed8d7`
+
+Refinamento dos dois gráficos principais (Conta e Mercado), fechado com
+16 testes novos e um fix de hermeticidade que destravou a suíte inteira.
+
+- **ValueChart (Conta)** — "Evolução do valor" ganhou:
+  - **Gradiente linear** na cor da tendência (`POSITIVE`/`DANGER`) sob a
+    curva, esmaecendo até transparente na base (widgets.py:344-359). O
+    traço continua sólido — é o que os testes de cor leem.
+  - **Crosshair + tooltip rich-text** no hover: data em negrito, valor
+    em `t.brl()` e variação % vs o **primeiro ponto do período visível**
+    (não do histórico todo), colorida pela direção.
+  - **Seletor 1D/7D/1M/1A/Tudo** (`SegmentedControl` no topo do cartão):
+    recorta a MESMA série já carregada em memória por timestamp, sem
+    re-ler o disco. `ValueChart.set_range()` com timestamps opcionais —
+    sem timestamp o widget continua funcionando como antes.
+- **PriceHistoryChart (Mercado)** — gradiente confinado à **área de
+  preço** (não invade as barras de volume, widgets.py:764-784) e tooltip
+  rich-text interativo com data + variação + volume de vendas. Fatiamento
+  de período continua por índice (`_points[-7:]`/`[-30:]`), determinístico.
+- **Hermeticidade de testes**: os `test_screen_router_*` que chamam
+  `_check_session`/`_on_session` com sessão válida liam o `settings.json`
+  **real do usuário** (anti-padrão documentado em "Não repita"). Com
+  `welcome_seen: False`, `_maybe_show_welcome` abria um `WelcomeDialog`
+  **modal real** — `exec()` vira event loop que nunca fecha no offscreen
+  e a suíte travava no primeiro router test (estava assim no HEAD
+  anterior, não foi a etapa de gráficos que introduziu). Corrigido com o
+  mesmo padrão já estabelecido em `test_router_shows_welcome_first_time`
+  (`_hermetic_welcome`/`_FakeWelcome`).
+- **Flake eliminado**: o teste de range do ValueChart colocava um ponto
+  exatamente na fronteira da janela "7d" — passava ou falhava conforme
+  microssegundos entre `agora` e o cutoff interno. Congelado `time.time`
+  no teste (padrão já usado no arquivo).
+- Validado: 34 testes de gráfico + suíte completa **2212 passed** (2x).
+
 ## Fila, em ordem
 
 A interface gráfica e o fluxo de dados local estão em estado maduro.
@@ -321,7 +356,18 @@ consequência do bloqueio externo, não um bug de dado.
   alta funciona", que o corte cross-sectional dissolveu.
 - **Não confie em render offscreen pra julgar glifo ou animação** (#11).
 - **Não escreva teste que leia `data/` do usuário.** Um lia `trades.json`
-  e só passava enquanto o arquivo estava vazio.
+  e só passava enquanto o arquivo estava vazio; os `test_screen_router_*`
+  liam `settings.json` real e, com `welcome_seen` False, abriam um
+  `WelcomeDialog` modal que travava a suíte (consertado em `14ed8d7` via
+  `_hermetic_welcome`). Teste de UI que depende de `data/` do usuário é
+  teste que passa ou trava conforme o estado da máquina de quem roda.
+- **Não deixe `dlg.exec()`/`exec_()` de dialog modal alcançar teste
+  offscreen.** O event loop modal nunca fecha sem interação — o teste não
+  passa nem falha, trava. Se o fluxo sob teste pode abrir dialog, patch no
+  `WelcomeDialog`/classe do dialog (padrão `_FakeWelcome`).
+- **Não deixe teste de filtro temporal com ponto na fronteira da janela.**
+  Um ponto exatamente no cutoff (`>=`) faz o assert virar loteria de
+  microssegundos. Congele `time.time` ou afaste o ponto da fronteira.
 - **Não rode a suíte com `--ui` em subprocess.** Vazava uma instância do
   app por rodada.
 - **Não indexe `self._rows[row]`/`self._positions[row]` pelo índice
