@@ -1,4 +1,4 @@
-# HANDOFF — estado em 2026-08-03
+# HANDOFF — estado em 2026-08-04
 
 Ponto de partida pra quem continuar (opencode ou outro agente). Substitui
 o handoff de 2026-07-30.
@@ -27,7 +27,7 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2259 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2273 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
@@ -369,6 +369,50 @@ feedback visual-tátil de clique em toda a UI.
   tiles (mostrado anima, escondido desregistra), transição esqueleto→
   dados, cor da faixa e troca de accent, e `:pressed` de cada componente.
   Suíte completa **2259 passed**.
+
+## Refinamento do Inventário & Ordenação (04/08) — `7b3b646`
+
+Segunda passada de polish no grid de inventário, fechada com 14 testes
+novos e suíte completa **2273 passed**.
+
+- **Badge de Wear/Desgaste no card**: pill semi-transparente (alpha=30,
+  `fundo = QColor(TEXT) + setAlpha(30)`) no canto direito do topo, colado
+  ao badge "No Mercado". A categoria é elidida pelo espaço que sobra em
+  vez de passar por baixo dos pills. `_desgaste()` reconhece o wear nos
+  DOIS idiomas (nome localizado pt-BR e `market_hash_name` cru em
+  inglês); parênteses que não são condição — `(FT)`, `(Souvenir)`,
+  `(Holo-Foil)`, nomes de evento — ficam de fora de propósito (um pill
+  falso é pior que nenhum).
+- **Iconografia ampliada**: `TILE_ICON_H` 108 → 120 e área de scale
+  generosa (`TILE_W-12 × TILE_ICON_H-8`) — armas longas e facas crescem
+  com a altura da faixa, aspecto sempre preservado (o ícone da Steam é
+  quadrado; o vão lateral dos ícones quadrados é o preço do KeepAspect).
+- **Tipografia do preço em destaque**: número primário do card subiu pra
+  10pt bold com `PreferFullHinting` (o texto pequeno borrava sem hinting
+  no Windows); a origem (saldo/fora) fica num corpo menor e muted ao lado.
+- **P&L semântico**: verde `POSITIVE` lucro, vermelho `DANGER` prejuízo,
+  `TEXT_MUTED` quando não há custo cadastrado (mesma regra da coluna da
+  tabela — sync grava `cost=0.0` pra "não sei", então pnl vem `None` em
+  vez de inventar zero). Helpers `_pnl_cor`/`_pnl_texto`.
+- **Ordenação bidirecional (Asc/Desc)**: clicar no segmento já ativo
+  alterna a direção, com seta `▲/▼` no segmento ativo e as demais
+  limpas. Direção natural por chave (valor e qtd do maior pro menor,
+  nome alfabético) e reset ao trocar de chave. `InventoryGrid` ganhou
+  `_reverse`, `set_direction()`, `order()`/`reverse()` e
+  `_aplicar_ordem()` (reordena sem recriar os tiles — recriar perderia a
+  seleção e o ícone carregado); `SegmentedControl.set_label()` atualiza o
+  rótulo sem trocar seleção; `_on_ordem`/`_atualizar_ordem_labels` na
+  tela sincronizam as setas. Tooltip explica o gesto.
+- **Testes (14 novos)**: `_desgaste` nos dois idiomas, container sem
+  wear, parêntese não-wear ignorado; `_pnl_cor`/`_pnl_texto` (semântica
+  das três faixas, "P&L —" sem custo); direção padrão por chave, toggle
+  no clique repetido, `set_direction` repetida sem efeito, reset ao
+  trocar de chave; setas dos segmentos na tela (nasce em Valor ▼, move ao
+  trocar, inverte no clique repetido, alternar Grade/Tabela não toca a
+  ordenação). Renderização do paintEvent conferida offscreen com todas as
+  combinações (wear + listado, prejuízo, sem custo, nome cru).
+- Validado com o app rodando de verdade: badges, preço e P&L visíveis no
+  grid; alternância Asc/Desc pelos segmentos.
 
 ## Fila, em ordem
 
