@@ -27,7 +27,7 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2273 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2345 testes**, ~80s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
@@ -413,6 +413,41 @@ novos e suíte completa **2273 passed**.
   combinações (wear + listado, prejuízo, sem custo, nome cru).
 - Validado com o app rodando de verdade: badges, preço e P&L visíveis no
   grid; alternância Asc/Desc pelos segmentos.
+
+## Pacote de Funcionalidades Internas & Relatórios (04/08) — `93ceac3`
+
+Pacote de funcionalidades internas & relatórios, fechado com 7 suítes de
+testes novas (72 testes) e suíte completa **2345 passed** (100% verdes).
+
+- **Metas Financeiras (`skinvault/goals.py` / `ui/goals_card.py`)**: metas
+  de valor líquido/mercado/P&L/itens com barras de progresso reativas no
+  AccountScreen, pintadas com a Accent Color da paleta configurável.
+  `parse_target` entende os dois formatos numéricos — "5.000" = milhar
+  pt-BR, "1234.56" = decimal — e `upsert_goal`/`remove_goal` devolvem a
+  lista já normalizada com ids determinísticos (`g1…`). Metas persistem em
+  `settings["goals"]`: sem arquivo novo em `data/`, o `backup.py` cobre de
+  graça.
+- **Calculadora de Taxas & Arbitragem (`skinvault/fee_calculator.py` /
+  `ui/fee_calculator_dialog.py`)**: dado custo + margem desejada, mostra por
+  quanto listar e quanto sobra em cada plataforma — Steam (`seller_added`,
+  taxa sobre o que o vendedor RECEBE) + Skinport/CS.MONEY/DMarket
+  (`percent_off`), ordenado por capital preso. O líquido da Steam é saldo,
+  não dinheiro: a linha vem marcada e a UI nunca soma as duas moedas.
+- **Exportação & Relatórios (`skinvault/reports.py` / `ui/exporter.py`)**:
+  CSV com BOM UTF-8 (abre certo no Excel pt-BR), JSON estruturado e
+  relatório HTML print-friendly (fundo branco, tinta escura, sparkline SVG
+  inline, sem JS/asset externo). Botões no Inventário ("Exportar") e na
+  Conta ("Exportar histórico").
+- **Correções & Estabilidade**: o `FeeCalculatorDialog` preenchia cada
+  célula com o NOME da coluna em vez do valor (`QTableWidgetItem(txt)` →
+  `str(chave)`) — achado pelo teste, corrigido em `fee_calculator_dialog.py`.
+  Fixture de `QApplication` dos testes de exportação marcada `autouse=True`:
+  sem isso o `InventoryScreen()` era construído sem app e o PyQt6 abortava o
+  processo com `0xC0000409` (mesma assinatura do AGENTS.md #8).
+- **Testes**: 7 arquivos novos herméticos — `test_goals.py`,
+  `test_fee_calculator.py`, `test_reports.py`, `test_goals_card.py`,
+  `test_fee_calculator_dialog.py`, `test_inventory_export.py` — todos com
+  `settings` mockado, sem tocar `data/` nem a rede.
 
 ## Fila, em ordem
 
