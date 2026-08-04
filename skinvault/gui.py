@@ -107,9 +107,12 @@ def _table_style() -> str:
     return t.table_style()
 
 
-def set_theme(theme_name: str) -> None:
+def set_theme(theme_name: str, accent: str | None = None) -> None:
     from skinvault.ui.theme import _reload_palette
-    _reload_palette(theme_name)
+    if accent is None:
+        _reload_palette(theme_name)
+    else:
+        _reload_palette(theme_name, accent)
 
 
 def _steam_market_url(name: str) -> str:
@@ -405,8 +408,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         settings = load_settings()
         theme = settings.get("theme", "dark")
-        set_theme(theme)
+        accent = settings.get("accent_color") or DEFAULTS["accent_color"]
+        # Chamada de 1 argumento quando nao ha' accent salvo: preserva a
+        # assinatura legada e o que o app ja' aplicou na sessao.
+        if settings.get("accent_color"):
+            set_theme(theme, accent)
+        else:
+            set_theme(theme)
         self._current_theme = theme
+        self._current_accent = accent
         self._login_mode = False
         self.setWindowTitle("SkinVault")
         self.setWindowIcon(_app_icon())
@@ -992,10 +1002,15 @@ class MainWindow(QMainWindow):
     def _on_theme_changed(self) -> None:
         s = load_settings()
         theme = s.get("theme", "dark")
-        if theme == self._current_theme:
+        accent = s.get("accent_color") or DEFAULTS["accent_color"]
+        if theme == self._current_theme and accent == self._current_accent:
             return
         self._current_theme = theme
-        set_theme(theme)
+        self._current_accent = accent
+        if s.get("accent_color"):
+            set_theme(theme, accent)
+        else:
+            set_theme(theme)
         self._apply_stylesheet()
         # O balao do tooltip e' janela propria e so' obedece o stylesheet
         # da aplicacao; sem reaplicar aqui ele ficaria com as cores do
@@ -1012,6 +1027,11 @@ class MainWindow(QMainWindow):
         self._sidebar_dock.widget().setStyleSheet(
             f"QWidget#Sidebar {{ background: {t.BG_ELEVATED}; }}"
         )
+        # Os itens da sidebar embutem ACCENT_DIM/FOCUS_GREEN no QSS e a cor
+        # do dot de sessao; reaplica pra refletir a nova cor de destaque.
+        sidebar = getattr(self, "_sidebar", None)
+        if sidebar is not None:
+            sidebar.restyle()
 
     def _open_about(self) -> None:
         QMessageBox.about(

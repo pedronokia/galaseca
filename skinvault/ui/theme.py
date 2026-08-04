@@ -17,9 +17,14 @@ SURFACE     = "#272727"   # surface sobre card (input, hover, chip)
 BORDER      = "#303030"   # bordas finas (YouTube divider)
 TEXT        = "#F1F1F1"
 TEXT_MUTED  = "#AAAAAA"
-ACCENT      = "#F1F1F1"   # branco YouTube — accent de MARCA/UI (mono; nao e' lucro)
-ACCENT_DIM  = "rgba(241,241,241,0.13)"
-ACCENT_HOV  = "rgba(241,241,241,0.22)"
+# ACCENT (cor de destaque de MARCA/UI) e' configuravel desde a Etapa 2
+# (seletor em Configuracoes). Default: verde SkinVault historico
+# (pre-F11), restaurado em 2026-08-03. Os valores abaixo sao da paleta
+# default; ACCENTS + _apply_accent() recalcula os tokens ao trocar.
+ACCENT      = "#22C55E"
+ACCENT_DIM  = "rgba(34,197,94,0.16)"
+ACCENT_HOV  = "rgba(34,197,94,0.26)"
+ACCENT_PRESSED = "rgba(34,197,94,0.36)"
 # CTA solido — YouTube clean: botao primario INVERTE o contraste do fundo
 # (branco no tema escuro, preto no claro). Desacoplado de ACCENT porque
 # o fill cheio exige par proprio de fg/bg/hover/focus.
@@ -40,8 +45,8 @@ DANGER_PRESSED = "rgba(239,68,68,0.36)"
 WARN        = "#F59E0B"
 
 # Semantico de mercado/P&L — verde = lucro/alta/bom, DESACOPLADO do
-# ACCENT de marca (titanio). Use POSITIVE para "lucro/compra/bom" e
-# DANGER para "prejuizo/queda/ruim".
+# ACCENT de marca (a cor de destaque nao muda o verde de P&L). Use
+# POSITIVE para "lucro/compra/bom" e DANGER para "prejuizo/queda/ruim".
 POSITIVE     = "#3FB950"
 POSITIVE_DIM = "rgba(63,185,80,0.16)"
 POSITIVE_HOV = "rgba(63,185,80,0.26)"
@@ -50,9 +55,61 @@ POSITIVE_HOV = "rgba(63,185,80,0.26)"
 # cada familia de botao. Qt6 QSS nao suporta `outline`; o focus e
 # sinalizado trocando a cor da borda 1px ja reservada (zero layout
 # shift) + bg igual ao hover.
-FOCUS_GREEN = "#FFFFFF"   # focus ring do ACCENT (branco YouTube)
+FOCUS_GREEN = "#4ADE80"   # focus ring do ACCENT (verde clareado; segue a paleta)
 FOCUS_STEAM = "#8FD3F8"   # STEAM_BLUE clareado
 FOCUS_RED   = "#F87171"   # DANGER clareado
+
+# ── Paletas de Accent Color (Etapa 2) ─────────────────────────
+# Cor de destaque de MARCA/UI configuravel em Configuracoes ->
+# Aparencia (seletor com swatches). Cada paleta define o hex base +
+# alphas dos estados translucidos + hex do focus ring (versao
+# clareada da base). _apply_accent() recalcula os tokens derivados
+# (ACCENT, ACCENT_DIM/HOV/PRESSED, FOCUS_GREEN) sem restart.
+ACCENTS: dict[str, dict] = {
+    "verde": {
+        "label": "Verde SkinVault",
+        "accent": "#22C55E",
+        "dim": 0.16,
+        "hov": 0.26,
+        "pressed": 0.36,
+        "focus": "#4ADE80",
+    },
+    "azul": {
+        "label": "Azul Neon",
+        "accent": "#3B82F6",
+        "dim": 0.16,
+        "hov": 0.26,
+        "pressed": 0.36,
+        "focus": "#60A5FA",
+    },
+    "laranja": {
+        "label": "Laranja Cyberpunk",
+        "accent": "#F97316",
+        "dim": 0.16,
+        "hov": 0.26,
+        "pressed": 0.36,
+        "focus": "#FB923C",
+    },
+    "roxo": {
+        "label": "Roxo/Magenta",
+        "accent": "#A855F7",
+        "dim": 0.16,
+        "hov": 0.26,
+        "pressed": 0.36,
+        "focus": "#C084FC",
+    },
+    "neutro": {
+        "label": "Neutro (clássico)",
+        "accent": "#F1F1F1",
+        "dim": 0.13,
+        "hov": 0.22,
+        "pressed": 0.32,
+        "focus": "#FFFFFF",
+    },
+}
+DEFAULT_ACCENT = "verde"
+
+_current_accent_key = DEFAULT_ACCENT
 
 # Chart overlays (technical analysis)
 CHART_YELLOW = "#FACC15"  # support/resistance, spread
@@ -119,14 +176,15 @@ CARD_PAD_SM = (14, 10, 14, 10)
 CARD_PAD_MD = (16, 14, 16, 14)
 CARD_PAD_LG = (20, 18, 20, 18)
 
-def _reload_palette(theme: str) -> None:
+def _reload_palette(theme: str, accent: str | None = None) -> None:
     """Atualiza as constantes deste modulo a partir de THEMES.
     Chamado por gui.set_theme() para live reload sem restart.
+    `accent`: chave de ACCENTS; None mantem a paleta de destaque atual.
     NOTA: assume execucao na UI thread; nao usar de threads paralelas."""
     from skinvault.gui import THEMES as _T
     pal = _T.get(theme, _T["dark"])
     global BG, BG_ELEVATED, SURFACE, BORDER, TEXT, TEXT_MUTED
-    global ACCENT, ACCENT_DIM, ACCENT_HOV, STEAM_BLUE, DANGER, ROW_ALT
+    global STEAM_BLUE, DANGER, ROW_ALT
     global PRIMARY_BG, PRIMARY_FG, PRIMARY_BORDER, PRIMARY_HOV, PRIMARY_FOCUS
     BG = pal["bg"]
     BG_ELEVATED = pal["surface"]
@@ -135,10 +193,7 @@ def _reload_palette(theme: str) -> None:
     TEXT = pal["text"]
     TEXT_MUTED = pal["muted"]
     BORDER = "#3A3A44" if theme == "light" else "#303030"
-    ACCENT = "#F1F1F1"
     DANGER = "#EF4444"
-    ACCENT_DIM = "rgba(241,241,241,0.13)"
-    ACCENT_HOV = "rgba(241,241,241,0.22)"
     STEAM_BLUE = "#66C0F4"
     if theme == "light":
         # CTA solido inverte: fundo claro pede botao escuro
@@ -153,6 +208,34 @@ def _reload_palette(theme: str) -> None:
         PRIMARY_BORDER = "#F1F1F1"
         PRIMARY_HOV = "#E4E4E4"
         PRIMARY_FOCUS = "#9A9A9A"
+    _apply_accent(accent)
+
+
+def _hex_rgb(hex_color: str) -> tuple[int, int, int]:
+    """'#RRGGBB' -> (r, g, b). A ordem dos canais importa pro rgba()."""
+    h = hex_color.lstrip("#")
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+def _apply_accent(key: str | None = None) -> None:
+    """Recalcula ACCENT/ACCENT_DIM/ACCENT_HOV/ACCENT_PRESSED/FOCUS_GREEN
+    a partir da paleta `key` de ACCENTS. key None ou invalida cai na
+    paleta default. Chamado por gui.set_theme() e no load do MainWindow.
+    """
+    global ACCENT, ACCENT_DIM, ACCENT_HOV, ACCENT_PRESSED, FOCUS_GREEN
+    global _current_accent_key
+    if key is None:
+        key = _current_accent_key
+    pal = ACCENTS.get(key)
+    if pal is None:
+        pal = ACCENTS[DEFAULT_ACCENT]
+    _current_accent_key = DEFAULT_ACCENT if key not in ACCENTS else key
+    r, g, b = _hex_rgb(pal["accent"])
+    ACCENT = pal["accent"]
+    ACCENT_DIM = f"rgba({r},{g},{b},{pal['dim']:.2f})"
+    ACCENT_HOV = f"rgba({r},{g},{b},{pal['hov']:.2f})"
+    ACCENT_PRESSED = f"rgba({r},{g},{b},{pal['pressed']:.2f})"
+    FOCUS_GREEN = pal["focus"]
 
 
 # ── Tipografia ───────────────────────────────────────────────

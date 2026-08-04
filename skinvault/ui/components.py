@@ -785,6 +785,12 @@ class SegmentedControl(QWidget):
             btn.setChecked(True)
             self.segment_changed.emit(key)
 
+    def restyle(self) -> None:
+        """Reaplica o QSS dos botoes (tokens ACCENT/FOCUS_GREEN podem ter
+        mudado ao vivo pela troca de tema ou cor de destaque)."""
+        for btn in self._items.values():
+            btn.setStyleSheet(self._btn_style())
+
     def _btn_style(self) -> str:
         return (
             f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"

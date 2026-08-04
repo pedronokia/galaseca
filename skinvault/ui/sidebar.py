@@ -66,6 +66,11 @@ class _SidebarItem(QPushButton):
     def _on_toggled(self, checked: bool) -> None:
         self._icon.set_color(t.ACCENT if checked else t.TEXT_MUTED)
 
+    def restyle(self) -> None:
+        """Reaplica QSS + cor do icone apos troca de tema/accent."""
+        self.setStyleSheet(self._style_idle())
+        self._icon.set_color(t.ACCENT if self.isChecked() else t.TEXT_MUTED)
+
     def resizeEvent(self, evt) -> None:
         super().resizeEvent(evt)
         y = (self.height() - self._icon.height()) // 2
@@ -227,3 +232,15 @@ class Sidebar(QWidget):
         btn = self._items.get(key)
         if btn is not None and not btn.isChecked():
             btn.setChecked(True)
+
+    def restyle(self) -> None:
+        """Reaplica QSS dos itens e do dot de sessao (tokens de accent
+        podem ter mudado ao vivo). Chamado por gui apos trocar
+        tema/cor de destaque."""
+        for btn in self._items.values():
+            btn.restyle()
+        dot = getattr(self, "_chip_dot", None)
+        if dot is not None:
+            dot.setStyleSheet(
+                f"background: {t.ACCENT}; border-radius: 4px;"
+            )

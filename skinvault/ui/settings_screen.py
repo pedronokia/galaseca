@@ -9,13 +9,15 @@ mexe em welcome_seen/scanner_unlocked/geometria/etc.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QHBoxLayout,
     QVBoxLayout,
     QWidget,
 )
@@ -36,6 +38,7 @@ from skinvault.ui.components import (
 # Chaves que esta tela gerencia — o reset so' toca nestas.
 _KEYS = (
     "theme",
+    "accent_color",
     "sidebar_width",
     "auto_backup",
     "keep_backups",
@@ -44,6 +47,95 @@ _KEYS = (
     "cache_ttl_hours",
     "fee_rate",
 )
+
+
+# ── Seletor de cor de destaque (Etapa 2) ──────────────────────
+def _rgba_from_hex(color: str, alpha: float) -> str:
+    """'#RRGGBB' + alpha (0-1) -> 'rgba(r,g,b,a)' CSS."""
+    h = color.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r},{g},{b},{alpha:.2f})"
+
+
+class _SwatchButton(QPushButton):
+    """Pill com a bolinha da cor da paleta pintada a esquerda (QPainter).
+
+    O estado checked usa a PROPRIA cor da paleta (preview do que voce
+    recebe), nao o ACCENT corrente — senao a selecao mentiria quando a
+    cor de destaque muda.
+    """
+
+    def __init__(self, key: str, label: str, color: str,
+                 parent: QWidget | None = None) -> None:
+        super().__init__(label, parent)
+        self._key = key
+        self._color = color
+        self.setCheckable(True)
+        self.setAutoExclusive(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(
+            f"Aplicar a cor de destaque '{label}' no app inteiro, na hora."
+        )
+        self.setMinimumHeight(34)
+        self.setStyleSheet(self._style())
+
+    def _style(self) -> str:
+        return (
+            f"QPushButton {{ color: {t.TEXT_MUTED}; background: transparent;"
+            f" border: 1px solid {t.BORDER}; border-radius: 10px;"
+            f" padding: 6px 14px 6px 28px; font-size: {t.FS_BODY};"
+            f" font-weight: 600; font-family: {t.FONT_FAMILY}; }}"
+            f"QPushButton:hover {{ color: {t.TEXT};"
+            f" border: 1px solid {t.TEXT_MUTED}; }}"
+            f"QPushButton:checked {{ color: {t.TEXT};"
+            f" background: {_rgba_from_hex(self._color, 0.16)};"
+            f" border: 1px solid {self._color}; }}"
+            f"QPushButton:focus {{ border: 1px solid {t.TEXT_MUTED}; }}"
+            f"QPushButton:checked:focus {{ border: 1px solid {self._color}; }}"
+        )
+
+    def paintEvent(self, evt) -> None:  # noqa: N802
+        super().paintEvent(evt)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        d = 10
+        y = (self.height() - d) // 2
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(self._color))
+        p.drawEllipse(12, y, d, d)
+        p.end()
+
+
+class _AccentSwatches(QWidget):
+    """Fileira de pills coloridas — um swatch por paleta de ACCENTS."""
+
+    changed = pyqtSignal(str)
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._btns: dict[str, _SwatchButton] = {}
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(t.SPACE_SM)
+        for key, pal in t.ACCENTS.items():
+            btn = _SwatchButton(key, pal["label"], pal["accent"])
+            btn.clicked.connect(
+                lambda _checked=False, k=key: self.changed.emit(k)
+            )
+            self._btns[key] = btn
+            lay.addWidget(btn)
+        lay.addStretch(1)
+
+    def select(self, key: str) -> None:
+        btn = self._btns.get(key)
+        if btn is not None and not btn.isChecked():
+            btn.setChecked(True)
+
+    def current_key(self) -> str | None:
+        for key, btn in self._btns.items():
+            if btn.isChecked():
+                return key
+        return None
 
 
 class SettingsScreen(QWidget):
@@ -101,6 +193,15 @@ class SettingsScreen(QWidget):
             tooltip="Alterna entre o tema escuro e o claro. O preview é "
                     "imediato no chrome da janela; algumas telas só "
                     "refletem 100% após reabrir.",
+        ))
+
+        self._accent_w = _AccentSwatches()
+        self._accent_w.changed.connect(self._on_accent_segment)
+        lay.addWidget(FormRow(
+            "Cor de destaque", self._accent_w,
+            tooltip="Cor de marca/UI do app: item ativo na barra lateral, "
+                    "foco de campos, seleção de linha, checkboxes. Verde "
+                    "SkinVault é o padrão. Aplica na hora, sem reiniciar.",
         ))
 
         self._sidebar_w = QSpinBox()
@@ -282,6 +383,16 @@ class SettingsScreen(QWidget):
         self._set("theme", key)
         self._apply_theme_live()
 
+    def _on_accent_segment(self, key: str) -> None:
+        if self._loading:
+            return
+        self._set("accent_color", key)
+        self._apply_theme_live()
+        # Os segments embutem ACCENT/FOCUS_GREEN no QSS (borda checked) —
+        # reestiliza os da propria tela pra refletir a nova cor na hora.
+        self._theme_seg.restyle()
+        self._density_seg.restyle()
+
     def _on_density_segment(self, key: str) -> None:
         if self._loading:
             return
@@ -365,6 +476,8 @@ class SettingsScreen(QWidget):
         save_settings(s)
         self._load_into_controls()
         self._apply_theme_live()
+        self._theme_seg.restyle()
+        self._density_seg.restyle()
         w = self.window()
         if hasattr(w, "_apply_sidebar_width"):
             w._apply_sidebar_width(DEFAULTS["sidebar_width"])
@@ -385,6 +498,9 @@ class SettingsScreen(QWidget):
             s = load_settings()
             theme = "dark" if s.get("theme", "dark") == "dark" else "light"
             self._theme_seg.select(theme)
+            self._accent_w.select(
+                s.get("accent_color", t.DEFAULT_ACCENT)
+            )
             self._sidebar_w.setValue(int(s.get("sidebar_width", 220)))
             self._density_seg.select(s.get("table_density", "standard"))
             self._auto_backup.setChecked(bool(s.get("auto_backup", True)))

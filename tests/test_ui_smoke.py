@@ -9136,6 +9136,48 @@ def test_set_theme_light(monkeypatch):
     assert palette_reloaded[0] == "light"
 
 
+def test_set_theme_passa_accent_quando_informado(monkeypatch):
+    """set_theme(theme, accent) repassa a cor de destaque."""
+    calls = []
+    monkeypatch.setattr("skinvault.ui.theme._reload_palette",
+                        lambda *a: calls.append(a))
+    from skinvault.gui import set_theme
+    set_theme("dark", "azul")
+    assert calls == [("dark", "azul")]
+    calls.clear()
+    # Sem accent: chamada legada de 1 argumento (nao quebra o mock antigo).
+    set_theme("dark")
+    assert calls == [("dark",)]
+
+
+def test_mainwindow_on_accent_changed(monkeypatch):
+    """Trocar so' a cor de destaque reaplica o tema + accent."""
+    settings = {"theme": "dark", "accent_color": "azul"}
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr("skinvault.gui.set_theme",
+                        lambda t, a: calls.append((t, a)))
+    monkeypatch.setattr("skinvault.gui.load_settings", lambda: settings)
+    win._current_theme = "dark"
+    win._current_accent = "verde"
+    win._on_theme_changed()
+    assert win._current_theme == "dark"
+    assert win._current_accent == "azul"
+    assert calls == [("dark", "azul")]
+
+
+def test_mainwindow_on_accent_changed_mesmo_nao_reaplica(monkeypatch):
+    """Sem mudanca de tema nem accent, _on_theme_changed nao faz nada."""
+    win = _make_mw(monkeypatch)
+    calls = []
+    monkeypatch.setattr("skinvault.gui.set_theme",
+                        lambda t, a: calls.append((t, a)))
+    monkeypatch.setattr("skinvault.gui.load_settings",
+                        lambda: {"theme": "dark", "accent_color": "verde"})
+    win._on_theme_changed()
+    assert calls == []
+
+
 def test_mainwindow_close_event(monkeypatch):
     """closeEvent saves geometry and hides to tray if available."""
     settings = {}

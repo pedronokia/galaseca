@@ -14,6 +14,9 @@ DEFAULTS = {
     "tray_notifications": True,
     "keep_backups": 10,
     "theme": "dark",
+    # Cor de destaque de marca/UI. Chave de theme.ACCENTS (Etapa 2);
+    # default "verde" == theme.DEFAULT_ACCENT.
+    "accent_color": "verde",
     "start_minimized": False,
     "minimize_to_tray_on_close": True,
     "history_last_segment": "all",
