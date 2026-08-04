@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 from skinvault import icons
+from skinvault.ui import shimmer
 from skinvault.ui import theme as t
 
 # Card no formato do Mercado da Comunidade Steam: categoria e NOME em
@@ -365,13 +366,23 @@ class SkeletonTile(QFrame):
     esqueleto diz quanta coisa vem e onde cada parte vai cair, entao a
     tela nao "salta" quando os dados chegam.
 
-    Sem animacao de brilho de proposito: o shimmer exigiria um timer por
-    tile, e sao dezenas deles.
+    O brilho (shimmer) usa o controller compartilhado de `skinvault.ui.
+    shimmer` -- UM QTimer pra todos os tiles, nao um por tile. O tile se
+    registra quando aparece na tela e se desregistra quando esconde; com o
+    controller parado o card pinta o esqueleto estatico.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(TILE_W, TILE_H)
+
+    def showEvent(self, evt) -> None:  # noqa: N802
+        super().showEvent(evt)
+        shimmer.SHIMMER.register(self)
+
+    def hideEvent(self, evt) -> None:  # noqa: N802
+        super().hideEvent(evt)
+        shimmer.SHIMMER.unregister(self)
 
     def paintEvent(self, _evt) -> None:  # noqa: N802
         p = QPainter(self)
@@ -385,6 +396,10 @@ class SkeletonTile(QFrame):
         p.drawRoundedRect(QRect(28, 18, TILE_W - 56, TILE_ICON_H - 36), 4, 4)
         p.drawRoundedRect(QRect(34, TILE_ICON_H + 3, TILE_W - 68, 9), 4, 4)
         p.drawRoundedRect(QRect(48, TILE_ICON_H + 20, TILE_W - 96, 12), 4, 4)
+        # Brilho accent varrendo o card -- so' quando o controller esta'
+        # animando (tile visivel com timer rodando); parado, sem faixa.
+        if shimmer.SHIMMER.is_animating(self):
+            shimmer.paint_band(p, TILE_W, TILE_H)
         p.end()
 
 

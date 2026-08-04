@@ -41,6 +41,7 @@ class _SidebarItem(QPushButton):
                 f"QPushButton {{ background: transparent; border: none;"
                 f" border-radius: 10px; }}"
                 f"QPushButton:hover {{ background: {t.ACCENT_DIM}; }}"
+                f"QPushButton:pressed {{ background: {t.ACCENT_PRESSED}; }}"
                 f"QPushButton:checked {{ background: {t.ACCENT_DIM}; }}"
                 f"QPushButton:focus {{ background: {t.ACCENT_DIM}; }}"
             )
@@ -52,6 +53,8 @@ class _SidebarItem(QPushButton):
             f" font-size: {t.FS_BODY}; font-weight: 500;"
             f" font-family: {t.FONT_FAMILY}; }}"
             f"QPushButton:hover {{ color: {t.TEXT}; background: {t.SURFACE};"
+            f" border: 1px solid transparent; }}"
+            f"QPushButton:pressed {{ color: {t.TEXT}; background: {t.SURFACE_HOV};"
             f" border: 1px solid transparent; }}"
             f"QPushButton:checked {{ color: {t.TEXT}; background: {t.ACCENT_DIM};"
             f" font-weight: 700;"

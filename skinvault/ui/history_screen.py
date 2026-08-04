@@ -272,8 +272,11 @@ class _FilterBar(QWidget):
             f" padding: 4px 12px; font-size: {t.FS_MUTED}; font-weight: 500;"
             f" font-family: {t.FONT_FAMILY}; }}"
             f"QPushButton:hover {{ color: {t.TEXT}; }}"
+            f"QPushButton:pressed {{ color: {t.TEXT};"
+            f" background: {t.SURFACE_HOV}; }}"
             f"QPushButton:checked {{ color: {t.ACCENT};"
             f" border: 1px solid {t.ACCENT}; background: {t.ACCENT_DIM}; }}"
+            f"QPushButton:checked:pressed {{ background: {t.ACCENT_PRESSED}; }}"
         )
 
     def _set_periodo(self, key: str) -> None:

@@ -98,6 +98,9 @@ class AccountScreen(QWidget):
         self._validating = False
         self._schedule_timer = QTimer(self)
         self._schedule_timer.timeout.connect(self._on_refresh_scores)
+        # Preenchido por _reload_value_series: sem serie desenhada, o
+        # ValueChart fica em esqueleto durante a avaliacao.
+        self._vc_tem_pontos = False
         self._price_worker = PriceWorker(cache, self)
         self._price_worker.eval_done.connect(self._on_eval)
         self._price_worker.progress.connect(self._on_eval_progress)
@@ -544,6 +547,11 @@ class AccountScreen(QWidget):
         self._progress.setVisible(True)
         self._status.setText("Avaliando inventário...")
         self.inventory_progress.emit(0, 0)
+        # Sem serie desenhada ainda, o grafico de valor fica em esqueleto
+        # shimmer enquanto a avaliacao roda (ela alimenta o proximo ponto
+        # do historico). Com serie na tela, manter a linha -- reavaliar
+        # nao deve apagar o que o usuario esta' lendo.
+        self._value_chart.set_loading(not self._vc_tem_pontos)
         self._price_worker.start()
         self._reload_activity()
 
@@ -572,8 +580,10 @@ class AccountScreen(QWidget):
         # Timestamp habilita o filtro de periodo (1D/7D/1M/1A/Tudo) no
         # chart -- sem ele set_range() nao teria o que cortar.
         tss = [p.get("ts") for p in series]
+        self._vc_tem_pontos = len(pontos) >= 3
+        self._value_chart.set_loading(False)
         self._value_chart.set_series(pontos, tss)
-        if len(pontos) >= 3:
+        if self._vc_tem_pontos:
             self._vc_lbl.setText(
                 "Valor bruto da carteira — cada avaliação grava um ponto")
         else:

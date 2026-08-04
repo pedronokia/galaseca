@@ -566,6 +566,7 @@ def messagebox_style() -> str:
         f" min-width: 72px; font-size: {FS_BODY};"
         f" font-family: {FONT_FAMILY}; }}"
         f"QMessageBox QPushButton:hover {{ background: {SURFACE_HOV}; }}"
+        f"QMessageBox QPushButton:pressed {{ background: {SURFACE_PRESSED}; }}"
         f"QMessageBox QPushButton:focus {{ border: 1px solid {TEXT_MUTED}; }}"
     )
 

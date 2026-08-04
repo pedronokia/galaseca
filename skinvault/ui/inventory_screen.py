@@ -788,6 +788,7 @@ class InventoryScreen(QWidget):
             f" border-radius: {t.RADIUS_SM}px; padding: 0 10px;"
             f" text-align: left; }}"
             f"QPushButton:hover {{ background: {t.SURFACE}; }}"
+            f"QPushButton:pressed {{ background: {t.SURFACE_HOV}; }}"
             f"QPushButton:checked {{ background: {t.SURFACE}; }}"
             f"QPushButton:focus {{ background: {t.SURFACE}; }}"
         )

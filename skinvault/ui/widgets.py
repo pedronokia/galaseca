@@ -21,6 +21,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import QToolTip, QWidget
 
+from skinvault.ui import shimmer
 from skinvault.ui import theme as t
 
 _MES_CURTO = {
@@ -208,6 +209,7 @@ class ValueChart(QWidget):
         self._timestamps: list[float | None] | None = None
         self._range = "all"
         self._hover_idx: int | None = None
+        self._loading = False
         self.setMinimumHeight(120)
         self.setMouseTracking(True)
 
@@ -222,7 +224,41 @@ class ValueChart(QWidget):
         self._values = list(totals)
         self._timestamps = list(timestamps) if timestamps else None
         self._hover_idx = None
+        self._loading = False
+        self._sync_shimmer()
         self.update()
+
+    def set_loading(self, loading: bool) -> None:
+        """Alterna pro estado de carregamento (esqueleto shimmer).
+
+        O dono liga antes de buscar os dados e desliga quando os entrega.
+        Mostrar o esqueleto e' decisao do dono: com historico ja'
+        desenhado, uma reavaliacao nao deve apagar a linha que existe.
+        """
+        if loading == self._loading:
+            return
+        self._loading = loading
+        self._hover_idx = None
+        self._sync_shimmer()
+        self.update()
+
+    def loading(self) -> bool:
+        return self._loading
+
+    def _sync_shimmer(self) -> None:
+        """Timer compartilhado so' roda com widget visivel em loading."""
+        if self._loading and self.isVisible():
+            shimmer.SHIMMER.register(self)
+        else:
+            shimmer.SHIMMER.unregister(self)
+
+    def showEvent(self, evt) -> None:  # noqa: N802
+        super().showEvent(evt)
+        self._sync_shimmer()
+
+    def hideEvent(self, evt) -> None:  # noqa: N802
+        super().hideEvent(evt)
+        shimmer.SHIMMER.unregister(self)
 
     def set_range(self, key: str) -> None:
         if key in self.RANGES and key != self._range:
@@ -297,6 +333,14 @@ class ValueChart(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
+        if self._loading:
+            # Esqueleto shimmer no lugar da linha: o dono liga antes de
+            # buscar os dados (avaliacao em andamento, sem serie ainda).
+            shimmer.paint_skeleton_line(p, 6, 8, w - 12, h - 16, seed=0.0)
+            if shimmer.SHIMMER.is_animating(self):
+                shimmer.paint_band(p, w, h)
+            p.end()
+            return
         vals, _tss = self._visible()
         if len(vals) < 3:
             # Mostra os pontos que JA' existem, nao so' quantos faltam. Sao
@@ -548,6 +592,7 @@ class PriceHistoryChart(QWidget):
         self._sr: dict | None = None
         self._range = "all"
         self._hover: int | None = None
+        self._loading = False
         self.setMinimumHeight(140)
         self.setMouseTracking(True)
 
@@ -559,7 +604,40 @@ class PriceHistoryChart(QWidget):
         self._sma = None
         self._sr = None
         self._hover = None
+        self._loading = False
+        self._sync_shimmer()
         self.update()
+
+    def set_loading(self, loading: bool) -> None:
+        """Alterna pro estado de carregamento (esqueleto shimmer).
+
+        O dono liga ao iniciar a consulta e desliga quando `set_data`
+        chega. Com historico ja' desenhado, consultar outro item nao
+        deve apagar o grafico que esta na tela -- desligue antes.
+        """
+        if loading == self._loading:
+            return
+        self._loading = loading
+        self._hover = None
+        self._sync_shimmer()
+        self.update()
+
+    def loading(self) -> bool:
+        return self._loading
+
+    def _sync_shimmer(self) -> None:
+        if self._loading and self.isVisible():
+            shimmer.SHIMMER.register(self)
+        else:
+            shimmer.SHIMMER.unregister(self)
+
+    def showEvent(self, evt) -> None:  # noqa: N802
+        super().showEvent(evt)
+        self._sync_shimmer()
+
+    def hideEvent(self, evt) -> None:  # noqa: N802
+        super().hideEvent(evt)
+        shimmer.SHIMMER.unregister(self)
 
     def set_sma(self, sma_data: list[float | None]) -> None:
         self._sma = sma_data
@@ -669,6 +747,23 @@ class PriceHistoryChart(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
+        if self._loading:
+            # Esqueleto shimmer mimetizando o layout real: linha de preco
+            # na area de cima, barras de volume embaixo, faixa accent por
+            # cima de tudo quando o controller esta' animando.
+            price_top, price_bottom, vol_top, vol_bottom = self._layout(h)
+            shimmer.paint_skeleton_line(
+                p, self._LEFT, price_top,
+                w - self._LEFT - self._RIGHT, price_bottom - price_top,
+                seed=1.0)
+            shimmer.paint_skeleton_bars(
+                p, self._LEFT, vol_top,
+                w - self._LEFT - self._RIGHT, vol_bottom - vol_top,
+                seed=3.0)
+            if shimmer.SHIMMER.is_animating(self):
+                shimmer.paint_band(p, w, h)
+            p.end()
+            return
         vis = self._visible()
         if len(vis) < 2:
             p.setPen(QColor(t.TEXT_MUTED))

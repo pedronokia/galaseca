@@ -510,6 +510,9 @@ class MarketScreen(QWidget):
         self._content.setVisible(False)
         self._empty.setVisible(False)
         self._loading.setVisible(True)
+        # Grafico em esqueleto shimmer enquanto a consulta roda; o _on_data
+        # desliga quando os dados chegam (via set_data/set_loading False).
+        self._price_chart.set_loading(True)
         self._started_at = time.time()
 
         def _worker():
@@ -543,6 +546,7 @@ class MarketScreen(QWidget):
                    self._stat_verdict):
             sc.set_value("—", accent=t.TEXT)
         self._reset_median_card()
+        self._price_chart.set_loading(False)
         self._price_chart.set_data([])
         self._depth.set_data({})
         self._spark_meta.setText("")
@@ -565,6 +569,7 @@ class MarketScreen(QWidget):
         # chega aqui, entao o botao nunca mais fica preso desabilitado.
         set_button_loading(self._search_btn, False)
         self._loading.setVisible(False)
+        self._price_chart.set_loading(False)
         name = data.get("name", "")
         overview = data.get("overview")
         page = data.get("page")
