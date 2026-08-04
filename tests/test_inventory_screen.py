@@ -121,6 +121,50 @@ def test_pref_tabela_aplica_depois_do_build(monkeypatch):
     assert tela._views.currentIndex() == 0
 
 
+# ── ordenacao: seta de direcao nos segmentos ──────────────────────
+
+
+def test_ordem_nasce_com_seta_desc_em_valor(tela):
+    """Valor abre do maior pro menor: a seta aponta pra baixo no ativo."""
+    tela._atualizar_ordem_labels()
+    assert tela._ordem_seg._items["valor"].text() == "Valor ▼"
+    assert tela._ordem_seg._items["nome"].text() == "Nome"
+    assert tela._ordem_seg._items["qtd"].text() == "Qtd"
+
+
+def test_trocar_de_chave_move_a_seta(tela):
+    tela._grid.set_items([
+        {"name": "Zulu", "qty": 1, "icon": None, "type": "Rifle",
+         "steam_net": 99.0, "market_net": None, "premium_pct": None},
+        {"name": "Alfa", "qty": 1, "icon": None, "type": "Rifle",
+         "steam_net": 1.0, "market_net": None, "premium_pct": None},
+    ])
+    tela._on_ordem("nome")
+    assert [tl.item["name"] for tl in tela._grid._tiles] == ["Alfa", "Zulu"]
+    assert tela._ordem_seg._items["nome"].text() == "Nome ▲"
+    assert tela._ordem_seg._items["valor"].text() == "Valor"
+
+
+def test_clicar_de_novo_na_chave_ativa_inverte(tela):
+    tela._grid.set_items([
+        {"name": "Zulu", "qty": 1, "icon": None, "type": "Rifle",
+         "steam_net": 99.0, "market_net": None, "premium_pct": None},
+        {"name": "Alfa", "qty": 1, "icon": None, "type": "Rifle",
+         "steam_net": 1.0, "market_net": None, "premium_pct": None},
+    ])
+    tela._on_ordem("nome")
+    tela._on_ordem("nome")
+    assert [tl.item["name"] for tl in tela._grid._tiles] == ["Zulu", "Alfa"]
+    assert tela._ordem_seg._items["nome"].text() == "Nome ▼"
+
+
+def test_alternar_grade_tabela_nao_toca_a_ordenacao(tela):
+    tela._on_ordem("nome")
+    tela._view_seg.select("table")
+    tela._view_seg.select("grid")
+    assert tela._ordem_seg._items["nome"].text() == "Nome ▲"
+
+
 def test_item_sem_cotacao_fora_fica_none(tela, monkeypatch):
     """Nao inventa numero: sem cotacao, o campo fica vazio."""
     monkeypatch.setattr("skinvault.markets.cached_market", lambda *a, **k: {})

@@ -15,7 +15,7 @@ Sem rede: recebe os dados prontos e le' icone so' do cache local.
 from __future__ import annotations
 
 from PyQt6.QtCore import QEvent, QRect, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -39,9 +39,9 @@ TILE_W = 232
 TILE_PAD = 12
 TILE_CAT_H = 15        # "Caixa", "Skin" -- categoria, corpo pequeno
 TILE_NOME_H = 34       # ate' 2 linhas
-TILE_ICON_H = 108
+TILE_ICON_H = 120
 TILE_QTD_H = 17
-TILE_FAIXA_H = 32      # faixa do valor, com borda
+TILE_FAIXA_H = 34      # faixa do valor, com borda
 TILE_PNL_H = 16        # P&L do item -- so' aparece com custo conhecido
 TILE_H = (TILE_PAD + TILE_CAT_H + TILE_NOME_H + TILE_ICON_H
           + TILE_QTD_H + TILE_FAIXA_H + TILE_PNL_H + TILE_PAD)
@@ -96,8 +96,14 @@ class InventoryTile(QFrame):
         if p:
             pm = QPixmap(str(p))
             if not pm.isNull():
+                # Icone da Steam e' quadrado (96x96): a area util do card e'
+                # limitada pela ALTURA da faixa da imagem. Escalar contra um
+                # retangulo mais generoso (quase o card inteiro) faz a arma
+                # longa ou a faca crescerem com ela, sem cortar -- o aspect
+                # ratio e' sempre preservado, o que sobra de "sobra" e'
+                # apenas o vao lateral dos icones quadrados.
                 self._pix = pm.scaled(
-                    TILE_W - 16, TILE_ICON_H - 12,
+                    TILE_W - 12, TILE_ICON_H - 8,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation)
 
@@ -202,34 +208,70 @@ class InventoryTile(QFrame):
         larg = TILE_W - TILE_PAD * 2
         y = TILE_PAD
         fonte = p.font()
+        # Hinting completo deixa o texto pequeno do card nítido (preço e
+        # P&L são 9-10pt; sem hinting o Windows borra o contorno).
+        fonte.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
 
         # 1. Categoria, como o "Recipiente (Nivel Basico)" do Mercado.
+        #    Canto direito da MESMA linha: o pill de desgaste (quando o
+        #    item é skin com wear) e, colado a ele, o badge "No Mercado"
+        #    (so' quando há anuncio ativo de verdade). A categoria é
+        #    elidida pro espaço que sobrar -- sem elidir, o texto longo
+        #    ("Caixas e cápsulas") passaria POR BAIXO dos pills.
+        desgaste = self._desgaste()
+        listado = bool(self.item.get("listed"))
+        fonte.setPointSize(6)
+        fonte.setBold(False)
+        p.setFont(fonte)
+        w_desgaste = (self._badge_largura(p, desgaste, False)
+                      if desgaste else 0)
+        w_lista = (self._badge_largura(p, "NO MERCADO", True)
+                   if listado else 0)
+        pills_w = w_desgaste + w_lista + (4 if w_desgaste and w_lista else 0)
+
         fonte.setPointSize(7)
         fonte.setBold(False)
         p.setFont(fonte)
         p.setPen(QColor(t.TEXT_MUTED))
-        p.drawText(QRect(TILE_PAD, y, larg, TILE_CAT_H),
-                   Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                   self._categoria())
+        cat_rect = QRect(TILE_PAD, y, max(1, larg - pills_w), TILE_CAT_H)
+        cat_txt = self._categoria()
+        if pills_w:
+            fm = p.fontMetrics()
+            if fm.horizontalAdvance(cat_txt) > cat_rect.width():
+                cat_txt = fm.elidedText(cat_txt, Qt.TextElideMode.ElideRight,
+                                        cat_rect.width())
+        p.drawText(cat_rect, Qt.AlignmentFlag.AlignLeft
+                   | Qt.AlignmentFlag.AlignVCenter, cat_txt)
 
-        # 1b. Badge "No Mercado" -- so' quando o item TEM anuncio ativo de
-        # verdade (active_listings.json), nao quando so' existe cotacao de
-        # referencia. Canto direito da mesma linha da categoria: a grade
-        # ja' e' apertada, abrir uma linha nova so' pra isto desperdicaria
-        # espaco em ~90% dos cards (a maioria nao esta anunciada).
-        if self.item.get("listed"):
-            fonte.setPointSize(6)
-            fonte.setBold(True)
-            p.setFont(fonte)
-            rotulo = "NO MERCADO"
-            largura_txt = p.fontMetrics().horizontalAdvance(rotulo)
-            badge_w = largura_txt + 12
-            badge = QRect(TILE_PAD + larg - badge_w, y, badge_w, TILE_CAT_H)
-            p.setBrush(QColor(t.STEAM_DIM))
-            p.setPen(QPen(QColor(t.STEAM_BLUE), 1))
-            p.drawRoundedRect(badge, t.RADIUS_SM, t.RADIUS_SM)
-            p.setPen(QColor(t.STEAM_BLUE))
-            p.drawText(badge, Qt.AlignmentFlag.AlignCenter, rotulo)
+        # 1b. Pills da direita: "No Mercado" (azul Steam) na extremidade,
+        #     desgaste (translúcido, discreto) colado à esquerda dele.
+        if pills_w:
+            x = TILE_PAD + larg
+            if w_lista:
+                x -= w_lista
+                badge = QRect(x, y, w_lista, TILE_CAT_H)
+                p.setBrush(QColor(t.STEAM_DIM))
+                p.setPen(QPen(QColor(t.STEAM_BLUE), 1))
+                p.drawRoundedRect(badge, t.RADIUS_SM, t.RADIUS_SM)
+                fonte.setPointSize(6)
+                fonte.setBold(True)
+                p.setFont(fonte)
+                p.setPen(QColor(t.STEAM_BLUE))
+                p.drawText(badge, Qt.AlignmentFlag.AlignCenter, "NO MERCADO")
+                x -= 4
+            if w_desgaste:
+                x -= w_desgaste
+                badge = QRect(x, y, w_desgaste, TILE_CAT_H)
+                fundo = QColor(t.TEXT)
+                fundo.setAlpha(30)          # ~12% -- pill semi-transparente
+                p.setBrush(fundo)
+                p.setPen(Qt.PenStyle.NoPen)
+                p.drawRoundedRect(badge, t.RADIUS_SM, t.RADIUS_SM)
+                fonte.setPointSize(6)
+                fonte.setBold(False)
+                p.setFont(fonte)
+                p.setPen(QColor(t.TEXT_MUTED))
+                p.drawText(badge, Qt.AlignmentFlag.AlignCenter, desgaste)
         y += TILE_CAT_H
 
         # 2. NOME em cima da imagem -- o ponto do layout. Com o nome
@@ -269,7 +311,11 @@ class InventoryTile(QFrame):
         p.setBrush(QColor(t.BG_ELEVATED))
         p.setPen(QPen(QColor(t.BORDER), 1))
         p.drawRoundedRect(faixa, t.RADIUS_SM, t.RADIUS_SM)
-        fonte.setPointSize(9)
+        # Preco e' o numero primario do card: maior e mais pesado que os
+        # demais, com hinting cheio pra sair nítido. A origem (saldo/fora)
+        # fica num corpo menor e muted ao lado -- as duas moedas continuam
+        # distinguiveis, mas quem manda na faixa e' o numero.
+        fonte.setPointSize(10)
         fonte.setBold(True)
         p.setFont(fonte)
         p.setPen(QColor(t.TEXT if preco is not None else t.TEXT_MUTED))
@@ -285,7 +331,7 @@ class InventoryTile(QFrame):
             p.setFont(fonte)
             larg_origem = p.fontMetrics().horizontalAdvance(" " + origem)                 if origem else 0
             inicio = TILE_PAD + max(4, (larg - larg_preco - larg_origem) // 2)
-            fonte.setPointSize(9)
+            fonte.setPointSize(10)
             fonte.setBold(True)
             p.setFont(fonte)
             p.drawText(QRect(inicio, y, larg_preco, TILE_FAIXA_H - 2),
@@ -304,26 +350,71 @@ class InventoryTile(QFrame):
 
         # 6. P&L -- so' afirma lucro/prejuizo com custo conhecido (mesma
         # regra da coluna P&L da tabela: sync grava cost=0.0 pra "nao sei",
-        # entao pnl vem None em vez de inventar zero).
+        # entao pnl vem None em vez de inventar zero). Cor semantica:
+        # verde lucro, vermelho prejuizo, muted sem custo cadastrado.
         pnl = self.item.get("pnl")
         fonte.setPointSize(8)
         fonte.setBold(pnl is not None)
         p.setFont(fonte)
-        if pnl is None:
-            p.setPen(QColor(t.TEXT_MUTED))
-            texto_pnl = "P&L —"
-        else:
-            p.setPen(QColor(t.POSITIVE if pnl >= 0 else t.DANGER))
-            texto_pnl = f"P&L {t.brl(pnl)}"
+        p.setPen(QColor(self._pnl_cor(pnl)))
         p.drawText(QRect(TILE_PAD, y, larg, TILE_PNL_H),
                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                   texto_pnl)
+                   self._pnl_texto(pnl))
         p.end()
 
     def _categoria(self) -> str:
         from skinvault import portfolio
         return portfolio.classify_item(self.item.get("raw_name")
                                        or self.item.get("name") or "")
+
+    # Wear-name (condicao de desgaste) reconhecido nos DOIS idiomas: o
+    # `name` exibido vem localizado ("Testada em Campo"), mas tiles vindos
+    # de outros caminhos podem carregar o market_hash_name cru
+    # ("Field-Tested"). Parenteses que nao sao wear ("(FT)", nomes de
+    # evento) ficam de fora -- um pill falso e' pior que nenhum pill.
+    _DESGASTES = {
+        "Factory New", "Minimal Wear", "Field-Tested", "Well-Worn",
+        "Battle-Scarred",
+        "Nova de Fábrica", "Pouco Usada", "Testada em Campo",
+        "Bastante Usada", "Veterana de Guerra",
+    }
+
+    def _desgaste(self) -> str:
+        """Condicao de desgaste do item, no idioma do nome exibido.
+
+        "AK-47 | Redline (Testada em Campo)" -> "Testada em Campo".
+        "Caixa Kilowatt" -> "" (container nao tem wear).
+        """
+        nome = (self.item.get("name") or "").strip()
+        if not nome.endswith(")"):
+            return ""
+        conteudo = nome[nome.rfind("(") + 1:-1].strip()
+        return conteudo if conteudo in self._DESGASTES else ""
+
+    @staticmethod
+    def _pnl_cor(pnl: float | None) -> str:
+        """Cor semantica do P&L: verde lucro, vermelho prejuizo, muted
+        quando nao ha' custo cadastrado (mesma regra da coluna da tabela)."""
+        if pnl is None:
+            return t.TEXT_MUTED
+        return t.POSITIVE if pnl >= 0 else t.DANGER
+
+    @staticmethod
+    def _pnl_texto(pnl: float | None) -> str:
+        if pnl is None:
+            return "P&L —"
+        sinal = "+" if pnl >= 0 else ""
+        return f"P&L {sinal}{t.brl(pnl)}"
+
+    def _badge_largura(self, p, texto: str, negrito: bool) -> int:
+        """Largura do pill do topo (texto + espaco interno), na MESMA
+        fonte usada pra desenhar -- a categoria e' elidida pelo que
+        sobrar, entao medir com fonte diferente desalinharia o layout."""
+        fonte = p.font()
+        fonte.setPointSize(6)
+        fonte.setBold(negrito)
+        p.setFont(fonte)
+        return p.fontMetrics().horizontalAdvance(texto) + 12
 
     def _nome_em_duas_linhas(self, p, larg: int) -> str:
         """Nome inteiro, cortado em ate' duas linhas.
@@ -799,6 +890,7 @@ class InventoryGrid(QWidget):
         self._visiveis: list[InventoryTile] = []
         self._itens: list[dict] = []
         self._ordem = "valor"
+        self._reverse = self._DEFAULT_REVERSE["valor"]
         self._categoria: str | None = None
         self._texto_filtro = ""
         # Sem foco a grade nao recebe tecla nenhuma.
@@ -860,24 +952,54 @@ class InventoryGrid(QWidget):
     # Chaves de ordenacao. "valor" e' o total do lote, nao o unitario: 21
     # caixas de R$ 1 pesam mais na carteira que uma skin de R$ 15.
     _ORDENS = ("valor", "nome", "qtd")
+    # Direcao natural de cada chave: valor e qtd do MAIOR pro menor (o que
+    # importa aparece antes), nome alfabetico (mais facil de achar aquela
+    # caixa). Trocar de chave reseta a direcao; clicar na chave ATIVA de
+    # novo inverte (Asc/Desc).
+    _DEFAULT_REVERSE = {"valor": True, "nome": False, "qtd": True}
 
     def _ordenar(self, itens: list) -> list:
+        reverse = self._reverse
         if self._ordem == "nome":
-            return sorted(itens, key=lambda i: (i.get("name") or "").lower())
+            return sorted(itens, key=lambda i: (i.get("name") or "").lower(),
+                          reverse=reverse)
         if self._ordem == "qtd":
             return sorted(itens, key=lambda i: (i.get("qty") or 1),
-                          reverse=True)
+                          reverse=reverse)
         return sorted(
             itens,
             key=lambda i: ((_valor_do_tile(i)[0] or 0) * (i.get("qty") or 1)),
-            reverse=True,
+            reverse=reverse,
         )
 
+    def order(self) -> str:
+        return self._ordem
+
+    def reverse(self) -> bool:
+        return self._reverse
+
     def set_order(self, ordem: str) -> None:
-        """Reordena sem refazer os tiles (recriar perde a selecao)."""
-        if ordem not in self._ORDENS or ordem == self._ordem:
+        """Troca de chave de ordenacao, ou inverte a direcao quando a
+        chave ja' esta' ativa (clicar de novo no segmento = Asc/Desc)."""
+        if ordem not in self._ORDENS:
+            return
+        if ordem == self._ordem:
+            self.set_direction(not self._reverse)
             return
         self._ordem = ordem
+        self._reverse = self._DEFAULT_REVERSE[ordem]
+        self._aplicar_ordem()
+
+    def set_direction(self, reverse: bool) -> None:
+        """Inverte so' a direcao, sem trocar a chave. Sem efeito se a
+        direcao ja' e' a pedida."""
+        if reverse == self._reverse:
+            return
+        self._reverse = reverse
+        self._aplicar_ordem()
+
+    def _aplicar_ordem(self) -> None:
+        """Reordena sem refazer os tiles (recriar perde a selecao)."""
         if not self._itens:
             return          # so' esqueletos na tela: nao ha' o que ordenar
         chave = {id(t.item): t for t in self._tiles

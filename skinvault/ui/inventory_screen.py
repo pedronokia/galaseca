@@ -238,11 +238,11 @@ class InventoryScreen(QWidget):
         self._ordem_seg.add("qtd", "Qtd")
         self._ordem_seg.setToolTip(
             "Ordem dos cards. “Valor” usa o total do lote, não o preço "
-            "unitário:\n21 caixas de R$ 1 pesam mais que uma skin de R$ 15.")
+            "unitário:\n21 caixas de R$ 1 pesam mais que uma skin de R$ 15.\n"
+            "Clicar na chave já ativa alterna crescente/decrescente.")
         # Lambda, nao `self._grid.set_order`: a grade so' e' construida
         # adiante neste mesmo _build, e ligar o metodo agora explodiria.
-        self._ordem_seg.segment_changed.connect(
-            lambda k: self._grid.set_order(k))
+        self._ordem_seg.segment_changed.connect(self._on_ordem)
         linha.addWidget(self._ordem_seg, 0)
 
         self._view_seg.segment_changed.connect(self._on_view_segment)
@@ -267,6 +267,7 @@ class InventoryScreen(QWidget):
             self._limpar_filtro)
 
         self._grid = InventoryGrid(columns=8)
+        self._atualizar_ordem_labels()
         self._table = QTableWidget(0, 10)
         self._table.setHorizontalHeaderLabels([
             "Item", "Qtd", "Anúncio Steam", "Recebe (saldo)",
@@ -924,6 +925,24 @@ class InventoryScreen(QWidget):
     def _limpar_filtro(self) -> None:
         if self._filter.text():
             self._filter.clear()
+
+    # Rotulos dos segmentos de ordenacao com a seta de direcao. A seta so'
+    # aparece na chave ATIVA ("Valor ▼"), as demais ficam limpas -- e a
+    # troca de direcao e' clicar de novo na mesma chave.
+    _ORDEM_ROTULOS = {"valor": "Valor", "nome": "Nome", "qtd": "Qtd"}
+
+    def _atualizar_ordem_labels(self) -> None:
+        ativa = self._grid.order()
+        seta = "▼" if self._grid.reverse() else "▲"
+        for k, rotulo in self._ORDEM_ROTULOS.items():
+            self._ordem_seg.set_label(
+                k, f"{rotulo} {seta}" if k == ativa else rotulo)
+
+    def _on_ordem(self, key: str) -> None:
+        """Delega pra grade (troca de chave ou alterna Asc/Desc quando a
+        chave ja' e' a ativa) e re-sincroniza as setas dos segmentos."""
+        self._grid.set_order(key)
+        self._atualizar_ordem_labels()
 
     def _on_view_segment(self, key: str) -> None:
         """O segmentado manda o destino, nao um 'inverta'.

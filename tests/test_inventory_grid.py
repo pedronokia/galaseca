@@ -252,6 +252,44 @@ def test_rotulo_aguenta_nome_vazio(app):
     assert InventoryTile(_item(""))._rotulo_curto() == ""
 
 
+def test_desgaste_reconhece_o_nome_localizado(app):
+    tile = InventoryTile(_item("AK-47 | Redline (Testada em Campo)"))
+    assert tile._desgaste() == "Testada em Campo"
+
+
+def test_desgaste_aceita_o_market_hash_cru(app):
+    """Tiles vindos de outros caminhos podem carregar o nome em ingles."""
+    tile = InventoryTile(_item("AK-47 | Redline (Field-Tested)"))
+    assert tile._desgaste() == "Field-Tested"
+
+
+def test_desgaste_de_container_e_vazio(app):
+    assert InventoryTile(_item("Caixa Kilowatt"))._desgaste() == ""
+
+
+def test_desgaste_ignora_parentese_que_nao_e_wear(app):
+    """(FT), (Holo-Foil) e nomes de evento nao sao condicao de desgaste --
+    um pill falso e' pior que nenhum pill."""
+    assert InventoryTile(_item("★ Karambit | Fade (FT)"))._desgaste() == ""
+    assert InventoryTile(_item("AK-47 | X (Souvenir)"))._desgaste() == ""
+
+
+def test_pnl_cor_semantica(app):
+    from skinvault.ui import theme
+    t = InventoryTile(_item("X"))
+    assert t._pnl_cor(50.0) == theme.POSITIVE
+    assert t._pnl_cor(0.0) == theme.POSITIVE
+    assert t._pnl_cor(-5.0) == theme.DANGER
+    assert t._pnl_cor(None) == theme.TEXT_MUTED
+
+
+def test_pnl_texto_so_afirma_lucro_com_custo(app):
+    t = InventoryTile(_item("X"))
+    assert t._pnl_texto(12.5) == "P&L +R$ 12,50"
+    assert t._pnl_texto(-3.0) == "P&L R$ -3,00"
+    assert t._pnl_texto(None) == "P&L —"
+
+
 def test_grade_seleciona_o_primeiro_automaticamente(app):
     g = InventoryGrid()
     g.set_items([_item("a"), _item("b")])
@@ -784,6 +822,54 @@ def test_ordem_desconhecida_e_ignorada(app):
     g.set_items([_item("a")])
     g.set_order("inexistente")
     assert g._ordem == "valor"
+
+
+# ── direcao da ordenacao (Asc/Desc) ───────────────────────────────
+
+
+def test_direcao_padrao_e_natural_por_chave(app):
+    """valor e qtd nascem do maior pro menor; nome, alfabetico."""
+    g = InventoryGrid()
+    assert (g.order(), g.reverse()) == ("valor", True)
+    g.set_order("nome")
+    assert g.reverse() is False
+    g.set_order("qtd")
+    assert g.reverse() is True
+
+
+def test_clicar_na_chave_ativa_inverte_a_direcao(app):
+    """Clicar no segmento ja' ativo alterna Asc/Desc sem trocar a chave."""
+    g = InventoryGrid()
+    g.set_items([_item("Zulu", steam=99.0), _item("Alfa", steam=1.0)])
+    g.set_order("nome")
+    assert [tl.item["name"] for tl in g._tiles] == ["Alfa", "Zulu"]
+    g.set_order("nome")                 # mesma chave: inverte
+    assert [tl.item["name"] for tl in g._tiles] == ["Zulu", "Alfa"]
+    g.set_order("nome")                 # e de novo, volta
+    assert [tl.item["name"] for tl in g._tiles] == ["Alfa", "Zulu"]
+
+
+def test_set_direction_inverte_sem_trocar_chave(app):
+    g = InventoryGrid()
+    g.set_items([_item("Zulu", steam=99.0), _item("Alfa", steam=1.0)])
+    g.set_direction(False)              # valor do maior pro menor -> menor
+    assert [tl.item["name"] for tl in g._tiles] == ["Alfa", "Zulu"]
+    assert g.order() == "valor"
+    g.set_direction(False)              # repetida: sem efeito
+    assert g.reverse() is False
+    g.set_direction(True)               # volta pro padrao
+    assert [tl.item["name"] for tl in g._tiles] == ["Zulu", "Alfa"]
+
+
+def test_trocar_de_chave_reseta_a_direcao(app):
+    g = InventoryGrid()
+    g.set_items([_item("a"), _item("b")])
+    g.set_order("nome")
+    g.set_order("nome")                 # vira desc
+    g.set_order("qtd")                  # reseta pra desc (padrao do qtd)
+    assert g.reverse() is True
+    g.set_order("nome")                 # e volta a resettar pro padrao asc
+    assert g.reverse() is False
 
 
 # ── teto de compra ─────────────────────────────────────────────────

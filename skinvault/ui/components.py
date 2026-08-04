@@ -785,6 +785,13 @@ class SegmentedControl(QWidget):
             btn.setChecked(True)
             self.segment_changed.emit(key)
 
+    def set_label(self, key: str, texto: str) -> None:
+        """Atualiza o rotulo de um segmento sem trocar selecao (usado
+        pelos indicadores de direcao de ordenacao, ex. "Valor ▼")."""
+        btn = self._items.get(key)
+        if btn is not None:
+            btn.setText(texto)
+
     def restyle(self) -> None:
         """Reaplica o QSS dos botoes (tokens ACCENT/FOCUS_GREEN podem ter
         mudado ao vivo pela troca de tema ou cor de destaque)."""
