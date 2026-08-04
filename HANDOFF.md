@@ -27,7 +27,7 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2212 testes**, ~77s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2232 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
@@ -303,6 +303,35 @@ Refinamento dos dois gráficos principais (Conta e Mercado), fechado com
   microssegundos entre `agora` e o cutoff interno. Congelado `time.time`
   no teste (padrão já usado no arquivo).
 - Validado: 34 testes de gráfico + suíte completa **2212 passed** (2x).
+
+## Accent Colors & Personalização de Tema (03/08) — `4d30bcf`
+
+Etapa 2 da personalização de tema: o destaque da UI saiu do verde fixo e
+virou paleta reativa, persistida e trocável ao vivo.
+
+- **Sistema de tokens (`theme.py`)**: cinco paletas de destaque — verde
+  (SkinVault, `#22C55E`), azul neon (`#3B82F6`), laranja cyberpunk
+  (`#F97316`), roxo/magenta (`#A855F7`) e neutro clássico (`#F1F1F1`).
+  Os tokens derivados (`ACCENT`, `ACCENT_DIM`, `ACCENT_HOV`,
+  `ACCENT_PRESSED`, `FOCUS_GREEN`) são recalculados dinamicamente por
+  `_apply_accent()`, que cai no default se a chave for inválida.
+  `_reload_palette(theme, accent=None)` preserva o accent corrente quando
+  não vem — a chamada legada de 1 argumento continua funcionando.
+- **Seletor nas Configurações (`settings_screen.py`)**: pills customizadas
+  (`_SwatchButton`) pintadas via QPainter com a **própria cor da paleta**
+  na bolinha (não o `ACCENT` corrente), no FormRow "Cor de destaque".
+  Persistido em `settings["accent_color"]` (`settings.json`), aplicado na
+  hora ao clicar e restaurado pro verde no reset.
+- **Aplicação reativa sem restart (`gui.py`, `sidebar.py`,
+  `components.py`)**: `set_theme(theme, accent=None)` e
+  `_on_theme_changed` reaplicam o QSS e chamam `restyle()` nos widgets
+  que travavam a cor antiga — `_SidebarItem`/`Sidebar` (ícones + chip de
+  sessão) e `SegmentedControl` (todos os botões re-estilizados).
+- **`POSITIVE`/`DANGER` continuam semânticos**: P&L de alta/queda não
+  muda com a paleta — só o destaque estético (o verde voltou a ser o
+  histórico `#22C55E` pré-F11 como default).
+- Validado: **20 testes novos** (17 em `tests/test_accent.py` + 3 hooks de
+  MainWindow em `test_ui_smoke.py`) + suíte completa **2232 passed**.
 
 ## Fila, em ordem
 
