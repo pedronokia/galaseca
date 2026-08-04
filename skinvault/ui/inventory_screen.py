@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import markets, portfolio
+from skinvault import history, markets, portfolio, reports
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState,
@@ -46,6 +46,7 @@ from skinvault.ui.components import (
     score_table_item,
 )
 from skinvault.ui._price_worker import IconWorker
+from skinvault.ui.exporter import build_export_menu, save_export
 from skinvault.ui.inventory_grid import InventoryGrid, InventoryTile
 
 
@@ -247,6 +248,18 @@ class InventoryScreen(QWidget):
 
         self._view_seg.segment_changed.connect(self._on_view_segment)
         linha.addWidget(self._view_seg, 0)
+
+        # Exportar inventário + relatório (CSV/JSON/HTML). Ghost: é
+        # leitura/ação auxiliar; o destaque da tela continua o filtro.
+        self._export_btn = QPushButton("Exportar")
+        self._export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._export_btn.setStyleSheet(
+            t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
+        self._export_btn.setToolTip(
+            "Exporta o inventário avaliado: CSV, JSON ou relatório HTML\n"
+            "print-friendly com o histórico de valor da carteira.")
+        self._export_btn.clicked.connect(self._on_export_menu)
+        linha.addWidget(self._export_btn, 0)
         root.addLayout(linha)
         # NAO selecionar aqui: select() emite segment_changed, e o handler
         # _on_view_segment mexe em self._views -- que so' nasce adiante neste
@@ -525,6 +538,37 @@ class InventoryScreen(QWidget):
         if saldo:
             partes.append(f"{t.brl(saldo)} em saldo Steam")
         return " • ".join(partes)
+
+    def _on_export_menu(self) -> None:
+        if not self._rows:
+            self._status.setText("Nada para exportar — inventário vazio.")
+            return
+        menu = build_export_menu(
+            self._export_btn,
+            [("Exportar CSV", lambda: self._do_export("csv")),
+             ("Exportar JSON", lambda: self._do_export("json")),
+             ("Exportar relatório HTML",
+              lambda: self._do_export("html"))],
+        )
+        menu.exec(self._export_btn.mapToGlobal(
+            self._export_btn.rect().bottomLeft()))
+
+    def _do_export(self, kind: str) -> None:
+        if kind == "csv":
+            conteudo = reports.inventory_csv(
+                self._rows, self._positions, self._mercados)
+        elif kind == "json":
+            conteudo = reports.inventory_json(
+                self._rows, self._positions, self._mercados)
+        else:
+            conteudo = reports.html_report(
+                self._rows, history.load_history(), None,
+                self._positions, self._mercados)
+        path, erro = save_export(self, "inventario", kind, conteudo)
+        if erro:
+            self._status.setText(f"Erro ao exportar: {erro}")
+        elif path:
+            self._status.setText(f"Exportado: {path}")
 
     def _on_icons_ready(self, quantos: int) -> None:
         """Repinta a grade com os icones que acabaram de chegar.

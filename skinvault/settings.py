@@ -48,6 +48,9 @@ DEFAULTS = {
     # marcada (alvo destrutivo) -- vide CleanupScreen._load_selection.
     "cleanup_selected": [],
     "cleanup_last_ts": 0,
+    # Metas financeiras (ver goals.py): lista de {id, label, metric,
+    # target, enabled}. Persiste em settings.json — o backup já cobre.
+    "goals": [],
 }
 
 

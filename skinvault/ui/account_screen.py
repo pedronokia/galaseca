@@ -36,10 +36,13 @@ from PyQt6.QtWidgets import (
 from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
 from skinvault import (
-    history, markets, prices, signals, ssr_cache, steam_session,
+    history, markets, prices, reports, signals, ssr_cache, steam_session,
 )
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
+from skinvault.ui.exporter import build_export_menu, save_export
+from skinvault.ui.fee_calculator_dialog import FeeCalculatorDialog
+from skinvault.ui.goals_card import GoalsCard
 from skinvault.ui.inventory_grid import InventoryGrid
 from skinvault.ui.components import (
     Avatar, Card, EmptyState, LoadingState, PageHeader, SegmentedControl,
@@ -101,6 +104,7 @@ class AccountScreen(QWidget):
         # Preenchido por _reload_value_series: sem serie desenhada, o
         # ValueChart fica em esqueleto durante a avaliacao.
         self._vc_tem_pontos = False
+        self._series_export: list[dict] = []
         self._price_worker = PriceWorker(cache, self)
         self._price_worker.eval_done.connect(self._on_eval)
         self._price_worker.progress.connect(self._on_eval_progress)
@@ -164,6 +168,17 @@ class AccountScreen(QWidget):
         )
         self._refresh_btn.clicked.connect(self._on_refresh_scores)
         act_lbl.addWidget(self._refresh_btn)
+
+        self._calc_btn = QPushButton("Calculadora de taxas")
+        self._calc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._calc_btn.setStyleSheet(t.btn_ghost())
+        self._calc_btn.setToolTip(
+            "Quanto sobra líquido em cada plataforma e por quanto listar\n"
+            "pra receber a margem desejada. Steam é saldo — não saca.\n"
+            "Taxas são defaults editáveis (Skinport 12%, CS.MONEY 5%)."
+        )
+        self._calc_btn.clicked.connect(self._on_open_calculator)
+        act_lbl.addWidget(self._calc_btn)
 
         act_w = QWidget()
         act_w.setLayout(act_lbl)
@@ -320,6 +335,15 @@ class AccountScreen(QWidget):
                                QSizePolicy.Policy.Maximum)
         root.addWidget(breakdown_card)
 
+        # Metas financeiras: barra de progresso por meta, reativa a cada
+        # avaliacao (refresh_from(totals) no _on_eval). Altura travada pra
+        # nao espremer a faixa de graficos — o card cabe entre o desempenho
+        # e a evolucao.
+        self._metas_card = GoalsCard(self)
+        self._metas_card.setSizePolicy(QSizePolicy.Policy.Preferred,
+                                       QSizePolicy.Policy.Maximum)
+        root.addWidget(self._metas_card)
+
         # ── Evolucao + composicao, lado a lado ────────────────
         #
         # Estes dois cartoes ocupam a metade de baixo da tela, que ficou
@@ -355,6 +379,18 @@ class AccountScreen(QWidget):
         self._vc_range_seg.segment_changed.connect(self._value_chart.set_range)
         self._vc_range_seg.select("all")
         ch_head.addWidget(self._vc_range_seg)
+
+        # Exportar a série de valor (CSV/JSON) — o "histórico do portfólio"
+        # mora aqui. Ghost: leitura/navegação não pede destaque.
+        self._hist_export_btn = QPushButton("Exportar histórico")
+        self._hist_export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._hist_export_btn.setStyleSheet(
+            t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
+        self._hist_export_btn.setToolTip(
+            "Salva a série de avaliações do valor da carteira "
+            "(CSV ou JSON).\nPonto por avaliação — a mesma série do gráfico.")
+        self._hist_export_btn.clicked.connect(self._on_export_history)
+        ch_head.addWidget(self._hist_export_btn)
         ch_lay.addLayout(ch_head)
 
         self._vc_lbl = QLabel(
@@ -514,6 +550,32 @@ class AccountScreen(QWidget):
         QApplication.clipboard().setText(self._session.steamid)
         Toast.show_toast(self, "SteamID copiado.", "success")
 
+    def _on_open_calculator(self) -> None:
+        dlg = FeeCalculatorDialog(parent=self)
+        dlg.exec()
+
+    def _on_export_history(self) -> None:
+        if not self._series_export:
+            self._status.setText("Nada para exportar — ainda não há avaliações.")
+            return
+        serie = self._series_export
+        menu = build_export_menu(
+            self._hist_export_btn,
+            [("Exportar CSV", lambda: self._do_export_history("csv", serie)),
+             ("Exportar JSON", lambda: self._do_export_history("json", serie))],
+        )
+        menu.exec(self._hist_export_btn.mapToGlobal(
+            self._hist_export_btn.rect().bottomLeft()))
+
+    def _do_export_history(self, kind: str, serie: list[dict]) -> None:
+        conteudo = (reports.history_csv(serie) if kind == "csv"
+                    else reports.history_json(serie))
+        path, erro = save_export(self, "historico_portfolio", kind, conteudo)
+        if erro:
+            self._status.setText(f"Erro ao exportar: {erro}")
+        elif path:
+            self._status.setText(f"Exportado: {path}")
+
     def _on_profile(self, data: dict) -> None:
         steamid = data.get("steamid", "")
         nome = data.get("name") or ""
@@ -576,6 +638,7 @@ class AccountScreen(QWidget):
         cartao so' com titulo, que parece defeito.
         """
         series = history.load_history()
+        self._series_export = series
         pontos = [p.get("total", 0.0) for p in series]
         # Timestamp habilita o filtro de periodo (1D/7D/1M/1A/Tudo) no
         # chart -- sem ele set_range() nao teria o que cortar.
@@ -993,6 +1056,10 @@ class AccountScreen(QWidget):
         if rows and total_market and self._avaliacao_completa(rows):
             self._record_value_snapshot(total_market)
         self._reload_value_series()
+
+        # Metas: cada avaliação recalcula o progresso (mesmo sem preço —
+        # a métrica "items" não depende de cotação).
+        self._metas_card.refresh_from(totals)
 
         # O inventario vive na aba propria desde 28/07/2026; aqui so' se
         # avalia e se repassa.
