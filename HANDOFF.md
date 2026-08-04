@@ -27,7 +27,7 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2345 testes**, ~80s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2360 testes**, ~70s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
@@ -448,6 +448,34 @@ testes novas (72 testes) e suíte completa **2345 passed** (100% verdes).
   `test_fee_calculator.py`, `test_reports.py`, `test_goals_card.py`,
   `test_fee_calculator_dialog.py`, `test_inventory_export.py` — todos com
   `settings` mockado, sem tocar `data/` nem a rede.
+
+## Pacote de UX, Sistema de Toasts & Custo Retroativo (04/08) — `fc276cc`
+
+Pacote de UX de uma passada, fechado com 15 testes novos e suíte completa
+**2360 passed** (100% verdes).
+
+- **ToastManager (`ui/toast.py`)** — singleton QObject que centraliza o
+  disparo de toasts sem duplicar o widget provado de `components.py`
+  (`ToastWidget` subclasse emite `finished`). `toast_finished` dá feedback
+  reativo sem acoplar a tela ao widget; atalhos `show_success`/`show_error`/
+  `show_info`/`show_warning`. Resiliência ao ciclo C++ do Qt/pytest: se a
+  `QApplication` (wrapper) morre e leva o singleton junto, `instance()`
+  recria — no app real a `QApplication` vive a sessão inteira e o caminho
+  nunca dispara.
+- **GoalsCard CTA (`goals_card.py`)** — empty state interativo com botão
+  "Criar primeira meta" que abre o `GoalsEditDialog` direto; a CTA some
+  quando há metas cadastradas. Salvar avisa via toast "Metas atualizadas!".
+- **Custo Retroativo no Histórico (`history_screen.py`)** — `RetroCostDialog`
+  lista posições sem custo (sync Steam grava `cost=0.0` = "não sei") e grava
+  via `portfolio.update_position_cost` (zero = drop). Sinal `costs_updated`
+  ligado no `ScreenRouter` à reavaliação do `AccountScreen` — os KPIs da
+  conta recalcularam reativamente, sem restart.
+- **Toasts integrados** — exportações (Inventário e "Exportar histórico" da
+  Conta) avisam "Relatório exportado com sucesso!"; copiar SteamID e o novo
+  "Copiar link" do perfil avisam "Copiado para a área de transferência!".
+- **Testes & Estabilidade** — 15 novos em `tests/test_ux_package.py` (ciclo
+  de vida do toast, CTA de metas, reatividade do custo retroativo); assertiva
+  do smoke test de copiar SteamID atualizada para o texto novo.
 
 ## Fila, em ordem
 
