@@ -27,7 +27,7 @@ antes de tocar nisso.
 
 - Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
   `dc349c7`).
-- Suíte: **2232 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
+- Suíte: **2259 testes**, ~65s. `cd C:\SkinVault && python -m pytest -q`
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
 - Working tree limpo.
 - **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
@@ -340,6 +340,35 @@ virou paleta reativa, persistida e trocável ao vivo.
   histórico `#22C55E` pré-F11 como default).
 - Validado: **20 testes novos** (17 em `tests/test_accent.py` + 3 hooks de
   MainWindow em `test_ui_smoke.py`) + suíte completa **2232 passed**.
+
+## Shimmer & Microinterações de UI (03/08) — `1f39952`
+
+Frente C do plano de polish: esqueletos de carregamento com brilho e
+feedback visual-tátil de clique em toda a UI.
+
+- **ShimmerController (`ui/shimmer.py`)**: singleton com **UM QTimer de
+  80ms** animando a fase de brilho de todos os esqueletos sincronizados
+  (dezenas de tiles + gráficos); o timer só roda enquanto há widget
+  registrado e desliga sozinho quando o último sai. O controller é objeto
+  Python puro (não-QObject) e recria o QTimer se o C++ dele morrer junto
+  do QApplication — resiliência que o pytest exige (os testes destroem o
+  app entre rodadas, e um QObject de módulo perdia o C++ sem aviso).
+- **Skeletons em QPainter (`inventory_grid.py`, `widgets.py`)**:
+  `SkeletonTile` no grid do inventário e estados de carregamento no
+  `ValueChart`/`PriceHistoryChart` (linha + fill e barras de volume),
+  desenhados com os tokens de superfície e a faixa de brilho na **Accent
+  Color** da paleta configurável. O Mercado liga o loading na consulta/
+  limpeza; a Conta liga enquanto não há série de valor carregada.
+- **Microinterações visual-tátil**: estados `:pressed` com cor/feedback
+  dedicados (diferentes do `:hover`, tokens `*_PRESSED`) em
+  SegmentedControl, chips de filtro (Histórico e ActivityFeed), itens da
+  Sidebar, `_SwatchButton` das Configurações e botão de categoria do
+  Inventário.
+- **Testes**: 27 novos em `tests/test_shimmer.py` — controller
+  (registro/parada/limpeza/tick com widget destruído), visibilidade dos
+  tiles (mostrado anima, escondido desregistra), transição esqueleto→
+  dados, cor da faixa e troca de accent, e `:pressed` de cada componente.
+  Suíte completa **2259 passed**.
 
 ## Fila, em ordem
 
