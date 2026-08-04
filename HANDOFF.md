@@ -42,6 +42,14 @@ antes de tocar nisso.
 ícone respondem — mas a listing page tem orçamento próprio e falha em
 silêncio (AGENTS.md #12).
 
+**Reconfirmado em 04/08/2026 (UTC):** sondagem pontual nos endpoints
+`priceoverview` e `search/render` (os que o scanner/discovery usam)
+respondeu **HTTP 429** nos dois — bloqueio externo mantido, aguardando
+liberação natural da Steam. O fallback gracioso de `discovery.py` segura o
+bloqueio sem exceção não tratada; a suíte permanece **2232 passed** após a
+verificação (100% herméticos, nenhum teste toca a rede). Detalhes em
+"Fila, em ordem".
+
 ## Filosofia (NÃO mudar)
 
 - **Nunca prever futuro; apenas descrever dados factualmente.**
@@ -343,6 +351,23 @@ rate limit — não é trabalho pendente do lado do app.
 `discovery.py` escrito e testado, flag `scanner_discovery = False`. Nunca
 completou uma chamada real. Quando a Steam liberar: rodar `search_market`
 uma vez; se vier `ok`, ligar a flag.
+
+**Verificado em 04/08/2026 (UTC):** sondagem pontual devolveu **429** em
+`priceoverview` e `search/render`. Bloqueio externo mantido — nada a fazer
+do lado do app. A resiliência do fallback foi reconfirmada na suíte:
+
+- `discover_category` retorna `(None, SOURCE_FALLBACK)` em 429
+  (`test_rate_limit_devolve_none`);
+- `resolve_scan_items(enabled=True)` devolve a lista fixa intacta mesmo se
+  a busca explodir em exceção (`test_resolve_cai_no_fallback_em_rate_limit`,
+  `test_resolve_cai_no_fallback_se_a_busca_explodir`);
+- `scanner_discovery` permanece `False` no `settings.py` (default) e
+  `_discovery_ligada()` tem guard próprio — nenhum caminho estoura exceção
+  não tratada.
+
+**Diretriz mantida:** aguardar a liberação natural da plataforma antes de
+ligar a flag. A sondagem foi feita com script standalone (fora da suíte) —
+nenhum teste novo, nenhum toque em `data/`.
 
 ---
 
