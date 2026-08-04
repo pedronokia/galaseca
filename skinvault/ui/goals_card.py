@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 
 from skinvault import goals
 from skinvault.ui import theme as t
+from skinvault.ui.toast import ToastManager
 
 
 class GoalsCard(QFrame):
@@ -69,11 +70,23 @@ class GoalsCard(QFrame):
         lay.addLayout(self._goals_lay)
 
         self._empty = QLabel(
-            "Nenhuma meta definida ainda. Clique em “Editar metas” para "
-            "criar a primeira.")
+            "Nenhuma meta definida ainda. Crie a primeira para acompanhar "
+            "o progresso da carteira.")
         self._empty.setWordWrap(True)
         self._empty.setStyleSheet(t.label_caption())
         lay.addWidget(self._empty)
+
+        # Empty state interativo: o CTA leva direto pro dialog de edição,
+        # em vez de exigir que o usuário ache o "Editar metas" no header.
+        self._empty_cta = QPushButton("Criar primeira meta")
+        self._empty_cta.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._empty_cta.setStyleSheet(
+            t.btn_primary(padding="6px 16px", fs=t.FS_MUTED))
+        self._empty_cta.setToolTip(
+            "Abre o editor de metas para criar o seu primeiro objetivo "
+            "(valor líquido, de mercado, P&L ou total de itens).")
+        self._empty_cta.clicked.connect(self._on_edit)
+        lay.addWidget(self._empty_cta)
 
         self.refresh_from({})
 
@@ -82,7 +95,9 @@ class GoalsCard(QFrame):
         self._totals = totals
         self._rows_clear()
         meta_rows = goals.goal_rows(totals)
-        self._empty.setVisible(not meta_rows)
+        vazio = not meta_rows
+        self._empty.setVisible(vazio)
+        self._empty_cta.setVisible(vazio)
         for meta in meta_rows:
             self._goals_lay.addWidget(self._goal_widget(meta))
 
@@ -165,8 +180,11 @@ class GoalsCard(QFrame):
 
     def _on_edit(self) -> None:
         dlg = GoalsEditDialog(parent=self)
-        dlg.exec()
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
         self.refresh_from(self._totals)
+        ToastManager.instance().show_success(
+            self.window(), "Metas atualizadas!")
 
 
 class GoalsEditDialog(QDialog):

@@ -50,6 +50,7 @@ from skinvault.ui.components import (
     SegmentedControl,
     Toolbar,
 )
+from skinvault.ui.toast import ToastManager
 from skinvault.ui.widgets import MonthBarChart, month_label_full
 
 
@@ -154,6 +155,150 @@ class SimulateTradeDialog(QDialog):
             f"Recebido líquido: {t.brl(r['net_received'])} · "
             f"Preço de empate: {t.brl(r['break_even_price'])}"
         )
+
+
+# ── Dialog: definir custo retroativo ────────────────────────────────
+class RetroCostDialog(QDialog):
+    """Preenche o custo de posições que vieram do sync Steam.
+
+    O sync não informa quanto você pagou (grava cost=0.0 = "não sei").
+    Sem custo não há P&L. Este dialog lista as posições sem custo
+    declarado e grava o valor digitado — retroativamente, do jeito que
+    o dono lembrar. Zero vale para drop (item que realmente não custou).
+    """
+
+    def __init__(self, parent: QWidget | None = None,
+                 positions: "list[dict] | None" = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Definir custo retroativo")
+        self.setMinimumWidth(600)
+        self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
+        self._rows: list[tuple[str, QLineEdit]] = []
+        self._updated = 0
+        self._build(positions)
+
+    @property
+    def updated(self) -> int:
+        """Quantas posições foram gravadas no save (0 = nada)."""
+        return self._updated
+
+    def _build(self, positions: "list[dict] | None") -> None:
+        lay = QVBoxLayout(self)
+        lay.setSpacing(14)
+        lay.setContentsMargins(20, 18, 20, 18)
+
+        cab = QVBoxLayout()
+        cab.setSpacing(2)
+        title = QLabel("Definir custo retroativo")
+        title.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};")
+        cab.addWidget(title)
+        sub = QLabel(
+            "Itens sincronizados da Steam não informam quanto você pagou — "
+            "sem custo não há lucro nem prejuízo que se possa afirmar. "
+            "Preencha abaixo o que lembrar para destravar o cálculo da "
+            "carteira.")
+        sub.setWordWrap(True)
+        sub.setStyleSheet(t.label_caption())
+        cab.addWidget(sub)
+        lay.addLayout(cab)
+
+        posicoes = (list(positions) if positions is not None
+                    else portfolio.load_portfolio())
+        sem_custo = [p for p in posicoes
+                     if not portfolio.has_cost_basis(p)]
+
+        if not sem_custo:
+            ok = QLabel("Tudo já tem custo declarado — nada a preencher.")
+            ok.setWordWrap(True)
+            ok.setStyleSheet(t.label_caption())
+            lay.addWidget(ok)
+        else:
+            self._lista = QVBoxLayout()
+            self._lista.setSpacing(t.SPACE_SM)
+            lay.addLayout(self._lista)
+            for pos in sem_custo:
+                self._add_row(pos)
+            hint = QLabel(
+                "Zero (0) vale para drop — o item realmente não custou nada.")
+            hint.setWordWrap(True)
+            hint.setStyleSheet(t.label_caption())
+            lay.addWidget(hint)
+
+        self._erro = QLabel("")
+        self._erro.setStyleSheet(
+            f"color: {t.DANGER}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};")
+        self._erro.setWordWrap(True)
+        self._erro.setVisible(False)
+        lay.addWidget(self._erro)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+        cancel = QPushButton("Cancelar")
+        cancel.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel.setStyleSheet(t.btn_ghost())
+        cancel.setToolTip("Fecha sem alterar nenhum custo.")
+        cancel.clicked.connect(self.reject)
+        btn_row.addWidget(cancel)
+        self._save_btn = QPushButton("Salvar custos")
+        self._save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._save_btn.setStyleSheet(t.btn_primary())
+        self._save_btn.setEnabled(bool(sem_custo))
+        self._save_btn.setToolTip(
+            "Grava os custos preenchidos e reavalia a carteira.")
+        self._save_btn.clicked.connect(self._on_save)
+        btn_row.addWidget(self._save_btn)
+        lay.addLayout(btn_row)
+
+    def _add_row(self, pos: dict) -> None:
+        from skinvault.localization import localize_name as _ln
+        row = QWidget()
+        rl = QHBoxLayout(row)
+        rl.setContentsMargins(0, 0, 0, 0)
+        rl.setSpacing(t.SPACE_SM)
+
+        nome = QLabel(_ln(pos.get("name", "")) or pos.get("name", ""))
+        nome.setStyleSheet(t.label_caption_bold())
+        nome.setWordWrap(True)
+        rl.addWidget(nome, 2)
+
+        qty = QLabel(f"×{pos.get('quantity', 1)}")
+        qty.setStyleSheet(t.label_caption())
+        rl.addWidget(qty, 0)
+
+        inp = QLineEdit()
+        inp.setPlaceholderText("Custo por item (R$) — 0 p/ drop")
+        inp.setStyleSheet(t.input_style())
+        rl.addWidget(inp, 1)
+
+        self._lista.addWidget(row)
+        self._rows.append((pos.get("name", ""), inp))
+
+    def _on_save(self) -> None:
+        updated = 0
+        for name, inp in self._rows:
+            raw = inp.text().strip()
+            if not raw:
+                continue
+            try:
+                v = portfolio._parse_brl(raw)
+            except ValueError:
+                self._erro.setText(
+                    "Custo inválido em uma das linhas — use números, "
+                    "ex.: 199,90 (ou 0 para drop).")
+                self._erro.setVisible(True)
+                return
+            if v < 0:
+                self._erro.setText("O custo não pode ser negativo.")
+                self._erro.setVisible(True)
+                return
+            res = portfolio.update_position_cost(name, round(v, 2))
+            if res is not None:
+                updated += 1
+        self._updated = updated
+        self.accept()
 
 
 # ── Barra horizontal com filtros ──────────────────────────────
@@ -401,6 +546,10 @@ class _IconBackfillThread(QThread):
 class HistoryScreen(QWidget):
     """Tela 2 -- Historico unificado + Watchlist + Simulador."""
 
+    # Disparado quando o usuário grava custo retroativo (RetroCostDialog).
+    # Quem escuta (ScreenRouter) reavalia a carteira pra atualizar KPIs.
+    costs_updated = pyqtSignal(int)
+
     # Teto e piso da coluna "Item". O teto existe pra ela nao empurrar os
     # numeros pra longe numa janela larga; o piso, pra nome de skin nao
     # virar reticencia numa janela estreita.
@@ -514,6 +663,14 @@ class HistoryScreen(QWidget):
             " ~2s entre cada. Roda em background — pode demorar varios minutos."
         )
         self._backfill_icons_btn.triggered.connect(self._on_backfill_icons)
+        self._act_retro_cost = self._more_menu.addAction(
+            "Definir custo retroativo…")
+        self._act_retro_cost.setToolTip(
+            "Itens vindos do sync da Steam não informam quanto você pagou — "
+            "sem custo não há P&L. Abre um diálogo para preencher o custo "
+            "dessas posições retroativamente; a carteira reavalia na hora."
+        )
+        self._act_retro_cost.triggered.connect(self._open_retro_cost)
         self._more_btn.setMenu(self._more_menu)
         tb.add_right(self._more_btn)
 
@@ -571,6 +728,23 @@ class HistoryScreen(QWidget):
 
     def _open_simulator(self) -> None:
         SimulateTradeDialog(self).exec()
+
+    def _open_retro_cost(self) -> None:
+        """Abre o diálogo de custo retroativo e avisa o router pra reavaliar.
+
+        O P&L da carteira vive na AccountScreen (e nas metas); o custo é o
+        dado que faltava, então gravar aqui pede uma reavaliação reativa
+        (costs_updated -> ScreenRouter -> account.refresh).
+        """
+        dlg = RetroCostDialog(parent=self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        n = dlg.updated
+        if n <= 0:
+            return
+        self.costs_updated.emit(n)
+        ToastManager.instance().show_success(
+            self, f"{n} custo(s) atualizado(s) — reavaliando…")
 
     def _on_export_csv(self) -> None:
         import csv

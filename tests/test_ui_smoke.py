@@ -2168,7 +2168,8 @@ def test_account_copiar_steamid_copia_e_avisa(monkeypatch):
 
     screen._copy_steamid()
     assert copiado == ["76561198000000000"]
-    assert toasts and toasts[-1] == ("SteamID copiado.", "success")
+    assert toasts and toasts[-1] == ("Copiado para a área de transferência!",
+                                     "success")
 
 
 def test_account_copiar_steamid_sem_sessao_nao_crasha(monkeypatch):

@@ -48,6 +48,7 @@ from skinvault.ui.components import (
 from skinvault.ui._price_worker import IconWorker
 from skinvault.ui.exporter import build_export_menu, save_export
 from skinvault.ui.inventory_grid import InventoryGrid, InventoryTile
+from skinvault.ui.toast import ToastManager
 
 
 class _CostDialog(QDialog):
@@ -569,6 +570,8 @@ class InventoryScreen(QWidget):
             self._status.setText(f"Erro ao exportar: {erro}")
         elif path:
             self._status.setText(f"Exportado: {path}")
+            ToastManager.instance().show_success(
+                self, "Relatório exportado com sucesso!")
 
     def _on_icons_ready(self, quantos: int) -> None:
         """Repinta a grade com os icones que acabaram de chegar.

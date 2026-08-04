@@ -10,4 +10,5 @@ Estrutura:
   history_screen.py  Tela 2 - Meu Historico
   scanner_screen.py  Tela 3 - Scanner Premium (locked overlay)
   profile_fetcher.py avatar + nome do perfil Steam publico
+  toast.py           ToastManager (singleton global de toasts) + ToastWidget
 """

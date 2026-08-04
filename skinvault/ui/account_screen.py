@@ -48,6 +48,7 @@ from skinvault.ui.components import (
     Avatar, Card, EmptyState, LoadingState, PageHeader, SegmentedControl,
     StatCard, Toast,
 )
+from skinvault.ui.toast import ToastManager
 from skinvault.ui.widgets import CompositionChart, ValueChart
 from skinvault.ui.profile_fetcher import (
     fetch_public_profile,
@@ -264,6 +265,18 @@ class AccountScreen(QWidget):
         self._copy_id_btn.setVisible(False)
         self._copy_id_btn.clicked.connect(self._copy_steamid)
         sub_row.addWidget(self._copy_id_btn)
+
+        # Atalho pra copiar o link do perfil -- mesmo gating do botão acima:
+        # só aparece com SteamID conhecido. "Copiar ID" manda o número cru
+        # (pra ferramenta/suporte); este manda a URL de navegação.
+        self._copy_link_btn = QPushButton("Copiar link")
+        self._copy_link_btn.setStyleSheet(t.btn_ghost())
+        self._copy_link_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._copy_link_btn.setToolTip(
+            "Copia o link do seu perfil Steam pra área de transferência.")
+        self._copy_link_btn.setVisible(False)
+        self._copy_link_btn.clicked.connect(self._copy_profile_link)
+        sub_row.addWidget(self._copy_link_btn)
 
         sub_row.addStretch(1)
         ident.addLayout(sub_row)
@@ -515,6 +528,7 @@ class AccountScreen(QWidget):
             self._profile_link.setText("Ver perfil na Steam ›")
             self._profile_link.setVisible(True)
             self._copy_id_btn.setVisible(True)
+            self._copy_link_btn.setVisible(True)
 
         # 2. atualiza em background
         steamid = s.steamid
@@ -548,7 +562,16 @@ class AccountScreen(QWidget):
         if not self._session or not self._session.steamid:
             return
         QApplication.clipboard().setText(self._session.steamid)
-        Toast.show_toast(self, "SteamID copiado.", "success")
+        Toast.show_toast(self, "Copiado para a área de transferência!",
+                         "success")
+
+    def _copy_profile_link(self) -> None:
+        if not self._session or not self._session.steamid:
+            return
+        QApplication.clipboard().setText(
+            f"https://steamcommunity.com/profiles/{self._session.steamid}")
+        ToastManager.instance().show_success(
+            self, "Copiado para a área de transferência!")
 
     def _on_open_calculator(self) -> None:
         dlg = FeeCalculatorDialog(parent=self)
@@ -575,6 +598,8 @@ class AccountScreen(QWidget):
             self._status.setText(f"Erro ao exportar: {erro}")
         elif path:
             self._status.setText(f"Exportado: {path}")
+            ToastManager.instance().show_success(
+                self, "Relatório exportado com sucesso!")
 
     def _on_profile(self, data: dict) -> None:
         steamid = data.get("steamid", "")
@@ -592,9 +617,11 @@ class AccountScreen(QWidget):
             self._profile_link.setText("Ver perfil na Steam ›")
             self._profile_link.setVisible(True)
             self._copy_id_btn.setVisible(True)
+            self._copy_link_btn.setVisible(True)
         else:
             self._profile_link.setVisible(False)
             self._copy_id_btn.setVisible(False)
+            self._copy_link_btn.setVisible(False)
         path = data.get("avatar_path")
         if path:
             self._avatar.set_image(path)

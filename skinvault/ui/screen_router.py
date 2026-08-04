@@ -156,6 +156,10 @@ class ScreenRouter(QWidget):
         self._stack.addWidget(self._inventory_screen)
 
         self._history_screen = HistoryScreen(self._cache, self)
+        # Custo retroativo gravado no Histórico muda o P&L da carteira:
+        # reavalia reativamente (mesmo caminho do custo editado na tabela).
+        self._history_screen.costs_updated.connect(
+            self._on_costs_updated)
         self._stack.addWidget(self._history_screen)
 
         self._scanner_screen = ScannerScreen(self._cache, self)
@@ -354,3 +358,7 @@ class ScreenRouter(QWidget):
     def _request_sync(self) -> None:
         if self._session is not None:
             self.sync_requested.emit(self._session)
+
+    def _on_costs_updated(self, _count: int) -> None:
+        """Custo retroativo gravado -> reavalia a carteira (KPIs reativas)."""
+        self._account_screen.refresh()
