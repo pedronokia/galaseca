@@ -1190,6 +1190,35 @@ def test_market_breadth_vazio():
     assert signals.market_breadth(["", None]) == {}
 
 
+def test_approx_liquidity_from_ssr_basico():
+    ph = [{"time": i, "price_median": 10.0, "purchases": 50}
+          for i in range(10)]
+    ob = {"sell_count": 25}
+    r = signals.approx_liquidity_from_ssr(ph, ob)
+    assert r["supply"] == 25
+    assert r["sd_label"]
+
+
+def test_approx_liquidity_from_ssr_sem_order_book():
+    ph = [{"time": i, "price_median": 10.0, "purchases": 50}
+          for i in range(10)]
+    assert signals.approx_liquidity_from_ssr(ph, None) == {}
+    assert signals.approx_liquidity_from_ssr(ph, {}) == {}
+
+
+def test_approx_liquidity_from_ssr_sem_price_history():
+    r = signals.approx_liquidity_from_ssr(None, {"sell_count": 25})
+    assert r == {}
+    r2 = signals.approx_liquidity_from_ssr([], {"sell_count": 25})
+    assert r2 == {}
+
+
+def test_approx_liquidity_from_ssr_supply_zero():
+    ph = [{"time": i, "price_median": 10.0, "purchases": 50}
+          for i in range(10)]
+    assert signals.approx_liquidity_from_ssr(ph, {"sell_count": 0}) == {}
+
+
 def test_price_level_usa_o_ultimo_ponto_do_prefixo():
     """No backtest o prefixo termina no instante simulado, entao o preco
     e' o daquele momento -- sem o lookahead que derrubou o vintage."""

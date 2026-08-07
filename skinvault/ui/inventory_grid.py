@@ -506,6 +506,10 @@ class ItemDetailPanel(QFrame):
     # Pedido de custo vem do proprio painel (botao discreto no P&L). A tela
     # liga ao mesmo handler do custo do card/grade.
     cost_requested = pyqtSignal(dict)
+    # Pedido de liquidez: ESTE painel nao faz rede (ver docstring do
+    # modulo) -- so' emite o item e quem escuta (InventoryScreen) decide
+    # buscar o order book e devolver via set_liquidity_result().
+    liquidity_requested = pyqtSignal(dict)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -624,7 +628,57 @@ class ItemDetailPanel(QFrame):
         self._origem.setTextFormat(Qt.TextFormat.RichText)
         self._origem.setStyleSheet(f"font-size: {t.FS_MUTED};")
         v.addWidget(self._origem)
+
+        # Liquidez: consulta SOB DEMANDA (nao automatica ao selecionar) --
+        # e' rede nova por item, e clicar rapido pelos cards nao pode virar
+        # uma rajada de requisicoes. Botao explicito, mesmo espirito do
+        # _set_cost_btn: acao deliberada, nao efeito colateral do clique.
+        v.addSpacing(t.SPACE_MD)
+        self._titulo_liquidez = self._secao(v, "Liquidez")
+        self._liquidity_btn = QPushButton("Ver liquidez")
+        self._liquidity_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._liquidity_btn.setStyleSheet(
+            t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
+        self._liquidity_btn.setToolTip(
+            "Consulta o order book da Steam pra ESTE item (rede sob "
+            "demanda -- só roda quando você clica).\n"
+            "Mostra a razão oferta/demanda e uma estimativa de dias de "
+            "listagens no ritmo atual.")
+        self._liquidity_btn.clicked.connect(self._on_liquidity_clicked)
+        v.addWidget(self._liquidity_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        self._liquidity_result = QLabel("")
+        self._liquidity_result.setWordWrap(True)
+        self._liquidity_result.setStyleSheet(
+            f"font-size: {t.FS_MUTED}; color: {t.TEXT_MUTED};")
+        self._liquidity_result.setVisible(False)
+        v.addWidget(self._liquidity_result)
+
         v.addStretch(1)
+
+    def _on_liquidity_clicked(self) -> None:
+        if not self._item:
+            return
+        self._liquidity_btn.setEnabled(False)
+        self._liquidity_result.setText("Consultando…")
+        self._liquidity_result.setVisible(True)
+        self.liquidity_requested.emit(self._item)
+
+    def set_liquidity_result(self, raw_name: str, label: "str | None") -> None:
+        """Aplica o resultado da consulta -- so' se o item ainda for o mesmo.
+
+        A busca roda em thread; se o usuario ja' selecionou outro item
+        antes da resposta chegar, `raw_name` nao bate mais com o item
+        atual do painel e a resposta e' descartada (nao mostra dado do
+        item errado).
+        """
+        atual = self._item or {}
+        nome_atual = atual.get("raw_name") or atual.get("name")
+        if nome_atual != raw_name:
+            return
+        self._liquidity_btn.setEnabled(True)
+        self._liquidity_result.setText(
+            label or "Sem dados de liquidez agora.")
+        self._liquidity_result.setVisible(True)
 
     def _secao(self, layout, texto: str) -> QLabel:
         lbl = QLabel(texto.upper())
@@ -671,6 +725,8 @@ class ItemDetailPanel(QFrame):
             self._score.setText("")
             self._score.setVisible(False)
             self._set_cost_btn.setVisible(False)
+            self._liquidity_btn.setVisible(False)
+            self._liquidity_result.setVisible(False)
             return
 
         self._nome.setText(item.get("name", ""))
@@ -710,6 +766,13 @@ class ItemDetailPanel(QFrame):
         self._preencher_origem(item)
         # Botao de custo: visivel so' quando o item NAO tem custo declarado.
         self._set_cost_btn.setVisible(item.get("cost") is None)
+        # Liquidez: item novo selecionado, reseta pro estado "nao consultado
+        # ainda" -- o resultado de um item anterior nao pode vazar pro
+        # painel do item atual.
+        self._liquidity_btn.setVisible(True)
+        self._liquidity_btn.setEnabled(True)
+        self._liquidity_result.setVisible(False)
+        self._liquidity_result.setText("")
 
         prem = item.get("premium_pct")
         if prem is None:

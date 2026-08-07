@@ -963,6 +963,70 @@ def test_definir_custo_item_resolve_o_item_do_card(tela, monkeypatch):
                        "custo": 123.0}
 
 
+def test_on_liquidity_requested_busca_e_aplica_no_painel(tela, monkeypatch):
+    """Clique no botao do painel -> worker busca -> resultado volta pro
+    MESMO painel via bridge, sem travar a UI (thread + signal)."""
+    import threading
+    import time
+    from PyQt6.QtWidgets import QApplication
+
+    done = threading.Event()
+
+    def _fake_fetch(name, cache=None):
+        done.set()
+        return (
+            [{"time": i, "price_median": 10.0, "purchases": 50}
+             for i in range(10)],
+            {"sell_count": 25},
+        )
+
+    monkeypatch.setattr(
+        "skinvault.ssr_cache.cached_price_history_and_book", _fake_fetch)
+    monkeypatch.setattr("skinvault.signals.record_item_supply",
+                        lambda n, v: None)
+
+    item = {"name": "AK-47 | Redline (Field-Tested)",
+            "raw_name": "AK-47 | Redline (Field-Tested)"}
+    tela._grid._detail.show_item(item)
+    tela._grid._detail.liquidity_requested.emit(item)
+
+    assert done.wait(timeout=5), "worker nao chamou a busca a tempo"
+    for _ in range(20):
+        QApplication.instance().processEvents()
+        if tela._grid._detail._liquidity_result.text():
+            break
+        time.sleep(0.05)
+    assert "listagens" in tela._grid._detail._liquidity_result.text() \
+        or tela._grid._detail._liquidity_result.text() not in ("", "Consultando…")
+
+
+def test_on_liquidity_requested_sem_order_book_mostra_sem_dados(tela, monkeypatch):
+    import threading
+    import time
+    from PyQt6.QtWidgets import QApplication
+
+    done = threading.Event()
+
+    def _fake_fetch(name, cache=None):
+        done.set()
+        return ([{"time": 0, "price_median": 10.0}], None)
+
+    monkeypatch.setattr(
+        "skinvault.ssr_cache.cached_price_history_and_book", _fake_fetch)
+
+    item = {"name": "X", "raw_name": "X"}
+    tela._grid._detail.show_item(item)
+    tela._grid._detail.liquidity_requested.emit(item)
+
+    assert done.wait(timeout=5)
+    for _ in range(20):
+        QApplication.instance().processEvents()
+        if tela._grid._detail._liquidity_result.text():
+            break
+        time.sleep(0.05)
+    assert "Sem dados" in tela._grid._detail._liquidity_result.text()
+
+
 def test_rate_limit_vazio_explica_no_empty_state(tela):
     """Inventario vazio por rate limit NAO e' "sincronize com a Steam" --
     e' a Steam recusando. O empty state diz a causa real, com as cotacoes

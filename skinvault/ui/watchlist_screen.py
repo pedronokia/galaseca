@@ -848,11 +848,9 @@ class WatchlistScreen(QWidget):
                             supply = ob.get("sell_count")
                             if supply is not None:
                                 signals.record_item_supply(name, supply)
-                            diario = signals.daily_series(ph)
-                            approx_vol = diario[-1]["purchases"] if diario else None
-                            sd = signals.supply_demand_ratio(approx_vol, supply)
-                            if sd.get("ratio"):
-                                item["sd_label"] = sd["label"]
+                            liq = signals.approx_liquidity_from_ssr(ph, ob)
+                            if liq.get("sd_label"):
+                                item["sd_label"] = liq["sd_label"]
                                 item["sd_approx"] = True
                                 item["sd_ts"] = time.time()
                         except Exception as e:

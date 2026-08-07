@@ -222,6 +222,35 @@ def supply_demand_ratio(volume: int | None, supply: int | None) -> dict:
     return {"ratio": round(ratio, 4), "label": label}
 
 
+def approx_liquidity_from_ssr(price_history: list[dict] | None,
+                              order_book: dict | None) -> dict:
+    """Oferta/demanda aproximada a partir de UMA resposta SSR.
+
+    Existe pra telas que so' tem price_history + order_book (a pagina de
+    listagem) e nao querem pagar uma segunda chamada ao priceoverview so'
+    pra ter o volume 24h real. Usa as `purchases` do ULTIMO DIA do
+    price_history (via daily_series) como proxy de volume.
+
+    Quem chama NUNCA deve gravar esse valor com record_item_volume: e'
+    uma unidade diferente do volume 24h real que Scanner/Market gravam,
+    e misturar as duas no mesmo volume_history.json contaminaria a
+    deteccao de anomalia deles. `supply` (sell_count do order_book) e' a
+    MESMA unidade em toda parte -- esse sim e' seguro compartilhar.
+
+    Retorna {sd_label, supply} ou {} se faltar order_book ou dado
+    suficiente pra montar a razao.
+    """
+    if not order_book:
+        return {}
+    supply = order_book.get("sell_count")
+    diario = daily_series(price_history) if price_history else []
+    approx_vol = diario[-1]["purchases"] if diario else None
+    sd = supply_demand_ratio(approx_vol, supply)
+    if not sd.get("ratio"):
+        return {}
+    return {"sd_label": sd["label"], "supply": supply}
+
+
 def market_breadth(trends: list[str]) -> dict:
     """Retrato agregado de quantos itens escaneados sobem/caem/estao estaveis.
 

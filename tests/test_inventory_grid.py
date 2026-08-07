@@ -1154,6 +1154,70 @@ def test_painel_botao_de_custo_emite_o_item(app):
     assert pedidos and pedidos[0] is item
 
 
+# ── liquidez sob demanda (botao "Ver liquidez") ─────────────────────
+#
+# Consulta SOB DEMANDA -- so' quando o usuario clica. O painel nao faz
+# rede (docstring do modulo): so' emite o item e espera set_liquidity_result.
+
+
+def test_painel_liquidez_botao_visivel_com_item(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    assert p._liquidity_btn.isVisibleTo(p) is True
+    p.show_item(None)
+    assert p._liquidity_btn.isVisibleTo(p) is False
+
+
+def test_painel_liquidez_clique_emite_item_e_mostra_consultando(app):
+    p = ItemDetailPanel()
+    item = {"name": "X", "qty": 1}
+    p.show_item(item)
+    pedidos = []
+    p.liquidity_requested.connect(pedidos.append)
+    p._liquidity_btn.click()
+    assert pedidos and pedidos[0] is item
+    assert p._liquidity_btn.isEnabled() is False
+    assert p._liquidity_result.text() == "Consultando…"
+
+
+def test_painel_liquidez_aplica_resultado_do_item_atual(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    p._liquidity_btn.click()
+    p.set_liquidity_result("X", "S/D: 2.5")
+    assert p._liquidity_result.text() == "S/D: 2.5"
+    assert p._liquidity_btn.isEnabled() is True
+
+
+def test_painel_liquidez_sem_dado_mostra_mensagem(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    p._liquidity_btn.click()
+    p.set_liquidity_result("X", None)
+    assert "Sem dados" in p._liquidity_result.text()
+
+
+def test_painel_liquidez_descarta_resposta_de_item_trocado(app):
+    """Usuario clica em X, troca pra Y antes da resposta de X chegar."""
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    p._liquidity_btn.click()
+    p.show_item({"name": "Y", "qty": 1})  # troca de item, reseta o painel
+    p.set_liquidity_result("X", "S/D: 9.9")  # resposta atrasada de X
+    assert p._liquidity_result.text() == ""
+    assert p._liquidity_result.isVisible() is False
+
+
+def test_painel_liquidez_reseta_ao_trocar_de_item(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    p._liquidity_btn.click()
+    p.set_liquidity_result("X", "S/D: 2.5")
+    p.show_item({"name": "Y", "qty": 1})
+    assert p._liquidity_result.isVisible() is False
+    assert p._liquidity_btn.isEnabled() is True
+
+
 # ── pixmap do card selecionado ─────────────────────────────────────
 #
 # Regressao do bug relatado: card selecionado com o container da imagem

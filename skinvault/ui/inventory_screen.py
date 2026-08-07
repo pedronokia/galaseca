@@ -14,7 +14,9 @@ Duas visoes, de proposito: a grade serve pra RECONHECER item pelo icone
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, pyqtSignal
+import threading
+
+from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QDialog,
@@ -31,7 +33,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import history, markets, portfolio, reports
+from skinvault import history, markets, portfolio, reports, signals, ssr_cache
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState,
@@ -168,6 +170,10 @@ class _CostDialog(QDialog):
         return self._cost
 
 
+class _LiquidityBridge(QObject):
+    result_ready = pyqtSignal(str, object)
+
+
 class InventoryScreen(QWidget):
     """Grade + tabela do inventario, com filtro."""
 
@@ -286,6 +292,16 @@ class InventoryScreen(QWidget):
         # clique/menu de contexto da tabela (_salvar_custo).
         self._grid.cost_requested.connect(self._definir_custo_item)
         self._grid._detail.cost_requested.connect(self._definir_custo_item)
+        # Liquidez: unica excecao ao "esta tela nao avalia nada por conta
+        # propria" do docstring do modulo. A avaliacao em lote usa so'
+        # priceoverview de proposito (dezenas/centenas de itens); isto e'
+        # UM item, sob demanda, so' quando o usuario clica -- nao duplica
+        # o custo da avaliacao em lote.
+        self._liquidity_bridge = _LiquidityBridge()
+        self._liquidity_bridge.result_ready.connect(
+            self._grid._detail.set_liquidity_result)
+        self._grid._detail.liquidity_requested.connect(
+            self._on_liquidity_requested)
         self._atualizar_ordem_labels()
         self._table = QTableWidget(0, 10)
         self._table.setHorizontalHeaderLabels([
@@ -1005,6 +1021,36 @@ class InventoryScreen(QWidget):
         self.request_reeval.emit()
         Toast(self, f"Custo de “{nome}” salvo — reavaliando…",
               "success").show()
+
+    def _on_liquidity_requested(self, item: dict) -> None:
+        """Busca oferta/demanda de UM item, sob demanda (clique no painel).
+
+        Roda em thread pra nao travar a UI. O resultado volta via
+        `_liquidity_bridge`, que entrega direto pro painel de detalhe --
+        ele mesmo descarta a resposta se o usuario ja' trocou de item
+        (guard em `set_liquidity_result`).
+        """
+        raw_name = item.get("raw_name") or item.get("name") or ""
+        if not raw_name:
+            return
+        bridge = self._liquidity_bridge
+
+        def _worker() -> None:
+            label = None
+            try:
+                ph, ob = ssr_cache.cached_price_history_and_book(raw_name)
+                if ob:
+                    supply = ob.get("sell_count")
+                    if supply is not None:
+                        signals.record_item_supply(raw_name, supply)
+                    liq = signals.approx_liquidity_from_ssr(ph, ob)
+                    label = liq.get("sd_label")
+            except Exception as e:
+                print(f"WARNING: inventory liquidity({raw_name}) failed: {e}",
+                      file=__import__("sys").stderr)
+            bridge.result_ready.emit(raw_name, label)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _limpar_filtro(self) -> None:
         if self._filter.text():
