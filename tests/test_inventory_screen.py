@@ -1027,6 +1027,41 @@ def test_on_liquidity_requested_sem_order_book_mostra_sem_dados(tela, monkeypatc
     assert "Sem dados" in tela._grid._detail._liquidity_result.text()
 
 
+def test_on_liquidity_requested_via_tabela_aplica_no_drawer(tela, monkeypatch):
+    """Mesmo handler/bridge do card da grade, mas disparado pelo drawer
+    da view em tabela (_on_table_row_clicked)."""
+    import threading
+    import time
+    from PyQt6.QtWidgets import QApplication
+
+    done = threading.Event()
+
+    def _fake_fetch(name, cache=None):
+        done.set()
+        return (
+            [{"time": i, "price_median": 10.0, "purchases": 50}
+             for i in range(10)],
+            {"sell_count": 25},
+        )
+
+    monkeypatch.setattr(
+        "skinvault.ssr_cache.cached_price_history_and_book", _fake_fetch)
+    monkeypatch.setattr("skinvault.signals.record_item_supply",
+                        lambda n, v: None)
+
+    tela.set_data(ROWS, POS)
+    tela._on_table_row_clicked(0, 0)
+    tela._drawer._liquidity_btn.click()
+
+    assert done.wait(timeout=5), "worker nao chamou a busca a tempo"
+    for _ in range(20):
+        QApplication.instance().processEvents()
+        if tela._drawer._liquidity_result.text() not in ("", "Consultando…"):
+            break
+        time.sleep(0.05)
+    assert tela._drawer._liquidity_result.text() not in ("", "Consultando…")
+
+
 def test_rate_limit_vazio_explica_no_empty_state(tela):
     """Inventario vazio por rate limit NAO e' "sincronize com a Steam" --
     e' a Steam recusando. O empty state diz a causa real, com as cotacoes

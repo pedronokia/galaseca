@@ -390,6 +390,14 @@ class InventoryScreen(QWidget):
         self._drawer = ItemDetailDrawer(self)
         self._table.cellClicked.connect(self._on_table_row_clicked)
         corpo.addWidget(self._drawer, 0)
+        # Mesmo bridge/handler da grade: cada widget checa sozinho se o
+        # `raw_name` da resposta ainda bate com o item que ele mostra, entao
+        # transmitir o mesmo resultado pros dois e' seguro (o que nao for
+        # dele, ele ignora).
+        self._liquidity_bridge.result_ready.connect(
+            self._drawer.set_liquidity_result)
+        self._drawer.liquidity_requested.connect(
+            self._on_liquidity_requested)
 
         root.addLayout(corpo, 1)
 

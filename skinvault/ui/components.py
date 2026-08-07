@@ -1784,6 +1784,10 @@ class ItemDetailDrawer(QWidget):
     """
 
     closed = pyqtSignal()
+    # Pedido de liquidez: ESTE drawer nao faz rede -- so' emite o item e
+    # espera set_liquidity_result() de quem escuta (InventoryScreen), mesmo
+    # contrato do ItemDetailPanel (inventory_grid.py).
+    liquidity_requested = pyqtSignal(dict)
     OPEN_WIDTH = 300
     _DURATION_MS = 180
     _NOME_MERCADO = {"skinport": "Skinport", "csgotm": "CS.MONEY/TM"}
@@ -1866,6 +1870,28 @@ class ItemDetailDrawer(QWidget):
 
         self._pnl = self._metrica(root, "P&L")
         self._condicao = self._metrica(root, "Condição")
+
+        # Liquidez: consulta SOB DEMANDA, mesmo espirito do ItemDetailPanel
+        # da grade -- rede nova por item, entao so' roda quando o usuario
+        # clica, nunca automatico ao abrir o drawer.
+        root.addSpacing(t.SPACE_MD)
+        self._liquidity_btn = QPushButton("Ver liquidez")
+        self._liquidity_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._liquidity_btn.setStyleSheet(
+            t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
+        self._liquidity_btn.setToolTip(
+            "Consulta o order book da Steam pra ESTE item (rede sob "
+            "demanda -- só roda quando você clica).\n"
+            "Mostra a razão oferta/demanda e uma estimativa de dias de "
+            "listagens no ritmo atual.")
+        self._liquidity_btn.clicked.connect(self._on_liquidity_clicked)
+        root.addWidget(self._liquidity_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        self._liquidity_result = QLabel("")
+        self._liquidity_result.setWordWrap(True)
+        self._liquidity_result.setStyleSheet(
+            f"font-size: {t.FS_MUTED}; color: {t.TEXT_MUTED};")
+        self._liquidity_result.setVisible(False)
+        root.addWidget(self._liquidity_result)
 
         root.addSpacing(t.SPACE_MD)
 
@@ -1993,7 +2019,37 @@ class ItemDetailDrawer(QWidget):
             self._tags_row.addWidget(self._tag_chip(tg))
         self._tags_row.addStretch(1)
 
+        # Liquidez: item novo, reseta pro estado "nao consultado ainda" --
+        # o resultado do item anterior nao pode vazar pro item atual.
+        self._liquidity_btn.setEnabled(True)
+        self._liquidity_result.setVisible(False)
+        self._liquidity_result.setText("")
+
         self._abrir()
+
+    def _on_liquidity_clicked(self) -> None:
+        if not self._item:
+            return
+        self._liquidity_btn.setEnabled(False)
+        self._liquidity_result.setText("Consultando…")
+        self._liquidity_result.setVisible(True)
+        self.liquidity_requested.emit(self._item)
+
+    def set_liquidity_result(self, raw_name: str, label: "str | None") -> None:
+        """Aplica o resultado da consulta -- so' se o item ainda for o mesmo.
+
+        Mesma guarda do ItemDetailPanel: a busca roda em thread, e se o
+        usuario ja' selecionou outra linha antes da resposta chegar,
+        `raw_name` nao bate mais com o item atual do drawer.
+        """
+        atual = self._item or {}
+        nome_atual = atual.get("raw_name") or atual.get("name")
+        if nome_atual != raw_name:
+            return
+        self._liquidity_btn.setEnabled(True)
+        self._liquidity_result.setText(
+            label or "Sem dados de liquidez agora.")
+        self._liquidity_result.setVisible(True)
 
     def _copiar_nome(self) -> None:
         if not self._item:

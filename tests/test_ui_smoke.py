@@ -8868,6 +8868,62 @@ def test_drawer_abre_no_steam(monkeypatch):
     assert "AK-47" in abertas[0]
 
 
+def test_drawer_liquidez_clique_emite_item_e_mostra_consultando():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    item = {"name": "X", "price": 1.0}
+    d.show_item(item)
+    pedidos = []
+    d.liquidity_requested.connect(pedidos.append)
+    d._liquidity_btn.click()
+    # show_item() guarda uma COPIA (dict(item)), entao e' igualdade, nao
+    # identidade -- diferente do ItemDetailPanel, que guarda a referencia.
+    assert pedidos and pedidos[0] == item
+    assert d._liquidity_btn.isEnabled() is False
+    assert d._liquidity_result.text() == "Consultando…"
+
+
+def test_drawer_liquidez_aplica_resultado_do_item_atual():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "X", "price": 1.0})
+    d._liquidity_btn.click()
+    d.set_liquidity_result("X", "S/D: 2.5")
+    assert d._liquidity_result.text() == "S/D: 2.5"
+    assert d._liquidity_btn.isEnabled() is True
+
+
+def test_drawer_liquidez_sem_dado_mostra_mensagem():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "X", "price": 1.0})
+    d._liquidity_btn.click()
+    d.set_liquidity_result("X", None)
+    assert "Sem dados" in d._liquidity_result.text()
+
+
+def test_drawer_liquidez_descarta_resposta_de_item_trocado():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "X", "price": 1.0})
+    d._liquidity_btn.click()
+    d.show_item({"name": "Y", "price": 2.0})
+    d.set_liquidity_result("X", "S/D: 9.9")
+    assert d._liquidity_result.text() == ""
+    assert d._liquidity_result.isVisible() is False
+
+
+def test_drawer_liquidez_reseta_ao_trocar_de_item():
+    from skinvault.ui.components import ItemDetailDrawer
+    d = ItemDetailDrawer()
+    d.show_item({"name": "X", "price": 1.0})
+    d._liquidity_btn.click()
+    d.set_liquidity_result("X", "S/D: 2.5")
+    d.show_item({"name": "Y", "price": 2.0})
+    assert d._liquidity_result.isVisible() is False
+    assert d._liquidity_btn.isEnabled() is True
+
+
 def test_wear_e_tags_extrai_condicao_e_stattrak():
     from skinvault.ui.components import _wear_e_tags
     cond, tags = _wear_e_tags("StatTrak™ AWP | Asiimov (Well-Worn)")
