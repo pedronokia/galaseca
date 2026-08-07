@@ -449,7 +449,9 @@ class ScannerScreen(QWidget):
                 "Força relativa do order book (compras vs. vendas). "
                 "'~' = order book aproximado."),
             self.COL_TREND: (
-                "Direção da tendência de preço no histórico recente."),
+                "Direção da tendência de preço no histórico recente. "
+                "Passe o mouse na célula pra ver o z-score (desvio vs "
+                "média móvel de 30d) — informativo, não conta no score."),
             self.COL_SD: (
                 "Relação oferta/demanda: volume de vendas vs. itens "
                 "listados. Abaixo de 1 = oferta acima da demanda. "
@@ -573,6 +575,7 @@ class ScannerScreen(QWidget):
 
         self._scan_cancelled = False
         self._scanning = True
+        self._scan_total_planned = 0
         self._scan_results.clear()
         self._table.setRowCount(0)
         # Mostra a tabela vazia (vai encher progressivamente) e esconde hero
@@ -624,6 +627,12 @@ class ScannerScreen(QWidget):
                             items.append(nome)
                 if not items:
                     return
+                # Guardado ANTES do loop pra _on_progress distinguir "0
+                # itens porque a categoria nao tinha nada" (total=0, nunca
+                # chega aqui) de "0 itens porque tudo falhou" (total>0,
+                # nenhum _scan_item voltou resultado -- rate limit e' a
+                # causa mais provavel, ver _scan_item/steam_api).
+                self._scan_total_planned = len(items)
                 for i, name in enumerate(items):
                     if self._scan_cancelled:
                         cancelado = True
@@ -745,6 +754,8 @@ class ScannerScreen(QWidget):
             "sd_label": signals.supply_demand_ratio(volume, supply).get("label", ""),
             "liquidity_depth": signals.liquidity_depth(
                 supply, signals.load_item_volume(name)),
+            "zscore": signals.price_zscore(
+                page.get("price_history")) if page else {},
             "score_tooltip": signals.format_breakdown(breakdown),
             "case_label": cs.get("label", ""),
             "pump_risk": pr,
@@ -857,6 +868,20 @@ class ScannerScreen(QWidget):
                 cell_sd = self._table.item(i, self.COL_SD)
                 if cell_sd is not None:
                     cell_sd.setToolTip(depth["label"])
+            # Tooltip de z-score (desvio da media movel de 30d). Testado
+            # como fator de score e descartado (drawdown ja' captura o
+            # mesmo sinal, sem ganho); segue disponivel como dado bruto,
+            # informativo, sem influenciar a nota.
+            zs = r.get("zscore")
+            if zs:
+                cell_trend = self._table.item(i, self.COL_TREND)
+                if cell_trend is not None:
+                    cell_trend.setToolTip(
+                        f"{zs['label']} vs média móvel de "
+                        f"{zs['window_used']}d (R$ {zs['mean']:.2f} ± "
+                        f"{zs['std']:.2f}).\nNão é fator do score — "
+                        "descreve o desvio estatístico, não prevê."
+                    )
             # Tooltip da confidence
             if dq:
                 conf_tip = (
@@ -1082,9 +1107,21 @@ class ScannerScreen(QWidget):
                     f"Scan cancelado: {len(self._scan_results)} itens coletados"
                 )
             else:
-                self._status.setText(
-                    f"Scan concluido: {len(self._scan_results)} itens"
-                )
+                n = len(self._scan_results)
+                total = getattr(self, "_scan_total_planned", 0)
+                if n == 0 and total > 0:
+                    # Categoria tinha itens (total>0) mas NENHUM voltou --
+                    # a causa dominante e' a Steam limitando as consultas
+                    # (429 em priceoverview/SSR), nao ausencia de listagem.
+                    self._status.setText(
+                        f"Scan concluído: 0 de {total} itens — a Steam "
+                        "pode estar limitando as consultas agora. Tente "
+                        "novamente em alguns minutos."
+                    )
+                else:
+                    self._status.setText(
+                        f"Scan concluido: {n} itens"
+                    )
         else:
             self._loading.setVisible(True)
             self._loading.set_label(msg)

@@ -557,6 +557,7 @@ class MarketScreen(QWidget):
         self._price_chart.set_data([])
         self._depth.set_data({})
         self._spark_meta.setText("")
+        self._spark_meta.setToolTip("")
         self._depth_meta.setText("")
         self._detail_title.setText("Detalhes do item")
         self._detail_msg.setText(
@@ -680,6 +681,19 @@ class MarketScreen(QWidget):
                 self._spark_meta.setText(
                     f"{len(price_history)} pontos"
                 )
+                # Z-score: testado como fator de score e descartado
+                # (drawdown ja' captura o mesmo sinal); segue disponivel
+                # como dado bruto informativo, sem influenciar o veredito.
+                zs = signals.price_zscore(price_history)
+                if zs:
+                    self._spark_meta.setToolTip(
+                        f"{zs['label']} vs média móvel de "
+                        f"{zs['window_used']}d (R$ {zs['mean']:.2f} ± "
+                        f"{zs['std']:.2f}).\nNão é fator do veredito — "
+                        "descreve o desvio estatístico, não prevê."
+                    )
+                else:
+                    self._spark_meta.setToolTip("")
 
             if order_book:
                 self._depth.set_data(order_book)

@@ -286,6 +286,34 @@ def _scanner_result(name, level="high"):
             "data_quality": {"level": level, "confidence": 0.8, "n": 120}}
 
 
+def test_scanner_zscore_tooltip_na_coluna_tendencia(monkeypatch):
+    """Z-score aparece no tooltip da coluna Tendencia -- informativo,
+    nao mexe no score nem no texto da celula."""
+    monkeypatch.setattr("skinvault.settings.load_settings", lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    r = _scanner_result("AK-47 | Redline")
+    r["zscore"] = {"z": 2.34, "mean": 10.0, "std": 1.5,
+                   "window_used": 30, "band": "extreme_high",
+                   "label": "Z=2.34 (extreme_high)"}
+    screen._scan_results = [r]
+    screen._populate()
+    tip = screen._table.item(0, screen.COL_TREND).toolTip()
+    assert "Z=2.34" in tip
+    assert "não é fator" in tip.lower()
+
+
+def test_scanner_sem_zscore_sem_tooltip_na_tendencia(monkeypatch):
+    monkeypatch.setattr("skinvault.settings.load_settings", lambda: {})
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_results = [_scanner_result("AK-47 | Redline")]
+    screen._populate()
+    assert screen._table.item(0, screen.COL_TREND).toolTip() == ""
+
+
 def test_scanner_busca_filtra_por_nome(monkeypatch):
     """Busca esconde linhas cujo nome não casa (case-insensitive)."""
     monkeypatch.setattr("skinvault.settings.load_settings",
@@ -1068,6 +1096,46 @@ def test_scanner_scan_item_happy(monkeypatch):
     assert result["verdict"] == "COMPRA"
     assert result["order_book_approx"] is True
 
+def test_scanner_scan_item_inclui_zscore(monkeypatch):
+    """_scan_item chama signals.price_zscore com o price_history da pagina."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    monkeypatch.setattr(
+        "skinvault.steam_api.get_market_overview",
+        lambda name: {"lowest": 100, "median": 120, "volume": 500})
+    ph = [{"time": i, "price_median": 10.0 + (i % 3)} for i in range(35)]
+    monkeypatch.setattr(
+        "skinvault.steam_api.get_market_page_data",
+        lambda name: {"order_book": {"spread": 5, "buy_count": 10,
+                                     "sell_count": 20},
+                      "price_history": ph})
+    monkeypatch.setattr(
+        "skinvault.steam_api.fair_value_verdict",
+        lambda lowest, median, **kw: {"label": "COMPRA", "diff_pct": -5,
+                                      "spread_verdict": "BOM",
+                                      "book_verdict": "RUIM",
+                                      "trend_verdict": "SUBINDO"})
+    monkeypatch.setattr("skinvault.signals.record_item_price", lambda *a, **kw: None)
+    monkeypatch.setattr("skinvault.signals.record_item_volume", lambda *a, **kw: None)
+    monkeypatch.setattr("skinvault.signals.record_item_supply", lambda *a, **kw: None)
+    monkeypatch.setattr("skinvault.signals.multi_trend",
+                        lambda ph: {"label": "Alta", "delta": 10})
+    monkeypatch.setattr("skinvault.cases.case_status",
+                        lambda name, **kw: {"label": "Case: Operation"})
+    monkeypatch.setattr("skinvault.signals.enhanced_score",
+                        lambda *a, **kw: (75, []))
+    chamadas = []
+    real_zscore = __import__("skinvault.signals",
+                             fromlist=["price_zscore"]).price_zscore
+    def _spy(ph_arg, *a, **kw):
+        chamadas.append(ph_arg)
+        return real_zscore(ph_arg, *a, **kw)
+    monkeypatch.setattr("skinvault.signals.price_zscore", _spy)
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    result = screen._scan_item("AK-47")
+    assert chamadas and chamadas[0] is ph
+    assert result["zscore"]
+
 def test_scanner_scan_item_api_error(monkeypatch):
     """_scan_item returns None on API error."""
     from skinvault.prices import PriceCache
@@ -1358,6 +1426,43 @@ def test_scanner_on_progress_fim():
     assert screen._scan_btn.isEnabled()
     assert screen._rank_btn.isEnabled()
     assert "concluido" in screen._status.text()
+
+def test_scanner_on_progress_fim_zero_de_muitos_avisa_rate_limit():
+    """Todos os itens tentados falharam (rate limit provavel) -- a
+    mensagem precisa dizer isso, nao so' "0 itens" sem contexto."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_total_planned = 45
+    screen._scan_results = []
+    screen._on_progress("FIM")
+    texto = screen._status.text().lower()
+    assert "45" in screen._status.text()
+    assert "limitando" in texto or "steam" in texto
+
+
+def test_scanner_on_progress_fim_categoria_vazia_sem_alarme_falso():
+    """total=0 (categoria/descoberta nao tinha item nenhum) NAO e' rate
+    limit -- mantem a mensagem simples de sempre."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_total_planned = 0
+    screen._scan_results = []
+    screen._on_progress("FIM")
+    assert "limitando" not in screen._status.text().lower()
+    assert "concluido" in screen._status.text()
+
+
+def test_scanner_on_progress_fim_com_resultados_mensagem_normal():
+    from skinvault.prices import PriceCache
+    from skinvault.ui.scanner_screen import ScannerScreen
+    screen = ScannerScreen(PriceCache(ttl=3600))
+    screen._scan_total_planned = 10
+    screen._scan_results = [{"score": 70}, {"score": 80}]
+    screen._on_progress("FIM")
+    assert screen._status.text() == "Scan concluido: 2 itens"
+
 
 def test_scanner_on_progress_msg():
     """_on_progress with status message updates label."""
@@ -3491,6 +3596,63 @@ class TestMarketScreen:
         screen._on_data(data)
         assert screen._stat_sd._value.text() == "2.00"
         assert "listagens" in screen._stat_sd.toolTip()
+
+    def test_on_data_zscore_tooltip(self, monkeypatch):
+        """Z-score aparece no tooltip do _spark_meta, informativo -- nao
+        conta no veredito."""
+        from skinvault.prices import PriceCache
+        from skinvault.ui.market_screen import MarketScreen
+        monkeypatch.setattr(
+            "skinvault.steam_api.fair_value_verdict",
+            lambda *a, **kw: {"verdict": "fair", "label": "Justo",
+                              "diff_pct": 0.0})
+        monkeypatch.setattr("skinvault.cases.case_status", lambda n: {})
+        monkeypatch.setattr("skinvault.signals.record_item_volume",
+                            lambda n, v: None)
+        monkeypatch.setattr("skinvault.signals.load_item_volume",
+                            lambda n: [])
+        monkeypatch.setattr("skinvault.signals.volume_anomaly",
+                            lambda h: {"is_anomaly": False})
+        screen = MarketScreen(PriceCache(ttl=3600))
+        # 30 pontos identicos + 1 fora da curva -> z bem definido.
+        ph = [{"time": i * 86400, "price_median": 10.0, "purchases": 5}
+              for i in range(30)]
+        ph.append({"time": 30 * 86400, "price_median": 50.0, "purchases": 5})
+        data = {
+            "name": "AWP",
+            "overview": {"lowest": 50, "median": 10, "volume": 100},
+            "page": {"price_history": ph, "order_book": {}},
+        }
+        screen._on_data(data)
+        assert "Z=" in screen._spark_meta.toolTip()
+        assert "não é fator" in screen._spark_meta.toolTip().lower()
+
+    def test_on_data_zscore_ausente_sem_tooltip(self, monkeypatch):
+        """Historico curto demais: sem zscore, sem tooltip preso do
+        item anterior."""
+        from skinvault.prices import PriceCache
+        from skinvault.ui.market_screen import MarketScreen
+        monkeypatch.setattr(
+            "skinvault.steam_api.fair_value_verdict",
+            lambda *a, **kw: {"verdict": "fair", "label": "Justo",
+                              "diff_pct": 0.0})
+        monkeypatch.setattr("skinvault.cases.case_status", lambda n: {})
+        monkeypatch.setattr("skinvault.signals.record_item_volume",
+                            lambda n, v: None)
+        monkeypatch.setattr("skinvault.signals.load_item_volume",
+                            lambda n: [])
+        monkeypatch.setattr("skinvault.signals.volume_anomaly",
+                            lambda h: {"is_anomaly": False})
+        screen = MarketScreen(PriceCache(ttl=3600))
+        ph = [{"time": 0, "price_median": 10.0, "purchases": 5},
+              {"time": 86400, "price_median": 11.0, "purchases": 5}]
+        data = {
+            "name": "AWP",
+            "overview": {"lowest": 11, "median": 10, "volume": 100},
+            "page": {"price_history": ph, "order_book": {}},
+        }
+        screen._on_data(data)
+        assert screen._spark_meta.toolTip() == ""
 
     def test_on_data_case_badge(self, monkeypatch):
         from skinvault.prices import PriceCache
