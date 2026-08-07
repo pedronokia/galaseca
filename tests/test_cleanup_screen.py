@@ -309,7 +309,6 @@ def test_router_navega_pra_limpeza(monkeypatch):
     from skinvault.prices import PriceCache
     from skinvault.ui import screen_router as sr
     monkeypatch.setattr(cleanup_mod, "scan_all", lambda keys=None: _scan())
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     router = sr.ScreenRouter(PriceCache())
     router.navigate(sr.SCREEN_CLEANUP)
     assert router._stack.currentWidget() is router._cleanup_screen

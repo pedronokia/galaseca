@@ -203,7 +203,6 @@ def test_sidebar_restyle_reaplica_accent(monkeypatch):
     sb = Sidebar()
     sb.add_item("account", "user", "Minha Conta")
     sb.add_item("settings", "gear", "Configurações")
-    sb.add_session_chip()
     sb.select("account")
     try:
         t._apply_accent("roxo")
@@ -214,7 +213,6 @@ def test_sidebar_restyle_reaplica_accent(monkeypatch):
         assert t.FOCUS_GREEN in item.styleSheet()
         # O icone ativo volta a usar o ACCENT novo.
         assert item._icon._color == t.ACCENT
-        assert t.ACCENT in sb._chip_dot.styleSheet()
     finally:
         t._apply_accent(t.DEFAULT_ACCENT)
 

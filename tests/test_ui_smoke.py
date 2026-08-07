@@ -1,7 +1,7 @@
 """Smoke tests para UI (F11).
 
 Instancia MainWindow e cada tela individualmente sem rede.
-Nao usa rede; mocka session e tray nos testes que precisam.
+Nao usa rede; mocka tray nos testes que precisam.
 """
 from __future__ import annotations
 
@@ -28,20 +28,12 @@ def _qapp():
 
 
 def test_mainwindow_instantiation(monkeypatch):
-    """Cria MainWindow sem erros, mockando session e tray."""
+    """Cria MainWindow sem erros, mockando tray."""
     monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                         lambda: False)
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     from skinvault.gui import MainWindow
     win = MainWindow()
     assert win.windowTitle() == "SkinVault"
-
-
-def test_login_gate():
-    """LoginGate instancia sem erro."""
-    from skinvault.ui.login_gate import LoginGate
-    gate = LoginGate()
-    assert gate is not None
 
 
 def test_account_screen():
@@ -1573,12 +1565,6 @@ def _make_router():
     return ScreenRouter(PriceCache(ttl=3600))
 
 
-def _fake_session():
-    """Cria uma SteamSession fake."""
-    from skinvault.steam_session import SteamSession
-    return SteamSession("76561198000000001", {"steamLoginSecure": "tok"})
-
-
 class _FakeWelcome:
     """WelcomeDialog fake — exec() retorna na hora, sem modal.
 
@@ -1602,86 +1588,24 @@ def _hermetic_welcome(monkeypatch):
         "skinvault.ui.welcome_dialog.WelcomeDialog", _FakeWelcome)
 
 
-def test_screen_router_builds(monkeypatch):
-    """ScreenRouter instancia e mostra LoginGate (sem sessao)."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+def test_screen_router_sidebar_sempre_visivel():
+    """Sem login pra gatear: sidebar_visible e' sempre True."""
     router = _make_router()
-    assert router._stack.currentWidget() == router._login_gate
+    assert router.sidebar_visible is True
 
 
-def test_screen_router_session_property():
-    """Propriedade session retorna None no inicio."""
-    router = _make_router()
-    assert router.session is None
-    assert router.sidebar_visible is False
-
-
-def test_screen_router_check_session_valid(monkeypatch):
-    """_check_session com sessao valida redireciona para account."""
-    monkeypatch.setattr("skinvault.steam_session.load", _fake_session)
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex",
-                        lambda s: "valid")
-    persist_calls = []
-    monkeypatch.setattr("skinvault.steam_session.persist",
-                        lambda s: persist_calls.append(s))
-    # AccountScreen.set_session -> refresh -> PriceWorker -> HTTP. Mock pra inline.
+def test_screen_router_start_navega_pra_account(monkeypatch):
+    """start() abre direto na Conta, sidebar visivel, sem LoginGate."""
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
     _hermetic_welcome(monkeypatch)
     router = _make_router()
-    router._check_session()
-    assert router.session is not None
-    assert router.session.steamid == "76561198000000001"
-    assert len(persist_calls) == 1
-    assert router._stack.currentWidget() == router._account_screen
-
-
-def test_screen_router_check_session_invalid(monkeypatch):
-    """_check_session com sessao invalida (sem renovar) mostra login."""
-    monkeypatch.setattr("skinvault.steam_session.load", _fake_session)
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex",
-                        lambda s: "invalid")
-    clear_calls = []
-    monkeypatch.setattr("skinvault.steam_session.clear",
-                        lambda: clear_calls.append(True))
-    router = _make_router()
-    router._check_session()
-    assert len(clear_calls) == 1
-    assert router._stack.currentWidget() == router._login_gate
-
-
-def test_screen_router_keeps_session_with_refresh_token_on_failure(monkeypatch):
-    """Falha transiente NAO apaga sessao que tem steamRefresh_steam."""
-    from skinvault.steam_session import SteamSession
-    sess = SteamSession("76561198000000001",
-                        {"steamLoginSecure": "tok",
-                         "steamRefresh_steam": "76561198000000001||rt"})
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: sess)
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex",
-                        lambda s: "invalid")
-    clear_calls = []
-    monkeypatch.setattr("skinvault.steam_session.clear",
-                        lambda: clear_calls.append(True))
-    router = _make_router()
-    router._check_session()
-    assert clear_calls == []  # token preservado pra retry no proximo boot
-    assert router._stack.currentWidget() == router._login_gate
-
-
-def test_screen_router_on_session(monkeypatch):
-    """_on_session configura estado pos-login."""
-    monkeypatch.setattr("threading.Thread", _InlineThread)
-    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
-    _hermetic_welcome(monkeypatch)
-    router = _make_router()
-    sess = _fake_session()
     vis_changes = []
     router.sidebar_visibility_changed.connect(
         lambda v: vis_changes.append(v))
     nav_log = []
     router.navigated.connect(lambda s: nav_log.append(s))
-    router._on_session(sess)
-    assert router.session is sess
+    router.start()
     assert router._stack.currentWidget() == router._account_screen
     assert vis_changes == [True]
     assert nav_log == ["account"]
@@ -1690,7 +1614,6 @@ def test_screen_router_on_session(monkeypatch):
 def test_screen_router_navigate_unknown():
     """navigate() com screen desconhecida retorna cedo."""
     router = _make_router()
-    # Antes de navegar, widget atual e' o login_gate
     current = router._stack.currentWidget()
     router.navigate("noexist")
     assert router._stack.currentWidget() == current  # nao mudou
@@ -1698,14 +1621,9 @@ def test_screen_router_navigate_unknown():
 
 def test_screen_router_navigate_all_screens(monkeypatch):
     """navigate() funciona para todas as telas validas."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: _fake_session())
-    monkeypatch.setattr("skinvault.steam_session.ensure_valid_ex", lambda s: "valid")
-    monkeypatch.setattr("skinvault.steam_session.persist", lambda s: None)
     monkeypatch.setattr("threading.Thread", _InlineThread)
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
-    _hermetic_welcome(monkeypatch)
     router = _make_router()
-    router._check_session()  # loga
     nav_log = []
     router.navigated.connect(lambda s: nav_log.append(s))
     screens = [
@@ -1720,26 +1638,6 @@ def test_screen_router_navigate_all_screens(monkeypatch):
         router.navigate(key)
         assert router._stack.currentWidget() == expected_widget
     assert nav_log == [k for k, _ in screens]
-
-
-def test_screen_router_request_sync_with_session():
-    """_request_sync emite sync_requested quando ha sessao."""
-    router = _make_router()
-    router._session = _fake_session()
-    sync_log = []
-    router.sync_requested.connect(lambda s: sync_log.append(s))
-    router._request_sync()
-    assert len(sync_log) == 1
-    assert sync_log[0].steamid == "76561198000000001"
-
-
-def test_screen_router_request_sync_no_session():
-    """_request_sync nao emite quando session e None."""
-    router = _make_router()
-    sync_log = []
-    router.sync_requested.connect(lambda s: sync_log.append(s))
-    router._request_sync()
-    assert sync_log == []
 
 
 def test_price_worker_instantiation():
@@ -2073,7 +1971,6 @@ def test_fade_in_attaches_effect_and_runs():
 def test_router_navigate_hidden_stack_no_fade(monkeypatch):
     """navigate() sem janela visivel nao instala effect (grab/screenshot
     e tests dependem de render deterministico)."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     from skinvault.ui import screen_router as sr
     router = _make_router()
     router.navigate(sr.SCREEN_SCANNER)
@@ -2082,7 +1979,6 @@ def test_router_navigate_hidden_stack_no_fade(monkeypatch):
 
 def test_router_navigate_visible_stack_fades(monkeypatch):
     """Com stack visivel, navegar para outra tela instala o fade."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     from skinvault.ui import screen_router as sr
     router = _make_router()
     monkeypatch.setattr(router._stack, "isVisible", lambda: True)
@@ -2092,7 +1988,6 @@ def test_router_navigate_visible_stack_fades(monkeypatch):
 
 def test_router_navigate_same_screen_no_refade(monkeypatch):
     """Navegar pra tela ja atual nao re-dispara fade."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     from skinvault.ui import screen_router as sr
     calls = []
     monkeypatch.setattr("skinvault.ui.screen_router.fade_in",
@@ -2244,52 +2139,6 @@ def test_watchlist_sem_selecao_nao_dispara_toast(monkeypatch):
             (text, variant)))
     screen._on_delete_selected()
     assert toasts == []
-
-
-# ── Copiar SteamID (Conta) ──────────────────────────────────────────
-
-def test_account_copiar_steamid_copia_e_avisa(monkeypatch):
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    from skinvault import steam_session
-
-    class _FakeSession:
-        steamid = "76561198000000000"
-
-    screen = AccountScreen(PriceCache())
-    screen._session = _FakeSession()
-
-    copiado = []
-    fake_clipboard = type("FakeClipboard", (), {
-        "setText": lambda self, txt: copiado.append(txt)})()
-    monkeypatch.setattr(
-        "skinvault.ui.account_screen.QApplication.clipboard",
-        lambda: fake_clipboard)
-    toasts = []
-    monkeypatch.setattr(
-        "skinvault.ui.account_screen.Toast.show_toast",
-        lambda parent, text, variant="info", **kw: toasts.append(
-            (text, variant)))
-
-    screen._copy_steamid()
-    assert copiado == ["76561198000000000"]
-    assert toasts and toasts[-1] == ("Copiado para a área de transferência!",
-                                     "success")
-
-
-def test_account_copiar_steamid_sem_sessao_nao_crasha(monkeypatch):
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache())
-    screen._session = None
-    screen._copy_steamid()  # nao deve levantar excecao
-
-
-def test_account_copy_id_btn_some_sem_steamid():
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache())
-    assert screen._copy_id_btn.isVisible() is False
 
 
 # ── Fase 2: loading states & feedback de assincronismo ──────────────
@@ -2458,32 +2307,6 @@ def test_scanner_worker_excecao_ainda_reabilita_botoes(monkeypatch, tmp_path):
     assert screen._sync_bar.isVisible() is False
     assert screen._rank_btn.isEnabled() is True
     assert screen._validate_btn.isEnabled() is True
-
-
-def test_account_profile_excecao_ainda_sai_do_carregando(monkeypatch):
-    """Regressao: fetch_public_profile levantando excecao (em vez de so'
-    devolver None/falsy) matava a thread antes de emitir profile_ready --
-    o nome ficava preso em 'Carregando perfil…' pra sempre."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-
-    class _FakeSession:
-        steamid = "76561198000000000"
-
-    monkeypatch.setattr("threading.Thread", _InlineThreadSync)
-    monkeypatch.setattr(
-        "skinvault.ui.account_screen.load_cached_profile",
-        lambda steamid: None)
-    monkeypatch.setattr(
-        "skinvault.ui.account_screen.fetch_public_profile",
-        lambda steamid: (_ for _ in ()).throw(RuntimeError("XML invalido")))
-
-    screen = AccountScreen(PriceCache())
-    screen._session = _FakeSession()
-    screen._reload_profile()
-
-    assert screen._name.text() == "Perfil não carregou"
-    assert "76561198000000000" in screen._sub.text()
 
 
 def test_scanner_sync_bar_visivel_durante_scan(monkeypatch, tmp_path):
@@ -3038,37 +2861,6 @@ def test_router_welcome_swallows_exception(monkeypatch):
     router = ScreenRouter(PriceCache(ttl=3600))
     router._maybe_show_welcome()  # nao crasha
     assert saved and saved[0].get("welcome_seen") is True
-
-
-def test_router_on_session_with_cached_profile(monkeypatch):
-    """_on_session emite session_changed com nome do perfil cached."""
-    from skinvault.ui.screen_router import ScreenRouter
-    from skinvault.prices import PriceCache
-    monkeypatch.setattr("threading.Thread", _InlineThread)
-    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
-    monkeypatch.setattr(
-        "skinvault.ui.profile_fetcher.load_cached_profile",
-        lambda sid: {"name": "nokia"})
-    router = ScreenRouter(PriceCache(ttl=3600))
-    sig = []
-    router.session_changed.connect(lambda n, s: sig.append((n, s)))
-    sess = _fake_session()
-    router._on_session(sess)
-    assert sig and sig[0][0] == "nokia"
-
-
-def test_router_on_session_profile_fetch_raises(monkeypatch):
-    """_on_session tolera profile_fetcher.load_cached_profile que crasha."""
-    from skinvault.ui.screen_router import ScreenRouter
-    from skinvault.prices import PriceCache
-    monkeypatch.setattr("threading.Thread", _InlineThread)
-    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
-    monkeypatch.setattr(
-        "skinvault.ui.profile_fetcher.load_cached_profile",
-        lambda sid: (_ for _ in ()).throw(ValueError("boom")))
-    router = ScreenRouter(PriceCache(ttl=3600))
-    sess = _fake_session()
-    router._on_session(sess)  # nao crasha
 
 
 def test_trades_screen_has_recent_matches_strip(monkeypatch):
@@ -4394,72 +4186,6 @@ def test_trades_screen():
     assert screen is not None
 
 
-def test_account_screen_reload_profile_no_session():
-    """_reload_profile sem session mostra placeholder."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._reload_profile()
-    assert screen._name.text() == "—"
-
-
-def test_account_screen_reload_profile_with_session(monkeypatch):
-    """_reload_profile com session busca perfil."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    from skinvault.steam_session import SteamSession
-
-    monkeypatch.setattr("skinvault.ui.account_screen.load_cached_profile",
-                        lambda sid: None)
-    monkeypatch.setattr("skinvault.ui.account_screen.load_avatar_bytes",
-                        lambda sid: None)
-    monkeypatch.setattr("skinvault.ui.account_screen.fetch_public_profile",
-                        lambda sid, force=False: None)
-    # set_session dispara refresh() -> PriceWorker.start() -> HTTP real.
-    # Mock threading.Thread + load_portfolio pra rodar inline e nao chamar Steam.
-    monkeypatch.setattr("threading.Thread", _InlineThread)
-    monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
-    screen = AccountScreen(PriceCache(ttl=3600))
-    sess = SteamSession("76561198000000001", {"c": "x"})
-    screen.set_session(sess)
-
-
-def test_account_screen_open_profile(monkeypatch):
-    """_open_steam_profile abre URL do perfil."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    from skinvault.steam_session import SteamSession
-    opened = []
-    monkeypatch.setattr("skinvault.ui.account_screen.QDesktopServices.openUrl",
-                        lambda url: opened.append(url.toString()))
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._session = SteamSession("76561198000000001", {"c": "x"})
-    screen._open_steam_profile()
-    assert len(opened) == 1
-    assert "76561198000000001" in opened[0]
-
-
-def test_account_screen_on_profile_without_steamid():
-    """_on_profile sem steamid esconde link do perfil."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._on_profile({"name": "Test"})
-    assert not screen._profile_link.isVisible()
-
-
-def test_account_screen_on_profile_with_avatar_bytes(monkeypatch):
-    """_on_profile usa load_avatar_bytes quando avatar_path e None."""
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    monkeypatch.setattr("skinvault.ui.account_screen.load_avatar_bytes",
-                        lambda sid: b"img-bytes")
-    screen = AccountScreen(PriceCache(ttl=3600))
-    screen._on_profile({"steamid": "7656", "name": "Test",
-                        "avatar_path": None})
-    # nao crashou
-
-
 def test_account_screen_on_eval_progress():
     """_on_eval_progress atualiza status."""
     from skinvault.prices import PriceCache
@@ -4893,14 +4619,10 @@ def test_watchlist_screen():
     assert screen is not None
 
 
-def test_dialogs_instantiation(monkeypatch):
-    """BackupDialog e SteamSyncDialog instanciam."""
-    monkeypatch.setattr("skinvault.sync.sync_all",
-                        lambda *a, **kw: {})
-    from skinvault.gui import BackupDialog, SteamSyncDialog
-    from skinvault.steam_session import SteamSession
+def test_dialogs_instantiation():
+    """BackupDialog instancia sem erro."""
+    from skinvault.gui import BackupDialog
     assert BackupDialog() is not None
-    assert SteamSyncDialog(SteamSession("key", "sid")) is not None
 
 
 # ── PriceWorker edge cases ─────────────────────────────────────
@@ -5108,41 +4830,6 @@ def test_lineicon_set_color_triggers_repaint():
     assert not ic.grab().isNull()
 
 
-def test_sidebar_session_chip():
-    """add_session_chip + set_session controla visibilidade e texto."""
-    from skinvault.ui.components import Sidebar
-    sb = Sidebar()
-    sb.add_session_chip()
-    assert sb._chip.isHidden()  # inicia oculto
-    sb.set_session("nokia", "76561198000000001")
-    assert not sb._chip.isHidden()
-    assert sb._chip_name.text() == "nokia"
-    assert "76561198000000001" in sb._chip.toolTip()
-    # deslogado esconde de novo
-    sb.set_session("", "")
-    assert sb._chip.isHidden()
-
-
-def test_sidebar_session_chip_steamid_fallback():
-    """Sem nome, o chip trunca o steamid."""
-    from skinvault.ui.components import Sidebar
-    sb = Sidebar()
-    sb.add_session_chip()
-    sb.set_session("", "76561198000000001")
-    assert "…" in sb._chip_name.text()
-
-
-def test_sidebar_chip_click_navigates_account():
-    """Clique no chip emite item_selected('account')."""
-    from skinvault.ui.components import Sidebar
-    sb = Sidebar()
-    sb.add_session_chip()
-    emitted = []
-    sb.item_selected.connect(emitted.append)
-    sb._chip.mousePressEvent(None)
-    assert emitted == ["account"]
-
-
 def test_sidebar_add_action_not_checkable():
     """add_action cria item de acao (sem estado checked) com icone."""
     from skinvault.ui.components import Sidebar
@@ -5152,99 +4839,6 @@ def test_sidebar_add_action_not_checkable():
     assert not btn.isCheckable()
     btn.click()
     assert calls == [1]
-
-
-# ── LoginGate _on_connect ──────────────────────────────────────
-
-
-def test_login_gate_qr_visivel_sem_clique():
-    """As duas opcoes ficam lado a lado, como no login da Steam.
-
-    Nao existe mais botao "Conectar": esconder o QR atras de um clique era
-    um passo a mais pra a unica acao da tela.
-    """
-    from skinvault.ui.login_gate import LoginGate
-    gate = LoginGate()
-    assert gate._qr_panel is not None
-    assert not hasattr(gate, "_connect_btn")
-    assert not hasattr(gate, "_stack")
-
-
-def test_login_gate_start_e_idempotente(monkeypatch):
-    """Reexibir a tela nao pode disparar uma segunda thread de poll."""
-    from skinvault.ui.login_gate import LoginGate
-    gate = LoginGate()
-    chamadas = []
-    monkeypatch.setattr("skinvault.steam_qr_auth.begin_session",
-                        lambda *a, **k: chamadas.append(1) or ("error", {}))
-    gate._qr_panel.start()
-    gate._qr_panel.start()
-    import time
-    time.sleep(0.2)
-    assert len(chamadas) <= 1, "segunda thread de poll foi criada"
-
-
-def test_login_gate_sessao_nula_nao_emite():
-    from skinvault.ui.login_gate import LoginGate
-    gate = LoginGate()
-    results = []
-    gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_session(None)
-    assert results == []
-
-
-def test_login_gate_on_connect_incomplete_session(monkeypatch):
-    """Session incompleta mostra warning e nao emite."""
-    from PyQt6.QtWidgets import QMessageBox
-    from skinvault.steam_session import SteamSession
-    from skinvault.ui.login_gate import LoginGate
-
-    avisos = []
-    monkeypatch.setattr(QMessageBox, "warning",
-                        lambda *a, **kw: avisos.append(1))
-    gate = LoginGate()
-    results = []
-    gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_session(SteamSession(steamid="", cookies={}))
-    assert results == []
-    assert avisos == [1]
-
-
-def test_login_gate_on_connect_success(monkeypatch):
-    """Session valida persiste e emite."""
-    from skinvault.steam_session import SteamSession
-    from skinvault.ui.login_gate import LoginGate
-
-    sess = SteamSession(steamid="123", cookies={"steamLoginSecure": "tok"})
-    persist_calls = []
-    monkeypatch.setattr("skinvault.steam_session.persist",
-                        lambda s: persist_calls.append(s))
-    gate = LoginGate()
-    results = []
-    gate.session_connected.connect(lambda s: results.append(s))
-    gate._on_session(sess)
-    assert len(persist_calls) == 1
-    assert len(results) == 1
-    assert results[0].steamid == "123"
-
-
-def test_login_gate_botao_navegador_para_o_qr(monkeypatch):
-    """Pedir o navegador tem que interromper o poll do QR."""
-    from PyQt6.QtWidgets import QDialog
-    from skinvault.ui.login_gate import LoginGate
-
-    class MockDialog:
-        def exec(self):
-            return QDialog.DialogCode.Rejected
-        session = None
-
-    monkeypatch.setattr("skinvault.ui.login_gate.build_steam_login_dialog",
-                        lambda parent: MockDialog())
-    gate = LoginGate()
-    parou = []
-    monkeypatch.setattr(gate._qr_panel, "stop", lambda: parou.append(1))
-    gate._on_browser()
-    assert parou == [1], "o worker continuaria pollando em segundo plano"
 
 
 # ── HistoryScreen helpers ──────────────────────────────────
@@ -6176,820 +5770,6 @@ class TestHistoryScreen:
         screen._current_segment = "all"
         screen.refresh()
         assert screen._table.rowCount() == 0
-
-
-# ── SteamLoginDialog ───────────────────────────────────────────
-
-def test_find_free_port():
-    """_find_free_port returns a valid available port."""
-    from skinvault.steam_login_dialog import _find_free_port
-    port = _find_free_port()
-    assert isinstance(port, int)
-    assert 1024 <= port <= 65535
-
-def test_collect_steam_cookies_captures_refresh_token():
-    """_collect_steam_cookies pega community + steamRefresh_steam (login.steampowered)."""
-    from skinvault.steam_login_dialog import _collect_steam_cookies
-    cdp = [
-        {"domain": "steamcommunity.com", "name": "steamLoginSecure", "value": "sec"},
-        {"domain": "steamcommunity.com", "name": "sessionid", "value": "sid"},
-        {"domain": "login.steampowered.com", "name": "steamRefresh_steam",
-         "value": "76561%7C%7Crefresh"},
-        {"domain": "store.steampowered.com", "name": "irrelevante", "value": "x"},
-    ]
-    out = _collect_steam_cookies(cdp)
-    assert out["steamLoginSecure"] == "sec"
-    assert out["sessionid"] == "sid"
-    assert out["steamRefresh_steam"] == "76561%7C%7Crefresh"
-    assert "irrelevante" not in out
-
-def test_collect_steam_cookies_ignores_refresh_from_wrong_domain():
-    """steamRefresh_steam só é aceito do domínio login.steampowered.com."""
-    from skinvault.steam_login_dialog import _collect_steam_cookies
-    cdp = [
-        {"domain": "evil.com", "name": "steamRefresh_steam", "value": "x"},
-    ]
-    assert _collect_steam_cookies(cdp) == {}
-
-def test_btn_ghost():
-    """btn_ghost returns a stylesheet string."""
-    from skinvault.ui import theme as t
-    css = t.btn_ghost()
-    assert "QPushButton" in css
-
-def test_build_steam_login_dialog():
-    """build_steam_login_dialog factory returns a dialog."""
-    from skinvault.steam_login_dialog import build_steam_login_dialog
-    dlg = build_steam_login_dialog()
-    assert dlg is not None
-    assert dlg.windowTitle() == "Conectar conta Steam"
-
-def test_steam_login_dialog_init():
-    """SteamLoginDialog initializes with default state."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    assert dlg.session is None
-    assert dlg._chrome_proc is None
-    assert dlg._ws is None
-    assert dlg._monitor_active is False
-
-def test_on_cancel():
-    """_on_cancel calls reject (which calls cleanup)."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._cleanup = lambda: setattr(dlg, '_cleanup_called', True)
-    dlg.reject = lambda: setattr(dlg, '_reject_called', True) or dlg._cleanup()
-    dlg._on_cancel()
-    assert dlg._cleanup_called
-    assert dlg._reject_called
-
-def test_cleanup_ws():
-    """_cleanup closes websocket if present."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    ws_close = []
-    dlg._ws = type("WS", (), {"close": lambda self: ws_close.append(True)})()
-    dlg._cleanup()
-    assert len(ws_close) == 1
-    assert dlg._ws is None
-
-def test_cleanup_ws_error():
-    """_cleanup handles websocket close error gracefully."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._ws = type("WS", (), {
-        "close": lambda self: (_ for _ in ()).throw(Exception("fail"))
-    })()
-    dlg._cleanup()
-    assert dlg._ws is None
-
-def test_cleanup_chrome_terminate():
-    """_cleanup terminates chrome process."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._chrome_proc = type("Proc", (), {
-        "terminate": lambda self: None,
-        "wait": lambda self, timeout: None,
-    })()
-    dlg._cleanup()
-    assert dlg._chrome_proc is None
-
-def test_cleanup_chrome_terminate_fails():
-    """_cleanup kills chrome if terminate fails."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    killed = []
-    dlg = SteamLoginDialog()
-    dlg._chrome_proc = type("Proc", (), {
-        "terminate": lambda self: (_ for _ in ()).throw(Exception("fail")),
-        "wait": lambda self, timeout: None,
-        "kill": lambda self: killed.append(True),
-    })()
-    dlg._cleanup()
-    assert len(killed) == 1
-    assert dlg._chrome_proc is None
-
-def test_cleanup_chrome_kill_fails():
-    """_cleanup handles chrome kill failure gracefully."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._chrome_proc = type("Proc", (), {
-        "terminate": lambda self: (_ for _ in ()).throw(Exception("fail")),
-        "wait": lambda self, timeout: None,
-        "kill": lambda self: (_ for _ in ()).throw(Exception("fail2")),
-    })()
-    dlg._cleanup()
-    assert dlg._chrome_proc is None
-
-def test_cleanup_user_data_dir(tmp_path):
-    """_cleanup removes temp user data dir."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._user_data_dir = str(tmp_path / "sv_test")
-    (tmp_path / "sv_test").mkdir()
-    dlg._cleanup()
-    assert dlg._user_data_dir is None
-    assert not (tmp_path / "sv_test").exists()
-
-def test_send_cdp_no_ws():
-    """_send_cdp returns -1 when websocket is None."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    assert dlg._send_cdp("Network.enable") == -1
-
-def test_send_cdp_with_ws(monkeypatch):
-    """_send_cdp sends JSON via websocket and returns mid."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    sent = []
-    monkeypatch.setattr("json.dumps", lambda x: str(x))
-    dlg = SteamLoginDialog()
-    dlg._ws = type("WS", (), {"send": lambda self, m: sent.append(m)})()
-    mid = dlg._send_cdp("Network.enable", {"domain": "steam"})
-    assert isinstance(mid, int)
-    assert mid > 0
-    assert len(sent) == 1
-
-def test_recv_cdp_no_ws():
-    """_recv_cdp returns None when websocket is None."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    assert dlg._recv_cdp() is None
-
-def test_recv_cdp_success(monkeypatch):
-    """_recv_cdp returns parsed message from websocket."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._ws = type("WS", (), {
-        "settimeout": lambda self, t: None,
-        "recv": lambda self: '{"id": 1, "result": {"ok": true}}',
-    })()
-    result = dlg._recv_cdp()
-    assert result is not None
-    assert result["id"] == 1
-
-def test_recv_cdp_exception():
-    """_recv_cdp returns None on websocket error."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._ws = type("WS", (), {
-        "settimeout": lambda self, t: None,
-        "recv": lambda self: (_ for _ in ()).throw(Exception("timeout")),
-    })()
-    assert dlg._recv_cdp() is None
-
-def test_wait_for_cdp_result_match():
-    """_wait_for_cdp_result returns result when id matches."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    dlg._recv_cdp = lambda timeout=1.0: {"id": 42, "result": {"cookies": []}}
-    result = dlg._wait_for_cdp_result(42)
-    assert result is not None
-    assert result["cookies"] == []
-
-def test_wait_for_cdp_result_timeout():
-    """_wait_for_cdp_result returns None on timeout."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    dlg._recv_cdp = lambda timeout=1.0: {"id": 99, "result": {}}
-    result = dlg._wait_for_cdp_result(42, timeout=0.1)
-    assert result is None
-
-def test_find_chrome_via_path(monkeypatch):
-    """_find_chrome finds Chrome via subprocess."""
-    from skinvault.steam_login_dialog import _find_chrome
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *a, **kw: type("R", (), {"returncode": 0})())
-    result = _find_chrome()
-    assert result == "chrome"
-
-def test_find_chrome_via_path_fallback(monkeypatch):
-    """_find_chrome falls through candidates and finds via path."""
-    from skinvault.steam_login_dialog import _find_chrome
-    call_count = [0]
-    def failing_run(*a, **kw):
-        call_count[0] += 1
-        if call_count[0] <= 3:
-            raise FileNotFoundError("not found")
-        return type("R", (), {"returncode": 0})()
-    monkeypatch.setattr("subprocess.run", failing_run)
-    result = _find_chrome()
-    assert result == "chromium-browser"
-
-def test_find_chrome_not_found(monkeypatch):
-    """_find_chrome returns None when no Chrome found."""
-    from skinvault.steam_login_dialog import _find_chrome
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *a, **kw: (_ for _ in ()).throw(
-            FileNotFoundError("not found")))
-    monkeypatch.setattr("os.path.isfile", lambda p: False)
-    result = _find_chrome()
-    assert result is None
-
-def test_find_chrome_via_windows_path(monkeypatch):
-    """_find_chrome finds Chrome via Windows paths."""
-    from skinvault.steam_login_dialog import _find_chrome
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *a, **kw: (_ for _ in ()).throw(
-            FileNotFoundError("not found")))
-    monkeypatch.setattr("os.path.isfile", lambda p: "chrome.exe" in p)
-    result = _find_chrome()
-    assert result is not None
-    assert "Program Files" in result or "LocalAppData" in result
-
-
-def _sem_browser_no_path(monkeypatch):
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
-
-
-def test_find_chrome_aceita_edge(monkeypatch):
-    """Windows sem Chrome: Edge serve -- e' Chromium e fala CDP."""
-    from skinvault.steam_login_dialog import _find_chrome
-    _sem_browser_no_path(monkeypatch)
-    monkeypatch.setattr("os.path.isfile", lambda p: "msedge.exe" in p)
-    result = _find_chrome()
-    assert result is not None and "msedge.exe" in result
-
-
-def test_find_chrome_aceita_vivaldi(monkeypatch):
-    """Sem Chrome nem Edge, Vivaldi resolve."""
-    from skinvault.steam_login_dialog import _find_chrome
-    _sem_browser_no_path(monkeypatch)
-    monkeypatch.setattr("os.path.isfile", lambda p: "vivaldi.exe" in p)
-    result = _find_chrome()
-    assert result is not None and "vivaldi.exe" in result
-
-
-def test_find_chrome_aceita_brave(monkeypatch):
-    from skinvault.steam_login_dialog import _find_chrome
-    _sem_browser_no_path(monkeypatch)
-    monkeypatch.setattr("os.path.isfile", lambda p: "brave.exe" in p)
-    result = _find_chrome()
-    assert result is not None and "brave.exe" in result
-
-
-def test_find_chrome_prefere_chrome_a_edge(monkeypatch):
-    """Com os dois instalados, Chrome ganha -- e' o mais testado aqui."""
-    from skinvault.steam_login_dialog import _find_chrome
-    _sem_browser_no_path(monkeypatch)
-    monkeypatch.setattr(
-        "os.path.isfile",
-        lambda p: "chrome.exe" in p or "msedge.exe" in p)
-    result = _find_chrome()
-    assert "chrome.exe" in result and "msedge.exe" not in result
-
-
-def test_find_chrome_edge_no_path(monkeypatch):
-    """msedge no PATH tambem vale."""
-    from skinvault.steam_login_dialog import _find_chrome
-    import subprocess as _sp
-
-    def run(args, *a, **kw):
-        if args[0] != "msedge":
-            raise FileNotFoundError()
-        return type("R", (), {"returncode": 0})()
-
-    monkeypatch.setattr("subprocess.run", run)
-    assert _find_chrome() == "msedge"
-    assert _sp is not None  # import usado so' pra manter o namespace real
-
-def test_show_manual_option(monkeypatch):
-    """_show_manual_option inserts manual button and calls cleanup."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._cleanup = lambda: None
-    dlg._show_manual_option()
-    assert dlg._manual_btn is not None
-    assert "Colar cookies" in dlg._manual_btn.text()
-
-def test_switch_to_manual():
-    """_switch_to_manual replaces content with cookie input."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._cleanup = lambda: None
-    dlg._manual_btn = type("Btn", (), {
-        "hide": lambda self: None,
-        "deleteLater": lambda self: None,
-    })()
-    dlg._switch_to_manual()
-    assert dlg._cookie_input is not None
-    assert dlg._confirm_btn is not None
-
-def test_process_manual_cookies_empty():
-    """_process_manual_cookies shows error for empty input."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    mock_input = type("Input", (), {"toPlainText": lambda self: ""})()
-    dlg._cookie_input = mock_input
-    dlg._process_manual_cookies()
-    assert "Cole" in dlg._status.text()
-
-def test_process_manual_cookies_invalid_json():
-    """_process_manual_cookies shows error for invalid JSON."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._cookie_input = type("Input", (), {
-        "toPlainText": lambda self: "not json"})()
-    dlg._process_manual_cookies()
-    assert "invalido" in dlg._status.text()
-
-def test_process_manual_cookies_list(monkeypatch):
-    """_process_manual_cookies processes list of cookies."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr(
-        "skinvault.steam_login_dialog.extract_steamid_from_cookie",
-        lambda c: "7656119")
-    monkeypatch.setattr(
-        "skinvault.steam_login_dialog.merge_cookies",
-        lambda a, b: b)
-    dlg = SteamLoginDialog()
-    dlg._cookie_input = type("Input", (), {
-        "toPlainText": lambda self: (
-            '[{"domain":"steamcommunity.com","name":"steamLoginSecure",'
-            '"value":"abc"}]'
-        )})()
-    dlg._process_manual_cookies()
-    assert dlg.session is not None
-    assert dlg.session.steamid == "7656119"
-
-def test_process_manual_cookies_dict(monkeypatch):
-    """_process_manual_cookies processes dict of cookies."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr(
-        "skinvault.steam_login_dialog.extract_steamid_from_cookie",
-        lambda c: "7656119")
-    monkeypatch.setattr(
-        "skinvault.steam_login_dialog.merge_cookies",
-        lambda a, b: b)
-    dlg = SteamLoginDialog()
-    dlg._cookie_input = type("Input", (), {
-        "toPlainText": lambda self: (
-            '{"steamLoginSecure": "abc", "sessionid": "xyz"}'
-        )})()
-    dlg._process_manual_cookies()
-    assert dlg.session is not None
-
-def test_process_manual_cookies_missing_key(monkeypatch):
-    """_process_manual_cookies fails without steamLoginSecure."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr(
-        "skinvault.steam_login_dialog.extract_steamid_from_cookie",
-        lambda c: "")
-    dlg = SteamLoginDialog()
-    dlg._cookie_input = type("Input", (), {
-        "toPlainText": lambda self: (
-            '[{"domain":"steamcommunity.com","name":"sessionid",'
-            '"value":"xyz"}]'
-        )})()
-    dlg._process_manual_cookies()
-    assert "steamLoginSecure" in dlg._status.text()
-
-def test_process_manual_cookies_unrecognized_format():
-    """_process_manual_cookies fails for non-list non-dict."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._cookie_input = type("Input", (), {
-        "toPlainText": lambda self: '"just a string"'})()
-    dlg._process_manual_cookies()
-    assert "reconhecido" in dlg._status.text()
-
-
-def test_launch_chrome(monkeypatch):
-    """_launch_chrome starts monitor thread."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    started = []
-    monkeypatch.setattr("threading.Thread", lambda *a, **kw: type(
-        "T", (), {"start": lambda self: started.append(True)})())
-    dlg._launch_chrome()
-    assert dlg._monitor_active is True
-    assert len(started) == 1
-
-def test_showEvent(monkeypatch):
-    """showEvent schedules _launch_chrome via QTimer."""
-    from PyQt6.QtGui import QShowEvent
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    called = []
-    dlg._launch_chrome = lambda: called.append(True)
-    dlg.showEvent(QShowEvent())
-    assert len(called) == 1
-
-def test_on_chrome_launch_failed(monkeypatch):
-    """_on_chrome_launch_failed sets text and shows manual."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    shown = []
-    dlg._show_manual_option = lambda: shown.append(True)
-    dlg._on_chrome_launch_failed(Exception("no chrome"))
-    assert "Erro" in dlg._status.text()
-    assert "no chrome" in dlg._status.text()
-    assert len(shown) == 1
-
-def test_on_login_error(monkeypatch):
-    """_on_login_error sets text, cleans up, shows manual."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    cleaned = []
-    shown = []
-    dlg._cleanup = lambda: cleaned.append(True)
-    dlg._show_manual_option = lambda: shown.append(True)
-    dlg._on_login_error()
-    assert "Erro" in dlg._status.text()
-    assert len(cleaned) == 1
-    assert len(shown) == 1
-
-def test_on_login_success(monkeypatch):
-    """_on_login_success cleans up and accepts."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    cleaned = []
-    accepted = []
-    dlg._cleanup = lambda: cleaned.append(True)
-    dlg.accept = lambda: accepted.append(True)
-    dlg._on_login_success()
-    assert len(cleaned) == 1
-    assert len(accepted) == 1
-
-def test_monitor_ws_chrome_not_found(monkeypatch):
-    """_monitor_ws shows manual option when Chrome not found."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: None)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    shown = []
-    dlg._show_manual_option = lambda: shown.append(True)
-    dlg._monitor_ws()
-    assert len(shown) == 1
-
-def test_monitor_ws_chrome_launch_failed(monkeypatch):
-    """_monitor_ws calls _on_chrome_launch_failed when Popen fails."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: (_ for _ in ()).throw(
-                            FileNotFoundError("chrome not found")))
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    called = []
-    dlg._on_chrome_launch_failed = lambda e: called.append(e)
-    dlg._monitor_ws()
-    assert len(called) == 1
-    assert isinstance(called[0], FileNotFoundError)
-
-def test_monitor_ws_poll_timeout(monkeypatch):
-    """_monitor_ws offers manual when poll times out."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_free_port",
-                        lambda: 9999)
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: type("P", (), {"pid": 1234})())
-    monkeypatch.setattr("urllib.request.urlopen",
-                        lambda url, timeout: (_ for _ in ()).throw(
-                            Exception("no response")))
-    t = [100.0]
-    monkeypatch.setattr("time.time", lambda: t[0])
-    def advance(s):
-        t[0] += 310
-    monkeypatch.setattr("time.sleep", advance)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    shown = []
-    dlg._show_manual_option = lambda: shown.append(True)
-    dlg._monitor_ws()
-    assert len(shown) == 1
-
-def test_monitor_ws_happy_path(monkeypatch):
-    """_monitor_ws detects login, gets cookies, creates session."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_free_port",
-                        lambda: 9999)
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: type("P", (), {"pid": 1234})())
-    monkeypatch.setattr("urllib.request.urlopen",
-                        lambda url, timeout: type(
-                            "R", (),
-                            {"read": lambda self: b'[{"type":"page",'
-                             b'"url":"https://steamcommunity.com/profiles/7656",'
-                             b'"webSocketDebuggerUrl":"ws://localhost/debug"}]',
-                             "__enter__": lambda self: self,
-                             "__exit__": lambda *a: None})())
-    monkeypatch.setattr("time.time", lambda: 100)
-    monkeypatch.setattr("time.sleep", lambda s: None)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    monkeypatch.setattr("skinvault.steam_login_dialog.merge_cookies",
-                        lambda a, b: b)
-    monkeypatch.setattr("skinvault.steam_login_dialog.extract_steamid_from_cookie",
-                        lambda c: "7656")
-    monkeypatch.setattr("websocket.create_connection",
-                        lambda url, timeout: type(
-                            "WS", (),
-                            {"send": lambda self, m: None,
-                             "recv": lambda timeout=1.0: "{}",
-                             "settimeout": lambda self, t: None,
-                             "close": lambda self: None})(),
-    )
-
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    dlg._wait_for_cdp_result = lambda mid, timeout=15: {"cookies": [
-        {"domain": "steamcommunity.com", "name": "steamLoginSecure",
-         "value": "abc"},
-        {"domain": "steamcommunity.com", "name": "sessionid",
-         "value": "xyz"},
-    ]}
-    success = []
-    dlg._on_login_success = lambda: success.append(True)
-    dlg._monitor_ws()
-    assert len(success) == 1
-
-def test_monitor_ws_empty_cookies_then_found(monkeypatch):
-    """_monitor_ws retries when cookies empty, succeeds on 2nd try."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_free_port",
-                        lambda: 9999)
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: type("P", (), {"pid": 1234})())
-    monkeypatch.setattr("urllib.request.urlopen",
-                        lambda url, timeout: type(
-                            "R", (),
-                            {"read": lambda self: b'[{"type":"page",'
-                             b'"url":"https://steamcommunity.com/id/7656",'
-                             b'"webSocketDebuggerUrl":"ws://localhost/debug"}]',
-                             "__enter__": lambda self: self,
-                             "__exit__": lambda *a: None})())
-    monkeypatch.setattr("time.time", lambda: 100)
-    monkeypatch.setattr("time.sleep", lambda s: None)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    monkeypatch.setattr("skinvault.steam_login_dialog.merge_cookies",
-                        lambda a, b: b)
-    monkeypatch.setattr("skinvault.steam_login_dialog.extract_steamid_from_cookie",
-                        lambda c: "7656")
-    monkeypatch.setattr("websocket.create_connection",
-                        lambda url, timeout: type(
-                            "WS", (),
-                            {"send": lambda self, m: None,
-                             "recv": lambda timeout=1.0: "{}",
-                             "settimeout": lambda self, t: None,
-                             "close": lambda self: None})(),
-    )
-
-    wait_count = [0]
-    def fake_wait(mid, timeout=15):
-        wait_count[0] += 1
-        if wait_count[0] <= 1:
-            return {"cookies": []}
-        return {"cookies": [
-            {"domain": "steamcommunity.com", "name": "steamLoginSecure",
-             "value": "abc"},
-            {"domain": "steamcommunity.com", "name": "sessionid",
-             "value": "xyz"},
-        ]}
-
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    dlg._wait_for_cdp_result = fake_wait
-    success = []
-    dlg._on_login_success = lambda: success.append(True)
-    dlg._monitor_ws()
-    assert len(success) == 1
-    assert wait_count[0] == 2
-
-def test_monitor_ws_cookies_still_empty(monkeypatch):
-    """_monitor_ws shows manual when both cookie attempts empty."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_free_port",
-                        lambda: 9999)
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: type("P", (), {"pid": 1234})())
-    monkeypatch.setattr("urllib.request.urlopen",
-                        lambda url, timeout: type(
-                            "R", (),
-                            {"read": lambda self: b'[{"type":"page",'
-                             b'"url":"https://steamcommunity.com/id/7656",'
-                             b'"webSocketDebuggerUrl":"ws://localhost/debug"}]',
-                             "__enter__": lambda self: self,
-                             "__exit__": lambda *a: None})())
-    monkeypatch.setattr("time.time", lambda: 100)
-    monkeypatch.setattr("time.sleep", lambda s: None)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    monkeypatch.setattr("skinvault.steam_login_dialog.extract_steamid_from_cookie",
-                        lambda c: "")
-    monkeypatch.setattr("websocket.create_connection",
-                        lambda url, timeout: type(
-                            "WS", (),
-                            {"send": lambda self, m: None,
-                             "recv": lambda timeout=1.0: "{}",
-                             "settimeout": lambda self, t: None,
-                             "close": lambda self: None})(),
-    )
-
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    dlg._wait_for_cdp_result = lambda mid, timeout=15: {"cookies": [
-        {"domain": "example.com", "name": "steamLoginSecure", "value": "abc"},
-    ]}
-    shown = []
-    dlg._show_manual_option = lambda: shown.append(True)
-    dlg._monitor_ws()
-    assert len(shown) == 1
-
-def test_monitor_ws_ws_connect_fails(monkeypatch):
-    """_monitor_ws shows manual when WS connection fails."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_free_port",
-                        lambda: 9999)
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: type("P", (), {"pid": 1234})())
-    monkeypatch.setattr("urllib.request.urlopen",
-                        lambda url, timeout: type(
-                            "R", (),
-                            {"read": lambda self: b'[{"type":"page",'
-                             b'"url":"https://steamcommunity.com/profiles/7656",'
-                             b'"webSocketDebuggerUrl":"ws://localhost/debug"}]',
-                             "__enter__": lambda self: self,
-                             "__exit__": lambda *a: None})())
-    monkeypatch.setattr("time.time", lambda: 100)
-    monkeypatch.setattr("time.sleep", lambda s: None)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    monkeypatch.setattr("websocket.create_connection",
-                        lambda url, timeout: (_ for _ in ()).throw(
-                            Exception("WS fail")))
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    shown = []
-    dlg._show_manual_option = lambda: shown.append(True)
-    dlg._monitor_ws()
-    assert len(shown) == 1
-
-def test_monitor_ws_cdp_result_none(monkeypatch):
-    """_monitor_ws shows manual when getAllCookies returns no result."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_free_port",
-                        lambda: 9999)
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: type("P", (), {"pid": 1234})())
-    monkeypatch.setattr("urllib.request.urlopen",
-                        lambda url, timeout: type(
-                            "R", (),
-                            {"read": lambda self: b'[{"type":"page",'
-                             b'"url":"https://steamcommunity.com/profiles/7656",'
-                             b'"webSocketDebuggerUrl":"ws://localhost/debug"}]',
-                             "__enter__": lambda self: self,
-                             "__exit__": lambda *a: None})())
-    monkeypatch.setattr("time.time", lambda: 100)
-    monkeypatch.setattr("time.sleep", lambda s: None)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    monkeypatch.setattr("websocket.create_connection",
-                        lambda url, timeout: type(
-                            "WS", (),
-                            {"send": lambda self, m: None,
-                             "recv": lambda timeout=1.0: "{}",
-                             "settimeout": lambda self, t: None,
-                             "close": lambda self: None})(),
-    )
-
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    dlg._wait_for_cdp_result = lambda mid, timeout=15: None
-    error_called = []
-    dlg._on_login_error = lambda: error_called.append(True)
-    dlg._monitor_ws()
-    assert len(error_called) == 1
-
-
-def test_wait_for_cdp_result_skip_none(monkeypatch):
-    """_wait_for_cdp_result skips None messages and finds match."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    recv_calls = [0]
-    def mock_recv(timeout=1.0):
-        recv_calls[0] += 1
-        if recv_calls[0] == 1:
-            return None
-        return {"id": 42, "result": {"ok": True}}
-    dlg._recv_cdp = mock_recv
-    monkeypatch.setattr("time.time", lambda: 100 + recv_calls[0] * 20)
-    result = dlg._wait_for_cdp_result(42, timeout=60)
-    assert result == {"ok": True}
-    assert recv_calls[0] == 2
-
-def test_monitor_ws_non_page_types(monkeypatch):
-    """_monitor_ws skips non-page entries in /json response."""
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_chrome",
-                        lambda: "chrome")
-    monkeypatch.setattr("skinvault.steam_login_dialog._find_free_port",
-                        lambda: 9999)
-    monkeypatch.setattr("skinvault.steam_login_dialog.tempfile.mkdtemp",
-                        lambda prefix: "C:\\tmp\\sv_test")
-    monkeypatch.setattr("subprocess.Popen",
-                        lambda *a, **kw: type("P", (), {"pid": 1234})())
-    monkeypatch.setattr("urllib.request.urlopen",
-                        lambda url, timeout: type(
-                            "R", (),
-                            {"read": lambda self: (
-                                b'[{"type":"other",'
-                                b'"url":"https://example.com"},'
-                                b'{"type":"page",'
-                                b'"url":"https://steamcommunity.com/profiles/7656",'
-                                b'"webSocketDebuggerUrl":"ws://localhost/debug"}]'
-                            ),
-                             "__enter__": lambda self: self,
-                             "__exit__": lambda *a: None})())
-    monkeypatch.setattr("time.time", lambda: 100)
-    monkeypatch.setattr("time.sleep", lambda s: None)
-    monkeypatch.setattr("skinvault.steam_login_dialog.QTimer.singleShot",
-                        lambda ms, fn: fn())
-    monkeypatch.setattr("skinvault.steam_login_dialog.merge_cookies",
-                        lambda a, b: b)
-    monkeypatch.setattr("skinvault.steam_login_dialog.extract_steamid_from_cookie",
-                        lambda c: "7656")
-    monkeypatch.setattr("websocket.create_connection",
-                        lambda url, timeout: type(
-                            "WS", (),
-                            {"send": lambda self, m: None,
-                             "recv": lambda timeout=1.0: "{}",
-                             "settimeout": lambda self, t: None,
-                             "close": lambda self: None})(),
-    )
-    dlg = SteamLoginDialog()
-    dlg._monitor_active = True
-    dlg._wait_for_cdp_result = lambda mid, timeout=15: {"cookies": [
-        {"domain": "steamcommunity.com", "name": "steamLoginSecure",
-         "value": "abc"},
-    ]}
-    success = []
-    dlg._on_login_success = lambda: success.append(True)
-    dlg._monitor_ws()
-    assert len(success) == 1
 
 
 # ── Widgets (MonthBarChart, ValueChart, MiniSparkline, DepthChart) ─
@@ -8048,25 +6828,6 @@ def test_table_style():
     assert "QTableWidget" in s
     assert "QHeaderView" in s
 
-def test_format_sync_result():
-    """_format_sync_result formats each step type correctly."""
-    from skinvault.gui import _format_sync_result
-    assert "erro" in _format_sync_result("inventory", {"error": "timeout"})
-    r1 = _format_sync_result("inventory", {"added": 5, "skipped": 3})
-    assert "5 novos" in r1
-    assert "8" in r1
-    r2 = _format_sync_result("market", {"new": 10, "total": 100})
-    assert "10 novos" in r2
-    assert "100" in r2
-    r3 = _format_sync_result("listings", {"count": 7})
-    assert "7" in r3
-    assert "ativas" in r3
-    r4 = _format_sync_result("trades", {"new": 3, "total": 50})
-    assert "3 novos" in r4
-    assert "50" in r4
-    r5 = _format_sync_result("unknown", {})
-    assert r5 == "ok"
-
 def test_make_tray_icon():
     """_make_tray_icon returns a non-null QIcon."""
     from PyQt6.QtGui import QIcon
@@ -8074,14 +6835,6 @@ def test_make_tray_icon():
     icon = _make_tray_icon()
     assert isinstance(icon, QIcon)
     assert not icon.isNull()
-
-def test_sync_bridge_signals():
-    """_SyncBridge has expected signal attributes."""
-    from skinvault.gui import _SyncBridge
-    b = _SyncBridge()
-    assert hasattr(b, 'step_done')
-    assert hasattr(b, 'all_done')
-    assert hasattr(b, 'failed')
 
 
 def test_settings_screen_init(monkeypatch):
@@ -8374,90 +7127,6 @@ def test_backup_dialog_delete_fail(monkeypatch):
     # Feedback agora via Toast; basta nao crashar
 
 
-def test_steam_sync_dialog_init(monkeypatch):
-    """SteamSyncDialog initializes with session and starts worker."""
-    monkeypatch.setattr("skinvault.gui.steam_sync.sync_all",
-                        lambda *a, **kw: {"inventory": {}, "market": {}})
-    started = []
-    monkeypatch.setattr("threading.Thread",
-                        lambda *a, **kw: type("T", (), {
-                            "start": lambda self: started.append(True)})())
-    from skinvault.steam_session import SteamSession
-    session = SteamSession("7656", {}, 1_700_000_000)
-    from skinvault.gui import SteamSyncDialog
-    dlg = SteamSyncDialog(session)
-    assert dlg.windowTitle() == "Sincronizando com Steam"
-    assert len(started) == 1
-
-
-def test_steam_sync_dialog_start_error(monkeypatch):
-    """SteamSyncDialog._start handles sync exception."""
-    monkeypatch.setattr("skinvault.gui.steam_sync.sync_all",
-                        lambda *a, **kw: (_ for _ in ()).throw(
-                            Exception("API fail")))
-    monkeypatch.setattr("threading.Thread",
-                        lambda *a, **kw: type("T", (), {
-                            "start": lambda self: None})())
-    from skinvault.steam_session import SteamSession
-    session = SteamSession("7656", {}, 1_700_000_000)
-    from skinvault.gui import SteamSyncDialog
-    dlg = SteamSyncDialog(session)
-    # _start called in __init__, worker runs sync_all which raises
-    # The bridge.failed signal is emitted but not connected to UI yet
-    # in this test context. No crash = success.
-
-
-def test_steam_sync_dialog_on_step(monkeypatch):
-    """_on_step updates labels and progress."""
-    monkeypatch.setattr("skinvault.gui.steam_sync.sync_all",
-                        lambda *a, **kw: {})
-    monkeypatch.setattr("threading.Thread",
-                        lambda *a, **kw: type("T", (), {
-                            "start": lambda self: None})())
-    from skinvault.steam_session import SteamSession
-    session = SteamSession("7656", {}, 1_700_000_000)
-    from skinvault.gui import SteamSyncDialog
-    dlg = SteamSyncDialog(session)
-    dlg._on_step("inventory", {"added": 5, "skipped": 3})
-    assert dlg._progress.value() == 1
-    # Step for unknown key does not crash
-    dlg._on_step("unknown", {})
-
-
-def test_steam_sync_dialog_on_done(monkeypatch):
-    """_on_done enables close button."""
-    monkeypatch.setattr("skinvault.gui.steam_sync.sync_all",
-                        lambda *a, **kw: {})
-    monkeypatch.setattr("threading.Thread",
-                        lambda *a, **kw: type("T", (), {
-                            "start": lambda self: None})())
-    from skinvault.steam_session import SteamSession
-    session = SteamSession("7656", {}, 1_700_000_000)
-    from skinvault.gui import SteamSyncDialog
-    dlg = SteamSyncDialog(session)
-    dlg._on_done({"inventory": {}})
-    assert dlg._close_btn.isEnabled()
-
-
-def test_steam_sync_dialog_on_failed(monkeypatch):
-    """_on_failed enables close button and shows warning."""
-    from PyQt6.QtWidgets import QMessageBox
-    monkeypatch.setattr("skinvault.gui.steam_sync.sync_all",
-                        lambda *a, **kw: {})
-    monkeypatch.setattr("threading.Thread",
-                        lambda *a, **kw: type("T", (), {
-                            "start": lambda self: None})())
-    warnings = []
-    monkeypatch.setattr(QMessageBox, "warning",
-                        lambda *a, **kw: warnings.append(a[2]))
-    from skinvault.steam_session import SteamSession
-    session = SteamSession("7656", {}, 1_700_000_000)
-    from skinvault.gui import SteamSyncDialog
-    dlg = SteamSyncDialog(session)
-    dlg._on_failed("connection error")
-    assert dlg._close_btn.isEnabled()
-    assert len(warnings) == 1
-    assert "connection error" in warnings[0]
 
 
 def _make_mw(monkeypatch) -> "MainWindow":
@@ -8554,13 +7223,6 @@ def test_toggle_preserva_a_tela_selecionada(monkeypatch):
     win._on_navigated("scanner")
     win._toggle_sidebar()
     assert win._sidebar._items["scanner"].isChecked() is True
-
-
-def test_toggle_preserva_a_sessao(monkeypatch):
-    win, _ = _mw_sidebar(monkeypatch)
-    win._on_session_changed("pedri", "76561198000000042")
-    win._toggle_sidebar()
-    assert win._sidebar._chip.isVisibleTo(win._sidebar) is True
 
 
 def test_largura_da_barra_nao_afeta_o_rail(monkeypatch):
@@ -9319,23 +7981,6 @@ def test_mainwindow_open_backups(monkeypatch):
     assert len(shown) == 1
 
 
-def test_mainwindow_on_sync_requested(monkeypatch):
-    """_on_sync_requested creates SteamSyncDialog."""
-    monkeypatch.setattr("skinvault.gui.steam_sync.sync_all",
-                        lambda *a, **kw: {})
-    monkeypatch.setattr("threading.Thread",
-                        lambda *a, **kw: type("T", (), {
-                            "start": lambda self: None})())
-    from skinvault.gui import SteamSyncDialog as SSD
-    shown = []
-    monkeypatch.setattr(SSD, "exec", lambda self: shown.append(True))
-    from skinvault.steam_session import SteamSession
-    session = SteamSession("7656", {}, 1_700_000_000)
-    win = _make_mw(monkeypatch)
-    win._on_sync_requested(session)
-    assert len(shown) == 1
-
-
 def test_mainwindow_on_theme_changed(monkeypatch):
     """_on_theme_changed updates theme when different."""
     settings = {"theme": "light"}
@@ -9555,24 +8200,6 @@ def test_backup_dialog_restore_no_path(monkeypatch):
     dlg._restore()  # nao crasha
 
 
-def test_steam_sync_dialog_worker_error(monkeypatch):
-    """SteamSyncDialog worker captura excecao de sync_all."""
-    def mock_thread(*a, target=None, **kw):
-        if target:
-            target()
-        return type("MT", (), {"start": lambda self: None})()
-    monkeypatch.setattr("skinvault.gui.threading.Thread", mock_thread)
-    monkeypatch.setattr("skinvault.gui.steam_sync.sync_all",
-                        lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("fail")))
-    from skinvault.gui import SteamSyncDialog
-    monkeypatch.setattr(SteamSyncDialog, "_on_failed",
-                        lambda self, msg: setattr(self, "_fail_msg", msg))
-    from skinvault.steam_session import SteamSession
-    session = SteamSession("7656", {}, 1_700_000_000)
-    dlg = SteamSyncDialog(session)
-    assert dlg._fail_msg == "fail"
-
-
 def test_segmented_control_select_unchecked(monkeypatch):
     """SegmentedControl.select ativa botao e emite sinal."""
     from skinvault.ui.components import SegmentedControl
@@ -9584,20 +8211,6 @@ def test_segmented_control_select_unchecked(monkeypatch):
     sc.select("b")
     assert len(emitted) == 1
     assert emitted[0] == "b"
-
-
-def test_steam_login_cleanup_rmtree_error(tmp_path, monkeypatch):
-    """_cleanup trata excecao em shutil.rmtree."""
-    import shutil
-    tmpdir = tmp_path / "steam_dir"
-    tmpdir.mkdir()
-    monkeypatch.setattr(shutil, "rmtree",
-                        lambda p, **kw: (_ for _ in ()).throw(PermissionError("denied")))
-    from skinvault.steam_login_dialog import SteamLoginDialog
-    dlg = SteamLoginDialog()
-    dlg._user_data_dir = str(tmpdir)
-    dlg._cleanup()  # nao crasha
-    assert dlg._user_data_dir is None  # linha apos o except
 
 
 class _FakeSignal:
@@ -9704,7 +8317,6 @@ def test_launch_show_maximized(monkeypatch):
     shown = []
     class FakeWin:
         _tray_icon = None
-        _login_mode = False
         def hide(self):
             pass
         def showMaximized(self):
@@ -9716,50 +8328,6 @@ def test_launch_show_maximized(monkeypatch):
     result = launch()
     assert result == 0
     assert len(shown) == 1
-
-
-def test_launch_login_mode_compact(monkeypatch):
-    """launch() sem sessao (login_mode) usa show() compacto, nao maximiza."""
-    from skinvault._paths import DATA_DIR
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    class FakeApp:
-        def __init__(self, argv):
-            self.aboutToQuit = _FakeSignal()
-        def exec(self):
-            return 0
-        def setWindowIcon(self, *_a, **_kw):
-            pass
-        def setStyleSheet(self, *_a, **_kw):
-            # O app real recebe o estilo do QToolTip aqui (balao e' janela
-            # propria e so' obedece stylesheet de aplicacao).
-            pass
-        @staticmethod
-        def setAttribute(attr, val):
-            pass
-
-    monkeypatch.setattr("skinvault.gui.QApplication", FakeApp)
-    monkeypatch.setattr("skinvault.gui._setup_logging", lambda: None)
-    monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
-    _fake_guard(monkeypatch)
-    calls = {"show": 0, "max": 0}
-    class FakeWin:
-        _tray_icon = None
-        _login_mode = True
-        def hide(self):
-            pass
-        def show(self):
-            calls["show"] += 1
-        def showMaximized(self):
-            calls["max"] += 1
-        def activate(self):
-            pass
-    monkeypatch.setattr("skinvault.gui.MainWindow", lambda: FakeWin())
-    from skinvault.gui import launch
-    result = launch()
-    assert result == 0
-    assert calls["show"] == 1
-    assert calls["max"] == 0
 
 
 def test_launch_segunda_instancia_sai_sem_janela(monkeypatch):
@@ -10008,12 +8576,10 @@ def test_account_on_validate_finished_reativa_botoes(monkeypatch):
     monkeypatch.setattr(_BacktestResultDialog, "exec",
                         lambda self: QDialog.DialogCode.Accepted)
     screen = AccountScreen(PriceCache(ttl=3600))
-    screen._strip_sync_btn.setEnabled(False)
     screen._validate_btn.setEnabled(False)
     screen._validate_samples = []
     screen._validate_items_count = 2
     screen._on_validate_finished()
-    assert screen._strip_sync_btn.isEnabled()
     assert screen._validate_btn.isEnabled()
 
 
@@ -10239,7 +8805,6 @@ def test_watchlist_alert_silenciado_quando_settings_off(monkeypatch):
 
 def test_router_re_emite_notification_da_watchlist(monkeypatch):
     """ScreenRouter re-emite notification_requested vindo do WatchlistScreen."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.settings.load_settings",
                         lambda: {"tray_notifications": True})
     from skinvault.prices import PriceCache
@@ -10261,7 +8826,6 @@ def test_mainwindow_notification_chama_tray_showmessage(monkeypatch):
     from PyQt6.QtWidgets import QSystemTrayIcon
     monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                         lambda: True)
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
     from skinvault.gui import MainWindow
     win = MainWindow()
@@ -10465,7 +9029,6 @@ def test_watchlist_validating_flag_limpo_apos_finished(monkeypatch):
 
 def test_account_timer_criado(monkeypatch):
     """AccountScreen cria QTimer para schedule."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.settings.load_settings",
                         lambda: {"validate_interval_minutes": 30})
     from skinvault.prices import PriceCache
@@ -10474,21 +9037,18 @@ def test_account_timer_criado(monkeypatch):
     assert hasattr(screen, "_schedule_timer")
 
 
-def test_account_start_schedule_sem_session_pausado(monkeypatch):
-    """Schedule pausado quando nao ha sessao."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
+def test_account_start_schedule_intervalo_zero_pausado(monkeypatch):
+    """Schedule pausado quando o intervalo configurado e' zero."""
     monkeypatch.setattr("skinvault.settings.load_settings",
-                        lambda: {"validate_interval_minutes": 30})
+                        lambda: {"validate_interval_minutes": 0})
     from skinvault.prices import PriceCache
     from skinvault.ui.account_screen import AccountScreen
     screen = AccountScreen(PriceCache(ttl=3600))
-    assert screen._session is None
     assert not screen._schedule_timer.isActive()
 
 
 def test_account_validating_guard_impede_concorrencia(monkeypatch):
     """Segunda chamada a _on_validate_portfolio enquanto validating retorna cedo."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.settings.load_settings",
                         lambda: {"validate_interval_minutes": 30})
     from skinvault.prices import PriceCache
@@ -10506,7 +9066,6 @@ def test_overlay_mode_default_false(monkeypatch):
     from PyQt6.QtWidgets import QSystemTrayIcon
     monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                         lambda: False)
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
     from skinvault.gui import MainWindow
     win = MainWindow()
@@ -10526,7 +9085,6 @@ def test_overlay_mode_aplica_flags(monkeypatch):
     from PyQt6.QtWidgets import QSystemTrayIcon
     monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                         lambda: False)
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
     saved = {}
     monkeypatch.setattr("skinvault.gui.save_settings",
@@ -10549,7 +9107,6 @@ def test_overlay_mode_desativa_flags(monkeypatch):
     from PyQt6.QtWidgets import QSystemTrayIcon
     monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                         lambda: False)
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings",
                         lambda: {"overlay_mode": True})
     monkeypatch.setattr("skinvault.gui.save_settings", lambda s: None)
@@ -10569,7 +9126,6 @@ def test_overlay_mode_persiste_settings(monkeypatch):
     from PyQt6.QtWidgets import QSystemTrayIcon
     monkeypatch.setattr(QSystemTrayIcon, "isSystemTrayAvailable",
                         lambda: False)
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     monkeypatch.setattr("skinvault.gui.load_settings", lambda: {})
     written = []
     monkeypatch.setattr("skinvault.gui.save_settings",
@@ -10629,60 +9185,6 @@ def test_spin_style_no_invalid_bi():
     assert "bi:" not in qss, "The invalid 'bi:' property was removed"
 
 
-
-
-# ── perfil: o cartao nao pode contradizer a faixa ──────────────────
-#
-# Bug visto em 31/07/2026: a faixa dizia "Conectado com Steam" e o cartao
-# logo abaixo dizia "Conecte sua conta para sincronizar", com nome "—" e
-# avatar "?". Sem perfil em cache, `_reload_profile` nao mexia nos rotulos
-# e eles ficavam no estado de deslogado.
-
-
-def _conta_com_sessao(monkeypatch, cached=None, remoto=None):
-    from skinvault.prices import PriceCache
-    from skinvault.ui.account_screen import AccountScreen
-    monkeypatch.setattr("skinvault.ui.account_screen.load_cached_profile",
-                        lambda sid: cached)
-    monkeypatch.setattr("skinvault.ui.account_screen.fetch_public_profile",
-                        lambda sid: remoto)
-    monkeypatch.setattr("skinvault.ui.account_screen.load_avatar_bytes",
-                        lambda sid: None)
-    screen = AccountScreen(PriceCache(ttl=3600))
-    sess = type("S", (), {"steamid": "76561198000000042"})()
-    screen._session = sess
-    screen._reload_profile()
-    return screen
-
-
-def test_sem_cache_mostra_o_steamid_e_nao_o_convite(monkeypatch):
-    screen = _conta_com_sessao(monkeypatch)
-    assert "Conecte sua conta" not in screen._sub.text()
-    assert "76561198000000042" in screen._sub.text()
-
-
-def test_sem_cache_diz_que_esta_carregando(monkeypatch):
-    screen = _conta_com_sessao(monkeypatch)
-    assert "Carregando" in screen._name.text()
-
-
-def test_perfil_que_falhou_admite_a_falha(monkeypatch):
-    """"Carregando" pra sempre e' pior que dizer que nao veio."""
-    screen = _conta_com_sessao(monkeypatch)
-    screen._on_profile({"steamid": "7656", "name": "", "_falhou": True})
-    assert "não carregou" in screen._name.text()
-
-
-def test_perfil_bom_mostra_o_apelido(monkeypatch):
-    screen = _conta_com_sessao(monkeypatch)
-    screen._on_profile({"steamid": "7656", "name": "nokia"})
-    assert screen._name.text() == "nokia"
-
-
-def test_avatar_usa_a_inicial_no_lugar_do_interrogacao(monkeypatch):
-    screen = _conta_com_sessao(monkeypatch)
-    screen._on_profile({"steamid": "7656", "name": "nokia"})
-    assert screen._avatar.text() == "N"
 
 
 def test_avatar_sem_nome_mantem_o_interrogacao(monkeypatch):

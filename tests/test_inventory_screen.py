@@ -273,7 +273,6 @@ def test_comeca_no_empty_e_nao_em_branco(tela):
 
 def test_account_emite_progresso_pra_inventory(monkeypatch):
     """O fio que liga as duas telas existe de ponta a ponta."""
-    monkeypatch.setattr("skinvault.steam_session.load", lambda: None)
     from skinvault.prices import PriceCache
     from skinvault.ui.screen_router import ScreenRouter
     router = ScreenRouter(PriceCache(ttl=3600))
