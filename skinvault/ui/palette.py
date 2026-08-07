@@ -239,5 +239,5 @@ class CommandPalette(QDialog):
 
 def build_command_palette(commands: list[dict],
                           parent: QWidget | None = None) -> CommandPalette:
-    """Factory (espelha o padrao de build_steam_login_dialog)."""
+    """Factory simples pra instanciar o dialog."""
     return CommandPalette(commands, parent)

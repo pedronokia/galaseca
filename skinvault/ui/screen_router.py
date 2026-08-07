@@ -1,8 +1,11 @@
-"""ScreenRouter — navegacao entre telas com gate de sessao (F11).
+"""ScreenRouter — navegacao entre telas (F11).
 
-QStackedWidget com 3 telas: LoginGate, AccountScreen, HistoryScreen,
-ScannerScreen. Sem sidebar propria — MainWindow gerencia um QDockWidget
-com a Sidebar e conecta sinais aqui.
+QStackedWidget com as telas do app. Sem sidebar propria — MainWindow
+gerencia um QDockWidget com a Sidebar e conecta sinais aqui.
+
+2026-08-07: o login/sync de conta (F10, gate por sessao) foi REVERTIDO
+por decisao do usuario -- ver ROADMAP.md. O router sempre abre direto na
+Conta, sidebar sempre visivel; nao ha mais LoginGate nem estado de sessao.
 
 Emite navigated(screen) e sidebar_visibility_changed(bool).
 """
@@ -22,7 +25,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import settings as settings_mod, steam_session
+from skinvault import settings as settings_mod
 from skinvault.prices import PriceCache
 from skinvault.ui import theme as t
 from skinvault.ui.account_screen import AccountScreen
@@ -30,7 +33,6 @@ from skinvault.ui.cleanup_screen import CleanupScreen
 from skinvault.ui.inventory_screen import InventoryScreen
 from skinvault.ui.components import Breadcrumb, LineIcon, fade_in
 from skinvault.ui.history_screen import HistoryScreen
-from skinvault.ui.login_gate import LoginGate
 from skinvault.ui.market_screen import MarketScreen
 from skinvault.ui.scanner_screen import ScannerScreen
 from skinvault.ui.settings_screen import SettingsScreen
@@ -59,31 +61,30 @@ class ScreenRouter(QWidget):
     Sidebar fica em QDockWidget gerenciado pelo MainWindow.
     """
 
-    sync_requested = pyqtSignal(object)  # SteamSession
     sidebar_visibility_changed = pyqtSignal(bool)
     navigated = pyqtSignal(str)
     notification_requested = pyqtSignal(str, str, str)  # title, body, severity
-    session_changed = pyqtSignal(str, str)  # name, steamid ("","" = deslogado)
     theme_toggled = pyqtSignal()  # disparado quando usuario clica no toggle
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._cache = cache
-        self._session: steam_session.SteamSession | None = None
         self._build()
 
     @property
-    def session(self) -> steam_session.SteamSession | None:
-        return self._session
-
-    @property
     def sidebar_visible(self) -> bool:
-        return self._session is not None and self._session.is_complete()
+        # Sem login pra' gatear: a sidebar e' sempre visivel.
+        return True
 
     def start(self) -> None:
-        """Deve ser chamado apos conectar sinais externos (sidebar)."""
-        self._check_session()
+        """Deve ser chamado apos conectar sinais externos (sidebar).
+
+        Sem sessao pra' checar: abre direto na Conta.
+        """
+        self.sidebar_visibility_changed.emit(True)
+        self.navigate(SCREEN_ACCOUNT)
+        self._maybe_show_welcome()
 
     def _build(self) -> None:
         self.setObjectName("ScreenRouter")
@@ -133,12 +134,7 @@ class ScreenRouter(QWidget):
 
         self._stack = QStackedWidget(self)
 
-        self._login_gate = LoginGate(self)
-        self._login_gate.session_connected.connect(self._on_session)
-        self._stack.addWidget(self._login_gate)
-
         self._account_screen = AccountScreen(self._cache, self)
-        self._account_screen.request_sync.connect(self._request_sync)
         self._stack.addWidget(self._account_screen)
 
         # O inventario e' tela propria, mas quem avalia continua sendo a
@@ -185,19 +181,16 @@ class ScreenRouter(QWidget):
         self._stack.addWidget(self._settings_screen)
 
         root.addWidget(self._stack, 1)
-        # Footer global removido na Frente S — o indicador de sessao virou
-        # o chip no rodape da sidebar (session_changed -> Sidebar.set_session).
 
         # Faz o stack dimensionar pela tela ATUAL, nao pela maior — sem isto
-        # o minimumSizeHint do stack e o max de todas as telas (~1187x1398),
-        # impedindo a janela compacta do LoginGate.
+        # o minimumSizeHint do stack e o max de todas as telas (~1187x1398).
         self._stack.currentChanged.connect(self._sync_stack_policies)
         self._sync_stack_policies()
 
     def _sync_stack_policies(self, *_a) -> None:
         """Telas nao-ativas recebem policy Ignored (minimumSize -> 0); a
         ativa volta a Preferred. Assim a janela pode encolher ao minimo da
-        tela visivel (LoginGate cabe em ~460x530)."""
+        tela visivel."""
         cur = self._stack.currentIndex()
         for i in range(self._stack.count()):
             w = self._stack.widget(i)
@@ -208,93 +201,12 @@ class ScreenRouter(QWidget):
             pol.setVerticalPolicy(p)
             w.setSizePolicy(pol)
 
-    def _check_session(self) -> None:
-        s = steam_session.load()
-        if s is None:
-            logger.info("Nenhuma sessao salva em disco (data/steam_session.json ausente)")
-        elif not s.is_complete():
-            logger.warning("Sessao salva incompleta (falta steamid ou steamLoginSecure)")
-        else:
-            has_refresh = bool(s.cookies.get("steamRefresh_steam"))
-            logger.info("Sessao carregada (steamid=%s, tem refresh token=%s)",
-                        s.steamid, has_refresh)
-            # ensure_valid_ex renova via steamRefresh_steam se o token de
-            # acesso expirou — evita relogin manual a cada ~24h. persist
-            # salva os cookies renovados in-place.
-            status = steam_session.ensure_valid_ex(s)
-            if status == "valid":
-                logger.info("Sessao valida (ou renovada com sucesso), pulando login")
-                steam_session.persist(s)
-                self._on_session(s)
-                return
-            if status == "network_error":
-                # Rede fora no boot: impossivel saber se a sessao expirou.
-                # Apagar aqui forcaria relogin manual por causa de um blip.
-                logger.warning(
-                    "Sem resposta da Steam (rede fora?) -- mantendo "
-                    "data/steam_session.json para o proximo start"
-                )
-            elif not has_refresh:
-                logger.warning(
-                    "Sessao invalida e sem refresh token -- apagando "
-                    "data/steam_session.json, sera necessario relogin"
-                )
-                steam_session.clear()
-            else:
-                logger.warning(
-                    "Sessao invalida mas refresh token presente -- "
-                    "mantendo arquivo para nova tentativa no proximo start"
-                )
-        self._show_login()
-
-    def _show_login(self) -> None:
-        changed = self._login_gate is not self._stack.currentWidget()
-        self._stack.setCurrentWidget(self._login_gate)
-        if changed and self._stack.isVisible():
-            fade_in(self._login_gate)
-        self._set_surface(login=True)
-        self._breadcrumb.set_path("Bem-vindo")
-        self.session_changed.emit("", "")
-        self.sidebar_visibility_changed.emit(False)
-
-    def _set_surface(self, login: bool) -> None:
-        """No login, a janela INTEIRA e' um tom so' (BG_ELEVATED).
-
-        Qualquer diferenca de tom no login vira moldura escura em volta do
-        conteudo -- foi o que aconteceu quando o router ficou em BG e o
-        conteudo em BG_ELEVATED. No app o contraste e' desejado (telas e
-        cards sobre BG), no login nao ha' nada pra destacar.
-
-        O breadcrumb tambem some no login: "Bem-vindo" e' texto de
-        enchimento, nao caminho de navegacao.
-        """
-        bg = t.BG_ELEVATED if login else t.BG
-        self.setStyleSheet(f"QWidget#ScreenRouter {{ background: {bg}; }}")
-        self._breadcrumb.set_surface(bg)
-        self._breadcrumb.setVisible(not login)
-        # Perfil leva a "Minha Conta" (exige sessao) — sem login e' peso
-        # morto; some no gate, fica so o toggle de tema.
-        self._profile_btn.setVisible(not login)
-
-    def _on_session(self, session: steam_session.SteamSession) -> None:
-        self._session = session
-        self._set_surface(login=False)
-        self._account_screen.set_session(session)
-        sid = session.steamid
-        # Tenta usar o nome do perfil em cache; cai pro steamid truncado
-        from skinvault.ui.profile_fetcher import load_cached_profile
-        try:
-            prof = load_cached_profile(sid)
-        except Exception:
-            prof = None
-        name = prof.get("name") if prof else ""
-        self.session_changed.emit(name or "", sid)
-        self.sidebar_visibility_changed.emit(True)
-        self.navigate(SCREEN_ACCOUNT)
-        self._maybe_show_welcome()
-
     def _maybe_show_welcome(self) -> None:
-        """Mostra o WelcomeDialog na primeira sessao (settings.welcome_seen)."""
+        """Mostra o WelcomeDialog uma vez, no primeiro boot do app.
+
+        Antes disparava no primeiro LOGIN; sem login, dispara no primeiro
+        `start()` mesmo (settings.welcome_seen continua sendo o gate).
+        """
         from skinvault import settings as _settings
         s = _settings.load_settings()
         if s.get("welcome_seen"):
@@ -354,10 +266,6 @@ class ScreenRouter(QWidget):
             self._settings_screen.refresh()
 
         self.navigated.emit(screen)
-
-    def _request_sync(self) -> None:
-        if self._session is not None:
-            self.sync_requested.emit(self._session)
 
     def _on_costs_updated(self, _count: int) -> None:
         """Custo retroativo gravado -> reavalia a carteira (KPIs reativas)."""

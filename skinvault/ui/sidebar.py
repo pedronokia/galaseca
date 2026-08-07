@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Callable
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from skinvault.ui import theme as t
 
@@ -149,101 +149,13 @@ class Sidebar(QWidget):
     def add_widget(self, w: QWidget) -> None:
         self._lay.addWidget(w)
 
-    def add_session_chip(self) -> None:
-        self._chip = QWidget()
-        self._chip.setObjectName("SessionChip")
-        self._chip.setCursor(Qt.CursorShape.PointingHandCursor)
-        if self._rail:
-            self._chip.setFixedSize(32, 32)
-            self._chip.setStyleSheet(
-                f"QWidget#SessionChip {{ background: {t.SURFACE};"
-                f" border: 1px solid {t.BORDER}; border-radius: 16px; }}"
-                f"QWidget#SessionChip:hover {{"
-                f" border: 1px solid {t.TEXT_MUTED}; }}"
-            )
-            lay = QHBoxLayout(self._chip)
-            lay.setContentsMargins(0, 0, 0, 0)
-            lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._chip_dot = QWidget()
-            self._chip_dot.setFixedSize(8, 8)
-            self._chip_dot.setStyleSheet(
-                f"background: {t.ACCENT}; border-radius: 4px;"
-            )
-            lay.addWidget(self._chip_dot)
-            self._chip.setVisible(False)
-            self._lay.addWidget(self._chip, 0, Qt.AlignmentFlag.AlignCenter)
-        else:
-            self._chip.setStyleSheet(
-                f"QWidget#SessionChip {{ background: {t.SURFACE};"
-                f" border: 1px solid {t.BORDER}; border-radius: 8px; }}"
-                f"QWidget#SessionChip:hover {{"
-                f" border: 1px solid {t.TEXT_MUTED}; }}"
-            )
-            lay = QHBoxLayout(self._chip)
-            lay.setContentsMargins(10, 8, 10, 8)
-            lay.setSpacing(8)
-            self._chip_dot = QWidget()
-            self._chip_dot.setFixedSize(8, 8)
-            self._chip_dot.setStyleSheet(
-                f"background: {t.ACCENT}; border-radius: 4px;"
-            )
-            lay.addWidget(self._chip_dot)
-            col = QVBoxLayout()
-            col.setContentsMargins(0, 0, 0, 0)
-            col.setSpacing(0)
-            self._chip_name = QLabel("—")
-            self._chip_name.setStyleSheet(
-                f"color: {t.TEXT}; font-size: {t.FS_MUTED}; font-weight: 600;"
-                f" font-family: {t.FONT_FAMILY};"
-            )
-            self._chip_sub = QLabel("Steam")
-            self._chip_sub.setStyleSheet(t.label_caption())
-            col.addWidget(self._chip_name)
-            col.addWidget(self._chip_sub)
-            lay.addLayout(col, 1)
-            self._chip.setVisible(False)
-            self._lay.addWidget(self._chip)
-        self._chip.mousePressEvent = (
-            lambda _evt: self.item_selected.emit("account")
-        )
-
-    def set_session(self, name: str, steamid: str) -> None:
-        chip = getattr(self, "_chip", None)
-        if chip is None:
-            return
-        if not name and not steamid:
-            chip.setVisible(False)
-            return
-        if self._rail:
-            tooltip = name or steamid
-            if steamid:
-                tooltip += f" (SteamID: {steamid})"
-            chip.setToolTip(tooltip)
-            chip.setVisible(True)
-        else:
-            if name:
-                display = name
-            elif len(steamid) >= 12:
-                display = f"{steamid[:8]}…{steamid[-4:]}"
-            else:
-                display = steamid
-            self._chip_name.setText(display)
-            chip.setToolTip(f"SteamID: {steamid}" if steamid else "")
-            chip.setVisible(True)
-
     def select(self, key: str) -> None:
         btn = self._items.get(key)
         if btn is not None and not btn.isChecked():
             btn.setChecked(True)
 
     def restyle(self) -> None:
-        """Reaplica QSS dos itens e do dot de sessao (tokens de accent
-        podem ter mudado ao vivo). Chamado por gui apos trocar
-        tema/cor de destaque."""
+        """Reaplica QSS dos itens (tokens de accent podem ter mudado ao
+        vivo). Chamado por gui apos trocar tema/cor de destaque."""
         for btn in self._items.values():
             btn.restyle()
-        dot = getattr(self, "_chip_dot", None)
-        if dot is not None:
-            dot.setStyleSheet(
-                f"background: {t.ACCENT}; border-radius: 4px;"
-            )

@@ -52,7 +52,7 @@ try:
 except ImportError:
     QSystemTrayIcon = None
 
-from skinvault import backup, portfolio, prices, steam_api, steam_session, sync as steam_sync, trades
+from skinvault import backup, prices
 from skinvault._paths import DATA_DIR, ensure_data_dir
 from skinvault.settings import DEFAULTS, load_settings, save_settings
 from skinvault.single_instance import SingleInstance
@@ -264,146 +264,12 @@ class BackupDialog(QDialog):
             Toast.show_toast(self, "Falha ao deletar backup.", "error")
 
 
-# ── Steam Sync (F10) ────────────────────────────────────────────
-class _SyncBridge(QObject):
-    step_done = pyqtSignal(str, dict)
-    all_done = pyqtSignal(dict)
-    failed = pyqtSignal(str)
-
-
 class _GamedataBridge(QObject):
     events_found = pyqtSignal(list)
 
 
-class SteamSyncDialog(QDialog):
-    _STEPS = (
-        ("inventory", "Inventário CS2"),
-        ("market", "Histórico do Steam Market"),
-        ("listings", "Listagens ativas"),
-        ("trades", "Trade offers"),
-    )
-
-    def __init__(self, session: steam_session.SteamSession,
-                 parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._session = session
-        self._bridge = _SyncBridge()
-        self._bridge.step_done.connect(self._on_step)
-        self._bridge.all_done.connect(self._on_done)
-        self._bridge.failed.connect(self._on_failed)
-        self._labels: dict[str, QLabel] = {}
-        self.setWindowTitle("Sincronizando com Steam")
-        self.resize(520, 320)
-        self._build()
-        self._start()
-
-    def _build(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(24, 20, 24, 20)
-        root.setSpacing(12)
-
-        title = QLabel("Sincronizando dados da conta Steam")
-        title.setStyleSheet(f"color: {t.TEXT}; font-size: 13pt; font-weight: 600;")
-        root.addWidget(title)
-
-        warn = QLabel(
-            "Mantenha esta janela aberta. O Steam limita requisicoes; "
-            "pode levar ate 1 minuto."
-        )
-        warn.setStyleSheet(f"color: {t.TEXT_MUTED}; font-size: 9pt;")
-        warn.setWordWrap(True)
-        root.addWidget(warn)
-
-        for key, label in self._STEPS:
-            row = QHBoxLayout()
-            tag = QLabel(f"o  {label}")
-            tag.setStyleSheet(f"color: {t.TEXT}; font-size: 10pt;")
-            row.addWidget(tag, 1)
-            status = QLabel("aguardando…")
-            status.setStyleSheet(f"color: {t.TEXT_MUTED}; font-size: 9pt;")
-            row.addWidget(status)
-            self._labels[key] = tag
-            self._labels[key + "_status"] = status
-            root.addLayout(row)
-
-        self._progress = QProgressBar()
-        self._progress.setRange(0, len(self._STEPS))
-        self._progress.setValue(0)
-        self._progress.setStyleSheet(
-            f"QProgressBar {{ background: {t.BG_ELEVATED};"
-            f" border: 1px solid #3A3A44; border-radius: 6px;"
-            f" color: {t.TEXT}; text-align: center; }}"
-            f"QProgressBar::chunk {{ background: {t.ACCENT};"
-            " border-radius: 5px; }}"
-        )
-        root.addWidget(self._progress)
-
-        self._close_btn = QPushButton("Fechar")
-        self._close_btn.setEnabled(False)
-        self._close_btn.setStyleSheet(_btn_secondary())
-        self._close_btn.setToolTip(
-            "Fecha o dialogo. Habilita quando a sincronizacao termina."
-        )
-        self._close_btn.clicked.connect(self.accept)
-        root.addWidget(self._close_btn, 0, Qt.AlignmentFlag.AlignRight)
-
-    def _start(self) -> None:
-        def worker() -> None:
-            try:
-                results = steam_sync.sync_all(
-                    self._session,
-                    progress_cb=lambda step, r: self._bridge.step_done.emit(step, r),
-                )
-                self._bridge.all_done.emit(results)
-            except Exception as exc:
-                self._bridge.failed.emit(str(exc))
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _on_step(self, step: str, result: dict) -> None:
-        label = self._labels.get(step)
-        status = self._labels.get(step + "_status")
-        if label is not None:
-            label.setText("● " + label.text()[3:])
-            label.setStyleSheet(f"color: {t.ACCENT}; font-size: 10pt; font-weight: 600;")
-        if status is not None:
-            status.setText(_format_sync_result(step, result))
-        self._progress.setValue(self._progress.value() + 1)
-
-    def _on_done(self, results: dict) -> None:
-        self._close_btn.setEnabled(True)
-        self._close_btn.setText("Concluido — fechar")
-
-    def _on_failed(self, msg: str) -> None:
-        self._close_btn.setEnabled(True)
-        self._close_btn.setText("Fechar")
-        QMessageBox.warning(self, "Falha no sync",
-                            f"Erro durante a sincronização:\n{msg}")
-
-
-def _format_sync_result(step: str, result: dict) -> str:
-    if "error" in result:
-        return "erro: " + str(result["error"])[:40]
-    if step == "inventory":
-        added = result.get("added", 0)
-        total = added + result.get("skipped", 0)
-        return f"{added} novos / {total} no inventário"
-    if step == "market":
-        return f"{result.get('new', 0)} novos / {result.get('total', 0)} total"
-    if step == "listings":
-        return f"{result.get('count', 0)} ativas"
-    if step == "trades":
-        return f"{result.get('new', 0)} novos / {result.get('total', 0)} total"
-    return "ok"
-
-
 # ── MainWindow (QMainWindow) ────────────────────────────────────
 class MainWindow(QMainWindow):
-    # Tamanho compacto da janela enquanto no LoginGate (sem sessao). O app
-    # so maximiza apos conectar — login nao abre em tela cheia.
-    LOGIN_WIN_W = 480
-    LOGIN_WIN_H = 560
-
     def __init__(self) -> None:
         super().__init__()
         settings = load_settings()
@@ -417,7 +283,6 @@ class MainWindow(QMainWindow):
             set_theme(theme)
         self._current_theme = theme
         self._current_accent = accent
-        self._login_mode = False
         self.setWindowTitle("SkinVault")
         self.setWindowIcon(_app_icon())
 
@@ -450,7 +315,6 @@ class MainWindow(QMainWindow):
 
         from skinvault.ui.screen_router import ScreenRouter
         self._router = ScreenRouter(self._cache, self)
-        self._router.sync_requested.connect(self._on_sync_requested)
         self._router.notification_requested.connect(self._on_notification)
         self.setCentralWidget(self._router)
 
@@ -459,10 +323,6 @@ class MainWindow(QMainWindow):
         self._router.navigated.connect(self._on_navigated)
         self._router.theme_toggled.connect(self._on_theme_changed)
         self._router.sidebar_visibility_changed.connect(self._on_sidebar_visibility)
-        # Via metodo, nao direto no widget: `_toggle_sidebar` troca a barra
-        # inteira, e uma conexao presa a instancia antiga alimentaria um
-        # widget destruido.
-        self._router.session_changed.connect(self._on_session_changed)
         self._router.start()
 
         self._setup_shortcuts()
@@ -561,7 +421,6 @@ class MainWindow(QMainWindow):
         # largura.
         self._sidebar = None
         self._sidebar_screen = "account"
-        self._sidebar_sessao = ("", "")
         self._sidebar_rail = bool(settings.get("sidebar_collapsed", True))
         self._sidebar_dock.setWidget(self._build_sidebar(self._sidebar_rail))
         self._apply_sidebar_metrics()
@@ -609,7 +468,6 @@ class MainWindow(QMainWindow):
         ]:
             sidebar.add_action(icon, label, cb)
 
-        sidebar.add_session_chip()
         sidebar.item_selected.connect(self._router.navigate)
         self._sidebar = sidebar
         return sidebar
@@ -658,10 +516,9 @@ class MainWindow(QMainWindow):
         return max(160, min(400, valor))
 
     def _toggle_sidebar(self) -> None:
-        """Alterna rail <-> rotulos, preservando selecao e sessao."""
+        """Alterna rail <-> rotulos, preservando selecao."""
         self._sidebar_rail = not self._sidebar_rail
         anterior = self._sidebar
-        nome, steamid = self._sidebar_sessao
         nova = self._build_sidebar(self._sidebar_rail)
         self._sidebar_dock.setWidget(nova)
         if anterior is not None:
@@ -669,8 +526,6 @@ class MainWindow(QMainWindow):
             anterior.deleteLater()
         self._apply_sidebar_metrics(animate=True)
         nova.select(self._sidebar_screen)
-        if nome or steamid:
-            nova.set_session(nome, steamid)
         s = load_settings()
         s["sidebar_collapsed"] = self._sidebar_rail
         save_settings(s)
@@ -681,25 +536,6 @@ class MainWindow(QMainWindow):
 
     def _on_sidebar_visibility(self, visible: bool) -> None:
         self._sidebar_dock.setVisible(visible)
-        self._set_login_mode(not visible)
-
-    def _set_login_mode(self, login: bool) -> None:
-        """Janela compacta no login; maximizada no app.
-
-        Chamado via sidebar_visibility_changed (False = login, True = app).
-        Durante o __init__ a janela ainda nao esta visivel — aqui so
-        ajustamos o tamanho/centro; quem decide show()/showMaximized() e
-        o launch(). Em runtime (conectar/desconectar) a transicao e
-        aplicada na hora.
-        """
-        self._login_mode = login
-        if login:
-            if self.isMaximized():
-                self.showNormal()
-            self.resize(self.LOGIN_WIN_W, self.LOGIN_WIN_H)
-            self._center_on_screen()
-        elif self.isVisible():
-            self.showMaximized()
 
     def _on_navigated(self, screen: str) -> None:
         # Guardado pra sobreviver a um rebuild da barra (toggle rail).
@@ -707,11 +543,6 @@ class MainWindow(QMainWindow):
         sidebar = self._sidebar_dock.widget()
         if sidebar and hasattr(sidebar, 'select'):
             sidebar.select(screen)
-
-    def _on_session_changed(self, name: str, steamid: str) -> None:
-        self._sidebar_sessao = (name, steamid)
-        if self._sidebar is not None:
-            self._sidebar.set_session(name, steamid)
 
     # ── shortcuts ─────────────────────────────────────────────
     def _setup_shortcuts(self) -> None:
@@ -905,9 +736,6 @@ class MainWindow(QMainWindow):
 
     # ── geometry ──────────────────────────────────────────────
     def _save_geometry(self) -> None:
-        # Nao persistir o tamanho compacto do login como geometria do app.
-        if self._login_mode:
-            return
         s = load_settings()
         s["window_geometry"] = {"w": self.width(), "h": self.height()}
         s["window_position"] = {"x": self.x(), "y": self.y()}
@@ -947,10 +775,6 @@ class MainWindow(QMainWindow):
     # ── dialogs ───────────────────────────────────────────────
     def _open_backups(self) -> None:
         dlg = BackupDialog(self)
-        dlg.exec()
-
-    def _on_sync_requested(self, session) -> None:
-        dlg = SteamSyncDialog(session, self)
         dlg.exec()
 
     def _open_settings(self) -> None:
@@ -1069,8 +893,6 @@ class MainWindow(QMainWindow):
             {"label": "Consultar item no Market", "category": "Acao",
              "icon": "chart",
              "run": lambda: self._palette_nav_focus("market", "_search_inp")},
-            {"label": "Sincronizar com Steam", "category": "Acao",
-             "icon": "swap", "run": self._palette_sync},
             {"label": "Adicionar trade", "category": "Acao", "icon": "swap",
              "run": lambda: self._router.navigate("trades")},
             {"label": "Adicionar a watchlist", "category": "Acao",
@@ -1105,12 +927,6 @@ class MainWindow(QMainWindow):
             fn = getattr(stack.currentWidget(), "_on_export_csv", None)
             if callable(fn):
                 fn()
-
-    def _palette_sync(self) -> None:
-        sess = getattr(self._router, "session", None)
-        if sess is not None:
-            self._on_sync_requested(sess)
-
 
 def _setup_logging() -> None:
     """Log em arquivo (data/skinvault.log) -- sob pythonw.exe nao ha console,
@@ -1166,10 +982,6 @@ def launch() -> int:
     elif settings.get("overlay_mode", False):
         # Overlay: show() em vez de showMaximized() pra nao se sobrepor
         # totalmente ao jogo, mantendo a janela em tamanho gerenciavel.
-        win.show()
-    elif win._login_mode:
-        # Sem sessao: janela compacta (ja dimensionada/centrada no
-        # _set_login_mode); nao maximizar o login.
         win.show()
     else:
         win.showMaximized()

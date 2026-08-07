@@ -1,23 +1,25 @@
 """Tela 1 - Minha Conta + Inventario (F11).
 
-Header: avatar + nome Steam + SteamID + 4 stat cards.
+Header: 4 stat cards da carteira.
 Corpo: filtro + tabela inventario.
-Acao: botao "Sincronizar com Steam".
+
+2026-08-07: a secao de perfil/sessao Steam (avatar, nome, SteamID, botao
+"Sincronizar com Steam") foi removida junto com o login (F10 revertido --
+ver ROADMAP.md). O portfolio manual + avaliacao via preco publico nunca
+dependeram de sessao.
 
 Reusa:
   portfolio.load_portfolio / evaluate_portfolio
   prices.PriceCache
-  profile_fetcher.fetch_public_profile
 """
 from __future__ import annotations
 
 import threading
 import time
 
-from PyQt6.QtCore import QObject, Qt, QTimer, QUrl, pyqtSignal
-from PyQt6.QtGui import QBrush, QColor, QDesktopServices
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
-    QApplication,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -37,7 +39,6 @@ from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
 from skinvault import (
     history, markets, prices, reports, signals, ssr_cache, steam_api,
-    steam_session,
 )
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
@@ -46,20 +47,11 @@ from skinvault.ui.fee_calculator_dialog import FeeCalculatorDialog
 from skinvault.ui.goals_card import GoalsCard
 from skinvault.ui.inventory_grid import InventoryGrid
 from skinvault.ui.components import (
-    Avatar, Card, EmptyState, LoadingState, PageHeader, SegmentedControl,
+    Card, EmptyState, LoadingState, PageHeader, SegmentedControl,
     StatCard, Toast,
 )
 from skinvault.ui.toast import ToastManager
 from skinvault.ui.widgets import CompositionChart, ValueChart
-from skinvault.ui.profile_fetcher import (
-    fetch_public_profile,
-    load_avatar_bytes,
-    load_cached_profile,
-)
-
-
-class _AccountBridge(QObject):
-    profile_ready = pyqtSignal(dict)
 
 
 class _PortfolioValidationBridge(QObject):
@@ -71,8 +63,6 @@ class _PortfolioValidationBridge(QObject):
 class AccountScreen(QWidget):
     """Tela 1 -- Minha Conta + Inventario."""
 
-
-    request_sync = pyqtSignal()
     # (rows, positions) ja' avaliados. Quem consome e' a InventoryScreen --
     # esta tela mantem o PriceWorker porque avaliar em dois lugares
     # dobraria o custo num endpoint rate-limited.
@@ -89,9 +79,6 @@ class AccountScreen(QWidget):
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._cache = cache
-        self._session: steam_session.SteamSession | None = None
-        self._bridge = _AccountBridge()
-        self._bridge.profile_ready.connect(self._on_profile)
         self._validate_bridge = _PortfolioValidationBridge()
         self._validate_bridge.samples_ready.connect(
             self._on_validate_samples,
@@ -113,30 +100,6 @@ class AccountScreen(QWidget):
         self._build()
         self._reload_activity()
         self._start_schedule()
-
-    def set_session(self, session: steam_session.SteamSession | None) -> None:
-        self._session = session
-        self._reload_profile()
-        self._update_strip()
-        self.refresh()
-
-    def _update_strip(self) -> None:
-        s = self._session
-        if s and s.steamid:
-            name = self._name.text()
-            if name and name != "—":
-                label = f"Conectado como {name}"
-            else:
-                label = "Conectado com Steam"
-            self._strip_status.setText(label)
-            self._strip_dot.setStyleSheet(
-                f"background: {t.POSITIVE}; border-radius: 4px;"
-            )
-        else:
-            self._strip_status.setText("Não conectado")
-            self._strip_dot.setStyleSheet(
-                f"background: {t.TEXT_MUTED}; border-radius: 4px;"
-            )
 
     # ── construcao do layout ──────────────────────────────
     def _build(self) -> None:
@@ -186,105 +149,12 @@ class AccountScreen(QWidget):
         act_w.setLayout(act_lbl)
         root.addWidget(PageHeader(
             "Minha Conta",
-            "Inventário, desempenho da carteira e sincronização Steam.",
+            "Inventário e desempenho da carteira.",
             actions=[act_w],
         ))
 
-        # Session status strip
-        self._strip_card = Card(self, padding=t.CARD_PAD_MD)
-        strip_lay = QHBoxLayout()
-        strip_lay.setContentsMargins(0, 0, 0, 0)
-        strip_lay.setSpacing(10)
-
-        self._strip_dot = QLabel()
-        self._strip_dot.setFixedSize(8, 8)
-        self._strip_dot.setStyleSheet(
-            f"background: {t.TEXT_MUTED}; border-radius: 4px;"
-        )
-        strip_lay.addWidget(self._strip_dot)
-
-        self._strip_status = QLabel("Não conectado")
-        self._strip_status.setStyleSheet(t.label_section())
-        strip_lay.addWidget(self._strip_status)
-
-        strip_lay.addStretch(1)
-
-        self._strip_last_sync = QLabel("")
-        self._strip_last_sync.setStyleSheet(t.label_caption())
-        strip_lay.addWidget(self._strip_last_sync)
-
-        self._strip_sync_btn = QPushButton("Sincronizar com Steam")
-        self._strip_sync_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._strip_sync_btn.setStyleSheet(t.btn_steam())
-        self._strip_sync_btn.setToolTip(
-            "Puxa seu inventário, market history, listings ativas e trade "
-            "offers da Steam. Usa cookies salvos da sessão."
-        )
-        self._strip_sync_btn.clicked.connect(self.request_sync.emit)
-        strip_lay.addWidget(self._strip_sync_btn)
-
-        self._strip_card.layout().addLayout(strip_lay)
-        root.addWidget(self._strip_card)
-
-        # Header card (avatar + ident, sem botoes)
+        # Header card (stat cards da carteira)
         header = Card(self)
-        hlay = QHBoxLayout()
-        hlay.setSpacing(18)
-
-        self._avatar = Avatar(size=72, parent=header)
-        hlay.addWidget(self._avatar)
-
-        ident = QVBoxLayout()
-        ident.setSpacing(2)
-        self._name = QLabel("—")
-        self._name.setStyleSheet(t.label_section())
-        ident.addWidget(self._name)
-
-        sub_row = QHBoxLayout()
-        sub_row.setSpacing(8)
-
-        self._sub = QLabel("Conecte sua conta para sincronizar.")
-        self._sub.setStyleSheet(t.label_caption())
-        sub_row.addWidget(self._sub)
-
-        self._profile_link = QLabel("")
-        self._profile_link.setStyleSheet(
-            f"color: {t.STEAM_BLUE}; font-size: {t.FS_MUTED};"
-            f" font-family: {t.FONT_FAMILY}; text-decoration: underline;"
-        )
-        self._profile_link.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._profile_link.mousePressEvent = lambda _: self._open_steam_profile()
-        sub_row.addWidget(self._profile_link)
-
-        # Botao pequeno pra copiar o SteamID sem digitar/selecionar manual
-        # (util pra colar em ferramenta de terceiro ou suporte). So aparece
-        # com SteamID conhecido -- mesmo gating do link de perfil.
-        self._copy_id_btn = QPushButton("Copiar ID")
-        self._copy_id_btn.setStyleSheet(t.btn_ghost())
-        self._copy_id_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._copy_id_btn.setToolTip("Copia o SteamID pra área de transferência.")
-        self._copy_id_btn.setVisible(False)
-        self._copy_id_btn.clicked.connect(self._copy_steamid)
-        sub_row.addWidget(self._copy_id_btn)
-
-        # Atalho pra copiar o link do perfil -- mesmo gating do botão acima:
-        # só aparece com SteamID conhecido. "Copiar ID" manda o número cru
-        # (pra ferramenta/suporte); este manda a URL de navegação.
-        self._copy_link_btn = QPushButton("Copiar link")
-        self._copy_link_btn.setStyleSheet(t.btn_ghost())
-        self._copy_link_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._copy_link_btn.setToolTip(
-            "Copia o link do seu perfil Steam pra área de transferência.")
-        self._copy_link_btn.setVisible(False)
-        self._copy_link_btn.clicked.connect(self._copy_profile_link)
-        sub_row.addWidget(self._copy_link_btn)
-
-        sub_row.addStretch(1)
-        ident.addLayout(sub_row)
-        ident.addStretch(1)
-        hlay.addLayout(ident, 1)
-
-        header.layout().addLayout(hlay)
 
         # Stat cards row
         stats_row = QHBoxLayout()
@@ -506,74 +376,6 @@ class AccountScreen(QWidget):
         split.addLayout(left_col, 1)
         root.addLayout(split, 0)
 
-    # ── perfil ───────────────────────────────────────────
-    def _reload_profile(self) -> None:
-        s = self._session
-        if not s or not s.steamid:
-            self._name.setText("—")
-            self._sub.setText("Conecte sua conta para sincronizar.")
-            return
-
-        # 1. tenta cache imediato (rapido)
-        cached = load_cached_profile(s.steamid)
-        if cached:
-            self._on_profile(cached)
-        else:
-            # Sem cache, o cartao ficava com nome "—" e "Conecte sua conta
-            # para sincronizar" enquanto a faixa acima dizia "Conectado com
-            # Steam" -- as duas coisas na mesma tela, uma delas falsa. O
-            # SteamID ja' e' conhecido aqui; so' o apelido e o avatar e' que
-            # dependem da rede.
-            self._sub.setText(f"SteamID: {s.steamid}")
-            self._name.setText("Carregando perfil…")
-            self._profile_link.setText("Ver perfil na Steam ›")
-            self._profile_link.setVisible(True)
-            self._copy_id_btn.setVisible(True)
-            self._copy_link_btn.setVisible(True)
-
-        # 2. atualiza em background
-        steamid = s.steamid
-
-        def worker() -> None:
-            # try/except: fetch_public_profile ja' trata falha de rede
-            # devolvendo None, mas uma excecao inesperada (XML malformado,
-            # etc.) matava a thread sem emitir profile_ready -- o nome
-            # ficava preso em "Carregando perfil…" pra sempre.
-            try:
-                data = fetch_public_profile(steamid)
-            except Exception:
-                data = None
-            if data:
-                self._bridge.profile_ready.emit(data)
-            else:
-                # Falhou (rate limit, perfil privado, sem rede). "Carregando"
-                # pra sempre e' pior que dizer que nao veio -- e o SteamID
-                # continua valendo.
-                self._bridge.profile_ready.emit(
-                    {"steamid": steamid, "name": "", "_falhou": True})
-
-        threading.Thread(target=worker, daemon=True).start()
-
-    def _open_steam_profile(self) -> None:
-        if self._session and self._session.steamid:
-            url = f"https://steamcommunity.com/profiles/{self._session.steamid}"
-            QDesktopServices.openUrl(QUrl(url))
-
-    def _copy_steamid(self) -> None:
-        if not self._session or not self._session.steamid:
-            return
-        QApplication.clipboard().setText(self._session.steamid)
-        Toast.show_toast(self, "Copiado para a área de transferência!",
-                         "success")
-
-    def _copy_profile_link(self) -> None:
-        if not self._session or not self._session.steamid:
-            return
-        QApplication.clipboard().setText(
-            f"https://steamcommunity.com/profiles/{self._session.steamid}")
-        ToastManager.instance().show_success(
-            self, "Copiado para a área de transferência!")
-
     def _on_open_calculator(self) -> None:
         dlg = FeeCalculatorDialog(parent=self)
         dlg.exec()
@@ -601,35 +403,6 @@ class AccountScreen(QWidget):
             self._status.setText(f"Exportado: {path}")
             ToastManager.instance().show_success(
                 self, "Relatório exportado com sucesso!")
-
-    def _on_profile(self, data: dict) -> None:
-        steamid = data.get("steamid", "")
-        nome = data.get("name") or ""
-        if not nome and data.get("_falhou") and steamid:
-            # Sem apelido, mas conectado: o SteamID identifica a conta e o
-            # rotulo diz por que o nome nao veio.
-            self._name.setText("Perfil não carregou")
-        else:
-            self._name.setText(nome or "—")
-        self._avatar.set_initials(nome)
-        self._update_strip()
-        self._sub.setText(f"SteamID: {steamid}")
-        if steamid:
-            self._profile_link.setText("Ver perfil na Steam ›")
-            self._profile_link.setVisible(True)
-            self._copy_id_btn.setVisible(True)
-            self._copy_link_btn.setVisible(True)
-        else:
-            self._profile_link.setVisible(False)
-            self._copy_id_btn.setVisible(False)
-            self._copy_link_btn.setVisible(False)
-        path = data.get("avatar_path")
-        if path:
-            self._avatar.set_image(path)
-        else:
-            avbytes = load_avatar_bytes(steamid)
-            if avbytes:
-                self._avatar.set_image(avbytes)
 
     # ── avaliacao de inventario ──────────────────────────
     def refresh(self) -> None:
@@ -727,7 +500,6 @@ class AccountScreen(QWidget):
         self._validate_items_count = len(names)
         self._validate_btn.setEnabled(False)
         self._refresh_btn.setEnabled(False)
-        self._strip_sync_btn.setEnabled(False)
         self._loading.set_label(f"Validando {len(names)} itens...")
         self._loading.setVisible(True)
         bridge = self._validate_bridge
@@ -798,7 +570,6 @@ class AccountScreen(QWidget):
         self._loading.setVisible(False)
         self._validate_btn.setEnabled(True)
         self._refresh_btn.setEnabled(True)
-        self._strip_sync_btn.setEnabled(True)
         n = len(self._validate_samples)
         items_n = self._validate_items_count
         self._status.setText(
@@ -827,7 +598,7 @@ class AccountScreen(QWidget):
     def _start_schedule(self) -> None:
         from skinvault.settings import load_settings as _ls
         interval = _ls().get("validate_interval_minutes", 30)
-        if interval <= 0 or not self._session:
+        if interval <= 0:
             self._schedule_timer.stop()
             return
         self._schedule_timer.setInterval(interval * 60_000)
@@ -1113,5 +884,4 @@ class AccountScreen(QWidget):
             self._status.setText(
                 f"{len(rows)} item(ns) • atualizado {now}"
             )
-        self._strip_last_sync.setText(f"Última sync: {now}")
 
