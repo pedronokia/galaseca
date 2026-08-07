@@ -194,8 +194,14 @@ class MarketScreen(QWidget):
             "Análise multi-fator: posição vs mediana, spread, profundidade do "
             "book e tendência recente."
         )
+        self._stat_sd = StatCard("Oferta/Demanda", "—", icon="chart")
+        self._stat_sd_tooltip = (
+            "Relação oferta/demanda: volume de vendas vs. itens listados. "
+            "Abaixo de 1 = oferta acima da demanda."
+        )
+        self._stat_sd.setToolTip(self._stat_sd_tooltip)
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
-                   self._stat_verdict):
+                   self._stat_verdict, self._stat_sd):
             sc.setMaximumWidth(280)
             sc.setMaximumHeight(110)
             stats_row.addWidget(sc)
@@ -543,8 +549,9 @@ class MarketScreen(QWidget):
         self._empty.setVisible(False)
         self._content.setVisible(True)
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
-                   self._stat_verdict):
+                   self._stat_verdict, self._stat_sd):
             sc.set_value("—", accent=t.TEXT)
+        self._stat_sd.setToolTip(self._stat_sd_tooltip)
         self._reset_median_card()
         self._price_chart.set_loading(False)
         self._price_chart.set_data([])
@@ -598,6 +605,8 @@ class MarketScreen(QWidget):
         # travessoes e um "dados insuficientes" que sugere culpa do usuario.
         throttled = bool(page) and not overview
         self._reset_median_card()
+        volume = None
+        supply = None
         if overview:
             lowest = overview.get("lowest")
             median = overview.get("median")
@@ -682,6 +691,20 @@ class MarketScreen(QWidget):
                 self._depth_meta.setText(
                     f"{buys} compras • {sells} vendas"
                 )
+
+        # Oferta/Demanda: precisa de volume (overview) e supply (order
+        # book), calculados em blocos separados acima -- so' da' pra
+        # montar depois dos dois.
+        sd = signals.supply_demand_ratio(volume, supply)
+        if sd.get("ratio"):
+            self._stat_sd.set_value(sd["label"])
+            tip = self._stat_sd_tooltip
+            if supply:
+                depth = signals.liquidity_depth(
+                    supply, signals.load_item_volume(name))
+                if depth:
+                    tip = f"{tip}\n\n{depth['label']}"
+            self._stat_sd.setToolTip(tip)
 
         # Detail
         from skinvault.localization import localize_name as _ln

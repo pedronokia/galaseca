@@ -3463,6 +3463,35 @@ class TestMarketScreen:
         screen._on_data(data)
         assert "anômalo" in screen._stat_volume._value.text()
 
+    def test_on_data_supply_demand(self, monkeypatch):
+        from skinvault.prices import PriceCache
+        from skinvault.ui.market_screen import MarketScreen
+        monkeypatch.setattr(
+            "skinvault.steam_api.fair_value_verdict",
+            lambda *a, **kw: {"verdict": "fair", "label": "Justo",
+                              "diff_pct": 0.0})
+        monkeypatch.setattr("skinvault.cases.case_status", lambda n: {})
+        monkeypatch.setattr("skinvault.signals.record_item_volume",
+                            lambda n, v: None)
+        monkeypatch.setattr("skinvault.signals.record_item_supply",
+                            lambda n, v: None)
+        monkeypatch.setattr("skinvault.signals.load_item_volume",
+                            lambda n: [{"value": 100.0}] * 7)
+        monkeypatch.setattr("skinvault.signals.volume_anomaly",
+                            lambda h: {"is_anomaly": False})
+        screen = MarketScreen(PriceCache(ttl=3600))
+        data = {
+            "name": "AWP",
+            "overview": {"lowest": 200, "median": 220, "volume": 200},
+            "page": {
+                "price_history": [],
+                "order_book": {"buy_count": 20, "sell_count": 100},
+            },
+        }
+        screen._on_data(data)
+        assert screen._stat_sd._value.text() == "2.00"
+        assert "listagens" in screen._stat_sd.toolTip()
+
     def test_on_data_case_badge(self, monkeypatch):
         from skinvault.prices import PriceCache
         from skinvault.ui.market_screen import MarketScreen
