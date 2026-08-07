@@ -130,6 +130,16 @@ def price_level_band(price: "float | None") -> "tuple[int, str] | None":
     return None
 
 
+def price_band_labels() -> list[str]:
+    """Rotulos das faixas de preco absoluto, em ordem crescente.
+
+    Publica pra a UI montar um filtro por faixa usando as MESMAS bandas
+    que ja' entram no score (price_level_band), em vez de inventar cortes
+    novos e desalinhados do que o score considera.
+    """
+    return [rotulo for _, _, rotulo in _PRICE_LEVEL_BANDS]
+
+
 _MIN_VOLUME_LIQUID = 50
 
 
@@ -210,6 +220,102 @@ def supply_demand_ratio(volume: int | None, supply: int | None) -> dict:
     ratio = volume / supply
     label = f"{ratio:.2f}" if ratio < 10 else f"{ratio:.1f}"
     return {"ratio": round(ratio, 4), "label": label}
+
+
+def market_breadth(trends: list[str]) -> dict:
+    """Retrato agregado de quantos itens escaneados sobem/caem/estao estaveis.
+
+    trends: lista de trend_verdict por item ('rising'/'falling'/'stable';
+    entradas vazias ou desconhecidas sao ignoradas).
+
+    Sinal factual sobre o LOTE escaneado, nao sobre o mercado todo -- so'
+    descreve a composicao do que ja' foi olhado, sem prever direcao futura.
+
+    Retorna {total, up, down, flat, pct_up, pct_down, pct_flat, tone,
+    label} ou {} se nao houver trend valido.
+    tone: 'up' se pct_up supera pct_down por >=10pp, 'down' no inverso,
+    'mixed' senao.
+    """
+    valid = [t for t in trends if t in ("rising", "falling", "stable")]
+    if not valid:
+        return {}
+    total = len(valid)
+    up = valid.count("rising")
+    down = valid.count("falling")
+    flat = total - up - down
+    pct_up = up / total * 100
+    pct_down = down / total * 100
+    pct_flat = flat / total * 100
+    if pct_up - pct_down >= 10:
+        tone = "up"
+        tone_label = "mercado em alta"
+    elif pct_down - pct_up >= 10:
+        tone = "down"
+        tone_label = "mercado em queda"
+    else:
+        tone = "mixed"
+        tone_label = "mercado misto"
+    return {
+        "total": total,
+        "up": up,
+        "down": down,
+        "flat": flat,
+        "pct_up": round(pct_up, 1),
+        "pct_down": round(pct_down, 1),
+        "pct_flat": round(pct_flat, 1),
+        "tone": tone,
+        "label": f"{tone_label} — {pct_up:.0f}% subindo, {pct_down:.0f}%"
+                 f" caindo, {pct_flat:.0f}% estável (n={total})",
+    }
+
+
+def liquidity_depth(supply: int | None, volume_history: list[dict],
+                    window: int = 7) -> dict:
+    """Profundidade de liquidez: dias de listagens pela frente no ritmo atual.
+
+    depth_days = supply / media do volume 24h nos ultimos `window` snapshots.
+    Cada snapshot de volume_history JA e' um volume 24h da Steam (nao um
+    incremento por poll), entao a media aproxima o volume diario mesmo com
+    scans irregulares.
+
+    Sinal factual -- descreve quanto tempo o estoque atual levaria pra
+    esvaziar no ritmo de negociacao recente, nao preve quando isso vai
+    acontecer.
+
+    Retorna {days, avg_volume, supply, band, label} ou {} se supply ou
+    historico de volume insuficientes.
+    band: muito_liquido (<1d), liquido (<7d), moderado (<30d), fino (<90d),
+    iliquido (>=90d).
+    """
+    if supply is None or supply <= 0 or not volume_history:
+        return {}
+    values = [e["value"] for e in volume_history[-window:]
+              if isinstance(e, dict) and e.get("value")]
+    if not values:
+        return {}
+    avg_volume = sum(values) / len(values)
+    if avg_volume <= 0:
+        return {}
+    days = supply / avg_volume
+    if days < 1:
+        band = "muito_liquido"
+    elif days < 7:
+        band = "liquido"
+    elif days < 30:
+        band = "moderado"
+    elif days < 90:
+        band = "fino"
+    else:
+        band = "iliquido"
+    days_str = f"{days:.1f}" if days < 10 else f"{days:.0f}"
+    return {
+        "days": round(days, 1),
+        "avg_volume": round(avg_volume, 1),
+        "supply": supply,
+        "band": band,
+        "label": f"~{days_str}d de listagens no ritmo atual "
+                 f"({avg_volume:.0f}/dia)",
+    }
 
 
 def volume_anomaly(history: list[dict], factor: float = 2.0) -> dict:

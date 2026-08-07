@@ -283,7 +283,16 @@ class ScannerScreen(QWidget):
             "Média aritmética dos scores da categoria. Compare com o"
             " melhor score para ver se a oportunidade é geral ou pontual."
         )
-        for sc in (self._stat_count, self._stat_best, self._stat_avg):
+        self._stat_breadth = StatCard("Mercado", "—", icon="chart")
+        self._stat_breadth.setMaximumWidth(300)
+        self._stat_breadth_tooltip = (
+            "Retrato do LOTE escaneado: % de itens subindo/caindo/estáveis"
+            " no histórico recente (7 pontos). Não é o mercado todo, só"
+            " o que essa categoria trouxe — e não prevê direção futura."
+        )
+        self._stat_breadth.setToolTip(self._stat_breadth_tooltip)
+        for sc in (self._stat_count, self._stat_best, self._stat_avg,
+                   self._stat_breadth):
             stats_row.addWidget(sc)
         stats_row.addStretch(1)
         root.addLayout(stats_row)
@@ -325,6 +334,36 @@ class ScannerScreen(QWidget):
             "Itens com order book de wear alternativo (proxy)."
         )
         filt_row.addWidget(_lbl2)
+
+        self._price_filter_cb = QComboBox()
+        self._price_filter_cb.setStyleSheet(
+            f"QComboBox {{ background: {t.SURFACE}; border: 1px solid {t.BORDER};"
+            f" border-radius: 8px; padding: 8px 12px; color: {t.TEXT};"
+            f" font-size: {t.FS_INPUT}; min-width: 160px; }}"
+            f"QComboBox:focus {{ border: 1px solid {t.ACCENT}; }}"
+            f"QComboBox:drop-down {{ border: none; }}"
+            f"QComboBox:down-arrow {{ color: {t.TEXT_MUTED}; }}"
+            f"QComboBox QAbstractItemView"
+            f" {{ background: {t.BG_ELEVATED}; border: 1px solid {t.BORDER};"
+            f" selection-background-color: {t.SURFACE_HOV}; color: {t.TEXT}; }}"
+            f"QComboBox QAbstractItemView::item"
+            f" {{ padding: 6px 12px; }}"
+        )
+        self._price_filter_cb.addItem("Todos os preços")
+        for _rotulo in signals.price_band_labels():
+            self._price_filter_cb.addItem(_rotulo)
+        _saved_price_filter = _s.get("scanner_price_filter", "Todos os preços")
+        _idx = self._price_filter_cb.findText(_saved_price_filter)
+        if _idx >= 0:
+            self._price_filter_cb.setCurrentIndex(_idx)
+        self._price_filter_cb.setToolTip(
+            "Filtra pela mesma faixa de preço absoluto que já entra no"
+            " score (fator price_level). Não afeta o que foi escaneado,"
+            " só esconde linhas."
+        )
+        self._price_filter_cb.currentTextChanged.connect(
+            self._on_price_filter_change)
+        filt_row.addWidget(self._price_filter_cb)
 
         self._search_inp = QLineEdit()
         self._search_inp.setPlaceholderText("Buscar por nome do item...")
@@ -413,7 +452,9 @@ class ScannerScreen(QWidget):
                 "Direção da tendência de preço no histórico recente."),
             self.COL_SD: (
                 "Relação oferta/demanda: volume de vendas vs. itens "
-                "listados. Abaixo de 1 = oferta acima da demanda."),
+                "listados. Abaixo de 1 = oferta acima da demanda. "
+                "Passe o mouse na célula pra ver dias de listagens pela "
+                "frente no ritmo atual (precisa de histórico de volume)."),
             self.COL_RISCO: (
                 "Risco de pump-and-dump / falling knife, de sinais "
                 "factuais (ATH + rally + volume). NÃO penaliza o score — "
@@ -702,6 +743,8 @@ class ScannerScreen(QWidget):
             "volume": volume,
             "supply": supply,
             "sd_label": signals.supply_demand_ratio(volume, supply).get("label", ""),
+            "liquidity_depth": signals.liquidity_depth(
+                supply, signals.load_item_volume(name)),
             "score_tooltip": signals.format_breakdown(breakdown),
             "case_label": cs.get("label", ""),
             "pump_risk": pr,
@@ -807,6 +850,13 @@ class ScannerScreen(QWidget):
                     "Alto = 2+ flags combinadas (ATH + rally + volume)."
                 )
                 self._table.item(i, self.COL_RISCO).setToolTip(risco_tip)
+            # Tooltip de profundidade de liquidez (dias de listagens no
+            # ritmo atual de negociacao)
+            depth = r.get("liquidity_depth")
+            if depth:
+                cell_sd = self._table.item(i, self.COL_SD)
+                if cell_sd is not None:
+                    cell_sd.setToolTip(depth["label"])
             # Tooltip da confidence
             if dq:
                 conf_tip = (
@@ -864,6 +914,17 @@ class ScannerScreen(QWidget):
             self._stat_best.set_value(str(max(scores)),
                                       accent=t.POSITIVE)
             self._stat_avg.set_value(str(round(sum(scores)/len(scores))))
+            breadth = signals.market_breadth(
+                [r.get("trend", "") for r in self._scan_results])
+            if breadth:
+                breadth_accent = {
+                    "up": t.POSITIVE, "down": t.DANGER,
+                }.get(breadth["tone"], t.TEXT_MUTED)
+                self._stat_breadth.set_value(
+                    f"{breadth['pct_up']:.0f}% ↑ / {breadth['pct_down']:.0f}% ↓",
+                    accent=breadth_accent)
+                self._stat_breadth.setToolTip(
+                    f"{self._stat_breadth_tooltip}\n\n{breadth['label']}")
         n = len(self._scan_results)
         self._set_base_status(n, hidden)
         # Busca ativa durante o repopulate: devolve a mensagem de busca.
@@ -886,6 +947,8 @@ class ScannerScreen(QWidget):
                 if hasattr(self, "_hide_low_conf_cb") else False)
         approx = (self._hide_approx_cb.isChecked()
                   if hasattr(self, "_hide_approx_cb") else False)
+        faixa_alvo = (self._price_filter_cb.currentText()
+                      if hasattr(self, "_price_filter_cb") else "Todos os preços")
         for row in range(self._table.rowCount()):
             cell = self._table.item(row, self.COL_NAME)
             nome = cell.text().lower() if cell else ""
@@ -898,7 +961,12 @@ class ScannerScreen(QWidget):
             dq = (r or {}).get("data_quality") or {}
             low = conf and dq.get("level", "none") in ("low", "very_low")
             aprox = approx and bool((r or {}).get("order_book_approx"))
-            self._table.setRowHidden(row, busca or low or aprox)
+            fora_da_faixa = False
+            if faixa_alvo != "Todos os preços":
+                banda = signals.price_level_band((r or {}).get("price"))
+                fora_da_faixa = banda is None or banda[1] != faixa_alvo
+            self._table.setRowHidden(
+                row, busca or low or aprox or fora_da_faixa)
 
     def _apply_search_filter(self, _text: str) -> None:
         self._refresh_visibility()
@@ -987,6 +1055,16 @@ class ScannerScreen(QWidget):
         _ss(s)
         if self._scan_results:
             self._populate()
+
+    def _on_price_filter_change(self, _text: str) -> None:
+        from skinvault.settings import (
+            load_settings as _ls, save_settings as _ss,
+        )
+        s = _ls()
+        s["scanner_price_filter"] = self._price_filter_cb.currentText()
+        _ss(s)
+        self._refresh_visibility()
+        self._atualizar_status_busca()
 
     def _on_progress(self, msg: str) -> None:
         if msg in ("FIM", "CANCELADO"):

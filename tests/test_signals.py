@@ -179,6 +179,37 @@ def test_supply_demand_none():
     assert signals.supply_demand_ratio(100, 0)["ratio"] == 0
 
 
+def test_liquidity_depth_basico():
+    hist = [{"value": 100}] * 7
+    r = signals.liquidity_depth(700, hist)
+    assert r["days"] == 7.0
+    assert r["avg_volume"] == 100.0
+    assert r["band"] == "moderado"
+    assert "7d" in r["label"] or "7.0d" in r["label"]
+
+
+def test_liquidity_depth_bandas():
+    hist = [{"value": 1000}]
+    assert signals.liquidity_depth(500, hist)["band"] == "muito_liquido"
+    hist2 = [{"value": 100}]
+    assert signals.liquidity_depth(300, hist2)["band"] == "liquido"
+    hist3 = [{"value": 10}]
+    assert signals.liquidity_depth(2000, hist3)["band"] == "iliquido"
+
+
+def test_liquidity_depth_usa_janela_recente():
+    hist = [{"value": 10}] * 30 + [{"value": 1000}] * 7
+    r = signals.liquidity_depth(700, hist, window=7)
+    assert r["avg_volume"] == 1000.0
+
+
+def test_liquidity_depth_dados_insuficientes():
+    assert signals.liquidity_depth(None, [{"value": 100}]) == {}
+    assert signals.liquidity_depth(0, [{"value": 100}]) == {}
+    assert signals.liquidity_depth(100, []) == {}
+    assert signals.liquidity_depth(100, [{"value": 0}]) == {}
+
+
 def test_volume_anomaly_high():
     h = [{"value": 100}] * 5 + [{"value": 400}]
     a = signals.volume_anomaly(h, factor=2.0)
@@ -1123,6 +1154,40 @@ def test_price_level_band_e_publica():
     assert signals.price_level_band(800.0)[0] == -4
     assert signals.price_level_band(None) is None
     assert signals.price_level_band(0) is None
+
+
+def test_price_band_labels_bate_com_price_level_band():
+    labels = signals.price_band_labels()
+    assert len(labels) == 4
+    assert signals.price_level_band(2.0)[1] in labels
+    assert signals.price_level_band(800.0)[1] in labels
+
+
+def test_market_breadth_alta():
+    r = signals.market_breadth(["rising"] * 8 + ["falling"] * 2)
+    assert r["tone"] == "up"
+    assert r["pct_up"] == 80.0
+    assert r["total"] == 10
+
+
+def test_market_breadth_queda():
+    r = signals.market_breadth(["falling"] * 7 + ["rising"] * 3)
+    assert r["tone"] == "down"
+
+
+def test_market_breadth_misto():
+    r = signals.market_breadth(["rising"] * 5 + ["falling"] * 5)
+    assert r["tone"] == "mixed"
+
+
+def test_market_breadth_ignora_entradas_invalidas():
+    r = signals.market_breadth(["rising", "", None, "falling", "stable"])
+    assert r["total"] == 3
+
+
+def test_market_breadth_vazio():
+    assert signals.market_breadth([]) == {}
+    assert signals.market_breadth(["", None]) == {}
 
 
 def test_price_level_usa_o_ultimo_ponto_do_prefixo():
