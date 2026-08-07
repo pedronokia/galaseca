@@ -1,7 +1,7 @@
 # SkinVault Roadmap
 
 ## Filosofia
-- **Login opt-in** — F1-F9 funcionam sem login (dados públicos); F10 adiciona sync da conta Steam via cookies de sessão (opt-in, sob risco do usuário)
+- **Sem login, sempre** — só dado público da Steam. F10 (login opt-in) foi implementada e depois **revertida** em 2026-08-07 (ver nota na própria fase)
 - **Dados factuais** — descrevemos, não prevemos
 - **Valor real** — após taxa Steam (15%)
 - **Steam-only** por enquanto — multi-market (Buff/CSFloat/Skinport) é decisão futura
@@ -116,23 +116,47 @@ Fatores e pesos atuais:
 
 ---
 
-## FASE 10 — Steam Account Sync ✅
-**Filosofia revisada:** login passa de "zero" para "opt-in". F1-F9 continuam funcionando sem login; F10 adiciona sync de dados privados sob consentimento.
+## FASE 10 — Steam Account Sync ✅ (implementada e depois **revertida**)
 
-- [x] `skinvault/steam_session.py` — `SteamSession` (cookies + steamid), persist/load, validate via /my/ redirect
-- [x] `skinvault/steam_login_dialog.py` — Chrome DevTools Protocol via WebSocket. Lança `chrome.exe` com `--remote-debugging-port`, faz polling em `/json` até detectar `/profiles/` ou `/id/` na URL, conecta WS e extrai cookies (HTTP-only inclusive) via `Network.getAllCookies`. Sem QtWebEngine (removido por crash do Qt6Core 6.10.2); fallback manual (colar cookies JSON) permanece.
-- [x] `skinvault/steam_api.py` — funções autenticadas `fetch_market_history`, `fetch_my_listings`, `fetch_trade_history_html` + parsers HTML (regex, sem bs4)
-- [x] `skinvault/sync.py` — orquestrador `sync_all`: inventario → portfolio; market history → `steam_market_events.json`; listings → `active_listings.json`; trade offers → `trade_history.json`
-- [x] Dedupe via `listing_id`/`tradeofferid` ou composite hash; idempotente em runs sucessivos
-- [x] `portfolio.py` + `trades.py` — campo `source` (manual | steam_sync | steam). Sync nunca sobrescreve manual.
-- [x] `backup.py` — cobre os 4 novos JSONs (incluindo `steam_session.json` com aviso de credenciais)
-- [x] `gui.py` — botão "Conectar Steam" no canto superior, `SteamSyncDialog` com 4 steps em thread, menu de status/desconectar
-- [x] `requirements.txt` — `httpx>=0.28`, `websocket-client>=1.6` (sem PyQt6-WebEngine)
-- [x] Testes: `test_steam_session.py`, `test_steam_api_auth.py`, `test_sync.py`
+**2026-08-07 — revertida.** Login opt-in via extração de cookies de sessão
+(fluxo QR + fallback via Chrome DevTools Protocol) foi implementado e usado
+por alguns dias. Ao pesquisar a política real da Valve, o Steam Subscriber
+Agreement (seção 4.C/4.D) proíbe de forma ampla "scripts, bots, macros ou
+sistemas não-controlados-por-humano" interagindo com serviços da Steam, com
+terminação de conta possível sem aviso prévio — uma categoria de risco
+diferente do scan público anônimo (que é prática tolerada e comum). O
+usuário decidiu remover a capacidade de login por completo, voltando ao
+princípio original do projeto: só dado público, nunca cookie de sessão.
 
-**Riscos conhecidos** (documentados na UI):
-- Cookies em texto plano em `data/steam_session.json` — coberto por `.gitignore` da pasta data/
-- Steam pode mudar fluxo de login → re-login manual resolve
+Removido: `skinvault/steam_session.py`, `skinvault/steam_login_dialog.py`,
+`skinvault/steam_qr_auth.py`, `skinvault/ui/login_gate.py`,
+`skinvault/ui/qr_login_dialog.py`, os endpoints autenticados de
+`steam_api.py` (`fetch_market_history`, `fetch_my_listings`,
+`fetch_trade_history_html`, `fetch_inventory_authed`), `SteamSyncDialog`
+em `gui.py`, a seção de perfil Steam em `account_screen.py`, e
+`data/steam_session.json` (sessão viva).
+
+**Mantido por decisão do usuário:** os dados já sincronizados —
+`steam_market_events.json`, `active_listings.json`, `trade_history.json` —
+continuam em disco e cobertos por backup; `sync.py` virou só leitor desses
+3 arquivos (`load_market_events`/`load_active_listings`/
+`load_trade_offers`), usado por `trade_matcher.py` e `inventory_screen.py`.
+Registros antigos com `source="steam_sync"` em `portfolio.json`/
+`trades.json` ficam como estão, só nunca mais são escritos.
+
+O que existia antes de reverter, pra registro histórico:
+- `SteamSession` (cookies + steamid) com validação via redirect de `/my/`
+- Login via Chrome DevTools Protocol (WebSocket): lançava `chrome.exe` com
+  `--remote-debugging-port`, fazia polling em `/json` até detectar
+  `/profiles/` ou `/id/` na URL, conectava via WS e extraía cookies
+  (HTTP-only inclusive) via `Network.getAllCookies`
+- `sync_all`: inventário → portfolio; market history → eventos; listings
+  ativos; trade offers — com dedupe via `listing_id`/`tradeofferid`/hash
+- Achado que simplificou a remoção: as telas (Scanner, Market, Watchlist,
+  Inventário, portfólio manual) já funcionavam inteiramente sem sessão —
+  o bloqueio de login era só cosmético (escondia a sidebar), então reverter
+  não exigiu reconstruir um "modo sem login", só parar de esconder o modo
+  que já existia.
 
 ---
 
@@ -159,8 +183,8 @@ Sidebar hierárquica (7 telas) substituindo QTabWidget, LoginGate opcional, Scre
 ## Ordem de Implementação
 
 ```
-✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 → ✅ F11 → ✅ F12
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 (revertida) → ✅ F11 → ✅ F12
 ```
 
-F10 introduz 3 novos módulos (`steam_session`, `steam_login_dialog`, `sync`)
-e ~60 testes adicionais. F1-F9 seguem intactas e funcionam sem login.
+F10 foi revertida em 2026-08-07 (ver nota na própria fase). F1-F9, F11 e F12
+seguem intactas e o app inteiro funciona sem login, como desde o início.

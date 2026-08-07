@@ -17,8 +17,13 @@ antes de mexer.
   de escopo até reavaliação pós-uso real.
 - **Dados factuais, nunca previsão.** Os sinais descrevem o passado;
   o usuário decide.
-- **Login opt-in.** F1–F9 funcionam sem login (dados públicos); F10
-  adiciona sync da conta Steam via cookies.
+- **Sem login, sempre.** Só dado público da Steam — nunca senha, cookie
+  de sessão ou API key privada. Um login opt-in (F10) chegou a ser
+  implementado e foi **revertido** em 2026-08-07: o Steam Subscriber
+  Agreement proíbe de forma ampla automação de conta logada, com risco
+  de terminação sem aviso (ver ROADMAP.md, seção FASE 10, para o
+  histórico). `sync.py` sobrevive só como leitor dos dados já
+  sincronizados antes da reversão.
 - **Tudo em `gui.py`** a menos que seja lógica pura. Lógica de
   análise vai em `signals.py`, `cases.py`, `alerts.py`, `ranking.py`.
 - **Preferir QPainter custom widgets** a bibliotecas de charting
@@ -32,9 +37,7 @@ antes de mexer.
 ```
 skinvault/
 ├── steam_api.py    # priceoverview + SSR page data (público)
-├── steam_session.py
-├── steam_login_dialog.py
-├── sync.py         # orquestrador F10
+├── sync.py         # leitores do historico de sync F10 (revertida)
 ├── signals.py      # tendência, anomaly, multi_trend, enhanced_score
 ├── cases.py        # ~50 cases + ~100 skins mapeadas, 58 sticker capsules, 30 autograph capsules
 ├── alerts.py       # engine de regras (price_below, drop_pct, etc.)
@@ -54,7 +57,6 @@ skinvault/
     ├── components.py # Sidebar, Breadcrumb, Footer, Card, StatCard, SegmentedControl, Avatar
     ├── widgets.py  # MiniSparkline, DepthChart, MonthBarChart, ValueChart
     ├── screen_router.py
-    ├── login_gate.py
     ├── account_screen.py
     ├── history_screen.py
     ├── scanner_screen.py
@@ -561,9 +563,9 @@ tempo de chamada). `tests/conftest.py` zera a constante via fixture
 - `volume_history.json`, `supply_history.json`
 - `watchlist.json`, `trades.json`, `steamids.json`, `settings.json`
 - `alerts_log.json`, `rankings.json`
-- `steam_session.json` (cookies — não commitar; coberto por
-  `.gitignore`)
 - `steam_market_events.json`, `active_listings.json`, `trade_history.json`
+  (histórico da sync F10, revertida — mantidos por decisão do usuário,
+  só lidos hoje via `sync.py`, nunca mais escritos)
 
 Backup cobre todos. `backup._DATA_FILES` é a lista canônica.
 
