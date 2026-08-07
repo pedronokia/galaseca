@@ -349,7 +349,7 @@ class TestSyncMarketHistoryMultiPage:
 
         result = sync.sync_market_history(_session(), path=events_path, max_pages=3)
         assert result["new"] == 5
-        assert slept[-1] == 1.5  # throttle foi chamado
+        assert slept[-1] == steam_api.RATE_LIMIT_DELAY_S  # throttle foi chamado
 
 
 def test_sync_market_history_empty_parsed_stops(monkeypatch, tmp_path):

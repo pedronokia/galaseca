@@ -643,7 +643,7 @@ class ScannerScreen(QWidget):
                     result = self._scan_item(name)
                     if result:
                         self._bridge.result_ready.emit(result)
-                    time.sleep(2.0)  # rate-limit respect
+                    time.sleep(steam_api.RATE_LIMIT_DELAY_S)
             except Exception as e:
                 print(f"WARNING: scan worker falhou: {e}", file=sys.stderr)
             finally:
@@ -654,7 +654,7 @@ class ScannerScreen(QWidget):
     def _scan_item(self, name: str) -> dict | None:
         try:
             overview = steam_api.get_market_overview(name)
-            time.sleep(1.0)  # rate-limit entre endpoints
+            time.sleep(steam_api.RATE_LIMIT_DELAY_S)
             page = steam_api.get_market_page_data(name)
         except Exception as e:
             print(f"WARNING: _scan_item({name}) failed: {e}",
@@ -1314,7 +1314,7 @@ class ScannerScreen(QWidget):
                             bridge.samples_ready.emit(samples)
                     # Rate-limit so' em fetch (cache hit nao bate Steam)
                     if not hit:
-                        time.sleep(2.0)
+                        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
             finally:
                 bridge.finished.emit()
 

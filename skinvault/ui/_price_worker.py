@@ -6,6 +6,7 @@ Reutilizado por AccountScreen e futuras telas.
 from __future__ import annotations
 
 import threading
+import time
 from typing import Callable
 
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -60,9 +61,16 @@ class PriceWorker(QObject):
                         done[0] += 1
                         _safe_emit(sig_progress, done[0], total)
                         return cache_hit
+                    hit = self._cache.has(n)
                     status, p = prices_mod.cached_price_status(n, self._cache)
                     if status == steam_api.PRICE_RATE_LIMITED:
                         limitado[0] = True
+                    elif not hit:
+                        # So' pausa em MISS de verdade (cache hit nao bateu
+                        # rede). Preveni o 429 em vez de so' reagir a ele --
+                        # sem isso, um inventario grande sem cache queima o
+                        # limite inteiro antes do primeiro item vir limitado.
+                        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
                     done[0] += 1
                     _safe_emit(sig_progress, done[0], total)
                     return p

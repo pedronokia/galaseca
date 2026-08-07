@@ -36,7 +36,8 @@ from PyQt6.QtWidgets import (
 from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
 from skinvault import (
-    history, markets, prices, reports, signals, ssr_cache, steam_session,
+    history, markets, prices, reports, signals, ssr_cache, steam_api,
+    steam_session,
 )
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
@@ -767,7 +768,7 @@ class AccountScreen(QWidget):
                         if cs is not None:
                             name_to_score[name] = (int(cs), time.time())
                     if not hit:
-                        time.sleep(2.0)
+                        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
                 # Atualiza positions com scores e persiste
                 for p in positions_snapshot:
                     n = p.get("name")

@@ -214,6 +214,27 @@ def test_value_inventory_miss_fetches(monkeypatch, tmp_path):
     assert rows[0]["total"] == 200.0
 
 
+def test_value_inventory_throttle_default_e_dinamico(monkeypatch, tmp_path):
+    """throttle=None (default) le' RATE_LIMIT_DELAY_S NA HORA da chamada,
+    nao no momento em que o modulo foi importado -- monkeypatch precisa
+    valer mesmo sem passar throttle explicito."""
+    monkeypatch.setattr(
+        steam_api, "fetch_inventory",
+        lambda sid: (steam_api.INV_OK, [
+            {"name": "AK", "quantity": 1, "tradable": True},
+        ]),
+    )
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_OK, 200.0))
+    monkeypatch.setattr(steam_api, "RATE_LIMIT_DELAY_S", 0.01)
+    dormiu = []
+    monkeypatch.setattr(time, "sleep", lambda s: dormiu.append(s))
+
+    c = prices.PriceCache(path=tmp_path / "p.json", ttl=100)
+    prices.value_inventory("123", cache=c)  # sem throttle explicito
+    assert dormiu == [0.01]
+
+
 def test_value_inventory_progress(monkeypatch, tmp_path):
     """value_inventory chama callback de progresso."""
     monkeypatch.setattr(

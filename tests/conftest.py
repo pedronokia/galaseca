@@ -16,4 +16,22 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+
+@pytest.fixture(autouse=True)
+def _sem_espera_de_rate_limit(monkeypatch):
+    """Zera steam_api.RATE_LIMIT_DELAY_S pra suite inteira.
+
+    2026-08-07: o delay real subiu de 1.0-2.0s pra 4.0s (pesquisa sobre
+    o limite real da Steam -- ver AGENTS.md). Testes que exercitam
+    _scan_item/workers de validacao sem mockar time.sleep passaram a
+    dormir de verdade, +20-35s na suite inteira. Autouse em vez de
+    mockar cada teste: qualquer `time.sleep(steam_api.RATE_LIMIT_DELAY_S)`
+    novo ja' nasce rapido na suite sem precisar lembrar de mockar.
+    Producao nunca importa conftest.py, entao o app real mantem 4.0s.
+    """
+    from skinvault import steam_api
+    monkeypatch.setattr(steam_api, "RATE_LIMIT_DELAY_S", 0.0)

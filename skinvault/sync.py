@@ -34,7 +34,6 @@ _TRADES_PATH = DATA_DIR / "trade_history.json"
 # Pageamento conservador pra nao bater rate limit do Steam.
 _HISTORY_PAGE_SIZE = 100
 _HISTORY_MAX_PAGES = 20
-_HISTORY_THROTTLE_S = 1.5
 
 
 # ── utilitarios JSON ──────────────────────────────────────────
@@ -236,7 +235,7 @@ def sync_market_history(session: SteamSession,
         if (page + 1) * _HISTORY_PAGE_SIZE >= total_count:
             break
         # Throttle conservador
-        time.sleep(_HISTORY_THROTTLE_S)
+        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
 
     if migrated:
         # Salva stored alterado (listing_ids atualizados)
@@ -315,7 +314,7 @@ def sync_trade_offers(session: SteamSession,
             added_this_page += 1
         if added_this_page == 0:
             break
-        time.sleep(_HISTORY_THROTTLE_S)
+        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
 
     if new_trades:
         stored = new_trades + stored

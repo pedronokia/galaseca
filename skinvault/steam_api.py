@@ -34,6 +34,17 @@ _APP_CS2 = 730
 _CONTEXT = 2
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
 
+# Espaco minimo entre chamadas ao Market (priceoverview/listagem/inventario).
+# 2026-08-07: pesquisado apos um scan de "Todas as categorias" estourar 429.
+# Fontes (comunidade Steam + ArchiSteamFarm, ver memoria do projeto):
+# limite citado de ~20 req/min no endpoint de inventario/mercado, e o
+# ArchiSteamFarm recomenda ~1 req/4s como margem segura. Os throttles
+# espalhados pelo projeto usavam 1.0-2.0s (30-60 req/min) -- ACIMA do
+# limite. 429 e' bloqueio temporario (ate' ~6h em casos relatados), NUNCA
+# ban de conta -- a Valve nao usa ban por IP, so' por conta, e reservado
+# pra fraude/trapaca, nao trafego de leitura publica.
+RATE_LIMIT_DELAY_S = 4.0
+
 # Itens por pagina do endpoint /inventory/ (o Steam recusa valores maiores).
 _INV_PAGE = 75
 # Trava do loop de paginacao: 75 * 40 = 3000 itens. Evita loop infinito se o

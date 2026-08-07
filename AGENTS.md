@@ -527,6 +527,34 @@ e com isso fazia **duas requisições por item**, dobrando o consumo
 justamente no endpoint que queria poupar. Se precisar do status, use o
 retorno de `get_market_page_data` e não uma sonda separada.
 
+### 13. Cadência segura entre requisições ao Market (2026-08-07)
+
+Um scan de "Todas as categorias" (centenas de itens, 2 chamadas cada)
+estourou 429 de verdade na sessão real. Pesquisado depois: os throttles
+espalhados pelo projeto usavam 1.0–2.0s entre chamadas (30–60 req/min).
+Fontes públicas (discussões da comunidade Steam + ArchiSteamFarm — ver
+`skinvault/steam_api.py:RATE_LIMIT_DELAY_S`) citam limite prático de
+~20 req/min no endpoint de mercado/inventário, com ~4s como margem
+segura recomendada. **Todos os pontos que dormiam entre chamadas foram
+migrados pra usar `steam_api.RATE_LIMIT_DELAY_S`** (Scanner, Watchlist,
+Account, `PriceWorker`, `value_inventory`, `sync.py`) em vez de número
+mágico duplicado — mudar o valor uma vez ajusta o app inteiro.
+
+**429 não é ban.** A Valve não bane por IP (só por conta, e só por
+fraude/trapaça/chargeback — não por tráfego de leitura pública). O
+bloqueio observado dura minutos a poucas horas segundo relatos da
+comunidade, nunca é permanente, e não afeta a conta de forma alguma.
+
+**Armadilha de teste:** `steam_api.RATE_LIMIT_DELAY_S` referenciado
+direto em cada call site (nunca copiado pra uma constante de módulo tipo
+`_X = steam_api.RATE_LIMIT_DELAY_S` nem usado como default de parâmetro
+tipo `def f(throttle=steam_api.RATE_LIMIT_DELAY_S)`) — os dois congelam
+o valor na hora da importação/definição, e um monkeypatch depois nunca
+alcança quem já capturou o número antigo (`value_inventory` e
+`sync._HISTORY_THROTTLE_S` caíram nisso, corrigidos pra resolver em
+tempo de chamada). `tests/conftest.py` zera a constante via fixture
+`autouse` pra suíte inteira não dormir de verdade.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`

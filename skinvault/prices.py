@@ -145,14 +145,21 @@ def cached_price(name: str, cache: "PriceCache | None" = None) -> float | None:
 def value_inventory(
     steam_id: str,
     cache: PriceCache | None = None,
-    throttle: float = 1.5,
+    throttle: float | None = None,
     progress=None,
 ) -> tuple[str, list[dict], float]:
     """Avalia o inventario INTEIRO usando cache. Retorna (status, rows, total).
 
     rows: [{name, qty, price, total}] ordenado por total desc.
     progress(i, n, name): callback opcional de progresso.
+
+    throttle=None usa steam_api.RATE_LIMIT_DELAY_S resolvido EM TEMPO DE
+    CHAMADA -- default de parametro travaria o valor na importacao do
+    modulo, e um monkeypatch de RATE_LIMIT_DELAY_S (testes, ou ajuste
+    futuro) nunca alcancaria quem usa o default.
     """
+    if throttle is None:
+        throttle = steam_api.RATE_LIMIT_DELAY_S
     cache = cache or PriceCache()
     status, items = steam_api.fetch_inventory(steam_id)
     if status != steam_api.INV_OK:

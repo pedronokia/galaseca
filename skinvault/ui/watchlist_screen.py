@@ -799,7 +799,7 @@ class WatchlistScreen(QWidget):
                         ph, ob = None, None
                     if not ph:
                         if not hit:
-                            time.sleep(2.0)
+                            time.sleep(steam_api.RATE_LIMIT_DELAY_S)
                         continue
                     # Backtest samples (igual antes)
                     try:
@@ -870,7 +870,7 @@ class WatchlistScreen(QWidget):
                             bridge.alert_fired.emit(name, a)
                         item["triggered"] = bool(item.get("triggered_rules"))
                     if not hit:
-                        time.sleep(2.0)
+                        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
                 # Persiste estado atualizado da watchlist
                 try:
                     wl.save_watchlist(items_snapshot)

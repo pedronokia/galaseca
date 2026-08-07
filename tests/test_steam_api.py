@@ -1196,3 +1196,18 @@ def test_market_facets_bate_com_as_chaves_do_catalogo():
         assert chave in f
     assert steam_api.MARKET_FACETS["rarity"] == "Rarity"
     assert steam_api.MARKET_FACETS["category"] == "Quality"
+
+
+def test_rate_limit_delay_e_conservador(monkeypatch):
+    """2026-08-07: pesquisado apos um scan estourar 429 real (ver AGENTS.md).
+
+    Limite citado pela comunidade/ArchiSteamFarm gira em ~20 req/min
+    (1 a cada 3s); a margem segura recomendada e' ~4s. Nao deixa alguem
+    reduzir isso de volta pros 1.0-2.0s antigos sem querer.
+
+    monkeypatch.undo() desfaz o autouse _sem_espera_de_rate_limit
+    (conftest.py) -- mesma instancia de monkeypatch dentro do teste --
+    pra checar o valor de PRODUCAO de verdade, nao o zerado da suite.
+    """
+    monkeypatch.undo()
+    assert steam_api.RATE_LIMIT_DELAY_S >= 3.0
