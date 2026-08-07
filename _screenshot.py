@@ -55,6 +55,22 @@ def _abort_if_gaming() -> None:
 def shoot():
     _abort_if_gaming()
 
+    # WelcomeDialog.exec() e' modal: se `data/settings.json` tiver
+    # welcome_seen=False (sessao com login valido), MainWindow() trava pra
+    # sempre esperando um clique que nunca vem neste script sem tela --
+    # mesmo pitfall documentado em test_ui_smoke.py (_FakeWelcome /
+    # _hermetic_welcome). Patch equivalente aqui, fora do pytest.
+    import skinvault.ui.welcome_dialog as _wd
+
+    class _FakeWelcome:
+        def __init__(self, parent=None):
+            pass
+
+        def exec(self):
+            return 0
+
+    _wd.WelcomeDialog = _FakeWelcome
+
     from skinvault.gui import MainWindow
     from skinvault.ui import screen_router as sr
 
