@@ -234,3 +234,54 @@ def test_cached_price_history_sem_price_history(tmp_path, monkeypatch):
     out = ssr_cache.cached_price_history("X", cache=c)
     assert out is None
     assert c.size() == 0
+
+
+# ── cached_price_history_and_book ──────────────────────────────────
+
+
+def test_price_history_and_book_miss_devolve_os_dois(tmp_path, monkeypatch):
+    p = tmp_path / "c.json"
+    c = ssr_cache.PriceHistoryCache(path=p, ttl=3600)
+    monkeypatch.setattr(
+        "skinvault.steam_api.get_market_page_data",
+        lambda n: {"price_history": _mk_history(5),
+                   "order_book": {"sell_count": 42}})
+    ph, ob = ssr_cache.cached_price_history_and_book("X", cache=c)
+    assert len(ph) == 5
+    assert ob == {"sell_count": 42}
+
+
+def test_price_history_and_book_hit_nao_devolve_book(tmp_path):
+    p = tmp_path / "c.json"
+    c = ssr_cache.PriceHistoryCache(path=p, ttl=3600)
+    c.put("X", _mk_history(4))
+    ph, ob = ssr_cache.cached_price_history_and_book("X", cache=c)
+    assert len(ph) == 4
+    assert ob is None
+
+
+def test_price_history_and_book_nao_duplica_rede(tmp_path, monkeypatch):
+    p = tmp_path / "c.json"
+    c = ssr_cache.PriceHistoryCache(path=p, ttl=3600)
+    calls = []
+
+    def _fake_steam(name):
+        calls.append(name)
+        return {"price_history": _mk_history(3),
+                "order_book": {"sell_count": 10}}
+
+    monkeypatch.setattr("skinvault.steam_api.get_market_page_data",
+                        _fake_steam)
+    ssr_cache.cached_price_history_and_book("X", cache=c)
+    ssr_cache.cached_price_history_and_book("X", cache=c)
+    assert calls == ["X"]  # segunda chamada veio do cache
+
+
+def test_price_history_and_book_sem_pagina(tmp_path, monkeypatch):
+    p = tmp_path / "c.json"
+    c = ssr_cache.PriceHistoryCache(path=p, ttl=3600)
+    monkeypatch.setattr("skinvault.steam_api.get_market_page_data",
+                        lambda n: None)
+    ph, ob = ssr_cache.cached_price_history_and_book("X", cache=c)
+    assert ph is None
+    assert ob is None

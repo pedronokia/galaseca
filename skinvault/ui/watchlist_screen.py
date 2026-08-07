@@ -518,6 +518,17 @@ class WatchlistScreen(QWidget):
             )
             if price_curr:
                 price_item.setForeground(QBrush(QColor(t.TEXT)))
+            sd_label = item.get("sd_label")
+            if sd_label:
+                aprox_txt = (
+                    " (aproximado: volume vem das compras do último dia "
+                    "do histórico, não do priceoverview — só atualiza "
+                    "quando o cache de 24h expira)"
+                    if item.get("sd_approx") else ""
+                )
+                price_item.setToolTip(
+                    f"Oferta/demanda: {sd_label}{aprox_txt}"
+                )
             self._table.setItem(i, self.COL_PRICE, price_item)
 
             # Status (3 estados)
@@ -780,11 +791,12 @@ class WatchlistScreen(QWidget):
                         f"Validando [{i}/{len(names)}] {name} ({tag})"
                     )
                     try:
-                        ph = ssr_cache.cached_price_history(name, cache=cache)
+                        ph, ob = ssr_cache.cached_price_history_and_book(
+                            name, cache=cache)
                     except Exception as e:
                         print(f"WARNING: watchlist price_history({name}) failed: {e}",
                               file=__import__('sys').stderr)
-                        ph = None
+                        ph, ob = None, None
                     if not ph:
                         if not hit:
                             time.sleep(2.0)
@@ -820,6 +832,32 @@ class WatchlistScreen(QWidget):
                             item["data_quality"] = dq
                         except Exception:
                             pass
+                    # Oferta/Demanda: so' da' pra montar quando `ob` veio
+                    # (cache MISS nesse ciclo -- em cache hit nao ha' book
+                    # fresco, e o valor persistido do ciclo anterior fica
+                    # como esta'). Supply e' o mesmo dado que Scanner/Market
+                    # gravam (sell_count do order book), seguro compartilhar
+                    # no supply_history.json. Volume NAO e' compartilhado:
+                    # aqui e' aproximado pelas `purchases` do ultimo dia do
+                    # price_history (sem chamada nova ao priceoverview), uma
+                    # unidade diferente da que Scanner/Market gravam -- misturar
+                    # os dois no mesmo volume_history.json contaminaria a
+                    # deteccao de anomalia deles.
+                    if item and ob:
+                        try:
+                            supply = ob.get("sell_count")
+                            if supply is not None:
+                                signals.record_item_supply(name, supply)
+                            diario = signals.daily_series(ph)
+                            approx_vol = diario[-1]["purchases"] if diario else None
+                            sd = signals.supply_demand_ratio(approx_vol, supply)
+                            if sd.get("ratio"):
+                                item["sd_label"] = sd["label"]
+                                item["sd_approx"] = True
+                                item["sd_ts"] = time.time()
+                        except Exception as e:
+                            print(f"WARNING: watchlist sd({name}) failed: {e}",
+                                  file=__import__('sys').stderr)
                     # Avalia alertas com score atual
                     if item and current_score is not None:
                         fresh = alerts.evaluate_item(

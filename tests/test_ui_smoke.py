@@ -10135,6 +10135,57 @@ def test_watchlist_validate_progress_atualiza_status():
     assert "AWP" in screen._status.text()
 
 
+def test_watchlist_validate_grava_oferta_demanda(monkeypatch):
+    """Worker de validacao grava sd_label/sd_approx quando ha' order_book.
+
+    order_book so' vem em cache MISS (cached_price_history_and_book) --
+    o mock simula exatamente esse caso, com purchases suficientes num
+    unico dia pra daily_series nao descartar o ponto.
+    """
+    import threading
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+
+    items = [{"name": "AK-47 | Redline (Field-Tested)", "target": 0}]
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: items)
+    monkeypatch.setattr(
+        "skinvault.ssr_cache.cached_price_history_and_book",
+        lambda name, cache=None: (
+            [{"time": i, "price_median": 10.0, "purchases": 50}
+             for i in range(10)],
+            {"sell_count": 25},
+        ),
+    )
+    monkeypatch.setattr("skinvault.backtest.simulate_item",
+                        lambda n, ph: [])
+    monkeypatch.setattr("skinvault.backtest.score_from_history",
+                        lambda n, ph: 60)
+    monkeypatch.setattr("skinvault.alerts.evaluate_item",
+                        lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.alerts.diff_new_alerts",
+                        lambda item, fresh: [])
+    monkeypatch.setattr("skinvault.signals.record_item_supply",
+                        lambda n, v: None)
+
+    done = threading.Event()
+    saved: dict = {}
+
+    def _fake_save(snapshot):
+        saved["items"] = snapshot
+        done.set()
+
+    monkeypatch.setattr("skinvault.watchlist.save_watchlist", _fake_save)
+
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._items = items
+    screen._on_validate_watchlist()
+    assert done.wait(timeout=5), "worker nao terminou a tempo"
+
+    item = saved["items"][0]
+    assert item.get("sd_approx") is True
+    assert item.get("sd_label")
+
+
 # ── Schedule automatico Watchlist ───────────────────────
 
 def test_watchlist_timer_criado(monkeypatch):

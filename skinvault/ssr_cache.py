@@ -112,6 +112,27 @@ def cached_price_history(
     Se cache miss ou expirado, busca via steam_api.get_market_page_data e
     armazena. Retorna None se Steam tambem nao tiver dados.
 
+    Wrapper fino de `cached_price_history_and_book` pra quem so' quer o
+    historico (a maioria dos chamadores) sem mudar o contrato existente.
+    """
+    ph, _ob = cached_price_history_and_book(name, cache=cache)
+    return ph
+
+
+def cached_price_history_and_book(
+    name: str,
+    cache: PriceHistoryCache | None = None,
+) -> "tuple[list[dict] | None, dict | None]":
+    """Como `cached_price_history`, mas tambem devolve o order_book.
+
+    O order_book NUNCA e' persistido no cache (so' price_history) -- por
+    isso so' vem preenchido numa busca FRESCA (cache miss). Em cache hit
+    volta None: sem fetch novo nesse ciclo, nao ha' book atual pra mostrar.
+
+    Existe pra quem quer aproveitar o order_book que a MESMA resposta ja'
+    trouxe de graca (ex.: Watchlist, que so' buscava price_history e
+    descartava o resto) sem gerar uma segunda requisicao.
+
     A pagina buscada traz as variantes irmas do skin (cada wear x
     Normal/StatTrak/Souvenir) na MESMA resposta. Todas sao gravadas no
     cache, nao so' a pedida: sem isso, escanear os 6 wears de um skin
@@ -122,13 +143,14 @@ def cached_price_history(
     cache = cache or PriceHistoryCache()
     cached = cache.get(name)
     if cached is not None:
-        return cached
+        return cached, None
     page = steam_api.get_market_page_data(name)
     if not page:
-        return None
+        return None, None
 
     variants = page.get("variants")
     semeados = cache.put_many(variants) if isinstance(variants, dict) else 0
+    order_book = page.get("order_book")
 
     ph = page.get("price_history")
     if ph:
@@ -136,5 +158,5 @@ def cached_price_history(
         # so' geraria outra escrita em disco.
         if not (semeados and isinstance(variants, dict) and name in variants):
             cache.put(name, ph)
-        return ph
-    return None
+        return ph, order_book
+    return None, order_book
