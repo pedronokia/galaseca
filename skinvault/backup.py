@@ -25,8 +25,10 @@ _DATA_FILES = [
     "rankings.json",
     # Market buscas recentes
     "market_recent.json",
-    # F10 -- sync da conta Steam
-    "steam_session.json",
+    # Historico deixado pela sincronizacao de conta (F10, revertida em
+    # 2026-08-07 -- ver ROADMAP.md). steam_session.json saiu da lista: era
+    # a sessao viva, que nao existe mais. Estes 3 continuam cobertos: sao
+    # dado historico local que o usuario decidiu manter.
     "steam_market_events.json",
     "active_listings.json",
     "trade_history.json",
