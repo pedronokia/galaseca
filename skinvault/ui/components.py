@@ -349,6 +349,9 @@ class EmptyState(QWidget):
             sub.setWordWrap(True)
             sub.setStyleSheet(t.label_body_muted())
             lay.addWidget(sub)
+            self._sub = sub
+        else:
+            self._sub = None
 
         if steps:
             steps_w = QWidget()
@@ -383,6 +386,26 @@ class EmptyState(QWidget):
             if on_cta is not None:
                 self.cta_clicked.connect(on_cta)
             lay.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)
+
+    def set_subtitle(self, texto: str) -> None:
+        """Troca o subtitulo do empty state em runtime.
+
+        Cobre o caso "a tela vazia mudou de causa": o inventario vazio por
+        falta de sync e vazio por rate limit da Steam sao mensagens
+        diferentes, e o EmptyState original so' aceitava o subtitulo no
+        construtor. Reaproveitar o label economiza recriar o widget.
+        """
+        if self._sub is None:
+            if not texto:
+                return
+            sub = QLabel(texto)
+            sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            sub.setWordWrap(True)
+            sub.setStyleSheet(t.label_body_muted())
+            self._sub = sub
+            self.layout().addWidget(sub)
+        self._sub.setText(texto)
+        self._sub.setVisible(bool(texto))
 
 
 class _ElideLabel(QLabel):

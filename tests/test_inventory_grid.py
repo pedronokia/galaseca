@@ -1088,3 +1088,128 @@ def test_categoria_do_card_usa_o_nome_cru(app):
     tile = InventoryTile({"name": "Caixa Kilowatt",
                           "raw_name": "Kilowatt Case", "qty": 21})
     assert tile._categoria() == "Caixas e cápsulas"
+
+
+# ── custo: clique direito e atalho do painel ───────────────────────
+#
+# Sem custo declarado o P&L nao existe ("P&L —"). O card e o painel
+# oferecem o atalho de definir custo justamente onde o dado falta.
+
+
+def _clique_direito(tile):
+    from PyQt6.QtCore import QPointF, Qt
+    from PyQt6.QtGui import QMouseEvent
+    ev = QMouseEvent(QMouseEvent.Type.MouseButtonPress,
+                     QPointF(10, 10), QPointF(10, 10),
+                     Qt.MouseButton.RightButton, Qt.MouseButton.RightButton,
+                     Qt.KeyboardModifier.NoModifier)
+    tile.mousePressEvent(ev)
+
+
+def test_tile_clique_direito_pede_custo_quando_nao_tem(app):
+    tile = InventoryTile(_item("AWP | Asiimov"))
+    pedidos = []
+    tile.cost_requested.connect(pedidos.append)
+    _clique_direito(tile)
+    assert pedidos and pedidos[0] is tile.item
+
+
+def test_tile_clique_direito_com_custo_nao_pede(app):
+    """Com custo declarado o gesto fica mudo: nao ha' o que completar."""
+    it = _item("AWP | Asiimov")
+    it["cost"] = 150.0
+    tile = InventoryTile(it)
+    pedidos = []
+    tile.cost_requested.connect(pedidos.append)
+    _clique_direito(tile)
+    assert pedidos == []
+
+
+def test_grade_forwarda_pedido_de_custo_do_tile(app):
+    g = InventoryGrid()
+    g.set_items([_item("a"), _item("b", steam=1.0)])
+    pedidos = []
+    g.cost_requested.connect(pedidos.append)
+    _clique_direito(g._tiles[0])
+    assert pedidos and pedidos[0]["name"] == "a"
+
+
+def test_painel_botao_de_custo_so_aparece_sem_custo(app):
+    p = ItemDetailPanel()
+    p.show_item({"name": "X", "qty": 1})
+    assert p._set_cost_btn.isVisibleTo(p) is True
+    p.show_item({"name": "X", "qty": 1, "cost": 50.0})
+    assert p._set_cost_btn.isVisibleTo(p) is False
+    p.show_item(None)
+    assert p._set_cost_btn.isVisibleTo(p) is False
+
+
+def test_painel_botao_de_custo_emite_o_item(app):
+    p = ItemDetailPanel()
+    item = {"name": "X", "qty": 1}
+    p.show_item(item)
+    pedidos = []
+    p.cost_requested.connect(pedidos.append)
+    p._set_cost_btn.click()
+    assert pedidos and pedidos[0] is item
+
+
+# ── pixmap do card selecionado ─────────────────────────────────────
+#
+# Regressao do bug relatado: card selecionado com o container da imagem
+# preto/vazio. O desenho do pixmap nao pode depender do estado de
+# selecao -- o anel de foco e' uma borda, nao uma mascara sobre o icone.
+
+
+def test_tile_selecionado_mantem_o_pixmap_visivel(app):
+    from PyQt6.QtGui import QColor, QPixmap
+    from skinvault.ui.inventory_grid import (
+        TILE_CAT_H, TILE_H, TILE_ICON_H, TILE_NOME_H, TILE_PAD, TILE_W)
+
+    tile = InventoryTile(_item("AWP | Asiimov"))
+    pm = QPixmap(40, 40)
+    pm.fill(QColor("#ff00ff"))
+    tile._pix = pm
+
+    # Centro da faixa de imagem do card (mesma aritmetica do paintEvent).
+    x = TILE_W // 2
+    y = TILE_PAD + TILE_CAT_H + TILE_NOME_H + TILE_ICON_H // 2
+
+    tile.set_selected(False)
+    cor_normal = QColor(tile.grab().toImage().pixel(x, y))
+    tile.set_selected(True)
+    cor_selecionado = QColor(tile.grab().toImage().pixel(x, y))
+
+    assert cor_normal.name() == "#ff00ff"
+    assert cor_selecionado.name() == "#ff00ff"
+    assert cor_selecionado == cor_normal
+
+
+def test_tile_selecionado_sem_icone_fundo_neutro(app):
+    """Sem icon em cache o pixmap fica None -- o fundo do card e' SEMPRE
+    neutro (SURFACE), tanto no estado normal quanto no selecionado. A
+    selecao e' indicada apenas pela borda verde (ACCENT) de 2px."""
+    from PyQt6.QtGui import QColor
+    from skinvault.ui.inventory_grid import (
+        TILE_CAT_H, TILE_ICON_H, TILE_NOME_H, TILE_PAD, TILE_W)
+    from skinvault.ui import theme as t
+
+    tile = InventoryTile({"name": "X", "qty": 1})
+    assert tile._pix is None
+
+    # Estado normal
+    img_normal = tile.grab().toImage()
+    x = TILE_W // 2
+    y = TILE_PAD + TILE_CAT_H + TILE_NOME_H + TILE_ICON_H // 2
+    cor_normal = QColor(img_normal.pixel(x, y))
+    assert cor_normal != QColor("#000000")
+    assert cor_normal.name().upper() == t.SURFACE.upper()
+
+    # Estado selecionado -- fundo continua SURFACE, so' a borda muda
+    tile.set_selected(True)
+    img_sel = tile.grab().toImage()
+    cor_sel = QColor(img_sel.pixel(x, y))
+    assert cor_sel != QColor("#000000")
+    assert cor_sel.name().upper() == t.SURFACE.upper()
+    # A diferenca visual e' a borda, nao o fundo
+    assert cor_sel == cor_normal

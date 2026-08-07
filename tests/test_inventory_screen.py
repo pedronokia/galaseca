@@ -941,6 +941,46 @@ def test_dialogo_zero_e_drop(app):
     assert "qualquer venda é lucro" in dlg._be_label.text()
 
 
+def test_definir_custo_item_resolve_o_item_do_card(tela, monkeypatch):
+    """O atalho do card/painel cai no MESMO caminho do duplo clique da
+    tabela (_salvar_custo): nome cru, quantidade e custo atual do tile."""
+    class _FakeDlg:
+        def __init__(self, nome, qty, atual, parent):
+            self._nome, self._qty, self._atual = nome, qty, atual
+        def exec(self):
+            return 1          # QDialog.Accepted
+        def cost(self):
+            return 123.0
+    monkeypatch.setattr("skinvault.ui.inventory_screen._CostDialog", _FakeDlg)
+    gravado = {}
+    monkeypatch.setattr("skinvault.portfolio.update_position_cost",
+                        lambda nome, custo: gravado.update(
+                            nome=nome, custo=custo) or [{"name": nome}])
+    tela.set_data(ROWS, POS)
+    item = tela._grid._tiles[0].item
+    tela._definir_custo_item(item)
+    assert gravado == {"nome": "AK-47 | Redline (Battle-Scarred)",
+                       "custo": 123.0}
+
+
+def test_rate_limit_vazio_explica_no_empty_state(tela):
+    """Inventario vazio por rate limit NAO e' "sincronize com a Steam" --
+    e' a Steam recusando. O empty state diz a causa real, com as cotacoes
+    de fora seguindo ativas."""
+    tela.set_data([], [], True)
+    assert tela._empty.isVisibleTo(tela) is True
+    sub = tela._empty._sub.text()
+    assert "indisponível" in sub
+    assert "cotações" in sub
+    assert "Sincronize" not in sub
+
+
+def test_rate_limit_vazio_nao_polui_o_estado_normal(tela):
+    """Sem rate limit o empty state volta ao texto padrao de sync."""
+    tela.set_data([], [], False)
+    assert "Sincronize" in tela._empty._sub.text()
+
+
 # ── painel de filtros ──────────────────────────────────────────────
 
 

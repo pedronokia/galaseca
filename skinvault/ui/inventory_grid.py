@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -78,6 +79,9 @@ class InventoryTile(QFrame):
     """
 
     clicked = pyqtSignal(dict)
+    # Pedido de custo pelo card: sem custo declarado o P&L nao existe, e o
+    # atalho de seta-lo e' o clique direito no card (nao seleciona).
+    cost_requested = pyqtSignal(dict)
 
     def __init__(self, item: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -167,6 +171,12 @@ class InventoryTile(QFrame):
     def mousePressEvent(self, e) -> None:  # noqa: N802
         if e.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit(self.item)
+        elif e.button() == Qt.MouseButton.RightButton:
+            # Atalho de contexto do card: custo e' o dado que falta pro P&L
+            # existir. So' emite quando NAO ha' custo declarado -- com custo
+            # o item nao tem acao de contexto (ainda) e o gesto fica mudo.
+            if self.item.get("cost") is None:
+                self.cost_requested.emit(self.item)
         super().mousePressEvent(e)
 
     def paintEvent(self, e) -> None:  # noqa: N802
@@ -174,25 +184,15 @@ class InventoryTile(QFrame):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         corpo = QRect(0, 0, TILE_W, TILE_H)
 
-        # Selecionado ganha fundo PROPRIO (ACCENT_DIM) -- antes usava o
-        # mesmo SURFACE_HOV do hover, e um card selecionado-mas-nao-sob-o-
-        # mouse ficava visualmente identico a um card so' de passagem.
-        if self._selected:
-            fundo = t.ACCENT_DIM
-        elif self._hover:
-            fundo = t.SURFACE_HOV
-        else:
-            fundo = t.SURFACE
-        p.setBrush(QColor(fundo))
+        # Fundo SEMPRE neutro (SURFACE) -- a selecao e' indicada EXCLUSIVAMENTE
+        # pela borda verde (ACCENT) de 2px. Hover ganha apenas uma borda sutil
+        # (BORDER) de 1px. Nenhum pincel escuro/opaco cobre a area da imagem.
+        p.setBrush(QColor(t.SURFACE))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawRoundedRect(corpo, t.RADIUS_MD, t.RADIUS_MD)
 
         if self._selected:
-            # Anel mais grosso quando a grade tem o foco do teclado: andar
-            # de seta em seta sem saber onde se esta' e' pior que nao ter
-            # seta nenhuma. Espessura subiu 2/3 -> 3/4 pra destacar contra
-            # o fundo ACCENT_DIM novo, que ja' e' mais claro que o SURFACE
-            # normal e afinava a diferenca visual da borda sozinha.
+            # Borda verde 2px (3px com foco de teclado) -- indicador UNICO de selecao
             pai = self.parent()
             com_foco = False
             while pai is not None:
@@ -201,8 +201,14 @@ class InventoryTile(QFrame):
                     break
                 pai = pai.parent()
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(QColor(t.ACCENT), 4 if com_foco else 3))
-            p.drawRoundedRect(corpo.adjusted(2, 2, -2, -2),
+            p.setPen(QPen(QColor(t.ACCENT), 3 if com_foco else 2))
+            p.drawRoundedRect(corpo.adjusted(1, 1, -1, -1),
+                              t.RADIUS_MD, t.RADIUS_MD)
+        elif self._hover:
+            # Hover: borda sutil 1px (BORDER) -- sem cambio de fundo
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(QColor(t.BORDER), 1))
+            p.drawRoundedRect(corpo.adjusted(0, 0, 0, 0),
                               t.RADIUS_MD, t.RADIUS_MD)
 
         larg = TILE_W - TILE_PAD * 2
@@ -497,8 +503,13 @@ class SkeletonTile(QFrame):
 class ItemDetailPanel(QFrame):
     """Painel lateral: as duas avaliacoes do item selecionado."""
 
+    # Pedido de custo vem do proprio painel (botao discreto no P&L). A tela
+    # liga ao mesmo handler do custo do card/grade.
+    cost_requested = pyqtSignal(dict)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._item: dict | None = None
         # Seletor por objectName, NAO por "QFrame": QLabel herda de QFrame,
         # entao um seletor de tipo desenharia borda em todo rotulo filho.
         self.setObjectName("itemDetailPanel")
@@ -574,6 +585,21 @@ class ItemDetailPanel(QFrame):
         self._premio.setStyleSheet(f"font-size: {t.FS_MUTED};")
         v.addWidget(self._premio)
 
+        # Atalho discreto pro dado que falta: este item nao tem custo
+        # declarado (P&L —), entao oferece definir por aqui. So' aparece
+        # SEM custo -- com custo nao ha' o que completar neste painel.
+        self._set_cost_btn = QPushButton("Definir preço de custo…")
+        self._set_cost_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._set_cost_btn.setStyleSheet(
+            t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
+        self._set_cost_btn.setToolTip(
+            "Sem custo não há P&L que se possa afirmar.\n"
+            "Informe quanto pagou (ou 0 para drop) e esta tela passa a "
+            "calcular o lucro/prejuízo deste item.")
+        self._set_cost_btn.clicked.connect(
+            lambda: self.cost_requested.emit(self._item))
+        v.addWidget(self._set_cost_btn, 0, Qt.AlignmentFlag.AlignLeft)
+
         # ── DE ONDE VEM ───────────────────────────────────
         # Metade de baixo do painel estava vazia, e faltava justamente o
         # unico dado desta tela que nao depende da Steam responder: a
@@ -629,6 +655,7 @@ class ItemDetailPanel(QFrame):
         return val
 
     def show_item(self, item: dict | None) -> None:
+        self._item = item
         if not item:
             self._nome.setText("Selecione um item")
             self._tipo.setText("")
@@ -643,6 +670,7 @@ class ItemDetailPanel(QFrame):
             self._origem.setText("—")
             self._score.setText("")
             self._score.setVisible(False)
+            self._set_cost_btn.setVisible(False)
             return
 
         self._nome.setText(item.get("name", ""))
@@ -680,6 +708,8 @@ class ItemDetailPanel(QFrame):
         self._preencher_piso(item)
         self._preencher_compra(item)
         self._preencher_origem(item)
+        # Botao de custo: visivel so' quando o item NAO tem custo declarado.
+        self._set_cost_btn.setVisible(item.get("cost") is None)
 
         prem = item.get("premium_pct")
         if prem is None:
@@ -881,6 +911,8 @@ class InventoryGrid(QWidget):
     """Grade rolavel de tiles + painel de detalhe."""
 
     item_selected = pyqtSignal(dict)
+    # Forward do tile (clique direito sem custo) e do painel de detalhe.
+    cost_requested = pyqtSignal(dict)
 
     def __init__(self, columns: int = 6,
                  parent: QWidget | None = None) -> None:
@@ -942,6 +974,7 @@ class InventoryGrid(QWidget):
         for item in ordenados:
             tile = InventoryTile(item)
             tile.clicked.connect(self._on_tile)
+            tile.cost_requested.connect(self.cost_requested.emit)
             self._tiles.append(tile)
         self._visiveis = list(self._tiles)
         self._reposicionar()

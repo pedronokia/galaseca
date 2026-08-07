@@ -281,6 +281,11 @@ class InventoryScreen(QWidget):
             self._limpar_filtro)
 
         self._grid = InventoryGrid(columns=8)
+        # Custo do item selecionado: vem do clique direito no card (tile) e
+        # do botao discreto do painel de detalhe -- mesmo destino do duplo
+        # clique/menu de contexto da tabela (_salvar_custo).
+        self._grid.cost_requested.connect(self._definir_custo_item)
+        self._grid._detail.cost_requested.connect(self._definir_custo_item)
         self._atualizar_ordem_labels()
         self._table = QTableWidget(0, 10)
         self._table.setHorizontalHeaderLabels([
@@ -474,10 +479,22 @@ class InventoryScreen(QWidget):
         self._views.setVisible(tem)
         self._empty.setVisible(not tem)
         if not tem:
-            self._status.setText(
-                "A Steam limitou as consultas de preço. Tente de novo daqui a "
-                "alguns minutos." if rate_limited else ""
-            )
+            if rate_limited:
+                # Empty state honesto: nao e' que nao ha' itens, e' que a
+                # Steam recusou as consultas. O rodape sozinho (texto curto
+                # no pe da tela) nao explica, e o EmptyState padrao dizia
+                # "sincronize com a Steam" pra quem JAH tem itens.
+                self._empty.set_subtitle(
+                    "Steam indisponível no momento — as cotações de fora "
+                    "seguem ativas.")
+                self._status.setText(
+                    "A Steam limitou as consultas de preço. Tente de novo "
+                    "daqui a alguns minutos.")
+            else:
+                self._empty.set_subtitle(
+                    "Sincronize com a Steam na tela Minha Conta\n"
+                    "pra puxar seus itens.")
+                self._status.setText("")
             return
         self._populate_grid()
         self._montar_categorias()
@@ -949,6 +966,26 @@ class InventoryScreen(QWidget):
         nome = r.get("name") or pos.get("name") or ""
         qty = r.get("quantity") or pos.get("quantity") or 1
         atual = pos.get("cost") if portfolio.has_cost_basis(pos) else None
+        dlg = _CostDialog(nome, qty, atual, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        novo = dlg.cost()
+        if novo is None:
+            return
+        self._salvar_custo(nome, novo)
+
+    def _definir_custo_item(self, item: dict) -> None:
+        """Custo pelo item da GRADE (card/painel) — mesmo destino do duplo
+        clique/menu da tabela, mas ancorado no item selecionado.
+
+        O dict do tile ja' carrega name/raw_name/qty/cost; nao precisa
+        rebuscar a posicao por indice como `_editar_custo_linha`.
+        """
+        if not item:
+            return
+        nome = item.get("raw_name") or item.get("name") or ""
+        qty = item.get("qty") or 1
+        atual = item.get("cost")        # None ja' diz "sem custo declarado"
         dlg = _CostDialog(nome, qty, atual, self)
         if dlg.exec() != QDialog.DialogCode.Accepted:
             return
