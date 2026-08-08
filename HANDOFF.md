@@ -1,7 +1,18 @@
-# HANDOFF — estado em 2026-08-04
+# HANDOFF — estado em 2026-08-08
 
 Ponto de partida pra quem continuar (opencode ou outro agente). Substitui
-o handoff de 2026-07-30.
+o handoff de 2026-08-04.
+
+**Mudança maior desde 04/08: F10 (login/sync via cookies de sessão Steam)
+foi revertida por completo em 2026-08-07.** O Steam Subscriber Agreement
+proíbe de forma ampla automação de conta logada, com terminação sem aviso
+prévio — risco diferente do scan público anônimo. O usuário decidiu
+remover a capacidade inteira; os dados já sincronizados
+(`steam_market_events.json`, `active_listings.json`, `trade_history.json`)
+foram mantidos, só a capacidade de logar de novo saiu. Detalhes completos
+em `ROADMAP.md` (seção FASE 10) e memória `f10-login-sync-revertida`. O
+app voltou a abrir direto na tela Conta, sem tela de login, sidebar
+sempre visível — validado com screenshot e navegação manual real.
 
 **Leia primeiro:** [AGENTS.md](AGENTS.md). As armadilhas **#10, #11, #12**
 e as seções **4b/4c/4d** foram escritas em 30/07 e resumem o que custou
@@ -25,29 +36,31 @@ antes de tocar nisso.
 
 ## Estado
 
-- Branch: `main` (a `feat/multi-market-e-inventario` foi mergeada em
-  `dc349c7`).
-- Suíte: **2360 testes**, ~70s. `cd C:\SkinVault && python -m pytest -q`
+- Branch: `main`, working tree limpo. Todos os commits do F10 (revert) já
+  feitos localmente; nenhum push pendente (repo não tem remote).
+- Suíte: **2121 testes**, ~75s. `cd C:\SkinVault && python -m pytest -q`
+  (caiu de 2360 pra 2121 por causa da remoção de ~290 testes de
+  login/sync do F10 — não é regressão).
 - App: `pythonw -m skinvault --ui` (rodar de `C:\SkinVault`)
-- Working tree limpo.
-- **Fase 3 (UI botcloud, `ROADMAP_UI_FASE3.md`) e Fase 4 (UI
-  consistência, `ROADMAP_UI_FASE4.md`) 100% concluídas** — todas as
-  frentes ✅, nada pendente nesses dois documentos.
-- **Sprints de Microinterações & UX e de Layout & Ergonomia concluídas**
-  (ver seções dedicadas abaixo) — UI e fluxo de dados local em estado
-  maduro.
+- **F1-F9, F11, F12 concluídas. F10 implementada e revertida** (ver nota
+  acima e ROADMAP.md). Nenhuma fase formal do ROADMAP pendente.
+- **Fase 3/4 de UI e sprints de Microinterações/Layout concluídas** — UI e
+  fluxo de dados local em estado maduro (sem mudança desde 04/08 aqui).
+- **Rate limit centralizado**: `steam_api.RATE_LIMIT_DELAY_S = 4.0`
+  (subiu de 1-2s), referenciado ao vivo em todo call site — nunca copiado
+  pra constante de módulo nem usado como default de parâmetro (os dois
+  congelam o valor e ficam un-monkeypatchable; `tests/conftest.py` zera
+  a constante via fixture autouse pra suíte não dormir de verdade).
+- **Pacote de liquidez/z-score (05-08/08)**: liquidez sob demanda no
+  Inventário (grid + tabela) e Watchlist, Oferta/Demanda no Market,
+  `price_zscore` exposto no Scanner/Market, filtro de preço e termômetro
+  de mercado no Scanner, aviso honesto de rate limit quando o scan falha.
 
-**A Steam está com rate limit há mais de 24h** em `priceoverview`,
-`search/render`, `pricehistory` e `/inventory/`. A listing page e o CDN de
-ícone respondem — mas a listing page tem orçamento próprio e falha em
-silêncio (AGENTS.md #12).
-
-**Reconfirmado em 04/08/2026 (UTC):** sondagem pontual nos endpoints
-`priceoverview` e `search/render` (os que o scanner/discovery usam)
-respondeu **HTTP 429** nos dois — bloqueio externo mantido, aguardando
-liberação natural da Steam. O fallback gracioso de `discovery.py` segura o
-bloqueio sem exceção não tratada; a suíte permanece **2232 passed** após a
-verificação (100% herméticos, nenhum teste toca a rede). Detalhes em
+**Sondagem de rate limit em 08/08/2026:** `search_market` **sem facetas**
+(query de texto simples) voltou a responder normalmente. `priceoverview`
+e `search_market` **com facetas** (o que `discovery.py` usa pra
+categorias) continuam em **rate_limited** — são orçamentos separados no
+lado da Steam, confirmado com 2 chamadas isoladas. Detalhes em
 "Fila, em ordem".
 
 ## Filosofia (NÃO mudar)
@@ -483,27 +496,49 @@ A interface gráfica e o fluxo de dados local estão em estado maduro.
 Resta só a verificação externa abaixo, condicionada à Steam sair do
 rate limit — não é trabalho pendente do lado do app.
 
-### 1. `scanner_discovery` (bloqueado por fora)
+### 1. `scanner_discovery` (bloqueado por fora, achado mais preciso em 08/08)
 `discovery.py` escrito e testado, flag `scanner_discovery = False`. Nunca
-completou uma chamada real. Quando a Steam liberar: rodar `search_market`
-uma vez; se vier `ok`, ligar a flag.
+completou uma chamada real.
 
-**Verificado em 04/08/2026 (UTC):** sondagem pontual devolveu **429** em
-`priceoverview` e `search/render`. Bloqueio externo mantido — nada a fazer
-do lado do app. A resiliência do fallback foi reconfirmada na suíte:
+**Verificado em 08/08/2026:** o bloqueio não é mais uniforme. Sondagem
+pontual (script fora da suíte, `discovery.discover_category()` nas 6
+categorias mapeadas):
 
+- `search_market()` **sem facetas** (query de texto simples,
+  ex. `"AK-47"`) responde normalmente — 3 resultados reais.
+- `search_market()` **com facetas** (o parâmetro que toda categoria do
+  discovery usa, ex. `{"type": "CSGO_Type_Rifle"}`) segue devolvendo
+  `rate_limited`, count=10 ou count=100, tanto faz — confirmado em 2
+  chamadas isoladas. As 6 categorias caíram todas no fallback.
+
+**Conclusão:** são dois orçamentos de rate limit separados do lado da
+Steam — texto simples recuperou, busca por faceta não. `scanner_discovery`
+continua `False`. Uma próxima sondagem deve testar uma chamada **com
+facetas** diretamente (não só uma busca de texto simples), senão o sinal
+de "recuperou" é falso positivo.
+
+A resiliência do fallback continua garantida na suíte:
 - `discover_category` retorna `(None, SOURCE_FALLBACK)` em 429
   (`test_rate_limit_devolve_none`);
 - `resolve_scan_items(enabled=True)` devolve a lista fixa intacta mesmo se
-  a busca explodir em exceção (`test_resolve_cai_no_fallback_em_rate_limit`,
-  `test_resolve_cai_no_fallback_se_a_busca_explodir`);
-- `scanner_discovery` permanece `False` no `settings.py` (default) e
-  `_discovery_ligada()` tem guard próprio — nenhum caminho estoura exceção
-  não tratada.
+  a busca explodir em exceção;
+- `scanner_discovery` permanece `False` no `settings.py` (default).
 
-**Diretriz mantida:** aguardar a liberação natural da plataforma antes de
-ligar a flag. A sondagem foi feita com script standalone (fora da suíte) —
-nenhum teste novo, nenhum toque em `data/`.
+### 2. Fator de score "recência de aposentadoria" — não é viável hoje
+Tentativa de virar a tese `caixa-aposentadoria-salto-e-decai` (+25,8%
+líquidos, única que bate a taxa) em fator de `enhanced_score()`.
+Planejada, aprovada, e abandonada no primeiro passo (curadoria de dado)
+em 08/08/2026: **não existe fonte confiável de data de aposentadoria**
+pras 36 caixas discontinued em `cases.py` (que só guarda ano de
+lançamento). `items_game.txt` não cobre a era pré-2016 nem tem drop pool
+na era CS:GO (achado já documentado em 29/07); pesquisa web num caminho
+diferente hoje também não achou fonte única confiável, e a mecânica real
+parece ter sido aposentadoria em lote (quebra a aproximação por ordem de
+lançamento — a mesma que o vintage bonus já reprovou 4 vezes). Registrado
+como achado negativo, comentário deixado em `signals.py` perto do bônus
+de caixa (F7). Retomar só quando `gamedata.py` acumular eventos reais de
+retirada (2023-12+) com retorno 365d já observado — hoje a amostra seria
+zero ou quase. Detalhes: memória `negative-finding-retirement-recency-2026-08`.
 
 ---
 

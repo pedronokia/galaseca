@@ -1072,6 +1072,18 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                  f"Preço {rotulo} ({delta:+d})")
 
     # Caixa descontinuada / rara (F7)
+    #
+    # NAO IMPLEMENTADO (2026-08-08): fator de "recencia de aposentadoria"
+    # informado por caixa-aposentadoria-salto-e-decai (idade desde
+    # aposentar, nao desde lancamento, tem Sp(idade,retorno)=-0.762 dentro
+    # das aposentadas). cases.py so' guarda ano de LANCAMENTO -- a data de
+    # aposentadoria (a variavel que importa) nao e' recuperavel hoje:
+    # items_game.txt nao cobre a era pre-2016 e nao tem drop pool na era
+    # CS:GO (negative-finding-data-aposentadoria), e nao ha' fonte publica
+    # unica e confiavel pras 36 caixas discontinued (achado novo, mesma
+    # investigacao, ver negative-finding-retirement-recency-2026-08).
+    # Retomar so' quando gamedata.py acumular eventos reais de retirada
+    # com retorno 365d ja observado.
     if case_status:
         if case_status.get("is_discontinued"):
             _add("case", 5, "Caixa descontinuada (+5)")
