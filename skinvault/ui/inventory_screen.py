@@ -19,12 +19,15 @@ import threading
 from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QMenu,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QTableWidget,
@@ -66,16 +69,18 @@ class _CostDialog(QDialog):
 
     def __init__(self, name: str, quantity: int = 1,
                  current_cost: float | None = None,
-                 parent: QWidget | None = None):
+                 parent: QWidget | None = None,
+                 caption: str | None = None):
         super().__init__(parent)
         self.setWindowTitle("Definir custo")
         self.setMinimumWidth(420)
         self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
         self._cost: float | None = None
-        self._build(name, quantity, current_cost)
+        self._build(name, quantity, current_cost, caption)
 
     def _build(self, name: str, quantity: int,
-               current_cost: float | None) -> None:
+               current_cost: float | None,
+               caption_txt: str | None = None) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(12)
@@ -86,7 +91,7 @@ class _CostDialog(QDialog):
         layout.addWidget(nome)
 
         caption = QLabel(
-            f"Preço unitário — {quantity} item(ns) no total.")
+            caption_txt or f"Preço unitário — {quantity} item(ns) no total.")
         caption.setStyleSheet(t.label_caption())
         caption.setWordWrap(True)
         layout.addWidget(caption)
@@ -278,13 +283,14 @@ class InventoryScreen(QWidget):
 
         # Exportar inventário + relatório (CSV/JSON/HTML). Ghost: é
         # leitura/ação auxiliar; o destaque da tela continua o filtro.
-        self._export_btn = QPushButton("Exportar")
+        self._export_btn = QPushButton("Arquivo")
         self._export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._export_btn.setStyleSheet(
             t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         self._export_btn.setToolTip(
-            "Exporta o inventário avaliado: CSV, JSON ou relatório HTML\n"
-            "print-friendly com o histórico de valor da carteira.")
+            "Exporta o inventário (CSV, JSON ou relatório HTML) ou importa\n"
+            "os custos de uma planilha: exporte o CSV, preencha a coluna\n"
+            "Custo e importe de volta.")
         self._export_btn.clicked.connect(self._on_export_menu)
         linha.addWidget(self._export_btn, 0)
         root.addLayout(linha)
@@ -374,6 +380,10 @@ class InventoryScreen(QWidget):
         # contexto na linha. A grade so' mostra o custo, nao edita -- o
         # reconhecimento por icone nao e' o momento de digitar numero.
         self._table.cellDoubleClicked.connect(self._on_cost_double_click)
+        # Selecao multipla (Ctrl/Shift+clique): base do "Definir custo de
+        # N itens" no menu de contexto.
+        self._table.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection)
         self._table.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._on_context_menu)
@@ -660,6 +670,12 @@ class InventoryScreen(QWidget):
              ("Exportar relatório HTML",
               lambda: self._do_export("html"))],
         )
+        menu.addSeparator()
+        imp = menu.addAction("Importar custos de um CSV…")
+        imp.setToolTip(
+            "Lê uma planilha com as colunas Item e Custo (o próprio CSV"
+            " exportado aqui serve) e grava o custo dos itens da carteira.")
+        imp.triggered.connect(lambda _=False: self._on_importar_custos_csv())
         menu.exec(self._export_btn.mapToGlobal(
             self._export_btn.rect().bottomLeft()))
 
@@ -1067,13 +1083,101 @@ class InventoryScreen(QWidget):
         row = item.row()
         if row >= len(self._rows):
             return
+        selecionados = self._nomes_selecionados()
         menu = QMenu(self._table)
+        if len(selecionados) > 1 and self._nome_da_linha(row) in selecionados:
+            acao = menu.addAction(
+                f"Definir custo de {len(selecionados)} itens…")
+            acao.setToolTip("O mesmo custo por unidade para cada item"
+                            " selecionado.")
+            if menu.exec(self._table.viewport().mapToGlobal(pos)) == acao:
+                self._definir_custo_em_lote(selecionados)
+            return
         acao = menu.addAction("Definir custo…")
         acao.setToolTip(
             "Quanto você pagou pelo item (ou zero se foi drop).\n"
             "Sem o custo, não dá para calcular o lucro.")
         if menu.exec(self._table.viewport().mapToGlobal(pos)) == acao:
             self._editar_custo_linha(row)
+
+    def _nome_da_linha(self, row: int) -> str:
+        """Nome cru da linha VISUAL `row` (UserRole da celula do nome).
+
+        Tabela ordenavel: a linha visual so' bate com self._rows na ordem
+        de insercao -- ver _on_table_row_clicked."""
+        cell = self._table.item(row, self.COL_NAME)
+        return (cell.data(Qt.ItemDataRole.UserRole) or "") if cell else ""
+
+    def _nomes_selecionados(self) -> list:
+        linhas = sorted({i.row() for i in self._table.selectedIndexes()})
+        nomes = [self._nome_da_linha(r) for r in linhas]
+        return [n for n in dict.fromkeys(nomes) if n]
+
+    def _definir_custo_em_lote(self, nomes: list) -> None:
+        if not nomes:
+            return
+        dlg = _CostDialog(
+            f"{len(nomes)} itens selecionados", 1, None, self,
+            caption="O valor vale por unidade, para cada item selecionado."
+                    " Zero = drop.")
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        novo = dlg.cost()
+        if novo is None:
+            return
+        portfolio.update_costs_bulk({n: novo for n in nomes})
+        self.request_reeval.emit()
+        Toast(self, f"Custo de {len(nomes)} itens salvo — reavaliando…",
+              "success").show()
+
+    def _on_importar_custos_csv(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Importar custos", "",
+            "Planilha CSV (*.csv *.txt);;Todos os arquivos (*)")
+        if not path:
+            return
+        texto = None
+        # Excel no Windows salva CSV em ANSI (cp1252) quando nao e' o
+        # "CSV UTF-8": sem o fallback, "Caixa Croma 2" passava, mas
+        # qualquer acento ou ★ quebrava a leitura inteira.
+        for enc in ("utf-8-sig", "cp1252"):
+            try:
+                with open(path, encoding=enc) as f:
+                    texto = f.read()
+                break
+            except UnicodeDecodeError:
+                continue
+            except OSError as e:
+                self._status.setText(f"Não deu para abrir o arquivo: {e}")
+                return
+        if texto is None:
+            self._status.setText("Não deu para ler o arquivo (codificação).")
+            return
+        lido = portfolio.parse_cost_csv(texto)
+        res = (portfolio.update_costs_bulk(lido["custos"])
+               if lido["custos"] else
+               {"atualizados": [], "nao_encontrados": []})
+        n_ok = len(res["atualizados"])
+        if n_ok:
+            self.request_reeval.emit()
+        avisos = []
+        if res["nao_encontrados"]:
+            amostra = ", ".join(res["nao_encontrados"][:5])
+            mais = len(res["nao_encontrados"]) - 5
+            avisos.append(
+                f"{len(res['nao_encontrados'])} item(ns) da planilha não"
+                f" estão na carteira e foram ignorados: {amostra}"
+                + (f" e mais {mais}." if mais > 0 else "."))
+        avisos.extend(lido["erros"][:8])
+        resumo = (f"Custo atualizado em {n_ok} item(ns)." if n_ok else
+                  "Nenhum custo foi atualizado.")
+        self._status.setText(resumo)
+        if avisos:
+            QMessageBox.information(
+                self, "Importar custos",
+                resumo + "\n\n" + "\n".join(avisos))
+        elif n_ok:
+            Toast(self, resumo + " Reavaliando…", "success").show()
 
     def _editar_custo_linha(self, row: int) -> None:
         """Abre o dialogo de custo pra linha e reavalia a posicao.
@@ -1082,10 +1186,15 @@ class InventoryScreen(QWidget):
         vive na AccountScreen, e duplicar a avaliacao dobraria o custo de
         rede (AGENTS.md: worker na tela que tem os dados).
         """
-        if row >= len(self._rows) or row >= len(self._positions):
+        # Pelo NOME da linha, nao pelo indice: com a tabela ordenada,
+        # self._rows[row] era outro item e o custo ia pra posicao errada.
+        raw = self._nome_da_linha(row)
+        idx = next((i for i, r in enumerate(self._rows)
+                    if (r.get("name") or "") == raw), None)
+        if idx is None or idx >= len(self._positions):
             return
-        r = self._rows[row]
-        pos = self._positions[row]
+        r = self._rows[idx]
+        pos = self._positions[idx]
         nome = r.get("name") or pos.get("name") or ""
         qty = r.get("quantity") or pos.get("quantity") or 1
         atual = pos.get("cost") if portfolio.has_cost_basis(pos) else None

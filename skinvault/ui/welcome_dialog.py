@@ -52,6 +52,9 @@ class WelcomeDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        #: True quando o usuario escolheu importar o inventario -- o
+        #: router abre o Inventario com o dialogo de importacao.
+        self.quer_importar = False
         self.setWindowTitle("Bem-vindo ao SkinVault")
         self.setMinimumWidth(760)
         self.setStyleSheet(
@@ -102,10 +105,42 @@ class WelcomeDialog(QDialog):
         ), 1)
         outer.addLayout(row)
 
-        # CTA
-        cta = QPushButton("Vamos lá")
+        # CTAs. O primeiro passo que da' valor e' ter os itens na carteira:
+        # sem isso Conta, Inventario e Lucro abrem vazios e o usuario novo
+        # nao sabe por onde comecar.
+        acoes = QHBoxLayout()
+        acoes.setSpacing(12)
+        acoes.addStretch(1)
+        explorar = QPushButton("Explorar primeiro")
+        explorar.setCursor(Qt.CursorShape.PointingHandCursor)
+        explorar.setStyleSheet(t.btn_ghost(padding="14px 24px",
+                                           fs=t.FS_INPUT))
+        explorar.setToolTip("Fecha este aviso e abre o app. Você não verá"
+                            " mais.")
+        explorar.clicked.connect(self.accept)
+        acoes.addWidget(explorar)
+        cta = QPushButton("Importar meu inventário da Steam")
         cta.setCursor(Qt.CursorShape.PointingHandCursor)
         cta.setStyleSheet(t.btn_primary(padding="14px 36px", fs=t.FS_INPUT))
-        cta.setToolTip("Fecha este modal e abre o app. Você não verá mais.")
-        cta.clicked.connect(self.accept)
-        outer.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)
+        cta.setToolTip("Basta o link do seu perfil da Steam (público), sem"
+                       " login.")
+        cta.clicked.connect(self._on_importar)
+        cta.setDefault(True)
+        acoes.addWidget(cta)
+        acoes.addStretch(1)
+        outer.addLayout(acoes)
+
+    def showEvent(self, event) -> None:
+        # Janela de topo nao respeita heightForWidth: com o texto quebrado
+        # em varias linhas, as descricoes dos cartoes saiam cortadas no pe'.
+        super().showEvent(event)
+        lay = self.layout()
+        if lay is not None and lay.hasHeightForWidth():
+            alvo = lay.totalHeightForWidth(self.width())
+            if alvo > self.height():
+                self.setMinimumHeight(alvo)
+                self.resize(self.width(), alvo)
+
+    def _on_importar(self) -> None:
+        self.quer_importar = True
+        self.accept()

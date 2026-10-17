@@ -555,3 +555,89 @@ def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
         add_position(name, cost, max(qty, 1), path)
         imported += 1
     return {"imported": imported, "skipped": skipped, "errors": errors}
+
+
+def update_costs_bulk(costs: dict, path: Path | str = _DEFAULT_PATH) -> dict:
+    """Define o custo (unitario) de varias posicoes de uma vez.
+
+    `costs`: {nome: custo}. Mesma semantica de `update_position_cost`
+    (source vira "manual", custo 0 = drop), mas le e grava o arquivo UMA
+    vez -- chamar a funcao unitaria em laco regravava o portfolio inteiro
+    por item. Nome que nao existe no portfolio NAO cria posicao: quem
+    importa uma planilha antiga nao quer itens fantasmas na carteira.
+    Retorna {atualizados: [nomes], nao_encontrados: [nomes]}.
+    """
+    positions = load_portfolio(path)
+    por_nome: dict = {}
+    for p in positions:
+        por_nome.setdefault(p.get("name") or "", []).append(p)
+    atualizados, faltando = [], []
+    for nome, custo in costs.items():
+        alvo = por_nome.get(nome)
+        if not alvo:
+            faltando.append(nome)
+            continue
+        for p in alvo:
+            p["cost"] = round(float(custo), 2)
+            p["source"] = "manual"
+        atualizados.append(nome)
+    if atualizados:
+        save_portfolio(positions, path)
+    return {"atualizados": atualizados, "nao_encontrados": faltando}
+
+
+_CSV_COLS_NOME = ("item", "nome", "name")
+_CSV_COLS_CUSTO = ("custo", "cost", "custo unitario", "custo unitário")
+
+
+def parse_cost_csv(text: str) -> dict:
+    """Le uma planilha de custos: {custos: {nome: custo}, erros: [str]}.
+
+    Aceita o proprio CSV exportado pelo Inventario (";" com colunas Item e
+    Custo -- exportar, preencher o Custo no Excel e importar de volta) ou
+    uma lista simples "nome;custo" sem cabecalho. Separador: ";" se a
+    primeira linha tiver, senao tab, senao ",". Custo vazio = "nao
+    informado" e a linha e' ignorada em silencio (a exportacao sai assim
+    para todo item sem custo); custo invalido ou negativo vira erro.
+    """
+    import csv
+    import io
+
+    linhas = [ln for ln in (text or "").lstrip("﻿").splitlines()
+              if ln.strip() and not ln.lstrip().startswith("#")]
+    if not linhas:
+        return {"custos": {}, "erros": ["Arquivo vazio."]}
+    primeira = linhas[0]
+    sep = ";" if ";" in primeira else ("\t" if "\t" in primeira else ",")
+    reader = list(csv.reader(io.StringIO("\n".join(linhas)), delimiter=sep))
+    cab = [c.strip().lower() for c in reader[0]]
+    i_nome = next((i for i, c in enumerate(cab) if c in _CSV_COLS_NOME), None)
+    i_custo = next((i for i, c in enumerate(cab) if c in _CSV_COLS_CUSTO),
+                   None)
+    if i_nome is not None and i_custo is not None:
+        corpo, base = reader[1:], 2
+    elif i_nome is not None or i_custo is not None:
+        return {"custos": {}, "erros": [
+            "Cabeçalho sem as colunas Item e Custo."]}
+    else:
+        corpo, base, i_nome, i_custo = reader, 1, 0, 1
+    custos: dict = {}
+    erros: list = []
+    for n, cols in enumerate(corpo, start=base):
+        if len(cols) <= max(i_nome, i_custo):
+            erros.append(f"Linha {n}: faltam colunas.")
+            continue
+        nome = cols[i_nome].strip()
+        bruto = cols[i_custo].strip()
+        if not nome or not bruto or bruto in ("—", "-"):
+            continue
+        try:
+            custo = _parse_brl(bruto)
+        except ValueError:
+            erros.append(f"Linha {n}: custo inválido “{bruto}”.")
+            continue
+        if custo < 0:
+            erros.append(f"Linha {n}: custo negativo “{bruto}”.")
+            continue
+        custos[nome] = custo
+    return {"custos": custos, "erros": erros}
