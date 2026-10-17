@@ -261,9 +261,6 @@ class TradeUpScreen(QWidget):
 
         self._status_lbl = QLabel("")
         self._status_lbl.setWordWrap(True)
-        self._status_lbl.setStyleSheet(
-            f"color: {t.WARN_TEXT}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};")
         self._status_lbl.setVisible(False)
         root.addWidget(self._status_lbl)
 
@@ -490,26 +487,37 @@ class TradeUpScreen(QWidget):
         self._render_outputs(res)
 
     def _show_status(self, linhas: list, warn: bool = True) -> None:
+        """Aviso = banner WARN (o mesmo do Scanner); progresso = legenda.
+
+        Texto amarelo solto sobre o fundo nao existe em nenhuma outra tela:
+        aviso no app e' sempre o banner com fundo e borda.
+        """
         self._status_lbl.setVisible(bool(linhas))
         self._status_lbl.setText("\n".join(linhas))
-        cor = t.WARN_TEXT if warn else t.TEXT_MUTED
-        self._status_lbl.setStyleSheet(
-            f"color: {cor}; font-size: {t.FS_BODY};"
-            f" font-family: {t.FONT_FAMILY};")
+        if warn:
+            self._status_lbl.setStyleSheet(
+                f"background: {t.WARN_BG}; border: 1px solid {t.WARN_BORDER};"
+                f" color: {t.WARN_TEXT}; border-radius: 8px;"
+                f" padding: 10px 14px; font-size: {t.FS_INPUT};"
+                f" font-family: {t.FONT_FAMILY};")
+        else:
+            self._status_lbl.setStyleSheet(t.label_caption())
 
     def _show_totals(self, res) -> None:
         res = res or {}
-        self._card_cost.set_value(t.brl(res.get("cost")))
-        self._card_ev.set_value(t.brl(res.get("ev_net")))
+        # accent explicito: o cartao nasce com "—" (cinza) e set_value sem
+        # accent mantem o estilo anterior -- o numero ficaria cinza.
+        self._card_cost.set_value(t.brl(res.get("cost")), t.TEXT)
+        self._card_ev.set_value(t.brl(res.get("ev_net")), t.TEXT)
         lucro = res.get("profit")
         if lucro is None:
-            self._card_profit.set_value("—")
+            self._card_profit.set_value("—", t.TEXT)
         else:
             cor = t.POSITIVE if lucro >= 0 else t.DANGER
             roi = res.get("roi")
             sufixo = f" ({_pct(roi)})" if roi is not None else ""
             self._card_profit.set_value(t.brl(lucro) + sufixo, cor)
-        self._card_chance.set_value(_pct(res.get("prob_profit")))
+        self._card_chance.set_value(_pct(res.get("prob_profit")), t.TEXT)
 
     def _render_outputs(self, res: dict) -> None:
         outs = res.get("outcomes") or []
