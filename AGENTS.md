@@ -340,6 +340,42 @@ aleatória — há viés de sobrevivência (a série existe porque o item ainda
 negocia). E o score **não vê preço absoluto**, que por esta medição é o
 fator mais forte a 365d que já medimos.
 
+### 4e. Reversão à média aplicada ao score — só em skins (2026-10-17)
+
+O 4b mediu `momentum` e `multi_period` com IC negativo em todos os
+horizontes, mas o score continuou pró-tendência por quase 3 meses. Agora
+o sinal é `_MOMENTUM_SIGN`/`_MULTI_PERIOD_SIGN = -1`. Re-medido em corpus
+maior: 373 séries com 500+ pontos do `ssr_cache`, passo 14d, ~50-58 mil
+amostras por horizonte, IC transversal (`cross_sectional_ic`).
+
+| universo | horizonte | IC antes | IC depois | mediana quintil sup. antes → depois |
+|---|---|---|---|---|
+| skins | 7d | 0,055 | **0,301** | +0,12% → +4,39% |
+| skins | 90d | 0,035 | **0,160** | +3,94% → +9,35% |
+| skins | 365d | 0,001 | **0,052** | +19,4% → +25,0% |
+| caixas | 7d | 0,036 | 0,150 | +0,56% → +1,79% |
+| caixas | 90d | 0,024 | 0,070 | +9,13% → +10,17% |
+| caixas | 365d | 0,065 | 0,064 | **+66,8% → +59,9%** |
+
+Em caixas a 365d a reversão **piora** (Spearman agregado −0,068, quintil
+superior perde 7 p.p.) — e é o horizonte da tese de aposentadoria (4c),
+a única que vence a taxa. Por isso a inversão vale **só fora de
+container** (`_REVERSAL_IN_CONTAINERS = False`). É a confirmação das "duas
+famílias" do 4b: reversão no curto prazo; em caixa, o longo prazo é
+estrutural.
+
+**Ainda não vence a taxa no curto prazo.** Skins 90d com o score novo:
+quintil superior +9,35% bruto, abaixo dos 15% da Steam. O ganho é de
+**ranking** (escolher melhor entre itens), não licença pra flipar.
+
+**Achado negativo:** desligar o bônus de drawdown "no topo + subindo"
+(`_DRAWDOWN_AT_HIGH_ENABLED`) não passou no critério — ΔSp +0,007 / +0,0002
+/ −0,003 em 7d/90d/365d. Ficou ligado.
+
+Outros ICs de fator no corpus novo, para a próxima rodada: `price_level`
++0,155 e `liquidity` +0,141 em 365d (os dois maiores do longo prazo);
+`trend` ≈ 0 em 90d.
+
 ### 5. `_find_query` prioriza match exato (corrigido em 2026-07-28)
 
 Ordem de preferência, independente da ordem de iteração do SSR:

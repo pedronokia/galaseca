@@ -330,28 +330,41 @@ def test_scan_score_skip_supply_none():
     assert signals.scan_score(v, volume=None, supply=50) == 50
 
 
-def test_scan_score_momentum_positive():
-    """Preco acima da SMA curta soma 5 vs preco igual a' SMA.
+def test_scan_score_momentum_acima_da_media_perde():
+    """Preco acima da media curta PERDE 5 vs preco igual a' media.
 
-    Note: rel_ath tambem aplica em ph >= 10. Testamos a DIFERENCA
-    introduzida pelo momentum isolado.
+    Reversao a media (AGENTS.md 4b/4e): momentum tem IC negativo em todos
+    os horizontes medidos. Note: rel_ath tambem aplica em ph >= 10, por
+    isso testamos a DIFERENCA introduzida pelo momentum isolado.
     """
     v = {"verdict": "fair", "diff_pct": 0}
     ph_up = [{"price_median": 100.0}] * 14 + [{"price_median": 110.0}]
     ph_flat = [{"price_median": 100.0}] * 15
     delta = (signals.scan_score(v, price_history=ph_up)
               - signals.scan_score(v, price_history=ph_flat))
-    assert delta == 5  # so' o fator momentum
+    assert delta == -5  # so' o fator momentum
 
 
-def test_scan_score_momentum_negative():
-    """Preco abaixo da SMA curta penaliza 5 vs preco igual a' SMA."""
+def test_scan_score_momentum_abaixo_da_media_ganha():
+    """Preco abaixo da media curta GANHA 5 vs preco igual a' media."""
     v = {"verdict": "fair", "diff_pct": 0}
     ph_down = [{"price_median": 100.0}] * 14 + [{"price_median": 90.0}]
     ph_flat = [{"price_median": 100.0}] * 15
     delta = (signals.scan_score(v, price_history=ph_down)
               - signals.scan_score(v, price_history=ph_flat))
-    assert delta == -5
+    assert delta == 5
+
+
+def test_scan_score_momentum_sinal_antigo_via_flag(monkeypatch):
+    """_MOMENTUM_SIGN=+1 reproduz o comportamento pro-tendencia antigo --
+    e' o que o backtest usa pra medir ON x OFF."""
+    monkeypatch.setattr(signals, "_MOMENTUM_SIGN", 1)
+    v = {"verdict": "fair", "diff_pct": 0}
+    ph_up = [{"price_median": 100.0}] * 14 + [{"price_median": 110.0}]
+    ph_flat = [{"price_median": 100.0}] * 15
+    delta = (signals.scan_score(v, price_history=ph_up)
+              - signals.scan_score(v, price_history=ph_flat))
+    assert delta == 5
 
 
 def test_scan_score_momentum_insuficiente():
@@ -361,19 +374,42 @@ def test_scan_score_momentum_insuficiente():
 
 
 def test_scan_score_multi_trend_all_rising():
-    """Todos os periodos subindo somam 10."""
+    """Todos os periodos subindo PERDEM 10 (reversao a media, AGENTS 4e)."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    mt = {"24h": {"change_pct": 2.0}, "7d": {"change_pct": 5.0},
+          "30d": {"change_pct": 8.0}}
+    assert signals.scan_score(v, multi_trend=mt) == 40
+
+
+def test_scan_score_multi_trend_all_falling():
+    """Todos os periodos caindo GANHAM 10."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    mt = {"24h": {"change_pct": -2.0}, "7d": {"change_pct": -5.0},
+          "30d": {"change_pct": -8.0}}
+    assert signals.scan_score(v, multi_trend=mt) == 60
+
+
+def test_reversao_nao_vale_para_container():
+    """Caixa mantem o sinal pro-tendencia: a 365d a reversao derrubava o
+    quintil superior de caixas de +66.8% para +59.9% (AGENTS.md 4e)."""
+    v = {"verdict": "fair", "diff_pct": 0}
+    ph_up = [{"price_median": 100.0}] * 14 + [{"price_median": 110.0}]
+    ph_flat = [{"price_median": 100.0}] * 15
+    delta = (signals.scan_score(v, price_history=ph_up, is_container=True)
+             - signals.scan_score(v, price_history=ph_flat,
+                                  is_container=True))
+    assert delta == 5
+    mt = {"24h": {"change_pct": 2.0}, "7d": {"change_pct": 5.0},
+          "30d": {"change_pct": 8.0}}
+    assert signals.scan_score(v, multi_trend=mt, is_container=True) == 60
+
+
+def test_scan_score_multi_trend_sinal_antigo_via_flag(monkeypatch):
+    monkeypatch.setattr(signals, "_MULTI_PERIOD_SIGN", 1)
     v = {"verdict": "fair", "diff_pct": 0}
     mt = {"24h": {"change_pct": 2.0}, "7d": {"change_pct": 5.0},
           "30d": {"change_pct": 8.0}}
     assert signals.scan_score(v, multi_trend=mt) == 60
-
-
-def test_scan_score_multi_trend_all_falling():
-    """Todos os periodos caindo penalizam 10."""
-    v = {"verdict": "fair", "diff_pct": 0}
-    mt = {"24h": {"change_pct": -2.0}, "7d": {"change_pct": -5.0},
-          "30d": {"change_pct": -8.0}}
-    assert signals.scan_score(v, multi_trend=mt) == 40
 
 
 def test_scan_score_volume_liquidity_bonus():

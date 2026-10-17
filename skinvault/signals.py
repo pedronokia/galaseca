@@ -108,6 +108,31 @@ _SUPPLY_PATH = DATA_DIR / "supply_history.json"
 # skins o fator ATRAPALHA, o que bate com o IC (-0.30 caixas x -0.04
 # skins) -- dai' o filtro `is_container`, mesmo padrao do vintage.
 _PRICE_LEVEL_ENABLED = True
+
+# 2026-10-17: momentum e multi_period com o SINAL DE REVERSAO A MEDIA.
+# O backtest de 2026-07-28 (AGENTS.md 4b) mediu IC negativo nos dois em
+# TODOS os horizontes de 7d a 365d (momentum -0.327 em 7d, -0.190 em 90d),
+# estavel nas duas metades cronologicas -- e invertendo-os o IC do score
+# ia de +0.051 a +0.207. A mudanca ficou registrada e nunca foi aplicada:
+# o score seguia premiando "acima da media" e "todos os periodos subindo",
+# exatamente o que o dado diz que reverte. +1 = pro-tendencia (antigo),
+# -1 = reversao. Medicao ON x OFF: ver AGENTS.md 4e.
+#
+# SKINS-ONLY. Re-medido em 2026-10-17 (373 series, ~50-58 mil amostras por
+# horizonte, IC transversal):
+#   SKINS   7d IC 0.055 -> 0.301 | 90d 0.035 -> 0.160 | 365d 0.001 -> 0.052
+#   CAIXAS  7d IC 0.036 -> 0.150 | 90d 0.024 -> 0.070 | 365d 0.065 -> 0.064
+# Em caixas a 365d o Spearman cai 0.068 e a mediana do quintil superior vai
+# de +66.8% a +59.9% -- e 365d em caixa e' justamente a tese de
+# aposentadoria (4c), a unica que vence a taxa. Mesmo padrao das "duas
+# familias" do 4b: reversao no curto, estrutural no longo em container.
+_MOMENTUM_SIGN = -1
+_MULTI_PERIOD_SIGN = -1
+_REVERSAL_IN_CONTAINERS = False
+# Bonus de drawdown "no topo + subindo" (+5). Contradiz a distancia do topo
+# medida em 4d (IC -0.20), mas desligar NAO passou no criterio (2026-10-17):
+# dSp +0.007 / +0.0002 / -0.003 em 7d/90d/365d. Negative finding: fica.
+_DRAWDOWN_AT_HIGH_ENABLED = True
 _PRICE_LEVEL_BANDS = (
     (5.0, 4, "abaixo de R$ 5"),
     (50.0, 2, "entre R$ 5 e 50"),
@@ -989,7 +1014,8 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             band = dd["band"]
             dd_pct = dd["drawdown_pct"]
             trend_dir = verdict.get("trend_verdict", "")
-            if band == "at_high" and trend_dir in ("rising", "stable"):
+            if (_DRAWDOWN_AT_HIGH_ENABLED and band == "at_high"
+                    and trend_dir in ("rising", "stable")):
                 _add("drawdown", 5,
                      f"No topo (DD {dd_pct:.0f}%) + trend up (+5)")
             elif band == "deep" and trend_dir == "falling":
@@ -1005,16 +1031,25 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     # virou "media das ultimas 15 horas" em silencio. recent_prices()
     # agrega por dia quando ha' timestamp e mantem o corte por contagem
     # quando nao ha'.
+    # Reversao a media so' fora de container (ver _REVERSAL_IN_CONTAINERS).
+    reverte = (not is_container) or _REVERSAL_IN_CONTAINERS
+    sinal_mom = _MOMENTUM_SIGN if reverte else 1
+    sinal_mp = _MULTI_PERIOD_SIGN if reverte else 1
+
     if price_history and len(price_history) >= 10:
         prices_m = recent_prices(price_history, days=15)
         if not prices_m:
             prices_m = [e["price_median"] for e in price_history[-15:]]
         mean_recent = sum(prices_m) / len(prices_m)
         last_p = prices_m[-1]
+        # Com sinal -1, acima da media PERDE ponto (tende a reverter) e
+        # abaixo GANHA.
         if last_p > mean_recent * 1.02:
-            _add("momentum", 5, "Acima da média recente (+5)")
+            d = 5 * sinal_mom
+            _add("momentum", d, f"Acima da média recente ({d:+d})")
         elif last_p < mean_recent * 0.98:
-            _add("momentum", -5, "Abaixo da média recente (-5)")
+            d = -5 * sinal_mom
+            _add("momentum", d, f"Abaixo da média recente ({d:+d})")
 
     # Concordancia multi-periodo
     if multi_trend and len(multi_trend) >= 3:
@@ -1025,9 +1060,13 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                 dirs.append(cp > 0)
         if len(dirs) >= 3:
             if all(dirs):
-                _add("multi_period", 10, f"{len(dirs)} periodos subindo (+10)")
+                d = 10 * sinal_mp
+                _add("multi_period", d,
+                     f"{len(dirs)} periodos subindo ({d:+d})")
             elif not any(dirs):
-                _add("multi_period", -10, f"{len(dirs)} periodos caindo (-10)")
+                d = -10 * sinal_mp
+                _add("multi_period", d,
+                     f"{len(dirs)} periodos caindo ({d:+d})")
 
     # Bonus de volume
     if volume is not None and volume > 2000:
