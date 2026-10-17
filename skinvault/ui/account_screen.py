@@ -38,7 +38,7 @@ from PyQt6.QtWidgets import (
 from skinvault import backtest as backtest_mod
 from skinvault import portfolio as portfolio_mod
 from skinvault import (
-    history, markets, prices, reports, signals, ssr_cache, steam_api,
+    cases, history, markets, prices, reports, signals, ssr_cache, steam_api,
 )
 from skinvault.ui import theme as t
 from skinvault.ui._price_worker import PriceWorker
@@ -509,6 +509,7 @@ class AccountScreen(QWidget):
         def _worker() -> None:
             try:
                 name_to_score: dict[str, tuple[int, float]] = {}
+                name_to_exit: dict[str, dict] = {}
                 for i, name in enumerate(names, start=1):
                     hit = cache.has(name)
                     tag = "cache" if hit else "buscando"
@@ -539,6 +540,19 @@ class AccountScreen(QWidget):
                             cs = None
                         if cs is not None:
                             name_to_score[name] = (int(cs), time.time())
+                        # Contexto de saida (distancia do topo) sai do MESMO
+                        # historico -- zero requisicao extra. So' numeros;
+                        # o texto e' montado na tela.
+                        ctx = signals.exit_context(
+                            ph, is_container=cases.is_container(name))
+                        if ctx:
+                            name_to_exit[name] = {
+                                "pct_of_ath": ctx["pct_of_ath"],
+                                "ath": ctx["ath"],
+                                "current": ctx["current"],
+                                "at_launch": ctx["at_launch"],
+                                "ts": time.time(),
+                            }
                     if not hit:
                         time.sleep(steam_api.RATE_LIMIT_DELAY_S)
                 # Atualiza positions com scores e persiste
@@ -548,6 +562,8 @@ class AccountScreen(QWidget):
                         cs, ts = name_to_score[n]
                         p["current_score"] = cs
                         p["score_ts"] = ts
+                    if n in name_to_exit:
+                        p["exit_ctx"] = name_to_exit[n]
                 try:
                     portfolio_mod.save_portfolio(positions_snapshot)
                 except Exception:

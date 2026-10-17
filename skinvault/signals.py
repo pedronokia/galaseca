@@ -723,7 +723,116 @@ def relative_to_ath(price_history: list[dict]) -> dict:
         "ath": round(ath, 4),
         "current": round(current, 4),
         "band": band,
-        "label": f"Preço a {pct:.0%} do ATH (${ath:.2f})",
+        # Preco do app e' BRL (currency=7); o "$" antigo nao era usado.
+        "label": f"Preço a {pct:.0%} do ATH (R$ {ath:.2f})".replace(".", ","),
+    }
+
+
+# Retorno mediano 365d por faixa de preco, medido em 2026-07-30 (AGENTS.md
+# 4d, 84 itens, 7541 amostras). Usado SO' como referencia historica no
+# tooltip do contexto de saida -- nao e' projecao.
+_HIST_365D_POR_FAIXA = (
+    (1.0, "R$ 0–1", 73.0),
+    (5.0, "R$ 1–5", 41.1),
+    (20.0, "R$ 5–20", 44.0),
+    (100.0, "R$ 20–100", 27.4),
+    (500.0, "R$ 100–500", 18.7),
+    (float("inf"), "acima de R$ 500", 8.7),
+)
+
+
+def exit_context(price_history: list[dict] | None,
+                 is_container: bool = False) -> dict:
+    """Contexto descritivo pra quem ja' tem o item: perto do topo? que faixa?
+
+    Junta os dois fatores mais fortes que o backtest mediu no longo prazo
+    (AGENTS.md 4d): distancia do topo historico (IC -0,20) e preco absoluto
+    (IC -0,26; -0,30 em caixas). Descreve onde o item ESTA e o que a faixa
+    rendeu no passado -- nao diz o que vai acontecer nem manda vender.
+
+    Retorna {} sem historico suficiente; senao {pct_of_ath, ath, current,
+    at_launch, level, text, tooltip}. level: "topo" (>=90% do ATH),
+    "alto" (>=50%), "meio" (>=20%), "baixo".
+
+    Topo = maximo da serie DIARIA ponderada por volume, nao o ponto bruto.
+    Medido em 2026-10-17: o maximo bruto da AK-47 Redline FT era R$ 1.403,
+    um ponto HORARIO com 1 compra; o diario ponderado da' R$ 403. O fator
+    `rel_ath` do score ainda usa o bruto (pendencia em AGENTS.md 4g).
+    """
+    if not price_history:
+        return {}
+    diario = daily_series(price_history)
+    if len(diario) < 10:
+        # Serie sem `time` (legado/fixture): cai no calculo bruto.
+        rta = relative_to_ath(price_history)
+        if not rta:
+            return {}
+        return format_exit_context(rta["pct_of_ath"], rta["ath"],
+                                   rta["current"], is_container)
+    topo = max(diario, key=lambda d: d["price_median"])
+    ath = float(topo["price_median"])
+    atual = float(diario[-1]["price_median"])
+    if ath <= 0:
+        return {}
+    # Topo nos primeiros 60 dias da serie = preco de lancamento (toda caixa
+    # nova abre cara). Fato que muda a leitura de "X% do topo".
+    no_lancamento = topo["time"] - diario[0]["time"] <= 60 * 86400
+    return format_exit_context(round(atual / ath, 3), round(ath, 4),
+                               round(atual, 4), is_container, no_lancamento)
+
+
+def format_exit_context(pct: float, ath: float, atual: float,
+                        is_container: bool = False,
+                        at_launch: bool = False) -> dict:
+    """Monta {level, text, tooltip} a partir dos numeros ja' medidos.
+
+    Separado de `exit_context` porque a posicao persiste so' os numeros
+    (pct/ath/atual) e a tela formata na hora -- texto de tooltip nao tem
+    lugar no portfolio.json.
+    """
+    if pct >= 0.9:
+        level = "topo"
+    elif pct >= 0.5:
+        level = "alto"
+    elif pct >= 0.2:
+        level = "meio"
+    else:
+        level = "baixo"
+    faixa = next((f for f in _HIST_365D_POR_FAIXA if atual < f[0]),
+                 _HIST_365D_POR_FAIXA[-1])
+
+    def _brl(v: float) -> str:
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    mediana_faixa = f"{faixa[2]:+.1f}%".replace(".", ",")
+    linhas = [
+        f"Preço atual {_brl(atual)} = {pct:.0%} do topo histórico "
+        f"({_brl(ath)}).",
+    ]
+    if at_launch:
+        linhas.append("O topo foi no lançamento — item novo costuma abrir "
+                      "caro, então a distância do topo diz pouco aqui.")
+    linhas += [
+        "",
+        "O que o backtest mediu (passado, não previsão):",
+        "• Quanto mais perto do topo, menor foi o retorno nos 12 meses "
+        "seguintes (IC −0,20, comparando itens na mesma data).",
+        f"• Itens na faixa {faixa[1]} renderam mediana {mediana_faixa} "
+        "em 365 dias. Quanto mais caro, menor o retorno — efeito "
+        + ("forte em caixas (IC −0,30)." if is_container
+           else "fraco em skins (IC −0,04)."),
+        "",
+        "Antes de vender pela Steam: a taxa de 15% sai do valor que você "
+        "recebe.",
+    ]
+    return {
+        "pct_of_ath": pct,
+        "ath": ath,
+        "current": atual,
+        "at_launch": at_launch,
+        "level": level,
+        "text": f"{pct:.0%} do topo",
+        "tooltip": "\n".join(linhas),
     }
 
 
