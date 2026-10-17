@@ -138,9 +138,8 @@ class MarketScreen(QWidget):
         self._search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._search_btn.setStyleSheet(t.btn_primary())
         self._search_btn.setToolTip(
-            "Busca o menor preço, o preço típico, quantos foram vendidos "
-            "em 24h, o histórico e a fila de ofertas.\nCada consulta leva "
-            "uns segundos: a Steam limita quantas podemos fazer."
+            "Busca preço, vendas em 24h, histórico e fila de ofertas.\n"
+            "Leva uns segundos: a Steam limita as consultas."
         )
         self._search_btn.clicked.connect(self._on_search)
         search_row.addWidget(self._search_btn)
@@ -231,12 +230,9 @@ class MarketScreen(QWidget):
         # Tooltip de ajuda fica no label do header — o chart em si mostra
         # tooltip dinâmico (preço + data) ao passar o mouse nos pontos.
         spark_lbl.setToolTip(
-            "Série diária completa que a Steam serve, com eixo de preço.\n"
-            "Linha tracejada = SMA 7 dias. Linhas horizontais = suporte e "
-            "resistência aproximados.\n"
-            "Barras embaixo = volume de vendas do dia (verde sobe, vermelho "
-            "cai).\n"
-            "Passe o mouse sobre o gráfico para ver preço, data e volume."
+            "Preço por dia. Tracejada = média de 7 dias; horizontais =\n"
+            "pisos e tetos recentes; barras = vendas do dia.\n"
+            "Passe o mouse para ver preço, data e volume."
         )
         spark_hdr.addWidget(spark_lbl)
         spark_hdr.addStretch(1)
@@ -348,9 +344,18 @@ class MarketScreen(QWidget):
         self._empty.setVisible(False)
         root.addWidget(self._empty, 1)
 
-        QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(
-            self._search_inp.setFocus
-        )
+        for tecla in ("Ctrl+L", "Ctrl+F"):
+            QShortcut(QKeySequence(tecla), self).activated.connect(
+                self._focar_busca)
+
+    def _focar_busca(self) -> None:
+        self._search_inp.setFocus()
+        self._search_inp.selectAll()
+
+    def refresh(self) -> None:
+        """F5: refaz a consulta do item no campo (se houver)."""
+        if self._search_inp.text().strip():
+            self._on_search()
 
     # ── helpers ───────────────────────────────────────────
     def _rebuild_recent_menu(self) -> None:

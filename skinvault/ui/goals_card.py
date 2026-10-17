@@ -50,9 +50,8 @@ class GoalsCard(QFrame):
         self._edit_btn.setStyleSheet(t.btn_ghost(padding="4px 12px",
                                                  fs=t.FS_MUTED))
         self._edit_btn.setToolTip(
-            "Cria, edita ou remove metas de valor líquido, de mercado, de\n"
-            "lucro e de total de itens. O progresso é factual: o app mostra\n"
-            "o quanto já foi atingido, nunca previsão."
+            "Cria, edita ou remove metas (valor, lucro ou nº de itens).\n"
+            "Mostra só quanto já foi atingido, nunca previsão."
         )
         self._edit_btn.clicked.connect(self._on_edit)
         cab.addWidget(self._edit_btn)

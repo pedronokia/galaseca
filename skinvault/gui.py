@@ -554,18 +554,24 @@ class MainWindow(QMainWindow):
 
     # ── shortcuts ─────────────────────────────────────────────
     def _setup_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
-            self._focus_filter)
+        # Ctrl+F e Ctrl+N NAO moram aqui: as telas ja' tem os seus (busca
+        # da tela; "novo trade" em Trades). Duas QShortcut com a mesma
+        # tecla ativas ao mesmo tempo sao AMBIGUAS pro Qt -- ele emite
+        # activatedAmbiguously e nenhuma dispara. Era o caso: Ctrl+F nao
+        # fazia nada em Inventario/Scanner/Watchlist/Historico/Trades
+        # (2026-10-17). Ver test_atalhos.py.
         QShortcut(QKeySequence("?"), self).activated.connect(
             self._show_shortcuts)
         QShortcut(QKeySequence("F5"), self).activated.connect(
             self._refresh_current)
-        QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(
-            self._open_settings)
         QShortcut(QKeySequence("Ctrl+,"), self).activated.connect(
             self._open_settings)
         QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(
             self._open_palette)
+        # Ctrl+1..8: telas na ordem da barra lateral.
+        for i, (key, _icon, _label) in enumerate(self._SIDEBAR_ITENS, 1):
+            QShortcut(QKeySequence(f"Ctrl+{i}"), self).activated.connect(
+                lambda k=key: self._router.navigate(k))
 
     def _focus_filter(self) -> None:
         stack = getattr(self._router, '_stack', None)
@@ -587,17 +593,22 @@ class MainWindow(QMainWindow):
                 refresh()
 
     def _show_shortcuts(self) -> None:
+        telas = ", ".join(f"{i} {label}" for i, (_k, _i, label)
+                          in enumerate(self._SIDEBAR_ITENS, 1))
         QMessageBox.information(
             self, "Atalhos de teclado",
             "<b>Atalhos:</b><br>"
-            "F5 &nbsp;&nbsp; Recarregar tela atual<br>"
-            "Ctrl+F &nbsp;&nbsp; Foco no filtro ou busca da tela<br>"
-            "Esc &nbsp;&nbsp; Limpa a busca (Inventário, Watchlist, Histórico)<br>"
-            "Delete &nbsp;&nbsp; Remove a linha selecionada (Trades, Watchlist)<br>"
-            "Ctrl+L &nbsp;&nbsp; Foca a busca no Market<br>"
-            "Ctrl+Enter &nbsp;&nbsp; Escaneia a categoria no Scanner<br>"
-            "Ctrl+N / Ctrl+, &nbsp;&nbsp; Configurações<br>"
-            "Ctrl+K &nbsp;&nbsp; Abre a paleta<br>"
+            f"Ctrl+1…{len(self._SIDEBAR_ITENS)} &nbsp;&nbsp; Troca de tela"
+            f" ({telas})<br>"
+            "Ctrl+K &nbsp;&nbsp; Abre a paleta de comandos<br>"
+            "F5 &nbsp;&nbsp; Atualiza a tela atual<br>"
+            "Ctrl+F &nbsp;&nbsp; Vai para a busca da tela<br>"
+            "Esc &nbsp;&nbsp; Limpa a busca<br>"
+            "Delete &nbsp;&nbsp; Remove a linha selecionada (Trades,"
+            " Watchlist)<br>"
+            "Ctrl+N &nbsp;&nbsp; Novo trade (Trades)<br>"
+            "Ctrl+Enter &nbsp;&nbsp; Escaneia a categoria (Scanner)<br>"
+            "Ctrl+, &nbsp;&nbsp; Configurações<br>"
             "? &nbsp;&nbsp; Mostra esta janela",
         )
 
@@ -890,6 +901,7 @@ class MainWindow(QMainWindow):
             ("scanner", "radar", "Scanner"),
             ("market", "chart", "Market"),
             ("trades", "swap", "Trades"),
+            ("tradeup", "calc", "Trade-up"),
             ("watchlist", "eye", "Watchlist"),
         ]
         cmds: list[dict] = [

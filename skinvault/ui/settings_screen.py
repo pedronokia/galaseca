@@ -321,11 +321,8 @@ class SettingsScreen(QWidget):
         )
         self._overlay.setStyleSheet(t.checkbox_style())
         self._overlay.setToolTip(
-            "Mantém a janela acima das outras e impede que ela roube o foco "
-            "do jogo.\n"
-            "Efeito colateral: ligado, o alt+tab não tira o SkinVault da "
-            "frente.\n"
-            "Deixe desligado se você não usa o app sobre o CS2 em tela cheia."
+            "Janela sempre na frente, sem roubar o foco do jogo.\n"
+            "Ligado, o Alt+Tab não tira o SkinVault da frente."
         )
         self._overlay.toggled.connect(self._on_overlay_toggled)
         lay.addWidget(self._overlay)

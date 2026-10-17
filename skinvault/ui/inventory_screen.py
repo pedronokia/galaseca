@@ -270,9 +270,8 @@ class InventoryScreen(QWidget):
         self._ordem_seg.add("nome", "Nome")
         self._ordem_seg.add("qtd", "Qtd")
         self._ordem_seg.setToolTip(
-            "Ordem dos cards. “Valor” usa o total do lote, não o preço "
-            "unitário:\n21 caixas de R$ 1 pesam mais que uma skin de R$ 15.\n"
-            "Clicar na chave já ativa alterna crescente/decrescente.")
+            "Ordem dos cards (Valor = total do lote).\n"
+            "Clique de novo para inverter.")
         # Lambda, nao `self._grid.set_order`: a grade so' e' construida
         # adiante neste mesmo _build, e ligar o metodo agora explodiria.
         self._ordem_seg.segment_changed.connect(self._on_ordem)
@@ -1225,6 +1224,11 @@ class InventoryScreen(QWidget):
         if novo is None:
             return
         self._salvar_custo(nome, novo)
+
+    def refresh(self) -> None:
+        """F5: pede a reavaliacao dos precos (o worker mora na Conta)."""
+        if self._rows:
+            self.request_reeval.emit()
 
     def _on_importar_steam(self) -> None:
         from skinvault.ui.inventory_dialogs import ImportarSteamDialog

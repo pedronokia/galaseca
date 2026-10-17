@@ -139,9 +139,8 @@ class AccountScreen(QWidget):
         self._calc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._calc_btn.setStyleSheet(t.btn_ghost())
         self._calc_btn.setToolTip(
-            "Quanto sobra líquido em cada plataforma e por quanto listar\n"
-            "pra receber a margem desejada. Steam é saldo — não saca.\n"
-            "Taxas são defaults editáveis (Skinport 12%, CS.MONEY 5%)."
+            "Quanto sobra em cada plataforma depois da taxa, e por quanto\n"
+            "anunciar para lucrar o que você quer. Saldo Steam não saca."
         )
         self._calc_btn.clicked.connect(self._on_open_calculator)
         act_lbl.addWidget(self._calc_btn)

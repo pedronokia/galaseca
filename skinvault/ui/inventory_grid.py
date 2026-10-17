@@ -646,10 +646,8 @@ class ItemDetailPanel(QFrame):
         self._liquidity_btn.setStyleSheet(
             t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
         self._liquidity_btn.setToolTip(
-            "Consulta o order book da Steam pra ESTE item (rede sob "
-            "demanda -- só roda quando você clica).\n"
-            "Mostra a razão oferta/demanda e uma estimativa de dias de "
-            "listagens no ritmo atual.")
+            "Busca na Steam quantos compram e quantos vendem este item,\n"
+            "e em quantos dias os anúncios acabam no ritmo atual.")
         self._liquidity_btn.clicked.connect(self._on_liquidity_clicked)
         v.addWidget(self._liquidity_btn, 0, Qt.AlignmentFlag.AlignLeft)
         self._liquidity_result = QLabel("")

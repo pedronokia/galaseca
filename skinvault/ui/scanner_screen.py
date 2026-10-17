@@ -412,10 +412,8 @@ class ScannerScreen(QWidget):
         self._search_inp.setFixedWidth(260)
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.setToolTip(
-            "Filtra a tabela pelo nome do item. Não afeta o que foi "
-            "escaneado — só esconde linhas, e as outras colunas de "
-            "filtro (baixa confiança, dados aproximados) continuam "
-            "valendo.\nCtrl+F foca o campo, Esc limpa."
+            "Esconde as linhas que não têm este nome (não refaz o scan).\n"
+            "Ctrl+F foca o campo, Esc limpa."
         )
         self._search_inp.textChanged.connect(self._apply_search_filter)
         filt_row.addWidget(self._search_inp)

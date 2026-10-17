@@ -242,9 +242,8 @@ class TradeUpScreen(QWidget):
         self._calc_btn = QPushButton("Calcular")
         self._calc_btn.setStyleSheet(t.btn_primary())
         self._calc_btn.setToolTip(
-            "Busca o preço de cada item que pode sair (o que já está "
-            "guardado é instantâneo; o resto vem do Steam Market, com pausa "
-            "entre buscas) e calcula quanto o contrato vale em média.")
+            "Busca o preço de cada item que pode sair e calcula quanto\n"
+            "o contrato vale em média. Preços novos levam alguns segundos.")
         self._calc_btn.clicked.connect(self._on_calculate)
         acoes.addWidget(self._calc_btn)
         root.addLayout(acoes)
