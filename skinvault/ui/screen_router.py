@@ -145,6 +145,7 @@ class ScreenRouter(QWidget):
         self._inventory_screen = InventoryScreen(self)
         self._account_screen.inventory_ready.connect(
             self._inventory_screen.set_data)
+        self._account_screen.ver_sem_custo.connect(self._abrir_sem_custo)
         self._account_screen.inventory_progress.connect(
             self._inventory_screen.set_loading)
         # Custo editado na tabela pede reavaliacao: a posicao mudou e o P&L
@@ -205,6 +206,10 @@ class ScreenRouter(QWidget):
             pol.setHorizontalPolicy(p)
             pol.setVerticalPolicy(p)
             w.setSizePolicy(pol)
+
+    def _abrir_sem_custo(self) -> None:
+        self.navigate(SCREEN_INVENTORY)
+        self._inventory_screen.mostrar_sem_custo()
 
     def _maybe_show_welcome(self) -> None:
         """Mostra o WelcomeDialog uma vez, no primeiro boot do app.

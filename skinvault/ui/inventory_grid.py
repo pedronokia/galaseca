@@ -71,6 +71,12 @@ def _valor_do_tile(item: dict) -> tuple:
     return None, ""
 
 
+#: Chave especial do painel de filtros: itens sem custo declarado. Vive
+#: junto das categorias (botoes exclusivos) mas nao e' uma categoria de
+#: `classify_item` -- por isso o prefixo que nenhum nome real tem.
+SEM_CUSTO = "__sem_custo__"
+
+
 class InventoryTile(QFrame):
     """Um item: icone + etiqueta de preco, no formato da Steam.
 
@@ -1168,7 +1174,9 @@ class InventoryGrid(QWidget):
                 continue
             casa = not alvo or alvo in (item.get("name") or "").lower()
             # Categoria COMPOE com o texto, nao substitui.
-            if casa and self._categoria:
+            if casa and self._categoria == SEM_CUSTO:
+                casa = item.get("cost") is None
+            elif casa and self._categoria:
                 cat = portfolio.classify_item(
                     item.get("raw_name") or item.get("name") or "")
                 casa = cat == self._categoria

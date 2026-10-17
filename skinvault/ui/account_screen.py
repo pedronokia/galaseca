@@ -74,6 +74,8 @@ class AccountScreen(QWidget):
     # a avaliacao leva minutos, e o estado intermediario e' o que mais
     # aparece pro usuario.
     inventory_progress = pyqtSignal(int, int)
+    # "Informar custos": o router abre o Inventario filtrado em Sem custo.
+    ver_sem_custo = pyqtSignal()
 
     def __init__(self, cache: prices.PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -184,7 +186,20 @@ class AccountScreen(QWidget):
         bd_lay.setSpacing(8)
         bd_title = QLabel("Desempenho da carteira")
         bd_title.setStyleSheet(t.label_section())
-        bd_lay.addWidget(bd_title)
+        bd_topo = QHBoxLayout()
+        bd_topo.setContentsMargins(0, 0, 0, 0)
+        bd_topo.addWidget(bd_title)
+        bd_topo.addStretch(1)
+        self._sem_custo_btn = QPushButton("Informar custos")
+        self._sem_custo_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._sem_custo_btn.setStyleSheet(t.btn_ghost())
+        self._sem_custo_btn.setToolTip(
+            "Abre o Inventário só com os itens sem custo. Sem o custo,\n"
+            "o item fica fora do lucro e do prejuízo.")
+        self._sem_custo_btn.clicked.connect(self.ver_sem_custo.emit)
+        self._sem_custo_btn.setVisible(False)
+        bd_topo.addWidget(self._sem_custo_btn)
+        bd_lay.addLayout(bd_topo)
 
         bd_row = QHBoxLayout()
         bd_row.setSpacing(20)
@@ -750,6 +765,9 @@ class AccountScreen(QWidget):
         # diz de onde ele saiu.
         n = len(com_custo)
         total_pos = len(rows)
+        faltam = total_pos - n
+        self._sem_custo_btn.setText(f"Informar custos ({faltam})")
+        self._sem_custo_btn.setVisible(faltam > 0)
         # `cost_known` soma o custo declarado mesmo sem cotacao; somar as
         # linhas so' funciona porque elas passaram a carregar `cost_total`
         # tambem quando o preco falta. O fallback cobre totals de fora.

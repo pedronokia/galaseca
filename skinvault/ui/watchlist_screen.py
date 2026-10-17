@@ -532,8 +532,21 @@ class WatchlistScreen(QWidget):
                 )
             self._table.setItem(i, self.COL_PRICE, price_item)
 
-            # Status (3 estados)
-            if triggered:
+            # Status (3 estados + silenciado)
+            if wl.is_muted(item):
+                from datetime import datetime as _dt
+                try:
+                    ate = _dt.fromtimestamp(
+                        float(item["muted_until"])).strftime("%d/%m %H:%M")
+                except (OverflowError, OSError, ValueError):
+                    ate = "—"   # valor corrompido no JSON: nao derruba a tela
+                status_txt = "Silenciado"
+                st = QTableWidgetItem(status_txt)
+                st.setForeground(QBrush(QColor(t.TEXT_MUTED)))
+                st.setToolTip(
+                    f"Sem notificação até {ate}. Os alertas continuam"
+                    " indo para o log.")
+            elif triggered:
                 status_txt = "Disparado"
                 st = QTableWidgetItem(status_txt)
                 st.setForeground(QBrush(QColor(t.WARN)))
@@ -652,6 +665,12 @@ class WatchlistScreen(QWidget):
         act_target = menu.addAction("Editar preço alvo")
         act_reset = menu.addAction("Resetar alerta")
         act_reset.setEnabled(bool(item.get("triggered")))
+        silenciado = wl.is_muted(item)
+        act_mute = menu.addAction(
+            "Reativar notificações" if silenciado
+            else f"Silenciar por {wl.MUTE_HORAS}h")
+        act_mute.setToolTip("Só a notificação do Windows; o alerta continua"
+                            " indo para o log.")
         menu.addSeparator()
         act_remove = menu.addAction("Remover item")
         chosen = menu.exec(self._table.viewport().mapToGlobal(pos))
@@ -661,6 +680,8 @@ class WatchlistScreen(QWidget):
             self._on_edit_target(item)
         elif chosen is act_reset:
             self._on_reset_trigger(item)
+        elif chosen is act_mute:
+            self._on_toggle_mute(item)
         elif chosen is act_remove:
             self._on_remove_item(item)
 
@@ -722,6 +743,16 @@ class WatchlistScreen(QWidget):
     def _on_reset_trigger(self, item: dict) -> None:
         wl.reset_trigger(item["name"])
         self.refresh()
+
+    def _on_toggle_mute(self, item: dict) -> None:
+        silenciar = not wl.is_muted(item)
+        wl.set_muted(item["name"], wl.MUTE_HORAS if silenciar else None)
+        self.refresh()
+        from skinvault.localization import localize_name as _ln
+        msg = (f"“{_ln(item['name'])}” silenciado por {wl.MUTE_HORAS}h."
+               if silenciar else
+               f"Notificações de “{_ln(item['name'])}” reativadas.")
+        Toast.show_toast(self, msg, "info")
 
     def _on_remove_item(self, item: dict) -> None:
         idx = next((i for i, it in enumerate(self._items)
@@ -873,8 +904,18 @@ class WatchlistScreen(QWidget):
                         item["triggered"] = bool(item.get("triggered_rules"))
                     if not hit:
                         time.sleep(steam_api.RATE_LIMIT_DELAY_S)
-                # Persiste estado atualizado da watchlist
+                # Persiste estado atualizado da watchlist. O snapshot foi
+                # lido no inicio: um "Silenciar" feito durante a rodada
+                # seria apagado por ele -- relê o estado de mute do disco.
                 try:
+                    atual = {i.get("name"): i.get("muted_until")
+                             for i in wl.load_watchlist()}
+                    for i in items_snapshot:
+                        ate = atual.get(i.get("name"))
+                        if ate:
+                            i["muted_until"] = ate
+                        else:
+                            i.pop("muted_until", None)
                     wl.save_watchlist(items_snapshot)
                 except Exception:
                     pass
@@ -902,6 +943,12 @@ class WatchlistScreen(QWidget):
         """
         from skinvault.settings import load_settings as _ls
         if not _ls().get("tray_notifications", True):
+            return
+        # Item silenciado: o alerta ja' foi pro log no worker; so' a
+        # notificacao do Windows fica de fora.
+        alvo = next((i for i in wl.load_watchlist()
+                     if i.get("name") == name), None)
+        if alvo is not None and wl.is_muted(alvo):
             return
         rule = alert.get("rule", "")
         label = alert.get("label", "")
