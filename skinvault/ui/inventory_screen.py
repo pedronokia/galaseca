@@ -54,7 +54,9 @@ from skinvault.ui.components import (
 )
 from skinvault.ui._price_worker import IconWorker
 from skinvault.ui.exporter import build_export_menu, save_export
-from skinvault.ui.inventory_grid import InventoryGrid, InventoryTile
+from skinvault.ui.inventory_grid import (
+    SEM_CUSTO, InventoryGrid, InventoryTile,
+)
 from skinvault.ui.toast import ToastManager
 
 
@@ -960,9 +962,17 @@ class InventoryScreen(QWidget):
             return
         self._cat_panel.setVisible(True)
         total = sum(n for _, n in cats)
+        # "Sem custo" no fim: e' o que falta pro lucro existir. So'
+        # aparece quando ha' algum -- botao com 0 seria um filtro vazio.
+        n_sem = sum(1 for it in self._grid._itens if it.get("cost") is None)
+        extra = [(SEM_CUSTO, "Sem custo", n_sem)] if n_sem else []
         for chave, rotulo, n in [(None, "Todos", total)] + [
-                (c, c, n) for c, n in cats]:
+                (c, c, n) for c, n in cats] + extra:
             btn = self._botao_categoria(rotulo, n, chave is None)
+            if chave == SEM_CUSTO:
+                btn.setToolTip("Itens sem custo informado: ficam fora da"
+                               " conta de lucro. Selecione na tabela e use"
+                               " o botão direito para definir.")
             btn.clicked.connect(
                 lambda _=False, c=chave: self._on_categoria(c))
             # antes do stretch final, senao os botoes vao pro rodape
@@ -1016,7 +1026,17 @@ class InventoryScreen(QWidget):
         btn._rotulo, btn._contagem = lbl, cnt
         return btn
 
+    def mostrar_sem_custo(self) -> None:
+        """Entrada vinda da Conta ("Informar custos"): tabela + filtro."""
+        btn = self._cat_botoes.get(SEM_CUSTO)
+        if btn is None:
+            return
+        btn.setChecked(True)
+        self._on_categoria(SEM_CUSTO)
+        self._view_seg.select("table")
+
     def _on_categoria(self, categoria) -> None:
+        self._categoria_ativa = categoria
         self._grid.set_category(categoria)
         self._apply_filter(self._filter.text())
         # O `:checked` do stylesheet pinta o BOTAO, nao os QLabels dentro
@@ -1342,21 +1362,39 @@ class InventoryScreen(QWidget):
         morta no topo da tela, e a grade e' a visao que abre por padrao.
         """
         alvo = (texto or "").strip().lower()
+        # A tabela ignorava a categoria escolhida no painel: "Caixas" so'
+        # filtrava a grade. Agora as duas visoes mostram o mesmo recorte.
+        cat = getattr(self, "_categoria_ativa", None)
+        sem_custo = ({it.get("raw_name") for it in self._grid._itens
+                      if it.get("cost") is None}
+                     if cat == SEM_CUSTO else set())
         for i in range(self._table.rowCount()):
             item = self._table.item(i, self.COL_NAME)
             nome = item.text().lower() if item else ""
-            self._table.setRowHidden(i, bool(alvo) and alvo not in nome)
+            esconde = bool(alvo) and alvo not in nome
+            if not esconde and cat:
+                raw = (item.data(Qt.ItemDataRole.UserRole) or "") if item \
+                    else ""
+                esconde = (raw not in sem_custo if cat == SEM_CUSTO else
+                           portfolio.classify_item(raw) != cat)
+            self._table.setRowHidden(i, esconde)
         sobraram = self._grid.set_filter(alvo)
 
         # Filtro sem resultado deixava a grade em branco, sem uma palavra --
         # indistinguivel de inventario vazio ou de falha de carregamento.
         base = getattr(self, "_rodape_base", "")
-        if not alvo:
+        if not alvo and not cat:
             self._status.setText(base)
             self._sem_match.setVisible(False)
             return
         total = self._grid.count()
         self._sem_match.setVisible(sobraram == 0 and total > 0)
+        if not alvo:
+            # So' o painel filtrando: o rodape dizia "12 itens" com 6 na tela.
+            rotulo = "sem custo" if cat == SEM_CUSTO else cat
+            self._status.setText(
+                f"Mostrando {sobraram} de {total} itens • {rotulo}")
+            return
         if sobraram:
             self._status.setText(
                 f"Mostrando {sobraram} de {total} itens • filtro "

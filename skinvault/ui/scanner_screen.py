@@ -199,7 +199,29 @@ class ScannerScreen(QWidget):
         self._validate_samples: list[dict] = []
         self._scan_cancelled = False
         self._scanning = False
+        self._scan_cat = ""
         self._build()
+        self._carregar_ultimo_scan()
+
+    def _carregar_ultimo_scan(self) -> None:
+        """Reabre com o ultimo scan concluido, dizendo de quando e'."""
+        from skinvault import scan_store
+        salvo = scan_store.load_last_scan()
+        if not salvo:
+            return
+        self._scan_results = sorted(salvo["results"],
+                                    key=lambda r: r["score"], reverse=True)
+        if self._cat_combo.findText(salvo["category"]) >= 0:
+            self._cat_combo.setCurrentText(salvo["category"])
+        self._empty_hero.setVisible(False)
+        self._table.setVisible(True)
+        self._populate()
+        self._export_btn.setEnabled(True)
+        quando = scan_store.idade_txt(salvo["ts"])
+        self._status.setText(
+            f"Último scan: {salvo['category'] or 'categoria'}, {quando}"
+            f" ({len(self._scan_results)} itens). Escaneie de novo para"
+            " atualizar.")
 
     def hideEvent(self, event) -> None:
         self._scan_cancelled = True
@@ -623,6 +645,7 @@ class ScannerScreen(QWidget):
             return
 
         cat = self._cat_combo.currentText()
+        self._scan_cat = cat
         if cat == "Todas as categorias":
             alvos = list(_SCAN_BY_CATEGORY.items())
         else:
@@ -806,6 +829,9 @@ class ScannerScreen(QWidget):
             "verdict": verdict.get("label", "—"),
             "verdict_color": t.POSITIVE if verdict.get("diff_pct", 0) <= 0
                              else t.DANGER,
+            # A cor acima e' a do tema da hora do scan. O scan salvo e'
+            # reaberto depois, talvez no outro tema: a tabela pinta por isto.
+            "verdict_ok": verdict.get("diff_pct", 0) <= 0,
             # Codigo interno ("tight", "buyer_dominant"...) aparecia CRU
             # na celula. Traduz so' pra exibir; a logica segue no codigo.
             "spread": (_SPREAD_TXT.get(verdict.get("spread_verdict", ""),
@@ -899,7 +925,9 @@ class ScannerScreen(QWidget):
                 (r.get("price_str", t.brl(r["price"])), None),
                 (t.brl(r["median"]), None),
                 (teto_txt, teto_cor),
-                (r["verdict"], r["verdict_color"]),
+                (r["verdict"],
+                 (t.POSITIVE if r["verdict_ok"] else t.DANGER)
+                 if "verdict_ok" in r else r["verdict_color"]),
                 (r["spread"], None),
                 (r["book"], None),
                 (r["trend"], None),
@@ -1207,6 +1235,10 @@ class ScannerScreen(QWidget):
                     self._status.setText(
                         f"Scan concluido: {n} itens"
                     )
+                    if n:
+                        from skinvault import scan_store
+                        scan_store.save_last_scan(self._scan_cat,
+                                                  self._scan_results)
         else:
             self._loading.setVisible(True)
             self._loading.set_label(msg)

@@ -50,6 +50,9 @@ _DATA_FILES = [
     # Precos de mercado fora da Steam + cambio (markets.py)
     "market_prices.json",
     "fx_rate.json",
+    # Ultimo scan do Scanner (scan_store.py): refazer custa dezenas de
+    # chamadas rate-limited; restaurado, a tela mostra a idade dele.
+    "scanner_last.json",
 ]
 
 

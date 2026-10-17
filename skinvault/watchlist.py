@@ -87,3 +87,33 @@ def reset_trigger(name: str,
             break
     save_watchlist(items, path)
     return items
+
+
+MUTE_HORAS = 24
+
+
+def set_muted(name: str, hours: "float | None" = MUTE_HORAS,
+              path: Path | str = _DEFAULT_PATH,
+              now: "float | None" = None) -> list[dict]:
+    """Silencia as notificacoes de um item por `hours` (None reativa).
+
+    So' a notificacao do Windows: o alerta continua indo pro log, que e'
+    o registro factual do que aconteceu.
+    """
+    agora = time.time() if now is None else now
+    items = load_watchlist(path)
+    for it in items:
+        if it["name"] == name:
+            if hours:
+                it["muted_until"] = agora + float(hours) * 3600
+            else:
+                it.pop("muted_until", None)
+            break
+    save_watchlist(items, path)
+    return items
+
+
+def is_muted(item: dict, now: "float | None" = None) -> bool:
+    ate = item.get("muted_until")
+    agora = time.time() if now is None else now
+    return bool(ate) and float(ate) > agora
