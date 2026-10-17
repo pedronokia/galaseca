@@ -137,4 +137,5 @@ def test_momentum_preserva_comportamento_sem_timestamp():
     ph_flat = [{"price_median": 100.0}] * 15
     delta = (signals.scan_score(v, price_history=ph_up)
              - signals.scan_score(v, price_history=ph_flat))
-    assert delta == 5
+    # -5: momentum agora e' reversao a media (AGENTS.md 4e)
+    assert delta == -5
