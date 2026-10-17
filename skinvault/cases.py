@@ -12,6 +12,7 @@ Expandir conforme necessario.
 from __future__ import annotations
 
 import re
+import time
 
 from skinvault.sticker_data import get_all as _get_stickers
 
@@ -62,13 +63,16 @@ _CASES: dict[str, dict] = {
     "Shattered Web Case": {"status": "discontinued", "year": 2019},
     "Fracture Case": {"status": "discontinued", "year": 2020},
     "Snakebite Case": {"status": "discontinued", "year": 2021},
+    # Gallery era exclusiva do Armory e saiu dele em 01/10/2025 (nota de
+    # patch da Valve). Ficou "active" aqui por um ano; a data mora em
+    # retirements.SEED.
+    "Gallery Case": {"status": "discontinued", "year": 2024},
 
     # === ACTIVE (ainda dropam) ===
     "Dreams & Nightmares Case": {"status": "active", "year": 2022},
     "Recoil Case": {"status": "active", "year": 2022},
     "Revolution Case": {"status": "active", "year": 2023},
     "Kilowatt Case": {"status": "active", "year": 2024},
-    "Gallery Case": {"status": "active", "year": 2024},
     "Fever Case": {"status": "active", "year": 2025},
 
     # === COLECOES (sem caixa, drop em mapas/operations) ===
@@ -1063,7 +1067,8 @@ def case_from_collection(collection: str | None) -> str | None:
     return _COLLECTION_TO_CASE.get(collection.strip())
 
 
-def case_status(name: str, collection: str | None = None) -> dict:
+def case_status(name: str, collection: str | None = None,
+                as_of: float | None = None) -> dict:
     """Retorna informacoes de caixa/colecao/capsula para o item.
 
     Output:
@@ -1074,7 +1079,14 @@ def case_status(name: str, collection: str | None = None) -> dict:
       "is_rare": bool,
       "year": int | None,
       "label": str,                 # texto curto pra UI
+      "retired_at": str | None,     # "AAAA-MM-DD" quando ha' registro
     }
+
+    `as_of` (epoch): instante de referencia do status. None = hoje. Com
+    data de aposentadoria registrada (`retirements`), uma amostra ANTERIOR
+    a ela ve a caixa como ativa -- sem isso o backtest enxergava o status
+    de hoje no passado (AGENTS.md 4b, coluna `case`). Caixas descontinuadas
+    sem data no registro seguem como estavam.
 
     Aceita 4 tipos de input:
     1. Nome de skin (ex: "AK-47 | Redline (Field-Tested)") -> mapeia via _SKIN_TO_CASE
@@ -1088,15 +1100,15 @@ def case_status(name: str, collection: str | None = None) -> dict:
 
     # (2) Match direto em _CASES (input e' o nome de uma caixa)
     if skin in _CASES:
-        return _container_status_dict(skin, _CASES[skin])
+        return _container_status_dict(skin, _CASES[skin], as_of)
 
     # (3) Match direto em _CAPSULES (input e' o nome de uma sticker capsula)
     if skin in _CAPSULES:
-        return _container_status_dict(skin, _CAPSULES[skin])
+        return _container_status_dict(skin, _CAPSULES[skin], as_of)
 
     # (4) Match direto em _AUTOGRAPH_CAPSULES (input e' o nome de uma autograph capsula)
     if skin in _AUTOGRAPH_CAPSULES:
-        return _container_status_dict(skin, _AUTOGRAPH_CAPSULES[skin])
+        return _container_status_dict(skin, _AUTOGRAPH_CAPSULES[skin], as_of)
 
     # (1) Match skin -> case via _SKIN_TO_CASE
     case_name = _SKIN_TO_CASE.get(skin)
@@ -1136,18 +1148,36 @@ def case_status(name: str, collection: str | None = None) -> dict:
         }
 
     meta = _CASES.get(case_name, {})
-    return _container_status_dict(case_name, meta)
+    return _container_status_dict(case_name, meta, as_of)
 
 
-def _container_status_dict(container_name: str, meta: dict) -> dict:
-    """Constroi o dict de retorno de case_status a partir do meta do container."""
+def _container_status_dict(container_name: str, meta: dict,
+                           as_of: float | None = None) -> dict:
+    """Constroi o dict de retorno de case_status a partir do meta do container.
+
+    O registro de aposentadorias (`retirements`) tem precedencia sobre o
+    status do catalogo: o catalogo e' escrito a mao e envelhece (a Gallery
+    Case constava "active" um ano depois de sair do Armory).
+    """
+    from skinvault import retirements
+
     status = meta.get("status", "unknown")
     year = meta.get("year")
+    reg = retirements.get(container_name)
+    retired_at = reg.get("date") if reg else None
+    if retired_at:
+        ref = time.strftime("%Y-%m-%d", time.gmtime(
+            time.time() if as_of is None else as_of))
+        # Antes da data registrada a caixa ainda entrava no jogo.
+        status = "discontinued" if ref >= retired_at else "active"
 
     is_disc = status == "discontinued"
     is_rare = status == "rare"
 
-    if status == "discontinued":
+    if status == "discontinued" and retired_at:
+        a, m, d = retired_at.split("-")
+        label = f"{container_name} (aposentada em {d}/{m}/{a})"
+    elif status == "discontinued":
         label = f"{container_name} (descontinuada"
         if year:
             label += f", {year}"
@@ -1164,6 +1194,7 @@ def _container_status_dict(container_name: str, meta: dict) -> dict:
         "is_rare": is_rare,
         "year": year,
         "label": label,
+        "retired_at": retired_at,
     }
 
 

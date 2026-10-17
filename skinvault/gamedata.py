@@ -412,6 +412,14 @@ def check_for_updates(state_path: "Path | str" = _STATE_PATH,
             ev["commit_sha"] = head["sha"]
             ev["commit_date"] = head["date"]
         log_events(events, path=log_path)
+        # Caixa que saiu do Armory ganha data de aposentadoria (AGENTS 4f).
+        # Aditivo: registro que falhou nao derruba o ciclo do watcher.
+        try:
+            from skinvault import retirements
+            retirements.record_from_events(events)
+        except Exception as e:  # pragma: no cover - defensivo
+            print(f"WARNING: retirements nao gravou: {e}",
+                  file=__import__('sys').stderr)
 
     save_state({
         "sha": head["sha"],

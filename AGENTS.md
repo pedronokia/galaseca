@@ -290,6 +290,38 @@ CS2** — o watcher funciona de 2023-12 pra frente e não retro-alimenta.
 Consequência: um fator de "anos desde aposentadoria" não tem como ser
 backtestado hoje, e por isso não entrou no score.
 
+### 4f. Registro de aposentadoria de caixas (2026-10-17)
+
+Correção ao parágrafo acima: `set_timed_drops_*` são coleções de **skin**
+do Care Package, não caixas. Onde cada sinal de fato mora, verificado no
+`items_game.txt` atual e em 300 notas de patch (2023-05 a 2026-10, via
+`ISteamNews/GetNewsForApp`, appid 730):
+
+| canal | nos arquivos do jogo? | anunciado pela Valve? |
+|---|---|---|
+| caixa no **Armory** | sim (bloco `xpshop`) | sim ("Removed Gallery Case ... from The Armory", 01/10/2025) |
+| caixa no **Care Package** | **não** (servidor) | **não** |
+| coleção de skin no Care Package | sim (`set_timed_drops_*`) | sim |
+
+`skinvault/retirements.py` guarda `{caixa: {date, channel, source}}` em
+`data/case_retirements.json` (no backup). Entra só fato com fonte:
+`SEED` com a Gallery (nota oficial) e, dali em diante, o watcher grava
+toda caixa (`crate_*`) que sai do bloco do Armory, com a data do commit.
+Data mais antiga vence; reprocessar não move a data.
+
+Efeitos:
+- `case_status` consulta o registro antes do catálogo. **A Gallery Case
+  constava "active" um ano depois de sair do Armory** — o score a tratava
+  como caixa com oferta crescendo. Corrigida no catálogo e no registro.
+- `case_status(..., as_of=t)`: antes da data registrada a caixa aparece
+  ativa. O backtest passa `as_of=t`, o que remove o lookahead da coluna
+  `case` **para as caixas com data**. As descontinuadas antigas, sem data,
+  continuam com o problema.
+
+O fator "anos desde aposentadoria" continua fora do score: o registro
+começa agora e precisa acumular saídas com retorno de 365d observado
+antes de qualquer medição.
+
 ### 4d. O teto de valorização é o PREÇO ABSOLUTO (2026-07-30)
 
 Pergunta do usuário: "os itens têm teto de valorização? não sei quando
