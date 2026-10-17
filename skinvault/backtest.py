@@ -177,7 +177,9 @@ def simulate_item(name: str, price_history: list[dict],
         mt = signals.multi_trend(prefix)
         vol = _volume_at(prefix, window_days=1)
         is_container = cases.is_container(name)
-        cs = cases.case_status(name)
+        # Status NO INSTANTE t: caixa com data de aposentadoria registrada
+        # ainda aparece ativa antes dela (sem lookahead -- AGENTS.md 4f).
+        cs = cases.case_status(name, as_of=t)
         score, breakdown = signals.enhanced_score(
             verdict, volume=vol, multi_trend=mt, price_history=prefix,
             case_status=cs,

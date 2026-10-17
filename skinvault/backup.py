@@ -35,6 +35,9 @@ _DATA_FILES = [
     # Watcher de arquivos do jogo (gamedata.py)
     "gamedata_state.json",
     "gamedata_events.json",
+    # Datas de aposentadoria de caixa (retirements.py). Dado acumulado ao
+    # longo do tempo pelo watcher -- nao e' regeneravel.
+    "case_retirements.json",
     # Caches de dados da Steam. Sao regeneraveis em teoria, mas na pratica
     # custam horas: os endpoints sao agressivamente rate-limited (medido em
     # 2026-07-28, bloqueio de dezenas de minutos). Reconstruir do zero e'
