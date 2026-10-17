@@ -334,17 +334,112 @@ def save_portfolio(positions: list[dict], path: Path | str = _DEFAULT_PATH) -> N
         print(f"WARNING: failed to save portfolio: {e}", file=sys.stderr)
 
 
-def add_position(name: str, cost: float, quantity: int = 1,
+def add_position(name: str, cost: "float | None", quantity: int = 1,
                  path: Path | str = _DEFAULT_PATH,
                  source: str = "manual") -> list[dict]:
-    """Adiciona posicao. source distingue entrada manual de sync Steam
-    (F10) -- usado pra preservar cost manual em syncs subsequentes."""
+    """Adiciona posicao. source distingue entrada manual de item vindo do
+    inventario da Steam -- usado pra preservar cost manual em importacoes.
+
+    `cost=None` = custo NAO informado (o botao "Adicionar item" deixa o
+    campo opcional). E' diferente de 0, que numa posicao manual quer dizer
+    "foi drop": `has_cost_basis` devolve False pra None e o lucro fica de
+    fora ate' o custo ser definido.
+    """
     positions = load_portfolio(path)
-    positions.append({"name": name, "cost": float(cost),
+    positions.append({"name": name,
+                      "cost": None if cost is None else float(cost),
                       "quantity": int(quantity), "added_ts": time.time(),
                       "source": source})
     save_portfolio(positions, path)
     return positions
+
+
+#: Origem das posicoes que vieram do inventario da Steam (custo desconhecido).
+#: Mesmo valor da antiga sincronizacao (F10, revertida): toda a logica de
+#: "custo nao informado" (has_cost_basis, coluna Origem) ja' o reconhece.
+SOURCE_STEAM = "steam_sync"
+
+
+def merge_steam_inventory(items: list, remove_missing: bool = True,
+                          path: Path | str = _DEFAULT_PATH) -> dict:
+    """Mescla o inventario publico da Steam na carteira. Devolve um resumo.
+
+    Regras, pensadas pra nunca destruir o que o usuario digitou:
+    - item novo entra com custo DESCONHECIDO (Steam nao diz quanto pagou);
+    - item que ja' veio da Steam tem quantidade/icone atualizados -- e se o
+      usuario definiu custo nele (update_position_cost troca a origem pra
+      "manual"), ele passa a ser manual e nao e' mais tocado;
+    - posicao manual NUNCA e' alterada nem removida, mesmo que o item suma
+      do inventario (o usuario pode acompanhar algo fora dele);
+    - item da Steam que saiu do inventario (vendido/trocado) so' sai da
+      carteira com `remove_missing`.
+
+    `items`: saida de steam_api.fetch_inventory -- [{name, quantity, icon,
+    type, ...}].
+    """
+    positions = load_portfolio(path)
+    inv = {}
+    for it in items or []:
+        nome = it.get("name") if isinstance(it, dict) else None
+        if nome:
+            inv[nome] = it
+
+    nomes_manuais = {p.get("name") for p in positions
+                     if p.get("source") != SOURCE_STEAM}
+    vistos: set = set()
+    saida: list[dict] = []
+    atualizados = removidos = 0
+    for p in positions:
+        nome = p.get("name")
+        if p.get("source") != SOURCE_STEAM:
+            saida.append(p)
+            continue
+        if nome in inv and nome not in nomes_manuais:
+            if nome in vistos:
+                removidos += 1  # posicao da Steam duplicada: funde na 1a
+                continue
+            it = inv[nome]
+            p["quantity"] = int(it.get("quantity") or 1)
+            if it.get("icon"):
+                p["icon"] = it["icon"]
+            if it.get("type"):
+                p["type"] = it["type"]
+            vistos.add(nome)
+            atualizados += 1
+            saida.append(p)
+        elif nome in inv:
+            # Ainda no inventario, mas o usuario acompanha esse item numa
+            # posicao manual: a da Steam e' duplicata. Sai sem contar como
+            # "removido" -- o item nao saiu do inventario.
+            continue
+        elif remove_missing:
+            removidos += 1
+        else:
+            saida.append(p)
+
+    agora = time.time()
+    adicionados = 0
+    for nome, it in inv.items():
+        if nome in vistos or nome in nomes_manuais:
+            continue
+        nova = {"name": nome, "cost": 0.0,
+                "quantity": int(it.get("quantity") or 1),
+                "added_ts": agora, "source": SOURCE_STEAM}
+        if it.get("icon"):
+            nova["icon"] = it["icon"]
+        if it.get("type"):
+            nova["type"] = it["type"]
+        saida.append(nova)
+        adicionados += 1
+
+    save_portfolio(saida, path)
+    return {
+        "adicionados": adicionados,
+        "atualizados": atualizados,
+        "removidos": removidos,
+        "manuais_mantidos": len(nomes_manuais & set(inv)),
+        "itens_no_inventario": len(inv),
+    }
 
 
 def update_position_cost(name: str, cost: float,

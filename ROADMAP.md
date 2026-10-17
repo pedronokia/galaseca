@@ -169,6 +169,21 @@ Sidebar hierárquica (7 telas) substituindo QTabWidget, LoginGate opcional, Scre
 - [x] Status bar com agregados (count, total P&L, W/L, win rate) respeitando filtro de período
 - [x] 15 testes cobrindo parsing, FIFO, isolamento por nome, sell antes de buy, summarize
 
+## FASE 13 — Carteira sem login: importar inventário público + adicionar item ✅
+Depois da reversão da F10, a interface não tinha **nenhum** jeito de pôr item
+na carteira (só `python -m skinvault --add`), e as telas ainda mandavam
+"sincronizar". Mesma regra da reversão: só dado público, nunca cookie.
+- [x] `steam_api.parse_profile_input` / `resolve_steam_id` — link `/profiles/<id>`,
+  link `/id/<apelido>`, apelido ou SteamID64; apelido resolvido pela página
+  XML pública do perfil (sem chave de API)
+- [x] `portfolio.merge_steam_inventory` — item novo com custo desconhecido;
+  posição manual nunca é tocada; item que saiu do inventário só sai com a opção
+- [x] `portfolio.add_position(cost=None)` — custo "não informado" ≠ 0 (drop)
+- [x] Inventário: botões "Importar da Steam" e "+ Adicionar item"
+  (`ui/inventory_dialogs.py`); mensagens acionáveis (ex.: inventário privado
+  explica onde mudar a privacidade); último perfil em `settings.steam_profile`
+- [x] 42 testes (`test_importar_inventario.py`, `test_inventory_dialogs.py`)
+
 ---
 
 ## 🔴 Fora do Escopo (decididos)
@@ -183,7 +198,7 @@ Sidebar hierárquica (7 telas) substituindo QTabWidget, LoginGate opcional, Scre
 ## Ordem de Implementação
 
 ```
-✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 (revertida) → ✅ F11 → ✅ F12
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 (revertida) → ✅ F11 → ✅ F12 → ✅ F13
 ```
 
 F10 foi revertida em 2026-08-07 (ver nota na própria fase). F1-F9, F11 e F12

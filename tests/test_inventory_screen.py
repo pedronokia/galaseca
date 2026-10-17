@@ -1077,7 +1077,7 @@ def test_rate_limit_vazio_nao_polui_o_estado_normal(tela):
     """Sem rate limit o empty state volta ao texto padrao (carteira vazia).
     Nada de "sincronize": o recurso saiu na F10 (2026-08-07)."""
     tela.set_data([], [], False)
-    assert "Ainda não há itens" in tela._empty._sub.text()
+    assert "Importe pelo link" in tela._empty._sub.text()
     assert "incroniz" not in tela._empty._sub.text()
 
 

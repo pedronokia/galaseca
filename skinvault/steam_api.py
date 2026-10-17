@@ -185,6 +185,67 @@ def fetch_public_inventory(steam_id: str) -> list[dict]:
     return fetch_inventory(steam_id)[1]
 
 
+# ── Link do perfil -> SteamID64 (publico, sem login nem chave de API) ──
+RESOLVE_OK = "ok"
+RESOLVE_INVALID = "invalid"        # o texto nao parece perfil nenhum
+RESOLVE_NOT_FOUND = "not_found"    # apelido nao existe
+RESOLVE_RATE_LIMITED = "rate_limited"
+RESOLVE_ERROR = "error"
+
+_STEAMID64_RE = re.compile(r"^7656119\d{10}$")
+_PERFIL_ID64_RE = re.compile(r"steamcommunity\.com/profiles/(7656119\d{10})")
+_PERFIL_APELIDO_RE = re.compile(r"steamcommunity\.com/id/([A-Za-z0-9_-]{2,32})")
+_APELIDO_RE = re.compile(r"^[A-Za-z0-9_-]{2,32}$")
+
+
+def parse_profile_input(texto: str | None) -> tuple[str, str]:
+    """O que o usuario colou -> ("id64", id) | ("vanity", apelido) |
+    ("invalid", ""). Logica pura.
+
+    Aceita: SteamID64, link /profiles/<id>, link /id/<apelido> e o
+    apelido sozinho (o que aparece no fim do link personalizado).
+    """
+    s = (texto or "").strip()
+    if not s:
+        return "invalid", ""
+    if _STEAMID64_RE.match(s):
+        return "id64", s
+    m = _PERFIL_ID64_RE.search(s)
+    if m:
+        return "id64", m.group(1)
+    m = _PERFIL_APELIDO_RE.search(s)
+    if m:
+        return "vanity", m.group(1)
+    if "/" not in s and _APELIDO_RE.match(s):
+        return "vanity", s
+    return "invalid", ""
+
+
+def resolve_steam_id(texto: str | None) -> tuple[str, str | None]:
+    """Link/apelido/ID -> (status, steamid64).
+
+    Apelido (link personalizado, /id/<apelido>) e' resolvido pela pagina
+    XML publica do perfil (?xml=1) -- a mesma que o profile_fetcher usa pra
+    avatar. Nao precisa de login nem de chave da Web API.
+    """
+    tipo, valor = parse_profile_input(texto)
+    if tipo == "id64":
+        return RESOLVE_OK, valor
+    if tipo != "vanity":
+        return RESOLVE_INVALID, None
+    url = ("https://steamcommunity.com/id/"
+           f"{urllib.parse.quote(valor)}/?xml=1")
+    code, body = _http_get(url)
+    if code == 429:
+        return RESOLVE_RATE_LIMITED, None
+    if code != 200 or body is None:
+        return RESOLVE_ERROR, None
+    m = re.search(r"<steamID64>\s*(7656119\d{10})\s*</steamID64>", body)
+    if m:
+        return RESOLVE_OK, m.group(1)
+    return RESOLVE_NOT_FOUND, None
+
+
 PRICE_OK = "ok"                     # a Steam respondeu com preco
 PRICE_NO_PRICE = "no_price"         # a Steam respondeu: este item nao tem preco
 PRICE_RATE_LIMITED = "rate_limited"  # 429 -- nao diz nada sobre o item

@@ -216,9 +216,26 @@ class InventoryScreen(QWidget):
         root.setContentsMargins(24, 16, 24, 16)
         root.setSpacing(12)
 
+        # Desde a F10 (login revertido) nao havia como colocar item na
+        # carteira pela interface. Importar usa so' o inventario PUBLICO.
+        self._import_btn = QPushButton("Importar da Steam")
+        self._import_btn.setStyleSheet(t.btn_primary(padding="8px 18px"))
+        self._import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._import_btn.setToolTip(
+            "Traz os itens do seu inventário público da Steam pelo link do "
+            "perfil. Sem login e sem senha.")
+        self._import_btn.clicked.connect(self._on_importar_steam)
+        self._add_item_btn = QPushButton("+ Adicionar item")
+        self._add_item_btn.setStyleSheet(t.btn_secondary())
+        self._add_item_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._add_item_btn.setToolTip(
+            "Coloca um item na carteira à mão: nome, quantidade e quanto "
+            "pagou.")
+        self._add_item_btn.clicked.connect(self._on_adicionar_item)
         root.addWidget(PageHeader(
             "Inventário",
             "Cada item avaliado nos dois mercados: saldo Steam e dinheiro real.",
+            actions=[self._add_item_btn, self._import_btn],
         ))
 
         linha = QHBoxLayout()
@@ -429,8 +446,10 @@ class InventoryScreen(QWidget):
         self._empty = EmptyState(
             icon="◇",
             title="Inventário vazio",
-            subtitle=("Ainda não há itens na sua carteira.\n"
-                       "Eles aparecem aqui assim que forem adicionados."),
+            subtitle=("Importe pelo link do seu perfil da Steam\n"
+                       "ou adicione os itens um a um."),
+            cta_label="Importar da Steam",
+            on_cta=self._on_importar_steam,
         )
         root.addWidget(self._empty, 1)
 
@@ -537,8 +556,8 @@ class InventoryScreen(QWidget):
                     "daqui a alguns minutos.")
             else:
                 self._empty.set_subtitle(
-                    "Ainda não há itens na sua carteira.\n"
-                    "Eles aparecem aqui assim que forem adicionados.")
+                    "Importe pelo link do seu perfil da Steam\n"
+                    "ou adicione os itens um a um.")
                 self._status.setText("")
             return
         self._populate_grid()
@@ -1068,6 +1087,28 @@ class InventoryScreen(QWidget):
         if novo is None:
             return
         self._salvar_custo(nome, novo)
+
+    def _on_importar_steam(self) -> None:
+        from skinvault.ui.inventory_dialogs import ImportarSteamDialog
+        dlg = ImportarSteamDialog(self)
+        dlg.exec()
+        if dlg.importou():
+            self.request_reeval.emit()
+            Toast(self, "Inventário importado — avaliando os preços…",
+                  "success").show()
+
+    def _on_adicionar_item(self) -> None:
+        from skinvault.ui.inventory_dialogs import AdicionarItemDialog
+        dlg = AdicionarItemDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        v = dlg.valores()
+        if not v:
+            return
+        portfolio.add_position(v["name"], v["cost"], v["quantity"])
+        self.request_reeval.emit()
+        Toast(self, f"“{v['name']}” adicionado — avaliando…",
+              "success").show()
 
     def _salvar_custo(self, nome: str, custo: float) -> None:
         res = portfolio.update_position_cost(nome, custo)
