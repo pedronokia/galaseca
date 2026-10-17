@@ -700,6 +700,27 @@ python -m skinvault --add "<nome>" <custo> [qtd]
 python -m pytest -q
 ```
 
+A suíte inteira roda numa execução só (~40s, 2199 testes em 2026-10-17).
+Até essa data ela **nunca terminava**: access violation intermitente, cada
+vez num teste diferente. Três causas, todas tratadas em `tests/conftest.py`:
+
+- **Dados e rede reais.** A suíte usava o `data/` do projeto: o
+  `PriceWorker` da Conta lia o `portfolio.json` de verdade e consultava a
+  Steam item a item, e os testes de Inventário baixavam ícones via `httpx`.
+  Agora `SKINVAULT_DATA_DIR` aponta pra uma pasta temporária antes de
+  qualquer import, e `urllib`/`httpx` falham na hora. Teste que precisa de
+  rede simulada patcha `_http_get`/`urlopen` por conta própria.
+- **Janelas que nunca morriam.** `w.deleteLater(); app.processEvents()` —
+  padrão dos `_qapp` de várias suítes — **não destrói nada**: o Qt só
+  entrega `DeferredDelete` ao voltar pro loop de eventos. Telas inteiras,
+  com timers e animações, se acumulavam. A fixture autouse destrói as
+  janelas sem dono com `sip.delete`. Nunca destrua popup/tooltip (a lista
+  do `QCompleter` pertence ao completer) e reconsulte `topLevelWidgets()`
+  a cada exclusão: popup criado pelo Qt não avisa o PyQt que morreu.
+- **Ciclo em `fade_in`** (`ui/components.py`): o slot da animação
+  segurava o widget dono, e widget solto nunca era coletado. Usa
+  `weakref` agora.
+
 ## Veja também
 
 - [HANDOFF.md](HANDOFF.md) — estado da sessão Claude Code de

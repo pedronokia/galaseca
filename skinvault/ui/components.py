@@ -205,6 +205,8 @@ def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
     deleta o effect, e a anim e filha dele — deletar dentro da emissao
     de finished derrubaria o objeto no meio do proprio sinal.
     """
+    import weakref
+
     eff = QGraphicsOpacityEffect(widget)
     widget.setGraphicsEffect(eff)
     anim = QPropertyAnimation(eff, b"opacity", eff)
@@ -213,9 +215,19 @@ def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
     anim.setEndValue(1.0)
     anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
+    # Referencia FRACA ao widget. Com a forte, o slot (preso a' anim, que e'
+    # neta do widget) segurava o proprio widget: ciclo que o GC do Python
+    # nao enxerga, porque passa pelo C++. Widget solto (sem pai) nunca
+    # morria e a anim terminava "no futuro" -- medido em 2026-10-17: access
+    # violation no teste SEGUINTE ao de fade_in na suite.
+    ref = weakref.ref(widget)
+
     def _cleanup() -> None:
+        w = ref()
+        if w is None:
+            return
         try:
-            widget.setGraphicsEffect(None)
+            w.setGraphicsEffect(None)
         except RuntimeError:
             pass  # objeto C++ deletado, ignorar
 
