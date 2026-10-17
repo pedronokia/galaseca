@@ -505,7 +505,10 @@ def table_style(density: str = _DEFAULT_DENSITY) -> str:
         f" color: {TEXT_MUTED}; border: none;"
         f" border-bottom: 1px solid {BORDER};"
          f" padding: {pad};"
-        f" font-weight: 600; font-size: {FS_MUTED}; }}"
+        # Sem font-family o cabecalho caia na fonte padrao do sistema,
+        # diferente da Segoe UI das celulas logo abaixo.
+        f" font-weight: 600; font-size: {FS_MUTED};"
+        f" font-family: {FONT_FAMILY}; }}"
         # Cabecalho e' clicavel (ordena a coluna) mas nao dava nenhum
         # feedback ao passar o mouse -- parecia so' rotulo estatico.
         f"QHeaderView::section:hover {{ background: {SURFACE_HOV};"
@@ -622,7 +625,8 @@ def card_style(radius: int = 10) -> str:
     )
 
 
-def _ensure_header_width(table: QTableWidget, hh: QHeaderView) -> None:
+def _ensure_header_width(table: QTableWidget, hh: QHeaderView,
+                         piso: int = 120) -> None:
     """Compensa o padding QSS que QHeaderView ignora no sizeHint.
 
     O padding declarado em QHeaderView::section (QSS) nao e considerado
@@ -630,6 +634,10 @@ def _ensure_header_width(table: QTableWidget, hh: QHeaderView) -> None:
     alinhamento a direita truncam o primeiro caractere.  Esta funcao
     calcula o espaco necessario via fontMetrics e garante sectionSize
     >= text_width + padding_h + sort_indicator_room (~50px).
+
+    Titulo em duas linhas ("Diferenca\\ncompra/venda") mede pela linha mais
+    longa. `piso`: largura minima de toda coluna -- 120 por padrao; tabela
+    larga com colunas curtas (Scanner, 13 colunas) passa menos.
     """
     fm = table.fontMetrics()
     padding_room = 50
@@ -637,8 +645,9 @@ def _ensure_header_width(table: QTableWidget, hh: QHeaderView) -> None:
         item = table.horizontalHeaderItem(col)
         if item is None:
             continue
-        text_w = fm.horizontalAdvance(item.text())
-        needed = max(text_w + padding_room, 120)
+        text_w = max((fm.horizontalAdvance(linha)
+                      for linha in item.text().split("\n")), default=0)
+        needed = max(text_w + padding_room, piso)
         if hh.sectionSize(col) < needed:
             hh.resizeSection(col, needed)
 

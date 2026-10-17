@@ -32,7 +32,7 @@ from skinvault import (
     settings as sv_settings, signals, ssr_cache, steam_api, valve_events,
 )
 from skinvault._paths import DATA_DIR
-from skinvault.ui.components import auto_cell
+from skinvault.ui.components import SortableItem, auto_cell
 from skinvault.prices import PriceCache
 from skinvault.ui import textos
 from skinvault.ui import theme as t
@@ -121,12 +121,21 @@ _SCAN_BY_CATEGORY = {
 _SPREAD_TXT = textos.SPREAD
 _BOOK_TXT = textos.BOOK
 _TREND_TXT = textos.TREND
+# CSV exportado: mesmo vocabulario da tela, nao o codigo interno.
+_CONF_CSV = {"high": "Alta", "medium": "Média", "low": "Baixa",
+             "very_low": "Mínima", "none": ""}
+_RISCO_CSV = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
 
 
 class ScannerScreen(QWidget):
     """Scanner de investimento multi-fator."""
 
     COL_NAME = 0
+    # Nota + resumo ("100 · COMPRA") numa coluna so', a 1. Antes eram duas
+    # colunas dizendo a mesma coisa ("COMPRA" na 1, "100" na 10), e o
+    # espaco fazia falta pro nome do item. COL_SINAL e COL_SCORE apontam
+    # pra mesma coluna; a 10 segue existindo, oculta (indices estaveis).
+    COL_SCORE = 1
     COL_SINAL = 1
     COL_PRECO = 2
     COL_JUSTO = 3
@@ -138,7 +147,7 @@ class ScannerScreen(QWidget):
     COL_BOOK = 7
     COL_TREND = 8
     COL_SD = 9
-    COL_SCORE = 10
+    COL_SCORE_OCULTA = 10
     COL_RISCO = 11
     COL_CONFIDENCE = 12
 
@@ -147,6 +156,18 @@ class ScannerScreen(QWidget):
     # superior do score rende +13,64% brutos, que NAO cobre a taxa
     # (AGENTS.md 4b). Comprar com desconto e' o que fecha a conta.
     MARGEM_ALVO_PCT = 20.0
+
+    # Largura minima de coluna. As colunas curtas ("Nota" = "87") nao
+    # precisam dos 120px do piso global.
+    _PISO_COLUNA = 56
+
+    def _ajustar_colunas(self) -> None:
+        """Cada coluna (menos o Item, que estica) com o maior entre o
+        conteudo e o titulo -- o titulo ja' com o padding que o Qt ignora."""
+        hh = self._table.horizontalHeader()
+        for i in range(1, self._table.columnCount()):
+            self._table.resizeColumnToContents(i)
+        t._ensure_header_width(self._table, hh, piso=self._PISO_COLUNA)
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -178,7 +199,8 @@ class ScannerScreen(QWidget):
         self._cat_combo.setStyleSheet(
             f"QComboBox {{ background: {t.SURFACE}; border: 1px solid {t.BORDER};"
             f" border-radius: 8px; padding: 8px 12px; color: {t.TEXT};"
-            f" font-size: {t.FS_INPUT}; min-width: 160px; }}"
+            f" font-size: {t.FS_INPUT}; min-width: 160px;"
+            f" font-family: {t.FONT_FAMILY}; }}"
             f"QComboBox:focus {{ border: 1px solid {t.ACCENT}; }}"
             f"QComboBox:drop-down {{ border: none; }}"
             f"QComboBox:down-arrow {{ color: {t.TEXT_MUTED}; }}"
@@ -273,25 +295,21 @@ class ScannerScreen(QWidget):
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
         self._stat_count = StatCard("Itens escaneados", "0", icon="radar")
-        self._stat_count.setMaximumWidth(300)
         self._stat_count.setToolTip(
             "Total de itens da categoria que o scan conseguiu avaliar."
         )
         self._stat_best = StatCard("Melhor nota", "—", icon="trophy")
-        self._stat_best.setMaximumWidth(300)
         self._stat_best.setToolTip(
             "A maior nota entre os itens analisados. Nota alta = preço"
             " abaixo do típico e fácil de comprar e vender."
         )
         self._stat_avg = StatCard("Nota média", "—", icon="chart")
-        self._stat_avg.setMaximumWidth(300)
         self._stat_avg.setToolTip(
             "A média das notas da categoria. Compare com a melhor nota:"
             " se as duas são altas, a categoria toda está bem; se só a"
             " melhor é alta, é um item específico."
         )
         self._stat_breadth = StatCard("Mercado", "—", icon="chart")
-        self._stat_breadth.setMaximumWidth(300)
         self._stat_breadth_tooltip = (
             "Quantos dos itens analisados estão subindo, caindo ou"
             " parados nos últimos dias. Vale só para esta categoria, não"
@@ -300,8 +318,9 @@ class ScannerScreen(QWidget):
         self._stat_breadth.setToolTip(self._stat_breadth_tooltip)
         for sc in (self._stat_count, self._stat_best, self._stat_avg,
                    self._stat_breadth):
-            stats_row.addWidget(sc)
-        stats_row.addStretch(1)
+            # Mesmo peso pros quatro: ocupam a largura toda. Antes ficavam
+            # presos a 300px a' esquerda com um vazio grande a' direita.
+            stats_row.addWidget(sc, 1)
         root.addLayout(stats_row)
 
         # Filtros acima da tabela
@@ -346,7 +365,8 @@ class ScannerScreen(QWidget):
         self._price_filter_cb.setStyleSheet(
             f"QComboBox {{ background: {t.SURFACE}; border: 1px solid {t.BORDER};"
             f" border-radius: 8px; padding: 8px 12px; color: {t.TEXT};"
-            f" font-size: {t.FS_INPUT}; min-width: 160px; }}"
+            f" font-size: {t.FS_INPUT}; min-width: 160px;"
+            f" font-family: {t.FONT_FAMILY}; }}"
             f"QComboBox:focus {{ border: 1px solid {t.ACCENT}; }}"
             f"QComboBox:drop-down {{ border: none; }}"
             f"QComboBox:down-arrow {{ color: {t.TEXT_MUTED}; }}"
@@ -407,16 +427,22 @@ class ScannerScreen(QWidget):
 
         # Tabela
         self._table = QTableWidget(0, 13)
+        # Titulos longos em duas linhas: 13 colunas nao cabem numa tela
+        # comum com "Diferenca compra/venda" numa linha so'.
         self._table.setHorizontalHeaderLabels([
-            "Item", "Sinal", "Preço", "Preço típico", "Compre até",
-            "Avaliação", "Diferença compra/venda", "Fila de ofertas",
-            "Tendência", "Procura × Oferta", "Nota", "Risco",
-            "Confiança nos dados",
+            "Item", "Nota", "Preço", "Preço\ntípico", "Compre\naté",
+            "Avaliação", "Diferença\ncompra/venda", "Fila de\nofertas",
+            "Tendência", "Procura ×\nOferta", "Nota (número)", "Risco",
+            "Confiança\nnos dados",
         ])
         t.configure_table(
             self._table,
             density=sv_settings.load_settings().get(
                 "table_density", "standard"))
+        # O piso global de 120px por coluna (configure_table) somava
+        # 13 x 120 = 1560px so' de minimo -- "Nota" mostra "87".
+        self._table.horizontalHeader().setMinimumSectionSize(
+            self._PISO_COLUNA)
         compra_hdr = self._table.horizontalHeaderItem(self.COL_COMPRAR)
         if compra_hdr:
             compra_hdr.setToolTip(
@@ -431,17 +457,15 @@ class ScannerScreen(QWidget):
         score_hdr = self._table.horizontalHeaderItem(self.COL_SCORE)
         if score_hdr:
             score_hdr.setToolTip(
-                "Nota de 0 a 100 que resume os dados do item: quanto"
-                " maior, melhor o momento pelos números de hoje.\n"
-                "Clique duas vezes numa linha para ver o que somou e o"
+                "Nota de 0 a 100 que resume os dados do item, com o"
+                " resumo: COMPRA (70 ou mais), ATENÇÃO (45 a 69) ou EVITAR"
+                " (abaixo de 45).\n"
+                "Vem só de dados passados — a decisão é sempre sua."
+                " Clique duas vezes numa linha para ver o que somou e o"
                 " que tirou pontos."
             )
         # Mesmo padrao de tooltip por coluna do inventario.
         for _col, _tip in {
-            self.COL_SINAL: (
-                "Resumo da nota: COMPRA (70 ou mais), ATENÇÃO (45 a 69) "
-                "ou EVITAR (abaixo de 45).\n"
-                "Vem só de dados passados. A decisão é sempre sua."),
             self.COL_PRECO: (
                 "Preço anunciado agora na Steam. Um '*' indica preço "
                 "aproximado, calculado pelo histórico."),
@@ -486,8 +510,13 @@ class ScannerScreen(QWidget):
                 _hdr.setToolTip(_tip)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
+        # Interactive + ajuste manual (_ajustar_colunas): ResizeToContents
+        # ignora o padding QSS do cabecalho e truncava o titulo com o piso
+        # menor. O ajuste usa o maior entre conteudo e titulo.
         for i in range(1, 13):
-            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
+            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
+        self._table.setColumnHidden(self.COL_SCORE_OCULTA, True)
+        self._ajustar_colunas()
         self._table.doubleClicked.connect(
             lambda _idx: self._on_explain_selected()
         )
@@ -532,6 +561,7 @@ class ScannerScreen(QWidget):
         self._status = QLabel("Pronto. Selecione uma categoria e clique em Escanear.")
         self._status.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
         )
         root.addWidget(self._status)
 
@@ -773,6 +803,10 @@ class ScannerScreen(QWidget):
                      (approx_suffix if verdict.get("book_verdict") else "")),
             "trend": _TREND_TXT.get(verdict.get("trend_verdict", ""),
                                     verdict.get("trend_verdict", "")),
+            # Codigo cru pra LOGICA (market_breadth conta "rising"/...).
+            # "trend" virou texto de tela em 2026-10-17 e o cartao Mercado
+            # passou a mostrar sempre "—" ate' este campo existir.
+            "trend_code": verdict.get("trend_verdict", ""),
             "volume": volume,
             "supply": supply,
             "sd_label": signals.supply_demand_ratio(volume, supply).get("label", ""),
@@ -848,7 +882,7 @@ class ScannerScreen(QWidget):
                             else t.TEXT_MUTED)
             cells = [
                 (_ln(r["name"]), None),
-                (label, score_color),
+                (f"{score} · {label}", score_color),
                 (r.get("price_str", t.brl(r["price"])), None),
                 (t.brl(r["median"]), None),
                 (teto_txt, teto_cor),
@@ -864,7 +898,8 @@ class ScannerScreen(QWidget):
             for col, (val, color) in enumerate(cells):
                 # auto_cell: chave de ordenacao derivada do texto. Sem ela,
                 # Preco/Justo/Spread/Score ordenavam como string.
-                item = auto_cell(str(val))
+                item = (SortableItem(str(val), score)
+                        if col == self.COL_SCORE else auto_cell(str(val)))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
                 if col == self.COL_NAME:
@@ -948,8 +983,7 @@ class ScannerScreen(QWidget):
                         " Pode diferir do preço real de listagem."
                     )
         # Alinhamento por coluna: dinheiro → direita, status → centro
-        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_COMPRAR,
-                      self.COL_SCORE}
+        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_COMPRAR}
         center_cols = {
             self.COL_SINAL, self.COL_VEREDITO, self.COL_SPREAD,
             self.COL_BOOK, self.COL_TREND, self.COL_SD,
@@ -957,6 +991,7 @@ class ScannerScreen(QWidget):
         }
         t.align_table_columns(self._table, right=right_cols, center=center_cols)
         self._table.setSortingEnabled(was_sorting)
+        self._ajustar_colunas()
 
         # Aplica filtro de order book approx (so esconde, nunca mostra)
         self._apply_approx_filter()
@@ -967,12 +1002,16 @@ class ScannerScreen(QWidget):
         # Stats
         if self._scan_results:
             scores = [r["score"] for r in self._scan_results]
-            self._stat_count.set_value(str(len(self._scan_results)))
+            self._stat_count.set_value(str(len(self._scan_results)),
+                                       accent=t.TEXT)
             self._stat_best.set_value(str(max(scores)),
                                       accent=t.POSITIVE)
-            self._stat_avg.set_value(str(round(sum(scores)/len(scores))))
+            # accent explicito: o cartao nasce com "—" (cinza) e sem
+            # accent o numero herdava o cinza.
+            self._stat_avg.set_value(str(round(sum(scores)/len(scores))),
+                                     accent=t.TEXT)
             breadth = signals.market_breadth(
-                [r.get("trend", "") for r in self._scan_results])
+                [r.get("trend_code", "") for r in self._scan_results])
             if breadth:
                 breadth_accent = {
                     "up": t.POSITIVE, "down": t.DANGER,
@@ -1031,9 +1070,10 @@ class ScannerScreen(QWidget):
 
     def _set_base_status(self, n: int, hidden: int = 0) -> None:
         """Mensagem do rodapé sem busca ativa (base pro estado limpo)."""
+        base = f"{n} {'item analisado' if n == 1 else 'itens analisados'}"
         self._status_base = (
-            f"{n} itens escaneados ({hidden} ocultos por baixa confiança)"
-            if hidden else f"{n} itens escaneados")
+            f"{base} ({hidden} ocultos por baixa confiança)"
+            if hidden else base)
         self._status.setText(self._status_base)
 
     def _atualizar_status_busca(self) -> None:
@@ -1261,9 +1301,10 @@ class ScannerScreen(QWidget):
             return
         import csv, io
         cols = [
-            "Item", "Score", "Veredito", "Preço", "Justo",
-            "Spread", "Book", "Tendência", "Oferta/Demanda",
-            "Confiança", "Categoria", "Risco",
+            "Item", "Nota", "Avaliação", "Preço", "Preço típico",
+            "Diferença compra/venda", "Fila de ofertas", "Tendência",
+            "Procura × Oferta", "Confiança nos dados", "Caixa/coleção",
+            "Risco",
         ]
         try:
             with io.open(path, "w", newline="", encoding="utf-8-sig") as f:
@@ -1294,9 +1335,10 @@ class ScannerScreen(QWidget):
                         r.get("book", ""),
                         r.get("trend", ""),
                         r.get("sd_label", ""),
-                        dq.get("level", ""),
+                        _CONF_CSV.get(dq.get("level", ""),
+                                      dq.get("level", "")),
                         case_label,
-                        risk,
+                        _RISCO_CSV.get(risk, risk),
                     ])
             Toast.show_toast(self, f"Exportado: {path}", "success")
         except Exception as e:

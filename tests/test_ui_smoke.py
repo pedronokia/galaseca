@@ -358,7 +358,7 @@ def test_scanner_busca_limpar_restaura_base(monkeypatch):
     screen._populate()
     screen._search_inp.setText("awp")
     screen._search_inp.clear()
-    assert screen._status.text() == "2 itens escaneados"
+    assert screen._status.text() == "2 itens analisados"
     for row in range(screen._table.rowCount()):
         assert screen._table.isRowHidden(row) is False
 
@@ -445,9 +445,9 @@ def test_scanner_tabela_tem_coluna_conf():
     assert screen.COL_CONFIDENCE == 12
     assert screen.COL_RISCO == 11
     assert screen._table.horizontalHeaderItem(
-        screen.COL_COMPRAR).text() == "Compre até"
+        screen.COL_COMPRAR).text() == "Compre\naté"
     assert screen._table.horizontalHeaderItem(
-        screen.COL_CONFIDENCE).text() == "Confiança nos dados"
+        screen.COL_CONFIDENCE).text() == "Confiança\nnos dados"
     assert screen._table.horizontalHeaderItem(
         screen.COL_RISCO).text() == "Risco"
 
