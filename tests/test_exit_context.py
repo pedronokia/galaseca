@@ -89,3 +89,15 @@ def test_celula_topo_do_inventario():
 
     vazio = InventoryScreen._top_item("X", None)
     assert vazio.text() == "—" and "Atualizar notas" in vazio.toolTip()
+
+
+def test_rel_ath_do_score_ignora_ponto_horario_isolado():
+    """O fator rel_ath da nota usa o mesmo topo diario do exit_context:
+    uma compra horaria anomala nao pode virar o "maior preco"."""
+    ph = [{"time": i * DIA, "price_median": 200.0, "purchases": 500}
+          for i in range(200)]
+    ph.append({"time": 150 * DIA + 3600, "price_median": 1403.0,
+               "purchases": 1})
+    rta = signals.relative_to_ath(ph)
+    assert rta["ath"] < 210.0
+    assert rta["band"] == "at_ath"

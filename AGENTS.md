@@ -368,8 +368,15 @@ lição metodológica aqui.
 > item. Ao implementar: o máximo bruto da AK-47 Redline FT era R$ 1.403 —
 > um ponto **horário com 1 compra** num item de ~R$ 220; o máximo da série
 > diária ponderada por volume é R$ 403. `exit_context` usa a diária.
-> **`relative_to_ath` (fator `rel_ath` do score) ainda usa o bruto e
-> herda o outlier** — trocar exige medir ON × OFF antes. E nas 6 caixas
+> **Resolvido no mesmo dia:** `relative_to_ath` (fator `rel_ath` da nota e
+> flag de ATH do `pump_risk`) passou a usar a série diária também
+> (`_REL_ATH_DIARIO`). Medido ON × OFF em 373 séries: ΔSp 0,0000 em
+> 7d/90d/365d, caixas e skins — **neutro**, porque os pontos horários (onde
+> mora o outlier) só cobrem os últimos ~28 dias de cada série e o backtest
+> quase não os amostra. É justamente o trecho que a nota ao vivo usa:
+> ligado como correção de dado, não como melhoria de modelo. Custo: o
+> backtest fica ~50% mais lento (série diária recalculada a cada passo);
+> ao vivo é um cálculo por item, imperceptível. E nas 6 caixas
 > checadas (Gallery, Chroma 2, Clutch, Fever, Kilowatt) o topo caiu nos
 > primeiros 60 dias da série: em caixa, "distância do topo" é quase sempre
 > "distância do preço de lançamento". O tooltip avisa (`at_launch`).

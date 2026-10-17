@@ -133,6 +133,16 @@ _REVERSAL_IN_CONTAINERS = False
 # medida em 4d (IC -0.20), mas desligar NAO passou no criterio (2026-10-17):
 # dSp +0.007 / +0.0002 / -0.003 em 7d/90d/365d. Negative finding: fica.
 _DRAWDOWN_AT_HIGH_ENABLED = True
+
+# relative_to_ath (fator rel_ath + flag de ATH do pump_risk) com o topo da
+# serie DIARIA ponderada por volume em vez do ponto bruto (AGENTS.md 4g).
+# Medido ON x OFF em 2026-10-17 (373 series): dSp 0.0000 em 7d/90d/365d,
+# caixas e skins. Neutro no backtest porque os pontos HORARIOS -- onde mora
+# o outlier (Redline FT: 1 compra a R$ 1.403 num item de ~R$ 220) -- so'
+# existem nos ultimos ~28 dias de cada serie, que o backtest quase nao
+# amostra. Mas e' justamente o trecho que a nota AO VIVO usa. Ligado como
+# correcao de dado, nao como melhoria de modelo.
+_REL_ATH_DIARIO = True
 _PRICE_LEVEL_BANDS = (
     (5.0, 4, "abaixo de R$ 5"),
     (50.0, 2, "entre R$ 5 e 50"),
@@ -701,6 +711,12 @@ def relative_to_ath(price_history: list[dict]) -> dict:
     except (KeyError, TypeError):
         sorted_h = list(price_history)
     prices = [p["price_median"] for p in sorted_h]
+    if _REL_ATH_DIARIO:
+        # Serie diaria ponderada por volume: um ponto HORARIO com 1 compra
+        # (Redline FT a R$ 1.403 num item de ~R$ 220) nao vira "topo".
+        diario = daily_series(price_history)
+        if len(diario) >= 10:
+            prices = [d["price_median"] for d in diario]
     ath = max(prices)
     if ath <= 0:
         return {}
