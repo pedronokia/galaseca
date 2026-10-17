@@ -315,10 +315,14 @@ class _BacktestResultDialog(QDialog):
             scolor = (t.POSITIVE if spearman_corr > 0.05 else
                       (t.WARN if spearman_corr > 0 else t.DANGER))
             s_lbl = QLabel(
-                f"<b>Acerto da nota</b> (Spearman, de −1 a +1): "
+                f"<b>Acerto da ordem</b> (de −1 a +1): "
                 f"<span style='color:{scolor}'>{spearman_corr:+.4f}</span>"
             )
             s_lbl.setTextFormat(Qt.TextFormat.RichText)
+            s_lbl.setToolTip(
+                "Correlação de Spearman: se os itens de nota maior foram os"
+                " que mais subiram depois. +1 = ordem perfeita, 0 = sem"
+                " relação, negativo = ao contrário.")
             s_lbl.setStyleSheet(
                 f"color: {t.TEXT}; font-size: {t.FS_BODY};"
                 f" font-family: {t.FONT_FAMILY}; padding: 4px 0;"
@@ -329,10 +333,14 @@ class _BacktestResultDialog(QDialog):
             pcolor = (t.POSITIVE if pearson_corr > 0.05 else
                       (t.WARN if pearson_corr > 0 else t.DANGER))
             p_lbl = QLabel(
-                f"<b>Outra medida de acerto</b> (Pearson): "
+                f"<b>Acerto dos valores</b> (de −1 a +1): "
                 f"<span style='color:{pcolor}'>{pearson_corr:+.4f}</span>"
             )
             p_lbl.setTextFormat(Qt.TextFormat.RichText)
+            p_lbl.setToolTip(
+                "Correlação de Pearson: compara a nota com o tamanho da"
+                " variação, não só a ordem. Sensível a um item fora da"
+                " curva.")
             p_lbl.setStyleSheet(
                 f"color: {t.TEXT}; font-size: {t.FS_BODY};"
                 f" font-family: {t.FONT_FAMILY}; padding: 2px 0;"
@@ -342,8 +350,8 @@ class _BacktestResultDialog(QDialog):
         if bucket70["n"] >= 3:
             b70_text = (
                 f"<b>Só notas 70+ ({bucket70['n']} situações):</b> "
-                f"Spearman {bucket70['spearman']:+.4f}, "
-                f"Pearson {bucket70['pearson']:+.4f}"
+                f"ordem {bucket70['spearman']:+.4f}, "
+                f"valores {bucket70['pearson']:+.4f}"
             )
             b70_lbl = QLabel(b70_text)
             b70_lbl.setTextFormat(Qt.TextFormat.RichText)

@@ -308,7 +308,8 @@ class AccountScreen(QWidget):
         self._cx_lista.setTextFormat(Qt.TextFormat.RichText)
         self._cx_lista.setAlignment(Qt.AlignmentFlag.AlignTop)
         self._cx_lista.setWordWrap(True)
-        self._cx_lista.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        self._cx_lista.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_MUTED};")
         cx_lay.addWidget(self._cx_lista)
         cx_lay.addStretch(1)
         cx_card.layout().addLayout(cx_lay)

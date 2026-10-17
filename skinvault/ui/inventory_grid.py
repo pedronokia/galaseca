@@ -551,7 +551,8 @@ class ItemDetailPanel(QFrame):
 
         self._score = QLabel("")
         self._score.setTextFormat(Qt.TextFormat.RichText)
-        self._score.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        self._score.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_MUTED};")
         v.addWidget(self._score)
 
         v.addSpacing(t.SPACE_MD)
@@ -573,20 +574,23 @@ class ItemDetailPanel(QFrame):
         self._fora = QLabel("—")
         self._fora.setWordWrap(True)
         self._fora.setTextFormat(Qt.TextFormat.RichText)
-        self._fora.setStyleSheet(f"font-size: {t.FS_BODY};")
+        self._fora.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_BODY};")
         v.addWidget(self._fora)
 
         v.addSpacing(t.SPACE_MD)
         self._piso = QLabel("")
         self._piso.setWordWrap(True)
         self._piso.setTextFormat(Qt.TextFormat.RichText)
-        self._piso.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        self._piso.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_MUTED};")
         v.addWidget(self._piso)
 
         self._premio = QLabel("")
         self._premio.setWordWrap(True)
         self._premio.setTextFormat(Qt.TextFormat.RichText)
-        self._premio.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        self._premio.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_MUTED};")
         v.addWidget(self._premio)
 
         # Atalho discreto pro dado que falta: este item nao tem custo
@@ -618,7 +622,8 @@ class ItemDetailPanel(QFrame):
         self._compra = QLabel("—")
         self._compra.setWordWrap(True)
         self._compra.setTextFormat(Qt.TextFormat.RichText)
-        self._compra.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        self._compra.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_MUTED};")
         v.addWidget(self._compra)
 
         v.addSpacing(t.SPACE_MD)
@@ -626,7 +631,8 @@ class ItemDetailPanel(QFrame):
         self._origem = QLabel("—")
         self._origem.setWordWrap(True)
         self._origem.setTextFormat(Qt.TextFormat.RichText)
-        self._origem.setStyleSheet(f"font-size: {t.FS_MUTED};")
+        self._origem.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_MUTED};")
         v.addWidget(self._origem)
 
         # Liquidez: consulta SOB DEMANDA (nao automatica ao selecionar) --

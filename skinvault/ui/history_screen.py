@@ -570,10 +570,10 @@ class HistoryScreen(QWidget):
     SEGMENTS = [
         ("all", "Todos"),
         ("trades", "Trades"),
-        ("matched", "Pareados"),
-        ("open", "Abertas"),
-        ("market", "Steam Market"),
-        ("offers", "Trade Offers"),
+        ("matched", "Fechadas"),
+        ("open", "Em aberto"),
+        ("market", "Market"),
+        ("offers", "Trocas"),
         ("watchlist", "Watchlist"),
     ]
 

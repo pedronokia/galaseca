@@ -215,6 +215,14 @@ class TradeUpScreen(QWidget):
         self._inputs.setSortingEnabled(False)
         self._inputs.setMaximumHeight(200)
         root.addWidget(self._inputs)
+        self._inputs_vazio = QLabel(
+            "Nenhum item no contrato ainda. Digite o nome acima e clique em"
+            " Adicionar: 10 itens da mesma raridade, ou 5 Covert para"
+            " faca/luva.")
+        self._inputs_vazio.setWordWrap(True)
+        self._inputs_vazio.setStyleSheet(
+            t.label_body_muted() + f" padding: {t.SPACE_MD}px 0;")
+        root.addWidget(self._inputs_vazio)
 
         acoes = QHBoxLayout()
         acoes.setContentsMargins(0, 0, 0, 0)
@@ -461,6 +469,11 @@ class TradeUpScreen(QWidget):
             else:
                 modo = f" · normal: {tradeup.STANDARD_INPUTS} itens"
         self._count_lbl.setText(f"{n} item(ns) no contrato{modo}")
+        vazio = not self._entries
+        self._inputs.setVisible(not vazio)
+        self._inputs_vazio.setVisible(vazio)
+        self._remove_btn.setEnabled(not vazio)
+        self._clear_btn.setEnabled(not vazio)
 
     # ── calculo ──────────────────────────────────────────────
     def _on_calculate(self) -> None:

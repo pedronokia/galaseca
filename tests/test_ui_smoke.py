@@ -714,7 +714,10 @@ def test_backtest_result_dialog_com_samples():
     assert tables[0].rowCount() == 5  # 5 buckets
     # Texto de correlação presente
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
-    assert any("Pearson" in t for t in texts)
+    assert any("Acerto dos valores" in t for t in texts)
+    # Nome tecnico da estatistica fica na dica, nao no rotulo.
+    dicas = [lbl.toolTip() for lbl in dlg.findChildren(QLabel)]
+    assert any("Pearson" in d for d in dicas)
 
 
 def test_backtest_result_dialog_title_inclui_contagem():

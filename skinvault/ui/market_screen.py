@@ -774,15 +774,18 @@ class MarketScreen(QWidget):
                                  f"{diff:+.1f}%", color=color)
         if page:
             ob = page.get("order_book") or {}
+            # Sem fila de ofertas na pagina, "0" afirmava que ninguem
+            # compra nem vende -- e' so' dado ausente: travessao.
+            tem_ob = bool(ob)
             buys = ob.get("buy_count") or 0
             sells = ob.get("sell_count") or 0
-            approx = bool(page.get("order_book_approx"))
+            approx = tem_ob and bool(page.get("order_book_approx"))
             approx_tag = "  (aprox. — outro desgaste)" if approx else ""
             self._add_detail_row("Pedidos de compra",
-                             f"{buys}{approx_tag}",
+                             f"{buys}{approx_tag}" if tem_ob else "—",
                              color=t.WARN if approx else None)
             self._add_detail_row("Anúncios à venda",
-                             f"{sells}{approx_tag}",
+                             f"{sells}{approx_tag}" if tem_ob else "—",
                              color=t.WARN if approx else None)
             if verdict.get("spread_verdict"):
                 self._add_detail_row(

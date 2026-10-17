@@ -185,6 +185,8 @@ def _reload_palette(theme: str, accent: str | None = None) -> None:
     pal = _T.get(theme, _T["dark"])
     global BG, BG_ELEVATED, SURFACE, BORDER, TEXT, TEXT_MUTED
     global STEAM_BLUE, DANGER, ROW_ALT
+    global SURFACE_HOV, SURFACE_PRESSED, SCROLL_THUMB, SCROLL_THUMB_HOV
+    global WARN_BG, WARN_BORDER, WARN_TEXT
     global PRIMARY_BG, PRIMARY_FG, PRIMARY_BORDER, PRIMARY_HOV, PRIMARY_FOCUS
     BG = pal["bg"]
     BG_ELEVATED = pal["surface"]
@@ -192,9 +194,21 @@ def _reload_palette(theme: str, accent: str | None = None) -> None:
     ROW_ALT = "#F7F7F7" if theme == "light" else "#1A1A1A"
     TEXT = pal["text"]
     TEXT_MUTED = pal["muted"]
-    BORDER = "#3A3A44" if theme == "light" else "#303030"
+    # No claro a borda era "#3A3A44" (quase preta): contorno pesado em todo
+    # cartao. E hover/foco/aviso ficavam com os valores do escuro -- o
+    # primeiro botao da tela, focado, virava texto escuro em fundo escuro
+    # (2026-10-17). Agora todo token de superficie acompanha o tema.
+    claro = theme == "light"
+    BORDER = "#D4D4D8" if claro else "#303030"
     DANGER = "#EF4444"
     STEAM_BLUE = "#66C0F4"
+    SURFACE_HOV = "#E2E2E2" if claro else "#3F3F3F"
+    SURFACE_PRESSED = "#D6D6D6" if claro else "#4A4A4A"
+    SCROLL_THUMB = "#C8C8C8" if claro else "#383838"
+    SCROLL_THUMB_HOV = "#B0B0B0" if claro else "#484848"
+    WARN_BG = "#FFF6DB" if claro else "#2A2410"
+    WARN_BORDER = "#E9CD7A" if claro else "#6B5A1A"
+    WARN_TEXT = "#7A5A00" if claro else "#D8C267"
     if theme == "light":
         # CTA solido inverte: fundo claro pede botao escuro
         PRIMARY_BG = "#1C1C1C"
@@ -209,6 +223,32 @@ def _reload_palette(theme: str, accent: str | None = None) -> None:
         PRIMARY_HOV = "#E4E4E4"
         PRIMARY_FOCUS = "#9A9A9A"
     _apply_accent(accent)
+
+
+def qpalette():
+    """QPalette do app derivada do tema.
+
+    Sem paleta global, todo texto que nao define cor no proprio QSS (o
+    <b> de um QLabel RichText, por exemplo) herdava o PRETO do Windows --
+    ilegivel no tema escuro. Era o caso dos valores no painel de detalhe
+    do Inventario (2026-10-17).
+    """
+    from PyQt6.QtGui import QColor, QPalette
+    pal = QPalette()
+    for papel, cor in (
+        (QPalette.ColorRole.Window, BG),
+        (QPalette.ColorRole.WindowText, TEXT),
+        (QPalette.ColorRole.Base, SURFACE),
+        (QPalette.ColorRole.AlternateBase, ROW_ALT),
+        (QPalette.ColorRole.Text, TEXT),
+        (QPalette.ColorRole.Button, SURFACE),
+        (QPalette.ColorRole.ButtonText, TEXT),
+        (QPalette.ColorRole.ToolTipBase, BG_ELEVATED),
+        (QPalette.ColorRole.ToolTipText, TEXT),
+        (QPalette.ColorRole.PlaceholderText, TEXT_MUTED),
+    ):
+        pal.setColor(papel, QColor(cor))
+    return pal
 
 
 def _hex_rgb(hex_color: str) -> tuple[int, int, int]:
@@ -623,6 +663,42 @@ def card_style(radius: int = 10) -> str:
         f" border: 1px solid {BORDER};"
         f" border-radius: {radius}px; }}"
     )
+
+
+def ajustar_colunas(table: QTableWidget, col_nome: int, nome_min: int,
+                    opcionais: "list[int]", piso: int = 64) -> None:
+    """Largura das colunas pra tabela larga caber sem esmagar o nome.
+
+    1. cada coluna visivel (menos a do nome, que estica) fica com o maior
+       entre conteudo e titulo -- o titulo ja' com o padding que o Qt ignora;
+    2. se o nome ficaria mais estreito que `nome_min`, esconde colunas de
+       `opcionais` NA ORDEM dada ate' caber; janela maior, elas voltam.
+
+    Medido em 2026-10-17 a 1366x768: o Scanner (13 colunas) deixava ~55px
+    pro nome ("M4A4 ...", titulo "Item" virava "ten"), e o Inventario
+    em tabela cortava o nome e jogava a coluna Topo pra rolagem.
+    Colunas fora de `opcionais` nunca sao tocadas (quem esconde por falta
+    de dado, como Origem, continua decidindo sozinho).
+    """
+    hh = table.horizontalHeader()
+    for c in opcionais:
+        table.setColumnHidden(c, False)
+    for c in range(table.columnCount()):
+        if c != col_nome and not table.isColumnHidden(c):
+            table.resizeColumnToContents(c)
+    _ensure_header_width(table, hh, piso=piso)
+    disponivel = table.viewport().width()
+    if disponivel <= 0:
+        return  # ainda sem layout (tela nao exibida): decide no proximo
+
+    def _outras() -> int:
+        return sum(hh.sectionSize(c) for c in range(table.columnCount())
+                   if c != col_nome and not table.isColumnHidden(c))
+
+    for c in opcionais:
+        if disponivel - _outras() >= nome_min:
+            break
+        table.setColumnHidden(c, True)
 
 
 def _ensure_header_width(table: QTableWidget, hh: QHeaderView,

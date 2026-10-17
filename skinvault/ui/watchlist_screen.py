@@ -250,8 +250,7 @@ class WatchlistScreen(QWidget):
 
         self._validate_btn = QPushButton("Testar a nota no passado")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._validate_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
-                                                          fs=t.FS_INPUT))
+        self._validate_btn.setStyleSheet(t.btn_ghost())
         self._validate_btn.setToolTip(
             "Atualiza as notas e mostra como a nota teria se saído nos"
             " últimos 90 dias com os itens que você acompanha."
@@ -260,7 +259,10 @@ class WatchlistScreen(QWidget):
 
         self._refresh_btn = QPushButton("Atualizar notas e alertas")
         self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._refresh_btn.setStyleSheet(t.btn_ghost())
+        # Acao do dia a dia: destaque de botao secundario. O teste no
+        # passado e' consulta eventual e fica discreto (era o inverso).
+        self._refresh_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
+                                                         fs=t.FS_INPUT))
         self._refresh_btn.setToolTip(
             "Recalcula as notas e confere os alertas de todos os itens,"
             " sem abrir a janela de teste."
@@ -271,7 +273,7 @@ class WatchlistScreen(QWidget):
             "Watchlist e Alertas",
             "Monitore preços de skins selecionadas e receba alertas quando "
             "regras forem atendidas (queda, volume anormal, oferta baixa).",
-            actions=[self._add_btn, self._validate_btn, self._refresh_btn],
+            actions=[self._add_btn, self._refresh_btn, self._validate_btn],
         ))
 
         # Stat cards: total + com regras + disparados + recentes 24h

@@ -11,7 +11,7 @@ import time
 
 from urllib.parse import quote
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QTimer, QUrl
 from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -110,11 +110,11 @@ _SCAN_BY_CATEGORY = {
         "Gallery Case", "Fever Case",
     ],
     "Cápsulas": cases.list_capsules(),
-    "Autographs": cases.list_autograph_capsules(),
-    "Stickers (Tournament)": cases.list_tournament_stickers(),
-    "Stickers (Autograph)": cases.list_autograph_stickers(),
-    "Stickers (Community)": cases.list_community_stickers(),
-    "Stickers (Event)": cases.list_event_stickers(),
+    "Cápsulas de autógrafo": cases.list_autograph_capsules(),
+    "Adesivos de torneio": cases.list_tournament_stickers(),
+    "Adesivos de autógrafo": cases.list_autograph_stickers(),
+    "Adesivos da comunidade": cases.list_community_stickers(),
+    "Adesivos de evento": cases.list_event_stickers(),
 }
 
 # Codigos internos do veredito -> texto da tela (ver ui/textos.py).
@@ -161,13 +161,28 @@ class ScannerScreen(QWidget):
     # precisam dos 120px do piso global.
     _PISO_COLUNA = 56
 
+    # Nome do item nunca abaixo disto; em janela estreita estas colunas
+    # somem (nesta ordem) ate' caber -- o detalhe delas segue no "Por que
+    # essa nota?". A 1366x768 o nome virava "M4A4 ..." (2026-10-17).
+    _NOME_MIN = 220
+
     def _ajustar_colunas(self) -> None:
-        """Cada coluna (menos o Item, que estica) com o maior entre o
-        conteudo e o titulo -- o titulo ja' com o padding que o Qt ignora."""
-        hh = self._table.horizontalHeader()
-        for i in range(1, self._table.columnCount()):
-            self._table.resizeColumnToContents(i)
-        t._ensure_header_width(self._table, hh, piso=self._PISO_COLUNA)
+        t.ajustar_colunas(
+            self._table, self.COL_NAME, self._NOME_MIN,
+            opcionais=[self.COL_CONFIDENCE, self.COL_SD, self.COL_BOOK,
+                       self.COL_SPREAD, self.COL_COMPRAR],
+            piso=self._PISO_COLUNA)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._table.isVisible():
+            self._ajustar_colunas()
+
+    def showEvent(self, event) -> None:
+        # Ajuste feito com a tela ainda oculta usava a largura de
+        # nascimento da tabela e escondia colunas que cabiam.
+        super().showEvent(event)
+        QTimer.singleShot(0, self._ajustar_colunas)
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:

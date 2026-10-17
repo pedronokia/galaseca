@@ -113,6 +113,13 @@ def set_theme(theme_name: str, accent: str | None = None) -> None:
         _reload_palette(theme_name)
     else:
         _reload_palette(theme_name, accent)
+    # Paleta global junto: texto sem cor no QSS herdava o preto do Windows.
+    app = QApplication.instance()
+    if app is not None:
+        try:
+            app.setPalette(t.qpalette())
+        except Exception:  # cosmetico: nunca derrubar a troca de tema
+            pass
 
 
 def _steam_market_url(name: str) -> str:

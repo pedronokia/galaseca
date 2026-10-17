@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import threading
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QDialog,
@@ -379,9 +379,12 @@ class InventoryScreen(QWidget):
         self._table.customContextMenuRequested.connect(self._on_context_menu)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
+        # Interactive + ajuste manual (_ajustar_colunas): ResizeToContents
+        # com o piso global de 120px esmagava o nome e mandava "Topo" pra
+        # rolagem horizontal.
+        hh.setMinimumSectionSize(64)
         for i in range(1, self.COL_ORIGIN + 1):
-            hh.setSectionResizeMode(
-                i, QHeaderView.ResizeMode.ResizeToContents)
+            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
 
         # Corpo: filtros a' esquerda + visao a' direita, como o Mercado da
         # Comunidade. As categorias saem de `portfolio.classify_item`, as
@@ -472,6 +475,31 @@ class InventoryScreen(QWidget):
         root.addWidget(self._status)
 
         self._apply_view_pref()
+
+    def _ajustar_colunas(self) -> None:
+        """Sem cotacao externa pra nenhum item, "Melhor fora"/"Onde" so'
+        mostravam travessao: somem. Em janela estreita, colunas opcionais
+        somem ate' o nome caber (theme.ajustar_colunas)."""
+        mercados = getattr(self, "_mercados", {}) or {}
+        sem_fora = not any(mercados.get(r.get("name") or "")
+                           for r in self._rows)
+        for c in (self.COL_BEST_OUT, self.COL_WHERE):
+            self._table.setColumnHidden(c, sem_fora)
+        opcionais = ([self.COL_TOP, self.COL_SCORE] if sem_fora else
+                     [self.COL_WHERE, self.COL_TOP, self.COL_BEST_OUT,
+                      self.COL_SCORE])
+        t.ajustar_colunas(self._table, self.COL_NAME, 220, opcionais)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._table.isVisible():
+            self._ajustar_colunas()
+
+    def showEvent(self, event) -> None:
+        # Ajuste feito com a tela ainda oculta usava a largura de
+        # nascimento da tabela e escondia colunas que cabiam.
+        super().showEvent(event)
+        QTimer.singleShot(0, self._ajustar_colunas)
 
     def _mostrar_corpo(self, visivel: bool) -> None:
         """Grade/tabela + filtros + drawer aparecem e somem juntos."""
@@ -867,6 +895,7 @@ class InventoryScreen(QWidget):
             for p in self._positions
         }
         self._table.setColumnHidden(self.COL_ORIGIN, len(origens) <= 1)
+        self._ajustar_colunas()
         self._table.setSortingEnabled(True)
 
     @staticmethod
@@ -1182,6 +1211,10 @@ class InventoryScreen(QWidget):
         diz pra onde ir e nao ha' o que inverter.
         """
         self._views.setCurrentIndex(1 if key == "table" else 0)
+        if key == "table":
+            # A tabela escondida atras da grade nao tinha largura real no
+            # ultimo ajuste: o nome ficava esmagado ate' redimensionar.
+            QTimer.singleShot(0, self._ajustar_colunas)
         # Quem prefere a tabela reescolhia a cada abertura do app.
         from skinvault.settings import load_settings, save_settings
         s = load_settings()
