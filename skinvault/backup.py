@@ -41,6 +41,9 @@ _DATA_FILES = [
     # bem mais caro que carregar no backup.
     "ssr_cache.json",
     "discovery_cache.json",
+    # Catalogo da calculadora de trade-up (tradeup.py). Regeneravel em ~14 MB
+    # de download fora da Steam; entra pra restaurar offline.
+    "tradeup_catalog.json",
     # Precos de mercado fora da Steam + cambio (markets.py)
     "market_prices.json",
     "fx_rate.json",

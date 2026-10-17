@@ -37,6 +37,7 @@ from skinvault.ui.market_screen import MarketScreen
 from skinvault.ui.scanner_screen import ScannerScreen
 from skinvault.ui.settings_screen import SettingsScreen
 from skinvault.ui.trades_screen import TradesScreen
+from skinvault.ui.tradeup_screen import TradeUpScreen
 from skinvault.ui.watchlist_screen import WatchlistScreen
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ SCREEN_HISTORY = "history"
 SCREEN_SCANNER = "scanner"
 SCREEN_MARKET = "market"
 SCREEN_TRADES = "trades"
+SCREEN_TRADEUP = "tradeup"
 # SCREEN_SIMULADOR removido em 28/07/2026: o simulador calculava P&L de um
 # trade hipotetico, mas o mesmo numero ja' sai do veredito do Market e do
 # proprio inventario, com dado real em vez de digitado a mao.
@@ -167,6 +169,9 @@ class ScreenRouter(QWidget):
         self._trades_screen = TradesScreen(self)
         self._stack.addWidget(self._trades_screen)
 
+        self._tradeup_screen = TradeUpScreen(self)
+        self._stack.addWidget(self._tradeup_screen)
+
 
         self._watchlist_screen = WatchlistScreen(self._cache, self)
         self._watchlist_screen.notification_requested.connect(
@@ -239,6 +244,7 @@ class ScreenRouter(QWidget):
             SCREEN_SCANNER: (self._scanner_screen, "Scanner"),
             SCREEN_MARKET: (self._market_screen, "Market"),
             SCREEN_TRADES: (self._trades_screen, "Trades"),
+            SCREEN_TRADEUP: (self._tradeup_screen, "Trade-up"),
             SCREEN_WATCHLIST: (self._watchlist_screen, "Watchlist"),
             SCREEN_CLEANUP: (self._cleanup_screen, "Limpeza"),
             SCREEN_SETTINGS: (self._settings_screen, "Configurações"),
@@ -264,6 +270,8 @@ class ScreenRouter(QWidget):
             self._cleanup_screen.refresh()
         elif screen == SCREEN_SETTINGS:
             self._settings_screen.refresh()
+        elif screen == SCREEN_TRADEUP:
+            self._tradeup_screen.refresh()
 
         self.navigated.emit(screen)
 

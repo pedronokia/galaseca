@@ -434,6 +434,7 @@ class MainWindow(QMainWindow):
         ("scanner", "radar", "Scanner"),
         ("market", "chart", "Market"),
         ("trades", "swap", "Trades"),
+        ("tradeup", "calc", "Trade-up"),
         ("watchlist", "eye", "Watchlist"),
     )
 
