@@ -466,7 +466,7 @@ def test_enhanced_score_case_status_rare():
 
 
 def test_format_breakdown_empty():
-    assert "Sem fatores" in signals.format_breakdown([])
+    assert "Nada se destacou" in signals.format_breakdown([])
 
 
 def test_format_breakdown_groups_positive_negative():
@@ -475,8 +475,8 @@ def test_format_breakdown_groups_positive_negative():
         {"factor": "trend", "delta": -10, "label": "Tendencia: caindo (-10)"},
     ]
     text = signals.format_breakdown(breakdown)
-    assert "Positivos:" in text
-    assert "Negativos:" in text
+    assert "Somou pontos:" in text
+    assert "Tirou pontos:" in text
     assert "Spread apertado" in text
     assert "Tendencia: caindo" in text
 
@@ -1089,8 +1089,8 @@ def test_pump_risk_high_pump_pattern():
     # at_ath (peso 2) + Rally +20% em 30d (1 flag) -> high
     assert r["level"] == "high"
     assert r["flags"] == 3
-    assert any("ATH" in reason for reason in r["reasons"])
-    assert any("Rally" in reason for reason in r["reasons"])
+    assert any("maior preço" in reason for reason in r["reasons"])
+    assert any("Subiu" in reason for reason in r["reasons"])
 
 
 def test_pump_risk_medium_near_ath_sem_rally():

@@ -16,15 +16,18 @@ from __future__ import annotations
 
 import threading
 
-from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtCore import QObject, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QDialog,
+    QFileDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QLineEdit,
     QMenu,
+    QMessageBox,
     QPushButton,
     QStackedWidget,
     QTableWidget,
@@ -66,16 +69,18 @@ class _CostDialog(QDialog):
 
     def __init__(self, name: str, quantity: int = 1,
                  current_cost: float | None = None,
-                 parent: QWidget | None = None):
+                 parent: QWidget | None = None,
+                 caption: str | None = None):
         super().__init__(parent)
         self.setWindowTitle("Definir custo")
         self.setMinimumWidth(420)
         self.setStyleSheet(f"QDialog {{ background: {t.BG_ELEVATED}; }}")
         self._cost: float | None = None
-        self._build(name, quantity, current_cost)
+        self._build(name, quantity, current_cost, caption)
 
     def _build(self, name: str, quantity: int,
-               current_cost: float | None) -> None:
+               current_cost: float | None,
+               caption_txt: str | None = None) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(12)
@@ -86,7 +91,7 @@ class _CostDialog(QDialog):
         layout.addWidget(nome)
 
         caption = QLabel(
-            f"Preço unitário — {quantity} item(ns) no total.")
+            caption_txt or f"Preço unitário — {quantity} item(ns) no total.")
         caption.setStyleSheet(t.label_caption())
         caption.setWordWrap(True)
         layout.addWidget(caption)
@@ -216,9 +221,26 @@ class InventoryScreen(QWidget):
         root.setContentsMargins(24, 16, 24, 16)
         root.setSpacing(12)
 
+        # Desde a F10 (login revertido) nao havia como colocar item na
+        # carteira pela interface. Importar usa so' o inventario PUBLICO.
+        self._import_btn = QPushButton("Importar da Steam")
+        self._import_btn.setStyleSheet(t.btn_primary(padding="8px 18px"))
+        self._import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._import_btn.setToolTip(
+            "Traz os itens do seu inventário público da Steam pelo link do "
+            "perfil. Sem login e sem senha.")
+        self._import_btn.clicked.connect(self._on_importar_steam)
+        self._add_item_btn = QPushButton("+ Adicionar item")
+        self._add_item_btn.setStyleSheet(t.btn_secondary())
+        self._add_item_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._add_item_btn.setToolTip(
+            "Coloca um item na carteira à mão: nome, quantidade e quanto "
+            "pagou.")
+        self._add_item_btn.clicked.connect(self._on_adicionar_item)
         root.addWidget(PageHeader(
             "Inventário",
             "Cada item avaliado nos dois mercados: saldo Steam e dinheiro real.",
+            actions=[self._add_item_btn, self._import_btn],
         ))
 
         linha = QHBoxLayout()
@@ -248,9 +270,8 @@ class InventoryScreen(QWidget):
         self._ordem_seg.add("nome", "Nome")
         self._ordem_seg.add("qtd", "Qtd")
         self._ordem_seg.setToolTip(
-            "Ordem dos cards. “Valor” usa o total do lote, não o preço "
-            "unitário:\n21 caixas de R$ 1 pesam mais que uma skin de R$ 15.\n"
-            "Clicar na chave já ativa alterna crescente/decrescente.")
+            "Ordem dos cards (Valor = total do lote).\n"
+            "Clique de novo para inverter.")
         # Lambda, nao `self._grid.set_order`: a grade so' e' construida
         # adiante neste mesmo _build, e ligar o metodo agora explodiria.
         self._ordem_seg.segment_changed.connect(self._on_ordem)
@@ -261,13 +282,14 @@ class InventoryScreen(QWidget):
 
         # Exportar inventário + relatório (CSV/JSON/HTML). Ghost: é
         # leitura/ação auxiliar; o destaque da tela continua o filtro.
-        self._export_btn = QPushButton("Exportar")
+        self._export_btn = QPushButton("Arquivo")
         self._export_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._export_btn.setStyleSheet(
             t.btn_ghost(padding="8px 14px", fs=t.FS_BODY))
         self._export_btn.setToolTip(
-            "Exporta o inventário avaliado: CSV, JSON ou relatório HTML\n"
-            "print-friendly com o histórico de valor da carteira.")
+            "Exporta o inventário (CSV, JSON ou relatório HTML) ou importa\n"
+            "os custos de uma planilha: exporte o CSV, preencha a coluna\n"
+            "Custo e importe de volta.")
         self._export_btn.clicked.connect(self._on_export_menu)
         linha.addWidget(self._export_btn, 0)
         root.addLayout(linha)
@@ -309,7 +331,8 @@ class InventoryScreen(QWidget):
         self._table = QTableWidget(0, 11)
         self._table.setHorizontalHeaderLabels([
             "Item", "Qtd", "Anúncio Steam", "Recebe (saldo)",
-            "Melhor fora", "Onde", "Custo", "P&L", "Score", "Topo", "Origem",
+            "Melhor fora", "Onde", "Custo", "Lucro/prejuízo", "Nota", "Topo",
+            "Origem",
         ])
         _tips = {
             self.COL_PRICE: (
@@ -327,23 +350,21 @@ class InventoryScreen(QWidget):
             self.COL_COST: (
                 "Quanto você pagou pelo item (ou zero se foi drop).\n"
                 "Duplo clique na coluna para definir.\n"
-                "É daqui que o P&L sai: sem custo, não há lucro que se "
-                "possa afirmar."),
+                "Sem o custo, não dá para saber se você está no lucro."),
             self.COL_SCORE: (
-                "Score do item (0-100), calculado pelo botão 'Validar score' "
-                "na tela Minha Conta.\n"
-                "Fica âmbar quando está desatualizado. '—' significa que "
-                "ainda não foi calculado."),
+                "Nota de 0 a 100 que compara este item com os outros pelos "
+                "dados de hoje. Calculada em 'Atualizar notas' (tela Minha "
+                "Conta).\n"
+                "Fica âmbar quando está velha. '—' = ainda não calculada."),
             self.COL_TOP: (
                 "Quão perto do topo histórico o preço está (100% = no "
                 "topo).\n"
-                "Calculado pelo 'Validar score' da tela Minha Conta, com o "
-                "mesmo histórico do Score.\n"
-                "Descritivo: no backtest, itens perto do topo renderam menos "
-                "nos 12 meses seguintes (passe o mouse na célula para os "
-                "números). Não é recomendação de venda."),
+                "Calculado em 'Atualizar notas' (tela Minha Conta).\n"
+                "No histórico, itens perto do maior preço subiram menos "
+                "depois. É uma informação, não um conselho de venda."),
             self.COL_ORIGIN: (
-                "Se o item veio da sincronização com a Steam ou foi "
+                "Se o item veio da antiga sincronização com a Steam ou "
+                "foi "
                 "lançado manualmente.\n"
                 "Só aparece quando o inventário mistura as duas origens."),
         }
@@ -358,19 +379,32 @@ class InventoryScreen(QWidget):
         # contexto na linha. A grade so' mostra o custo, nao edita -- o
         # reconhecimento por icone nao e' o momento de digitar numero.
         self._table.cellDoubleClicked.connect(self._on_cost_double_click)
+        # Selecao multipla (Ctrl/Shift+clique): base do "Definir custo de
+        # N itens" no menu de contexto.
+        self._table.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection)
         self._table.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu)
         self._table.customContextMenuRequested.connect(self._on_context_menu)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
+        # Interactive + ajuste manual (_ajustar_colunas): ResizeToContents
+        # com o piso global de 120px esmagava o nome e mandava "Topo" pra
+        # rolagem horizontal.
+        hh.setMinimumSectionSize(64)
         for i in range(1, self.COL_ORIGIN + 1):
-            hh.setSectionResizeMode(
-                i, QHeaderView.ResizeMode.ResizeToContents)
+            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
 
         # Corpo: filtros a' esquerda + visao a' direita, como o Mercado da
         # Comunidade. As categorias saem de `portfolio.classify_item`, as
         # mesmas do cartao de composicao da Conta.
-        corpo = QHBoxLayout()
+        # O corpo mora num container pra poder sumir inteiro: o drawer de
+        # detalhe fica "visivel" com largura zero quando fechado, e com o
+        # corpo num layout solto ele seguia ocupando a altura -- a mensagem
+        # de inventario vazio ia parar colada no rodape (2026-10-17).
+        self._corpo_w = QWidget()
+        corpo = QHBoxLayout(self._corpo_w)
+        corpo.setContentsMargins(0, 0, 0, 0)
         corpo.setSpacing(t.SPACE_LG)
 
         self._cat_panel = QWidget()
@@ -410,7 +444,7 @@ class InventoryScreen(QWidget):
         self._drawer.liquidity_requested.connect(
             self._on_liquidity_requested)
 
-        root.addLayout(corpo, 1)
+        root.addWidget(self._corpo_w, 1)
 
         # Filtro sem resultado deixava a tela em branco: indistinguivel de
         # inventario vazio ou de falha ao carregar.
@@ -424,8 +458,10 @@ class InventoryScreen(QWidget):
         self._empty = EmptyState(
             icon="◇",
             title="Inventário vazio",
-            subtitle=("Sincronize com a Steam na tela Minha Conta\n"
-                       "pra puxar seus itens."),
+            subtitle=("Importe pelo link do seu perfil da Steam\n"
+                       "ou adicione os itens um a um."),
+            cta_label="Importar da Steam",
+            on_cta=self._on_importar_steam,
         )
         root.addWidget(self._empty, 1)
 
@@ -439,7 +475,7 @@ class InventoryScreen(QWidget):
 
         # Default e' o empty state, nao o loading: sem sessao a AccountScreen
         # nunca chama refresh(), e a tela ficaria em branco pra sempre.
-        self._views.setVisible(False)
+        self._mostrar_corpo(False)
         self._empty.setVisible(True)
         self._loading.setVisible(False)
 
@@ -448,6 +484,36 @@ class InventoryScreen(QWidget):
         root.addWidget(self._status)
 
         self._apply_view_pref()
+
+    def _ajustar_colunas(self) -> None:
+        """Sem cotacao externa pra nenhum item, "Melhor fora"/"Onde" so'
+        mostravam travessao: somem. Em janela estreita, colunas opcionais
+        somem ate' o nome caber (theme.ajustar_colunas)."""
+        mercados = getattr(self, "_mercados", {}) or {}
+        sem_fora = not any(mercados.get(r.get("name") or "")
+                           for r in self._rows)
+        for c in (self.COL_BEST_OUT, self.COL_WHERE):
+            self._table.setColumnHidden(c, sem_fora)
+        opcionais = ([self.COL_TOP, self.COL_SCORE] if sem_fora else
+                     [self.COL_WHERE, self.COL_TOP, self.COL_BEST_OUT,
+                      self.COL_SCORE])
+        t.ajustar_colunas(self._table, self.COL_NAME, 220, opcionais)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._table.isVisible():
+            self._ajustar_colunas()
+
+    def showEvent(self, event) -> None:
+        # Ajuste feito com a tela ainda oculta usava a largura de
+        # nascimento da tabela e escondia colunas que cabiam.
+        super().showEvent(event)
+        QTimer.singleShot(0, self._ajustar_colunas)
+
+    def _mostrar_corpo(self, visivel: bool) -> None:
+        """Grade/tabela + filtros + drawer aparecem e somem juntos."""
+        self._views.setVisible(visivel)
+        self._corpo_w.setVisible(visivel)
 
     def _apply_view_pref(self) -> None:
         """Aplica a visao persistida em settings.json.
@@ -483,11 +549,11 @@ class InventoryScreen(QWidget):
         # continua sendo a leitura honesta.
         if total and self._views.currentIndex() == 0:
             self._grid.set_skeleton(total)
-            self._views.setVisible(True)
+            self._mostrar_corpo(True)
             self._loading.setVisible(False)
             self._status.setText(f"Avaliando inventário… {done}/{total}")
             return
-        self._views.setVisible(False)
+        self._mostrar_corpo(False)
         self._loading.setVisible(True)
         self._loading.set_label(
             f"Avaliando inventário… {done}/{total}" if total
@@ -511,7 +577,7 @@ class InventoryScreen(QWidget):
         self._listados = self._carregar_listados()
         tem = bool(self._rows)
         self._loading.setVisible(False)
-        self._views.setVisible(tem)
+        self._mostrar_corpo(tem)
         self._empty.setVisible(not tem)
         if not tem:
             if rate_limited:
@@ -527,8 +593,8 @@ class InventoryScreen(QWidget):
                     "daqui a alguns minutos.")
             else:
                 self._empty.set_subtitle(
-                    "Sincronize com a Steam na tela Minha Conta\n"
-                    "pra puxar seus itens.")
+                    "Importe pelo link do seu perfil da Steam\n"
+                    "ou adicione os itens um a um.")
                 self._status.setText("")
             return
         self._populate_grid()
@@ -603,6 +669,12 @@ class InventoryScreen(QWidget):
              ("Exportar relatório HTML",
               lambda: self._do_export("html"))],
         )
+        menu.addSeparator()
+        imp = menu.addAction("Importar custos de um CSV…")
+        imp.setToolTip(
+            "Lê uma planilha com as colunas Item e Custo (o próprio CSV"
+            " exportado aqui serve) e grava o custo dos itens da carteira.")
+        imp.triggered.connect(lambda _=False: self._on_importar_custos_csv())
         menu.exec(self._export_btn.mapToGlobal(
             self._export_btn.rect().bottomLeft()))
 
@@ -838,6 +910,7 @@ class InventoryScreen(QWidget):
             for p in self._positions
         }
         self._table.setColumnHidden(self.COL_ORIGIN, len(origens) <= 1)
+        self._ajustar_colunas()
         self._table.setSortingEnabled(True)
 
     @staticmethod
@@ -855,7 +928,7 @@ class InventoryScreen(QWidget):
                 cases.is_container(nome), bool(ctx.get("at_launch")))
         except (TypeError, KeyError, ValueError):
             item = SortableItem("—", float("-inf"))
-            item.setToolTip("Ainda não calculado: rode 'Validar score' na "
+            item.setToolTip("Ainda não calculado: use 'Atualizar notas' na "
                             "tela Minha Conta.")
             item.setTextAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -1009,13 +1082,101 @@ class InventoryScreen(QWidget):
         row = item.row()
         if row >= len(self._rows):
             return
+        selecionados = self._nomes_selecionados()
         menu = QMenu(self._table)
+        if len(selecionados) > 1 and self._nome_da_linha(row) in selecionados:
+            acao = menu.addAction(
+                f"Definir custo de {len(selecionados)} itens…")
+            acao.setToolTip("O mesmo custo por unidade para cada item"
+                            " selecionado.")
+            if menu.exec(self._table.viewport().mapToGlobal(pos)) == acao:
+                self._definir_custo_em_lote(selecionados)
+            return
         acao = menu.addAction("Definir custo…")
         acao.setToolTip(
             "Quanto você pagou pelo item (ou zero se foi drop).\n"
-            "É daqui que o P&L sai.")
+            "Sem o custo, não dá para calcular o lucro.")
         if menu.exec(self._table.viewport().mapToGlobal(pos)) == acao:
             self._editar_custo_linha(row)
+
+    def _nome_da_linha(self, row: int) -> str:
+        """Nome cru da linha VISUAL `row` (UserRole da celula do nome).
+
+        Tabela ordenavel: a linha visual so' bate com self._rows na ordem
+        de insercao -- ver _on_table_row_clicked."""
+        cell = self._table.item(row, self.COL_NAME)
+        return (cell.data(Qt.ItemDataRole.UserRole) or "") if cell else ""
+
+    def _nomes_selecionados(self) -> list:
+        linhas = sorted({i.row() for i in self._table.selectedIndexes()})
+        nomes = [self._nome_da_linha(r) for r in linhas]
+        return [n for n in dict.fromkeys(nomes) if n]
+
+    def _definir_custo_em_lote(self, nomes: list) -> None:
+        if not nomes:
+            return
+        dlg = _CostDialog(
+            f"{len(nomes)} itens selecionados", 1, None, self,
+            caption="O valor vale por unidade, para cada item selecionado."
+                    " Zero = drop.")
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        novo = dlg.cost()
+        if novo is None:
+            return
+        portfolio.update_costs_bulk({n: novo for n in nomes})
+        self.request_reeval.emit()
+        Toast(self, f"Custo de {len(nomes)} itens salvo — reavaliando…",
+              "success").show()
+
+    def _on_importar_custos_csv(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Importar custos", "",
+            "Planilha CSV (*.csv *.txt);;Todos os arquivos (*)")
+        if not path:
+            return
+        texto = None
+        # Excel no Windows salva CSV em ANSI (cp1252) quando nao e' o
+        # "CSV UTF-8": sem o fallback, "Caixa Croma 2" passava, mas
+        # qualquer acento ou ★ quebrava a leitura inteira.
+        for enc in ("utf-8-sig", "cp1252"):
+            try:
+                with open(path, encoding=enc) as f:
+                    texto = f.read()
+                break
+            except UnicodeDecodeError:
+                continue
+            except OSError as e:
+                self._status.setText(f"Não deu para abrir o arquivo: {e}")
+                return
+        if texto is None:
+            self._status.setText("Não deu para ler o arquivo (codificação).")
+            return
+        lido = portfolio.parse_cost_csv(texto)
+        res = (portfolio.update_costs_bulk(lido["custos"])
+               if lido["custos"] else
+               {"atualizados": [], "nao_encontrados": []})
+        n_ok = len(res["atualizados"])
+        if n_ok:
+            self.request_reeval.emit()
+        avisos = []
+        if res["nao_encontrados"]:
+            amostra = ", ".join(res["nao_encontrados"][:5])
+            mais = len(res["nao_encontrados"]) - 5
+            avisos.append(
+                f"{len(res['nao_encontrados'])} item(ns) da planilha não"
+                f" estão na carteira e foram ignorados: {amostra}"
+                + (f" e mais {mais}." if mais > 0 else "."))
+        avisos.extend(lido["erros"][:8])
+        resumo = (f"Custo atualizado em {n_ok} item(ns)." if n_ok else
+                  "Nenhum custo foi atualizado.")
+        self._status.setText(resumo)
+        if avisos:
+            QMessageBox.information(
+                self, "Importar custos",
+                resumo + "\n\n" + "\n".join(avisos))
+        elif n_ok:
+            Toast(self, resumo + " Reavaliando…", "success").show()
 
     def _editar_custo_linha(self, row: int) -> None:
         """Abre o dialogo de custo pra linha e reavalia a posicao.
@@ -1024,10 +1185,15 @@ class InventoryScreen(QWidget):
         vive na AccountScreen, e duplicar a avaliacao dobraria o custo de
         rede (AGENTS.md: worker na tela que tem os dados).
         """
-        if row >= len(self._rows) or row >= len(self._positions):
+        # Pelo NOME da linha, nao pelo indice: com a tabela ordenada,
+        # self._rows[row] era outro item e o custo ia pra posicao errada.
+        raw = self._nome_da_linha(row)
+        idx = next((i for i, r in enumerate(self._rows)
+                    if (r.get("name") or "") == raw), None)
+        if idx is None or idx >= len(self._positions):
             return
-        r = self._rows[row]
-        pos = self._positions[row]
+        r = self._rows[idx]
+        pos = self._positions[idx]
         nome = r.get("name") or pos.get("name") or ""
         qty = r.get("quantity") or pos.get("quantity") or 1
         atual = pos.get("cost") if portfolio.has_cost_basis(pos) else None
@@ -1058,6 +1224,33 @@ class InventoryScreen(QWidget):
         if novo is None:
             return
         self._salvar_custo(nome, novo)
+
+    def refresh(self) -> None:
+        """F5: pede a reavaliacao dos precos (o worker mora na Conta)."""
+        if self._rows:
+            self.request_reeval.emit()
+
+    def _on_importar_steam(self) -> None:
+        from skinvault.ui.inventory_dialogs import ImportarSteamDialog
+        dlg = ImportarSteamDialog(self)
+        dlg.exec()
+        if dlg.importou():
+            self.request_reeval.emit()
+            Toast(self, "Inventário importado — avaliando os preços…",
+                  "success").show()
+
+    def _on_adicionar_item(self) -> None:
+        from skinvault.ui.inventory_dialogs import AdicionarItemDialog
+        dlg = AdicionarItemDialog(self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        v = dlg.valores()
+        if not v:
+            return
+        portfolio.add_position(v["name"], v["cost"], v["quantity"])
+        self.request_reeval.emit()
+        Toast(self, f"“{v['name']}” adicionado — avaliando…",
+              "success").show()
 
     def _salvar_custo(self, nome: str, custo: float) -> None:
         res = portfolio.update_position_cost(nome, custo)
@@ -1131,6 +1324,10 @@ class InventoryScreen(QWidget):
         diz pra onde ir e nao ha' o que inverter.
         """
         self._views.setCurrentIndex(1 if key == "table" else 0)
+        if key == "table":
+            # A tabela escondida atras da grade nao tinha largura real no
+            # ultimo ajuste: o nome ficava esmagado ate' redimensionar.
+            QTimer.singleShot(0, self._ajustar_colunas)
         # Quem prefere a tabela reescolhia a cada abertura do app.
         from skinvault.settings import load_settings, save_settings
         s = load_settings()

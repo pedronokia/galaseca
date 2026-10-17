@@ -11,7 +11,7 @@ import time
 
 from urllib.parse import quote
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QTimer, QUrl
 from PyQt6.QtGui import QBrush, QColor, QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -32,8 +32,9 @@ from skinvault import (
     settings as sv_settings, signals, ssr_cache, steam_api, valve_events,
 )
 from skinvault._paths import DATA_DIR
-from skinvault.ui.components import auto_cell
+from skinvault.ui.components import SortableItem, auto_cell
 from skinvault.prices import PriceCache
+from skinvault.ui import textos
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     Card, EmptyState, LoadingState, PageHeader, SectionHeader, StatCard,
@@ -109,18 +110,32 @@ _SCAN_BY_CATEGORY = {
         "Gallery Case", "Fever Case",
     ],
     "Cápsulas": cases.list_capsules(),
-    "Autographs": cases.list_autograph_capsules(),
-    "Stickers (Tournament)": cases.list_tournament_stickers(),
-    "Stickers (Autograph)": cases.list_autograph_stickers(),
-    "Stickers (Community)": cases.list_community_stickers(),
-    "Stickers (Event)": cases.list_event_stickers(),
+    "Cápsulas de autógrafo": cases.list_autograph_capsules(),
+    "Adesivos de torneio": cases.list_tournament_stickers(),
+    "Adesivos de autógrafo": cases.list_autograph_stickers(),
+    "Adesivos da comunidade": cases.list_community_stickers(),
+    "Adesivos de evento": cases.list_event_stickers(),
 }
+
+# Codigos internos do veredito -> texto da tela (ver ui/textos.py).
+_SPREAD_TXT = textos.SPREAD
+_BOOK_TXT = textos.BOOK
+_TREND_TXT = textos.TREND
+# CSV exportado: mesmo vocabulario da tela, nao o codigo interno.
+_CONF_CSV = {"high": "Alta", "medium": "Média", "low": "Baixa",
+             "very_low": "Mínima", "none": ""}
+_RISCO_CSV = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
 
 
 class ScannerScreen(QWidget):
     """Scanner de investimento multi-fator."""
 
     COL_NAME = 0
+    # Nota + resumo ("100 · COMPRA") numa coluna so', a 1. Antes eram duas
+    # colunas dizendo a mesma coisa ("COMPRA" na 1, "100" na 10), e o
+    # espaco fazia falta pro nome do item. COL_SINAL e COL_SCORE apontam
+    # pra mesma coluna; a 10 segue existindo, oculta (indices estaveis).
+    COL_SCORE = 1
     COL_SINAL = 1
     COL_PRECO = 2
     COL_JUSTO = 3
@@ -132,7 +147,7 @@ class ScannerScreen(QWidget):
     COL_BOOK = 7
     COL_TREND = 8
     COL_SD = 9
-    COL_SCORE = 10
+    COL_SCORE_OCULTA = 10
     COL_RISCO = 11
     COL_CONFIDENCE = 12
 
@@ -141,6 +156,33 @@ class ScannerScreen(QWidget):
     # superior do score rende +13,64% brutos, que NAO cobre a taxa
     # (AGENTS.md 4b). Comprar com desconto e' o que fecha a conta.
     MARGEM_ALVO_PCT = 20.0
+
+    # Largura minima de coluna. As colunas curtas ("Nota" = "87") nao
+    # precisam dos 120px do piso global.
+    _PISO_COLUNA = 56
+
+    # Nome do item nunca abaixo disto; em janela estreita estas colunas
+    # somem (nesta ordem) ate' caber -- o detalhe delas segue no "Por que
+    # essa nota?". A 1366x768 o nome virava "M4A4 ..." (2026-10-17).
+    _NOME_MIN = 220
+
+    def _ajustar_colunas(self) -> None:
+        t.ajustar_colunas(
+            self._table, self.COL_NAME, self._NOME_MIN,
+            opcionais=[self.COL_CONFIDENCE, self.COL_SD, self.COL_BOOK,
+                       self.COL_SPREAD, self.COL_COMPRAR],
+            piso=self._PISO_COLUNA)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._table.isVisible():
+            self._ajustar_colunas()
+
+    def showEvent(self, event) -> None:
+        # Ajuste feito com a tela ainda oculta usava a largura de
+        # nascimento da tabela e escondia colunas que cabiam.
+        super().showEvent(event)
+        QTimer.singleShot(0, self._ajustar_colunas)
 
     def __init__(self, cache: PriceCache,
                  parent: QWidget | None = None) -> None:
@@ -172,7 +214,8 @@ class ScannerScreen(QWidget):
         self._cat_combo.setStyleSheet(
             f"QComboBox {{ background: {t.SURFACE}; border: 1px solid {t.BORDER};"
             f" border-radius: 8px; padding: 8px 12px; color: {t.TEXT};"
-            f" font-size: {t.FS_INPUT}; min-width: 160px; }}"
+            f" font-size: {t.FS_INPUT}; min-width: 160px;"
+            f" font-family: {t.FONT_FAMILY}; }}"
             f"QComboBox:focus {{ border: 1px solid {t.ACCENT}; }}"
             f"QComboBox:drop-down {{ border: none; }}"
             f"QComboBox:down-arrow {{ color: {t.TEXT_MUTED}; }}"
@@ -191,8 +234,8 @@ class ScannerScreen(QWidget):
         self._scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._scan_btn.setStyleSheet(t.btn_primary(padding="10px 24px"))
         self._scan_btn.setToolTip(
-            "Escaneia todos os itens da categoria, calcula score 0-100"
-            " e veredito (COMPRA / ATENÇÃO / EVITAR)."
+            "Analisa todos os itens da categoria e dá a cada um uma nota"
+            " de 0 a 100 com um resumo: COMPRA, ATENÇÃO ou EVITAR."
         )
         self._scan_tooltip = self._scan_btn.toolTip()
         self._scan_btn.clicked.connect(self._on_scan)
@@ -211,33 +254,34 @@ class ScannerScreen(QWidget):
 
         self._rank_btn = self._more_menu.addAction("Ranking Top 20")
         self._rank_btn.setToolTip(
-            "Escaneia TODAS as categorias e gera ranking dos 20 melhores"
-            " scores. Demora vários minutos pelo rate-limit do Steam."
+            "Analisa TODAS as categorias e lista as 20 melhores notas."
+            " Demora vários minutos: a Steam limita quantas consultas"
+            " podemos fazer."
         )
         self._rank_btn.triggered.connect(self._on_ranking)
 
-        self._validate_btn = self._more_menu.addAction("Validar score")
+        self._validate_btn = self._more_menu.addAction("Testar a nota no passado")
         self._validate_btn.setToolTip(
-            "Roda backtest histórico nos itens escaneados (horizonte 90d)."
-            " Mostra se o score realmente prediz retornos pra esses itens."
-            " Demora ~2s por item pelo rate-limit do Steam."
+            "Volta no histórico dos itens analisados e confere se as notas"
+            " altas de antes subiram mais nos 90 dias seguintes."
+            " Demora uns segundos por item."
         )
         self._validate_btn.triggered.connect(self._on_validate_score)
 
         self._more_menu.addSeparator()
 
-        self._clear_cache_btn = self._more_menu.addAction("Limpar cache SSR")
+        self._clear_cache_btn = self._more_menu.addAction("Apagar preços guardados")
         self._clear_cache_btn.setToolTip(
-            "Limpa o cache local de dados SSR (PriceHistoryCache)."
-            " Útil quando você quer forçar busca nova da Steam na próxima"
-            " consulta. O cache expira automaticamente em 24h."
+            "Apaga o histórico de preços guardado no computador, para"
+            " buscar tudo de novo na Steam. Normalmente não é preciso: ele"
+            " se renova sozinho a cada 24h, e buscar de novo é lento."
         )
         self._clear_cache_btn.triggered.connect(self._on_clear_ssr_cache)
 
         self._export_btn = self._more_menu.addAction("Exportar CSV")
         self._export_btn.setToolTip(
-            "Exporta os resultados do scan atual para CSV."
-            " Abre dialogo para escolher nome e pasta."
+            "Salva os resultados numa planilha (CSV)."
+            " Você escolhe o nome e a pasta."
         )
         self._export_btn.triggered.connect(self._on_export_csv)
         self._export_btn.setEnabled(False)
@@ -246,7 +290,7 @@ class ScannerScreen(QWidget):
 
         root.addWidget(PageHeader(
             "Scanner de Oportunidades",
-            "Análise multi-fator — score 0-100.",
+            "Dá uma nota de 0 a 100 para cada item com base nos dados de preço.",
             actions=[self._cat_combo, self._scan_btn, self._more_btn],
         ))
 
@@ -266,35 +310,32 @@ class ScannerScreen(QWidget):
         stats_row = QHBoxLayout()
         stats_row.setSpacing(16)
         self._stat_count = StatCard("Itens escaneados", "0", icon="radar")
-        self._stat_count.setMaximumWidth(300)
         self._stat_count.setToolTip(
             "Total de itens da categoria que o scan conseguiu avaliar."
         )
-        self._stat_best = StatCard("Melhor score", "—", icon="trophy")
-        self._stat_best.setMaximumWidth(300)
+        self._stat_best = StatCard("Melhor nota", "—", icon="trophy")
         self._stat_best.setToolTip(
-            "Maior score 0-100 entre os itens escaneados. Score alto = o"
-            " item combina preço abaixo do justo, book equilibrado e"
-            " liquidez."
+            "A maior nota entre os itens analisados. Nota alta = preço"
+            " abaixo do típico e fácil de comprar e vender."
         )
-        self._stat_avg = StatCard("Score médio", "—", icon="chart")
-        self._stat_avg.setMaximumWidth(300)
+        self._stat_avg = StatCard("Nota média", "—", icon="chart")
         self._stat_avg.setToolTip(
-            "Média aritmética dos scores da categoria. Compare com o"
-            " melhor score para ver se a oportunidade é geral ou pontual."
+            "A média das notas da categoria. Compare com a melhor nota:"
+            " se as duas são altas, a categoria toda está bem; se só a"
+            " melhor é alta, é um item específico."
         )
         self._stat_breadth = StatCard("Mercado", "—", icon="chart")
-        self._stat_breadth.setMaximumWidth(300)
         self._stat_breadth_tooltip = (
-            "Retrato do LOTE escaneado: % de itens subindo/caindo/estáveis"
-            " no histórico recente (7 pontos). Não é o mercado todo, só"
-            " o que essa categoria trouxe — e não prevê direção futura."
+            "Quantos dos itens analisados estão subindo, caindo ou"
+            " parados nos últimos dias. Vale só para esta categoria, não"
+            " para o mercado todo, e não diz o que vai acontecer."
         )
         self._stat_breadth.setToolTip(self._stat_breadth_tooltip)
         for sc in (self._stat_count, self._stat_best, self._stat_avg,
                    self._stat_breadth):
-            stats_row.addWidget(sc)
-        stats_row.addStretch(1)
+            # Mesmo peso pros quatro: ocupam a largura toda. Antes ficavam
+            # presos a 300px a' esquerda com um vazio grande a' direita.
+            stats_row.addWidget(sc, 1)
         root.addLayout(stats_row)
 
         # Filtros acima da tabela
@@ -306,15 +347,14 @@ class ScannerScreen(QWidget):
             checked=bool(_s.get("scanner_hide_low_confidence", False))
         )
         self._hide_low_conf_cb.setToolTip(
-            "Itens com score < 45 são classificados como baixa confiança. "
-            "Ative para filtrar ruído visual."
+            "Esconde os itens com nota abaixo de 45."
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
         _lbl1 = QLabel("Baixa confiança")
         _lbl1.setStyleSheet(t.label_caption())
         _lbl1.setToolTip(
-            "Itens com score < 45 são classificados como baixa confiança."
+            "Esconde os itens com nota abaixo de 45."
         )
         filt_row.addWidget(_lbl1)
 
@@ -322,16 +362,17 @@ class ScannerScreen(QWidget):
             checked=bool(_s.get("scanner_hide_approx", False))
         )
         self._hide_approx_cb.setToolTip(
-            "Oculta itens onde o order book veio de outro wear do mesmo"
-            " skin (aproximação). A Steam não expõe o item_nameid"
-            " necessário para o book exato deste wear."
+            "Esconde os itens cuja fila de ofertas veio de outro"
+            " desgaste do mesmo skin (dado aproximado). A Steam não"
+            " mostra a fila exata de cada desgaste."
         )
         self._hide_approx_cb.toggled.connect(self._on_hide_approx_toggle)
         filt_row.addWidget(self._hide_approx_cb)
-        _lbl2 = QLabel("Order book aprox.")
+        _lbl2 = QLabel("Dados aproximados")
         _lbl2.setStyleSheet(t.label_caption())
         _lbl2.setToolTip(
-            "Itens com order book de wear alternativo (proxy)."
+            "Itens com a fila de ofertas de outro desgaste do mesmo"
+            " skin."
         )
         filt_row.addWidget(_lbl2)
 
@@ -339,7 +380,8 @@ class ScannerScreen(QWidget):
         self._price_filter_cb.setStyleSheet(
             f"QComboBox {{ background: {t.SURFACE}; border: 1px solid {t.BORDER};"
             f" border-radius: 8px; padding: 8px 12px; color: {t.TEXT};"
-            f" font-size: {t.FS_INPUT}; min-width: 160px; }}"
+            f" font-size: {t.FS_INPUT}; min-width: 160px;"
+            f" font-family: {t.FONT_FAMILY}; }}"
             f"QComboBox:focus {{ border: 1px solid {t.ACCENT}; }}"
             f"QComboBox:drop-down {{ border: none; }}"
             f"QComboBox:down-arrow {{ color: {t.TEXT_MUTED}; }}"
@@ -357,8 +399,7 @@ class ScannerScreen(QWidget):
         if _idx >= 0:
             self._price_filter_cb.setCurrentIndex(_idx)
         self._price_filter_cb.setToolTip(
-            "Filtra pela mesma faixa de preço absoluto que já entra no"
-            " score (fator price_level). Não afeta o que foi escaneado,"
+            "Mostra só itens nessa faixa de preço. Não refaz a análise,"
             " só esconde linhas."
         )
         self._price_filter_cb.currentTextChanged.connect(
@@ -371,10 +412,8 @@ class ScannerScreen(QWidget):
         self._search_inp.setFixedWidth(260)
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.setToolTip(
-            "Filtra a tabela pelo nome do item. Não afeta o que foi "
-            "escaneado — só esconde linhas, e as outras colunas de "
-            "filtro (baixa confiança, order book aprox.) continuam "
-            "valendo.\nCtrl+F foca o campo, Esc limpa."
+            "Esconde as linhas que não têm este nome (não refaz o scan).\n"
+            "Ctrl+F foca o campo, Esc limpa."
         )
         self._search_inp.textChanged.connect(self._apply_search_filter)
         filt_row.addWidget(self._search_inp)
@@ -401,77 +440,96 @@ class ScannerScreen(QWidget):
 
         # Tabela
         self._table = QTableWidget(0, 13)
+        # Titulos longos em duas linhas: 13 colunas nao cabem numa tela
+        # comum com "Diferenca compra/venda" numa linha so'.
         self._table.setHorizontalHeaderLabels([
-            "Item", "Sinal", "Preço", "Preço justo", "Compre até",
-            "Veredito", "Spread", "Book", "Tendência", "Oferta/Demanda",
-            "Score", "Risco", "Confiança",
+            "Item", "Nota", "Preço", "Preço\ntípico", "Compre\naté",
+            "Avaliação", "Diferença\ncompra/venda", "Fila de\nofertas",
+            "Tendência", "Procura ×\nOferta", "Nota (número)", "Risco",
+            "Confiança\nnos dados",
         ])
         t.configure_table(
             self._table,
             density=sv_settings.load_settings().get(
                 "table_density", "standard"))
+        # O piso global de 120px por coluna (configure_table) somava
+        # 13 x 120 = 1560px so' de minimo -- "Nota" mostra "87".
+        self._table.horizontalHeader().setMinimumSectionSize(
+            self._PISO_COLUNA)
         compra_hdr = self._table.horizontalHeaderItem(self.COL_COMPRAR)
         if compra_hdr:
             compra_hdr.setToolTip(
-                "Máximo a pagar hoje pra, revendendo no preço justo, "
-                f"sobrar {self.MARGEM_ALVO_PCT:.0f}% de margem.\n"
-                "Já desconta a taxa de 15% da Steam — que incide sobre o "
-                "valor do vendedor: você anuncia por R$ 115 e recebe "
-                "R$ 100.\n"
-                "Verde quando o preço atual está abaixo do teto."
+                "O máximo que vale pagar hoje para, revendendo pelo "
+                f"preço típico, ainda sobrar {self.MARGEM_ALVO_PCT:.0f}% "
+                "de lucro.\n"
+                "Já desconta a taxa de 15% da Steam: se você anuncia por "
+                "R$ 115, recebe R$ 100.\n"
+                "Fica verde quando o preço de agora está abaixo desse "
+                "valor."
             )
         score_hdr = self._table.horizontalHeaderItem(self.COL_SCORE)
         if score_hdr:
             score_hdr.setToolTip(
-                "Duplo-clique numa linha para ver o breakdown completo"
-                " do score por fator (mediana, spread, book, tendência,"
-                " oferta/demanda, etc.)."
+                "Nota de 0 a 100 que resume os dados do item, com o"
+                " resumo: COMPRA (70 ou mais), ATENÇÃO (45 a 69) ou EVITAR"
+                " (abaixo de 45).\n"
+                "Vem só de dados passados — a decisão é sempre sua."
+                " Clique duas vezes numa linha para ver o que somou e o"
+                " que tirou pontos."
             )
         # Mesmo padrao de tooltip por coluna do inventario.
         for _col, _tip in {
-            self.COL_SINAL: (
-                "Ação sugerida pelo score: COMPRA (≥70), ATENÇÃO (45–69) "
-                "ou EVITAR (<45). Baseado em dados passados — você decide."),
             self.COL_PRECO: (
-                "Preço de listagem atual na Steam. '*' indica preço "
-                "aproximado derivado do histórico, sem overview."),
+                "Preço anunciado agora na Steam. Um '*' indica preço "
+                "aproximado, calculado pelo histórico."),
             self.COL_JUSTO: (
-                "Preço justo estimado: mediana do histórico recente "
-                "ponderada por volume. A referência de valor."),
+                "O preço pelo qual o item costuma ser vendido nos "
+                "últimos dias. Serve de referência para saber se está "
+                "caro ou barato."),
             self.COL_VEREDITO: (
-                "Comparação do preço atual com o preço justo: comprar "
-                "abaixo do justo, evitar acima."),
+                "Compara o preço de agora com o preço típico: abaixo "
+                "dele é bom para comprar, acima está caro."),
             self.COL_SPREAD: (
-                "Margem percentual entre compra e venda no order book, "
-                "considerando a taxa da Steam. '~' = order book aproximado "
-                "(de outro wear do mesmo skin)."),
+                "Diferença entre o que os compradores oferecem e o que "
+                "os vendedores pedem.\n"
+                "Pequena = fácil de comprar e vender sem perder muito. "
+                "Um '~' indica dado aproximado (de outro desgaste do "
+                "mesmo skin)."),
             self.COL_BOOK: (
-                "Força relativa do order book (compras vs. vendas). "
-                "'~' = order book aproximado."),
+                "Quem está em maior número na fila: gente querendo "
+                "comprar ou gente querendo vender. Um '~' indica dado "
+                "aproximado."),
             self.COL_TREND: (
-                "Direção da tendência de preço no histórico recente. "
-                "Passe o mouse na célula pra ver o z-score (desvio vs "
-                "média móvel de 30d) — informativo, não conta no score."),
+                "Se o preço vem subindo, caindo ou parado nos últimos "
+                "dias. Passe o mouse na célula para ver o quanto ele se "
+                "afastou do normal."),
             self.COL_SD: (
-                "Relação oferta/demanda: volume de vendas vs. itens "
-                "listados. Abaixo de 1 = oferta acima da demanda. "
-                "Passe o mouse na célula pra ver dias de listagens pela "
-                "frente no ritmo atual (precisa de histórico de volume)."),
+                "Quantos itens são vendidos por dia comparado a quantos "
+                "estão à venda. Abaixo de 1 = tem mais gente vendendo do "
+                "que comprando.\n"
+                "Passe o mouse na célula para ver em quantos dias o "
+                "estoque à venda acabaria no ritmo atual."),
             self.COL_RISCO: (
-                "Risco de pump-and-dump / falling knife, de sinais "
-                "factuais (ATH + rally + volume). NÃO penaliza o score — "
-                "é informação visual."),
+                "Avisa quando o preço subiu rápido demais, perto do "
+                "maior valor já registrado e com muito volume — padrão "
+                "comum antes de quedas fortes.\n"
+                "É só um aviso: não muda a nota."),
             self.COL_CONFIDENCE: (
-                "Qualidade do histórico usado no score. Empiricamente, "
-                "score em item com baixa confiança é anti-preditivo."),
+                "Quanto histórico de preço existe para calcular a nota. "
+                "Com pouco histórico, a nota é pouco confiável."),
         }.items():
             _hdr = self._table.horizontalHeaderItem(_col)
             if _hdr is not None:
                 _hdr.setToolTip(_tip)
         hh = self._table.horizontalHeader()
         hh.setSectionResizeMode(self.COL_NAME, QHeaderView.ResizeMode.Stretch)
+        # Interactive + ajuste manual (_ajustar_colunas): ResizeToContents
+        # ignora o padding QSS do cabecalho e truncava o titulo com o piso
+        # menor. O ajuste usa o maior entre conteudo e titulo.
         for i in range(1, 13):
-            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
+            hh.setSectionResizeMode(i, QHeaderView.ResizeMode.Interactive)
+        self._table.setColumnHidden(self.COL_SCORE_OCULTA, True)
+        self._ajustar_colunas()
         self._table.doubleClicked.connect(
             lambda _idx: self._on_explain_selected()
         )
@@ -489,7 +547,7 @@ class ScannerScreen(QWidget):
                        "para descobrir oportunidades."),
             steps=["Escolha uma categoria (Rifles, Facas, Luvas…).",
                    "Clique em Escanear para analisar preços e sinais.",
-                   "Duplo-clique numa linha para ver o breakdown do score."],
+                   "Clique duas vezes numa linha para ver de onde veio a nota."],
             # "◎" e' o glifo de "pronto pra agir" (ver docstring do
             # EmptyState) -- precisa de uma CTA de verdade, nao so' os
             # passos em texto. Escaneia a categoria ja' selecionada no
@@ -516,6 +574,7 @@ class ScannerScreen(QWidget):
         self._status = QLabel("Pronto. Selecione uma categoria e clique em Escanear.")
         self._status.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
+            f" font-family: {t.FONT_FAMILY};"
         )
         root.addWidget(self._status)
 
@@ -537,7 +596,7 @@ class ScannerScreen(QWidget):
         self._regime_banner.setText(
             f"Aviso — update recente da Valve afetou {category}: "
             f"{ev['title']} ({when}, ha {days_ago} dias). "
-            f"Regime de mercado pode ter mudado; interprete o score com cautela."
+            f"O mercado pode ter mudado; use a nota com cautela."
         )
         self._regime_banner.setToolTip(ev["summary"])
         self._regime_banner.setVisible(True)
@@ -731,7 +790,10 @@ class ScannerScreen(QWidget):
 
         ob_approx = bool(page.get("order_book_approx")) if page else False
         approx_suffix = " ~" if ob_approx else ""
-        price_str = f"{lowest:.2f}{' *' if derived_price else ''}"
+        # Mesmo formato das outras colunas de dinheiro. "210.00" nao casava
+        # com nenhum formato do sort_key_from_text e a coluna ordenava como
+        # texto (R$ 9 depois de R$ 100).
+        price_str = f"{t.brl(lowest)}{' *' if derived_price else ''}"
         return {
             "name": name,
             "price": lowest,
@@ -744,11 +806,20 @@ class ScannerScreen(QWidget):
             "verdict": verdict.get("label", "—"),
             "verdict_color": t.POSITIVE if verdict.get("diff_pct", 0) <= 0
                              else t.DANGER,
-            "spread": (verdict.get("spread_verdict", "") +
+            # Codigo interno ("tight", "buyer_dominant"...) aparecia CRU
+            # na celula. Traduz so' pra exibir; a logica segue no codigo.
+            "spread": (_SPREAD_TXT.get(verdict.get("spread_verdict", ""),
+                                       verdict.get("spread_verdict", "")) +
                        (approx_suffix if verdict.get("spread_verdict") else "")),
-            "book": (verdict.get("book_verdict", "") +
+            "book": (_BOOK_TXT.get(verdict.get("book_verdict", ""),
+                                   verdict.get("book_verdict", "")) +
                      (approx_suffix if verdict.get("book_verdict") else "")),
-            "trend": verdict.get("trend_verdict", ""),
+            "trend": _TREND_TXT.get(verdict.get("trend_verdict", ""),
+                                    verdict.get("trend_verdict", "")),
+            # Codigo cru pra LOGICA (market_breadth conta "rising"/...).
+            # "trend" virou texto de tela em 2026-10-17 e o cartao Mercado
+            # passou a mostrar sempre "—" ate' este campo existir.
+            "trend_code": verdict.get("trend_verdict", ""),
             "volume": volume,
             "supply": supply,
             "sd_label": signals.supply_demand_ratio(volume, supply).get("label", ""),
@@ -824,7 +895,7 @@ class ScannerScreen(QWidget):
                             else t.TEXT_MUTED)
             cells = [
                 (_ln(r["name"]), None),
-                (label, score_color),
+                (f"{score} · {label}", score_color),
                 (r.get("price_str", t.brl(r["price"])), None),
                 (t.brl(r["median"]), None),
                 (teto_txt, teto_cor),
@@ -840,7 +911,8 @@ class ScannerScreen(QWidget):
             for col, (val, color) in enumerate(cells):
                 # auto_cell: chave de ordenacao derivada do texto. Sem ela,
                 # Preco/Justo/Spread/Score ordenavam como string.
-                item = auto_cell(str(val))
+                item = (SortableItem(str(val), score)
+                        if col == self.COL_SCORE else auto_cell(str(val)))
                 if color:
                     item.setForeground(QBrush(QColor(color)))
                 if col == self.COL_NAME:
@@ -855,10 +927,10 @@ class ScannerScreen(QWidget):
                 risco_tip = (
                     f"Risco: {risk_level.upper()}\n"
                     + "\n".join(f"• {m}" for m in pr["reasons"])
-                    + "\n\nCombinação de sinais factuais de pump-and-dump / "
-                    "falling knife. NÃO é penalidade no score — "
-                    "apenas informação visual.\n"
-                    "Alto = 2+ flags combinadas (ATH + rally + volume)."
+                    + "\n\nAvisa quando o preço subiu rápido, perto do "
+                    "maior valor já registrado e com muito volume — padrão "
+                    "comum antes de quedas fortes.\n"
+                    "É só um aviso: não muda a nota."
                 )
                 self._table.item(i, self.COL_RISCO).setToolTip(risco_tip)
             # Tooltip de profundidade de liquidez (dias de listagens no
@@ -876,19 +948,27 @@ class ScannerScreen(QWidget):
             if zs:
                 cell_trend = self._table.item(i, self.COL_TREND)
                 if cell_trend is not None:
+                    _desvio = {
+                        "extreme_low": "muito abaixo do normal",
+                        "low": "abaixo do normal",
+                        "neutral": "dentro do normal",
+                        "high": "acima do normal",
+                        "extreme_high": "muito acima do normal",
+                    }.get(zs.get("band"), "perto do normal")
+                    media = t.brl(zs.get("mean"))
                     cell_trend.setToolTip(
-                        f"{zs['label']} vs média móvel de "
-                        f"{zs['window_used']}d (R$ {zs['mean']:.2f} ± "
-                        f"{zs['std']:.2f}).\nNão é fator do score — "
-                        "descreve o desvio estatístico, não prevê."
+                        f"Preço {_desvio} para os últimos "
+                        f"{zs['window_used']} dias (média {media}).\n"
+                        "Não entra na nota — só mostra o quanto o preço "
+                        "se afastou do normal."
                     )
             # Tooltip da confidence
             if dq:
                 conf_tip = (
-                    f"Confiança: {dq_label} ({dq_conf:.2f})\n"
-                    f"Histórico: {dq_n} pontos\n"
-                    f"Empiricamente, score em itens com baixa confiança\n"
-                    f"é anti-preditivo (corr -0.14 nos backtests)."
+                    f"Confiança nos dados: {dq_label}\n"
+                    f"Histórico: {dq_n} registros de preço\n"
+                    f"Com pouco histórico a nota erra mais:\n"
+                    f"use com cautela."
                 )
                 cell_conf = self._table.item(i, self.COL_CONFIDENCE)
                 if cell_conf is not None:
@@ -896,9 +976,9 @@ class ScannerScreen(QWidget):
             # Tooltip explicando "~" quando order_book vem de outro wear
             if r.get("order_book_approx"):
                 msg = (
-                    "Steam só pré-carrega order book de um wear do skin; "
-                    "este valor vem de outra variante do mesmo item. "
-                    "Use como aproximação — pode diferir do wear exato."
+                    "A Steam só mostra a fila de ofertas de um desgaste "
+                    "do skin; este valor é de outro desgaste do mesmo "
+                    "item. Use como aproximação."
                 )
                 for c in (self.COL_SPREAD, self.COL_BOOK):
                     cell = self._table.item(i, c)
@@ -916,8 +996,7 @@ class ScannerScreen(QWidget):
                         " Pode diferir do preço real de listagem."
                     )
         # Alinhamento por coluna: dinheiro → direita, status → centro
-        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_COMPRAR,
-                      self.COL_SCORE}
+        right_cols = {self.COL_PRECO, self.COL_JUSTO, self.COL_COMPRAR}
         center_cols = {
             self.COL_SINAL, self.COL_VEREDITO, self.COL_SPREAD,
             self.COL_BOOK, self.COL_TREND, self.COL_SD,
@@ -925,6 +1004,7 @@ class ScannerScreen(QWidget):
         }
         t.align_table_columns(self._table, right=right_cols, center=center_cols)
         self._table.setSortingEnabled(was_sorting)
+        self._ajustar_colunas()
 
         # Aplica filtro de order book approx (so esconde, nunca mostra)
         self._apply_approx_filter()
@@ -935,12 +1015,16 @@ class ScannerScreen(QWidget):
         # Stats
         if self._scan_results:
             scores = [r["score"] for r in self._scan_results]
-            self._stat_count.set_value(str(len(self._scan_results)))
+            self._stat_count.set_value(str(len(self._scan_results)),
+                                       accent=t.TEXT)
             self._stat_best.set_value(str(max(scores)),
                                       accent=t.POSITIVE)
-            self._stat_avg.set_value(str(round(sum(scores)/len(scores))))
+            # accent explicito: o cartao nasce com "—" (cinza) e sem
+            # accent o numero herdava o cinza.
+            self._stat_avg.set_value(str(round(sum(scores)/len(scores))),
+                                     accent=t.TEXT)
             breadth = signals.market_breadth(
-                [r.get("trend", "") for r in self._scan_results])
+                [r.get("trend_code", "") for r in self._scan_results])
             if breadth:
                 breadth_accent = {
                     "up": t.POSITIVE, "down": t.DANGER,
@@ -999,9 +1083,10 @@ class ScannerScreen(QWidget):
 
     def _set_base_status(self, n: int, hidden: int = 0) -> None:
         """Mensagem do rodapé sem busca ativa (base pro estado limpo)."""
+        base = f"{n} {'item analisado' if n == 1 else 'itens analisados'}"
         self._status_base = (
-            f"{n} itens escaneados ({hidden} ocultos por baixa confiança)"
-            if hidden else f"{n} itens escaneados")
+            f"{base} ({hidden} ocultos por baixa confiança)"
+            if hidden else base)
         self._status.setText(self._status_base)
 
     def _atualizar_status_busca(self) -> None:
@@ -1162,7 +1247,7 @@ class ScannerScreen(QWidget):
         if self._table.currentRow() < 0:
             return
         menu = QMenu(self._table)
-        act_why = menu.addAction("Por que esse score?")
+        act_why = menu.addAction("Por que essa nota?")
         act_open = menu.addAction("Ver no Steam Market")
         action = menu.exec(self._table.viewport().mapToGlobal(pos))
         if action == act_why:
@@ -1229,9 +1314,10 @@ class ScannerScreen(QWidget):
             return
         import csv, io
         cols = [
-            "Item", "Score", "Veredito", "Preço", "Justo",
-            "Spread", "Book", "Tendência", "Oferta/Demanda",
-            "Confiança", "Categoria", "Risco",
+            "Item", "Nota", "Avaliação", "Preço", "Preço típico",
+            "Diferença compra/venda", "Fila de ofertas", "Tendência",
+            "Procura × Oferta", "Confiança nos dados", "Caixa/coleção",
+            "Risco",
         ]
         try:
             with io.open(path, "w", newline="", encoding="utf-8-sig") as f:
@@ -1262,9 +1348,10 @@ class ScannerScreen(QWidget):
                         r.get("book", ""),
                         r.get("trend", ""),
                         r.get("sd_label", ""),
-                        dq.get("level", ""),
+                        _CONF_CSV.get(dq.get("level", ""),
+                                      dq.get("level", "")),
                         case_label,
-                        risk,
+                        _RISCO_CSV.get(risk, risk),
                     ])
             Toast.show_toast(self, f"Exportado: {path}", "success")
         except Exception as e:

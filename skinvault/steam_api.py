@@ -185,6 +185,67 @@ def fetch_public_inventory(steam_id: str) -> list[dict]:
     return fetch_inventory(steam_id)[1]
 
 
+# ── Link do perfil -> SteamID64 (publico, sem login nem chave de API) ──
+RESOLVE_OK = "ok"
+RESOLVE_INVALID = "invalid"        # o texto nao parece perfil nenhum
+RESOLVE_NOT_FOUND = "not_found"    # apelido nao existe
+RESOLVE_RATE_LIMITED = "rate_limited"
+RESOLVE_ERROR = "error"
+
+_STEAMID64_RE = re.compile(r"^7656119\d{10}$")
+_PERFIL_ID64_RE = re.compile(r"steamcommunity\.com/profiles/(7656119\d{10})")
+_PERFIL_APELIDO_RE = re.compile(r"steamcommunity\.com/id/([A-Za-z0-9_-]{2,32})")
+_APELIDO_RE = re.compile(r"^[A-Za-z0-9_-]{2,32}$")
+
+
+def parse_profile_input(texto: str | None) -> tuple[str, str]:
+    """O que o usuario colou -> ("id64", id) | ("vanity", apelido) |
+    ("invalid", ""). Logica pura.
+
+    Aceita: SteamID64, link /profiles/<id>, link /id/<apelido> e o
+    apelido sozinho (o que aparece no fim do link personalizado).
+    """
+    s = (texto or "").strip()
+    if not s:
+        return "invalid", ""
+    if _STEAMID64_RE.match(s):
+        return "id64", s
+    m = _PERFIL_ID64_RE.search(s)
+    if m:
+        return "id64", m.group(1)
+    m = _PERFIL_APELIDO_RE.search(s)
+    if m:
+        return "vanity", m.group(1)
+    if "/" not in s and _APELIDO_RE.match(s):
+        return "vanity", s
+    return "invalid", ""
+
+
+def resolve_steam_id(texto: str | None) -> tuple[str, str | None]:
+    """Link/apelido/ID -> (status, steamid64).
+
+    Apelido (link personalizado, /id/<apelido>) e' resolvido pela pagina
+    XML publica do perfil (?xml=1) -- a mesma que o profile_fetcher usa pra
+    avatar. Nao precisa de login nem de chave da Web API.
+    """
+    tipo, valor = parse_profile_input(texto)
+    if tipo == "id64":
+        return RESOLVE_OK, valor
+    if tipo != "vanity":
+        return RESOLVE_INVALID, None
+    url = ("https://steamcommunity.com/id/"
+           f"{urllib.parse.quote(valor)}/?xml=1")
+    code, body = _http_get(url)
+    if code == 429:
+        return RESOLVE_RATE_LIMITED, None
+    if code != 200 or body is None:
+        return RESOLVE_ERROR, None
+    m = re.search(r"<steamID64>\s*(7656119\d{10})\s*</steamID64>", body)
+    if m:
+        return RESOLVE_OK, m.group(1)
+    return RESOLVE_NOT_FOUND, None
+
+
 PRICE_OK = "ok"                     # a Steam respondeu com preco
 PRICE_NO_PRICE = "no_price"         # a Steam respondeu: este item nao tem preco
 PRICE_RATE_LIMITED = "rate_limited"  # 429 -- nao diz nada sobre o item
@@ -896,20 +957,21 @@ def fair_value_verdict(
     diff_pct = ((lowest - median) / median) * 100
     if diff_pct <= -5:
         verdict = "below_median"
-        label = "abaixo da mediana"
-        msg = f"Menor listagem {abs(diff_pct):.0f}% abaixo da mediana. Bom negócio."
+        label = "abaixo do típico"
+        msg = (f"Anúncio mais barato {abs(diff_pct):.0f}% abaixo do preço "
+               "típico. Bom negócio.")
     elif diff_pct <= 5:
         verdict = "fair"
-        label = "preço justo"
-        msg = "Preço dentro de 5% da mediana. Justo."
+        label = "no preço típico"
+        msg = "Preço a até 5% do preço típico. Justo."
     elif diff_pct <= 20:
         verdict = "slightly_above"
         label = "levemente acima"
-        msg = f"Listagem {diff_pct:.0f}% acima da mediana. Levemente caro."
+        msg = f"Anúncio {diff_pct:.0f}% acima do preço típico. Um pouco caro."
     else:
         verdict = "overpriced"
         label = "muito acima"
-        msg = f"Listagem {diff_pct:.0f}% acima da mediana. Caro demais."
+        msg = f"Anúncio {diff_pct:.0f}% acima do preço típico. Caro demais."
 
     result: dict = {
         "diff_pct": diff_pct,
@@ -927,7 +989,7 @@ def fair_value_verdict(
         if extra.get("book_verdict") == "seller_dominant":
             msg_parts.append("Muitos vendedores.")
         elif extra.get("book_verdict") == "buyer_dominant":
-            msg_parts.append("Demanda aquecida.")
+            msg_parts.append("Muita gente querendo comprar.")
         if extra.get("trend_verdict") == "falling":
             msg_parts.append("Preço caindo nos últimos dias.")
         elif extra.get("trend_verdict") == "rising":
@@ -942,7 +1004,8 @@ def fair_value_verdict(
     if dias > 0:
         result["hold_days"] = dias
         result["message"] = (
-            f"{result['message']} Revenda so' apos {dias} dias de bloqueio."
+            f"{result['message']} Só dá para revender depois de {dias} "
+            "dias de bloqueio."
         ).strip()
 
     return result
@@ -964,12 +1027,15 @@ def _extra_verdict(
         extra["spread_pct"] = round(spread_pct, 2)
         if spread_pct <= 2:
             extra["spread_verdict"] = "tight"
-            details["spread"] = "Spread apertado — mercado liquido."
+            details["spread"] = ("Diferença compra/venda pequena — fácil "
+                                "de vender.")
         elif spread_pct <= 10:
             extra["spread_verdict"] = "normal"
         else:
             extra["spread_verdict"] = "wide"
-            details["spread"] = f"Spread amplo ({spread_pct:.0f}%) — pouca liquidez."
+            details["spread"] = (f"Diferença compra/venda grande "
+                                f"({spread_pct:.0f}%) — difícil vender "
+                                "sem perder.")
 
     if buy_count is not None and sell_count is not None and sell_count > 0:
         ratio = round(buy_count / sell_count, 1)

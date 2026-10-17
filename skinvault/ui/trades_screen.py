@@ -202,8 +202,8 @@ class TradesScreen(QWidget):
 
         root.addWidget(PageHeader(
             "Histórico de Trades",
-            "P&L líquido após a taxa de 15% da Steam, com filtros por "
-            "período e resultado.",
+            "Quanto você ganhou ou perdeu, já sem a taxa de 15% da "
+            "Steam, com filtros por período e resultado.",
             actions=[self._add_btn, self._more_btn],
         ))
 
@@ -211,29 +211,26 @@ class TradesScreen(QWidget):
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
         self._stat_total = StatCard("Trades no filtro", "0")
-        self._stat_total.setMaximumWidth(200)
         self._stat_total.setToolTip(
             "Quantidade de trades que casam com o filtro atual."
         )
-        self._stat_pnl = StatCard("P&L líquido", "—", icon="chart")
-        self._stat_pnl.setMaximumWidth(300)
+        self._stat_pnl = StatCard("Lucro (sem taxa)", "—", icon="chart")
         self._stat_pnl.setToolTip(
             "Lucro/prejuízo total já descontada a taxa Steam de 15%."
         )
         self._stat_winrate = StatCard("Taxa de acerto", "—", icon="percent")
-        self._stat_winrate.setMaximumWidth(300)
         self._stat_winrate.setToolTip(
-            "% de trades com P&L positivo (winning trades / total)."
+            "Em quantos % dos trades você teve lucro."
         )
         self._stat_fees = StatCard("Taxas pagas", "—", icon="coins")
-        self._stat_fees.setMaximumWidth(200)
         self._stat_fees.setToolTip(
             "Soma das taxas Steam (15%) pagas pelos trades no filtro."
         )
         for sc in (self._stat_total, self._stat_pnl, self._stat_winrate,
                    self._stat_fees):
-            stats_row.addWidget(sc)
-        stats_row.addStretch(1)
+            # Mesmo peso pra todos: ocupam a largura toda, em vez de
+            # ficarem presos a ~300px a' esquerda (2026-10-17).
+            stats_row.addWidget(sc, 1)
         root.addLayout(stats_row)
 
         # Recent Matches strip — chips W/L horizontais
@@ -284,7 +281,7 @@ class TradesScreen(QWidget):
         self._table = QTableWidget(0, 9)
         self._table.setHorizontalHeaderLabels(
             ["Data", "Item", "Qtd", "Compra", "Venda",
-             "P&L líquido", "ROI", "Origem", "Notas"]
+             "Lucro (sem taxa)", "Retorno %", "Origem", "Notas"]
         )
         from skinvault.settings import load_settings as _ls
         t.configure_table(
@@ -301,14 +298,13 @@ class TradesScreen(QWidget):
                 "cobra taxa na compra — só na venda."),
             self.COL_SELL: (
                 "Preço de listagem da venda na Steam, por unidade. A taxa "
-                "de 15% (incidente sobre o valor do vendedor) já sai no "
-                "P&L."),
+                "de 15% já é descontada no lucro."),
             self.COL_PNL: (
-                "Lucro/prejuízo líquido em R$: recebido (venda com taxa "
-                "descontada) − custo da compra."),
+                "Quanto você ganhou ou perdeu em R$: o que recebeu na "
+                "venda (já sem a taxa) menos o que pagou."),
             self.COL_ROI: (
-                "Retorno sobre o investimento: P&L ÷ custo total, em "
-                "percentual 0–100."),
+                "Quanto o lucro representa do que você pagou. Ex.: pagou "
+                "R$ 100 e lucrou R$ 20 = 20%."),
             self.COL_SOURCE: "Origem do registro: manual ou importado.",
             self.COL_NOTES: "Observação livre anotada no trade.",
         }
@@ -358,11 +354,13 @@ class TradesScreen(QWidget):
         es = EmptyState(
             icon="◇",
             title="Nenhum trade ainda",
-            subtitle=("Adicione ou sincronize seus trades pra ver\n"
+            subtitle=("Adicione seus trades pra ver\n"
                        "o histórico completo aqui."),
-            steps=["Adicione um trade manualmente ou sincronize com a Steam.",
-                   "Acompanhe P&L, taxa de acerto e desempenho mensal.",
-                   "Clique numa barra do P&L mensal para filtrar a tabela."],
+            steps=["Adicione um trade: o que comprou, por quanto e por "
+                   "quanto vendeu.",
+                   "Acompanhe lucro, taxa de acerto e resultado por mês.",
+                   "Clique numa barra do gráfico mensal para filtrar a "
+                   "tabela."],
             cta_label="+ Adicionar trade",
             on_cta=self._on_add,
         )
@@ -504,10 +502,12 @@ class TradesScreen(QWidget):
             wr_c = t.WARN
         else:
             wr_c = t.DANGER
-        # V/D e nao W/L: a faixa de resultados logo acima (RecentMatchesStrip)
-        # ja' marca vitoria e derrota assim, e a tela inteira e' em portugues.
-        wr_extra = f"  ({stats['win_count']}V / {stats['loss_count']}D)"
-        self._stat_winrate.set_value(f"{wr:.0f}%{wr_extra}", accent=wr_c)
+        # So' a porcentagem no numero grande; a contagem vai na legenda de
+        # baixo. "0% (0 com lucro / 0 com prejuizo)" nao cabia no cartao.
+        self._stat_winrate.set_value(f"{wr:.0f}%", accent=wr_c)
+        self._stat_winrate.set_delta(
+            None, f"{stats['win_count']} com lucro · "
+                  f"{stats['loss_count']} com prejuízo")
         # Badge no P&L com a taxa de acerto
         if stats["total"] > 0 and wr >= 0:
             wk = "positive" if wr >= 50 else "danger"
@@ -616,8 +616,8 @@ class TradesScreen(QWidget):
         if not closed:
             Toast.show_toast(
                 self,
-                "Nenhuma compra pareada com venda no histórico da Steam. "
-                "Sincronize sua conta primeiro.",
+                "Não há compra e venda casadas no histórico da Steam "
+                "salvo neste computador.",
                 "warning",
             )
             return

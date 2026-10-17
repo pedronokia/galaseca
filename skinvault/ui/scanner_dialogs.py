@@ -20,21 +20,14 @@ from PyQt6.QtWidgets import (
 
 from skinvault import backtest
 from skinvault.ui import theme as t
-from skinvault.ui.scanner_widgets import (
-    _BUCKET_HISTORY_90D,
-    _BUCKET_HISTORY_90D_CONTAINER,
-    _BUCKET_HISTORY_90D_SKIN,
-    _FactorBar,
-    _ScatterPlot,
-    bucket_for_score,
-)
+from skinvault.ui.scanner_widgets import _FactorBar, _ScatterPlot
 
 
 class _ScoreBreakdownDialog(QDialog):
     def __init__(self, item: dict, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         name = item.get("name", "Item")
-        self.setWindowTitle(f"Por que esse score? — {name}")
+        self.setWindowTitle(f"Por que essa nota? — {name}")
         self.setMinimumWidth(580)
         self.setStyleSheet(
             f"QDialog {{ background: {t.BG_ELEVATED}; }}"
@@ -70,8 +63,8 @@ class _ScoreBreakdownDialog(QDialog):
         name_lbl.setWordWrap(True)
         info_col.addWidget(name_lbl)
         formula = QLabel(
-            f"Base 50  {'+' if delta_sum >= 0 else '−'} "
-            f"{abs(delta_sum):.0f} contribuições  =  {score}"
+            f"Começa em 50  {'+' if delta_sum >= 0 else '−'} "
+            f"{abs(delta_sum):.0f} pontos dos dados  =  {score}"
         )
         formula.setStyleSheet(t.label_caption())
         info_col.addWidget(formula)
@@ -106,10 +99,10 @@ class _ScoreBreakdownDialog(QDialog):
         if dq:
             level = dq.get("level", "none")
             level_colors = {
-                "high":     (t.POSITIVE,   "Confiança alta"),
-                "medium":   (t.WARN,       "Confiança média"),
-                "low":      (t.DANGER,     "Confiança BAIXA"),
-                "very_low": (t.DANGER,     "Confiança MUITO BAIXA"),
+                "high":     (t.POSITIVE,   "Confiança nos dados: alta"),
+                "medium":   (t.WARN,       "Confiança nos dados: média"),
+                "low":      (t.DANGER,     "Confiança nos dados: BAIXA"),
+                "very_low": (t.DANGER,     "Confiança nos dados: MUITO BAIXA"),
                 "none":     (t.TEXT_MUTED, "Sem dados"),
             }
             color, lbl_txt = level_colors.get(level, (t.TEXT_MUTED, level))
@@ -117,7 +110,7 @@ class _ScoreBreakdownDialog(QDialog):
             n = dq.get("n", 0)
             badge = QLabel(
                 f"<b style='color:{color}'>{lbl_txt}</b> "
-                f"({conf:.2f}, n={n} pontos no histórico)"
+                f"({n} registros de preço no histórico)"
             )
             badge.setTextFormat(Qt.TextFormat.RichText)
             badge.setStyleSheet(
@@ -127,9 +120,9 @@ class _ScoreBreakdownDialog(QDialog):
             layout.addWidget(badge)
             if level in ("low", "very_low"):
                 warn = QLabel(
-                    "⚠ Score nesta faixa de confiança é estatisticamente "
-                    "anti-preditivo nos backtests (corr -0.14 em n=75). "
-                    "Trate com ceticismo."
+                    "⚠ Com tão pouco histórico, a nota costuma errar: "
+                    "no passado, notas assim acertaram menos que um "
+                    "chute. Use com muita cautela."
                 )
                 warn.setStyleSheet(
                     f"color: {t.DANGER}; font-size: {t.FS_MUTED};"
@@ -140,7 +133,7 @@ class _ScoreBreakdownDialog(QDialog):
 
         if not breakdown:
             empty = QLabel(
-                "Sem fatores relevantes — score ficou na base neutra (50)."
+                "Nada se destacou nos dados: a nota ficou neutra (50)."
             )
             empty.setStyleSheet(t.label_body_muted())
             layout.addWidget(empty)
@@ -182,85 +175,38 @@ class _ScoreBreakdownDialog(QDialog):
         sep2.setFixedHeight(1)
         layout.addWidget(sep2)
 
-        bucket = bucket_for_score(score)
-        if bucket:
-            stats = _BUCKET_HISTORY_90D[bucket]
-            lo, hi = bucket
-            hi_label = min(hi - 1, 100)
-            avg = stats["avg"]
-            hit = stats["hit"]
-            n = stats["n"]
-            color = t.POSITIVE if avg > 5 else (t.WARN if avg > 0 else t.DANGER)
-            insufficient = " (amostra pequena)" if n < 30 else ""
-            hist_lbl = QLabel(
-                f"Histórico em 90 dias: itens com score {lo}-{hi_label} "
-                f"retornaram em média <b style='color:{color}'>"
-                f"{avg:+.1f}%</b>, com {hit}% de acertos "
-                f"(n={n} amostras{insufficient})."
-            )
-            hist_lbl.setStyleSheet(
-                f"color: {t.TEXT}; font-size: {t.FS_BODY};"
-                f" font-family: {t.FONT_FAMILY}; padding: 6px 0;"
-            )
-            hist_lbl.setWordWrap(True)
-            hist_lbl.setTextFormat(Qt.TextFormat.RichText)
-            layout.addWidget(hist_lbl)
+        # Os retornos por faixa que apareciam aqui vinham do backtest de
+        # jun/2026, contaminado pelo lookahead do vintage (AGENTS.md 4b).
+        # Pra quem le' "nota 75 -> +27%" aquilo soava como promessa. Fica o
+        # que foi medido depois e se sustenta.
+        honesto = QLabel(
+            "<b>O que a nota é:</b> uma comparação entre itens com os dados "
+            "de hoje. No histórico, itens com nota alta subiram mais que os "
+            "de nota baixa — mas, em vendas rápidas (90 dias), nem os "
+            "melhores cobriram a taxa de 15% da Steam. Ela ajuda a escolher, "
+            "não garante lucro."
+        )
+        honesto.setTextFormat(Qt.TextFormat.RichText)
+        honesto.setStyleSheet(
+            f"color: {t.TEXT}; font-size: {t.FS_BODY};"
+            f" font-family: {t.FONT_FAMILY}; padding: 6px 0;"
+        )
+        honesto.setWordWrap(True)
+        layout.addWidget(honesto)
 
-            is_cont = item.get("is_container")
-            if is_cont is not None:
-                type_dict = (_BUCKET_HISTORY_90D_CONTAINER if is_cont
-                             else _BUCKET_HISTORY_90D_SKIN)
-                type_stats = type_dict.get(bucket, {})
-                type_avg = type_stats.get("avg", 0)
-                type_hit = type_stats.get("hit", 0)
-                type_n = type_stats.get("n", 0)
-                if type_n >= 30:
-                    type_color = (t.POSITIVE if type_avg > 5
-                                  else (t.WARN if type_avg > 0
-                                        else t.DANGER))
-                    type_label = "containers" if is_cont else "skins"
-                    type_lbl = QLabel(
-                        f"<b>Específico para {type_label}:</b> "
-                        f"<b style='color:{type_color}'>"
-                        f"{type_avg:+.1f}%</b> avg, {type_hit}% hit rate "
-                        f"(n={type_n}). "
-                        f"Score 70-84 em containers retorna ~+33%; "
-                        f"em skins, ~+8%."
-                    )
-                    type_lbl.setTextFormat(Qt.TextFormat.RichText)
-                    type_lbl.setStyleSheet(
-                        f"color: {t.TEXT}; font-size: {t.FS_MUTED};"
-                        f" font-family: {t.FONT_FAMILY}; padding: 2px 0;"
-                    )
-                    type_lbl.setWordWrap(True)
-                    layout.addWidget(type_lbl)
-
-            hist_src = QLabel(
-                "Fonte: backtest agregado em 44 itens (rifles, pistolas, "
-                "AWPs, SMG, 25 cases — 9996 amostras, 2026-06-07, "
-                "fator rel_ath universal). Não é garantia — descreve "
-                "comportamento passado."
-            )
-            hist_src.setStyleSheet(
-                f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
-                f" font-family: {t.FONT_FAMILY}; font-style: italic;"
-            )
-            hist_src.setWordWrap(True)
-            layout.addWidget(hist_src)
-
-            sep3 = QFrame()
-            sep3.setFrameShape(QFrame.Shape.HLine)
-            sep3.setStyleSheet(f"color: {t.BORDER}; background: {t.BORDER};")
-            sep3.setFixedHeight(1)
-            layout.addWidget(sep3)
+        sep3 = QFrame()
+        sep3.setFrameShape(QFrame.Shape.HLine)
+        sep3.setStyleSheet(f"color: {t.BORDER}; background: {t.BORDER};")
+        sep3.setFixedHeight(1)
+        layout.addWidget(sep3)
 
         legend = QLabel(
-            "Como interpretar:\n"
-            "  •  Score 70–100 → COMPRA   •   45–69 → ATENÇÃO   •   "
-            "<45 → EVITAR\n"
-            "  •  Base 50 é o ponto neutro. Cada fator soma ou subtrai "
-            "pontos do score.\n"
-            "  •  Lista ordenada do fator mais impactante ao menos."
+            "Como ler:\n"
+            "  •  Nota 70 a 100 → COMPRA   •   45 a 69 → ATENÇÃO   •   "
+            "abaixo de 45 → EVITAR\n"
+            "  •  Toda nota começa em 50. Cada linha acima soma ou tira "
+            "pontos.\n"
+            "  •  A lista vai do que mais pesou para o que menos pesou."
         )
         legend.setStyleSheet(t.label_caption())
         legend.setWordWrap(True)
@@ -283,7 +229,7 @@ class _BacktestResultDialog(QDialog):
         self._items_count = items_count
         self._horizon = horizon_days
         self.setWindowTitle(
-            f"Validação do score — {len(samples)} amostras de "
+            f"A nota no passado — {len(samples)} situações de "
             f"{items_count} itens"
         )
         self.setMinimumWidth(640)
@@ -296,7 +242,8 @@ class _BacktestResultDialog(QDialog):
         layout.setContentsMargins(20, 18, 20, 18)
 
         title = QLabel(
-            f"Backtest dos itens escaneados (horizonte {self._horizon}d)"
+            f"Se você tivesse seguido a nota: o que aconteceu "
+            f"{self._horizon} dias depois"
         )
         title.setStyleSheet(
             f"color: {t.TEXT}; font-size: {t.FS_TITLE_SM};"
@@ -306,8 +253,8 @@ class _BacktestResultDialog(QDialog):
 
         if not self._samples:
             empty = QLabel(
-                "Nenhuma amostra gerada. Itens podem ter histórico curto demais "
-                "ou Steam não respondeu."
+                "Nenhuma amostra gerada: os itens têm pouco histórico ou "
+                "a Steam não respondeu."
             )
             empty.setStyleSheet(t.label_body_muted())
             empty.setWordWrap(True)
@@ -322,7 +269,8 @@ class _BacktestResultDialog(QDialog):
 
         bucket_table = QTableWidget(len(buckets), 4)
         bucket_table.setHorizontalHeaderLabels(
-            ["Bucket de score", "N amostras", "Retorno médio", "Hit rate"]
+            ["Faixa de nota", "Situações", "Retorno médio",
+             "% que subiu"]
         )
         bucket_table.verticalHeader().setVisible(False)
         bucket_table.setEditTriggers(
@@ -352,8 +300,8 @@ class _BacktestResultDialog(QDialog):
         layout.addWidget(bucket_table)
 
         scatter_lbl = QLabel(
-            "Distribuição score × retorno — cor = bucket, "
-            "opacidade = confiança (pontos esmaecidos = baixa confiança):"
+            "Cada ponto é um item numa data: nota (horizontal) × quanto "
+            "rendeu depois (vertical). Pontos apagados = pouco histórico."
         )
         scatter_lbl.setStyleSheet(
             f"color: {t.TEXT_MUTED}; font-size: {t.FS_MUTED};"
@@ -367,10 +315,14 @@ class _BacktestResultDialog(QDialog):
             scolor = (t.POSITIVE if spearman_corr > 0.05 else
                       (t.WARN if spearman_corr > 0 else t.DANGER))
             s_lbl = QLabel(
-                f"<b>Spearman (score × retorno) — default:</b> "
+                f"<b>Acerto da ordem</b> (de −1 a +1): "
                 f"<span style='color:{scolor}'>{spearman_corr:+.4f}</span>"
             )
             s_lbl.setTextFormat(Qt.TextFormat.RichText)
+            s_lbl.setToolTip(
+                "Correlação de Spearman: se os itens de nota maior foram os"
+                " que mais subiram depois. +1 = ordem perfeita, 0 = sem"
+                " relação, negativo = ao contrário.")
             s_lbl.setStyleSheet(
                 f"color: {t.TEXT}; font-size: {t.FS_BODY};"
                 f" font-family: {t.FONT_FAMILY}; padding: 4px 0;"
@@ -381,10 +333,14 @@ class _BacktestResultDialog(QDialog):
             pcolor = (t.POSITIVE if pearson_corr > 0.05 else
                       (t.WARN if pearson_corr > 0 else t.DANGER))
             p_lbl = QLabel(
-                f"<b>Pearson (score × retorno):</b> "
+                f"<b>Acerto dos valores</b> (de −1 a +1): "
                 f"<span style='color:{pcolor}'>{pearson_corr:+.4f}</span>"
             )
             p_lbl.setTextFormat(Qt.TextFormat.RichText)
+            p_lbl.setToolTip(
+                "Correlação de Pearson: compara a nota com o tamanho da"
+                " variação, não só a ordem. Sensível a um item fora da"
+                " curva.")
             p_lbl.setStyleSheet(
                 f"color: {t.TEXT}; font-size: {t.FS_BODY};"
                 f" font-family: {t.FONT_FAMILY}; padding: 2px 0;"
@@ -393,9 +349,9 @@ class _BacktestResultDialog(QDialog):
 
         if bucket70["n"] >= 3:
             b70_text = (
-                f"<b>Bucket 70+ (n={bucket70['n']}):</b> "
-                f"Spearman {bucket70['spearman']:+.4f}, "
-                f"Pearson {bucket70['pearson']:+.4f}"
+                f"<b>Só notas 70+ ({bucket70['n']} situações):</b> "
+                f"ordem {bucket70['spearman']:+.4f}, "
+                f"valores {bucket70['pearson']:+.4f}"
             )
             b70_lbl = QLabel(b70_text)
             b70_lbl.setTextFormat(Qt.TextFormat.RichText)
@@ -407,12 +363,9 @@ class _BacktestResultDialog(QDialog):
 
         if spearman_corr is not None or pearson_corr is not None:
             interp = QLabel(
-                "Valores > 0 indicam que score maior se associa a "
-                "retorno maior — o score está prevendo. < 0 seria "
-                "anti-sinal. Valores entre ±0.05 são fracos. "
-                "Spearman é a métrica default desde 08/06/2026 — "
-                "mais robusto que Pearson quando a relação é "
-                "S-shaped (fraca no meio, forte nos extremos)."
+                "Acima de 0: notas mais altas renderam mais — a nota "
+                "ajudou. Abaixo de 0: atrapalhou. Entre −0,05 e +0,05 "
+                "o efeito é fraco demais para confiar."
             )
             interp.setStyleSheet(t.label_caption())
             interp.setWordWrap(True)

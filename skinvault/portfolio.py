@@ -334,17 +334,112 @@ def save_portfolio(positions: list[dict], path: Path | str = _DEFAULT_PATH) -> N
         print(f"WARNING: failed to save portfolio: {e}", file=sys.stderr)
 
 
-def add_position(name: str, cost: float, quantity: int = 1,
+def add_position(name: str, cost: "float | None", quantity: int = 1,
                  path: Path | str = _DEFAULT_PATH,
                  source: str = "manual") -> list[dict]:
-    """Adiciona posicao. source distingue entrada manual de sync Steam
-    (F10) -- usado pra preservar cost manual em syncs subsequentes."""
+    """Adiciona posicao. source distingue entrada manual de item vindo do
+    inventario da Steam -- usado pra preservar cost manual em importacoes.
+
+    `cost=None` = custo NAO informado (o botao "Adicionar item" deixa o
+    campo opcional). E' diferente de 0, que numa posicao manual quer dizer
+    "foi drop": `has_cost_basis` devolve False pra None e o lucro fica de
+    fora ate' o custo ser definido.
+    """
     positions = load_portfolio(path)
-    positions.append({"name": name, "cost": float(cost),
+    positions.append({"name": name,
+                      "cost": None if cost is None else float(cost),
                       "quantity": int(quantity), "added_ts": time.time(),
                       "source": source})
     save_portfolio(positions, path)
     return positions
+
+
+#: Origem das posicoes que vieram do inventario da Steam (custo desconhecido).
+#: Mesmo valor da antiga sincronizacao (F10, revertida): toda a logica de
+#: "custo nao informado" (has_cost_basis, coluna Origem) ja' o reconhece.
+SOURCE_STEAM = "steam_sync"
+
+
+def merge_steam_inventory(items: list, remove_missing: bool = True,
+                          path: Path | str = _DEFAULT_PATH) -> dict:
+    """Mescla o inventario publico da Steam na carteira. Devolve um resumo.
+
+    Regras, pensadas pra nunca destruir o que o usuario digitou:
+    - item novo entra com custo DESCONHECIDO (Steam nao diz quanto pagou);
+    - item que ja' veio da Steam tem quantidade/icone atualizados -- e se o
+      usuario definiu custo nele (update_position_cost troca a origem pra
+      "manual"), ele passa a ser manual e nao e' mais tocado;
+    - posicao manual NUNCA e' alterada nem removida, mesmo que o item suma
+      do inventario (o usuario pode acompanhar algo fora dele);
+    - item da Steam que saiu do inventario (vendido/trocado) so' sai da
+      carteira com `remove_missing`.
+
+    `items`: saida de steam_api.fetch_inventory -- [{name, quantity, icon,
+    type, ...}].
+    """
+    positions = load_portfolio(path)
+    inv = {}
+    for it in items or []:
+        nome = it.get("name") if isinstance(it, dict) else None
+        if nome:
+            inv[nome] = it
+
+    nomes_manuais = {p.get("name") for p in positions
+                     if p.get("source") != SOURCE_STEAM}
+    vistos: set = set()
+    saida: list[dict] = []
+    atualizados = removidos = 0
+    for p in positions:
+        nome = p.get("name")
+        if p.get("source") != SOURCE_STEAM:
+            saida.append(p)
+            continue
+        if nome in inv and nome not in nomes_manuais:
+            if nome in vistos:
+                removidos += 1  # posicao da Steam duplicada: funde na 1a
+                continue
+            it = inv[nome]
+            p["quantity"] = int(it.get("quantity") or 1)
+            if it.get("icon"):
+                p["icon"] = it["icon"]
+            if it.get("type"):
+                p["type"] = it["type"]
+            vistos.add(nome)
+            atualizados += 1
+            saida.append(p)
+        elif nome in inv:
+            # Ainda no inventario, mas o usuario acompanha esse item numa
+            # posicao manual: a da Steam e' duplicata. Sai sem contar como
+            # "removido" -- o item nao saiu do inventario.
+            continue
+        elif remove_missing:
+            removidos += 1
+        else:
+            saida.append(p)
+
+    agora = time.time()
+    adicionados = 0
+    for nome, it in inv.items():
+        if nome in vistos or nome in nomes_manuais:
+            continue
+        nova = {"name": nome, "cost": 0.0,
+                "quantity": int(it.get("quantity") or 1),
+                "added_ts": agora, "source": SOURCE_STEAM}
+        if it.get("icon"):
+            nova["icon"] = it["icon"]
+        if it.get("type"):
+            nova["type"] = it["type"]
+        saida.append(nova)
+        adicionados += 1
+
+    save_portfolio(saida, path)
+    return {
+        "adicionados": adicionados,
+        "atualizados": atualizados,
+        "removidos": removidos,
+        "manuais_mantidos": len(nomes_manuais & set(inv)),
+        "itens_no_inventario": len(inv),
+    }
 
 
 def update_position_cost(name: str, cost: float,
@@ -460,3 +555,89 @@ def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
         add_position(name, cost, max(qty, 1), path)
         imported += 1
     return {"imported": imported, "skipped": skipped, "errors": errors}
+
+
+def update_costs_bulk(costs: dict, path: Path | str = _DEFAULT_PATH) -> dict:
+    """Define o custo (unitario) de varias posicoes de uma vez.
+
+    `costs`: {nome: custo}. Mesma semantica de `update_position_cost`
+    (source vira "manual", custo 0 = drop), mas le e grava o arquivo UMA
+    vez -- chamar a funcao unitaria em laco regravava o portfolio inteiro
+    por item. Nome que nao existe no portfolio NAO cria posicao: quem
+    importa uma planilha antiga nao quer itens fantasmas na carteira.
+    Retorna {atualizados: [nomes], nao_encontrados: [nomes]}.
+    """
+    positions = load_portfolio(path)
+    por_nome: dict = {}
+    for p in positions:
+        por_nome.setdefault(p.get("name") or "", []).append(p)
+    atualizados, faltando = [], []
+    for nome, custo in costs.items():
+        alvo = por_nome.get(nome)
+        if not alvo:
+            faltando.append(nome)
+            continue
+        for p in alvo:
+            p["cost"] = round(float(custo), 2)
+            p["source"] = "manual"
+        atualizados.append(nome)
+    if atualizados:
+        save_portfolio(positions, path)
+    return {"atualizados": atualizados, "nao_encontrados": faltando}
+
+
+_CSV_COLS_NOME = ("item", "nome", "name")
+_CSV_COLS_CUSTO = ("custo", "cost", "custo unitario", "custo unitário")
+
+
+def parse_cost_csv(text: str) -> dict:
+    """Le uma planilha de custos: {custos: {nome: custo}, erros: [str]}.
+
+    Aceita o proprio CSV exportado pelo Inventario (";" com colunas Item e
+    Custo -- exportar, preencher o Custo no Excel e importar de volta) ou
+    uma lista simples "nome;custo" sem cabecalho. Separador: ";" se a
+    primeira linha tiver, senao tab, senao ",". Custo vazio = "nao
+    informado" e a linha e' ignorada em silencio (a exportacao sai assim
+    para todo item sem custo); custo invalido ou negativo vira erro.
+    """
+    import csv
+    import io
+
+    linhas = [ln for ln in (text or "").lstrip("﻿").splitlines()
+              if ln.strip() and not ln.lstrip().startswith("#")]
+    if not linhas:
+        return {"custos": {}, "erros": ["Arquivo vazio."]}
+    primeira = linhas[0]
+    sep = ";" if ";" in primeira else ("\t" if "\t" in primeira else ",")
+    reader = list(csv.reader(io.StringIO("\n".join(linhas)), delimiter=sep))
+    cab = [c.strip().lower() for c in reader[0]]
+    i_nome = next((i for i, c in enumerate(cab) if c in _CSV_COLS_NOME), None)
+    i_custo = next((i for i, c in enumerate(cab) if c in _CSV_COLS_CUSTO),
+                   None)
+    if i_nome is not None and i_custo is not None:
+        corpo, base = reader[1:], 2
+    elif i_nome is not None or i_custo is not None:
+        return {"custos": {}, "erros": [
+            "Cabeçalho sem as colunas Item e Custo."]}
+    else:
+        corpo, base, i_nome, i_custo = reader, 1, 0, 1
+    custos: dict = {}
+    erros: list = []
+    for n, cols in enumerate(corpo, start=base):
+        if len(cols) <= max(i_nome, i_custo):
+            erros.append(f"Linha {n}: faltam colunas.")
+            continue
+        nome = cols[i_nome].strip()
+        bruto = cols[i_custo].strip()
+        if not nome or not bruto or bruto in ("—", "-"):
+            continue
+        try:
+            custo = _parse_brl(bruto)
+        except ValueError:
+            erros.append(f"Linha {n}: custo inválido “{bruto}”.")
+            continue
+        if custo < 0:
+            erros.append(f"Linha {n}: custo negativo “{bruto}”.")
+            continue
+        custos[nome] = custo
+    return {"custos": custos, "erros": erros}

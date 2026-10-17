@@ -37,10 +37,10 @@ def test_exit_context_historico_curto_vazio():
 def test_tooltip_faixa_e_universo():
     caixa = signals.format_exit_context(0.5, 1.2, 0.6, is_container=True)
     assert "R$ 0–1" in caixa["tooltip"] and "+73,0%" in caixa["tooltip"]
-    assert "caixas (IC −0,30)" in caixa["tooltip"]
+    assert "pesa bastante em caixas" in caixa["tooltip"]
     skin = signals.format_exit_context(0.5, 2000.0, 900.0)
     assert "acima de R$ 500" in skin["tooltip"]
-    assert "skins (IC −0,04)" in skin["tooltip"]
+    assert "em skins esse efeito é fraco" in skin["tooltip"]
     # Descritivo: nada de "venda"/"compre" como instrucao
     for txt in (caixa["tooltip"], skin["tooltip"]):
         assert "previsão" in txt
@@ -88,4 +88,16 @@ def test_celula_topo_do_inventario():
     assert "topo histórico" in item.toolTip()
 
     vazio = InventoryScreen._top_item("X", None)
-    assert vazio.text() == "—" and "Validar score" in vazio.toolTip()
+    assert vazio.text() == "—" and "Atualizar notas" in vazio.toolTip()
+
+
+def test_rel_ath_do_score_ignora_ponto_horario_isolado():
+    """O fator rel_ath da nota usa o mesmo topo diario do exit_context:
+    uma compra horaria anomala nao pode virar o "maior preco"."""
+    ph = [{"time": i * DIA, "price_median": 200.0, "purchases": 500}
+          for i in range(200)]
+    ph.append({"time": 150 * DIA + 3600, "price_median": 1403.0,
+               "purchases": 1})
+    rta = signals.relative_to_ath(ph)
+    assert rta["ath"] < 210.0
+    assert rta["band"] == "at_ath"

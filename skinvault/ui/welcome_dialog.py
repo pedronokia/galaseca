@@ -52,6 +52,9 @@ class WelcomeDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        #: True quando o usuario escolheu importar o inventario -- o
+        #: router abre o Inventario com o dialogo de importacao.
+        self.quer_importar = False
         self.setWindowTitle("Bem-vindo ao SkinVault")
         self.setMinimumWidth(760)
         self.setStyleSheet(
@@ -85,27 +88,59 @@ class WelcomeDialog(QDialog):
         row.addWidget(_feature_card(
             "📦",
             "Conta + Inventário",
-            "Sincronize com a Steam e veja seu inventário avaliado "
-            "ao preço de mercado (já com a taxa de 15% descontada)."
+            "Veja quanto sua carteira vale pelo preço de mercado, já "
+            "sem a taxa de 15% da Steam, e quanto você lucrou."
         ), 1)
         row.addWidget(_feature_card(
             "📊",
             "Scanner de Skins",
-            "Score 0–100 por item baseado em spread, tendência, volume "
-            "e oferta. Saiba o que comprar e o que evitar."
+            "Uma nota de 0 a 100 para cada item, feita com os dados de "
+            "preço e de vendas. Ajuda a comparar — não garante lucro."
         ), 1)
         row.addWidget(_feature_card(
             "🔔",
             "Watchlist + Alertas",
-            "Defina alvos de preço, anomalias de volume e quedas de "
-            "oferta. Notificações na bandeja quando a regra dispara."
+            "Escolha um preço-alvo ou avisos de movimento estranho e "
+            "receba uma notificação no Windows quando acontecer."
         ), 1)
         outer.addLayout(row)
 
-        # CTA
-        cta = QPushButton("Vamos lá")
+        # CTAs. O primeiro passo que da' valor e' ter os itens na carteira:
+        # sem isso Conta, Inventario e Lucro abrem vazios e o usuario novo
+        # nao sabe por onde comecar.
+        acoes = QHBoxLayout()
+        acoes.setSpacing(12)
+        acoes.addStretch(1)
+        explorar = QPushButton("Explorar primeiro")
+        explorar.setCursor(Qt.CursorShape.PointingHandCursor)
+        explorar.setStyleSheet(t.btn_ghost(padding="14px 24px",
+                                           fs=t.FS_INPUT))
+        explorar.setToolTip("Fecha este aviso e abre o app. Você não verá"
+                            " mais.")
+        explorar.clicked.connect(self.accept)
+        acoes.addWidget(explorar)
+        cta = QPushButton("Importar meu inventário da Steam")
         cta.setCursor(Qt.CursorShape.PointingHandCursor)
         cta.setStyleSheet(t.btn_primary(padding="14px 36px", fs=t.FS_INPUT))
-        cta.setToolTip("Fecha este modal e abre o app. Você não verá mais.")
-        cta.clicked.connect(self.accept)
-        outer.addWidget(cta, 0, Qt.AlignmentFlag.AlignCenter)
+        cta.setToolTip("Basta o link do seu perfil da Steam (público), sem"
+                       " login.")
+        cta.clicked.connect(self._on_importar)
+        cta.setDefault(True)
+        acoes.addWidget(cta)
+        acoes.addStretch(1)
+        outer.addLayout(acoes)
+
+    def showEvent(self, event) -> None:
+        # Janela de topo nao respeita heightForWidth: com o texto quebrado
+        # em varias linhas, as descricoes dos cartoes saiam cortadas no pe'.
+        super().showEvent(event)
+        lay = self.layout()
+        if lay is not None and lay.hasHeightForWidth():
+            alvo = lay.totalHeightForWidth(self.width())
+            if alvo > self.height():
+                self.setMinimumHeight(alvo)
+                self.resize(self.width(), alvo)
+
+    def _on_importar(self) -> None:
+        self.quer_importar = True
+        self.accept()

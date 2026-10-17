@@ -36,6 +36,9 @@ DEFAULTS = {
     "table_density": "standard",
     "scanner_unlocked": False,
     "welcome_seen": False,
+    # Ultimo link de perfil usado em "Importar da Steam" (Inventario).
+    # Perfil PUBLICO: nao e' login nem guarda credencial nenhuma.
+    "steam_profile": "",
     "overlay_mode": False,  # janela "stays on top" + show sem roubar foco
     "scanner_hide_low_confidence": False,
     "validate_interval_minutes": 30,  # 0 = desliga schedule automatico

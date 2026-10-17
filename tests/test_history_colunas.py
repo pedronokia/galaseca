@@ -29,7 +29,8 @@ def app():
 
 
 def test_coluna_de_dinheiro_e_reconhecida():
-    for h in ("Valor", "Preço", "P&L", "P&L liquido", "ROI",
+    for h in ("Valor", "Preço", "Lucro/prejuízo", "Lucro (sem taxa)",
+              "Retorno %",
               "Preço de compra", "Preço atual", "Compra", "Venda", "Qtd"):
         assert HistoryScreen._e_coluna_numerica(h) is True, h
 
@@ -51,8 +52,8 @@ def test_sem_header_nao_quebra():
 def test_pareados_e_abertas_terminam_em_numero():
     """Nesses dois a ultima coluna NAO pode esticar: e' o numero que
     importa, e estica-lo o manda pra longe do nome do item."""
-    assert HistoryScreen._e_coluna_numerica("ROI") is True
-    assert HistoryScreen._e_coluna_numerica("P&L se vender hoje") is True
+    assert HistoryScreen._e_coluna_numerica("Retorno %") is True
+    assert HistoryScreen._e_coluna_numerica("Lucro se vender hoje") is True
 
 
 def test_todos_e_trades_terminam_em_texto():

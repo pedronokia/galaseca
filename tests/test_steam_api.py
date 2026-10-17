@@ -65,12 +65,12 @@ class TestFairValueVerdict:
     def test_with_wide_spread(self):
         v = fair_value_verdict(100.0, 100.0, spread=5000)
         assert v["spread_verdict"] == "wide"
-        assert "pouca liquidez" in v["details"]["spread"]
+        assert "difícil vender" in v["details"]["spread"]
 
     def test_with_buyer_dominant_book(self):
         v = fair_value_verdict(100.0, 100.0, buy_count=500, sell_count=10)
         assert v["book_verdict"] == "buyer_dominant"
-        assert "Demanda aquecida" in v["message"]
+        assert "Muita gente querendo comprar" in v["message"]
 
     def test_with_seller_dominant_book(self):
         v = fair_value_verdict(100.0, 100.0, buy_count=10, sell_count=500)

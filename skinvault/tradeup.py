@@ -404,31 +404,33 @@ def plan_contract(inputs: "list[dict]", catalog: dict) -> dict:
         p = parse_market_name(nome)
         meta = skins.get(p["base"])
         if meta is None:
-            return _err(plan, f"Item {i}: '{nome}' nao esta' no catalogo.")
+            return _err(plan, f"Item {i}: '{nome}' não está no catálogo.")
         if not meta.get("c"):
-            return _err(plan, f"Item {i}: '{nome}' nao pertence a colecao "
-                              "(faca/luva nao entra em contrato).")
+            return _err(plan, f"Item {i}: '{nome}' não pertence a uma coleção "
+                              "(faca e luva não entram em contrato).")
         if meta.get("r") not in RARITIES:
-            return _err(plan, f"Item {i}: raridade de '{nome}' nao entra "
+            return _err(plan, f"Item {i}: a raridade de '{nome}' não entra "
                               "em contrato.")
         if p["wear"] is None:
-            return _err(plan, f"Item {i}: informe o wear de '{nome}'.")
+            return _err(plan, f"Item {i}: informe o desgaste de '{nome}' "
+                              "(ex.: Field-Tested).")
         f = raw.get("float")
         if f is None:
             f = default_float(meta, p["wear"])
             if f is None:
-                return _err(plan, f"Item {i}: '{nome}' nao existe nesse wear.")
+                return _err(plan, f"Item {i}: '{nome}' não existe nesse desgaste.")
             float_assumido = True
         else:
             try:
                 f = float(f)
             except (TypeError, ValueError):
-                return _err(plan, f"Item {i}: float invalido.")
+                return _err(plan, f"Item {i}: float inválido.")
             if not (meta["min"] <= f <= meta["max"]):
-                return _err(plan, f"Item {i}: float {f:.4f} fora do range "
-                                  f"do skin ({meta['min']:.2f}-{meta['max']:.2f}).")
+                return _err(plan, f"Item {i}: float {f:.4f} fora do possível "
+                                  f"para esse skin ({meta['min']:.2f} a "
+                                  f"{meta['max']:.2f}).")
             if wear_for_float(f) != p["wear"]:
-                return _err(plan, f"Item {i}: float {f:.4f} nao corresponde "
+                return _err(plan, f"Item {i}: float {f:.4f} não corresponde "
                                   f"a {p['wear']}.")
             float_assumido = False
         resolved.append({
@@ -447,7 +449,7 @@ def plan_contract(inputs: "list[dict]", catalog: dict) -> dict:
     rarity = rarities.pop()
     st_flags = {r["stattrak"] for r in resolved}
     if len(st_flags) > 1:
-        return _err(plan, "StatTrak e' tudo-ou-nada: nao misture com itens "
+        return _err(plan, "StatTrak é tudo-ou-nada: não misture com itens "
                           "normais.")
     stattrak = st_flags.pop()
     plan["stattrak"] = stattrak
@@ -466,11 +468,13 @@ def plan_contract(inputs: "list[dict]", catalog: dict) -> dict:
 
     if any(r["souvenir"] for r in resolved):
         plan["warnings"].append(
-            "Souvenir entra no contrato, mas a saida e' sempre normal.")
+            "Souvenir entra no contrato, mas o item que sai é sempre "
+            "normal.")
     if any(r["float_assumed"] for r in resolved):
         plan["warnings"].append(
-            "Float nao informado em parte dos itens: usado o meio da faixa "
-            "do wear. O wear de saida pode diferir do real.")
+            "Float não informado em parte dos itens: usamos o meio da "
+            "faixa do desgaste. O desgaste do item que sai pode ser "
+            "outro.")
 
     norm_avg = sum(r["norm"] for r in resolved) / n
     plan["norm_avg"] = norm_avg
@@ -487,14 +491,15 @@ def plan_contract(inputs: "list[dict]", catalog: dict) -> dict:
         if plan["mode"] == MODE_RARE:
             pool = info.get("rare_st" if stattrak else "rare") or []
             if not pool:
-                motivo = ("sem pool StatTrak (luvas nao saem de StatTrak)"
+                motivo = ("não tem faca/luva StatTrak (luva não sai de "
+                          "StatTrak)"
                           if stattrak and info.get("rare") else
-                          "sem faca/luva (colecao sem caixa)")
+                          "não tem faca/luva (coleção sem caixa)")
                 return _err(plan, f"'{col}' {motivo}.")
         else:
             pool = (info.get("tiers") or {}).get(alvo) or []
             if not pool:
-                return _err(plan, f"'{col}' nao tem itens "
+                return _err(plan, f"'{col}' não tem itens "
                                   f"{RARITY_LABELS.get(alvo, alvo)}.")
         p_col = qtd / n
         for base in pool:
@@ -589,16 +594,18 @@ def evaluate(plan: dict, price_fn: "Callable[[str], Optional[float]]",
 
     if faltando:
         res["warnings"].append(
-            f"{faltando} input(s) sem preco: informe o custo pago.")
+            f"{faltando} item(ns) do contrato sem preço: informe quanto "
+            "pagou.")
         return res
     res["cost"] = custo
     if cobertura <= 0:
-        res["warnings"].append("Nenhum resultado com preco no Steam Market.")
+        res["warnings"].append("Nenhum resultado possível tem preço no Steam Market.")
         return res
     if cobertura < 0.999:
         res["warnings"].append(
-            f"Preco encontrado para {cobertura * 100:.0f}% da probabilidade: "
-            "EV parcial (resultados sem preco contam como zero).")
+            f"Só achamos preço para {cobertura * 100:.0f}% das chances: "
+            "o valor médio está incompleto (o que não tem preço conta "
+            "como zero).")
     res["ev_net"] = ev
     res["profit"] = ev - custo
     res["roi"] = (ev - custo) / custo if custo > 0 else None

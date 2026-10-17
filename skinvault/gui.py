@@ -113,6 +113,13 @@ def set_theme(theme_name: str, accent: str | None = None) -> None:
         _reload_palette(theme_name)
     else:
         _reload_palette(theme_name, accent)
+    # Paleta global junto: texto sem cor no QSS herdava o preto do Windows.
+    app = QApplication.instance()
+    if app is not None:
+        try:
+            app.setPalette(t.qpalette())
+        except Exception:  # cosmetico: nunca derrubar a troca de tema
+            pass
 
 
 def _steam_market_url(name: str) -> str:
@@ -547,18 +554,24 @@ class MainWindow(QMainWindow):
 
     # ── shortcuts ─────────────────────────────────────────────
     def _setup_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Ctrl+F"), self).activated.connect(
-            self._focus_filter)
+        # Ctrl+F e Ctrl+N NAO moram aqui: as telas ja' tem os seus (busca
+        # da tela; "novo trade" em Trades). Duas QShortcut com a mesma
+        # tecla ativas ao mesmo tempo sao AMBIGUAS pro Qt -- ele emite
+        # activatedAmbiguously e nenhuma dispara. Era o caso: Ctrl+F nao
+        # fazia nada em Inventario/Scanner/Watchlist/Historico/Trades
+        # (2026-10-17). Ver test_atalhos.py.
         QShortcut(QKeySequence("?"), self).activated.connect(
             self._show_shortcuts)
         QShortcut(QKeySequence("F5"), self).activated.connect(
             self._refresh_current)
-        QShortcut(QKeySequence("Ctrl+N"), self).activated.connect(
-            self._open_settings)
         QShortcut(QKeySequence("Ctrl+,"), self).activated.connect(
             self._open_settings)
         QShortcut(QKeySequence("Ctrl+K"), self).activated.connect(
             self._open_palette)
+        # Ctrl+1..8: telas na ordem da barra lateral.
+        for i, (key, _icon, _label) in enumerate(self._SIDEBAR_ITENS, 1):
+            QShortcut(QKeySequence(f"Ctrl+{i}"), self).activated.connect(
+                lambda k=key: self._router.navigate(k))
 
     def _focus_filter(self) -> None:
         stack = getattr(self._router, '_stack', None)
@@ -580,17 +593,22 @@ class MainWindow(QMainWindow):
                 refresh()
 
     def _show_shortcuts(self) -> None:
+        telas = ", ".join(f"{i} {label}" for i, (_k, _i, label)
+                          in enumerate(self._SIDEBAR_ITENS, 1))
         QMessageBox.information(
             self, "Atalhos de teclado",
             "<b>Atalhos:</b><br>"
-            "F5 &nbsp;&nbsp; Recarregar tela atual<br>"
-            "Ctrl+F &nbsp;&nbsp; Foco no filtro ou busca da tela<br>"
-            "Esc &nbsp;&nbsp; Limpa a busca (Inventário, Watchlist, Histórico)<br>"
-            "Delete &nbsp;&nbsp; Remove a linha selecionada (Trades, Watchlist)<br>"
-            "Ctrl+L &nbsp;&nbsp; Foca a busca no Market<br>"
-            "Ctrl+Enter &nbsp;&nbsp; Escaneia a categoria no Scanner<br>"
-            "Ctrl+N / Ctrl+, &nbsp;&nbsp; Configurações<br>"
-            "Ctrl+K &nbsp;&nbsp; Abre a paleta<br>"
+            f"Ctrl+1…{len(self._SIDEBAR_ITENS)} &nbsp;&nbsp; Troca de tela"
+            f" ({telas})<br>"
+            "Ctrl+K &nbsp;&nbsp; Abre a paleta de comandos<br>"
+            "F5 &nbsp;&nbsp; Atualiza a tela atual<br>"
+            "Ctrl+F &nbsp;&nbsp; Vai para a busca da tela<br>"
+            "Esc &nbsp;&nbsp; Limpa a busca<br>"
+            "Delete &nbsp;&nbsp; Remove a linha selecionada (Trades,"
+            " Watchlist)<br>"
+            "Ctrl+N &nbsp;&nbsp; Novo trade (Trades)<br>"
+            "Ctrl+Enter &nbsp;&nbsp; Escaneia a categoria (Scanner)<br>"
+            "Ctrl+, &nbsp;&nbsp; Configurações<br>"
             "? &nbsp;&nbsp; Mostra esta janela",
         )
 
@@ -883,6 +901,7 @@ class MainWindow(QMainWindow):
             ("scanner", "radar", "Scanner"),
             ("market", "chart", "Market"),
             ("trades", "swap", "Trades"),
+            ("tradeup", "calc", "Trade-up"),
             ("watchlist", "eye", "Watchlist"),
         ]
         cmds: list[dict] = [
@@ -953,6 +972,50 @@ def _setup_logging() -> None:
     root.addHandler(handler)
 
 
+def _instalar_traducao_qt(app: QApplication) -> bool:
+    """Botoes padrao do Qt em portugues (Fechar, Sim, Nao, Cancelar...).
+
+    Sem isto QDialogButtonBox/QMessageBox mostravam "Close", "Yes", "No" --
+    ingles no meio de um app todo em portugues. O .qm vem junto com o
+    PyQt6. Falhar aqui nunca impede o app de abrir: fica em ingles.
+    """
+    from PyQt6.QtCore import QLibraryInfo, QTranslator
+    try:
+        # Sem parent: quem segura a referencia e' o proprio app (atributo
+        # abaixo). Com parent=app quebrava com app de teste (FakeApp).
+        tradutor = QTranslator()
+        pasta = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+        if not tradutor.load("qtbase_pt_BR", pasta):
+            logging.getLogger(__name__).info(
+                "Traducao pt_BR do Qt nao encontrada em %s", pasta)
+            return False
+        app.installTranslator(tradutor)
+        app._sv_tradutor_qt = tradutor  # sem isto o GC descarta a traducao
+        return True
+    except Exception as e:  # nunca impedir o app de abrir
+        logging.getLogger(__name__).info(
+            "Traducao pt_BR do Qt nao instalada: %s", e)
+        return False
+
+
+def _instalar_fonte_padrao(app: QApplication) -> None:
+    """Fonte padrao do app = a do tema (t.FONT_FAMILY).
+
+    Os widgets estilizados por QSS ja' usavam essa fonte, mas o que e'
+    desenhado a mao (QPainter: "Sem historico", "Sem itens avaliados" nos
+    graficos vazios) caia na fonte padrao do sistema, diferente do resto.
+    """
+    from PyQt6.QtGui import QFont
+    try:
+        familias = [f.strip().strip('"') for f in t.FONT_FAMILY.split(",")]
+        fonte = QFont()
+        fonte.setFamilies([f for f in familias if f and f != "system-ui"])
+        fonte.setPointSize(9)
+        app.setFont(fonte)
+    except Exception as e:  # cosmetico: nunca impedir o app de abrir
+        logging.getLogger(__name__).info("Fonte padrao nao aplicada: %s", e)
+
+
 def launch() -> int:
     ensure_data_dir()
     _setup_logging()
@@ -961,6 +1024,8 @@ def launch() -> int:
     )
     app = QApplication([])
     app.setWindowIcon(_app_icon())
+    _instalar_traducao_qt(app)
+    _instalar_fonte_padrao(app)
     # Tooltip e message box abrem em janela propria: so' o stylesheet de
     # APLICACAO os alcanca, setStyleSheet no widget dono nao.
     app.setStyleSheet(t.app_style())

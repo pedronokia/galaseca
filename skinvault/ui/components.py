@@ -77,7 +77,8 @@ class SortableItem(QTableWidgetItem):
             return str(self._sort_key) < str(outro)
 
 
-_RE_BRL = re.compile(r"^R\$\s*(-?[\d.]+,\d{2})$")
+# " *" opcional: o Scanner marca preco derivado do historico assim.
+_RE_BRL = re.compile(r"^R\$\s*(-?[\d.]+,\d{2})(?:\s*\*)?$")
 _RE_PCT = re.compile(r"^([+-]?\d+(?:[.,]\d+)?)\s*%$")
 # Duas grafias convivem: as tabelas usam DD/MM/AAAA e o Historico usa
 # DD/MM/AA. Ambas precisam ordenar, e entre si tambem.
@@ -168,7 +169,9 @@ def score_table_item(current_score, score_ts):
     if current_score is None:
         item = SortableItem("—", float("-inf"))
         item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
-        item.setToolTip("Clique em 'Validar score' para calcular.")
+        item.setToolTip(
+            "Ainda sem nota: clique em 'Atualizar notas' na tela Minha "
+            "Conta.")
         return item
 
     item = SortableItem(str(int(current_score)), int(current_score))
@@ -185,11 +188,10 @@ def score_table_item(current_score, score_ts):
     age_txt = signals.score_age_text(score_ts)
     stale_tag = " [DESATUALIZADO]" if stale else ""
     item.setToolTip(
-        f"Score {int(current_score)} — calculado {age_txt}."
+        f"Nota {int(current_score)} — calculada {age_txt}."
         f"{stale_tag}\n"
-        f"Empíricamente:\n"
-        f"  70-84 containers → +33%, skins → +8% em 90d\n"
-        f"  85+ containers → +52%, skins → +21% em 90d"
+        "Compara este item com os outros pelos dados de hoje.\n"
+        "Ajuda a escolher, não garante lucro."
     )
     return item
 
@@ -203,6 +205,8 @@ def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
     deleta o effect, e a anim e filha dele — deletar dentro da emissao
     de finished derrubaria o objeto no meio do proprio sinal.
     """
+    import weakref
+
     eff = QGraphicsOpacityEffect(widget)
     widget.setGraphicsEffect(eff)
     anim = QPropertyAnimation(eff, b"opacity", eff)
@@ -211,9 +215,19 @@ def fade_in(widget: QWidget, duration_ms: int = 150) -> None:
     anim.setEndValue(1.0)
     anim.setEasingCurve(QEasingCurve.Type.OutCubic)
 
+    # Referencia FRACA ao widget. Com a forte, o slot (preso a' anim, que e'
+    # neta do widget) segurava o proprio widget: ciclo que o GC do Python
+    # nao enxerga, porque passa pelo C++. Widget solto (sem pai) nunca
+    # morria e a anim terminava "no futuro" -- medido em 2026-10-17: access
+    # violation no teste SEGUINTE ao de fade_in na suite.
+    ref = weakref.ref(widget)
+
     def _cleanup() -> None:
+        w = ref()
+        if w is None:
+            return
         try:
-            widget.setGraphicsEffect(None)
+            w.setGraphicsEffect(None)
         except RuntimeError:
             pass  # objeto C++ deletado, ignorar
 
@@ -308,7 +322,7 @@ class EmptyState(QWidget):
 
     Uso:
         es = EmptyState("◇", "Nenhum item ainda",
-                         subtitle="Adicione manualmente ou sincronize.",
+                         subtitle="Adicione o primeiro item.",
                          cta_label="+ Adicionar", on_cta=callback)
 
         es = EmptyState("◎", "Pronto pra escanear",
@@ -1257,7 +1271,7 @@ class _MatchChip(QLabel):
         import time as _time
         ts_str = _time.strftime("%d/%m/%Y", _time.localtime(ts)) if ts else ""
         self.setToolTip(
-            f"{ts_str} • {name}\nP&L R$ {pnl:+.2f}"
+            f"{ts_str} • {name}\nLucro/prejuízo R$ {pnl:+.2f}"
         )
 
 
@@ -1868,7 +1882,7 @@ class ItemDetailDrawer(QWidget):
         root.addWidget(self._quotes_card)
         root.addSpacing(t.SPACE_SM)
 
-        self._pnl = self._metrica(root, "P&L")
+        self._pnl = self._metrica(root, "Lucro/prejuízo")
         self._condicao = self._metrica(root, "Condição")
 
         # Liquidez: consulta SOB DEMANDA, mesmo espirito do ItemDetailPanel
@@ -1880,10 +1894,8 @@ class ItemDetailDrawer(QWidget):
         self._liquidity_btn.setStyleSheet(
             t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
         self._liquidity_btn.setToolTip(
-            "Consulta o order book da Steam pra ESTE item (rede sob "
-            "demanda -- só roda quando você clica).\n"
-            "Mostra a razão oferta/demanda e uma estimativa de dias de "
-            "listagens no ritmo atual.")
+            "Busca na Steam quantos compram e quantos vendem este item,\n"
+            "e em quantos dias os anúncios acabam no ritmo atual.")
         self._liquidity_btn.clicked.connect(self._on_liquidity_clicked)
         root.addWidget(self._liquidity_btn, 0, Qt.AlignmentFlag.AlignLeft)
         self._liquidity_result = QLabel("")

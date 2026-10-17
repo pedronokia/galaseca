@@ -325,7 +325,7 @@ def test_sem_score_mostra_travessao(tela):
     tela.set_data(ROWS, POS)
     cel = _score_cell(tela, "Redline")
     assert cel.text() == "—"
-    assert "Validar score" in cel.toolTip()
+    assert "Atualizar notas" in cel.toolTip()
 
 
 def test_score_desatualizado_fica_ambar(tela):
@@ -1074,9 +1074,11 @@ def test_rate_limit_vazio_explica_no_empty_state(tela):
 
 
 def test_rate_limit_vazio_nao_polui_o_estado_normal(tela):
-    """Sem rate limit o empty state volta ao texto padrao de sync."""
+    """Sem rate limit o empty state volta ao texto padrao (carteira vazia).
+    Nada de "sincronize": o recurso saiu na F10 (2026-08-07)."""
     tela.set_data([], [], False)
-    assert "Sincronize" in tela._empty._sub.text()
+    assert "Importe pelo link" in tela._empty._sub.text()
+    assert "incroniz" not in tela._empty._sub.text()
 
 
 # ── painel de filtros ──────────────────────────────────────────────

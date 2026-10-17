@@ -368,8 +368,15 @@ lição metodológica aqui.
 > item. Ao implementar: o máximo bruto da AK-47 Redline FT era R$ 1.403 —
 > um ponto **horário com 1 compra** num item de ~R$ 220; o máximo da série
 > diária ponderada por volume é R$ 403. `exit_context` usa a diária.
-> **`relative_to_ath` (fator `rel_ath` do score) ainda usa o bruto e
-> herda o outlier** — trocar exige medir ON × OFF antes. E nas 6 caixas
+> **Resolvido no mesmo dia:** `relative_to_ath` (fator `rel_ath` da nota e
+> flag de ATH do `pump_risk`) passou a usar a série diária também
+> (`_REL_ATH_DIARIO`). Medido ON × OFF em 373 séries: ΔSp 0,0000 em
+> 7d/90d/365d, caixas e skins — **neutro**, porque os pontos horários (onde
+> mora o outlier) só cobrem os últimos ~28 dias de cada série e o backtest
+> quase não os amostra. É justamente o trecho que a nota ao vivo usa:
+> ligado como correção de dado, não como melhoria de modelo. Custo: o
+> backtest fica ~50% mais lento (série diária recalculada a cada passo);
+> ao vivo é um cálculo por item, imperceptível. E nas 6 caixas
 > checadas (Gallery, Chroma 2, Clutch, Fever, Kilowatt) o topo caiu nos
 > primeiros 60 dias da série: em caixa, "distância do topo" é quase sempre
 > "distância do preço de lançamento". O tooltip avisa (`at_launch`).
@@ -637,6 +644,43 @@ alcança quem já capturou o número antigo (`value_inventory` e
 tempo de chamada). `tests/conftest.py` zera a constante via fixture
 `autouse` pra suíte inteira não dormir de verdade.
 
+### 14. Linguagem da tela: usuário básico (2026-10-17)
+
+O app tem que ser usável por quem não sabe o que é spread ou backtest.
+Regras para todo texto visível (rótulo, coluna, tooltip, mensagem):
+
+| em vez de | escreva |
+|---|---|
+| Score | Nota (0–100) |
+| P&L / P&L líquido | Lucro/prejuízo / Lucro (sem taxa) |
+| ROI | Retorno % |
+| Spread | Diferença compra/venda |
+| Book / order book | Fila de ofertas |
+| Veredito | Avaliação |
+| Mediana, preço justo | Preço típico |
+| Oferta/Demanda, S/D | Procura × Oferta |
+| ATH, topo | maior preço já registrado |
+| EV | valor médio do contrato |
+| wear | desgaste (Field-Tested etc. ficam como estão) |
+| cache, SSR, rate limit | "preços guardados", "a Steam limita as consultas" |
+| IC, quintil, Spearman, z-score | frase: o que aconteceu, sem o número técnico |
+
+Mantêm-se (todo jogador conhece): Float, StatTrak, Souvenir, Trade-up,
+Covert, Steam.
+
+- **Código interno ≠ texto da tela.** `steam_api`/`signals` seguem com
+  `tight`, `buyer_dominant`, `rising`… (score, backtest e testes dependem
+  deles). A tradução mora em `skinvault/ui/textos.py`. Até esta data o
+  Scanner e o Market mostravam esses códigos **crus** nas células.
+- **Nunca prometer retorno.** O tooltip da nota dizia "85+ containers →
+  +52% em 90d" e o diálogo "nota 70–84 → +27%": números do backtest de
+  jun/2026, contaminado (4b), e contrários ao que foi medido depois (nem o
+  melhor quintil cobre a taxa em 90d). Saíram. Texto de resultado passado
+  diz "no passado…" e "não garante lucro".
+- **Acento sempre** em texto visível. Comentário de código pode ficar sem.
+- Botões padrão do Qt (Fechar, Sim, Não) vêm do `qtbase_pt_BR.qm`,
+  instalado em `gui._instalar_traducao_qt`; sem ele saíam em inglês.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`
@@ -662,6 +706,27 @@ python -m skinvault --add "<nome>" <custo> [qtd]
 # Testes
 python -m pytest -q
 ```
+
+A suíte inteira roda numa execução só (~40s, 2199 testes em 2026-10-17).
+Até essa data ela **nunca terminava**: access violation intermitente, cada
+vez num teste diferente. Três causas, todas tratadas em `tests/conftest.py`:
+
+- **Dados e rede reais.** A suíte usava o `data/` do projeto: o
+  `PriceWorker` da Conta lia o `portfolio.json` de verdade e consultava a
+  Steam item a item, e os testes de Inventário baixavam ícones via `httpx`.
+  Agora `SKINVAULT_DATA_DIR` aponta pra uma pasta temporária antes de
+  qualquer import, e `urllib`/`httpx` falham na hora. Teste que precisa de
+  rede simulada patcha `_http_get`/`urlopen` por conta própria.
+- **Janelas que nunca morriam.** `w.deleteLater(); app.processEvents()` —
+  padrão dos `_qapp` de várias suítes — **não destrói nada**: o Qt só
+  entrega `DeferredDelete` ao voltar pro loop de eventos. Telas inteiras,
+  com timers e animações, se acumulavam. A fixture autouse destrói as
+  janelas sem dono com `sip.delete`. Nunca destrua popup/tooltip (a lista
+  do `QCompleter` pertence ao completer) e reconsulte `topLevelWidgets()`
+  a cada exclusão: popup criado pelo Qt não avisa o PyQt que morreu.
+- **Ciclo em `fade_in`** (`ui/components.py`): o slot da animação
+  segurava o widget dono, e widget solto nunca era coletado. Usa
+  `weakref` agora.
 
 ## Veja também
 

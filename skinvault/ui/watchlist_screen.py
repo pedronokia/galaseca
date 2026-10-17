@@ -126,18 +126,18 @@ class _RulesDialog(QDialog):
         qb_lay.addWidget(self._supply_drop)
         layout.addWidget(qb)
 
-        # Score above (validado empiricamente: 85+ retorna +50% em 90d)
+        # Nota acima de X. O "85+ retorna +50% em 90d" que justificava isto
+        # vinha do backtest de jun/2026, contaminado (AGENTS.md 4b) -- saiu.
         self._score_above = QSpinBox()
         self._score_above.setRange(0, 100)
         self._score_above.setValue(int(rules.get("score_above", 0)))
         self._score_above.setSpecialValueText("Desligado")
         self._score_above.setStyleSheet(t.input_style())
         self._score_above.setToolTip(
-            "Dispara quando o enhanced_score atingir o valor (0-100)."
-            " Empíricamente: score >=85 retorna +50% em 90d (containers)."
-            " Recomendado: 85 pra alta convicção, 70 pra ampla cobertura."
+            "Avisa quando a nota do item chegar a esse valor (0 a 100)."
+            " Nota alta quer dizer bons dados hoje, não lucro garantido."
         )
-        layout.addWidget(FormRow("Score atingir:", self._score_above))
+        layout.addWidget(FormRow("Nota chegar a:", self._score_above))
 
         self._rules_instr = QLabel(
             "Regras com valor 0 ou 'Desligado' ficam inativas."
@@ -248,23 +248,24 @@ class WatchlistScreen(QWidget):
         )
         self._add_btn.clicked.connect(self._on_add)
 
-        self._validate_btn = QPushButton("Validar score")
+        self._validate_btn = QPushButton("Testar a nota no passado")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._validate_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
-                                                          fs=t.FS_INPUT))
+        self._validate_btn.setStyleSheet(t.btn_ghost())
         self._validate_btn.setToolTip(
-            "Roda backtest histórico (90d) nos itens monitorados."
-            " Mostra se o score realmente prediz retornos pra esses itens."
-            " Usa cache 24h, então reruns são rápidos."
+            "Atualiza as notas e mostra como a nota teria se saído nos"
+            " últimos 90 dias com os itens que você acompanha."
         )
         self._validate_btn.clicked.connect(self._on_validate_watchlist)
 
-        self._refresh_btn = QPushButton("Atualizar scores+alertas")
+        self._refresh_btn = QPushButton("Atualizar notas e alertas")
         self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._refresh_btn.setStyleSheet(t.btn_ghost())
+        # Acao do dia a dia: destaque de botao secundario. O teste no
+        # passado e' consulta eventual e fica discreto (era o inverso).
+        self._refresh_btn.setStyleSheet(t.btn_secondary(padding="10px 18px",
+                                                         fs=t.FS_INPUT))
         self._refresh_btn.setToolTip(
-            "Recomputa scores e reavalia alertas de todos os itens usando"
-            " dados do cache. Mais rápido que Validar score — sem dialog."
+            "Recalcula as notas e confere os alertas de todos os itens,"
+            " sem abrir a janela de teste."
         )
         self._refresh_btn.clicked.connect(self._on_refresh_scores)
 
@@ -272,7 +273,7 @@ class WatchlistScreen(QWidget):
             "Watchlist e Alertas",
             "Monitore preços de skins selecionadas e receba alertas quando "
             "regras forem atendidas (queda, volume anormal, oferta baixa).",
-            actions=[self._add_btn, self._validate_btn, self._refresh_btn],
+            actions=[self._add_btn, self._refresh_btn, self._validate_btn],
         ))
 
         # Stat cards: total + com regras + disparados + recentes 24h
@@ -288,31 +289,31 @@ class WatchlistScreen(QWidget):
                                        accent=t.WARN, icon="history")
         for sc in (self._stat_total, self._stat_rules,
                    self._stat_triggered, self._stat_recent):
-            sc.setMaximumWidth(280)
-            stats_row.addWidget(sc)
+            # Mesmo peso pra todos: ocupam a largura toda, em vez de
+            # ficarem presos a ~300px a' esquerda (2026-10-17).
+            stats_row.addWidget(sc, 1)
         self._stat_total.setToolTip(
             "Itens atualmente na watchlist.\n"
             "Clique com o botão direito numa linha para editar regras, "
             "alterar o preço alvo ou remover o item.")
         self._stat_rules.setToolTip(
             "Itens com pelo menos uma regra ativa (preço, queda, volume, "
-            "oferta ou score).")
+            "oferta ou nota).")
         self._stat_triggered.setToolTip(
             "Itens com alerta disparado agora.\n"
-            "Verifique a coluna Status e o log de alertas em "
-            "data/alerts_log.json.")
+            "Veja a coluna Status e os alertas anteriores na tela "
+            "Histórico, aba Watchlist.")
         self._stat_recent.setToolTip(
             "Alertas registrados nas últimas 24h.\n"
             "Inclui disparos que já foram resetados.")
-        stats_row.addStretch(1)
         root.addLayout(stats_row)
 
         # Filtro de confiança (mesmo padrão do Scanner)
         filt_row = QHBoxLayout()
         self._hide_low_conf_cb = ToggleSwitch()
         self._hide_low_conf_cb.setToolTip(
-            "Oculta itens onde a confiança dos dados é 'low' ou 'very_low'."
-            " Disponivel apenas apos 'Validar score'."
+            "Esconde itens com pouco histórico de preço (confiança"
+            " baixa). Só funciona depois de 'Atualizar notas e alertas'."
         )
         self._hide_low_conf_cb.toggled.connect(self._on_hide_low_conf_toggle)
         filt_row.addWidget(self._hide_low_conf_cb)
@@ -330,6 +331,7 @@ class WatchlistScreen(QWidget):
         self._search_inp = QLineEdit()
         self._search_inp.setPlaceholderText("Filtrar por nome do item...")
         self._search_inp.setClearButtonEnabled(True)
+        self._search_inp.setMinimumWidth(240)
         self._search_inp.setMaximumWidth(320)
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.textChanged.connect(self._apply_confidence_filter)
@@ -350,7 +352,7 @@ class WatchlistScreen(QWidget):
         self._table = QTableWidget(0, 8)
         self._table.setHorizontalHeaderLabels(
             ["Item", "Preço alvo", "Distância ao alvo", "Preço atual",
-             "Status", "Regras", "Score", "Confiança"]
+             "Status", "Regras", "Nota", "Confiança nos dados"]
         )
         from skinvault.settings import load_settings as _ls
         t.configure_table(
@@ -369,11 +371,11 @@ class WatchlistScreen(QWidget):
                 "desatualizado."),
             self.COL_RULES: "Regras de alerta ativas para este item.",
             self.COL_SCORE: (
-                "Score (0–100) calculado no botão 'Validar score'. "
-                "Oculto até validar."),
+                "Nota de 0 a 100. Aparece depois de 'Atualizar notas e "
+                "alertas'."),
             self.COL_CONFIDENCE: (
-                "Qualidade do histórico usado no score. Oculto até "
-                "validar."),
+                "Quanto histórico de preço existe para calcular a nota. "
+                "Aparece depois de 'Atualizar notas e alertas'."),
         }
         for col, tip in _tips.items():
             cab = self._table.horizontalHeaderItem(col)
@@ -521,9 +523,8 @@ class WatchlistScreen(QWidget):
             sd_label = item.get("sd_label")
             if sd_label:
                 aprox_txt = (
-                    " (aproximado: volume vem das compras do último dia "
-                    "do histórico, não do priceoverview — só atualiza "
-                    "quando o cache de 24h expira)"
+                    " (aproximado: usa as vendas do último dia do "
+                    "histórico e só se atualiza uma vez por dia)"
                     if item.get("sd_approx") else ""
                 )
                 price_item.setToolTip(
@@ -606,14 +607,15 @@ class WatchlistScreen(QWidget):
         if not rules:
             return ("Sem regras configuradas.\n"
                     "Clique com o botão direito na linha para adicionar "
-                    "alertas de preço, queda, volume ou score.")
+                    "alertas de preço, queda, volume ou nota.")
         lines = ["Regras ativas:"]
         target = item.get("target") or rules.get("price_below")
         if target:
             lines.append(f"• Preço abaixo de {t.brl(target)}")
         if rules.get("price_drop_pct"):
             lines.append(
-                f"• Queda de {rules['price_drop_pct']:g}% vs baseline")
+                f"• Queda de {rules['price_drop_pct']:g}% desde que "
+                "começou a acompanhar")
         if rules.get("volume_spike"):
             lines.append(
                 f"• Volume {rules['volume_spike']:g}x acima da média")
@@ -621,7 +623,7 @@ class WatchlistScreen(QWidget):
             lines.append(f"• Oferta caindo {rules['supply_drop']:g}x")
         if rules.get("score_above"):
             lines.append(
-                f"• Score acima de {int(rules['score_above'])}")
+                f"• Nota acima de {int(rules['score_above'])}")
         lines.append("\nBotão direito na linha para editar.")
         return "\n".join(lines)
 
@@ -1021,7 +1023,7 @@ class WatchlistScreen(QWidget):
         target_inp.setSpecialValueText("R$ 0,00 — sem alvo")
         target_inp.setToolTip(
             "Preço que dispara o alerta de queda. Deixe em R$ 0,00 para "
-            "monitorar apenas por regras (queda %, volume, oferta, score).")
+            "monitorar apenas por regras (queda %, volume, oferta, nota).")
         target_inp.setStyleSheet(t.input_style())
         lay.addWidget(FormRow("Preço alvo:", target_inp))
 

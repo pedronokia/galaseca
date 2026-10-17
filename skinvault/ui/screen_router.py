@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from typing import Callable
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -216,14 +216,21 @@ class ScreenRouter(QWidget):
         s = _settings.load_settings()
         if s.get("welcome_seen"):
             return
+        quer_importar = False
         try:
             from skinvault.ui.welcome_dialog import WelcomeDialog
             dlg = WelcomeDialog(self)
             dlg.exec()
+            quer_importar = bool(getattr(dlg, "quer_importar", False))
         except Exception:
             pass
         s["welcome_seen"] = True
         _settings.save_settings(s)
+        if quer_importar:
+            # Depois do exec: a janela principal ja' esta' de pe' e o
+            # dialogo de importacao abre por cima do Inventario.
+            self.navigate(SCREEN_INVENTORY)
+            QTimer.singleShot(0, self._inventory_screen._on_importar_steam)
 
     def _on_toggle_theme(self) -> None:
         s = settings_mod.load_settings()

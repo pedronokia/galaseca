@@ -12,6 +12,7 @@ from __future__ import annotations
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtWidgets import (
+    QSizePolicy,
     QCheckBox,
     QDoubleSpinBox,
     QMessageBox,
@@ -212,6 +213,7 @@ class SettingsScreen(QWidget):
         self._sidebar_w.setSingleStep(10)
         self._sidebar_w.setSuffix(" px")
         self._sidebar_w.setStyleSheet(t.spin_style())
+        self._sidebar_w.setMaximumWidth(240)
         self._sidebar_w.valueChanged.connect(self._on_sidebar_width)
         lay.addWidget(FormRow(
             "Largura da barra lateral", self._sidebar_w,
@@ -252,6 +254,7 @@ class SettingsScreen(QWidget):
         self._keep_backups = QSpinBox()
         self._keep_backups.setRange(0, 100)
         self._keep_backups.setStyleSheet(t.spin_style())
+        self._keep_backups.setMaximumWidth(240)
         self._keep_backups.valueChanged.connect(
             lambda v: self._set("keep_backups", v))
         lay.addWidget(FormRow(
@@ -265,10 +268,12 @@ class SettingsScreen(QWidget):
         self._backup_btn = QPushButton("Fazer backup manual agora")
         self._backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._backup_btn.setStyleSheet(t.btn_secondary())
+        # Botao do tamanho do texto, nao da largura da janela.
+        self._backup_btn.setSizePolicy(
+            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         self._backup_btn.setToolTip(
-            "Cria um backup ZIP de todos os arquivos de dados "
-            "(prices, portfolio, trades, watchlist, etc.) na pasta "
-            "data/backups/."
+            "Cria agora uma cópia de segurança de todos os seus dados "
+            "(carteira, trades, watchlist, histórico de preços...)."
         )
         self._backup_btn.clicked.connect(self._on_manual_backup)
         btn_row.addWidget(self._backup_btn)
@@ -276,6 +281,8 @@ class SettingsScreen(QWidget):
         self._restore_btn = QPushButton("Restaurar backup...")
         self._restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._restore_btn.setStyleSheet(t.btn_ghost())
+        self._restore_btn.setSizePolicy(
+            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
         self._restore_btn.setToolTip(
             "Abre um seletor de backup para restaurar dados de um "
             "ponto anterior. Os dados atuais são substituídos."
@@ -314,11 +321,8 @@ class SettingsScreen(QWidget):
         )
         self._overlay.setStyleSheet(t.checkbox_style())
         self._overlay.setToolTip(
-            "Mantém a janela acima das outras e impede que ela roube o foco "
-            "do jogo.\n"
-            "Efeito colateral: ligado, o alt+tab não tira o SkinVault da "
-            "frente.\n"
-            "Deixe desligado se você não usa o app sobre o CS2 em tela cheia."
+            "Janela sempre na frente, sem roubar o foco do jogo.\n"
+            "Ligado, o Alt+Tab não tira o SkinVault da frente."
         )
         self._overlay.toggled.connect(self._on_overlay_toggled)
         lay.addWidget(self._overlay)
@@ -343,17 +347,18 @@ class SettingsScreen(QWidget):
         lay = card.layout()
         lay.addWidget(SectionHeader(
             "Avançado",
-            "Cache de preços e taxa do Steam Market.",
+            "Por quanto tempo guardar os preços e a taxa do Steam Market.",
         ))
 
         self._cache_ttl = QSpinBox()
         self._cache_ttl.setRange(1, 168)
         self._cache_ttl.setSuffix(" h")
         self._cache_ttl.setStyleSheet(t.spin_style())
+        self._cache_ttl.setMaximumWidth(240)
         self._cache_ttl.valueChanged.connect(
             lambda v: self._set("cache_ttl_hours", v))
         lay.addWidget(FormRow(
-            "Validade do cache de preços", self._cache_ttl,
+            "Por quanto tempo guardar os preços", self._cache_ttl,
             tooltip="Por quanto tempo um preço consultado é reaproveitado "
                     "antes de buscar de novo na Steam.",
         ))
@@ -363,12 +368,13 @@ class SettingsScreen(QWidget):
         self._fee_rate.setSingleStep(0.01)
         self._fee_rate.setDecimals(2)
         self._fee_rate.setStyleSheet(t.spin_style())
+        self._fee_rate.setMaximumWidth(240)
         self._fee_rate.valueChanged.connect(
             lambda v: self._set("fee_rate", v))
         lay.addWidget(FormRow(
             "Taxa do Steam Market", self._fee_rate,
-            tooltip="Fração descontada pela Steam em cada venda "
-                    "(0,15 = 15%). Usada no P&L líquido e no simulador.",
+            tooltip="Quanto a Steam desconta em cada venda "
+                    "(0,15 = 15%). Usada em todo cálculo de lucro.",
         ))
         return card
 

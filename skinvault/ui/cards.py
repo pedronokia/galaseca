@@ -28,10 +28,11 @@ class Card(QFrame):
 
 class StatCard(Card):
     def __init__(self, label: str, value: str = "—",
-                 accent: str = t.TEXT,
+                 accent: str | None = None,
                  icon: str = "",
                  parent: QWidget | None = None) -> None:
         super().__init__(parent, padding=(20, 18, 20, 18), radius=t.RADIUS_LG)
+        self._accent = accent
         self.layout().setSpacing(4)
 
         header = QHBoxLayout()
@@ -55,7 +56,7 @@ class StatCard(Card):
         self._value = QLabel(value)
         self._value.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._value.setStyleSheet(
-            f"color: {self._value_color(value, accent)};"
+            f"color: {self._value_color(value, accent or t.TEXT)};"
             f" font-size: {t.FS_STAT}; font-weight: 600;"
             f" font-family: {t.FONT_FAMILY};"
         )
@@ -75,6 +76,10 @@ class StatCard(Card):
         self._delta.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._delta.setVisible(False)
         self.layout().addWidget(self._delta)
+        # Conteudo preso no topo: numa linha de cartoes de mesma altura, o
+        # que nao tinha legenda distribuia a sobra entre rotulo e numero e
+        # o numero descia em relacao aos vizinhos.
+        self.layout().addStretch(1)
         self.setMinimumWidth(120)
 
     def set_delta(self, pct: float | None,
@@ -124,13 +129,18 @@ class StatCard(Card):
         self._label.setText(text)
 
     def set_value(self, value: str, accent: str | None = None) -> None:
+        """Sempre reaplica a cor. Antes, sem `accent`, o numero herdava o
+        cinza do "—" inicial (Valor bruto, Total investido, Taxas pagas...
+        apareciam apagados). Sem accent vale o do construtor; sem nenhum,
+        t.TEXT resolvido AGORA -- default de parametro congelava a cor do
+        tema escuro e o numero sumia no tema claro."""
         self._value.setText(value)
-        if accent:
-            self._value.setStyleSheet(
-                f"color: {self._value_color(value, accent)};"
-                f" font-size: {t.FS_STAT}; font-weight: 600;"
-                f" font-family: {t.FONT_FAMILY};"
-            )
+        cor = accent or self._accent or t.TEXT
+        self._value.setStyleSheet(
+            f"color: {self._value_color(value, cor)};"
+            f" font-size: {t.FS_STAT}; font-weight: 600;"
+            f" font-family: {t.FONT_FAMILY};"
+        )
 
     def set_badge(self, text: str, kind: str = "neutral") -> None:
         if kind == "positive":

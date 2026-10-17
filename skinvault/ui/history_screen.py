@@ -94,8 +94,8 @@ class SimulateTradeDialog(QDialog):
         btn.setStyleSheet(t.btn_primary())
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setToolTip(
-            "Calcula P&L líquido após taxa Steam de 15% e o preço mínimo "
-            "de venda para empatar."
+            "Calcula o lucro já sem a taxa de 15% da Steam e o preço "
+            "mínimo de venda para não sair no prejuízo."
         )
         btn.clicked.connect(self._calc)
         root.addWidget(btn)
@@ -146,7 +146,7 @@ class SimulateTradeDialog(QDialog):
             f" font-family: {t.FONT_FAMILY};"
         )
         self._pnl_lbl.setText(
-            f"{t.brl(r['pnl'])} (ROI {r['roi_pct']:+.1f}%)"
+            f"{t.brl(r['pnl'])} (retorno {r['roi_pct']:+.1f}%)"
         )
         self._detail.setText(
             f"Custo total: {t.brl(r['cost_total'])} · "
@@ -394,6 +394,7 @@ class _FilterBar(QWidget):
             " Esc limpa."
         )
         self._search.setClearButtonEnabled(True)
+        self._search.setMinimumWidth(240)  # "Buscar por nom..." cortava
         self._search.setStyleSheet(t.input_style())
         self._search.textChanged.connect(self._on_search_changed)
         root.addWidget(self._search)
@@ -558,8 +559,8 @@ class HistoryScreen(QWidget):
 
     # Cabecalhos que carregam numero. Usado so' pra decidir qual coluna pode
     # esticar -- numero esticado vira numero longe do nome.
-    _NUMERICO = ("preço", "preco", "valor", "p&l", "roi", "compra", "venda",
-                 "qtd", "%")
+    _NUMERICO = ("preço", "preco", "valor", "lucro", "retorno", "compra",
+                 "venda", "qtd", "%")
 
     @classmethod
     def _e_coluna_numerica(cls, header: str) -> bool:
@@ -569,10 +570,10 @@ class HistoryScreen(QWidget):
     SEGMENTS = [
         ("all", "Todos"),
         ("trades", "Trades"),
-        ("matched", "Pareados"),
-        ("open", "Abertas"),
-        ("market", "Steam Market"),
-        ("offers", "Trade Offers"),
+        ("matched", "Fechadas"),
+        ("open", "Em aberto"),
+        ("market", "Market"),
+        ("offers", "Trocas"),
         ("watchlist", "Watchlist"),
     ]
 
@@ -667,7 +668,8 @@ class HistoryScreen(QWidget):
             "Definir custo retroativo…")
         self._act_retro_cost.setToolTip(
             "Itens vindos do sync da Steam não informam quanto você pagou — "
-            "sem custo não há P&L. Abre um diálogo para preencher o custo "
+            "sem custo não dá para calcular lucro. Abre um diálogo para "
+            "preencher o custo "
             "dessas posições retroativamente; a carteira reavalia na hora."
         )
         self._act_retro_cost.triggered.connect(self._open_retro_cost)
@@ -684,7 +686,7 @@ class HistoryScreen(QWidget):
         # Card P&L mensal — visivel apenas no segmento Trades
         self._month_card = Card(self, padding=t.CARD_PAD_MD)
         self._month_card.layout().addWidget(SectionHeader(
-            "P&L mensal",
+            "Lucro por mês",
             "Clique numa barra pra filtrar a tabela naquele mês;"
             " clique de novo pra limpar.",
         ))
@@ -806,7 +808,8 @@ class HistoryScreen(QWidget):
         ]
         if not names_missing:
             self._status.setText(
-                self._status.text() + "  (todos os preços já estão em cache)"
+                self._status.text() + "  (todos os preços já estavam "
+                "guardados)"
             )
             return
         self._update_prices_btn.setEnabled(False)
@@ -870,9 +873,10 @@ class HistoryScreen(QWidget):
         if seg == "matched":
             s = trade_matcher.summarize(self._matched_cache or [])
             self._status.setText(
-                f"{s['count']} pareados • P&L total {t.brl(s['total_pnl'])}"
-                f" • {s['winners']}W / {s['losers']}L"
-                f" ({s['win_rate']:.0f}% win rate)"
+                f"{s['count']} pareados • Lucro total "
+                f"{t.brl(s['total_pnl'])}"
+                f" • {s['winners']} com lucro / {s['losers']} com prejuízo"
+                f" ({s['win_rate']:.0f}% de acerto)"
             )
         elif seg == "open":
             opens = self._open_cache or []
@@ -946,7 +950,8 @@ class HistoryScreen(QWidget):
                 self._fmt_source(tr.get("source", "manual")),
             ])
         return (
-            ["Data", "Item", "Qtd", "Compra", "Venda", "P&L", "Origem"],
+            ["Data", "Item", "Qtd", "Compra", "Venda", "Lucro/prejuízo",
+             "Origem"],
             rows, len(rows), 5, pnl_vals,
         )
 
@@ -971,7 +976,8 @@ class HistoryScreen(QWidget):
                 f"{c.pnl_pct:+.1f}%",
             ])
         return (
-            ["Vendido em", "Item", "Compra", "Venda", "P&L liquido", "ROI"],
+            ["Vendido em", "Item", "Compra", "Venda", "Lucro (sem taxa)",
+             "Retorno %"],
             rows, len(rows), 4, pnl_vals,
         )
 
@@ -1006,7 +1012,7 @@ class HistoryScreen(QWidget):
             ])
         return (
             ["Comprado em", "Item", "Preço de compra",
-             "Preço atual", "P&L se vender hoje"],
+             "Preço atual", "Lucro se vender hoje"],
             rows, len(rows), 4, pnl_vals,
         )
 
@@ -1217,11 +1223,18 @@ class HistoryScreen(QWidget):
             "Qtd": "Quantidade do lote.",
             "Compra": "Quanto você pagou (custo de entrada).",
             "Venda": "Quanto você recebeu (valor de venda).",
-            "P&L": "Lucro/prejuízo líquido em R$, taxas da Steam incluídas.",
-            "P&L liquido": "Lucro/prejuízo líquido em R$, taxas incluídas.",
-            "ROI": (
-                "Retorno sobre o investimento, em percentual 0–100: "
-                "P&L (taxas da Steam incluídas) ÷ custo de compra."),
+            "Lucro/prejuízo": (
+                "Quanto você ganhou ou perdeu em R$, já sem a taxa da "
+                "Steam."),
+            "Lucro (sem taxa)": (
+                "Quanto você ganhou ou perdeu em R$, já sem a taxa da "
+                "Steam."),
+            "Retorno %": (
+                "Quanto o lucro representa do que você pagou. Ex.: pagou "
+                "R$ 100 e lucrou R$ 20 = 20%."),
+            "Lucro se vender hoje": (
+                "Quanto sobraria se vendesse hoje pelo preço atual, já sem "
+                "a taxa da Steam."),
             "Origem": "Origem do registro: manual, sync da Steam etc.",
             "Operação": "Lado da transação: compra ou venda.",
             "Preço": "Preço do item na operação.",
@@ -1322,8 +1335,8 @@ class HistoryScreen(QWidget):
         )
         money_cols = {
             i for i, h in enumerate(headers)
-            if h in ("Valor", "Preço", "P&L", "Preço atual",
-                     "P&L se vender hoje", "Preço de compra")
+            if h in ("Valor", "Preço", "Lucro/prejuízo", "Preço atual",
+                     "Lucro se vender hoje", "Preço de compra")
         }
         for i in range(self._table.columnCount()):
             hh.setSectionResizeMode(

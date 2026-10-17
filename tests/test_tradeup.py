@@ -235,12 +235,12 @@ def test_contrato_faca_stattrak_e_luva_sem_stattrak(cat):
      + _n("AWP | Restrito A1 (Factory New)", 1), "mesma raridade"),
     (_n("AK-47 | Alfa (Field-Tested)", 9)
      + _n("StatTrak™ M4A4 | Alfa (Field-Tested)", 1), "tudo-ou-nada"),
-    (_n("MP9 | Mapa (Field-Tested)", 5), "sem faca/luva"),
-    (_n("★ Karambit | Fade (Factory New)", 5), "colecao"),
-    (_n("Nao Existe | X (Field-Tested)", 10), "catalogo"),
-    (_n("AK-47 | Alfa", 10), "wear"),
-    (_n("AK-47 | Alfa (Field-Tested)", 10, float=0.5), "nao corresponde"),
-    (_n("AWP | Restrito A1 (Battle-Scarred)", 10, float=0.9), "fora do range"),
+    (_n("MP9 | Mapa (Field-Tested)", 5), "não tem faca/luva"),
+    (_n("★ Karambit | Fade (Factory New)", 5), "coleção"),
+    (_n("Nao Existe | X (Field-Tested)", 10), "catálogo"),
+    (_n("AK-47 | Alfa", 10), "desgaste"),
+    (_n("AK-47 | Alfa (Field-Tested)", 10, float=0.5), "não corresponde"),
+    (_n("AWP | Restrito A1 (Battle-Scarred)", 10, float=0.9), "fora do possível"),
 ])
 def test_contratos_invalidos(cat, inputs, trecho):
     plan = tradeup.plan_contract(inputs, cat)
@@ -281,7 +281,7 @@ def test_evaluate_preco_parcial_e_input_sem_preco(cat):
         plan, {"AWP | Restrito A1 (Minimal Wear)": 23.0}.get)
     assert res["coverage"] == pytest.approx(0.5)
     assert res["ev_net"] == pytest.approx(10.0)
-    assert any("parcial" in w for w in res["warnings"])
+    assert any("incompleto" in w for w in res["warnings"])
 
     plan = tradeup.plan_contract(
         _n("AK-47 | Alfa (Field-Tested)", 10, float=0.20), cat)
