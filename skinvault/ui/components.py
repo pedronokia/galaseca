@@ -322,7 +322,7 @@ class EmptyState(QWidget):
 
     Uso:
         es = EmptyState("◇", "Nenhum item ainda",
-                         subtitle="Adicione manualmente ou sincronize.",
+                         subtitle="Adicione o primeiro item.",
                          cta_label="+ Adicionar", on_cta=callback)
 
         es = EmptyState("◎", "Pronto pra escanear",

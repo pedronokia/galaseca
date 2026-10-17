@@ -287,8 +287,9 @@ class WatchlistScreen(QWidget):
                                        accent=t.WARN, icon="history")
         for sc in (self._stat_total, self._stat_rules,
                    self._stat_triggered, self._stat_recent):
-            sc.setMaximumWidth(280)
-            stats_row.addWidget(sc)
+            # Mesmo peso pra todos: ocupam a largura toda, em vez de
+            # ficarem presos a ~300px a' esquerda (2026-10-17).
+            stats_row.addWidget(sc, 1)
         self._stat_total.setToolTip(
             "Itens atualmente na watchlist.\n"
             "Clique com o botão direito numa linha para editar regras, "
@@ -298,12 +299,11 @@ class WatchlistScreen(QWidget):
             "oferta ou nota).")
         self._stat_triggered.setToolTip(
             "Itens com alerta disparado agora.\n"
-            "Verifique a coluna Status e o log de alertas em "
-            "data/alerts_log.json.")
+            "Veja a coluna Status e os alertas anteriores na tela "
+            "Histórico, aba Watchlist.")
         self._stat_recent.setToolTip(
             "Alertas registrados nas últimas 24h.\n"
             "Inclui disparos que já foram resetados.")
-        stats_row.addStretch(1)
         root.addLayout(stats_row)
 
         # Filtro de confiança (mesmo padrão do Scanner)
@@ -329,6 +329,7 @@ class WatchlistScreen(QWidget):
         self._search_inp = QLineEdit()
         self._search_inp.setPlaceholderText("Filtrar por nome do item...")
         self._search_inp.setClearButtonEnabled(True)
+        self._search_inp.setMinimumWidth(240)
         self._search_inp.setMaximumWidth(320)
         self._search_inp.setStyleSheet(t.input_style())
         self._search_inp.textChanged.connect(self._apply_confidence_filter)

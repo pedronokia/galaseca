@@ -3709,7 +3709,7 @@ class TestTradesScreen:
         screen._on_import_steam()
         assert gravou == []
         assert toasts and toasts[-1][1] == "warning"
-        assert "Sincronize" in toasts[-1][0]
+        assert "salvo neste computador" in toasts[-1][0]
 
     def test_import_grava_e_atualiza_a_tela(self, monkeypatch):
         from skinvault.ui.trades_screen import TradesScreen
@@ -8551,7 +8551,7 @@ def test_account_on_validate_portfolio_vazio(monkeypatch):
     monkeypatch.setattr("skinvault.portfolio.load_portfolio", lambda: [])
     screen = AccountScreen(PriceCache(ttl=3600))
     screen._on_validate_portfolio()
-    assert "vazio" in screen._status.text().lower()
+    assert "vazia" in screen._status.text().lower()
     # Botão segue habilitado pra outra tentativa
     assert screen._validate_btn.isEnabled()
 

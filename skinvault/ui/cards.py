@@ -75,6 +75,10 @@ class StatCard(Card):
         self._delta.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self._delta.setVisible(False)
         self.layout().addWidget(self._delta)
+        # Conteudo preso no topo: numa linha de cartoes de mesma altura, o
+        # que nao tinha legenda distribuia a sobra entre rotulo e numero e
+        # o numero descia em relacao aos vizinhos.
+        self.layout().addStretch(1)
         self.setMinimumWidth(120)
 
     def set_delta(self, pct: float | None,

@@ -394,6 +394,7 @@ class _FilterBar(QWidget):
             " Esc limpa."
         )
         self._search.setClearButtonEnabled(True)
+        self._search.setMinimumWidth(240)  # "Buscar por nom..." cortava
         self._search.setStyleSheet(t.input_style())
         self._search.textChanged.connect(self._on_search_changed)
         root.addWidget(self._search)

@@ -1010,7 +1010,7 @@ class DepthChart(QWidget):
         if not self._bid_points and not self._ask_points:
             p.setPen(QColor(t.TEXT_MUTED))
             p.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter,
-                       "Sem dados do order book")
+                       "Sem dados da fila de ofertas")
             p.end()
             return
 

@@ -112,26 +112,28 @@ class AccountScreen(QWidget):
         act_lbl.setContentsMargins(0, 0, 0, 0)
         act_lbl.setSpacing(t.SPACE_SM)
 
+        # Destaque vai pra acao do dia a dia (Atualizar notas); o teste
+        # no passado e' ocasional e fica discreto.
         self._validate_btn = QPushButton("Testar a nota no passado")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._validate_btn.setStyleSheet(t.btn_secondary(padding="8px 14px",
-                                                          fs=t.FS_INPUT))
+        self._validate_btn.setStyleSheet(t.btn_ghost())
         self._validate_btn.setToolTip(
             "Atualiza a nota e o 'Topo' dos seus itens e mostra como a"
             " nota teria se saído nos últimos 90 dias com eles."
         )
         self._validate_btn.clicked.connect(self._on_validate_portfolio)
-        act_lbl.addWidget(self._validate_btn)
 
         self._refresh_btn = QPushButton("Atualizar notas")
         self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._refresh_btn.setStyleSheet(t.btn_ghost())
+        self._refresh_btn.setStyleSheet(t.btn_secondary(padding="8px 14px",
+                                                         fs=t.FS_INPUT))
         self._refresh_btn.setToolTip(
             "Recalcula a nota e o 'Topo' de cada item seu, sem abrir a"
             " janela de teste. Usa os preços já guardados quando dá."
         )
         self._refresh_btn.clicked.connect(self._on_refresh_scores)
         act_lbl.addWidget(self._refresh_btn)
+        act_lbl.addWidget(self._validate_btn)
 
         self._calc_btn = QPushButton("Calculadora de taxas")
         self._calc_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -160,22 +162,19 @@ class AccountScreen(QWidget):
         stats_row.setSpacing(16)
         self._stat_gross = StatCard("Valor bruto", "—",
                                      icon="wallet")
-        self._stat_gross.setMaximumWidth(300)
         self._stat_gross.setToolTip(
             "Valor de mercado da carteira (Steam Market).")
         self._stat_net = StatCard("Valor líquido", "—",
                                    accent=t.STEAM_BLUE, icon="coins")
-        self._stat_net.setMaximumWidth(300)
         self._stat_net.setToolTip(
             "Valor bruto menos a taxa Steam de 15%.")
         self._stat_pnl = StatCard("Lucro/prejuízo total", "—", icon="chart")
-        self._stat_pnl.setMaximumWidth(300)
         self._stat_items = StatCard("Total de itens", "0", icon="archive")
-        self._stat_items.setMaximumWidth(300)
         for sc in (self._stat_gross, self._stat_net, self._stat_pnl,
                    self._stat_items):
-            stats_row.addWidget(sc)
-        stats_row.addStretch(1)
+            # Mesmo peso pra todos: ocupam a largura toda, em vez de
+            # ficarem presos a ~300px a' esquerda (2026-10-17).
+            stats_row.addWidget(sc, 1)
         header.layout().addLayout(stats_row)
 
         root.addWidget(header)
@@ -191,21 +190,15 @@ class AccountScreen(QWidget):
         bd_row = QHBoxLayout()
         bd_row.setSpacing(20)
         self._bd_invested = StatCard("Total investido", "—")
-        self._bd_invested.setMaximumWidth(300)
         self._bd_profit_count = StatCard("Itens no lucro", "—",
                                          accent=t.POSITIVE)
-        self._bd_profit_count.setMaximumWidth(300)
         self._bd_loss_count = StatCard("Itens no prejuizo", "—",
                                        accent=t.DANGER)
-        self._bd_loss_count.setMaximumWidth(300)
         self._bd_best = StatCard("Maior lucro", "—")
-        self._bd_best.setMaximumWidth(300)
         self._bd_worst = StatCard("Maior prejuízo", "—", accent=t.DANGER)
-        self._bd_worst.setMaximumWidth(300)
         for sc in (self._bd_invested, self._bd_profit_count,
                    self._bd_loss_count, self._bd_best, self._bd_worst):
-            bd_row.addWidget(sc)
-        bd_row.addStretch(1)
+            bd_row.addWidget(sc, 1)
         bd_lay.addLayout(bd_row)
 
         breakdown_card.layout().addLayout(bd_lay)
@@ -308,7 +301,7 @@ class AccountScreen(QWidget):
         cx_title = QLabel("Caixas e cápsulas")
         cx_title.setStyleSheet(t.label_section())
         cx_lay.addWidget(cx_title)
-        self._cx_lbl = QLabel("Containers da carteira e o estado do drop")
+        self._cx_lbl = QLabel("As caixas e cápsulas da sua carteira e se ainda saem no jogo")
         self._cx_lbl.setStyleSheet(t.label_caption())
         cx_lay.addWidget(self._cx_lbl)
         self._cx_lista = QLabel("—")
@@ -492,7 +485,7 @@ class AccountScreen(QWidget):
         names = sorted({p["name"] for p in positions})
         if not names:
             self._status.setText(
-                "Portfolio vazio. Sincronize ou adicione posições primeiro."
+                "Carteira vazia: ainda não há itens para avaliar."
             )
             return
         self._validate_samples = []

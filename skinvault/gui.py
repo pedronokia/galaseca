@@ -979,6 +979,24 @@ def _instalar_traducao_qt(app: QApplication) -> bool:
         return False
 
 
+def _instalar_fonte_padrao(app: QApplication) -> None:
+    """Fonte padrao do app = a do tema (t.FONT_FAMILY).
+
+    Os widgets estilizados por QSS ja' usavam essa fonte, mas o que e'
+    desenhado a mao (QPainter: "Sem historico", "Sem itens avaliados" nos
+    graficos vazios) caia na fonte padrao do sistema, diferente do resto.
+    """
+    from PyQt6.QtGui import QFont
+    try:
+        familias = [f.strip().strip('"') for f in t.FONT_FAMILY.split(",")]
+        fonte = QFont()
+        fonte.setFamilies([f for f in familias if f and f != "system-ui"])
+        fonte.setPointSize(9)
+        app.setFont(fonte)
+    except Exception as e:  # cosmetico: nunca impedir o app de abrir
+        logging.getLogger(__name__).info("Fonte padrao nao aplicada: %s", e)
+
+
 def launch() -> int:
     ensure_data_dir()
     _setup_logging()
@@ -988,6 +1006,7 @@ def launch() -> int:
     app = QApplication([])
     app.setWindowIcon(_app_icon())
     _instalar_traducao_qt(app)
+    _instalar_fonte_padrao(app)
     # Tooltip e message box abrem em janela propria: so' o stylesheet de
     # APLICACAO os alcanca, setStyleSheet no widget dono nao.
     app.setStyleSheet(t.app_style())

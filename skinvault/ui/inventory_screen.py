@@ -341,7 +341,8 @@ class InventoryScreen(QWidget):
                 "No histórico, itens perto do maior preço subiram menos "
                 "depois. É uma informação, não um conselho de venda."),
             self.COL_ORIGIN: (
-                "Se o item veio da sincronização com a Steam ou foi "
+                "Se o item veio da antiga sincronização com a Steam ou "
+                "foi "
                 "lançado manualmente.\n"
                 "Só aparece quando o inventário mistura as duas origens."),
         }
@@ -368,7 +369,13 @@ class InventoryScreen(QWidget):
         # Corpo: filtros a' esquerda + visao a' direita, como o Mercado da
         # Comunidade. As categorias saem de `portfolio.classify_item`, as
         # mesmas do cartao de composicao da Conta.
-        corpo = QHBoxLayout()
+        # O corpo mora num container pra poder sumir inteiro: o drawer de
+        # detalhe fica "visivel" com largura zero quando fechado, e com o
+        # corpo num layout solto ele seguia ocupando a altura -- a mensagem
+        # de inventario vazio ia parar colada no rodape (2026-10-17).
+        self._corpo_w = QWidget()
+        corpo = QHBoxLayout(self._corpo_w)
+        corpo.setContentsMargins(0, 0, 0, 0)
         corpo.setSpacing(t.SPACE_LG)
 
         self._cat_panel = QWidget()
@@ -408,7 +415,7 @@ class InventoryScreen(QWidget):
         self._drawer.liquidity_requested.connect(
             self._on_liquidity_requested)
 
-        root.addLayout(corpo, 1)
+        root.addWidget(self._corpo_w, 1)
 
         # Filtro sem resultado deixava a tela em branco: indistinguivel de
         # inventario vazio ou de falha ao carregar.
@@ -422,8 +429,8 @@ class InventoryScreen(QWidget):
         self._empty = EmptyState(
             icon="◇",
             title="Inventário vazio",
-            subtitle=("Sincronize com a Steam na tela Minha Conta\n"
-                       "pra puxar seus itens."),
+            subtitle=("Ainda não há itens na sua carteira.\n"
+                       "Eles aparecem aqui assim que forem adicionados."),
         )
         root.addWidget(self._empty, 1)
 
@@ -437,7 +444,7 @@ class InventoryScreen(QWidget):
 
         # Default e' o empty state, nao o loading: sem sessao a AccountScreen
         # nunca chama refresh(), e a tela ficaria em branco pra sempre.
-        self._views.setVisible(False)
+        self._mostrar_corpo(False)
         self._empty.setVisible(True)
         self._loading.setVisible(False)
 
@@ -446,6 +453,11 @@ class InventoryScreen(QWidget):
         root.addWidget(self._status)
 
         self._apply_view_pref()
+
+    def _mostrar_corpo(self, visivel: bool) -> None:
+        """Grade/tabela + filtros + drawer aparecem e somem juntos."""
+        self._views.setVisible(visivel)
+        self._corpo_w.setVisible(visivel)
 
     def _apply_view_pref(self) -> None:
         """Aplica a visao persistida em settings.json.
@@ -481,11 +493,11 @@ class InventoryScreen(QWidget):
         # continua sendo a leitura honesta.
         if total and self._views.currentIndex() == 0:
             self._grid.set_skeleton(total)
-            self._views.setVisible(True)
+            self._mostrar_corpo(True)
             self._loading.setVisible(False)
             self._status.setText(f"Avaliando inventário… {done}/{total}")
             return
-        self._views.setVisible(False)
+        self._mostrar_corpo(False)
         self._loading.setVisible(True)
         self._loading.set_label(
             f"Avaliando inventário… {done}/{total}" if total
@@ -509,7 +521,7 @@ class InventoryScreen(QWidget):
         self._listados = self._carregar_listados()
         tem = bool(self._rows)
         self._loading.setVisible(False)
-        self._views.setVisible(tem)
+        self._mostrar_corpo(tem)
         self._empty.setVisible(not tem)
         if not tem:
             if rate_limited:
@@ -525,8 +537,8 @@ class InventoryScreen(QWidget):
                     "daqui a alguns minutos.")
             else:
                 self._empty.set_subtitle(
-                    "Sincronize com a Steam na tela Minha Conta\n"
-                    "pra puxar seus itens.")
+                    "Ainda não há itens na sua carteira.\n"
+                    "Eles aparecem aqui assim que forem adicionados.")
                 self._status.setText("")
             return
         self._populate_grid()

@@ -65,9 +65,9 @@ _MEDIAN_LABEL = "Preço típico (24h)"
 _MEDIAN_LABEL_FALLBACK = "Preço típico (último dia com venda)"
 
 _THROTTLED_MSG = (
-    "A Steam limitou as consultas de preço agora. O histórico e o livro de "
-    "ofertas vieram da página do item; menor listagem, volume 24h e o "
-    "veredito voltam sozinhos quando o limite passar."
+    "A Steam limitou as consultas de preço agora. O histórico e a fila de "
+    "ofertas vieram da página do item; menor anúncio, vendas em 24h e a "
+    "avaliação voltam sozinhos quando o limite passar."
 )
 
 _VERDICT_COLOR = {
@@ -115,8 +115,8 @@ class MarketScreen(QWidget):
 
         root.addWidget(PageHeader(
             "Consulta de Mercado",
-            "Análise de fair value, histórico de preços e profundidade do "
-            "livro de ofertas no Steam Community Market.",
+            "Veja se um item está caro ou barato, como o preço andou e "
+            "quem está comprando e vendendo no Steam Market.",
         ))
 
         # ── Search protagonist line ────────────────────────
@@ -178,10 +178,10 @@ class MarketScreen(QWidget):
         # ── Stat cards ────────────────────────────────────
         stats_row = QHBoxLayout()
         stats_row.setSpacing(12)
-        self._stat_lowest = StatCard("Menor listagem ativa", "—",
+        self._stat_lowest = StatCard("Menor anúncio", "—",
                                       icon="eye")
         self._stat_lowest.setToolTip(
-            "Preço da listagem mais barata disponível agora no Steam Market."
+            "O anúncio mais barato à venda agora no Steam Market."
         )
         self._stat_median = StatCard(_MEDIAN_LABEL, "—", icon="chart")
         self._stat_median.setToolTip(
@@ -207,10 +207,10 @@ class MarketScreen(QWidget):
         self._stat_sd.setToolTip(self._stat_sd_tooltip)
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
                    self._stat_verdict, self._stat_sd):
-            sc.setMaximumWidth(280)
             sc.setMaximumHeight(110)
-            stats_row.addWidget(sc)
-        stats_row.addStretch(1)
+            # Mesmo peso pra todos: ocupam a largura toda, em vez de
+            # ficarem presos a ~300px a' esquerda (2026-10-17).
+            stats_row.addWidget(sc, 1)
         content_lay.addLayout(stats_row)
 
         # ── Charts ────────────────────────────────────────
@@ -270,7 +270,7 @@ class MarketScreen(QWidget):
         depth_lay = QVBoxLayout()
         depth_lay.setSpacing(8)
         depth_hdr = QHBoxLayout()
-        depth_lbl = QLabel("Livro de ofertas")
+        depth_lbl = QLabel("Fila de ofertas")
         depth_lbl.setStyleSheet(t.label_caption())
         depth_hdr.addWidget(depth_lbl)
         depth_hdr.addStretch(1)
@@ -312,8 +312,8 @@ class MarketScreen(QWidget):
         detail_lay.addLayout(detail_hdr)
 
         self._detail_msg = QLabel(
-            "Consulte um item para ver fair value, spread, tendência e "
-            "profundidade do livro."
+            "Consulte um item para ver se está caro ou barato, a "
+            "diferença entre compra e venda e a tendência do preço."
         )
         self._detail_msg.setWordWrap(True)
         self._detail_msg.setStyleSheet(t.label_body_muted())
@@ -567,8 +567,8 @@ class MarketScreen(QWidget):
         self._depth_meta.setText("")
         self._detail_title.setText("Detalhes do item")
         self._detail_msg.setText(
-            "Consulte um item para ver fair value, spread, tendência e "
-            "profundidade do livro."
+            "Consulte um item para ver se está caro ou barato, a "
+            "diferença entre compra e venda e a tendência do preço."
         )
         self._detail_msg.setStyleSheet(t.label_body_muted())
         self._case_badge.setVisible(False)

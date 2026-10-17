@@ -85,8 +85,8 @@ class WelcomeDialog(QDialog):
         row.addWidget(_feature_card(
             "📦",
             "Conta + Inventário",
-            "Informe seu perfil da Steam e veja seu inventário avaliado "
-            "pelo preço de mercado (já sem a taxa de 15%)."
+            "Veja quanto sua carteira vale pelo preço de mercado, já "
+            "sem a taxa de 15% da Steam, e quanto você lucrou."
         ), 1)
         row.addWidget(_feature_card(
             "📊",
