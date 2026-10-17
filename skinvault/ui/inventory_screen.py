@@ -33,7 +33,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from skinvault import history, markets, portfolio, reports, signals, ssr_cache
+from skinvault import (
+    cases, history, markets, portfolio, reports, signals, ssr_cache,
+)
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     EmptyState,
@@ -193,7 +195,8 @@ class InventoryScreen(QWidget):
     COL_COST = 6
     COL_PNL = 7
     COL_SCORE = 8
-    COL_ORIGIN = 9
+    COL_TOP = 9
+    COL_ORIGIN = 10
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -303,10 +306,10 @@ class InventoryScreen(QWidget):
         self._grid._detail.liquidity_requested.connect(
             self._on_liquidity_requested)
         self._atualizar_ordem_labels()
-        self._table = QTableWidget(0, 10)
+        self._table = QTableWidget(0, 11)
         self._table.setHorizontalHeaderLabels([
             "Item", "Qtd", "Anúncio Steam", "Recebe (saldo)",
-            "Melhor fora", "Onde", "Custo", "P&L", "Score", "Origem",
+            "Melhor fora", "Onde", "Custo", "P&L", "Score", "Topo", "Origem",
         ])
         _tips = {
             self.COL_PRICE: (
@@ -331,6 +334,14 @@ class InventoryScreen(QWidget):
                 "na tela Minha Conta.\n"
                 "Fica âmbar quando está desatualizado. '—' significa que "
                 "ainda não foi calculado."),
+            self.COL_TOP: (
+                "Quão perto do topo histórico o preço está (100% = no "
+                "topo).\n"
+                "Calculado pelo 'Validar score' da tela Minha Conta, com o "
+                "mesmo histórico do Score.\n"
+                "Descritivo: no backtest, itens perto do topo renderam menos "
+                "nos 12 meses seguintes (passe o mouse na célula para os "
+                "números). Não é recomendação de venda."),
             self.COL_ORIGIN: (
                 "Se o item veio da sincronização com a Steam ou foi "
                 "lançado manualmente.\n"
@@ -818,6 +829,8 @@ class InventoryScreen(QWidget):
             score_item.setTextAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self._table.setItem(i, self.COL_SCORE, score_item)
+            self._table.setItem(i, self.COL_TOP, self._top_item(
+                r.get("name") or "", pos.get("exit_ctx")))
         # 31 linhas 100% "Steam" nao informa nada, so' ocupa espaco. So'
         # vale mostrar a coluna quando o inventario de fato mistura origens.
         origens = {
@@ -826,6 +839,34 @@ class InventoryScreen(QWidget):
         }
         self._table.setColumnHidden(self.COL_ORIGIN, len(origens) <= 1)
         self._table.setSortingEnabled(True)
+
+    @staticmethod
+    def _top_item(nome: str, ctx) -> QTableWidgetItem:
+        """Celula 'Topo': % do topo historico, persistido pelo Validar score.
+
+        So' numeros moram na posicao; o texto e o tooltip saem de
+        `signals.format_exit_context` na hora. "Perto do topo" (>=90%) fica
+        em ambar -- e' um fato sobre onde o preco esta', nao um sinal.
+        """
+        try:
+            pct = float(ctx["pct_of_ath"])
+            info = signals.format_exit_context(
+                pct, float(ctx["ath"]), float(ctx["current"]),
+                cases.is_container(nome), bool(ctx.get("at_launch")))
+        except (TypeError, KeyError, ValueError):
+            item = SortableItem("—", float("-inf"))
+            item.setToolTip("Ainda não calculado: rode 'Validar score' na "
+                            "tela Minha Conta.")
+            item.setTextAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            return item
+        item = SortableItem(info["text"], pct)
+        item.setToolTip(info["tooltip"])
+        if info["level"] == "topo":
+            item.setForeground(QBrush(QColor(t.WARN_TEXT)))
+        item.setTextAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        return item
 
     # ── interacao ─────────────────────────────────────────
 

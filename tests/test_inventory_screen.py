@@ -349,7 +349,7 @@ def test_score_nao_desloca_a_coluna_origem(tela):
     tela.set_data(ROWS, POS)
     assert tela._table.item(0, tela.COL_ORIGIN).text() == "Steam"
     # 10 desde 2026-07-31: "Custo" entrou entre "Onde" e "P&L"
-    assert tela._table.columnCount() == 10
+    assert tela._table.columnCount() == 11
 
 
 def test_coluna_origem_some_quando_nao_ha_mistura(tela):

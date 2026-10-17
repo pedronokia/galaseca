@@ -330,6 +330,18 @@ máxima histórica, o retorno futuro cai. No corte simples por bucket esse
 sinal aparecia **plano** — só surge controlando por data, o que é a
 lição metodológica aqui.
 
+> **4g — o "topo" bruto tem outlier, e em caixa é o lançamento
+> (2026-10-17).** A coluna "Topo" do Inventário
+> (`signals.exit_context`) mostra esses dois fatores para quem já tem o
+> item. Ao implementar: o máximo bruto da AK-47 Redline FT era R$ 1.403 —
+> um ponto **horário com 1 compra** num item de ~R$ 220; o máximo da série
+> diária ponderada por volume é R$ 403. `exit_context` usa a diária.
+> **`relative_to_ath` (fator `rel_ath` do score) ainda usa o bruto e
+> herda o outlier** — trocar exige medir ON × OFF antes. E nas 6 caixas
+> checadas (Gallery, Chroma 2, Clutch, Fever, Kilowatt) o topo caiu nos
+> primeiros 60 dias da série: em caixa, "distância do topo" é quase sempre
+> "distância do preço de lançamento". O tooltip avisa (`at_launch`).
+
 **O que NÃO se sustentou:** o corte simples sugeria que comprar *depois*
 de alta forte funcionava (+40,2% de mediana no bucket "subiu 50-100% em
 90d"). Controlando por data, o IC vai a +0,05, e a +0,003 em caixas.
