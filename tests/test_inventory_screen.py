@@ -325,7 +325,7 @@ def test_sem_score_mostra_travessao(tela):
     tela.set_data(ROWS, POS)
     cel = _score_cell(tela, "Redline")
     assert cel.text() == "—"
-    assert "Validar score" in cel.toolTip()
+    assert "Atualizar notas" in cel.toolTip()
 
 
 def test_score_desatualizado_fica_ambar(tela):

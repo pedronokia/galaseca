@@ -112,24 +112,23 @@ class AccountScreen(QWidget):
         act_lbl.setContentsMargins(0, 0, 0, 0)
         act_lbl.setSpacing(t.SPACE_SM)
 
-        self._validate_btn = QPushButton("Validar score")
+        self._validate_btn = QPushButton("Testar a nota no passado")
         self._validate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._validate_btn.setStyleSheet(t.btn_secondary(padding="8px 14px",
                                                           fs=t.FS_INPUT))
         self._validate_btn.setToolTip(
-            "Roda backtest histórico (90d) nos itens do seu portfolio."
-            " Mostra se o score realmente prediz retornos pros itens"
-            " que você possui. Usa cache 24h, então reruns são rápidos."
+            "Atualiza a nota e o 'Topo' dos seus itens e mostra como a"
+            " nota teria se saído nos últimos 90 dias com eles."
         )
         self._validate_btn.clicked.connect(self._on_validate_portfolio)
         act_lbl.addWidget(self._validate_btn)
 
-        self._refresh_btn = QPushButton("Atualizar scores")
+        self._refresh_btn = QPushButton("Atualizar notas")
         self._refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._refresh_btn.setStyleSheet(t.btn_ghost())
         self._refresh_btn.setToolTip(
-            "Recomputa scores de todos os itens usando dados do cache."
-            " Mais rápido que Validar score — não mostra dialog de backtest."
+            "Recalcula a nota e o 'Topo' de cada item seu, sem abrir a"
+            " janela de teste. Usa os preços já guardados quando dá."
         )
         self._refresh_btn.clicked.connect(self._on_refresh_scores)
         act_lbl.addWidget(self._refresh_btn)
@@ -169,7 +168,7 @@ class AccountScreen(QWidget):
         self._stat_net.setMaximumWidth(300)
         self._stat_net.setToolTip(
             "Valor bruto menos a taxa Steam de 15%.")
-        self._stat_pnl = StatCard("P&L total", "—", icon="chart")
+        self._stat_pnl = StatCard("Lucro/prejuízo total", "—", icon="chart")
         self._stat_pnl.setMaximumWidth(300)
         self._stat_items = StatCard("Total de itens", "0", icon="archive")
         self._stat_items.setMaximumWidth(300)
@@ -199,9 +198,9 @@ class AccountScreen(QWidget):
         self._bd_loss_count = StatCard("Itens no prejuizo", "—",
                                        accent=t.DANGER)
         self._bd_loss_count.setMaximumWidth(300)
-        self._bd_best = StatCard("Melhor P&L", "—")
+        self._bd_best = StatCard("Maior lucro", "—")
         self._bd_best.setMaximumWidth(300)
-        self._bd_worst = StatCard("Pior P&L", "—", accent=t.DANGER)
+        self._bd_worst = StatCard("Maior prejuízo", "—", accent=t.DANGER)
         self._bd_worst.setMaximumWidth(300)
         for sc in (self._bd_invested, self._bd_profit_count,
                    self._bd_loss_count, self._bd_best, self._bd_worst):
@@ -589,7 +588,8 @@ class AccountScreen(QWidget):
         n = len(self._validate_samples)
         items_n = self._validate_items_count
         self._status.setText(
-            f"Validação concluída: {n} amostras de {items_n} itens"
+            f"Pronto: notas atualizadas ({items_n} itens, {n} situações "
+            f"testadas no passado)"
         )
         refresh = getattr(self, "_refresh_mode", False)
         if refresh:
@@ -718,7 +718,7 @@ class AccountScreen(QWidget):
                 self._stat_pnl.setToolTip(
                     f"{len(com_custo)} de {len(rows)} itens tem custo "
                     "registrado, mas\nnenhum deles tem preço agora — a Steam "
-                    "não respondeu.\nO P&L volta quando a cotação voltar.")
+                    "não respondeu.\nO lucro/prejuízo volta quando a cotação voltar.")
             else:
                 self._stat_pnl.setToolTip(
                     f"Calculado sobre {len(com_custo)} de {len(rows)} itens.\n"

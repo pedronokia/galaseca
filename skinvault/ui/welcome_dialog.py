@@ -85,20 +85,20 @@ class WelcomeDialog(QDialog):
         row.addWidget(_feature_card(
             "📦",
             "Conta + Inventário",
-            "Sincronize com a Steam e veja seu inventário avaliado "
-            "ao preço de mercado (já com a taxa de 15% descontada)."
+            "Informe seu perfil da Steam e veja seu inventário avaliado "
+            "pelo preço de mercado (já sem a taxa de 15%)."
         ), 1)
         row.addWidget(_feature_card(
             "📊",
             "Scanner de Skins",
-            "Score 0–100 por item baseado em spread, tendência, volume "
-            "e oferta. Saiba o que comprar e o que evitar."
+            "Uma nota de 0 a 100 para cada item, feita com os dados de "
+            "preço e de vendas. Ajuda a comparar — não garante lucro."
         ), 1)
         row.addWidget(_feature_card(
             "🔔",
             "Watchlist + Alertas",
-            "Defina alvos de preço, anomalias de volume e quedas de "
-            "oferta. Notificações na bandeja quando a regra dispara."
+            "Escolha um preço-alvo ou avisos de movimento estranho e "
+            "receba uma notificação no Windows quando acontecer."
         ), 1)
         outer.addLayout(row)
 

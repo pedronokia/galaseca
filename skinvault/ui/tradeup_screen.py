@@ -110,9 +110,9 @@ class EvalWorker(QObject):
                 res = tradeup.evaluate(plan, pricer)
                 if pricer.blocked:
                     res["warnings"].append(
-                        "A Steam parou de responder (provavel rate limit): "
-                        "parte dos precos ficou de fora. Tente de novo mais "
-                        "tarde -- o que ja' veio fica no cache.")
+                        "A Steam parou de responder (excesso de consultas): "
+                        "parte dos preços ficou de fora. Tente de novo mais "
+                        "tarde — o que já veio fica guardado.")
             except Exception as e:  # nunca deixar a UI sem resposta
                 res = {"errors": [f"Falha ao precificar: {e}"]}
             finally:
@@ -123,27 +123,28 @@ class EvalWorker(QObject):
 
 
 _INPUT_COLS = (
-    ("Item", "market_hash_name exato, com wear."),
+    ("Item", "Nome exato do item no mercado, com o desgaste."),
     ("Qtd", "Quantas unidades deste item entram no contrato."),
-    ("Float", "Float informado. 'meio da faixa' = nao informado: usa o "
-              "ponto medio da faixa do wear dentro do range do skin."),
-    ("Custo un.", "Custo unitario informado. 'mediana' = usa a mediana de "
-                  "7 dias do Steam Market."),
-    ("Coleção", "Colecao do skin (define o pool de saida)."),
+    ("Float", "Float informado. 'meio da faixa' = você não informou: "
+              "usamos o meio da faixa desse desgaste."),
+    ("Custo un.", "Quanto você pagou por unidade. 'preço típico' = usamos "
+                  "o preço típico dos últimos 7 dias no Steam Market."),
+    ("Coleção", "Coleção do skin: ela define o que pode sair."),
     ("Raridade", "Todos os itens precisam ter a mesma raridade."),
 )
 
 _OUT_COLS = (
-    ("Resultado", "Item que pode sair, ja' com o wear calculado pelo float "
-                  "de saida."),
-    ("Coleção", "Colecao sorteada para este resultado."),
-    ("Prob.", "Chance: (inputs da colecao / total) x (1 / itens possiveis "
-              "na colecao)."),
-    ("Float", "Float de saida: media dos floats normalizados de cada input, "
-              "mapeada no range deste skin."),
-    ("Preço ref.", "Mediana dos ultimos 7 dias no Steam Market (bruto)."),
-    ("Líquido", "Preco de referencia menos a taxa da Steam (15%)."),
-    ("vs custo", "Liquido menos o custo total do contrato."),
+    ("Resultado", "Item que pode sair, já com o desgaste calculado."),
+    ("Coleção", "Coleção de onde esse item sai."),
+    ("Chance", "Chance de sair esse item. Coleções com mais itens no "
+               "contrato têm mais chance."),
+    ("Float", "Float que o item sairia, calculado pelos floats que você "
+              "colocou."),
+    ("Preço típico", "Preço pelo qual ele costuma ser vendido nos últimos "
+                     "7 dias no Steam Market."),
+    ("Você recebe", "O que sobra vendendo pelo preço típico, já sem a taxa "
+                    "de 15% da Steam."),
+    ("Lucro", "O que você recebe menos o custo total do contrato."),
 )
 
 
@@ -191,15 +192,15 @@ class TradeUpScreen(QWidget):
         self._catalog_btn = QPushButton("Atualizar catálogo")
         self._catalog_btn.setStyleSheet(t.btn_secondary())
         self._catalog_btn.setToolTip(
-            "Baixa de novo o catalogo de colecoes, raridades, ranges de "
-            "float e pools de faca/luva (dataset publico ByMykel/CSGO-API). "
-            "Atualiza sozinho a cada 7 dias.")
+            "Baixa de novo a lista de coleções, raridades e facas/luvas "
+            "de cada caixa (base pública ByMykel/CSGO-API). Ela se atualiza "
+            "sozinha a cada 7 dias.")
         self._catalog_btn.clicked.connect(
             lambda: self._load_catalog(force=True))
         root.addWidget(PageHeader(
             "Trade-up",
-            "Valor esperado de contratos 10→1 e 5 Covert→faca/luva, "
-            "com preços do Steam Market",
+            "Quanto um contrato vale em média: 10 itens → 1 melhor, ou "
+            "5 Covert → faca/luva",
             actions=[self._catalog_btn]))
 
         self._catalog_lbl = QLabel("Catálogo ainda não carregado.")
@@ -230,12 +231,12 @@ class TradeUpScreen(QWidget):
         self._clear_btn.setToolTip("Remove todos os itens do contrato.")
         self._clear_btn.clicked.connect(self._on_clear)
         acoes.addWidget(self._clear_btn)
-        self._calc_btn = QPushButton("Calcular EV")
+        self._calc_btn = QPushButton("Calcular")
         self._calc_btn.setStyleSheet(t.btn_primary())
         self._calc_btn.setToolTip(
-            "Busca os precos de cada resultado possivel (SSR cache; o que "
-            "faltar vem do Steam Market, com pausa entre buscas) e calcula "
-            "o valor esperado.")
+            "Busca o preço de cada item que pode sair (o que já está "
+            "guardado é instantâneo; o resto vem do Steam Market, com pausa "
+            "entre buscas) e calcula quanto o contrato vale em média.")
         self._calc_btn.clicked.connect(self._on_calculate)
         acoes.addWidget(self._calc_btn)
         root.addLayout(acoes)
@@ -244,16 +245,19 @@ class TradeUpScreen(QWidget):
         cards.setContentsMargins(0, 0, 0, 0)
         cards.setSpacing(t.SPACE_MD)
         self._card_cost = StatCard("Custo do contrato")
-        self._card_ev = StatCard("EV líquido")
-        self._card_profit = StatCard("Resultado esperado")
+        self._card_ev = StatCard("Valor médio do contrato")
+        self._card_profit = StatCard("Lucro médio")
         self._card_chance = StatCard("Chance de cobrir o custo")
         for c, dica in (
-            (self._card_cost, "Soma do custo dos inputs."),
-            (self._card_ev, "Soma de probabilidade x valor liquido de cada "
-                            "resultado (sem preco conta como zero)."),
-            (self._card_profit, "EV liquido menos o custo, e o ROI."),
-            (self._card_chance, "Probabilidade somada dos resultados cujo "
-                                "liquido cobre o custo total."),
+            (self._card_cost, "Quanto custam os itens do contrato."),
+            (self._card_ev, "Quanto você receberia em média se fizesse este "
+                            "contrato muitas vezes, já sem a taxa da Steam. "
+                            "Cada contrato sozinho pode sair bem acima ou "
+                            "bem abaixo."),
+            (self._card_profit, "Valor médio menos o custo, e quanto isso "
+                                "representa do custo (%)."),
+            (self._card_chance, "Chance de o item que sair valer pelo menos "
+                                "o que você gastou."),
         ):
             c.setToolTip(dica)
             cards.addWidget(c)
@@ -270,9 +274,10 @@ class TradeUpScreen(QWidget):
         root.addWidget(self._outputs, 1)
 
         nota = QLabel(
-            "Descritivo, não previsão: EV calculado com a mediana dos últimos "
-            "7 dias do Steam Market, líquida da taxa de 15%. O saldo da Steam "
-            "não é sacável, e o item recebido fica 7 dias em Trade Protection.")
+            "Conta feita com os preços de agora, não uma previsão: preço "
+            "típico dos últimos 7 dias no Steam Market, já sem a taxa de 15%. "
+            "O saldo da Steam não pode ser sacado, e o item recebido fica 7 "
+            "dias travado (Trade Protection).")
         nota.setWordWrap(True)
         nota.setStyleSheet(t.label_caption())
         root.addWidget(nota)
@@ -290,8 +295,9 @@ class TradeUpScreen(QWidget):
         self._name_inp.setStyleSheet(t.input_style())
         self._name_inp.returnPressed.connect(self._on_add)
         row.addWidget(FormRow("Item", self._name_inp,
-                              tooltip="Nome exato de mercado, com wear. "
-                                      "O autocomplete vem do catalogo."), 4)
+                              tooltip="Nome exato do item no mercado, "
+                                      "com o desgaste. Comece a digitar "
+                                      "para ver sugestões."), 4)
 
         self._qty_inp = QSpinBox()
         self._qty_inp.setRange(1, tradeup.STANDARD_INPUTS)
@@ -304,7 +310,7 @@ class TradeUpScreen(QWidget):
         self._float_inp.setStyleSheet(t.input_style())
         row.addWidget(FormRow("Float", self._float_inp,
                               tooltip="Float exato do item (ex.: 0,2134). "
-                                      "Vazio = meio da faixa do wear."), 1)
+                                      "Vazio = meio da faixa do desgaste."), 1)
 
         self._cost_inp = QDoubleSpinBox()
         self._cost_inp.setRange(0, 999999)
@@ -312,9 +318,9 @@ class TradeUpScreen(QWidget):
         self._cost_inp.setPrefix("R$ ")
         self._cost_inp.setStyleSheet(t.input_style())
         row.addWidget(FormRow("Custo un.", self._cost_inp,
-                              tooltip="Quanto voce pagou por unidade. "
-                                      "R$ 0,00 = usar a mediana do Steam "
-                                      "Market."), 1)
+                              tooltip="Quanto você pagou por unidade. "
+                                      "R$ 0,00 = usar o preço típico do "
+                                      "Steam Market."), 1)
 
         self._add_btn = QPushButton("Adicionar")
         self._add_btn.setStyleSheet(t.btn_secondary())
@@ -432,14 +438,14 @@ class TradeUpScreen(QWidget):
                 num_cell(str(e["qty"]), e["qty"]),
                 QTableWidgetItem("meio da faixa" if e["float"] is None
                                  else f"{e['float']:.4f}"),
-                QTableWidgetItem("mediana" if e["cost"] is None
+                QTableWidgetItem("preço típico" if e["cost"] is None
                                  else t.brl(e["cost"])),
                 QTableWidgetItem(meta.get("c") or "—"),
                 QTableWidgetItem(rar),
             ]
             if not meta:
                 celulas[0].setForeground(_color(t.DANGER))
-                celulas[0].setToolTip("Nao encontrado no catalogo.")
+                celulas[0].setToolTip("Não encontrado no catálogo.")
             for c, item in enumerate(celulas):
                 self._inputs.setItem(r, c, item)
         self._sync_count()
@@ -541,8 +547,8 @@ class TradeUpScreen(QWidget):
                 num_cell(t.brl(delta), delta, cor),
             ]
             if o.get("price") is None:
-                celulas[4].setToolTip("Sem historico no Steam Market para "
-                                      "este nome (ou a busca nao completou).")
+                celulas[4].setToolTip("Sem histórico no Steam Market para "
+                                      "este item (ou a busca não terminou).")
             for c, item in enumerate(celulas):
                 self._outputs.setItem(r, c, item)
         self._outputs.setSortingEnabled(True)

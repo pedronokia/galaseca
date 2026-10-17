@@ -637,6 +637,43 @@ alcança quem já capturou o número antigo (`value_inventory` e
 tempo de chamada). `tests/conftest.py` zera a constante via fixture
 `autouse` pra suíte inteira não dormir de verdade.
 
+### 14. Linguagem da tela: usuário básico (2026-10-17)
+
+O app tem que ser usável por quem não sabe o que é spread ou backtest.
+Regras para todo texto visível (rótulo, coluna, tooltip, mensagem):
+
+| em vez de | escreva |
+|---|---|
+| Score | Nota (0–100) |
+| P&L / P&L líquido | Lucro/prejuízo / Lucro (sem taxa) |
+| ROI | Retorno % |
+| Spread | Diferença compra/venda |
+| Book / order book | Fila de ofertas |
+| Veredito | Avaliação |
+| Mediana, preço justo | Preço típico |
+| Oferta/Demanda, S/D | Procura × Oferta |
+| ATH, topo | maior preço já registrado |
+| EV | valor médio do contrato |
+| wear | desgaste (Field-Tested etc. ficam como estão) |
+| cache, SSR, rate limit | "preços guardados", "a Steam limita as consultas" |
+| IC, quintil, Spearman, z-score | frase: o que aconteceu, sem o número técnico |
+
+Mantêm-se (todo jogador conhece): Float, StatTrak, Souvenir, Trade-up,
+Covert, Steam.
+
+- **Código interno ≠ texto da tela.** `steam_api`/`signals` seguem com
+  `tight`, `buyer_dominant`, `rising`… (score, backtest e testes dependem
+  deles). A tradução mora em `skinvault/ui/textos.py`. Até esta data o
+  Scanner e o Market mostravam esses códigos **crus** nas células.
+- **Nunca prometer retorno.** O tooltip da nota dizia "85+ containers →
+  +52% em 90d" e o diálogo "nota 70–84 → +27%": números do backtest de
+  jun/2026, contaminado (4b), e contrários ao que foi medido depois (nem o
+  melhor quintil cobre a taxa em 90d). Saíram. Texto de resultado passado
+  diz "no passado…" e "não garante lucro".
+- **Acento sempre** em texto visível. Comentário de código pode ficar sem.
+- Botões padrão do Qt (Fechar, Sim, Não) vêm do `qtbase_pt_BR.qm`,
+  instalado em `gui._instalar_traducao_qt`; sem ele saíam em inglês.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`

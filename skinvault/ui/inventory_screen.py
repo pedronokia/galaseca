@@ -309,7 +309,8 @@ class InventoryScreen(QWidget):
         self._table = QTableWidget(0, 11)
         self._table.setHorizontalHeaderLabels([
             "Item", "Qtd", "Anúncio Steam", "Recebe (saldo)",
-            "Melhor fora", "Onde", "Custo", "P&L", "Score", "Topo", "Origem",
+            "Melhor fora", "Onde", "Custo", "Lucro/prejuízo", "Nota", "Topo",
+            "Origem",
         ])
         _tips = {
             self.COL_PRICE: (
@@ -327,21 +328,18 @@ class InventoryScreen(QWidget):
             self.COL_COST: (
                 "Quanto você pagou pelo item (ou zero se foi drop).\n"
                 "Duplo clique na coluna para definir.\n"
-                "É daqui que o P&L sai: sem custo, não há lucro que se "
-                "possa afirmar."),
+                "Sem o custo, não dá para saber se você está no lucro."),
             self.COL_SCORE: (
-                "Score do item (0-100), calculado pelo botão 'Validar score' "
-                "na tela Minha Conta.\n"
-                "Fica âmbar quando está desatualizado. '—' significa que "
-                "ainda não foi calculado."),
+                "Nota de 0 a 100 que compara este item com os outros pelos "
+                "dados de hoje. Calculada em 'Atualizar notas' (tela Minha "
+                "Conta).\n"
+                "Fica âmbar quando está velha. '—' = ainda não calculada."),
             self.COL_TOP: (
                 "Quão perto do topo histórico o preço está (100% = no "
                 "topo).\n"
-                "Calculado pelo 'Validar score' da tela Minha Conta, com o "
-                "mesmo histórico do Score.\n"
-                "Descritivo: no backtest, itens perto do topo renderam menos "
-                "nos 12 meses seguintes (passe o mouse na célula para os "
-                "números). Não é recomendação de venda."),
+                "Calculado em 'Atualizar notas' (tela Minha Conta).\n"
+                "No histórico, itens perto do maior preço subiram menos "
+                "depois. É uma informação, não um conselho de venda."),
             self.COL_ORIGIN: (
                 "Se o item veio da sincronização com a Steam ou foi "
                 "lançado manualmente.\n"
@@ -855,7 +853,7 @@ class InventoryScreen(QWidget):
                 cases.is_container(nome), bool(ctx.get("at_launch")))
         except (TypeError, KeyError, ValueError):
             item = SortableItem("—", float("-inf"))
-            item.setToolTip("Ainda não calculado: rode 'Validar score' na "
+            item.setToolTip("Ainda não calculado: use 'Atualizar notas' na "
                             "tela Minha Conta.")
             item.setTextAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -1013,7 +1011,7 @@ class InventoryScreen(QWidget):
         acao = menu.addAction("Definir custo…")
         acao.setToolTip(
             "Quanto você pagou pelo item (ou zero se foi drop).\n"
-            "É daqui que o P&L sai.")
+            "Sem o custo, não dá para calcular o lucro.")
         if menu.exec(self._table.viewport().mapToGlobal(pos)) == acao:
             self._editar_custo_linha(row)
 

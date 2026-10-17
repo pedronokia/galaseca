@@ -353,7 +353,7 @@ class SettingsScreen(QWidget):
         self._cache_ttl.valueChanged.connect(
             lambda v: self._set("cache_ttl_hours", v))
         lay.addWidget(FormRow(
-            "Validade do cache de preços", self._cache_ttl,
+            "Por quanto tempo guardar os preços", self._cache_ttl,
             tooltip="Por quanto tempo um preço consultado é reaproveitado "
                     "antes de buscar de novo na Steam.",
         ))
@@ -367,8 +367,8 @@ class SettingsScreen(QWidget):
             lambda v: self._set("fee_rate", v))
         lay.addWidget(FormRow(
             "Taxa do Steam Market", self._fee_rate,
-            tooltip="Fração descontada pela Steam em cada venda "
-                    "(0,15 = 15%). Usada no P&L líquido e no simulador.",
+            tooltip="Quanto a Steam desconta em cada venda "
+                    "(0,15 = 15%). Usada em todo cálculo de lucro.",
         ))
         return card
 

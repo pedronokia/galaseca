@@ -408,9 +408,9 @@ class InventoryTile(QFrame):
     @staticmethod
     def _pnl_texto(pnl: float | None) -> str:
         if pnl is None:
-            return "P&L —"
+            return "Lucro —"
         sinal = "+" if pnl >= 0 else ""
-        return f"P&L {sinal}{t.brl(pnl)}"
+        return f"Lucro {sinal}{t.brl(pnl)}"
 
     def _badge_largura(self, p, texto: str, negrito: bool) -> int:
         """Largura do pill do topo (texto + espaco interno), na MESMA
@@ -597,7 +597,7 @@ class ItemDetailPanel(QFrame):
         self._set_cost_btn.setStyleSheet(
             t.btn_ghost(padding="4px 12px", fs=t.FS_MUTED))
         self._set_cost_btn.setToolTip(
-            "Sem custo não há P&L que se possa afirmar.\n"
+            "Sem o custo, não dá para saber se você está no lucro.\n"
             "Informe quanto pagou (ou 0 para drop) e esta tela passa a "
             "calcular o lucro/prejuízo deste item.")
         self._set_cost_btn.clicked.connect(
@@ -856,7 +856,7 @@ class ItemDetailPanel(QFrame):
             else:
                 quando = f" · de {dias} dias atrás"
         self._score.setText(
-            f"<span style='color:{t.TEXT_MUTED}'>Score</span> "
+            f"<span style='color:{t.TEXT_MUTED}'>Nota</span> "
             f"<b>{int(score)}</b>"
             f"<span style='color:{t.TEXT_MUTED}'>{quando}</span>")
 

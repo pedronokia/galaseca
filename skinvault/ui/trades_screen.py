@@ -202,8 +202,8 @@ class TradesScreen(QWidget):
 
         root.addWidget(PageHeader(
             "Histórico de Trades",
-            "P&L líquido após a taxa de 15% da Steam, com filtros por "
-            "período e resultado.",
+            "Quanto você ganhou ou perdeu, já sem a taxa de 15% da "
+            "Steam, com filtros por período e resultado.",
             actions=[self._add_btn, self._more_btn],
         ))
 
@@ -215,7 +215,7 @@ class TradesScreen(QWidget):
         self._stat_total.setToolTip(
             "Quantidade de trades que casam com o filtro atual."
         )
-        self._stat_pnl = StatCard("P&L líquido", "—", icon="chart")
+        self._stat_pnl = StatCard("Lucro (sem taxa)", "—", icon="chart")
         self._stat_pnl.setMaximumWidth(300)
         self._stat_pnl.setToolTip(
             "Lucro/prejuízo total já descontada a taxa Steam de 15%."
@@ -223,7 +223,7 @@ class TradesScreen(QWidget):
         self._stat_winrate = StatCard("Taxa de acerto", "—", icon="percent")
         self._stat_winrate.setMaximumWidth(300)
         self._stat_winrate.setToolTip(
-            "% de trades com P&L positivo (winning trades / total)."
+            "Em quantos % dos trades você teve lucro."
         )
         self._stat_fees = StatCard("Taxas pagas", "—", icon="coins")
         self._stat_fees.setMaximumWidth(200)
@@ -284,7 +284,7 @@ class TradesScreen(QWidget):
         self._table = QTableWidget(0, 9)
         self._table.setHorizontalHeaderLabels(
             ["Data", "Item", "Qtd", "Compra", "Venda",
-             "P&L líquido", "ROI", "Origem", "Notas"]
+             "Lucro (sem taxa)", "Retorno %", "Origem", "Notas"]
         )
         from skinvault.settings import load_settings as _ls
         t.configure_table(
@@ -301,14 +301,13 @@ class TradesScreen(QWidget):
                 "cobra taxa na compra — só na venda."),
             self.COL_SELL: (
                 "Preço de listagem da venda na Steam, por unidade. A taxa "
-                "de 15% (incidente sobre o valor do vendedor) já sai no "
-                "P&L."),
+                "de 15% já é descontada no lucro."),
             self.COL_PNL: (
-                "Lucro/prejuízo líquido em R$: recebido (venda com taxa "
-                "descontada) − custo da compra."),
+                "Quanto você ganhou ou perdeu em R$: o que recebeu na "
+                "venda (já sem a taxa) menos o que pagou."),
             self.COL_ROI: (
-                "Retorno sobre o investimento: P&L ÷ custo total, em "
-                "percentual 0–100."),
+                "Quanto o lucro representa do que você pagou. Ex.: pagou "
+                "R$ 100 e lucrou R$ 20 = 20%."),
             self.COL_SOURCE: "Origem do registro: manual ou importado.",
             self.COL_NOTES: "Observação livre anotada no trade.",
         }
@@ -361,8 +360,9 @@ class TradesScreen(QWidget):
             subtitle=("Adicione ou sincronize seus trades pra ver\n"
                        "o histórico completo aqui."),
             steps=["Adicione um trade manualmente ou sincronize com a Steam.",
-                   "Acompanhe P&L, taxa de acerto e desempenho mensal.",
-                   "Clique numa barra do P&L mensal para filtrar a tabela."],
+                   "Acompanhe lucro, taxa de acerto e resultado por mês.",
+                   "Clique numa barra do gráfico mensal para filtrar a "
+                   "tabela."],
             cta_label="+ Adicionar trade",
             on_cta=self._on_add,
         )

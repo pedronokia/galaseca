@@ -132,7 +132,7 @@ def test_html_report_inventario_e_resumo():
 def test_html_report_deriva_totals_das_linhas():
     html = reports.html_report(ROWS, [], None, POS, MERCADOS)
     assert "R$ 700,00" in html  # 200 + 500
-    assert "P&amp;L total" in html  # & escapado no HTML
+    assert "Lucro/prejuízo total" in html
 
 
 def test_html_report_vazio_renderiza_placeholder():

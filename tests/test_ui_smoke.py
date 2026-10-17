@@ -292,8 +292,10 @@ def test_scanner_zscore_tooltip_na_coluna_tendencia(monkeypatch):
     screen._scan_results = [r]
     screen._populate()
     tip = screen._table.item(0, screen.COL_TREND).toolTip()
-    assert "Z=2.34" in tip
-    assert "não é fator" in tip.lower()
+    # Texto comum no lugar de "Z=2.34 (extreme_high)"
+    assert "muito acima do normal" in tip
+    assert "Z=" not in tip
+    assert "não entra na nota" in tip.lower()
 
 
 def test_scanner_sem_zscore_sem_tooltip_na_tendencia(monkeypatch):
@@ -445,7 +447,7 @@ def test_scanner_tabela_tem_coluna_conf():
     assert screen._table.horizontalHeaderItem(
         screen.COL_COMPRAR).text() == "Compre até"
     assert screen._table.horizontalHeaderItem(
-        screen.COL_CONFIDENCE).text() == "Confiança"
+        screen.COL_CONFIDENCE).text() == "Confiança nos dados"
     assert screen._table.horizontalHeaderItem(
         screen.COL_RISCO).text() == "Risco"
 
@@ -573,11 +575,12 @@ def test_scanner_populate_conf_tooltip():
     cell = screen._table.item(0, screen.COL_CONFIDENCE)
     tip = cell.toolTip()
     assert "180" in tip
-    assert "0.85" in tip
+    assert "Alta" in tip
 
 
-def test_score_breakdown_dialog_container_mostra_especifico():
-    """Container com is_container=True mostra retorno tipico de container."""
+def test_score_breakdown_dialog_container_nao_promete_retorno():
+    """Container: nada de "nota 75 -> +32%" (numero de jun/2026, contaminado
+    pelo lookahead do vintage -- AGENTS.md 4b). Mostra a explicacao honesta."""
     from PyQt6.QtWidgets import QLabel
     from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
@@ -585,13 +588,13 @@ def test_score_breakdown_dialog_container_mostra_especifico():
         "is_container": True,
     })
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
-    assert any("Específico para containers" in t for t in texts)
-    # Bucket 70-84 container = +32.9%
-    assert any("+32" in t for t in texts)
+    assert not any("Específico para" in t for t in texts)
+    assert not any("+32" in t for t in texts)
+    assert any("não garante lucro" in t for t in texts)
 
 
-def test_score_breakdown_dialog_skin_mostra_especifico():
-    """Skin com is_container=False mostra retorno tipico de skin."""
+def test_score_breakdown_dialog_skin_nao_promete_retorno():
+    """Skin: mesma regra do container -- sem retorno prometido."""
     from PyQt6.QtWidgets import QLabel
     from skinvault.ui.scanner_dialogs import _ScoreBreakdownDialog
     dlg = _ScoreBreakdownDialog({
@@ -599,9 +602,9 @@ def test_score_breakdown_dialog_skin_mostra_especifico():
         "is_container": False,
     })
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
-    assert any("Específico para skins" in t for t in texts)
-    # Bucket 70-84 skin = +7.5%
-    assert any("+7.5" in t or "+7." in t for t in texts)
+    assert not any("Específico para" in t for t in texts)
+    assert not any("+7.5" in t for t in texts)
+    assert any("não garante lucro" in t for t in texts)
 
 
 def test_score_breakdown_dialog_sem_is_container_omite_tipo():
@@ -625,8 +628,7 @@ def test_score_breakdown_dialog_bucket_n_pequeno_omite():
         "is_container": False,
     })
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
-    # Linha geral aparece (n=186), mas a "Especifico para skins" nao
-    assert any("Histórico em 90 dias" in t for t in texts)
+    assert any("O que a nota é" in t for t in texts)
     assert not any("Específico para skins" in t for t in texts)
 
 
@@ -640,9 +642,9 @@ def test_score_breakdown_dialog_confidence_high():
                           "n": 200, "age_days": 1.0},
     })
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
-    assert any("Confiança alta" in t for t in texts)
+    assert any("Confiança nos dados: alta" in t for t in texts)
     # Sem warning para high
-    assert not any("anti-preditivo" in t for t in texts)
+    assert not any("costuma errar" in t for t in texts)
 
 
 def test_score_breakdown_dialog_confidence_baixa_mostra_warning():
@@ -655,8 +657,8 @@ def test_score_breakdown_dialog_confidence_baixa_mostra_warning():
                           "n": 10, "age_days": 5.0},
     })
     texts = [lbl.text() for lbl in dlg.findChildren(QLabel)]
-    assert any("Confiança MUITO BAIXA" in t for t in texts)
-    assert any("anti-preditivo" in t for t in texts)
+    assert any("Confiança nos dados: MUITO BAIXA" in t for t in texts)
+    assert any("costuma errar" in t for t in texts)
 
 
 def test_score_breakdown_dialog_sem_dq_nao_crasha():
@@ -675,13 +677,14 @@ def test_score_breakdown_dialog_mostra_historico():
     dlg = _ScoreBreakdownDialog({
         "name": "AK-47", "score": 75, "breakdown": [],
     })
-    # Procura QLabel com texto "Histórico em 90 dias"
     from PyQt6.QtWidgets import QLabel
     labels = dlg.findChildren(QLabel)
     texts = [lbl.text() for lbl in labels]
-    assert any("Histórico em 90 dias" in t for t in texts)
-    # Bucket 70-84 tem retorno positivo de dois digitos (~+27%)
-    assert any("+27" in t for t in texts)
+    # O retorno por faixa (~+27%) era do backtest de jun/2026, contaminado;
+    # no lugar fica o que foi medido depois: nao cobre a taxa em 90 dias.
+    assert any("O que a nota é" in t for t in texts)
+    assert any("taxa de 15%" in t for t in texts)
+    assert not any("+27" in t for t in texts)
 
 
 # ── _BacktestResultDialog + botao validar ────────────
@@ -1527,8 +1530,8 @@ def test_scanner_layout_controles_agrupados():
     score_hdr = screen._table.horizontalHeaderItem(screen.COL_SCORE)
     assert score_hdr is not None
     assert score_hdr.toolTip(), "Score column header tooltip vazio"
-    assert "Duplo-clique" in score_hdr.toolTip(), (
-        f"Score header tooltip nao menciona duplo-clique: {score_hdr.toolTip()}"
+    assert "Clique duas vezes" in score_hdr.toolTip(), (
+        f"Tooltip da Nota nao menciona o duplo-clique: {score_hdr.toolTip()}"
     )
 
     # 3. Ghost toolbar existe com tooltips (nao removido)
@@ -3215,7 +3218,7 @@ class TestMarketScreen:
                       lambda target=None, daemon=False: type(
                           "", (), {"start": lambda self: None})())
             screen._on_search()
-        assert "cache" in screen._status.text()
+        assert "dados guardados" in screen._status.text()
 
     def test_on_clear(self):
         from skinvault.prices import PriceCache
@@ -5077,7 +5080,7 @@ class TestSimulateTradeDialog:
         dlg._sell.setText("200")
         dlg._qty.setText("1")
         dlg._calc()
-        assert "ROI" in dlg._pnl_lbl.text()
+        assert "retorno" in dlg._pnl_lbl.text()
         assert "Steam" in dlg._detail.text()
 
     def test_calc_invalid_qty_falls_back_to_1(self):
@@ -5087,7 +5090,7 @@ class TestSimulateTradeDialog:
         dlg._sell.setText("200")
         dlg._qty.setText("abc")  # qty invalida -> falls back to 1
         dlg._calc()
-        assert "ROI" in dlg._pnl_lbl.text()
+        assert "retorno" in dlg._pnl_lbl.text()
 
 
 class TestHistoryScreen:
@@ -5274,7 +5277,7 @@ class TestHistoryScreen:
         screen._current_segment = "matched"
         screen.refresh()
         assert screen._table.rowCount() == 1
-        assert "win" in screen._status.text().lower()
+        assert "acerto" in screen._status.text().lower()
 
     def test_refresh_open_no_cache(self, monkeypatch):
         """refresh com 'open' e sem cache mostra '—'."""
@@ -8538,7 +8541,7 @@ def test_account_validate_btn_existe():
     screen = AccountScreen(PriceCache(ttl=3600))
     assert screen._validate_btn is not None
     assert screen._validate_btn.isEnabled()
-    assert "Validar" in screen._validate_btn.text()
+    assert "Testar a nota" in screen._validate_btn.text()
 
 
 def test_account_on_validate_portfolio_vazio(monkeypatch):
@@ -8601,7 +8604,7 @@ def test_watchlist_validate_btn_existe():
     screen = WatchlistScreen(PriceCache(ttl=3600))
     assert screen._validate_btn is not None
     assert screen._validate_btn.isEnabled()
-    assert "Validar" in screen._validate_btn.text()
+    assert "Testar a nota" in screen._validate_btn.text()
 
 
 def test_watchlist_on_validate_vazia(monkeypatch):
@@ -8669,9 +8672,9 @@ def test_watchlist_tem_coluna_score():
     assert screen._table.isColumnHidden(screen.COL_SCORE)
     assert screen._table.isColumnHidden(screen.COL_CONFIDENCE)
     hdr = screen._table.horizontalHeaderItem(6)
-    assert hdr.text() == "Score"
+    assert hdr.text() == "Nota"
     hdr2 = screen._table.horizontalHeaderItem(7)
-    assert hdr2.text() == "Confian\u00e7a"
+    assert hdr2.text() == "Confian\u00e7a nos dados"
 
 
 def test_table_headers_nao_truncam():

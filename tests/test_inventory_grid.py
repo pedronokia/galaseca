@@ -285,9 +285,9 @@ def test_pnl_cor_semantica(app):
 
 def test_pnl_texto_so_afirma_lucro_com_custo(app):
     t = InventoryTile(_item("X"))
-    assert t._pnl_texto(12.5) == "P&L +R$ 12,50"
-    assert t._pnl_texto(-3.0) == "P&L R$ -3,00"
-    assert t._pnl_texto(None) == "P&L —"
+    assert t._pnl_texto(12.5) == "Lucro +R$ 12,50"
+    assert t._pnl_texto(-3.0) == "Lucro R$ -3,00"
+    assert t._pnl_texto(None) == "Lucro —"
 
 
 def test_grade_seleciona_o_primeiro_automaticamente(app):

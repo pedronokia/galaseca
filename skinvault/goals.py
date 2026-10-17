@@ -22,7 +22,7 @@ from skinvault import settings as _settings
 GOAL_METRICS = {
     "market": "Valor de mercado",
     "net": "Valor líquido",
-    "pnl": "P&L total",
+    "pnl": "Lucro/prejuízo total",
     "items": "Total de itens",
 }
 

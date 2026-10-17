@@ -77,7 +77,8 @@ class SortableItem(QTableWidgetItem):
             return str(self._sort_key) < str(outro)
 
 
-_RE_BRL = re.compile(r"^R\$\s*(-?[\d.]+,\d{2})$")
+# " *" opcional: o Scanner marca preco derivado do historico assim.
+_RE_BRL = re.compile(r"^R\$\s*(-?[\d.]+,\d{2})(?:\s*\*)?$")
 _RE_PCT = re.compile(r"^([+-]?\d+(?:[.,]\d+)?)\s*%$")
 # Duas grafias convivem: as tabelas usam DD/MM/AAAA e o Historico usa
 # DD/MM/AA. Ambas precisam ordenar, e entre si tambem.
@@ -168,7 +169,9 @@ def score_table_item(current_score, score_ts):
     if current_score is None:
         item = SortableItem("—", float("-inf"))
         item.setForeground(QBrush(QColor(t.TEXT_MUTED)))
-        item.setToolTip("Clique em 'Validar score' para calcular.")
+        item.setToolTip(
+            "Ainda sem nota: clique em 'Atualizar notas' na tela Minha "
+            "Conta.")
         return item
 
     item = SortableItem(str(int(current_score)), int(current_score))
@@ -185,11 +188,10 @@ def score_table_item(current_score, score_ts):
     age_txt = signals.score_age_text(score_ts)
     stale_tag = " [DESATUALIZADO]" if stale else ""
     item.setToolTip(
-        f"Score {int(current_score)} — calculado {age_txt}."
+        f"Nota {int(current_score)} — calculada {age_txt}."
         f"{stale_tag}\n"
-        f"Empíricamente:\n"
-        f"  70-84 containers → +33%, skins → +8% em 90d\n"
-        f"  85+ containers → +52%, skins → +21% em 90d"
+        "Compara este item com os outros pelos dados de hoje.\n"
+        "Ajuda a escolher, não garante lucro."
     )
     return item
 
@@ -1257,7 +1259,7 @@ class _MatchChip(QLabel):
         import time as _time
         ts_str = _time.strftime("%d/%m/%Y", _time.localtime(ts)) if ts else ""
         self.setToolTip(
-            f"{ts_str} • {name}\nP&L R$ {pnl:+.2f}"
+            f"{ts_str} • {name}\nLucro/prejuízo R$ {pnl:+.2f}"
         )
 
 
@@ -1868,7 +1870,7 @@ class ItemDetailDrawer(QWidget):
         root.addWidget(self._quotes_card)
         root.addSpacing(t.SPACE_SM)
 
-        self._pnl = self._metrica(root, "P&L")
+        self._pnl = self._metrica(root, "Lucro/prejuízo")
         self._condicao = self._metrica(root, "Condição")
 
         # Liquidez: consulta SOB DEMANDA, mesmo espirito do ItemDetailPanel

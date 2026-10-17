@@ -51,7 +51,7 @@ class GoalsCard(QFrame):
                                                  fs=t.FS_MUTED))
         self._edit_btn.setToolTip(
             "Cria, edita ou remove metas de valor líquido, de mercado, de\n"
-            "P&L e de total de itens. O progresso é factual: o app mostra\n"
+            "lucro e de total de itens. O progresso é factual: o app mostra\n"
             "o quanto já foi atingido, nunca previsão."
         )
         self._edit_btn.clicked.connect(self._on_edit)
@@ -84,7 +84,7 @@ class GoalsCard(QFrame):
             t.btn_primary(padding="6px 16px", fs=t.FS_MUTED))
         self._empty_cta.setToolTip(
             "Abre o editor de metas para criar o seu primeiro objetivo "
-            "(valor líquido, de mercado, P&L ou total de itens).")
+            "(valor líquido, de mercado, lucro ou total de itens).")
         self._empty_cta.clicked.connect(self._on_edit)
         lay.addWidget(self._empty_cta)
 

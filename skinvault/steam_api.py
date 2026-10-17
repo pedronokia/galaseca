@@ -896,20 +896,21 @@ def fair_value_verdict(
     diff_pct = ((lowest - median) / median) * 100
     if diff_pct <= -5:
         verdict = "below_median"
-        label = "abaixo da mediana"
-        msg = f"Menor listagem {abs(diff_pct):.0f}% abaixo da mediana. Bom negócio."
+        label = "abaixo do típico"
+        msg = (f"Anúncio mais barato {abs(diff_pct):.0f}% abaixo do preço "
+               "típico. Bom negócio.")
     elif diff_pct <= 5:
         verdict = "fair"
-        label = "preço justo"
-        msg = "Preço dentro de 5% da mediana. Justo."
+        label = "no preço típico"
+        msg = "Preço a até 5% do preço típico. Justo."
     elif diff_pct <= 20:
         verdict = "slightly_above"
         label = "levemente acima"
-        msg = f"Listagem {diff_pct:.0f}% acima da mediana. Levemente caro."
+        msg = f"Anúncio {diff_pct:.0f}% acima do preço típico. Um pouco caro."
     else:
         verdict = "overpriced"
         label = "muito acima"
-        msg = f"Listagem {diff_pct:.0f}% acima da mediana. Caro demais."
+        msg = f"Anúncio {diff_pct:.0f}% acima do preço típico. Caro demais."
 
     result: dict = {
         "diff_pct": diff_pct,
@@ -927,7 +928,7 @@ def fair_value_verdict(
         if extra.get("book_verdict") == "seller_dominant":
             msg_parts.append("Muitos vendedores.")
         elif extra.get("book_verdict") == "buyer_dominant":
-            msg_parts.append("Demanda aquecida.")
+            msg_parts.append("Muita gente querendo comprar.")
         if extra.get("trend_verdict") == "falling":
             msg_parts.append("Preço caindo nos últimos dias.")
         elif extra.get("trend_verdict") == "rising":
@@ -942,7 +943,8 @@ def fair_value_verdict(
     if dias > 0:
         result["hold_days"] = dias
         result["message"] = (
-            f"{result['message']} Revenda so' apos {dias} dias de bloqueio."
+            f"{result['message']} Só dá para revender depois de {dias} "
+            "dias de bloqueio."
         ).strip()
 
     return result
@@ -964,12 +966,15 @@ def _extra_verdict(
         extra["spread_pct"] = round(spread_pct, 2)
         if spread_pct <= 2:
             extra["spread_verdict"] = "tight"
-            details["spread"] = "Spread apertado — mercado liquido."
+            details["spread"] = ("Diferença compra/venda pequena — fácil "
+                                "de vender.")
         elif spread_pct <= 10:
             extra["spread_verdict"] = "normal"
         else:
             extra["spread_verdict"] = "wide"
-            details["spread"] = f"Spread amplo ({spread_pct:.0f}%) — pouca liquidez."
+            details["spread"] = (f"Diferença compra/venda grande "
+                                f"({spread_pct:.0f}%) — difícil vender "
+                                "sem perder.")
 
     if buy_count is not None and sell_count is not None and sell_count > 0:
         ratio = round(buy_count / sell_count, 1)

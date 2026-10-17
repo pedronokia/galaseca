@@ -64,7 +64,8 @@ def evaluate_item(
         if change <= -abs(drop_pct):
             alerts.append({
                 "rule": "price_drop_pct",
-                "label": f"Caiu {change:.1f}% vs baseline ({baseline:.2f})",
+                "label": (f"Caiu {change:.1f}% desde que começou a "
+                          f"acompanhar ({baseline:.2f})"),
                 "value": change,
                 "severity": "opportunity",
             })
@@ -93,12 +94,14 @@ def evaluate_item(
                 "severity": "opportunity",
             })
 
-    # 5. Score acima do threshold (validado empiricamente: 85+ retorna +50%)
+    # 5. Nota acima do limite. (O "85+ retorna +50%" que estava aqui vinha
+    # do backtest de jun/2026, contaminado -- AGENTS.md 4b.)
     score_thr = rules.get("score_above")
     if score_thr and current_score is not None and current_score >= int(score_thr):
         alerts.append({
             "rule": "score_above",
-            "label": f"Score atingiu {current_score} (gatilho >= {int(score_thr)})",
+            "label": (f"Nota chegou a {current_score} "
+                      f"(aviso a partir de {int(score_thr)})"),
             "value": current_score,
             "severity": "opportunity",
         })

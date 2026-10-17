@@ -953,6 +953,32 @@ def _setup_logging() -> None:
     root.addHandler(handler)
 
 
+def _instalar_traducao_qt(app: QApplication) -> bool:
+    """Botoes padrao do Qt em portugues (Fechar, Sim, Nao, Cancelar...).
+
+    Sem isto QDialogButtonBox/QMessageBox mostravam "Close", "Yes", "No" --
+    ingles no meio de um app todo em portugues. O .qm vem junto com o
+    PyQt6. Falhar aqui nunca impede o app de abrir: fica em ingles.
+    """
+    from PyQt6.QtCore import QLibraryInfo, QTranslator
+    try:
+        # Sem parent: quem segura a referencia e' o proprio app (atributo
+        # abaixo). Com parent=app quebrava com app de teste (FakeApp).
+        tradutor = QTranslator()
+        pasta = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+        if not tradutor.load("qtbase_pt_BR", pasta):
+            logging.getLogger(__name__).info(
+                "Traducao pt_BR do Qt nao encontrada em %s", pasta)
+            return False
+        app.installTranslator(tradutor)
+        app._sv_tradutor_qt = tradutor  # sem isto o GC descarta a traducao
+        return True
+    except Exception as e:  # nunca impedir o app de abrir
+        logging.getLogger(__name__).info(
+            "Traducao pt_BR do Qt nao instalada: %s", e)
+        return False
+
+
 def launch() -> int:
     ensure_data_dir()
     _setup_logging()
@@ -961,6 +987,7 @@ def launch() -> int:
     )
     app = QApplication([])
     app.setWindowIcon(_app_icon())
+    _instalar_traducao_qt(app)
     # Tooltip e message box abrem em janela propria: so' o stylesheet de
     # APLICACAO os alcanca, setStyleSheet no widget dono nao.
     app.setStyleSheet(t.app_style())

@@ -814,13 +814,13 @@ def format_exit_context(pct: float, ath: float, atual: float,
                       "caro, então a distância do topo diz pouco aqui.")
     linhas += [
         "",
-        "O que o backtest mediu (passado, não previsão):",
-        "• Quanto mais perto do topo, menor foi o retorno nos 12 meses "
-        "seguintes (IC −0,20, comparando itens na mesma data).",
-        f"• Itens na faixa {faixa[1]} renderam mediana {mediana_faixa} "
-        "em 365 dias. Quanto mais caro, menor o retorno — efeito "
-        + ("forte em caixas (IC −0,30)." if is_container
-           else "fraco em skins (IC −0,04)."),
+        "O que aconteceu no passado (não é previsão):",
+        "• Itens perto do maior preço já registrado costumaram subir "
+        "menos nos 12 meses seguintes.",
+        f"• Itens de {faixa[1]} subiram, no meio-termo, {mediana_faixa} "
+        "em um ano. Quanto mais caro o item, menos ele costuma subir"
+        + (" — isso pesa bastante em caixas." if is_container
+           else " — em skins esse efeito é fraco."),
         "",
         "Antes de vender pela Steam: a taxa de 15% sai do valor que você "
         "recebe.",
@@ -875,7 +875,7 @@ def pump_risk(price_history: list[dict] | None = None,
             peso = 2 if band == "at_ath" else 1
             flags += peso
             pct = rta.get("pct_of_ath", 0) * 100
-            reasons.append(f"{pct:.0f}% do ATH ({band}, peso {peso})")
+            reasons.append(f"Em {pct:.0f}% do maior preço já registrado")
 
     # Flag 2: rally recente >= +20% em 30d (v1 era +30%/14d)
     if price_history and len(price_history) >= 30 and not regime_recent:
@@ -891,7 +891,7 @@ def pump_risk(price_history: list[dict] | None = None,
                 pct_change = (recent - earlier) / earlier
                 if pct_change >= 0.20:
                     flags += 1
-                    reasons.append(f"Rally +{pct_change*100:.0f}% em 30d")
+                    reasons.append(f"Subiu {pct_change*100:.0f}% em 30 dias")
 
     # Flag 3: volume sustentado 7d vs 30d
     if volume_history and len(volume_history) >= 30:
@@ -904,7 +904,8 @@ def pump_risk(price_history: list[dict] | None = None,
             if avg_baseline > 0 and avg_7 / avg_baseline >= 2.0:
                 flags += 1
                 reasons.append(
-                    f"Volume 7d {avg_7 / avg_baseline:.1f}x acima média 30d"
+                    f"Vendas da última semana {avg_7 / avg_baseline:.1f}x "
+                    "acima do normal"
                 )
 
     if flags >= 2:
@@ -1061,49 +1062,54 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     diff = verdict.get("diff_pct") or 0
     if diff < 0:
         bonus = min(abs(diff) * 1.2, 35)
-        _add("mediana", bonus, f"Mediana: {diff:.1f}% (+{bonus:.0f})")
+        _add("mediana", bonus,
+             f"Preço {abs(diff):.0f}% abaixo do típico (+{bonus:.0f})")
     elif diff > 0:
         penalty = min(diff * 0.8, 35)
-        _add("mediana", -penalty, f"Mediana: +{diff:.1f}% (-{penalty:.0f})")
+        _add("mediana", -penalty,
+             f"Preço {diff:.0f}% acima do típico (-{penalty:.0f})")
 
     v = verdict.get("verdict", "")
     if v == "below_median":
-        _add("verdict", 5, "Abaixo da mediana (+5)")
+        _add("verdict", 5, "Abaixo do preço típico (+5)")
     elif v == "overpriced":
-        _add("verdict", -5, "Sobrepreco (-5)")
+        _add("verdict", -5, "Bem acima do preço típico (-5)")
 
     sv = verdict.get("spread_verdict", "")
     if sv == "tight":
-        _add("spread", 25, "Spread apertado (+25)")
+        _add("spread", 25, "Fácil de comprar e vender (+25)")
     elif sv == "wide":
-        _add("spread", -15, "Spread largo (-15)")
+        _add("spread", -15, "Difícil de vender sem perder (-15)")
 
     bv = verdict.get("book_verdict", "")
     if bv == "buyer_dominant":
-        _add("book", 20, "Book: compradores dominam (+20)")
+        _add("book", 20, "Mais gente querendo comprar (+20)")
     elif bv == "seller_dominant":
-        _add("book", -15, "Book: vendedores dominam (-15)")
+        _add("book", -15, "Mais gente querendo vender (-15)")
 
     tv = verdict.get("trend_verdict", "")
     if tv == "rising":
-        _add("trend", 15, "Tendência: subindo (+15)")
+        _add("trend", 15, "Preço subindo nos últimos dias (+15)")
     elif tv == "falling":
         # EXPERIMENT 2026-06-07: fair_penalty_halving — REVERTIDO
         # Hipótese: trend falling quando preco esta "fair" (±5%) e' ruido.
         # Resultado: +0.0016 agg corr (56 itens, n=22014), abaixo do criterio
         # de +0.002. Keep: 85-100 intacto, 112 falsos negativos removidos.
         # Negative finding: efeito real mas marginal; nao justifica mudanca.
-        _add("trend", -10, "Tendência: caindo (-10)")
+        _add("trend", -10, "Preço caindo nos últimos dias (-10)")
 
     # Oferta / Demanda
     if volume is not None and supply is not None and supply > 0:
         sd = volume / supply
         if sd >= 5:
-            _add("supply_demand", 15, f"S/D forte ({sd:.1f}) (+15)")
+            _add("supply_demand", 15,
+                 "Vende muito perto do que tem à venda (+15)")
         elif sd >= 3:
-            _add("supply_demand", 10, f"S/D bom ({sd:.1f}) (+10)")
+            _add("supply_demand", 10,
+                 "Vende bem perto do que tem à venda (+10)")
         elif sd < 0.5:
-            _add("supply_demand", -10, f"S/D fraco ({sd:.2f}) (-10)")
+            _add("supply_demand", -10,
+                 "Muito mais à venda do que se vende (-10)")
 
     # NOTAS DE EXPERIMENTOS (manter como guia):
     # - Z-score como reversao a media (universal): regrediu 7/9 itens.
@@ -1126,13 +1132,13 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             if (_DRAWDOWN_AT_HIGH_ENABLED and band == "at_high"
                     and trend_dir in ("rising", "stable")):
                 _add("drawdown", 5,
-                     f"No topo (DD {dd_pct:.0f}%) + trend up (+5)")
+                     "Perto do maior preço recente e subindo (+5)")
             elif band == "deep" and trend_dir == "falling":
                 _add("drawdown", -5,
-                     f"DD profundo {dd_pct:.0f}% + trend down (-5)")
+                     f"{dd_pct:.0f}% abaixo do maior preço recente e caindo (-5)")
             elif band == "deep" and trend_dir == "rising":
                 _add("drawdown", 5,
-                     f"DD profundo {dd_pct:.0f}% + recuperacao (+5)")
+                     f"{dd_pct:.0f}% abaixo do maior preço recente, se recuperando (+5)")
 
     # Momentum: preco atual vs media dos ultimos 15 DIAS.
     # Era `price_history[-15:]` -- 15 pontos. Funcionava enquanto a Steam
@@ -1155,10 +1161,12 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         # abaixo GANHA.
         if last_p > mean_recent * 1.02:
             d = 5 * sinal_mom
-            _add("momentum", d, f"Acima da média recente ({d:+d})")
+            _add("momentum", d,
+                 f"Acima da média dos últimos 15 dias ({d:+d})")
         elif last_p < mean_recent * 0.98:
             d = -5 * sinal_mom
-            _add("momentum", d, f"Abaixo da média recente ({d:+d})")
+            _add("momentum", d,
+                 f"Abaixo da média dos últimos 15 dias ({d:+d})")
 
     # Concordancia multi-periodo
     if multi_trend and len(multi_trend) >= 3:
@@ -1171,15 +1179,16 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             if all(dirs):
                 d = 10 * sinal_mp
                 _add("multi_period", d,
-                     f"{len(dirs)} periodos subindo ({d:+d})")
+                     f"Subindo em todos os períodos, de 24h a 30 dias ({d:+d})")
             elif not any(dirs):
                 d = -10 * sinal_mp
                 _add("multi_period", d,
-                     f"{len(dirs)} periodos caindo ({d:+d})")
+                     f"Caindo em todos os períodos, de 24h a 30 dias ({d:+d})")
 
     # Bonus de volume
     if volume is not None and volume > 2000:
-        _add("liquidity", 5, f"Volume alto ({int(volume)}) (+5)")
+        _add("liquidity", 5,
+             f"Muito negociado: {int(volume)} vendas em 24h (+5)")
 
     # Distancia ao ATH historico — UNIVERSAL (skins + containers).
     # Inicialmente testado so' para containers apos investigacao do Clutch Case.
@@ -1193,16 +1202,16 @@ def enhanced_score(verdict: dict, volume: int | None = None,
             pct = rta["pct_of_ath"]
             if band == "very_deep":
                 _add("rel_ath", 5,
-                     f"{pct:.0%} do ATH (squeeze inicial) (+5)")
+                     f"Está em {pct:.0%} do maior preço já registrado (+5)")
             elif band == "deep_below":
                 _add("rel_ath", 2,
-                     f"{pct:.0%} do ATH (squeeze ainda jovem) (+2)")
+                     f"Está em {pct:.0%} do maior preço já registrado (+2)")
             elif band == "near_ath":
                 _add("rel_ath", -8,
-                     f"{pct:.0%} do ATH (squeeze tardio) (-8)")
+                     f"Já em {pct:.0%} do maior preço já registrado (-8)")
             elif band == "at_ath":
                 _add("rel_ath", -10,
-                     f"{pct:.0%} do ATH (topo histórico) (-10)")
+                     f"Perto do recorde: {pct:.0%} do maior preço (-10)")
 
     # Nivel de preco absoluto (2026-07-30). O preco vem do ULTIMO ponto do
     # prefixo, entao no backtest e' o preco no instante simulado -- sem
@@ -1234,7 +1243,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     # com retorno 365d ja observado.
     if case_status:
         if case_status.get("is_discontinued"):
-            _add("case", 5, "Caixa descontinuada (+5)")
+            _add("case", 5, "Caixa que não sai mais no jogo (+5)")
         elif case_status.get("is_rare"):
             _add("case", 3, "Caixa rara (+3)")
 
@@ -1270,7 +1279,8 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         if pr["level"] == "high":
             reason_short = ", ".join(pr["reasons"][:2]) or "multiplas flags"
             _add("pump_risk", _PUMP_HIGH_PENALTY,
-                 f"Risco alto: {reason_short} ({_PUMP_HIGH_PENALTY})")
+                 f"Alerta de subida rápida: {reason_short} "
+                 f"({_PUMP_HIGH_PENALTY})")
 
     final = max(0, min(100, int(round(score))))
     breakdown.sort(key=lambda b: abs(b["delta"]), reverse=True)
@@ -1292,18 +1302,18 @@ def scan_score(verdict: dict, volume: int | None = None,
 def format_breakdown(breakdown: list[dict]) -> str:
     """Formata breakdown como texto multi-linha para tooltip."""
     if not breakdown:
-        return "Sem fatores relevantes (base 50)"
+        return "Nada se destacou: nota neutra (50)."
     lines = []
     pos = [b for b in breakdown if b["delta"] > 0]
     neg = [b for b in breakdown if b["delta"] < 0]
     if pos:
-        lines.append("Positivos:")
+        lines.append("Somou pontos:")
         for b in pos:
             lines.append(f"  + {b['label']}")
     if neg:
         if pos:
             lines.append("")
-        lines.append("Negativos:")
+        lines.append("Tirou pontos:")
         for b in neg:
             lines.append(f"  - {b['label']}")
     return "\n".join(lines)

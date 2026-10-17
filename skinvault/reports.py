@@ -28,7 +28,8 @@ _NOME_MERCADO = {"skinport": "Skinport", "csgotm": "CS.MONEY/TM"}
 #: Colunas do CSV de inventário (delimitador ;, pt-BR Excel).
 INVENTORY_HEADERS = [
     "Item", "Quantidade", "Preço unit.", "Valor bruto", "Líquido Steam",
-    "Melhor fora", "Onde", "Custo", "P&L", "Origem", "Categoria",
+    "Melhor fora", "Onde", "Custo", "Lucro/prejuízo", "Origem",
+    "Categoria",
 ]
 
 
@@ -260,7 +261,7 @@ def html_report(rows: list[dict], series: list[dict],
     cards = [
         ("Valor bruto", brl(_total(totals, "market"))),
         ("Valor líquido", brl(_total(totals, "net_if_sold"))),
-        ("P&L total", brl(pnl)),
+        ("Lucro/prejuízo total", brl(pnl)),
         ("Total investido", brl(_total(totals, "cost_known"))),
         ("Total de itens", str(totals.get("positions", 0))),
     ]
@@ -312,7 +313,7 @@ taxa. Steam é saldo — não saca pra conta.</p>
 <table>
 <thead><tr><th>Item</th><th>Qtd</th><th>Preço unit.</th><th>Valor bruto</th>
 <th>Líquido Steam</th><th>Melhor fora</th><th>Onde</th><th>Custo</th>
-<th>P&L</th><th>Origem</th><th>Categoria</th></tr></thead>
+<th>Lucro/prejuízo</th><th>Origem</th><th>Categoria</th></tr></thead>
 <tbody>
 {linhas_tbl}
 </tbody>

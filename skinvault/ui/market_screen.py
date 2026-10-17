@@ -26,6 +26,7 @@ from PyQt6.QtWidgets import (
 from skinvault import cases, signals, steam_api
 from skinvault._paths import DATA_DIR, atomic_write_text
 from skinvault.prices import PriceCache
+from skinvault.ui import textos
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     Card,
@@ -60,8 +61,8 @@ def _save_recent(items: list[str]) -> None:
         pass
 
 
-_MEDIAN_LABEL = "Mediana 24h"
-_MEDIAN_LABEL_FALLBACK = "Mediana (último dia com venda)"
+_MEDIAN_LABEL = "Preço típico (24h)"
+_MEDIAN_LABEL_FALLBACK = "Preço típico (último dia com venda)"
 
 _THROTTLED_MSG = (
     "A Steam limitou as consultas de preço agora. O histórico e o livro de "
@@ -137,8 +138,9 @@ class MarketScreen(QWidget):
         self._search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._search_btn.setStyleSheet(t.btn_primary())
         self._search_btn.setToolTip(
-            "Busca menor preço, mediana, volume 24h, histórico e livro de "
-            "ofertas.\nRespeita o rate-limit do Steam (~2s por consulta)."
+            "Busca o menor preço, o preço típico, quantos foram vendidos "
+            "em 24h, o histórico e a fila de ofertas.\nCada consulta leva "
+            "uns segundos: a Steam limita quantas podemos fazer."
         )
         self._search_btn.clicked.connect(self._on_search)
         search_row.addWidget(self._search_btn)
@@ -155,7 +157,8 @@ class MarketScreen(QWidget):
 
         hint = QLabel(
             "Cole o nome exatamente como aparece no Steam Market — incluindo "
-            "wear e StatTrak/Souvenir quando aplicável. Atalho: Ctrl+L."
+            "o desgaste (ex.: Field-Tested) e StatTrak/Souvenir quando "
+            "houver. Atalho: Ctrl+L."
         )
         hint.setWordWrap(True)
         hint.setStyleSheet(t.label_caption())
@@ -180,24 +183,26 @@ class MarketScreen(QWidget):
         self._stat_lowest.setToolTip(
             "Preço da listagem mais barata disponível agora no Steam Market."
         )
-        self._stat_median = StatCard("Mediana 24h", "—", icon="chart")
+        self._stat_median = StatCard(_MEDIAN_LABEL, "—", icon="chart")
         self._stat_median.setToolTip(
-            "Mediana das vendas das últimas 24h. Referência de \"preço justo\"."
+            "O preço pelo qual o item costuma ser vendido nas últimas 24h. Serve de referência para saber se está caro ou barato."
         )
         self._stat_volume = StatCard("Volume 24h", "—", icon="archive")
         self._stat_volume.setToolTip(
-            "Unidades vendidas nas últimas 24h. Acima de ~2000 indica "
-            "liquidez confortável. Marca anomalia quando desvia 2x da média."
+            "Quantas unidades foram vendidas nas últimas 24h. Acima de "
+            "~2000 é fácil vender. Fica marcado quando foge muito (2x) do "
+            "normal."
         )
-        self._stat_verdict = StatCard("Veredito", "—", icon="radar")
+        self._stat_verdict = StatCard("Avaliação", "—", icon="radar")
         self._stat_verdict.setToolTip(
-            "Análise multi-fator: posição vs mediana, spread, profundidade do "
-            "book e tendência recente."
+            "Resumo do preço de agora comparado ao preço típico, à fila "
+            "de ofertas e à tendência dos últimos dias."
         )
-        self._stat_sd = StatCard("Oferta/Demanda", "—", icon="chart")
+        self._stat_sd = StatCard("Procura × Oferta", "—", icon="chart")
         self._stat_sd_tooltip = (
-            "Relação oferta/demanda: volume de vendas vs. itens listados. "
-            "Abaixo de 1 = oferta acima da demanda."
+            "Quantos itens são vendidos por dia comparado a quantos "
+            "estão à venda. Abaixo de 1 = tem mais gente vendendo do que "
+            "comprando."
         )
         self._stat_sd.setToolTip(self._stat_sd_tooltip)
         for sc in (self._stat_lowest, self._stat_median, self._stat_volume,
@@ -241,8 +246,8 @@ class MarketScreen(QWidget):
         self._range_seg.add("all", "Tudo")
         self._range_seg.setToolTip(
             "Janela do histórico: últimos 7 dias, 30 dias ou a série toda "
-            "que a Steam serve.\nPontos são DIÁRIOS — o preço é a mediana "
-            "ponderada por volume de cada dia."
+            "que a Steam mostra.\nCada ponto é um dia: o preço médio "
+            "das vendas daquele dia."
         )
         # Conecta ANTES do select: o emit sincrono do select cai no
         # set_range e o chart abre no mesmo intervalo do segmentado.
@@ -470,7 +475,7 @@ class MarketScreen(QWidget):
         self._stat_median.set_label(_MEDIAN_LABEL)
         self._stat_median.clear_badge()
         self._stat_median.setToolTip(
-            "Mediana das vendas das últimas 24h. Referência de \"preço justo\"."
+            "O preço pelo qual o item costuma ser vendido nas últimas 24h. Serve de referência para saber se está caro ou barato."
         )
 
     def _fill_median_from_page(self, page: dict) -> None:
@@ -493,8 +498,8 @@ class MarketScreen(QWidget):
         quando = time.strftime("%d/%m/%Y", time.localtime(ultimo["time"])) \
             if ultimo.get("time") else "data desconhecida"
         self._stat_median.setToolTip(
-            "A Steam limitou o endpoint de preço, então esta mediana vem do "
-            "histórico da página do item.\n"
+            "A Steam limitou as consultas de preço, então este valor vem "
+            "do histórico da página do item.\n"
             f"Refere-se a {quando}, não às últimas 24h."
         )
 
@@ -508,7 +513,8 @@ class MarketScreen(QWidget):
             age = self._cache.age(name)
             if age is not None:
                 cache_msg = (
-                    f" (cache de {_cache_age_label(age)} será sobrescrito)"
+                    f" (os dados guardados de {_cache_age_label(age)} "
+                    "serão atualizados)"
                 )
         from skinvault.localization import localize_name as _ln
         self._status.setText(f"Consultando {_ln(name)}…{cache_msg}")
@@ -752,9 +758,9 @@ class MarketScreen(QWidget):
 
         self._clear_detail_grid()
         if overview:
-            self._add_detail_row("Menor listagem",
+            self._add_detail_row("Menor anúncio",
                              t.brl(overview.get("lowest")))
-            self._add_detail_row("Mediana 24h",
+            self._add_detail_row("Preço típico (24h)",
                              t.brl(overview.get("median")))
             vol = overview.get("volume")
             self._add_detail_row("Volume 24h",
@@ -764,29 +770,32 @@ class MarketScreen(QWidget):
                 color = t.POSITIVE if diff <= 0 else (
                     t.WARN if diff <= 20 else t.DANGER
                 )
-                self._add_detail_row("Diferença vs mediana",
+                self._add_detail_row("Diferença vs preço típico",
                                  f"{diff:+.1f}%", color=color)
         if page:
             ob = page.get("order_book") or {}
             buys = ob.get("buy_count") or 0
             sells = ob.get("sell_count") or 0
             approx = bool(page.get("order_book_approx"))
-            approx_tag = "  (aprox. — outro wear)" if approx else ""
-            self._add_detail_row("Ordens de compra",
+            approx_tag = "  (aprox. — outro desgaste)" if approx else ""
+            self._add_detail_row("Pedidos de compra",
                              f"{buys}{approx_tag}",
                              color=t.WARN if approx else None)
-            self._add_detail_row("Listagens à venda",
+            self._add_detail_row("Anúncios à venda",
                              f"{sells}{approx_tag}",
                              color=t.WARN if approx else None)
             if verdict.get("spread_verdict"):
-                self._add_detail_row("Spread",
-                                 verdict.get("spread_verdict", "—"))
+                self._add_detail_row(
+                    "Diferença compra/venda",
+                    textos.traduz(textos.SPREAD, verdict["spread_verdict"]))
             if verdict.get("book_verdict"):
-                self._add_detail_row("Pressão do book",
-                                 verdict.get("book_verdict", "—"))
+                self._add_detail_row(
+                    "Fila de ofertas",
+                    textos.traduz(textos.BOOK, verdict["book_verdict"]))
             if verdict.get("trend_verdict"):
-                self._add_detail_row("Tendência recente",
-                                 verdict.get("trend_verdict", "—"))
+                self._add_detail_row(
+                    "Tendência recente",
+                    textos.traduz(textos.TREND, verdict["trend_verdict"]))
 
         if name:
             self._push_recent(name)
