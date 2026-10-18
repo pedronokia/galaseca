@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
 {% endblock %}
 
+{% from "partials/icons.html" import icon %}
 {% block content %}
 <div class="page-header">
   <div>
@@ -20,21 +21,25 @@
 
 <section class="stat-row">
   <article class="stat-card" data-stat="gross">
+    <span class="stat-icon">{{ icon('wallet') }}</span>
     <span class="stat-label">Valor bruto</span>
     <span class="stat-value">—</span>
     <span class="stat-delta muted"></span>
   </article>
   <article class="stat-card" data-stat="net">
+    <span class="stat-icon">{{ icon('coins') }}</span>
     <span class="stat-label">Valor líquido</span>
     <span class="stat-value">—</span>
     <span class="stat-delta muted">já com a taxa de 15%</span>
   </article>
   <article class="stat-card" data-stat="pnl">
+    <span class="stat-icon">{{ icon('chart') }}</span>
     <span class="stat-label">Lucro/prejuízo</span>
     <span class="stat-value">—</span>
     <span class="stat-delta muted"></span>
   </article>
   <article class="stat-card" data-stat="items">
+    <span class="stat-icon">{{ icon('archive') }}</span>
     <span class="stat-label">Total de itens</span>
     <span class="stat-value">0</span>
     <span class="stat-delta muted"></span>

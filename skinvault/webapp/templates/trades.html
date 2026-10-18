@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/trades.css') }}">
 {% endblock %}
 
+{% from "partials/icons.html" import icon %}
 {% block content %}
 <div class="page-header">
   <div>
@@ -35,12 +36,20 @@
     <span class="stat-delta muted"></span>
   </article>
   <article class="stat-card" data-stat="pnl">
-    <span class="stat-label">Lucro/prejuízo total</span>
+    <span class="stat-icon">{{ icon('chart') }}</span>
+    <span class="stat-label">Lucro (sem taxa)</span>
     <span class="stat-value">—</span>
     <span class="stat-delta muted"></span>
   </article>
   <article class="stat-card" data-stat="winrate">
+    <span class="stat-icon">{{ icon('percent') }}</span>
     <span class="stat-label">Taxa de acerto</span>
+    <span class="stat-value">—</span>
+    <span class="stat-delta muted"></span>
+  </article>
+  <article class="stat-card" data-stat="fees">
+    <span class="stat-icon">{{ icon('coins') }}</span>
+    <span class="stat-label">Taxas pagas</span>
     <span class="stat-value">—</span>
     <span class="stat-delta muted"></span>
   </article>

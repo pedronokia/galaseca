@@ -368,6 +368,7 @@ a {
 }
 
 .stat-card {
+  position: relative;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -378,9 +379,25 @@ a {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+.stat-icon {
+  position: absolute;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.stat-icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
 .stat-label {
   color: var(--text-muted);
   font-size: var(--fs-muted);
+  /* Reserva espaco pro .stat-icon (absoluto, canto sup-dir) nao
+     sobrepor um rotulo longo em card estreito. */
+  padding-right: 24px;
 }
 
 .stat-value {
@@ -600,8 +617,33 @@ a {
 .toast {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);
   font-size: var(--fs-body);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
+
+.toast-leaving {
+  opacity: 0;
+  transform: translateX(16px);
+}
+
+.toast-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.toast-body {
+  color: var(--text-muted);
+  font-size: var(--fs-muted);
+}
+
+.toast-success { border-left-color: var(--positive); }
+.toast-warning { border-left-color: var(--warn); }
+.toast-error { border-left-color: var(--danger); }
+.toast-info { border-left-color: var(--steam-blue); }

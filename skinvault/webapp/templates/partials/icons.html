@@ -2,7 +2,12 @@
   Icones de linha (18x18, stroke 1.5, sem preenchimento exceto pontos) --
   mesmo vocabulario do LineIcon do app Qt (ui/components.py): ate' o
   nome de cada icone e' o mesmo (user, wallet, history, radar, chart,
-  swap, calc, eye, trash, gear), so' desenhado em SVG em vez de QPainter.
+  swap, calc, eye, trash, gear, coins, archive, percent), so' desenhado
+  em SVG em vez de QPainter. coins/archive/percent sao traducao EXATA
+  (mesmas coordenadas, so' primitivas: rect/ellipse/line) porque os
+  `_draw_*` originais tambem so' usam primitivas: olhe o rect/ellipse/
+  linha com os MESMOS numeros de ui/components.py antes de "ajustar"
+  um pixel aqui achando que esta' errado.
   `currentColor` no stroke: a cor segue o `color` do elemento pai (ja'
   resolvido pelas regras .sidebar-item / .sidebar-item.active do CSS,
   sem precisar de JS pra trocar cor no hover/ativo).
@@ -49,6 +54,22 @@
 {%- elif name == "gear" %}
   <circle cx="9" cy="9" r="2.3"/>
   <path d="M9 2.8v1.8M9 12.4v1.8M15.2 9h-1.8M4.6 9H2.8M13.2 4.8l-1.3 1.3M6.1 11.9l-1.3 1.3M13.2 13.2l-1.3-1.3M6.1 6.1 4.8 4.8"/>
+{%- elif name == "coins" %}
+  {#- Nao e' traducao exata do _draw_coins do Qt: duas elipses tangentes
+      sem preenchimento (como la') renderizam como um "8" em 18px, nao
+      como moedas. Pilha/cilindro (elipse de cima + de baixo + laterais,
+      com respiro entre as duas) le' melhor nesse tamanho. #}
+  <ellipse cx="9" cy="5" rx="4.5" ry="2.2"/>
+  <path d="M4.5 5v8M13.5 5v8"/>
+  <path d="M4.5 13Q9 15.4 13.5 13"/>
+{%- elif name == "archive" %}
+  <rect x="3" y="4" width="12" height="3" rx="1"/>
+  <rect x="4" y="7" width="10" height="8" rx="1"/>
+  <line x1="7.5" y1="10.5" x2="10.5" y2="10.5"/>
+{%- elif name == "percent" %}
+  <circle cx="5.25" cy="5.25" r="2.25"/>
+  <circle cx="12.75" cy="12.75" r="2.25"/>
+  <line x1="13" y1="4" x2="5" y2="14"/>
 {%- else %}
   <circle cx="9" cy="9" r="6"/>
 {%- endif %}

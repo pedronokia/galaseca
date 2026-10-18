@@ -64,6 +64,8 @@ document.addEventListener("DOMContentLoaded", () => {
       .textContent = stats.total ? `${stats.win_rate.toFixed(1)}%` : "—";
     document.querySelector('.stat-card[data-stat="winrate"] .stat-delta')
       .textContent = stats.total ? `${stats.win_count} de ${stats.total} no lucro` : "";
+    document.querySelector('.stat-card[data-stat="fees"] .stat-value')
+      .textContent = stats.total ? brl(stats.fees_total) : "—";
   }
 
   function renderRow(trade) {
