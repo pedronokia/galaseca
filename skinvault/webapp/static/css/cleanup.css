@@ -19,10 +19,10 @@
   opacity: 0.5;
 }
 
-.cleanup-target input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+/* Toggle pilula (.toggle-checkbox) ja resolve tamanho/cor -- aqui so'
+   o alinhamento com a 1a linha do titulo (align-items:flex-start no
+   .cleanup-target precisa disso, senao o switch sobe colado no topo). */
+.cleanup-target .toggle-checkbox {
   margin-top: 2px;
 }
 

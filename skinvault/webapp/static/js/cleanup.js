@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
+    checkbox.className = "toggle-checkbox";
     checkbox.checked = !!t.selected;
     checkbox.disabled = !t.available;
     checkbox.dataset.key = t.key;
