@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "skinvault-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["scripts/dev_web_server.py"],
+      "port": 5055
+    }
+  ]
+}

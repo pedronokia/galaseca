@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Minha Conta</h1>
+    <p class="muted">Inventário e desempenho da carteira.</p>
+  </div>
+  <div class="page-actions">
+    <button id="btn-refresh" class="btn-secondary" type="button"
+            title="Recalcula o preço de cada item seu. Usa os preços já guardados quando dá.">
+      Atualizar notas
+    </button>
+  </div>
+</div>
+
+<section class="stat-row">
+  <article class="stat-card" data-stat="gross">
+    <span class="stat-label">Valor bruto</span>
+    <span class="stat-value">—</span>
+    <span class="stat-delta muted"></span>
+  </article>
+  <article class="stat-card" data-stat="net">
+    <span class="stat-label">Valor líquido</span>
+    <span class="stat-value">—</span>
+    <span class="stat-delta muted">já com a taxa de 15%</span>
+  </article>
+  <article class="stat-card" data-stat="pnl">
+    <span class="stat-label">Lucro/prejuízo</span>
+    <span class="stat-value">—</span>
+    <span class="stat-delta muted"></span>
+  </article>
+  <article class="stat-card" data-stat="items">
+    <span class="stat-label">Total de itens</span>
+    <span class="stat-value">0</span>
+    <span class="stat-delta muted"></span>
+  </article>
+</section>
+
+<p class="status-line" id="account-status">Carregando…</p>
+
+<section class="card table-card">
+  <h2 class="section-title">Inventário</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Qtd</th>
+        <th>Preço</th>
+        <th>Lucro/prejuízo</th>
+      </tr>
+    </thead>
+    <tbody id="inventory-body"></tbody>
+  </table>
+  <p class="muted" id="inventory-empty" hidden>
+    Nenhum item na carteira ainda.
+  </p>
+</section>
+
+<details class="diagnostics">
+  <summary>Diagnóstico</summary>
+  <button id="btn-debug-notify" class="btn-ghost" type="button">
+    Testar notificação
+  </button>
+</details>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/account.js') }}"></script>
+{% endblock %}

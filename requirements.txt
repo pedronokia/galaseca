@@ -1,2 +1,9 @@
 PyQt6>=6.10,<6.11
 httpx>=0.28
+
+# --web (migracao incremental da UI -- ver AGENTS.md e o plano de migracao)
+Flask>=3.0,<3.2
+pywebview>=4.4,<5
+pystray>=0.19,<0.20
+winotify>=1.1,<2
+Pillow>=10.0,<11

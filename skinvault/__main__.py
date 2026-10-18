@@ -3,6 +3,7 @@
   python -m skinvault                          banner + uso
   python -m skinvault <SteamID64>              avalia o inventario publico (CLI)
   python -m skinvault --ui                     abre a janela (PyQt6)
+  python -m skinvault --web                    abre a janela (UI web, em migracao)
   python -m skinvault --portfolio              meu portfolio (lucro REAL pos-taxa)
   python -m skinvault --add "<nome>" <custo> [qtd]   adiciona uma posicao
 
@@ -256,6 +257,18 @@ def main() -> None:
                 pass
         from skinvault.gui import launch
         raise SystemExit(launch())
+    if "--web" in args:
+        if sys.platform == "win32" and sys.executable.endswith("python.exe"):
+            import subprocess
+            pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+            try:
+                subprocess.Popen([pythonw, "-m", "skinvault", "--web"],
+                                 shell=False)
+                return
+            except FileNotFoundError:
+                pass
+        from skinvault.webapp.app_entry import launch_web
+        raise SystemExit(launch_web())
     if "--portfolio" in args:
         _cli_portfolio()
     elif "--check" in args:
@@ -274,6 +287,7 @@ def main() -> None:
         print('  python -m skinvault --check "<nome>" fair-value (anti-ripoff)')
         print('  python -m skinvault --backtest "<nome>" [--horizon 90] [--step 14] [--min-confidence 0.5]')
         print("  python -m skinvault --ui            abre a janela")
+        print("  python -m skinvault --web           abre a janela (UI web, em migracao)")
 
 
 if __name__ == "__main__":
