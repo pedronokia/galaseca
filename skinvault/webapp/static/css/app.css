@@ -413,6 +413,68 @@ a {
   font-weight: 600;
 }
 
+/* Modal simples (confirmação / edição curta) -- reusado pela Watchlist
+   (Fase 8) e telas seguintes que precisem de um dialog. */
+
+.modal-backdrop[hidden] {
+  display: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  width: 420px;
+  max-width: calc(100vw - var(--space-xl) * 2);
+  max-height: calc(100vh - var(--space-xl) * 2);
+  overflow-y: auto;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+/* Linha de controle rotulado -- checkbox (settings-row) ou numero/texto
+   alinhado a direita (settings-row-inline). Reusado por Configuracoes
+   (Fase 6) e pelo modal de regras da Watchlist (Fase 8). */
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  cursor: pointer;
+}
+
+.settings-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.settings-row-inline {
+  justify-content: space-between;
+  cursor: default;
+}
+
+.settings-row-inline .qty-input {
+  width: 100px;
+}
+
 #toast-area {
   position: fixed;
   right: var(--space-xl);

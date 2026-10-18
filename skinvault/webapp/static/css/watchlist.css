@@ -1,0 +1,23 @@
+/* Tela de Watchlist -- Fase 8. */
+
+.data-table td.state-triggered {
+  color: var(--positive);
+}
+
+.data-table td.state-muted {
+  color: var(--text-muted);
+}
+
+/* Rotulos deste modal sao mais longos que os de Configuracoes --
+   lado-a-lado (settings-row-inline padrao) quebrava a linha do rotulo
+   por cima do input. Empilhado fica legivel em qualquer largura. */
+#rules-modal .settings-row-inline {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: var(--space-sm);
+}
+
+#rules-modal .settings-row-inline .qty-input {
+  width: 100%;
+}

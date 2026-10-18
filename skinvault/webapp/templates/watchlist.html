@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/watchlist.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Watchlist</h1>
+    <p class="muted">
+      Itens monitorados e os alertas que já dispararam. "Verificar
+      agora" usa os preços já guardados — não busca na Steam.
+    </p>
+  </div>
+  <div class="page-actions">
+    <button id="btn-check" class="btn-secondary" type="button">
+      Verificar agora
+    </button>
+    <button id="btn-add" class="btn-primary" type="button">
+      + Adicionar item
+    </button>
+  </div>
+</div>
+
+<form id="add-form" class="add-item-form" hidden>
+  <input id="w-name" type="text" class="text-input" placeholder="Nome do item (market_hash_name)" required>
+  <input id="w-target" type="text" class="text-input" placeholder="Preço alvo (opcional) — ex.: 45,00">
+  <button type="submit" class="btn-secondary">Salvar</button>
+  <button type="button" id="w-cancel" class="btn-ghost">Cancelar</button>
+</form>
+<p class="field-error" id="add-error" hidden></p>
+<p class="status-line" id="watchlist-status"></p>
+
+<section class="card table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Preço guardado</th>
+        <th>Regras</th>
+        <th>Estado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="watchlist-body"></tbody>
+  </table>
+  <p class="muted" id="watchlist-empty" hidden>
+    Nenhum item na watchlist ainda.
+  </p>
+</section>
+
+<section class="card table-card">
+  <h2 class="section-title">Log de alertas</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Quando</th>
+        <th>Item</th>
+        <th>Alerta</th>
+      </tr>
+    </thead>
+    <tbody id="log-body"></tbody>
+  </table>
+  <p class="muted" id="log-empty" hidden>Nenhum alerta disparado ainda.</p>
+</section>
+
+<div id="rules-modal" class="modal-backdrop" hidden>
+  <div class="modal-card">
+    <h2 class="section-title">Editar regras — <span id="rules-item-name"></span></h2>
+    <p class="muted">
+      Zero ou vazio desliga a regra. Volume/oferta/nota só disparam
+      quando houver dado guardado para o item (o Scanner ainda não foi
+      portado pra esta UI).
+    </p>
+    <label class="settings-row-inline">
+      <span>Preço abaixo de (R$)</span>
+      <input id="r-price-below" type="text" class="text-input qty-input">
+    </label>
+    <label class="settings-row-inline">
+      <span>Queda vs. preço de referência (%)</span>
+      <input id="r-price-drop" type="text" class="text-input qty-input">
+    </label>
+    <label class="settings-row-inline">
+      <span>Preço de referência (R$)</span>
+      <input id="r-baseline" type="text" class="text-input qty-input">
+    </label>
+    <label class="settings-row-inline">
+      <span>Pico de volume (x da média)</span>
+      <input id="r-volume" type="text" class="text-input qty-input">
+    </label>
+    <label class="settings-row-inline">
+      <span>Queda de oferta (x da média)</span>
+      <input id="r-supply" type="text" class="text-input qty-input">
+    </label>
+    <label class="settings-row-inline">
+      <span>Nota a partir de</span>
+      <input id="r-score" type="text" class="text-input qty-input">
+    </label>
+    <p class="field-error" id="rules-error" hidden></p>
+    <div class="modal-actions">
+      <button id="rules-cancel" class="btn-ghost" type="button">Cancelar</button>
+      <button id="rules-save" class="btn-primary" type="button">Salvar regras</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/watchlist.js') }}"></script>
+{% endblock %}
