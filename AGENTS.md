@@ -798,6 +798,34 @@ Dois jeitos corretos, dependendo de como o módulo expõe o caminho:
   ou, se não houver uma, escrevendo direto no arquivo via o valor ATUAL
   (não mockado) do atributo (`history_mod._DEFAULT_PATH.write_text("[]")`).
 
+### 18. Empacotar (.spec): falta `skinvault/stickers.json` nos `datas` — quebra no import
+
+`*.spec` está no `.gitignore` (intencional — cada máquina tem o seu;
+`SkinVault.spec` em si **nunca foi versionado**, só existe localmente). Isso
+significa que um bug no `.spec` não aparece em nenhum PR nem review — só é
+descoberto empacotando de verdade. Achado empacotando a UI web
+(2026-10-18, `SkinVault-web.spec`, novo): faltava `skinvault/stickers.json`
+(banco de adesivos, ~1,2 MB) em `datas`. `cases.py` chama
+`sticker_data.get_all()` no **import do módulo** (top-level, não dentro de
+função), e `get_all()` lê o arquivo via `dirname(__file__)` — sem ele no
+bundle, `FileNotFoundError` no primeiro `import skinvault.cases`, antes de
+qualquer janela abrir. Mesmo gap existia em `SkinVault.spec` (build Qt,
+`datas=[('data', 'data')]` só) — nunca foi notado porque ninguém tinha
+empacotado desde que `stickers.json` foi adicionado (commit `aa5c3f8`).
+Corrigido nos dois specs locais; `skinvault/assets/icon.ico` (ícone da
+janela Qt, carregado do mesmo jeito mas com fallback silencioso —
+`gui.py` confere `.is_file()`) também estava faltando, sem crash mas sem
+ícone no `.exe`.
+
+**Lição:** qualquer `Path(__file__).parent / "arquivo"` ou
+`os.path.dirname(__file__)` carregando recurso de dentro do PACOTE (não de
+`data/`, que é do usuário) precisa de uma entrada em `datas=[(origem,
+destino)]` no `.spec` correspondente. `grep -rn "dirname(__file__)\|
+__file__).parent" skinvault/*.py skinvault/ui/*.py skinvault/webapp/*.py`
+lista os candidatos; rodar o `.exe` com `console=True` temporariamente
+(em vez de `False`) mostra o traceback completo se faltar algo — com
+`console=False` a exceção acontece em silêncio.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`
@@ -827,6 +855,10 @@ python -m skinvault --add "<nome>" <custo> [qtd]
 
 # Testes
 python -m pytest -q
+
+# Empacotar (.spec local, nao versionado -- ver gotcha #18)
+python -m PyInstaller SkinVault.spec       # Qt -> dist/SkinVault/
+python -m PyInstaller SkinVault-web.spec   # web -> dist/SkinVault-web/
 ```
 
 A suíte inteira roda numa execução só (~40s, 2199 testes em 2026-10-17).
