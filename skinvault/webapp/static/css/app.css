@@ -647,3 +647,64 @@ a {
 .toast-warning { border-left-color: var(--warn); }
 .toast-error { border-left-color: var(--danger); }
 .toast-info { border-left-color: var(--steam-blue); }
+
+/* Tooltip customizado -- ver app.js:adotarTooltip. `white-space: pre-line`
+   porque varios `title=` do app sao multi-linha de proposito (AGENTS.md:
+   "Tooltips extensos explicando significado + como interpretar"), com
+   `\n` literal no texto -- o balao nativo do navegador respeita quebra
+   de linha, e o nosso precisa continuar respeitando. */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  /* Abaixo, nao acima: o header tem so' 40px (--size-header-h), e um
+     botao de page-header (bem comum: "Atualizar notas" etc.) com
+     balao de 2 linhas acima cortava no topo da janela -- sobra bem
+     mais espaco pra baixo na maioria das telas. */
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  background: var(--bg-overlay);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: var(--fs-muted);
+  font-weight: 400;
+  font-family: var(--font-family);
+  white-space: pre-line;
+  width: max-content;
+  max-width: 280px;
+  text-align: left;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 3000;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  transition-delay: 0.3s;
+}
+
+/* Sidebar e' um rail estreito a esquerda: balao acima/centralizado
+   cortaria na borda da janela. Vai pro lado direito do icone. */
+.sidebar-item[data-tooltip]::after {
+  bottom: auto;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  margin-left: 10px;
+}
+
+.sidebar-item[data-tooltip]:hover::after,
+.sidebar-item[data-tooltip]:focus-visible::after {
+  transform: translateY(-50%) translateX(0);
+}

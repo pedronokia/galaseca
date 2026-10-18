@@ -46,4 +46,23 @@ document.addEventListener("DOMContentLoaded", () => {
       fetch("/api/debug/notify", { method: "POST" });
     });
   }
+
+  // Tooltip customizado (tema escuro) no lugar do balao nativo do
+  // navegador (branco, serrilhado, sem respeitar o tema). Preguicoso
+  // de proposito: converte `title` -> `data-tooltip` so' no primeiro
+  // hover/foco de CADA elemento, nao uma vez so' no carregamento --
+  // varias telas setam `.title` depois do DOMContentLoaded (linha de
+  // tabela do Scanner, item renderizado do Inventario...), e uma
+  // conversao unica no load nunca pegaria essas. Remover o `title`
+  // cancela o balao nativo agendado (confirmado: funciona em todo
+  // motor testado) antes dele aparecer.
+  function adotarTooltip(ev) {
+    const el = ev.target.closest ? ev.target.closest("[title]") : null;
+    if (el && el.getAttribute("title")) {
+      el.setAttribute("data-tooltip", el.getAttribute("title"));
+      el.removeAttribute("title");
+    }
+  }
+  document.addEventListener("mouseover", adotarTooltip, true);
+  document.addEventListener("focusin", adotarTooltip, true);
 });
