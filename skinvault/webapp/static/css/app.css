@@ -171,6 +171,15 @@ a {
   flex: 1;
   overflow: auto;
   padding: var(--space-xl);
+  /* Cada navegacao aqui e' um reload de pagina (MPA, nao SPA) -- sem
+     isso o conteudo so' "aparece" seco. Equivalente do fade_in() que
+     o ScreenRouter do Qt roda ao trocar de tela (AGENTS.md #11). */
+  animation: content-fade-in 0.18s ease;
+}
+
+@keyframes content-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .footer {
@@ -442,6 +451,21 @@ a {
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
+/* <select> com .text-input herda cor/borda, mas a seta cinza-claro
+   chapada do navegador (chrome nativo, nao tema nenhum) continuava
+   destoando -- troca pela mesma seta usada nos outros lugares, cor
+   --text-muted embutida como SVG (unico jeito de customizar a seta
+   sem JS: `::after` nao e' suportado em <select> nativo). */
+select.text-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' stroke='%23AAAAAA' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+  cursor: pointer;
+}
+
 .add-item-form[hidden] {
   /* Sem isto, `display: flex` abaixo vence a regra `[hidden]` do UA
      stylesheet (especificidade de classe > atributo) e o form nasce
@@ -554,6 +578,17 @@ a {
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  animation: modal-fade-in 0.12s ease;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-pop-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .modal-card {
@@ -566,6 +601,7 @@ a {
   max-height: calc(100vh - var(--space-xl) * 2);
   overflow-y: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  animation: modal-pop-in 0.15s ease;
 }
 
 .modal-actions {
@@ -757,4 +793,28 @@ a {
 .sidebar-item[data-tooltip]:hover::after,
 .sidebar-item[data-tooltip]:focus-visible::after {
   transform: translateY(-50%) translateX(0);
+}
+
+/* Empty states: mesmos dois glifos do EmptyState do Qt
+   (ui/components.py) -- "◇" pra "ainda sem dados" (maioria das telas)
+   e "◎" pra "pronto pra agir" (Scanner). Selector por SUFIXO de id
+   (`[id$="-empty"]`) cobre as 11 ocorrencias espalhadas por 7
+   templates numa regra so', sem precisar tocar HTML de tela nenhuma
+   -- todo empty state do app ja segue essa convencao de nome de id. */
+[id$="-empty"] {
+  text-align: center;
+  padding: var(--space-2xl) var(--space-lg);
+}
+
+[id$="-empty"]::before {
+  content: "◇";
+  display: block;
+  font-size: 32px;
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin-bottom: var(--space-sm);
+}
+
+#scanner-empty::before {
+  content: "◎";
 }
