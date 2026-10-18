@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scanner.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Scanner de Oportunidades</h1>
+    <p class="muted">
+      Analisa uma lista fixa de itens por categoria e dá uma nota de
+      0 a 100 pra cada um, com base em preço, fila de ofertas e
+      tendência. Fatos sobre o passado — não é previsão de preço.
+    </p>
+  </div>
+</div>
+
+<div class="scanner-controls">
+  <select id="category-select" class="text-input"></select>
+  <button id="btn-scan" class="btn-primary" type="button">Escanear</button>
+</div>
+
+<p class="status-line" id="scanner-status">
+  Escolha uma categoria e clique em Escanear.
+</p>
+
+<section class="card table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Nota</th>
+        <th>Preço</th>
+        <th>Avaliação</th>
+        <th>Diferença compra/venda</th>
+        <th>Fila de ofertas</th>
+        <th>Tendência</th>
+        <th>Procura × Oferta</th>
+        <th>Caixa</th>
+      </tr>
+    </thead>
+    <tbody id="scanner-body"></tbody>
+  </table>
+  <p class="muted" id="scanner-empty">Nenhum resultado ainda.</p>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/scanner.js') }}"></script>
+{% endblock %}

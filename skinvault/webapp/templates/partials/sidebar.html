@@ -1,7 +1,7 @@
 <!--
-  Rail de icones. Conta e Inventario ja' navegam de verdade (Fase 2/3);
-  o resto segue placeholder emoji ate' cada fase portar a tela real
-  (ver plano de migracao) -- sem link, cursor:default.
+  Rail de icones. As 10 telas ja navegam de verdade (Fases 2-11 da
+  migracao web) -- cada <li> marca `active` comparando com o que a
+  rota passou pro template via render_template(..., active=...).
 -->
 <nav class="sidebar" aria-label="Navegação principal">
   <ul class="sidebar-list">
@@ -14,7 +14,9 @@
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'history' else '' }}" title="Histórico">
       <a href="{{ url_for('history.page') }}">📈</a>
     </li>
-    <li class="sidebar-item" title="Scanner">🔍</li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'scanner' else '' }}" title="Scanner">
+      <a href="{{ url_for('scanner.page') }}">🔍</a>
+    </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'market' else '' }}" title="Mercado">
       <a href="{{ url_for('market.page') }}">🏷️</a>
     </li>

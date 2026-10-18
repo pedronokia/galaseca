@@ -1,0 +1,23 @@
+/* Tela de Scanner -- Fase 11. */
+
+.scanner-controls {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+#category-select {
+  min-width: 280px;
+}
+
+.data-table td.score-cell {
+  font-weight: 600;
+}
+
+.data-table td.score-high {
+  color: var(--positive);
+}
+
+.data-table td.score-low {
+  color: var(--danger);
+}
