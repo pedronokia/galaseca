@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cleanup.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Limpeza do Sistema</h1>
+    <p class="muted">
+      Arquivos temporários do Windows que ocupam disco. Nada é apagado
+      sem confirmação, e tudo aqui é medido antes.
+    </p>
+  </div>
+  <div class="page-actions">
+    <button id="btn-rescan" class="btn-ghost" type="button">
+      Medir de novo
+    </button>
+  </div>
+</div>
+
+<p class="status-line" id="admin-status"></p>
+<p class="status-line" id="cleanup-status"></p>
+
+<div id="targets-list"></div>
+
+<div class="page-actions cleanup-footer">
+  <button id="btn-clean" class="btn-primary" type="button">
+    Limpar selecionados
+  </button>
+</div>
+
+<section id="results-card" class="card table-card" hidden>
+  <h2 class="section-title">Resultado</h2>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Alvo</th>
+        <th>Removidos</th>
+        <th>Liberado</th>
+        <th>Pulados</th>
+      </tr>
+    </thead>
+    <tbody id="results-body"></tbody>
+  </table>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/cleanup.js') }}"></script>
+{% endblock %}

@@ -25,7 +25,9 @@
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'watchlist' else '' }}" title="Watchlist">
       <a href="{{ url_for('watchlist.page') }}">🔔</a>
     </li>
-    <li class="sidebar-item" title="Limpeza">🧹</li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'cleanup' else '' }}" title="Limpeza">
+      <a href="{{ url_for('cleanup.page') }}">🧹</a>
+    </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'settings' else '' }}" title="Configurações">
       <a href="{{ url_for('settings.page') }}">⚙️</a>
     </li>
