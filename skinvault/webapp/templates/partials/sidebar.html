@@ -15,7 +15,9 @@
       <a href="{{ url_for('history.page') }}">📈</a>
     </li>
     <li class="sidebar-item" title="Scanner">🔍</li>
-    <li class="sidebar-item" title="Mercado">🏷️</li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'market' else '' }}" title="Mercado">
+      <a href="{{ url_for('market.page') }}">🏷️</a>
+    </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'trades' else '' }}" title="Trades">
       <a href="{{ url_for('trades.page') }}">🔁</a>
     </li>

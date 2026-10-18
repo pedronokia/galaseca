@@ -15,6 +15,7 @@ from skinvault.webapp.routes.account import bp as account_bp
 from skinvault.webapp.routes.cleanup import bp as cleanup_bp
 from skinvault.webapp.routes.history import bp as history_bp
 from skinvault.webapp.routes.inventory import bp as inventory_bp
+from skinvault.webapp.routes.market import bp as market_bp
 from skinvault.webapp.routes.misc import bp as misc_bp
 from skinvault.webapp.routes.settings import bp as settings_bp
 from skinvault.webapp.routes.trades import bp as trades_bp
@@ -41,6 +42,7 @@ def create_app() -> Flask:
     app.register_blueprint(settings_bp)
     app.register_blueprint(watchlist_bp)
     app.register_blueprint(cleanup_bp)
+    app.register_blueprint(market_bp)
 
     @app.context_processor
     def _inject_versao():

@@ -1,0 +1,65 @@
+/* Tela de Consulta de Mercado -- Fase 10. */
+
+.market-search-row {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.market-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 560px;
+}
+
+.recent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.recent-chip {
+  font-family: var(--font-family);
+  font-size: var(--fs-muted);
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.recent-chip:hover {
+  color: var(--text);
+  background: var(--surface-hov);
+}
+
+/* .market-content nao define `display` de proposito: o atributo
+   [hidden] do navegador ja' basta (default display:block), e definir
+   display aqui reabriria a mesma armadilha das Fases 3/5. */
+.market-content > * {
+  margin-bottom: var(--space-lg);
+}
+
+.stat-value.below_median {
+  color: var(--positive);
+}
+
+.stat-value.overpriced {
+  color: var(--danger);
+}
+
+.stat-value.slightly_above {
+  color: var(--warn-text);
+}
+
+.market-message {
+  font-size: var(--fs-input);
+}
+
+#sparkline-wrap svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/market.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Consulta de Mercado</h1>
+    <p class="muted">
+      Veja se um item está caro ou barato, como o preço andou e quem
+      está comprando e vendendo no Steam Market.
+    </p>
+  </div>
+</div>
+
+<div class="market-search-row">
+  <input id="market-input" type="text" class="text-input market-input"
+         placeholder="Ex: AK-47 | Redline (Field-Tested)">
+  <button id="market-search-btn" class="btn-primary" type="button">
+    Consultar item
+  </button>
+</div>
+<div id="recent-chips" class="recent-chips"></div>
+
+<p class="status-line" id="market-status">
+  Pronto. Cole o nome de um item e clique em Consultar.
+</p>
+
+<section id="market-empty" class="card">
+  <p class="muted">
+    Consulte um item para ver se está caro ou barato, a diferença
+    entre compra e venda e a tendência do preço.
+  </p>
+</section>
+
+<section id="market-content" class="market-content" hidden>
+  <section class="stat-row">
+    <article class="stat-card" data-stat="lowest">
+      <span class="stat-label">Menor anúncio</span>
+      <span class="stat-value">—</span>
+      <span class="stat-delta muted"></span>
+    </article>
+    <article class="stat-card" data-stat="median">
+      <span class="stat-label">Preço típico (24h)</span>
+      <span class="stat-value">—</span>
+      <span class="stat-delta muted"></span>
+    </article>
+    <article class="stat-card" data-stat="volume">
+      <span class="stat-label">Vendas em 24h</span>
+      <span class="stat-value">—</span>
+      <span class="stat-delta muted"></span>
+    </article>
+    <article class="stat-card" data-stat="verdict">
+      <span class="stat-label">Avaliação</span>
+      <span class="stat-value">—</span>
+      <span class="stat-delta muted"></span>
+    </article>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">O que isso significa</h2>
+    <p id="verdict-message" class="market-message">—</p>
+    <p id="book-line" class="muted"></p>
+    <p id="case-line" class="muted" hidden></p>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">Histórico recente</h2>
+    <div id="sparkline-wrap"></div>
+    <p id="sparkline-empty" class="muted" hidden>Sem histórico guardado para este item.</p>
+  </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/market.js') }}"></script>
+{% endblock %}
