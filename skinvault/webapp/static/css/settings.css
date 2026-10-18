@@ -1,0 +1,40 @@
+/* Tela de Configuracoes -- Fase 6. */
+
+.settings-card {
+  max-width: none;
+  margin-bottom: var(--space-lg);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) 0;
+  cursor: pointer;
+}
+
+.settings-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.settings-row-inline {
+  justify-content: space-between;
+  cursor: default;
+}
+
+.settings-row-inline .qty-input {
+  width: 100px;
+}
+
+.settings-backup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.settings-backup-head .section-title {
+  margin: 0;
+}
