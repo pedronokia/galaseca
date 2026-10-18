@@ -1,14 +1,16 @@
 <!--
-  Rail de icones -- placeholder da Fase 0. Emoji aqui so' pra marcar o
-  lugar de cada tela; os LineIcon (QPainter) de theme.py/components.py
-  ganham equivalente SVG/CSS quando as telas reais forem portadas
-  (Fase 2+, ver plano de migracao). Sem navegacao ainda -- nenhuma
-  tela alem desta existe.
+  Rail de icones. Conta e Inventario ja' navegam de verdade (Fase 2/3);
+  o resto segue placeholder emoji ate' cada fase portar a tela real
+  (ver plano de migracao) -- sem link, cursor:default.
 -->
 <nav class="sidebar" aria-label="Navegação principal">
   <ul class="sidebar-list">
-    <li class="sidebar-item active" title="Conta">👤</li>
-    <li class="sidebar-item" title="Inventário">🎒</li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'account' else '' }}" title="Conta">
+      <a href="{{ url_for('misc.index') }}">👤</a>
+    </li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'inventory' else '' }}" title="Inventário">
+      <a href="{{ url_for('inventory.page') }}">🎒</a>
+    </li>
     <li class="sidebar-item" title="Histórico">📈</li>
     <li class="sidebar-item" title="Scanner">🔍</li>
     <li class="sidebar-item" title="Mercado">🏷️</li>

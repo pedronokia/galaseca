@@ -3,6 +3,11 @@
 Equivalente web de `AccountScreen` + `PriceWorker` (ui/account_screen.py,
 ui/_price_worker.py), reduzido ao que a Fase 2 precisa: os 4 stat cards e
 a lista de posicoes. Graficos/metas/backtest ficam pra fases seguintes.
+
+Reusado pela Fase 3 (Inventario, routes/inventory.py) -- e' a MESMA
+avaliacao de portfolio, so' outra tela mostrando mais colunas. Duplicar
+`evaluate_portfolio` lah' dobraria o custo de rede sem motivo (mesmo
+principio do `AccountScreen` do Qt: so' um lugar bate a avaliacao).
 """
 from __future__ import annotations
 
@@ -30,6 +35,8 @@ def _row_view(row: dict) -> dict:
         "display_name": localize_name(row.get("name", "")),
         "quantity": row.get("quantity", 1),
         "price": row.get("price"),
+        "net_if_sold": row.get("net_if_sold"),
+        "cost": row.get("cost") if row.get("has_cost") else None,
         "pnl": row.get("pnl"),
         "has_cost": bool(row.get("has_cost")),
     }

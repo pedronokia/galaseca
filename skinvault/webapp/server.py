@@ -10,7 +10,9 @@ from pathlib import Path
 
 from flask import Flask
 
+from skinvault import __version__
 from skinvault.webapp.routes.account import bp as account_bp
+from skinvault.webapp.routes.inventory import bp as inventory_bp
 from skinvault.webapp.routes.misc import bp as misc_bp
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -26,6 +28,14 @@ def create_app() -> Flask:
     app.config["JSON_AS_ASCII"] = False
     app.register_blueprint(misc_bp)
     app.register_blueprint(account_bp)
+    app.register_blueprint(inventory_bp)
+
+    @app.context_processor
+    def _inject_versao():
+        # Toda pagina estende base.html, que usa {{ versao }} no rodape --
+        # injetar aqui poupa toda rota de passar o mesmo valor na mao.
+        return {"versao": __version__}
+
     return app
 
 

@@ -1,0 +1,77 @@
+/* Tela de Inventario -- Fase 3. */
+
+.text-input {
+  font-family: var(--font-family);
+  font-size: var(--fs-input);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.add-item-form[hidden] {
+  /* Sem isto, `display: flex` abaixo vence a regra `[hidden]` do UA
+     stylesheet (especificidade de classe > atributo) e o form nasce
+     aberto mesmo com o atributo hidden no HTML. */
+  display: none;
+}
+
+.add-item-form {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.add-item-form .text-input:first-child {
+  flex: 1;
+}
+
+.qty-input {
+  width: 80px;
+}
+
+#add-item-error {
+  color: var(--danger);
+  font-size: var(--fs-muted);
+  margin: -8px 0 var(--space-md);
+}
+
+.filter-row {
+  margin-bottom: var(--space-md);
+}
+
+.filter-input {
+  width: 320px;
+  max-width: 100%;
+}
+
+.data-table td.cost-cell {
+  cursor: pointer;
+}
+
+.data-table td.cost-cell:hover {
+  text-decoration: underline dotted;
+}
+
+.cost-edit-input {
+  width: 100px;
+  text-align: right;
+  font-family: var(--font-family);
+  font-size: var(--fs-body);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 2px 6px;
+}

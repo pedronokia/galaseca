@@ -23,6 +23,7 @@ def client():
 
 
 def test_summary_payload_carteira_vazia():
+    portfolio_mod.save_portfolio([])  # isola de outros testes do modulo
     payload = account_data.summary_payload()
     assert payload["rows"] == []
     assert payload["totals"]["positions"] == 0

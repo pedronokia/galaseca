@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from flask import Blueprint, Response, jsonify, render_template
 
-from skinvault import __version__
 from skinvault.webapp import events
 
 bp = Blueprint("misc", __name__)
@@ -16,7 +15,7 @@ bp = Blueprint("misc", __name__)
 
 @bp.route("/")
 def index():
-    return render_template("account.html", versao=__version__)
+    return render_template("account.html", active="account")
 
 
 @bp.route("/api/ping")

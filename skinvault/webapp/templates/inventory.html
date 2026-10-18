@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/inventory.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Inventário</h1>
+    <p class="muted">Seus itens, custo declarado e lucro/prejuízo.</p>
+  </div>
+  <div class="page-actions">
+    <button id="btn-add-item" class="btn-secondary" type="button">
+      + Adicionar item
+    </button>
+  </div>
+</div>
+
+<form id="add-item-form" class="add-item-form" hidden>
+  <input id="add-name" type="text" class="text-input"
+         placeholder="Nome do item (market_hash_name)" required>
+  <input id="add-cost" type="text" class="text-input"
+         placeholder="Custo (opcional) — ex.: 199,90">
+  <input id="add-qty" type="number" class="text-input qty-input"
+         min="1" value="1" placeholder="Qtd">
+  <button type="submit" class="btn-secondary">Salvar</button>
+  <button type="button" id="add-cancel" class="btn-ghost">Cancelar</button>
+</form>
+<p class="muted" id="add-item-error" hidden></p>
+
+<div class="filter-row">
+  <input id="filter-input" type="text" class="text-input filter-input"
+         placeholder="Filtrar por nome do item…">
+</div>
+
+<p class="status-line" id="inventory-status">Carregando…</p>
+
+<section class="card table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Qtd</th>
+        <th>Preço</th>
+        <th>Recebe (saldo)</th>
+        <th>Custo</th>
+        <th>Lucro/prejuízo</th>
+      </tr>
+    </thead>
+    <tbody id="inventory-body"></tbody>
+  </table>
+  <p class="muted" id="inventory-empty" hidden>
+    Inventário vazio — adicione um item acima.
+  </p>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/inventory.js') }}"></script>
+{% endblock %}
