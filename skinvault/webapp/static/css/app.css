@@ -31,6 +31,19 @@ a {
   flex-shrink: 0;
 }
 
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--size-header-h);
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-brand img {
+  display: block;
+  border-radius: 7px;
+}
+
 .sidebar-list {
   list-style: none;
   margin: 0;
@@ -45,20 +58,28 @@ a {
   align-items: center;
   justify-content: center;
   height: 44px;
-  font-size: 18px;
+  /* Margem sempre presente (nao so' no .active/hover): trocar de
+     estado so' muda cor/fundo, nunca o tamanho -- sem isso o item
+     "pulava" 8px ao ganhar/perder o estado. */
+  margin: 0 8px;
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: default; /* placeholder sem tela propria ainda */
+  transition: background-color 0.12s ease, color 0.12s ease;
 }
 
 .sidebar-item.active {
   color: var(--accent);
   background: var(--accent-dim);
-  border-radius: var(--radius-sm);
-  margin: 0 8px;
 }
 
 .sidebar-link {
   cursor: pointer;
+}
+
+.sidebar-link:not(.active):hover {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .sidebar-link a {
@@ -68,6 +89,14 @@ a {
   width: 100%;
   height: 100%;
   text-decoration: none;
+  color: inherit;
+  transition: color 0.12s ease;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 .app-main {
@@ -86,6 +115,28 @@ a {
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
+}
+
+.breadcrumb-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-body);
+}
+
+.breadcrumb-root {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.breadcrumb-sep {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.breadcrumb-current {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .app-content {

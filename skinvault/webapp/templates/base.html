@@ -1,9 +1,23 @@
+{% set _rotulos = {
+  "account": "Minha Conta",
+  "inventory": "Inventário",
+  "history": "Meu Histórico",
+  "scanner": "Scanner de Oportunidades",
+  "market": "Consulta de Mercado",
+  "trades": "Trades",
+  "tradeup": "Calculadora de Trade-up",
+  "watchlist": "Watchlist",
+  "cleanup": "Limpeza do Sistema",
+  "settings": "Configurações",
+} %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SkinVault</title>
+  <title>{{ _rotulos[active] ~ " — SkinVault" if active in _rotulos else "SkinVault" }}</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+  <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='img/favicon-48.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   {% block extra_css %}{% endblock %}

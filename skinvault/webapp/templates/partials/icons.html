@@ -1,0 +1,56 @@
+{#
+  Icones de linha (18x18, stroke 1.5, sem preenchimento exceto pontos) --
+  mesmo vocabulario do LineIcon do app Qt (ui/components.py): ate' o
+  nome de cada icone e' o mesmo (user, wallet, history, radar, chart,
+  swap, calc, eye, trash, gear), so' desenhado em SVG em vez de QPainter.
+  `currentColor` no stroke: a cor segue o `color` do elemento pai (ja'
+  resolvido pelas regras .sidebar-item / .sidebar-item.active do CSS,
+  sem precisar de JS pra trocar cor no hover/ativo).
+#}
+{% macro icon(name, size=18) %}
+<svg class="icon icon-{{ name }}" width="{{ size }}" height="{{ size }}"
+     viewBox="0 0 18 18" fill="none" stroke="currentColor"
+     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true">
+{%- if name == "user" %}
+  <circle cx="9" cy="6.5" r="3"/>
+  <path d="M3.5 15c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/>
+{%- elif name == "wallet" %}
+  <rect x="2.5" y="5" width="13" height="9" rx="1.5"/>
+  <path d="M2.5 8h13"/>
+  <circle cx="12.5" cy="11" r="1" fill="currentColor" stroke="none"/>
+{%- elif name == "history" %}
+  <circle cx="9" cy="9" r="6.5"/>
+  <path d="M9 5.5V9l3 2"/>
+{%- elif name == "radar" %}
+  <path d="M9 9V2.5A6.5 6.5 0 0 1 15.5 9"/>
+  <path d="M9 9V5A4 4 0 0 1 13 9"/>
+  <circle cx="9" cy="9" r="0.9" fill="currentColor" stroke="none"/>
+{%- elif name == "chart" %}
+  <path d="M3 14l4-5 3 3 5-7"/>
+{%- elif name == "swap" %}
+  <path d="M4 6h10M11 3l3 3-3 3"/>
+  <path d="M14 12H4M7 9l-3 3 3 3"/>
+{%- elif name == "calc" %}
+  <rect x="4" y="2.5" width="10" height="13" rx="1.5"/>
+  <path d="M6 5.5h6"/>
+  <circle cx="6.5" cy="9.5" r="0.7" fill="currentColor" stroke="none"/>
+  <circle cx="9" cy="9.5" r="0.7" fill="currentColor" stroke="none"/>
+  <circle cx="11.5" cy="9.5" r="0.7" fill="currentColor" stroke="none"/>
+  <circle cx="6.5" cy="12.5" r="0.7" fill="currentColor" stroke="none"/>
+  <circle cx="9" cy="12.5" r="0.7" fill="currentColor" stroke="none"/>
+  <circle cx="11.5" cy="12.5" r="0.7" fill="currentColor" stroke="none"/>
+{%- elif name == "eye" %}
+  <path d="M2.5 9S5 4 9 4s6.5 5 6.5 5-2.5 5-6.5 5S2.5 9 2.5 9Z"/>
+  <circle cx="9" cy="9" r="2.2"/>
+{%- elif name == "trash" %}
+  <path d="M4 5.5h10M7.5 5.5V3.5h3v2M5.5 5.5l.7 9.5a1 1 0 0 0 1 .9h3.6a1 1 0 0 0 1-.9l.7-9.5"/>
+  <path d="M7.7 8.3v4.4M10.3 8.3v4.4"/>
+{%- elif name == "gear" %}
+  <circle cx="9" cy="9" r="2.3"/>
+  <path d="M9 2.8v1.8M9 12.4v1.8M15.2 9h-1.8M4.6 9H2.8M13.2 4.8l-1.3 1.3M6.1 11.9l-1.3 1.3M13.2 13.2l-1.3-1.3M6.1 6.1 4.8 4.8"/>
+{%- else %}
+  <circle cx="9" cy="9" r="6"/>
+{%- endif %}
+</svg>
+{%- endmacro %}

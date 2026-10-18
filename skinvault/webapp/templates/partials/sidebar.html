@@ -2,38 +2,44 @@
   Rail de icones. As 10 telas ja navegam de verdade (Fases 2-11 da
   migracao web) -- cada <li> marca `active` comparando com o que a
   rota passou pro template via render_template(..., active=...).
+  Icones: mesmo vocabulario do LineIcon do app Qt (ui/components.py),
+  so' desenhado em SVG -- ver partials/icons.html.
 -->
+{% from "partials/icons.html" import icon %}
 <nav class="sidebar" aria-label="Navegação principal">
+  <div class="sidebar-brand" title="SkinVault">
+    <img src="{{ url_for('static', filename='img/logo-64.png') }}" alt="SkinVault" width="28" height="28">
+  </div>
   <ul class="sidebar-list">
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'account' else '' }}" title="Conta">
-      <a href="{{ url_for('misc.index') }}">👤</a>
+      <a href="{{ url_for('misc.index') }}">{{ icon('user') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'inventory' else '' }}" title="Inventário">
-      <a href="{{ url_for('inventory.page') }}">🎒</a>
+      <a href="{{ url_for('inventory.page') }}">{{ icon('wallet') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'history' else '' }}" title="Histórico">
-      <a href="{{ url_for('history.page') }}">📈</a>
+      <a href="{{ url_for('history.page') }}">{{ icon('history') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'scanner' else '' }}" title="Scanner">
-      <a href="{{ url_for('scanner.page') }}">🔍</a>
+      <a href="{{ url_for('scanner.page') }}">{{ icon('radar') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'market' else '' }}" title="Mercado">
-      <a href="{{ url_for('market.page') }}">🏷️</a>
+      <a href="{{ url_for('market.page') }}">{{ icon('chart') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'trades' else '' }}" title="Trades">
-      <a href="{{ url_for('trades.page') }}">🔁</a>
+      <a href="{{ url_for('trades.page') }}">{{ icon('swap') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'tradeup' else '' }}" title="Trade-up">
-      <a href="{{ url_for('tradeup.page') }}">🧮</a>
+      <a href="{{ url_for('tradeup.page') }}">{{ icon('calc') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'watchlist' else '' }}" title="Watchlist">
-      <a href="{{ url_for('watchlist.page') }}">🔔</a>
+      <a href="{{ url_for('watchlist.page') }}">{{ icon('eye') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'cleanup' else '' }}" title="Limpeza">
-      <a href="{{ url_for('cleanup.page') }}">🧹</a>
+      <a href="{{ url_for('cleanup.page') }}">{{ icon('trash') }}</a>
     </li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'settings' else '' }}" title="Configurações">
-      <a href="{{ url_for('settings.page') }}">⚙️</a>
+      <a href="{{ url_for('settings.page') }}">{{ icon('gear') }}</a>
     </li>
   </ul>
 </nav>
