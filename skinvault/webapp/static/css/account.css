@@ -1,49 +1,6 @@
 /* Tela de Conta -- Fase 2. Estilos genericos (page-header, botoes,
-   data-table) moraram pra app.css na Fase 3 pro Inventario reusar. */
-
-.stat-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-lg);
-  margin-bottom: var(--space-lg);
-}
-
-.stat-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-label {
-  color: var(--text-muted);
-  font-size: var(--fs-muted);
-}
-
-.stat-value {
-  font-size: var(--fs-title);
-  font-weight: 600;
-}
-
-.stat-value.positive {
-  color: var(--positive);
-}
-
-.stat-value.negative {
-  color: var(--danger);
-}
-
-.stat-value.accent-net {
-  color: var(--steam-blue);
-}
-
-.stat-delta {
-  font-size: var(--fs-muted);
-  min-height: 1em;
-}
+   data-table, stat-card) moraram pra app.css nas fases seguintes, pra
+   as outras telas reusarem sem duplicar. */
 
 .diagnostics {
   margin-top: var(--space-xl);

@@ -250,6 +250,129 @@ a {
   color: var(--danger);
 }
 
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+
+.stat-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: var(--fs-muted);
+}
+
+.stat-value {
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+
+.stat-value.positive {
+  color: var(--positive);
+}
+
+.stat-value.negative {
+  color: var(--danger);
+}
+
+.stat-value.accent-net {
+  color: var(--steam-blue);
+}
+
+.stat-delta {
+  font-size: var(--fs-muted);
+  min-height: 1em;
+}
+
+/* Inputs de texto/numero e o form inline "+ Adicionar X", reusados por
+   Inventario (Fase 3) e Trades (Fase 4). */
+
+.text-input {
+  font-family: var(--font-family);
+  font-size: var(--fs-input);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.add-item-form[hidden] {
+  /* Sem isto, `display: flex` abaixo vence a regra `[hidden]` do UA
+     stylesheet (especificidade de classe > atributo) e o form nasce
+     aberto mesmo com o atributo hidden no HTML. */
+  display: none;
+}
+
+.add-item-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.add-item-form .text-input:first-child {
+  flex: 1;
+  min-width: 160px;
+}
+
+.qty-input {
+  width: 80px;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: var(--fs-muted);
+  margin: -8px 0 var(--space-md);
+}
+
+.row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.row-actions button {
+  font-family: var(--font-family);
+  font-size: var(--fs-muted);
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.row-actions button:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.row-actions button.danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 #toast-area {
   position: fixed;
   right: var(--space-xl);

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trades.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Trades</h1>
+    <p class="muted">Compra e venda registradas, com o lucro já descontada a taxa da Steam.</p>
+  </div>
+  <div class="page-actions">
+    <button id="btn-add-trade" class="btn-secondary" type="button">
+      + Adicionar trade
+    </button>
+  </div>
+</div>
+
+<form id="add-trade-form" class="add-item-form trade-form" hidden>
+  <input id="t-name" type="text" class="text-input" placeholder="Nome do item" required>
+  <input id="t-buy" type="text" class="text-input" placeholder="Compra (R$)">
+  <input id="t-sell" type="text" class="text-input" placeholder="Venda (R$)">
+  <input id="t-qty" type="number" class="text-input qty-input" min="1" value="1" placeholder="Qtd">
+  <input id="t-notes" type="text" class="text-input" placeholder="Notas (opcional)">
+  <button type="submit" class="btn-secondary">Salvar</button>
+  <button type="button" id="t-cancel" class="btn-ghost">Cancelar</button>
+</form>
+<p class="field-error" id="add-trade-error" hidden></p>
+
+<section class="stat-row trades-stat-row">
+  <article class="stat-card" data-stat="total">
+    <span class="stat-label">Trades fechados</span>
+    <span class="stat-value">0</span>
+    <span class="stat-delta muted"></span>
+  </article>
+  <article class="stat-card" data-stat="pnl">
+    <span class="stat-label">Lucro/prejuízo total</span>
+    <span class="stat-value">—</span>
+    <span class="stat-delta muted"></span>
+  </article>
+  <article class="stat-card" data-stat="winrate">
+    <span class="stat-label">Taxa de acerto</span>
+    <span class="stat-value">—</span>
+    <span class="stat-delta muted"></span>
+  </article>
+</section>
+
+<section class="card table-card">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Compra</th>
+        <th>Venda</th>
+        <th>Qtd</th>
+        <th>Recebido</th>
+        <th>Lucro/prejuízo</th>
+        <th>Notas</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="trades-body"></tbody>
+  </table>
+  <p class="muted" id="trades-empty" hidden>
+    Nenhum trade registrado ainda.
+  </p>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/trades.js') }}"></script>
+{% endblock %}

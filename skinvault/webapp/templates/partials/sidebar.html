@@ -14,7 +14,9 @@
     <li class="sidebar-item" title="Histórico">📈</li>
     <li class="sidebar-item" title="Scanner">🔍</li>
     <li class="sidebar-item" title="Mercado">🏷️</li>
-    <li class="sidebar-item" title="Trades">🔁</li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'trades' else '' }}" title="Trades">
+      <a href="{{ url_for('trades.page') }}">🔁</a>
+    </li>
     <li class="sidebar-item" title="Simulador">🧮</li>
     <li class="sidebar-item" title="Watchlist">🔔</li>
     <li class="sidebar-item" title="Limpeza">🧹</li>

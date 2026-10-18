@@ -1,0 +1,6 @@
+/* Tela de Trades -- Fase 4. O form e os stat-cards vem de app.css
+   (compartilhados); aqui so' os ajustes especificos desta tela. */
+
+.trades-stat-row {
+  margin-top: var(--space-lg);
+}
