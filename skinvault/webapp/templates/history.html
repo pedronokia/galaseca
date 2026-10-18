@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Meu Histórico</h1>
+    <p class="muted">Evolução do valor da carteira e trades registrados.</p>
+  </div>
+  <div class="page-actions">
+    <button id="btn-simulate" class="btn-ghost" type="button">
+      Simular trade
+    </button>
+  </div>
+</div>
+
+<div class="segmented" id="history-segmented">
+  <button type="button" class="segment active" data-segment="value">
+    Evolução do valor
+  </button>
+  <button type="button" class="segment" data-segment="trades">
+    Trades
+  </button>
+</div>
+
+<section id="sim-card" class="card sim-card" hidden>
+  <h2 class="section-title">Simulador de lucro</h2>
+  <p class="muted">Lucro real depois da taxa de 15% da Steam.</p>
+  <div class="sim-row">
+    <input id="sim-buy" type="text" class="text-input" placeholder="Compra (R$)">
+    <input id="sim-sell" type="text" class="text-input" placeholder="Venda (R$)">
+    <input id="sim-qty" type="number" class="text-input qty-input" min="1" value="1" placeholder="Qtd">
+    <button id="sim-calc" class="btn-primary" type="button">Calcular</button>
+  </div>
+  <p class="field-error" id="sim-error" hidden></p>
+  <div id="sim-result" class="sim-result" hidden></div>
+</section>
+
+<section class="card table-card" id="value-segment">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Valor total</th>
+      </tr>
+    </thead>
+    <tbody id="value-body"></tbody>
+  </table>
+  <p class="muted" id="value-empty" hidden>
+    Ainda não há avaliações registradas — avalie a carteira na tela Conta.
+  </p>
+</section>
+
+<section class="card table-card" id="trades-segment" hidden>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Compra</th>
+        <th>Venda</th>
+        <th>Qtd</th>
+        <th>Lucro/prejuízo</th>
+        <th>Data</th>
+      </tr>
+    </thead>
+    <tbody id="trades-body"></tbody>
+  </table>
+  <p class="muted" id="trades-empty" hidden>Nenhum trade registrado ainda.</p>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/history.js') }}"></script>
+{% endblock %}

@@ -11,7 +11,9 @@
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'inventory' else '' }}" title="Inventário">
       <a href="{{ url_for('inventory.page') }}">🎒</a>
     </li>
-    <li class="sidebar-item" title="Histórico">📈</li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'history' else '' }}" title="Histórico">
+      <a href="{{ url_for('history.page') }}">📈</a>
+    </li>
     <li class="sidebar-item" title="Scanner">🔍</li>
     <li class="sidebar-item" title="Mercado">🏷️</li>
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'trades' else '' }}" title="Trades">

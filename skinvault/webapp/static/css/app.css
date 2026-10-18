@@ -379,6 +379,40 @@ a {
   border-color: var(--danger);
 }
 
+/* Controle segmentado (equivalente web do SegmentedControl do Qt) --
+   reusado por Historico (Fase 7) e telas seguintes com abas simples. */
+
+.segmented {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+  margin-bottom: var(--space-lg);
+}
+
+.segment {
+  font-family: var(--font-family);
+  font-size: var(--fs-body);
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.segment:hover {
+  color: var(--text);
+}
+
+.segment.active {
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-weight: 600;
+}
+
 #toast-area {
   position: fixed;
   right: var(--space-xl);

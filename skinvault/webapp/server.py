@@ -12,6 +12,7 @@ from flask import Flask
 
 from skinvault import __version__
 from skinvault.webapp.routes.account import bp as account_bp
+from skinvault.webapp.routes.history import bp as history_bp
 from skinvault.webapp.routes.inventory import bp as inventory_bp
 from skinvault.webapp.routes.misc import bp as misc_bp
 from skinvault.webapp.routes.settings import bp as settings_bp
@@ -32,6 +33,7 @@ def create_app() -> Flask:
     app.register_blueprint(misc_bp)
     app.register_blueprint(account_bp)
     app.register_blueprint(inventory_bp)
+    app.register_blueprint(history_bp)
     app.register_blueprint(trades_bp)
     app.register_blueprint(tradeup_bp)
     app.register_blueprint(settings_bp)
