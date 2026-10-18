@@ -6766,7 +6766,8 @@ def test_depthchart_best_price_outside_range_clamps():
 def test_paths_dev_branch():
     """_paths uses project root in development mode."""
     from skinvault._paths import BASE_DIR, DATA_DIR
-    assert BASE_DIR.name == "SkinVault"
+    from pathlib import Path
+    assert BASE_DIR == Path(__file__).resolve().parent.parent
     assert DATA_DIR.name == "data"
     assert DATA_DIR.is_dir()
 

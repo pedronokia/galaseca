@@ -1,92 +1,99 @@
-# SkinVault  *(nome de trabalho — pode trocar)*
+# SkinVault
 
-Painel de controle **local** do teu inventário de CS2. **Teus dados ficam no teu PC.**
+App desktop para acompanhar inventário e mercado de skins de **CS2**: quanto vale o que
+você tem, quanto você realmente lucrou depois das taxas, e quais itens estão com sinais
+de preço interessantes. **Roda 100% local e nunca pede login da Steam** — só lê dados
+públicos.
 
-## A ideia em uma linha
-Um app desktop que mostra quanto vale teu inventário, se você está pagando caro numa
-skin, e te avisa quando o preço de algo que você quer cai — **sem nunca pedir teu
-login do Steam.**
+| Scanner de oportunidades | Consulta de mercado |
+|---|---|
+| ![Scanner](prints/04-scanner.png) | ![Mercado](prints/05-market.png) |
+| **Watchlist e alertas** | **Carteira** |
+| ![Watchlist](prints/07-watchlist.png) | ![Carteira](prints/01-account.png) |
 
-## Por que existe (o diferencial / o "moat")
-As ferramentas populares (SIH e cia.) rodam dentro da tua sessão do navegador e podem
-**agir pela tua conta** — por isso o medo recorrente de *"isso é seguro?"*. O SkinVault
-só lê **dados públicos** (teu SteamID + preços públicos do Market). Ele **não loga, não
-automatiza ação de conta** — então não tem como roubar item nem te dar ban. Ele
-**informa**; o clique de comprar é teu, no Steam.
+## O que ele faz
 
-## Pra quem é
-O **colecionador / jogador** que quer cuidar do que tem e não ser passado pra trás.
-**NÃO** é ferramenta de flip/arbitragem — flip esbarra na taxa de ~15% do Steam + grana
-presa na Wallet, e atrai o público de aposta. O valor limpo está no comprador.
+- **Carteira com lucro real** — avalia o inventário público a partir do SteamID e calcula
+  P&L **líquido** já descontando a taxa de ~15% do Market, com evolução do valor no tempo.
+- **Scanner de oportunidades** — analisa categorias inteiras (rifles, facas, luvas…) e dá
+  a cada item um score 0–100 com **breakdown explicável**: preço vs. mediana, spread,
+  livro de ofertas, tendência, oferta/demanda, momentum e liquidez.
+- **Comparação entre mercados** — confronta o preço Steam com marketplaces de dinheiro
+  real (medido em 732 itens: a Steam fica ~36% acima na mediana).
+- **Watchlist com alertas** — regras de queda de preço, alvo, pico de volume e queda de
+  oferta, com rearme automático e notificação nativa do Windows.
+- **Histórico de trades** — taxa de acerto, sequência de resultados, filtros por período.
+- **Monitor de eventos do jogo** — detecta mudanças no `items_game.txt` (rotação de drop
+  pool, caixas novas) que costumam mexer no mercado.
+- **Backup/restauração** dos dados locais e exportação de histórico.
 
-## Escopo (MVP primeiro — não construir tudo de uma vez)
-- **v1 (MVP):** SteamID → inventário + valor total + gráfico de valor no tempo +
-  veredito "tá caro/barato" por skin.
-- **v2:** Watchlist + alerta de preço (notificação desktop).
-- **v3:** Radar de 2025 (impacto de trade-up, risco da reversão de 8 dias), multi-mercado.
+## Decisões de engenharia
+
+**Rate limit da Steam como restrição de projeto.** Os endpoints públicos bloqueiam após
+algumas dezenas de chamadas. Por isso o cache é requisito, não otimização: cada página do
+Market traz até ~10 variantes do mesmo skin (desgaste × Normal/StatTrak/Souvenir) e o app
+grava o lote inteiro de uma vez, cortando o custo de rede em até 10×.
+
+**Sem login, por escolha.** Uma versão anterior sincronizava a conta via cookies de
+sessão. Depois de ler o Steam Subscriber Agreement (que proíbe automação sobre a conta),
+a funcionalidade foi **removida** — o app ficou só com dados públicos e anônimos, sem
+risco de banimento para o usuário.
+
+**Fatos, não previsões.** O scanner descreve o que os dados mostram e explica cada ponto
+do score; ele não promete para onde o preço vai.
+
+**Armadilhas de dados documentadas.** Ex.: o endpoint de inventário é servido por CDN e
+devolve snapshots velhos (exige cache-buster); a busca por nome precisa de match exato,
+senão "StatTrak™ X" devolve a série errada em silêncio. Essas armadilhas estão registradas
+em [`AGENTS.md`](AGENTS.md).
 
 ## Stack
-Reaproveita o que já domino do projeto Future: **Python + PyQt6** (UI), chamadas de
-**API pública** (`httpx` — mais simples que automação de navegador), empacotamento em
-**.exe** (PyInstaller). O motor é quase o mesmo do bot, repontado: feed ao vivo →
-inventário; gráfico de saldo → gráfico de valor; alerta na tray → alerta de preço.
 
-## Como pretende ganhar (honesto)
-- **Grátis:** valor do inventário + gráfico básico.
-- **Pago** (licença única via Gumroad/Lemon Squeezy): alertas, histórico longo, mais análise.
-- O colecionador paga **você** em vez do tool web grátis porque confia nos dados ficarem
-  no PC dele.
+- **Python 3.9+**, **PyQt6** (UI), **httpx** (HTTP)
+- Gráficos desenhados à mão com `QPainter` (sparklines, livro de ofertas, barras, área) —
+  sem bibliotecas de charting
+- Threads de rede isoladas da UI via `QObject` + sinais
+- Empacotado como `.exe` com PyInstaller; dados em `%APPDATA%\SkinVault`
 
-## Nota honesta (não apagar)
-Tem concorrente **grátis** nesse mercado. Antes de investir semanas, **validar** que o
-colecionador paga pelo ângulo trust/local (ex.: post no r/GlobalOffensiveTrade). Isto
-aqui é aposta de **portfólio EM CIMA** de renda ativa (freela) — não no lugar dela.
+## Números
 
-## Status
-Pré-MVP. Esqueleto montado. **Próximo passo:** o "momento mágico" — `steam_api.py`
-puxando o valor de um inventário real a partir de um SteamID.
+- ~27 mil linhas de código de aplicação
+- **2.100+ testes** automatizados (pytest), ~24 mil linhas de teste, rodando em ~1 min
+- HTTP isolado num único ponto de mock, então a suíte roda sem rede
 
-## 🛠️ Guia Rápido de Execução e Testes
+## Rodando
 
-### 1. Ambiente
 ```bash
-# Criar venv (uma vez só)
 python -m venv venv
-
-# Ativar venv (Linux/macOS)
-source venv/bin/activate
-
-# Ativar venv (Windows PowerShell)
-.\venv\Scripts\Activate.ps1
-```
-
-### 2. Instalar dependências
-```bash
+venv\Scripts\activate          # Windows  (Linux/macOS: source venv/bin/activate)
 pip install -r requirements.txt
+python -m skinvault --ui        # abre o app
+python -m skinvault <SteamID64> # avalia um inventário público pelo terminal
 ```
-Os testes usam `pytest`, que é dependência de dev e não está no
-`requirements.txt` (esse arquivo é só runtime do app). Pra rodar a
-suíte: `pip install pytest`.
 
-### 3. Rodar o app
-```bash
-pythonw -m skinvault --ui
-```
-Rodar sempre a partir da raiz do repositório.
+Testes:
 
-### 4. Testes
 ```bash
-# Suíte completa
+pip install pytest
 pytest
-
-# Modo detalhado
-pytest -v
-
-# Testes específicos de mercado e análise
-pytest tests/test_markets.py
-pytest tests/test_signals.py
-pytest tests/test_steam_api.py
-
-# Reexecutar apenas as falhas
-pytest --lf
 ```
+
+## Estrutura
+
+```
+skinvault/
+  steam_api.py     acesso público à Steam (inventário, preços, busca, histórico)
+  signals.py       sinais e score explicável do scanner
+  markets.py       preços de outros mercados para comparação
+  alerts.py        motor de regras de alerta
+  portfolio.py     avaliação de carteira com taxas
+  ssr_cache.py     cache de histórico de preços (TTL 24h)
+  gamedata.py      monitor de mudanças nos dados do jogo
+  ui/              uma tela por arquivo + componentes e tema
+tests/             suíte pytest
+```
+
+## Aviso
+
+Projeto pessoal, sem afiliação com a Valve. Não faz recomendação de investimento: os
+números são descritivos.
