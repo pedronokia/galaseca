@@ -15,6 +15,7 @@ from skinvault.webapp.routes.account import bp as account_bp
 from skinvault.webapp.routes.inventory import bp as inventory_bp
 from skinvault.webapp.routes.misc import bp as misc_bp
 from skinvault.webapp.routes.trades import bp as trades_bp
+from skinvault.webapp.routes.tradeup import bp as tradeup_bp
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -31,6 +32,7 @@ def create_app() -> Flask:
     app.register_blueprint(account_bp)
     app.register_blueprint(inventory_bp)
     app.register_blueprint(trades_bp)
+    app.register_blueprint(tradeup_bp)
 
     @app.context_processor
     def _inject_versao():

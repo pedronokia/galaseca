@@ -17,7 +17,9 @@
     <li class="sidebar-item sidebar-link{{ ' active' if active == 'trades' else '' }}" title="Trades">
       <a href="{{ url_for('trades.page') }}">🔁</a>
     </li>
-    <li class="sidebar-item" title="Simulador">🧮</li>
+    <li class="sidebar-item sidebar-link{{ ' active' if active == 'tradeup' else '' }}" title="Trade-up">
+      <a href="{{ url_for('tradeup.page') }}">🧮</a>
+    </li>
     <li class="sidebar-item" title="Watchlist">🔔</li>
     <li class="sidebar-item" title="Limpeza">🧹</li>
     <li class="sidebar-item" title="Configurações">⚙️</li>

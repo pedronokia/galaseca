@@ -250,6 +250,12 @@ a {
   color: var(--danger);
 }
 
+.stat-row[hidden] {
+  /* Mesma armadilha do .add-item-form[hidden]: `display: grid` abaixo
+     vence a regra `[hidden]` do UA stylesheet por especificidade. */
+  display: none;
+}
+
 .stat-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
