@@ -184,6 +184,25 @@ na carteira (só `python -m skinvault --add`), e as telas ainda mandavam
   explica onde mudar a privacidade); último perfil em `settings.steam_profile`
 - [x] 42 testes (`test_importar_inventario.py`, `test_inventory_dialogs.py`)
 
+## FASE 14 — UI Web paralela (Flask + pywebview) ✅ MVP das 10 telas (2026-10-18)
+Segunda UI, em paralelo à Qt (nenhuma substitui a outra — `--ui` vs `--web`).
+Motivação: abrir caminho pra rodar o app fora do Windows/Qt no futuro, sem
+reescrever a lógica de análise. Ver `AGENTS.md`, seção "UI Web", pros
+padrões (cache-only primeiro, SSE pra operação com rede, blueprint por
+tela) e os gotchas novos (#15-#17) descobertos no processo.
+- [x] Fase 0/1 — scaffolding: janela pywebview, bandeja (pystray) + toast
+  (winotify), guarda de instância única (socket TCP), pub/sub → SSE
+- [x] Fase 2-11 — as 10 telas da Qt com equivalente real: Conta, Inventário,
+  Trades, Trade-up, Configurações (+ backup/restore), Histórico (+
+  simulador), Watchlist, Limpeza do Sistema, Consulta de Mercado, Scanner
+- [x] `skinvault/scan_targets.py` extraído de `ui/scanner_screen.py` — a
+  lista fixa (~85 nomes) passa a ser importada pelas duas UIs
+- [x] Escopo reduzido de propósito em cada tela: sem drag-and-drop, grid de
+  ícones, export CSV, gráfico de linha completo, Ranking Top 20, descoberta
+  por faceta, dialog de validação histórica — fica pra quando/se o uso real
+  da UI web pedir
+- [x] 2372 testes passando (eram 1479 antes desta fase), um commit por tela
+
 ---
 
 ## 🔴 Fora do Escopo (decididos)
@@ -198,7 +217,7 @@ na carteira (só `python -m skinvault --add`), e as telas ainda mandavam
 ## Ordem de Implementação
 
 ```
-✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 (revertida) → ✅ F11 → ✅ F12 → ✅ F13
+✅ F1 → ✅ F2 → ✅ F3 → ✅ F4 → ✅ F5 → ✅ F6 → ✅ F7 → ✅ F8 → ✅ F9 → ✅ F10 (revertida) → ✅ F11 → ✅ F12 → ✅ F13 → ✅ F14
 ```
 
 F10 foi revertida em 2026-08-07 (ver nota na própria fase). F1-F9, F11 e F12

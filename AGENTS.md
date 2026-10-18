@@ -42,6 +42,7 @@ skinvault/
 ├── cases.py        # ~50 cases + ~100 skins mapeadas, 58 sticker capsules, 30 autograph capsules
 ├── alerts.py       # engine de regras (price_below, drop_pct, etc.)
 ├── ranking.py      # snapshots Top 20 com ΔPos
+├── scan_targets.py # lista fixa do Scanner (~85 nomes) -- UI Qt e UI web importam daqui
 ├── prices.py       # PriceCache TTL + persistência
 ├── portfolio.py    # fee-aware (15% Steam fee)
 ├── trades.py       # CRUD + stats
@@ -64,6 +65,7 @@ skinvault/
     ├── trades_screen.py
     ├── simulador_screen.py
     └── watchlist_screen.py
+└── webapp/         # UI web (Flask + pywebview) -- ver secao propria abaixo
 ```
 
 ## Padrão Athenas (UI)
@@ -97,6 +99,59 @@ Exemplos consolidados:
 - History: leitura/navegação → todos os botões do toolbar são
   `btn_ghost`; o `SegmentedControl` é o protagonista.
 - Simulador: `btn_primary` "Simular"; "Limpar" ghost.
+
+## UI Web (migração incremental, Flask + pywebview)
+
+Segunda UI do app, em paralelo à Qt — não substitui, ambas convivem
+(`python -m skinvault --ui` vs `--web`). Nasceu numa sessão só (2026-10-18,
+Fases 0-11, um commit por fase) e hoje tem equivalente real pras 10 telas
+da Qt, com escopo **reduzido de propósito** em cada uma (sem drag-and-drop,
+grid de ícones, export CSV, gráfico de linha completo, Ranking Top 20,
+descoberta por faceta, dialog de validação histórica — tudo fica pra
+quando/se o uso real pedir).
+
+```
+skinvault/webapp/
+├── app_entry.py      # launch_web(): guarda de instancia + servidor + janela
+├── server.py         # Flask app factory -- registra toda blueprint aqui
+├── events.py         # pub/sub -> SSE em /api/events (substitui pyqtSignal)
+├── window.py          # janela pywebview + overlay mode (via winapi.py)
+├── tray.py            # bandeja (pystray) + toast nativo (winotify)
+├── single_instance_socket.py  # guarda via socket TCP, equivalente web de single_instance.py
+├── account_data.py, tradeup_data.py, scanner_data.py, market_data.py
+│                      # logica pura de cada tela pesada, sem Flask -- testavel isolado
+├── routes/            # 1 blueprint por tela (account, inventory, history,
+│                       trades, tradeup, settings, watchlist, cleanup, market, scanner, misc)
+├── templates/          # Jinja2, 1 arquivo por tela + base.html (shell) + partials/
+└── static/{css,js}/    # 1 arquivo por tela + app.css (compartilhado)
+```
+
+**Padrões estabelecidos (seguir em tela nova):**
+
+- **Cache-only primeiro, rede só sob ação explícita.** Toda tela que mostra
+  preço pinta na hora com o que já está em `PriceCache`/`ssr_cache`
+  (instantâneo, nunca bate na rede) e só busca ao vivo quando o usuário
+  clica em algo ("Atualizar notas", "Buscar preços na Steam", "Escanear").
+  Nenhuma tela faz fetch automático no carregamento da página.
+- **Operação com rede = thread daemon + SSE**, nunca dentro do request
+  Flask (travaria o dev server pro resto da sessão). Padrão:
+  `*_data.py` expõe `start_X(on_progress, on_done)` com lock de módulo
+  (`_running`/`is_running()`) pra recusar concorrência (409); a rota
+  publica em `events.publish("evento", payload)` e o JS escuta via
+  `window.skinvaultEvents.addEventListener(...)` (conexão SSE única,
+  compartilhada entre `app.js` e o JS da tela — nunca abrir uma segunda
+  `EventSource`). Exceção: Market faz 1 busca só (2 chamadas), roda
+  síncrono dentro do request mesmo — não justifica a complexidade de SSE
+  pra um request que já volta em 1-3s.
+- **Blueprint por tela**, registrado em `server.py`; página em `/rota` +
+  API em `/api/rota/...`. `active=` no `render_template` liga o estado
+  "selecionado" do item correspondente em `partials/sidebar.html`.
+- **CSS genérico sobe pra `app.css`** na segunda tela que precisar (stat
+  cards, formulário "+ Adicionar X", tabela, modal, controle segmentado)
+  — nunca duplicar entre arquivos de tela.
+- **Ações destrutivas de verdade** (Restaurar backup, Limpar temporários,
+  Esvaziar lixeira) pedem `confirm()` no JS antes do fetch, igual o
+  `QMessageBox.question` da Qt faz.
 
 ## Gotchas — leia antes de mudar coisa relacionada
 
@@ -681,6 +736,68 @@ Covert, Steam.
 - Botões padrão do Qt (Fechar, Sim, Não) vêm do `qtbase_pt_BR.qm`,
   instalado em `gui._instalar_traducao_qt`; sem ele saíam em inglês.
 
+### 15. JS: `valor || 0` esconde erro de digitação como "sem valor" (2026-10-18)
+
+Padrão que pareceu inofensivo e mordeu **três vezes** em telas diferentes
+da UI web (inventory.js, watchlist.js, e quase em trades.js) antes de virar
+hábito procurar por ele: `0` é falsy em JavaScript (igual em Python), então
+`parseMoney(texto) || 0` troca **tanto** "campo vazio" **quanto** "texto
+inválido" (`parseMoney` devolve `NaN` pra esse caso) pelo mesmo `0` — o
+usuário digita `"abc"` num preço alvo, a validação de `NaN` nunca dispara
+porque o valor já virou `0` antes de chegar nela, e o alvo salva como "sem
+preço" em silêncio. Mesma armadilha do lado Python em `quantity or 1`
+(`routes/inventory.py` antes da correção): `quantity=0`, que deveria ser
+rejeitado, virava `1` porque `0 or 1` também resolve pro segundo operando.
+
+**Correção:** nunca usar `||`/`or` pra prover default sobre o resultado de
+um parser que pode devolver `0` **ou** `NaN`/`None`/erro como sinais
+diferentes. Testar `=== null`/`is None` explicitamente pro caso "vazio",
+deixar `NaN`/inválido cair na validação.
+
+### 16. CSS: `.classe[hidden]` perde pra `.classe { display: ... }`
+
+Todo form/modal/bloco de resultado da UI web nasce com o atributo HTML
+`hidden` e é alternado via `el.hidden = true/false` no JS. O navegador
+aplica `display: none` ao `[hidden]` via UA stylesheet — mas uma regra de
+**classe** (`.add-item-form { display: flex }`, `.stat-row { display: grid
+}`) tem especificidade maior e vence, então o elemento nasce **visível**
+mesmo com `hidden` no HTML. Mordeu em `.add-item-form` (Fase 3) e de novo
+em `.stat-row` (Fase 5) antes de virar reflexo adicionar, pra toda classe
+que define `display` e também é escondida por `[hidden]` em algum lugar:
+
+```css
+.minha-classe[hidden] { display: none; }
+.minha-classe { display: flex; ... }
+```
+
+(a regra `[hidden]` tem que vir **antes**, ou com especificidade igual a
+ordem no arquivo decide — mais simples deixá-la primeiro). Classes que só
+têm `background`/`border`/`padding` (sem `display`) não precisam disso: o
+`.card`, por exemplo, nunca mordeu.
+
+### 17. Teste da UI web: `path=_DEFAULT_PATH` como default de parâmetro não aceita monkeypatch no atributo do módulo
+
+Gotcha #13 documentou isso pra `RATE_LIMIT_DELAY_S`; a mesma armadilha
+pegou de novo nos testes de `history.py`/`watchlist.js` (watchlist.py):
+`def load_history(path: Path | str = _DEFAULT_PATH)` resolve o default
+**uma vez**, na definição da função — `monkeypatch.setattr(history_mod,
+"_DEFAULT_PATH", tmp_path / "x.json")` não alcança quem chama
+`load_history()` sem `path=`. Como o `DATA_DIR` de teste é compartilhado
+pela **sessão inteira** do pytest (conftest.py), um teste que não reseta o
+arquivo pode ler sobra de outro teste do mesmo módulo.
+
+Dois jeitos corretos, dependendo de como o módulo expõe o caminho:
+
+- **Atributo referenciado no CORPO da função** (`backup._BACKUP_DIR`,
+  usado como `_BACKUP_DIR.mkdir(...)` dentro de `make_backup`): monkeypatch
+  no atributo do módulo funciona normalmente.
+- **Atributo só usado como DEFAULT DE PARÂMETRO** (`trades.py`,
+  `portfolio.py`, `watchlist.py`, `history.py` — todo módulo de
+  persistência "antigo" do projeto): monkeypatch não alcança. Resetar
+  chamando a própria função de save do módulo (`trades_mod.save_trades([])`)
+  ou, se não houver uma, escrevendo direto no arquivo via o valor ATUAL
+  (não mockado) do atributo (`history_mod._DEFAULT_PATH.write_text("[]")`).
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`
@@ -690,14 +807,19 @@ Covert, Steam.
 - `steam_market_events.json`, `active_listings.json`, `trade_history.json`
   (histórico da sync F10, revertida — mantidos por decisão do usuário,
   só lidos hoje via `sync.py`, nunca mais escritos)
+- `market_recent.json` (últimas buscas da tela Mercado — web e Qt
+  compartilham o mesmo arquivo), `tradeup_catalog.json`
 
 Backup cobre todos. `backup._DATA_FILES` é a lista canônica.
 
 ## Como rodar
 
 ```bash
-# GUI (Windows relança em pythonw, exit code 0 esperado)
+# GUI Qt (Windows relança em pythonw, exit code 0 esperado)
 python -m skinvault --ui
+
+# GUI web (Flask + pywebview, mesmo relanca em pythonw) -- ver "UI Web" acima
+python -m skinvault --web
 
 # CLI
 python -m skinvault --portfolio
