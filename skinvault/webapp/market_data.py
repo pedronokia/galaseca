@@ -9,7 +9,6 @@ e' exatamente o que o botao "Consultar item" do Qt tambem faz.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Optional
 
 from skinvault import cases, signals, steam_api
