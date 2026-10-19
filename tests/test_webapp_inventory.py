@@ -3,12 +3,22 @@
 So' a API: custo editavel (`/api/inventory/cost`) e "+ Adicionar item"
 (`/api/inventory/add`). Nenhuma das duas bate na rede -- so' o preco
 muda isso, e aqui so' o custo/posicao muda.
+
+Importar da Steam (`/api/inventory/import`) bate em rede publica --
+mockada via `steam_api.resolve_steam_id`/`fetch_inventory` direto
+(ponto de entrada de `inventory_data.start_import`), nunca `_http_get`
+cru: o resolve faz uma requisicao XML separada que nao vale a pena
+simular aqui.
 """
 from __future__ import annotations
+
+import time
 
 import pytest
 
 from skinvault import portfolio as portfolio_mod
+from skinvault import steam_api
+from skinvault.webapp import inventory_data
 from skinvault.webapp.server import create_app
 
 
@@ -99,3 +109,87 @@ def test_add_item_rejeita_quantidade_invalida(client):
 def test_add_item_rejeita_nome_vazio(client):
     resp = client.post("/api/inventory/add", json={"name": "   "})
     assert resp.status_code == 400
+
+
+def _wait_until_idle(timeout_s: float = 5.0) -> None:
+    deadline = time.time() + timeout_s
+    while inventory_data.is_importing() and time.time() < deadline:
+        time.sleep(0.02)
+
+
+def test_import_rejeita_perfil_vazio(client):
+    resp = client.post("/api/inventory/import", json={"profile": ""})
+    assert resp.status_code == 400
+
+
+def test_import_recusa_concorrente(client, monkeypatch):
+    monkeypatch.setattr(inventory_data, "_importing", True)
+    resp = client.post("/api/inventory/import", json={"profile": "alguem"})
+    assert resp.status_code == 409
+    inventory_data._importing = False
+
+
+def test_import_perfil_invalido_nao_mexe_na_carteira(monkeypatch):
+    monkeypatch.setattr(steam_api, "resolve_steam_id",
+                         lambda texto: (steam_api.RESOLVE_INVALID, None))
+    portfolio_mod.save_portfolio([])
+    resultados = []
+    assert inventory_data.start_import("lixo", False, resultados.append)
+    _wait_until_idle()
+    assert len(resultados) == 1
+    assert "error" in resultados[0]
+    assert portfolio_mod.load_portfolio() == []
+
+
+def test_import_mescla_inventario_publico(monkeypatch):
+    monkeypatch.setattr(steam_api, "resolve_steam_id",
+                         lambda texto: (steam_api.RESOLVE_OK, "7656119"))
+    monkeypatch.setattr(
+        steam_api, "fetch_inventory",
+        lambda steam_id: (steam_api.INV_OK, [
+            {"name": "AK-47 | Redline (Field-Tested)", "quantity": 2},
+        ]))
+    portfolio_mod.save_portfolio([])
+    resultados = []
+    assert inventory_data.start_import(
+        "https://steamcommunity.com/id/teste", False, resultados.append)
+    _wait_until_idle()
+    assert len(resultados) == 1
+    payload = resultados[0]
+    assert payload["ok"] is True
+    assert payload["resumo"]["adicionados"] == 1
+    positions = portfolio_mod.load_portfolio()
+    assert len(positions) == 1
+    assert positions[0]["quantity"] == 2
+    assert positions[0]["source"] == portfolio_mod.SOURCE_STEAM
+
+
+def test_import_preserva_custo_manual(monkeypatch):
+    monkeypatch.setattr(steam_api, "resolve_steam_id",
+                         lambda texto: (steam_api.RESOLVE_OK, "7656119"))
+    monkeypatch.setattr(
+        steam_api, "fetch_inventory",
+        lambda steam_id: (steam_api.INV_OK, [
+            {"name": "AK-47 | Redline (Field-Tested)", "quantity": 1},
+        ]))
+    portfolio_mod.save_portfolio([
+        {"name": "AK-47 | Redline (Field-Tested)", "cost": 150.0,
+         "quantity": 1, "source": "manual"},
+    ])
+    resultados = []
+    inventory_data.start_import("alguem", False, resultados.append)
+    _wait_until_idle()
+    positions = portfolio_mod.load_portfolio()
+    assert len(positions) == 1
+    assert positions[0]["cost"] == 150.0
+
+
+def test_import_rede_fora_nao_recusa_proxima_tentativa(monkeypatch):
+    def _explode(texto):
+        raise RuntimeError("rede fora")
+    monkeypatch.setattr(steam_api, "resolve_steam_id", _explode)
+    resultados = []
+    inventory_data.start_import("alguem", False, resultados.append)
+    _wait_until_idle()
+    assert "error" in resultados[0]
+    assert inventory_data.is_importing() is False

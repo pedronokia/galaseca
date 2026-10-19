@@ -11,11 +11,26 @@
     <p class="muted">Seus itens, custo declarado e lucro/prejuízo.</p>
   </div>
   <div class="page-actions">
-    <button id="btn-add-item" class="btn-secondary" type="button">
+    <button id="btn-import-steam" class="btn-primary" type="button">
+      Importar da Steam
+    </button>
+    <button id="btn-add-item" class="btn-ghost" type="button">
       + Adicionar item
     </button>
   </div>
 </div>
+
+<form id="import-steam-form" class="add-item-form" hidden>
+  <input id="import-profile" type="text" class="text-input"
+         placeholder="Link ou apelido do seu perfil Steam, ex.: https://steamcommunity.com/id/seu-apelido">
+  <label class="settings-row-inline" style="flex:0 0 auto;">
+    <span>Remover da carteira o que saiu do inventário</span>
+    <input id="import-remove-missing" type="checkbox" class="toggle-checkbox">
+  </label>
+  <button type="submit" class="btn-primary">Importar</button>
+  <button type="button" id="import-cancel" class="btn-ghost">Cancelar</button>
+</form>
+<p class="status-line" id="import-status" hidden></p>
 
 <form id="add-item-form" class="add-item-form" hidden>
   <input id="add-name" type="text" class="text-input"

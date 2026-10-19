@@ -10,6 +10,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const addForm = document.getElementById("add-item-form");
   const addCancel = document.getElementById("add-cancel");
   const addError = document.getElementById("add-item-error");
+  const importBtn = document.getElementById("btn-import-steam");
+  const importForm = document.getElementById("import-steam-form");
+  const importCancel = document.getElementById("import-cancel");
+  const importProfile = document.getElementById("import-profile");
+  const importRemoveMissing = document.getElementById("import-remove-missing");
+  const importStatus = document.getElementById("import-status");
 
   let rows = [];
 
@@ -153,7 +159,42 @@ document.addEventListener("DOMContentLoaded", () => {
     .then(applyPayload)
     .catch(() => { statusEl.textContent = "Não consegui carregar o inventário."; });
 
+  // Prepreenche com o perfil usado da ultima vez (Qt e web compartilham
+  // a mesma chave em settings.json), pra nao pedir o link de novo toda
+  // importacao.
+  fetch("/api/inventory/import/status").then((r) => r.json()).then((data) => {
+    if (data.steam_profile) importProfile.value = data.steam_profile;
+  });
+
   filterInput.addEventListener("input", applyFilter);
+
+  importBtn.addEventListener("click", () => {
+    importForm.hidden = !importForm.hidden;
+    if (!importForm.hidden) importProfile.focus();
+  });
+  importCancel.addEventListener("click", () => {
+    importForm.hidden = true;
+  });
+  importForm.addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const profile = importProfile.value.trim();
+    if (!profile) return;
+    importStatus.hidden = false;
+    importStatus.classList.add("is-busy");
+    importStatus.textContent = "Buscando seu inventário na Steam…";
+    fetch("/api/inventory/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profile, remove_missing: importRemoveMissing.checked,
+      }),
+    }).then((r) => {
+      if (r.status === 409) {
+        importStatus.classList.remove("is-busy");
+        importStatus.textContent = "Já há uma importação em andamento.";
+      }
+    });
+  });
 
   addBtn.addEventListener("click", () => {
     addForm.hidden = !addForm.hidden;
@@ -205,6 +246,17 @@ document.addEventListener("DOMContentLoaded", () => {
     es.addEventListener("account_eval", (ev) => {
       const payload = JSON.parse(ev.data);
       if (payload.error) return;
+      applyPayload(payload);
+    });
+    es.addEventListener("inventory_import_done", (ev) => {
+      const payload = JSON.parse(ev.data);
+      importStatus.classList.remove("is-busy");
+      if (payload.error) {
+        importStatus.textContent = payload.error;
+        return;
+      }
+      importStatus.textContent = payload.mensagem;
+      importForm.hidden = true;
       applyPayload(payload);
     });
   }

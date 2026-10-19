@@ -14,7 +14,8 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, render_template, request
 
 from skinvault import portfolio as portfolio_mod
-from skinvault.webapp import account_data, events
+from skinvault.settings import load_settings
+from skinvault.webapp import account_data, events, inventory_data
 
 bp = Blueprint("inventory", __name__)
 
@@ -27,6 +28,32 @@ def page():
 @bp.route("/api/inventory")
 def list_items():
     return jsonify(account_data.summary_payload())
+
+
+@bp.route("/api/inventory/import", methods=["POST"])
+def import_steam():
+    data = request.get_json(silent=True) or {}
+    profile = (data.get("profile") or "").strip()
+    remove_missing = bool(data.get("remove_missing"))
+    if not profile:
+        return jsonify({"error": "cole o link do seu perfil"}), 400
+
+    def on_done(result: dict) -> None:
+        if "error" not in result:
+            result = dict(result, **account_data.summary_payload())
+        events.publish("inventory_import_done", result)
+
+    if not inventory_data.start_import(profile, remove_missing, on_done):
+        return jsonify({"error": "já há uma importação em andamento"}), 409
+    return jsonify({"started": True})
+
+
+@bp.route("/api/inventory/import/status")
+def import_status():
+    return jsonify({
+        "importing": inventory_data.is_importing(),
+        "steam_profile": load_settings().get("steam_profile", ""),
+    })
 
 
 def _publish_and_return():
