@@ -56,13 +56,16 @@ document.addEventListener("DOMContentLoaded", () => {
   elFeeRate.addEventListener("change", () => save("fee_rate", Number(elFeeRate.value)));
 
   document.getElementById("btn-reset").addEventListener("click", () => {
-    if (!confirm("Restaurar as configurações desta tela para o padrão? "
-      + "Seus dados (inventário, trades, watchlist) não são afetados.")) {
-      return;
-    }
-    fetch("/api/settings/reset", { method: "POST" }).then(() => {
-      statusEl.textContent = "Configurações restauradas para o padrão.";
-      loadSettings();
+    window.skinvaultConfirm(
+      "Restaurar as configurações desta tela para o padrão? "
+      + "Seus dados (inventário, trades, watchlist) não são afetados.",
+      { title: "Restaurar padrões", confirmLabel: "Restaurar" },
+    ).then((ok) => {
+      if (!ok) return;
+      fetch("/api/settings/reset", { method: "POST" }).then(() => {
+        statusEl.textContent = "Configurações restauradas para o padrão.";
+        loadSettings();
+      });
     });
   });
 
@@ -90,23 +93,25 @@ document.addEventListener("DOMContentLoaded", () => {
       restoreBtn.type = "button";
       restoreBtn.textContent = "Restaurar";
       restoreBtn.addEventListener("click", () => {
-        if (!confirm(`Restaurar o backup ${b.name}? Os dados atuais `
-          + "SERÃO SUBSTITUÍDOS.")) {
-          return;
-        }
-        fetch("/api/settings/restore", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path: b.path }),
-        })
-          .then((r) => r.json())
-          .then((payload) => {
-            if (payload.error) {
-              statusEl.textContent = "Erro: " + payload.error;
-              return;
-            }
-            statusEl.textContent = `Restaurados ${payload.count} arquivos.`;
-          });
+        window.skinvaultConfirm(
+          `Restaurar o backup ${b.name}? Os dados atuais SERÃO SUBSTITUÍDOS.`,
+          { title: "Restaurar backup", confirmLabel: "Restaurar", danger: true },
+        ).then((ok) => {
+          if (!ok) return;
+          fetch("/api/settings/restore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: b.path }),
+          })
+            .then((r) => r.json())
+            .then((payload) => {
+              if (payload.error) {
+                statusEl.textContent = "Erro: " + payload.error;
+                return;
+              }
+              statusEl.textContent = `Restaurados ${payload.count} arquivos.`;
+            });
+        });
       });
       tdActions.appendChild(restoreBtn);
       tr.append(tdName, tdSize, tdActions);

@@ -65,4 +65,41 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   document.addEventListener("mouseover", adotarTooltip, true);
   document.addEventListener("focusin", adotarTooltip, true);
+
+  // Confirmação no tema escuro, no lugar do confirm() nativo (balão
+  // claro do navegador — color-scheme não alcança window.confirm,
+  // só controles de formulário). Promise<boolean>: true = confirmou.
+  const confirmModal = document.getElementById("confirm-modal");
+  const confirmTitle = document.getElementById("confirm-title");
+  const confirmMessage = document.getElementById("confirm-message");
+  const confirmCancelBtn = document.getElementById("confirm-cancel");
+  const confirmOkBtn = document.getElementById("confirm-ok");
+
+  window.skinvaultConfirm = function (message, opts) {
+    opts = opts || {};
+    confirmTitle.textContent = opts.title || "Confirmar";
+    confirmMessage.textContent = message;
+    confirmOkBtn.textContent = opts.confirmLabel || "Confirmar";
+    confirmOkBtn.className = opts.danger ? "btn-danger" : "btn-primary";
+    confirmModal.hidden = false;
+    confirmOkBtn.focus();
+    return new Promise((resolve) => {
+      function cleanup(result) {
+        confirmModal.hidden = true;
+        confirmOkBtn.removeEventListener("click", onOk);
+        confirmCancelBtn.removeEventListener("click", onCancel);
+        confirmModal.removeEventListener("mousedown", onBackdrop);
+        document.removeEventListener("keydown", onKey);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+      function onBackdrop(ev) { if (ev.target === confirmModal) cleanup(false); }
+      function onKey(ev) { if (ev.key === "Escape") cleanup(false); }
+      confirmOkBtn.addEventListener("click", onOk);
+      confirmCancelBtn.addEventListener("click", onCancel);
+      confirmModal.addEventListener("mousedown", onBackdrop);
+      document.addEventListener("keydown", onKey);
+    });
+  };
 });

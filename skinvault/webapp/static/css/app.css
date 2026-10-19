@@ -230,9 +230,31 @@ a {
   transform: scale(0.98);
 }
 
+.btn-danger {
+  color: #FFE6E6;
+  background: var(--danger-dim);
+  border: 1px solid var(--danger);
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: var(--fs-input);
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: background-color 0.12s ease, transform 0.08s ease;
+}
+
+.btn-danger:hover {
+  background: var(--danger-hov);
+}
+
+.btn-danger:active {
+  transform: scale(0.98);
+}
+
 .btn-primary:disabled,
 .btn-secondary:disabled,
-.btn-ghost:disabled {
+.btn-ghost:disabled,
+.btn-danger:disabled {
   /* Mesmo "working..." de qualquer app desktop: nao fica parado igual
      o resto, pra diferenciar de "esta tela nao faz nada aqui". */
   opacity: 0.55;
@@ -627,6 +649,14 @@ select.text-input {
   justify-content: flex-end;
   gap: var(--space-sm);
   margin-top: var(--space-lg);
+}
+
+/* Confirmação genérica (skinvaultConfirm em app.js) -- substitui
+   window.confirm() nativo, que o color-scheme nao alcanca e sempre
+   sai no balao claro do navegador. pre-line preserva os \n\n que o
+   JS usa pra separar aviso + lista de itens (ver cleanup.js). */
+#confirm-message {
+  white-space: pre-line;
 }
 
 /* Linha de controle rotulado -- checkbox (settings-row) ou numero/texto

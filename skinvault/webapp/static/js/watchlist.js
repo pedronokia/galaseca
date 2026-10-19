@@ -71,9 +71,13 @@ document.addEventListener("DOMContentLoaded", () => {
     delBtn.className = "danger";
     delBtn.textContent = "Remover";
     delBtn.addEventListener("click", () => {
-      if (!confirm(`Remover "${item.name}" da watchlist?`)) return;
-      fetch(`/api/watchlist/${item.index}`, { method: "DELETE" })
-        .then((r) => r.json()).then(applyPayload);
+      window.skinvaultConfirm(`Remover "${item.name}" da watchlist?`, {
+        title: "Remover item", confirmLabel: "Remover", danger: true,
+      }).then((ok) => {
+        if (!ok) return;
+        fetch(`/api/watchlist/${item.index}`, { method: "DELETE" })
+          .then((r) => r.json()).then(applyPayload);
+      });
     });
     tdActions.append(rulesBtn, muteBtn, delBtn);
 

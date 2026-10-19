@@ -117,25 +117,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const aviso = perigoso
       ? `ATENÇÃO: isso inclui "Esvaziar Lixeira" — não há como desfazer.\n\n`
       : "";
-    if (!confirm(`${aviso}Limpar estes alvos agora?\n\n${nomes.join("\n")}`)) {
-      return;
-    }
-    statusEl.textContent = "Limpando…";
-    fetch("/api/cleanup/clean", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keys }),
-    })
-      .then((r) => r.json())
-      .then((payload) => {
-        if (payload.error) {
-          statusEl.textContent = "Erro: " + payload.error;
-          return;
-        }
-        statusEl.textContent = "Limpeza concluída.";
-        renderResults(payload.results || {});
-        load();
-      });
+    window.skinvaultConfirm(
+      `${aviso}Limpar estes alvos agora?\n\n${nomes.join("\n")}`,
+      { title: "Limpar agora", confirmLabel: "Limpar", danger: perigoso },
+    ).then((ok) => {
+      if (!ok) return;
+      statusEl.textContent = "Limpando…";
+      fetch("/api/cleanup/clean", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keys }),
+      })
+        .then((r) => r.json())
+        .then((payload) => {
+          if (payload.error) {
+            statusEl.textContent = "Erro: " + payload.error;
+            return;
+          }
+          statusEl.textContent = "Limpeza concluída.";
+          renderResults(payload.results || {});
+          load();
+        });
+    });
   });
 
   function renderResults(results) {
