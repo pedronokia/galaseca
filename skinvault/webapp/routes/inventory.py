@@ -50,9 +50,14 @@ def import_steam():
 
 @bp.route("/api/inventory/import/status")
 def import_status():
+    from skinvault import steam_api
+
+    cooldown_s = max(steam_api.cooldown_restante_s("inventory"),
+                      steam_api.cooldown_restante_s("resolve"))
     return jsonify({
         "importing": inventory_data.is_importing(),
         "steam_profile": load_settings().get("steam_profile", ""),
+        "cooldown_s": cooldown_s,
     })
 
 

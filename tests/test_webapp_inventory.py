@@ -117,6 +117,21 @@ def _wait_until_idle(timeout_s: float = 5.0) -> None:
         time.sleep(0.02)
 
 
+def test_import_status_cooldown_zero_por_padrao(client):
+    resp = client.get("/api/inventory/import/status")
+    assert resp.status_code == 200
+    assert resp.get_json()["cooldown_s"] == 0.0
+
+
+def test_import_status_expoe_cooldown_do_disjuntor(client):
+    steam_api._registrar_rate_limit("inventory")
+    try:
+        resp = client.get("/api/inventory/import/status")
+        assert resp.get_json()["cooldown_s"] > 0.0
+    finally:
+        steam_api._limpar_rate_limit("inventory")
+
+
 def test_import_rejeita_perfil_vazio(client):
     resp = client.post("/api/inventory/import", json={"profile": ""})
     assert resp.status_code == 400

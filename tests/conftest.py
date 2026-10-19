@@ -183,6 +183,22 @@ def _sem_espera_de_rate_limit(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _sem_disjuntor_de_rate_limit():
+    """Zera steam_api._rate_limit_state antes e depois de cada teste.
+
+    2026-10-19: o disjuntor (em_cooldown/_registrar_rate_limit) e' um
+    dict de MODULO, persistente entre testes na mesma sessao. Um teste
+    que simula 429 registrava cooldown de verdade (minutos) que
+    sobrevivia pro PROXIMO teste, fazendo-o curto-circuitar pra
+    rate_limited mesmo com seu proprio mock dizendo outra coisa --
+    13 testes quebraram em cadeia antes disto existir."""
+    from skinvault import steam_api
+    steam_api._rate_limit_state.clear()
+    yield
+    steam_api._rate_limit_state.clear()
+
+
+@pytest.fixture(autouse=True)
 def _sem_welcome_dialog_modal(monkeypatch):
     """WelcomeDialog.exec() nunca abre modal de verdade na suite.
 

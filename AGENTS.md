@@ -850,6 +850,44 @@ chamada só — precisa da mesma pausa que os loops item-a-item já têm.
 `grep -n "_http_get\|_get_json" skinvault/*.py` e conferir quantas vezes
 cada função chama antes de devolver é o jeito de achar o próximo caso.
 
+### 20. Disjuntor de rate limit (2026-10-19)
+
+Consequência direta do #19: mesmo com a pausa corrigida, o bloqueio de
+429 daquele dia durou **mais de 5 horas** — porque cada nova tentativa
+("só mais uma vez pra ver se já liberou", inclusive de mim mesmo
+testando) conta como tráfego novo pro IP já sinalizado, e tende a
+*esticar* o próprio bloqueio que estava tentando verificar. Pedido
+direto do usuário: "não dá pra criar uma proteção no rate_limited".
+
+`steam_api.em_cooldown(familia)` / `_registrar_rate_limit(familia)` /
+`_limpar_rate_limit(familia)`: um 429 real registra um cooldown
+escalonado (1min, 2min, 4min... teto de 30min, dobra a cada strike
+seguido) por família de endpoint (`"inventory"`, `"resolve"`,
+`"search"`, `"market_listings"`). Toda função que bate nesses
+endpoints (`fetch_inventory`, `resolve_steam_id`, `search_market`,
+`icon_backfill.fetch_icon_hash_for_name`) checa `em_cooldown` **antes**
+de qualquer requisição real — se já sabe que vai tomar 429, nem tenta,
+devolve `rate_limited` na hora. Famílias são independentes de
+propósito: medido no mesmo incidente que `/inventory/` continuava
+bloqueado horas depois de `/id/<apelido>?xml=1` (família `"resolve"`)
+já ter liberado.
+
+Os laços de retentativa automática (gotcha anterior,
+`RATE_LIMIT_RETRY_BACKOFF_MULT`) também checam `em_cooldown` a cada
+volta e desistem cedo se o disjuntor já armou no meio do laço — sem
+isso, um 429 real na 1a tentativa ainda esperava os 16s/32s de backoff
+só pra ouvir a mesma recusa nas tentativas 2 e 3, sem proteger nada a
+mais (o disjuntor já tinha a resposta).
+
+**Armadilha de teste:** `_rate_limit_state` é um dict de MÓDULO,
+sobrevive entre testes na mesma sessão do pytest. Um teste que simula
+429 registra cooldown de verdade (minutos) que vazava pro PRÓXIMO
+teste e o fazia curto-circuitar mesmo com seu próprio mock dizendo
+outra coisa — 13 testes quebraram em cadeia até o autouse fixture
+`_sem_disjuntor_de_rate_limit` (tests/conftest.py) zerar o dict antes e
+depois de cada teste, mesmo princípio do `_sem_espera_de_rate_limit`
+do gotcha #13.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`

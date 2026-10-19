@@ -53,7 +53,20 @@ _MENSAGENS = {
 
 
 def _mensagem_de_erro(status: str) -> str:
-    return _MENSAGENS.get(status, _MENSAGENS[steam_api.INV_ERROR])
+    base = _MENSAGENS.get(status, _MENSAGENS[steam_api.INV_ERROR])
+    if status != steam_api.INV_RATE_LIMITED:
+        return base
+    # Disjuntor: se a familia ja' esta' em cooldown (de uma tentativa
+    # anterior, dessa ou de outra importacao), diz quanto falta de
+    # verdade em vez do "alguns minutos" generico -- o usuario ve que
+    # a espera tem um numero, nao e' indefinida.
+    restante = max(steam_api.cooldown_restante_s("inventory"),
+                   steam_api.cooldown_restante_s("resolve"))
+    if restante <= 0:
+        return base
+    minutos = max(1, round(restante / 60))
+    return (f"A Steam limitou as consultas agora. Faltam cerca de "
+            f"{minutos} minuto(s) antes de tentar de novo.")
 
 
 def _resumo_importacao(r: dict) -> str:
@@ -99,13 +112,22 @@ def start_import(profile: str, remove_missing: bool,
             # entre chamadas que o resto do app usa, referenciado em
             # tempo de chamada (nao copiado pra constante) pra
             # monkeypatch de teste alcancar (AGENTS.md #13).
-            time.sleep(steam_api.RATE_LIMIT_DELAY_S)
-            status, itens = steam_api.fetch_inventory(steam_id)
-            for mult in steam_api.RATE_LIMIT_RETRY_BACKOFF_MULT:
-                if status != steam_api.INV_RATE_LIMITED:
-                    break
-                time.sleep(steam_api.RATE_LIMIT_DELAY_S * mult)
+            if steam_api.em_cooldown("inventory"):
+                # Disjuntor ja' sabe que vai recusar -- nem espera os
+                # 4s de pausa nem gasta a 1a tentativa, e PULA o laco
+                # de retentativa abaixo (esperar 16s/32s pra ouvir a
+                # mesma recusa de novo nao protege nada, so' atrasa o
+                # usuario por nada).
+                status, itens = steam_api.INV_RATE_LIMITED, []
+            else:
+                time.sleep(steam_api.RATE_LIMIT_DELAY_S)
                 status, itens = steam_api.fetch_inventory(steam_id)
+                for mult in steam_api.RATE_LIMIT_RETRY_BACKOFF_MULT:
+                    if (status != steam_api.INV_RATE_LIMITED
+                            or steam_api.em_cooldown("inventory")):
+                        break
+                    time.sleep(steam_api.RATE_LIMIT_DELAY_S * mult)
+                    status, itens = steam_api.fetch_inventory(steam_id)
             if status != steam_api.INV_OK:
                 on_done({"error": _mensagem_de_erro(status)})
                 return

@@ -24,6 +24,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Callable
 
+from skinvault import steam_api
 from skinvault._paths import DATA_DIR, atomic_write_text
 
 _EVENTS_PATH = DATA_DIR / "steam_market_events.json"
@@ -47,10 +48,23 @@ def extract_icon_hash(html: str) -> str | None:
     return m.group("hash") if m else None
 
 
+_RATE_LIMIT_FAMILIA = "market_listings"
+
+
 def fetch_icon_hash_for_name(name: str,
                               timeout: float = _TIMEOUT) -> str | None:
-    """GET /market/listings/730/<name>, extrai icon_hash. None se falhar."""
+    """GET /market/listings/730/<name>, extrai icon_hash. None se falhar.
+
+    Mesmo disjuntor de steam_api.em_cooldown() -- achado real de
+    2026-10-19, bloqueio que comecou isolado virou de horas porque
+    cada tentativa nova (manual, batch de 22 nomes) contava como
+    trafego novo pro mesmo endpoint ja' sinalizado. Familia propria
+    ("market_listings"), separada de "inventory"/"resolve"/"search":
+    medido no mesmo dia que um endpoint libera sem o outro liberar
+    junto."""
     if not name:
+        return None
+    if steam_api.em_cooldown(_RATE_LIMIT_FAMILIA):
         return None
     try:
         import httpx
@@ -61,8 +75,12 @@ def fetch_icon_hash_for_name(name: str,
         with httpx.Client(timeout=timeout, follow_redirects=True,
                           headers={"User-Agent": _UA}) as client:
             resp = client.get(url)
+            if resp.status_code == 429:
+                steam_api._registrar_rate_limit(_RATE_LIMIT_FAMILIA)
+                return None
             if resp.status_code != 200 or not resp.text:
                 return None
+            steam_api._limpar_rate_limit(_RATE_LIMIT_FAMILIA)
             return extract_icon_hash(resp.text)
     except Exception:
         return None

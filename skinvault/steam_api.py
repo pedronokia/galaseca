@@ -47,6 +47,52 @@ RATE_LIMIT_DELAY_S = 4.0
 # retentativa manual depois -- isto nao e' um backoff infinito.
 RATE_LIMIT_RETRY_BACKOFF_MULT = (4, 8)
 
+# Disjuntor (circuit breaker): achado real de 2026-10-19 -- um bloqueio
+# que comecou isolado (gotcha #19, paginacao sem pausa) virou um
+# bloqueio de HORAS porque cada nova tentativa (manual, "so' mais uma
+# vez pra ver se ja' liberou") conta como trafego novo pro mesmo IP
+# ja' sinalizado, esticando o proprio bloqueio que estava tentando
+# verificar. Isto registra quando um 429 de verdade chega e RECUSA
+# qualquer chamada nova na mesma familia de endpoint sem gastar uma
+# requisicao real, enquanto o cooldown nao expirar -- protege a Steam
+# de mais trafego (o que ela quer) E o usuario de ficar sem saber
+# quanto falta. `strikes` escala o cooldown (1min, 2min, 4min... teto
+# de 30min): tentativa isolada custa pouco, tentativas repetidas
+# custam cada vez mais caro, do jeito que precisa ser pra desencorajar
+# exatamente o padrao de hoje.
+_RATE_LIMIT_BASE_COOLDOWN_S = 60.0
+_RATE_LIMIT_MAX_COOLDOWN_S = 1800.0
+_rate_limit_state: dict[str, dict] = {}
+
+
+def _registrar_rate_limit(familia: str) -> None:
+    st = _rate_limit_state.setdefault(familia, {"strikes": 0, "until": 0.0})
+    st["strikes"] += 1
+    cooldown = min(_RATE_LIMIT_BASE_COOLDOWN_S * (2 ** (st["strikes"] - 1)),
+                   _RATE_LIMIT_MAX_COOLDOWN_S)
+    st["until"] = time.time() + cooldown
+
+
+def _limpar_rate_limit(familia: str) -> None:
+    _rate_limit_state.pop(familia, None)
+
+
+def em_cooldown(familia: str) -> bool:
+    """True se a familia de endpoint levou um 429 recente e ainda nao
+    passou o tempo de espera escalonado -- quem chama deve DESISTIR
+    sem fazer a requisicao real."""
+    st = _rate_limit_state.get(familia)
+    return bool(st and time.time() < st["until"])
+
+
+def cooldown_restante_s(familia: str) -> float:
+    """Segundos ate' a familia sair do cooldown (0.0 se ja' liberou
+    ou nunca levou 429)."""
+    st = _rate_limit_state.get(familia)
+    if not st:
+        return 0.0
+    return max(0.0, st["until"] - time.time())
+
 # Itens por pagina do endpoint /inventory/ (o Steam recusa valores maiores).
 _INV_PAGE = 75
 # Trava do loop de paginacao: 75 * 40 = 3000 itens. Evita loop infinito se o
@@ -146,6 +192,8 @@ def _collect_inventory(get_page) -> tuple[str, list[dict]]:
 
     Retorna (status, items) com os mesmos codigos de fetch_inventory.
     """
+    if em_cooldown("inventory"):
+        return INV_RATE_LIMITED, []
     assets: list[dict] = []
     descriptions: list[dict] = []
     start: str | None = None
@@ -162,6 +210,7 @@ def _collect_inventory(get_page) -> tuple[str, list[dict]]:
         if code in (400, 403):
             return INV_PRIVATE, []
         if code == 429:
+            _registrar_rate_limit("inventory")
             return INV_RATE_LIMITED, []
         if code != 200 or body is None:
             return INV_ERROR, []
@@ -178,6 +227,7 @@ def _collect_inventory(get_page) -> tuple[str, list[dict]]:
         start = data.get("last_assetid")
         if not start:
             break  # more_items sem cursor: nao da' pra avancar, para aqui
+    _limpar_rate_limit("inventory")
     if not assets or not descriptions:
         return INV_EMPTY, []
     items = _parse_items({"assets": assets, "descriptions": descriptions})
@@ -248,13 +298,17 @@ def resolve_steam_id(texto: str | None) -> tuple[str, str | None]:
         return RESOLVE_OK, valor
     if tipo != "vanity":
         return RESOLVE_INVALID, None
+    if em_cooldown("resolve"):
+        return RESOLVE_RATE_LIMITED, None
     url = ("https://steamcommunity.com/id/"
            f"{urllib.parse.quote(valor)}/?xml=1")
     code, body = _http_get(url)
     if code == 429:
+        _registrar_rate_limit("resolve")
         return RESOLVE_RATE_LIMITED, None
     if code != 200 or body is None:
         return RESOLVE_ERROR, None
+    _limpar_rate_limit("resolve")
     m = re.search(r"<steamID64>\s*(7656119\d{10})\s*</steamID64>", body)
     if m:
         return RESOLVE_OK, m.group(1)
@@ -465,12 +519,16 @@ def search_market(query: str = "", facets: dict | None = None,
         search_market(facets={"type": "CSGO_Type_Rifle",
                               "exterior": "WearCategory2"})
     """
+    if em_cooldown("search"):
+        return SEARCH_RATE_LIMITED, [], 0
     url = _search_url(query, facets, sort, descending, start, count, currency)
     code, body = _http_get(url)
     if code == 429:
+        _registrar_rate_limit("search")
         return SEARCH_RATE_LIMITED, [], 0
     if code != 200 or body is None:
         return SEARCH_ERROR, [], 0
+    _limpar_rate_limit("search")
     try:
         data = json.loads(body)
     except ValueError:

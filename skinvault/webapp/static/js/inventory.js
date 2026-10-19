@@ -209,9 +209,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Prepreenche com o perfil usado da ultima vez (Qt e web compartilham
   // a mesma chave em settings.json), pra nao pedir o link de novo toda
-  // importacao.
+  // importacao. cooldown_s > 0 avisa ANTES do clique (disjuntor de
+  // steam_api.py ja' sabe que vai recusar) -- sem isso o usuario so'
+  // descobria depois de tentar e levar o erro.
   fetch("/api/inventory/import/status").then((r) => r.json()).then((data) => {
     if (data.steam_profile) importProfile.value = data.steam_profile;
+    if (data.cooldown_s > 0) {
+      const min = Math.max(1, Math.round(data.cooldown_s / 60));
+      importBtn.title = `A Steam ainda está limitando as consultas — faltam cerca de ${min} minuto(s).`;
+    }
   });
 
   filterInput.addEventListener("input", applyFilter);

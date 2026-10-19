@@ -558,6 +558,89 @@ def test_parse_items_aggregates_quantity():
     assert result[0]["quantity"] == 5
 
 
+# ── disjuntor (circuit breaker) de rate limit ───────────────────────
+
+
+def test_em_cooldown_falso_sem_historico():
+    assert steam_api.em_cooldown("familia-nova") is False
+    assert steam_api.cooldown_restante_s("familia-nova") == 0.0
+
+
+def test_registrar_rate_limit_ativa_cooldown():
+    steam_api._registrar_rate_limit("teste")
+    assert steam_api.em_cooldown("teste") is True
+    assert steam_api.cooldown_restante_s("teste") > 0.0
+
+
+def test_registrar_rate_limit_escalona_com_strikes():
+    steam_api._registrar_rate_limit("teste")
+    primeiro = steam_api.cooldown_restante_s("teste")
+    steam_api._registrar_rate_limit("teste")
+    segundo = steam_api.cooldown_restante_s("teste")
+    assert segundo > primeiro  # 2a tentativa custa mais caro que a 1a
+
+
+def test_registrar_rate_limit_tem_teto():
+    for _ in range(20):
+        steam_api._registrar_rate_limit("teste")
+    assert steam_api.cooldown_restante_s("teste") <= steam_api._RATE_LIMIT_MAX_COOLDOWN_S
+
+
+def test_limpar_rate_limit_sai_do_cooldown():
+    steam_api._registrar_rate_limit("teste")
+    steam_api._limpar_rate_limit("teste")
+    assert steam_api.em_cooldown("teste") is False
+
+
+def test_familias_de_cooldown_sao_independentes():
+    steam_api._registrar_rate_limit("inventory")
+    assert steam_api.em_cooldown("inventory") is True
+    assert steam_api.em_cooldown("resolve") is False
+
+
+def test_fetch_inventory_respeita_cooldown_sem_bater_na_rede(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (chamadas.append(1), (200, "{}"))[1])
+    steam_api._registrar_rate_limit("inventory")
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "rate_limited"
+    assert chamadas == []  # nao fez NENHUMA requisicao
+
+
+def test_resolve_steam_id_respeita_cooldown_sem_bater_na_rede(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (chamadas.append(1), (200, ""))[1])
+    steam_api._registrar_rate_limit("resolve")
+    status, sid = steam_api.resolve_steam_id("https://steamcommunity.com/id/teste")
+    assert status == steam_api.RESOLVE_RATE_LIMITED
+    assert chamadas == []
+
+
+def test_fetch_inventory_429_registra_cooldown_pra_proxima_chamada(monkeypatch):
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (429, None))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "rate_limited"
+    assert steam_api.em_cooldown("inventory") is True
+
+
+def test_fetch_inventory_sucesso_limpa_cooldown_anterior(monkeypatch):
+    steam_api._registrar_rate_limit("inventory")
+    steam_api._limpar_rate_limit("inventory")  # simula liberacao externa
+    body = json.dumps({
+        "assets": [{"classid": "1", "instanceid": "1", "amount": 1}],
+        "descriptions": [{
+            "classid": "1", "instanceid": "1", "marketable": True,
+            "market_hash_name": "Item A", "tradable": 1,
+        }],
+    })
+    monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, body))
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "ok"
+    assert steam_api.em_cooldown("inventory") is False
+
+
 # ── fetch_inventory status codes ───────────────────────────────────
 
 

@@ -95,6 +95,10 @@ def buscar_inventario(texto: str) -> "tuple[str, list]":
     st, steam_id = steam_api.resolve_steam_id(texto)
     if st != steam_api.RESOLVE_OK or not steam_id:
         return st, []
+    if steam_api.em_cooldown("inventory"):
+        # Disjuntor ja' sabe que vai recusar -- nem espera, nem gasta
+        # a 1a tentativa, nem entra no laco de retentativa abaixo.
+        return steam_api.INV_RATE_LIMITED, []
     # resolve_steam_id ja' pode ter batido na rede (link personalizado) --
     # mesmo intervalo entre chamadas que o resto do app usa.
     time.sleep(steam_api.RATE_LIMIT_DELAY_S)
@@ -103,7 +107,7 @@ def buscar_inventario(texto: str) -> "tuple[str, list]":
     # clique, topa com 429, resolve sozinho sem o usuario ter que clicar
     # de novo). Bloqueio longo de verdade ainda exige nova tentativa manual.
     for mult in steam_api.RATE_LIMIT_RETRY_BACKOFF_MULT:
-        if status != steam_api.INV_RATE_LIMITED:
+        if status != steam_api.INV_RATE_LIMITED or steam_api.em_cooldown("inventory"):
             break
         time.sleep(steam_api.RATE_LIMIT_DELAY_S * mult)
         status, itens = steam_api.fetch_inventory(steam_id)
