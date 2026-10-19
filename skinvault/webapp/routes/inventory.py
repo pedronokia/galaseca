@@ -72,6 +72,27 @@ def import_csv():
     return jsonify(payload)
 
 
+@bp.route("/api/inventory/backfill-icons", methods=["POST"])
+def backfill_icons():
+    def on_progress(done: int, total: int, name: str) -> None:
+        events.publish("inventory_icon_progress",
+                        {"done": done, "total": total, "name": name})
+
+    def on_done(result: dict) -> None:
+        if "error" not in result:
+            result = dict(result, **account_data.summary_payload())
+        events.publish("inventory_icon_done", result)
+
+    if not inventory_data.start_icon_backfill(on_progress, on_done):
+        return jsonify({"error": "já há uma busca de imagens em andamento"}), 409
+    return jsonify({"started": True})
+
+
+@bp.route("/api/inventory/backfill-icons/status")
+def backfill_icons_status():
+    return jsonify({"backfilling": inventory_data.is_backfilling()})
+
+
 def _publish_and_return():
     payload = account_data.summary_payload()
     events.publish("account_eval", payload)

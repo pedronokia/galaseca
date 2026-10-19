@@ -213,3 +213,39 @@ def test_import_csv_br_format_comma_decimal(tmp_path):
     assert r["errors"] == []
     loaded = portfolio.load_portfolio(p)
     assert loaded[0]["cost"] == 1234.50
+
+
+# ── positions_missing_icon / set_icon ──────────────────────────────
+
+
+def test_positions_missing_icon_ignora_quem_ja_tem(tmp_path):
+    positions = [
+        {"name": "Item A", "icon": "hash-1"},
+        {"name": "Item B"},
+        {"name": "Item C", "icon": ""},
+    ]
+    assert portfolio.positions_missing_icon(positions) == ["Item B", "Item C"]
+
+
+def test_positions_missing_icon_dedup_preserva_ordem(tmp_path):
+    positions = [
+        {"name": "Item B"},
+        {"name": "Item A"},
+        {"name": "Item B"},
+    ]
+    assert portfolio.positions_missing_icon(positions) == ["Item B", "Item A"]
+
+
+def test_set_icon_atualiza_so_quem_nao_tem(tmp_path):
+    p = tmp_path / "pf.json"
+    portfolio.save_portfolio([
+        {"name": "Item A", "cost": 10, "quantity": 1},
+        {"name": "Item A", "cost": 20, "quantity": 1, "icon": "ja-tinha"},
+        {"name": "Item B", "cost": 5, "quantity": 1},
+    ], path=p)
+    atualizados = portfolio.set_icon("Item A", "hash-novo", path=p)
+    assert atualizados == 1
+    loaded = portfolio.load_portfolio(p)
+    icons_item_a = [x["icon"] for x in loaded if x["name"] == "Item A"]
+    assert sorted(icons_item_a) == ["hash-novo", "ja-tinha"]
+    assert loaded[2].get("icon") is None

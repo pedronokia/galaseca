@@ -22,9 +22,13 @@ from skinvault import steam_api
 from skinvault.settings import load_settings, save_settings
 
 DoneCb = Callable[[dict], None]
+ProgressCb = Callable[[int, int, str], None]
 
 _import_lock = threading.Lock()
 _importing = False
+
+_backfill_lock = threading.Lock()
+_backfilling = False
 
 _MENSAGENS = {
     steam_api.RESOLVE_INVALID: (
@@ -119,6 +123,54 @@ def start_import(profile: str, remove_missing: bool,
         finally:
             with _import_lock:
                 _importing = False
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return True
+
+
+def is_backfilling() -> bool:
+    return _backfilling
+
+
+def start_icon_backfill(on_progress: ProgressCb, on_done: DoneCb) -> bool:
+    """Busca o icone de toda posicao que ainda nao tem (entrada manual/
+    CSV nunca tem -- nao ha' rede nessa importacao; sincronizacao antiga
+    pode ter deixado passar), via /market/listings/730/<nome> --
+    DOMINIO/endpoint diferente do /inventory/ que a importacao usa
+    (icon_backfill.py ja' bate nele pra steam_market_events.json com o
+    mesmo throttle, nunca reportado como sensivel do jeito que
+    /inventory/ foi hoje). Devolve False sem fazer nada se ja' houver
+    uma busca em andamento."""
+    global _backfilling
+    with _backfill_lock:
+        if _backfilling:
+            return False
+        _backfilling = True
+
+    def _worker() -> None:
+        global _backfilling
+        try:
+            from skinvault import icon_backfill
+
+            nomes = portfolio_mod.positions_missing_icon(
+                portfolio_mod.load_portfolio())
+            total = len(nomes)
+            atualizados = 0
+            for i, nome in enumerate(nomes):
+                if i:
+                    time.sleep(steam_api.RATE_LIMIT_DELAY_S)
+                h = icon_backfill.fetch_icon_hash_for_name(nome)
+                if h:
+                    atualizados += portfolio_mod.set_icon(nome, h)
+                on_progress(i + 1, total, nome)
+            on_done({"ok": True, "total": total, "atualizados": atualizados})
+        except Exception as e:
+            print(f"WARNING: inventory_data.start_icon_backfill failed: {e}",
+                  file=sys.stderr)
+            on_done({"error": "Não consegui buscar as imagens agora."})
+        finally:
+            with _backfill_lock:
+                _backfilling = False
 
     threading.Thread(target=_worker, daemon=True).start()
     return True

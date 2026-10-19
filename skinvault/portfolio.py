@@ -559,6 +559,41 @@ def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
     return {"imported": imported, "skipped": skipped, "errors": errors}
 
 
+def positions_missing_icon(positions: list[dict]) -> list[str]:
+    """Nomes unicos (ordem preservada) de posicoes sem icone -- entrada
+    manual/CSV nunca tem (sem rede, nao ha' de onde tirar), e alguma
+    sincronizacao antiga pode ter deixado passar. So' usado pra saber
+    o que vale a pena buscar (webapp/inventory_data.py)."""
+    seen: set = set()
+    out: list[str] = []
+    for p in positions:
+        if p.get("icon"):
+            continue
+        name = p.get("name")
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        out.append(name)
+    return out
+
+
+def set_icon(name: str, icon_hash: str,
+             path: Path | str = _DEFAULT_PATH) -> int:
+    """Grava o hash do icone em toda posicao com esse nome que ainda
+    nao tem (duas posicoes podem compartilhar nome, ex.: uma manual e
+    uma vinda da Steam antes de uma mesclar na outra). Retorna quantas
+    posicoes foram atualizadas."""
+    positions = load_portfolio(path)
+    atualizados = 0
+    for p in positions:
+        if p.get("name") == name and not p.get("icon"):
+            p["icon"] = icon_hash
+            atualizados += 1
+    if atualizados:
+        save_portfolio(positions, path)
+    return atualizados
+
+
 def update_costs_bulk(costs: dict, path: Path | str = _DEFAULT_PATH) -> dict:
     """Define o custo (unitario) de varias posicoes de uma vez.
 

@@ -308,7 +308,15 @@ a {
 .page-actions {
   display: flex;
   gap: var(--space-sm);
-  flex-shrink: 0;
+  /* Inventario foi a 1a tela a chegar a 4 botoes -- flex-shrink:0 (era
+     fixo) fazia o container nunca ser espremido pelo pai, entao
+     flex-wrap sozinho nao bastava (nada forcava a largura a estreitar
+     pra disparar a quebra). min-width:0 destrava o encolhimento --
+     title ao lado absorve o aperto primeiro, exatamente como antes
+     com 1-2 botoes (titulo curto nunca chega a precisar encolher). */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .btn-secondary,

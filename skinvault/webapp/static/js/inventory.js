@@ -22,6 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const csvSubmit = document.getElementById("import-csv-submit");
   const csvCancel = document.getElementById("import-csv-cancel");
   const csvStatus = document.getElementById("import-csv-status");
+  const backfillBtn = document.getElementById("btn-backfill-icons");
+  const backfillStatus = document.getElementById("backfill-icons-status");
 
   let rows = [];
 
@@ -263,6 +265,18 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   });
 
+  backfillBtn.addEventListener("click", () => {
+    backfillStatus.hidden = false;
+    backfillStatus.classList.add("is-busy");
+    backfillStatus.textContent = "Buscando imagens…";
+    fetch("/api/inventory/backfill-icons", { method: "POST" }).then((r) => {
+      if (r.status === 409) {
+        backfillStatus.classList.remove("is-busy");
+        backfillStatus.textContent = "Já há uma busca de imagens em andamento.";
+      }
+    });
+  });
+
   addBtn.addEventListener("click", () => {
     addForm.hidden = !addForm.hidden;
     addError.hidden = true;
@@ -324,6 +338,22 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       importStatus.textContent = payload.mensagem;
       importForm.hidden = true;
+      applyPayload(payload);
+    });
+    es.addEventListener("inventory_icon_progress", (ev) => {
+      const { done, total } = JSON.parse(ev.data);
+      backfillStatus.textContent = `Buscando imagens… ${done}/${total}`;
+    });
+    es.addEventListener("inventory_icon_done", (ev) => {
+      const payload = JSON.parse(ev.data);
+      backfillStatus.classList.remove("is-busy");
+      if (payload.error) {
+        backfillStatus.textContent = payload.error;
+        return;
+      }
+      backfillStatus.textContent = payload.atualizados
+        ? `${payload.atualizados} de ${payload.total} imagem(ns) encontrada(s).`
+        : "Nenhuma imagem nova encontrada.";
       applyPayload(payload);
     });
   }
