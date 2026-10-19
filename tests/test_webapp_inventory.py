@@ -141,6 +141,47 @@ def test_import_perfil_invalido_nao_mexe_na_carteira(monkeypatch):
     assert portfolio_mod.load_portfolio() == []
 
 
+def test_import_tenta_de_novo_sozinho_apos_bloqueio_passageiro(monkeypatch):
+    # Pedido do usuario: "so existe essa forma [de importar]?" -- a
+    # automatica ja' existia, so' faltava nao exigir reclique manual
+    # pra um bloqueio curto (o caso comum: 1 usuario, 1 clique, topa
+    # com um 429 passageiro). 2 falhas seguidas, acerta na 3a tentativa.
+    chamadas = []
+
+    def fake_fetch(steam_id):
+        chamadas.append(steam_id)
+        if len(chamadas) < 3:
+            return steam_api.INV_RATE_LIMITED, []
+        return steam_api.INV_OK, [
+            {"name": "AK-47 | Redline (Field-Tested)", "quantity": 1}]
+
+    monkeypatch.setattr(steam_api, "resolve_steam_id",
+                         lambda texto: (steam_api.RESOLVE_OK, "7656119"))
+    monkeypatch.setattr(steam_api, "fetch_inventory", fake_fetch)
+    portfolio_mod.save_portfolio([])
+    resultados = []
+    inventory_data.start_import("alguem", False, resultados.append)
+    _wait_until_idle()
+    assert len(chamadas) == 3
+    assert resultados[0]["ok"] is True
+    assert len(portfolio_mod.load_portfolio()) == 1
+
+
+def test_import_desiste_apos_bloqueio_persistente(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(steam_api, "resolve_steam_id",
+                         lambda texto: (steam_api.RESOLVE_OK, "7656119"))
+    monkeypatch.setattr(
+        steam_api, "fetch_inventory",
+        lambda steam_id: (chamadas.append(1), (steam_api.INV_RATE_LIMITED, []))[1])
+    resultados = []
+    inventory_data.start_import("alguem", False, resultados.append)
+    _wait_until_idle()
+    # 1 tentativa inicial + 2 retentativas (steam_api.RATE_LIMIT_RETRY_BACKOFF_MULT) = 3
+    assert len(chamadas) == 3
+    assert "error" in resultados[0]
+
+
 def test_import_mescla_inventario_publico(monkeypatch):
     monkeypatch.setattr(steam_api, "resolve_steam_id",
                          lambda texto: (steam_api.RESOLVE_OK, "7656119"))

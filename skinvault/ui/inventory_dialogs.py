@@ -98,7 +98,16 @@ def buscar_inventario(texto: str) -> "tuple[str, list]":
     # resolve_steam_id ja' pode ter batido na rede (link personalizado) --
     # mesmo intervalo entre chamadas que o resto do app usa.
     time.sleep(steam_api.RATE_LIMIT_DELAY_S)
-    return steam_api.fetch_inventory(steam_id)
+    status, itens = steam_api.fetch_inventory(steam_id)
+    # Retentativa automatica so' pra bloqueio passageiro (uso normal: 1
+    # clique, topa com 429, resolve sozinho sem o usuario ter que clicar
+    # de novo). Bloqueio longo de verdade ainda exige nova tentativa manual.
+    for mult in steam_api.RATE_LIMIT_RETRY_BACKOFF_MULT:
+        if status != steam_api.INV_RATE_LIMITED:
+            break
+        time.sleep(steam_api.RATE_LIMIT_DELAY_S * mult)
+        status, itens = steam_api.fetch_inventory(steam_id)
+    return status, itens
 
 
 class ImportarSteamDialog(QDialog):

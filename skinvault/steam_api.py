@@ -40,6 +40,13 @@ _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
 # pra fraude/trapaca, nao trafego de leitura publica.
 RATE_LIMIT_DELAY_S = 4.0
 
+# Multiplicadores de RATE_LIMIT_DELAY_S pra retentativa automatica de
+# UM pedido que topou com 429 -- so' pra bloqueio passageiro (uso normal,
+# 1 usuario, 1 clique). Um bloqueio longo de verdade (muitas chamadas
+# seguidas na mesma sessao, como num teste) continua precisando de
+# retentativa manual depois -- isto nao e' um backoff infinito.
+RATE_LIMIT_RETRY_BACKOFF_MULT = (4, 8)
+
 # Itens por pagina do endpoint /inventory/ (o Steam recusa valores maiores).
 _INV_PAGE = 75
 # Trava do loop de paginacao: 75 * 40 = 3000 itens. Evita loop infinito se o

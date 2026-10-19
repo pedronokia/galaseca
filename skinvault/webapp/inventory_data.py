@@ -97,6 +97,11 @@ def start_import(profile: str, remove_missing: bool,
             # monkeypatch de teste alcancar (AGENTS.md #13).
             time.sleep(steam_api.RATE_LIMIT_DELAY_S)
             status, itens = steam_api.fetch_inventory(steam_id)
+            for mult in steam_api.RATE_LIMIT_RETRY_BACKOFF_MULT:
+                if status != steam_api.INV_RATE_LIMITED:
+                    break
+                time.sleep(steam_api.RATE_LIMIT_DELAY_S * mult)
+                status, itens = steam_api.fetch_inventory(steam_id)
             if status != steam_api.INV_OK:
                 on_done({"error": _mensagem_de_erro(status)})
                 return

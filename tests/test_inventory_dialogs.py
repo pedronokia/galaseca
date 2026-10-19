@@ -72,6 +72,25 @@ def test_inventario_privado_explica_como_abrir(monkeypatch, carteira):
     assert dlg._importar.isEnabled() and not dlg.importou()
 
 
+def test_buscar_inventario_tenta_de_novo_apos_bloqueio_passageiro(monkeypatch):
+    chamadas = []
+
+    def fake_fetch(sid):
+        chamadas.append(sid)
+        if len(chamadas) < 3:
+            return steam_api.INV_RATE_LIMITED, []
+        return steam_api.INV_OK, [{"name": "AK-47 | Alfa (FT)", "quantity": 1}]
+
+    monkeypatch.setattr(steam_api, "resolve_steam_id",
+                         lambda t: (steam_api.RESOLVE_OK, ID))
+    monkeypatch.setattr(steam_api, "fetch_inventory", fake_fetch)
+    from skinvault.ui.inventory_dialogs import buscar_inventario
+    status, itens = buscar_inventario(ID)
+    assert status == steam_api.INV_OK
+    assert len(chamadas) == 3
+    assert len(itens) == 1
+
+
 def test_perfil_nao_encontrado(monkeypatch, carteira):
     dlg = _dialogo(monkeypatch,
                    resolve=lambda t: (steam_api.RESOLVE_NOT_FOUND, None))
