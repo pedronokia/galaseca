@@ -19,6 +19,10 @@ document.addEventListener("DOMContentLoaded", () => {
     valueEl.classList.remove("positive", "negative", "accent-net");
     if (opts.accent) valueEl.classList.add(opts.accent);
     if (opts.delta !== undefined) deltaEl.textContent = opts.delta;
+    // Mesmo texto do StatCard.setToolTip() do Qt (account_screen.py) --
+    // so' nao existia aqui, os 4 cartoes do topo ficavam sem explicacao.
+    if (opts.title) card.title = opts.title;
+    else card.removeAttribute("title");
   }
 
   function renderRows(rows) {
@@ -40,21 +44,34 @@ document.addEventListener("DOMContentLoaded", () => {
   function render(payload) {
     const totals = payload.totals || {};
     renderRows(payload.rows || []);
-    setStat("gross", brl(totals.market));
-    setStat("net", brl(totals.net_if_sold), { accent: "accent-net" });
+    setStat("gross", brl(totals.market),
+      { title: "Valor de mercado da carteira (Steam Market)." });
+    setStat("net", brl(totals.net_if_sold), {
+      accent: "accent-net",
+      title: "Valor bruto menos a taxa Steam de 15%.",
+    });
     const pnl = totals.pnl;
+    const total = (payload.rows || []).length;
+    const semCusto = totals.unknown_cost || 0;
+    const comCusto = total - semCusto;
     if (pnl == null) {
       // evaluate_portfolio so' devolve pnl=None quando NENHUM item tem
       // custo declarado (ver portfolio.py:evaluate_portfolio).
-      setStat("pnl", "—", { delta: "nenhum item tem custo declarado" });
+      setStat("pnl", "—", {
+        delta: "nenhum item tem custo declarado",
+        title: `Nenhum dos ${total} itens tem custo registrado.\n`
+          + "Informe o custo na tela Inventário, coluna Custo.",
+      });
     } else {
       setStat("pnl", brl(pnl), {
         accent: pnl >= 0 ? "positive" : "negative",
         delta: totals.pnl_pct != null
           ? `${pnl >= 0 ? "+" : ""}${totals.pnl_pct.toFixed(1)}%` : "",
+        title: `Calculado sobre ${comCusto} de ${total} itens.\n`
+          + `${semCusto} sem custo registrado ficaram de fora.`,
       });
     }
-    setStat("items", String((payload.rows || []).length));
+    setStat("items", String(total));
 
     const now = new Date().toLocaleTimeString("pt-BR",
       { hour: "2-digit", minute: "2-digit" });
