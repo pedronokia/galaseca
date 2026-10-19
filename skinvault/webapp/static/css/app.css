@@ -828,6 +828,32 @@ select.text-input {
   transition-delay: 0.3s;
 }
 
+/* Alinhamento de borda (app.js:posicionarTooltip) -- troca o balao
+   centralizado por ancorado numa ponta quando o centro do elemento
+   fica perto demais da borda da janela. :not(.sidebar-item) pra nao
+   brigar com a regra do rail abaixo (mesma especificidade, ordem no
+   arquivo decidiria sem isso). */
+[data-tooltip]:not(.sidebar-item)[data-tooltip-align="right"]::after {
+  left: auto;
+  right: 0;
+  transform: translateY(-4px);
+}
+
+[data-tooltip]:not(.sidebar-item)[data-tooltip-align="right"]:hover::after,
+[data-tooltip]:not(.sidebar-item)[data-tooltip-align="right"]:focus-visible::after {
+  transform: translateY(0);
+}
+
+[data-tooltip]:not(.sidebar-item)[data-tooltip-align="left"]::after {
+  left: 0;
+  transform: translateY(-4px);
+}
+
+[data-tooltip]:not(.sidebar-item)[data-tooltip-align="left"]:hover::after,
+[data-tooltip]:not(.sidebar-item)[data-tooltip-align="left"]:focus-visible::after {
+  transform: translateY(0);
+}
+
 /* Sidebar e' um rail estreito a esquerda: balao acima/centralizado
    cortaria na borda da janela. Vai pro lado direito do icone. */
 .sidebar-item[data-tooltip]::after {

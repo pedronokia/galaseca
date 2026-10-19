@@ -56,11 +56,36 @@ document.addEventListener("DOMContentLoaded", () => {
   // conversao unica no load nunca pegaria essas. Remover o `title`
   // cancela o balao nativo agendado (confirmado: funciona em todo
   // motor testado) antes dele aparecer.
+  // Reposiciona o balao quando o elemento esta perto da borda da janela
+  // -- centralizado (regra default) ele estourava a direita em colunas
+  // do fim de uma tabela larga (Scanner) ou botoes no canto do
+  // page-header. Roda a cada hover (nao so' na 1a vez) pra acompanhar
+  // resize/scroll. Sidebar fica de fora: tem posicionamento proprio
+  // (lado do icone) que ja nao estoura.
+  function posicionarTooltip(el) {
+    const rect = el.getBoundingClientRect();
+    const margin = 12;
+    const maxLargura = 280;
+    const centro = rect.left + rect.width / 2;
+    if (centro + maxLargura / 2 > window.innerWidth - margin) {
+      el.setAttribute("data-tooltip-align", "right");
+    } else if (centro - maxLargura / 2 < margin) {
+      el.setAttribute("data-tooltip-align", "left");
+    } else {
+      el.removeAttribute("data-tooltip-align");
+    }
+  }
+
   function adotarTooltip(ev) {
-    const el = ev.target.closest ? ev.target.closest("[title]") : null;
-    if (el && el.getAttribute("title")) {
+    const el = ev.target.closest
+      ? ev.target.closest("[title], [data-tooltip]") : null;
+    if (!el) return;
+    if (el.getAttribute("title")) {
       el.setAttribute("data-tooltip", el.getAttribute("title"));
       el.removeAttribute("title");
+    }
+    if (el.hasAttribute("data-tooltip") && !el.classList.contains("sidebar-item")) {
+      posicionarTooltip(el);
     }
   }
   document.addEventListener("mouseover", adotarTooltip, true);
