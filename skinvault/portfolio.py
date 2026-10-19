@@ -184,11 +184,12 @@ def evaluate_portfolio(positions: list[dict], price_fn,
         else:
             sem_custo += 1
         price = price_fn(name)
+        icon = pos.get("icon")
         if price is None:
             rows.append({"name": name, "cost": cost, "quantity": qty,
                          "price": None, "pnl": None,
                          "cost_total": cost * qty,
-                         "has_cost": conhecido})
+                         "has_cost": conhecido, "icon": icon})
             continue
         d = position_pnl(cost, price, qty, fee_rate)
         if not conhecido:
@@ -198,7 +199,8 @@ def evaluate_portfolio(positions: list[dict], price_fn,
             d["is_profit"] = False
             d["is_loss"] = False
         rows.append({"name": name, "cost": cost, "quantity": qty,
-                     "price": price, "has_cost": conhecido, **d})
+                     "price": price, "has_cost": conhecido, "icon": icon,
+                     **d})
         t_market += d["market"]
         t_net += d["net_if_sold"]
         if conhecido:

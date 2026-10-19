@@ -39,6 +39,10 @@ def _row_view(row: dict) -> dict:
         "cost": row.get("cost") if row.get("has_cost") else None,
         "pnl": row.get("pnl"),
         "has_cost": bool(row.get("has_cost")),
+        # So' preenchido pra item sincronizado da Steam (merge_steam_inventory
+        # grava o hash do icone); item manual/CSV nao tem de onde tirar isso
+        # sem bater na rede, fica None -- a tela mostra um marcador generico.
+        "icon": row.get("icon"),
     }
 
 

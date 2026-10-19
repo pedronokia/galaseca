@@ -89,13 +89,38 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function placeholderIcon() {
+    const div = document.createElement("div");
+    div.className = "item-icon-placeholder";
+    div.textContent = "◇";
+    return div;
+  }
+
+  function iconElement(row) {
+    if (!row.icon) return placeholderIcon();
+    const img = document.createElement("img");
+    img.className = "item-icon";
+    img.src = `/api/icon/${encodeURIComponent(row.icon)}`;
+    img.alt = "";
+    img.loading = "lazy";
+    // Hash sem imagem no CDN (raro, mas acontece) -- cai pro mesmo
+    // marcador generico de quem nunca teve icone, em vez de um
+    // quadradinho de imagem quebrada do navegador.
+    img.addEventListener("error", () => img.replaceWith(placeholderIcon()), { once: true });
+    return img;
+  }
+
   function renderRow(row) {
     const tr = document.createElement("tr");
     const pnlTxt = row.has_cost ? brl(row.pnl) : "—";
     const pnlCls = row.pnl == null ? "" : (row.pnl >= 0 ? "positive" : "negative");
 
     const tdName = document.createElement("td");
-    tdName.textContent = row.display_name || row.name;
+    tdName.className = "item-cell";
+    tdName.appendChild(iconElement(row));
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = row.display_name || row.name;
+    tdName.appendChild(nameSpan);
     const tdQty = document.createElement("td");
     tdQty.className = "num";
     tdQty.textContent = row.quantity;

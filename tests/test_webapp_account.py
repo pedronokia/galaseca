@@ -60,6 +60,25 @@ def test_summary_payload_item_sem_cache_fica_sem_preco(tmp_path):
     assert payload["totals"]["pnl"] is None
 
 
+def test_summary_payload_repassa_icone_de_item_sincronizado(tmp_path):
+    # Pedido do usuario: mostrar imagem do item na tela, igual a Steam.
+    # evaluate_portfolio nao repassava "icon" da posicao pro row -- sem
+    # isso a tela nunca teria de onde tirar a imagem de item sincronizado.
+    cache = PriceCache(path=tmp_path / "prices.json")
+    portfolio_mod.save_portfolio([
+        {"name": "AK-47 | Redline (Field-Tested)", "cost": 80.0,
+         "quantity": 1, "icon": "hash-de-teste",
+         "source": portfolio_mod.SOURCE_STEAM},
+        {"name": "Item Manual", "cost": 10.0, "quantity": 1},
+    ])
+
+    payload = account_data.summary_payload(cache=cache)
+
+    por_nome = {r["name"]: r for r in payload["rows"]}
+    assert por_nome["AK-47 | Redline (Field-Tested)"]["icon"] == "hash-de-teste"
+    assert por_nome["Item Manual"]["icon"] is None
+
+
 def test_rota_summary_retorna_json(client):
     resp = client.get("/api/account/summary")
     assert resp.status_code == 200
