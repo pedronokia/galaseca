@@ -175,6 +175,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("rules-cancel").addEventListener("click", () => {
     modal.hidden = true;
   });
+  // Mesma saida de "clique fora"/Esc que o confirm() novo (app.js) --
+  // sem isso este era o unico modal da tela que so fechava pelo botao.
+  modal.addEventListener("mousedown", (ev) => {
+    if (ev.target === modal) modal.hidden = true;
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && !modal.hidden) modal.hidden = true;
+  });
   document.getElementById("rules-save").addEventListener("click", () => {
     // O backend espera numero (`float(data[key])`, que nao aceita
     // virgula); os campos aqui sao em pt-BR ("45,00"), entao precisam
