@@ -6,6 +6,13 @@
  * que dependa de precisao aqui.
  */
 :root {
+  /* Diz pro navegador que a pagina e' escura -- controles nativos que
+     o CSS nao estiliza (setas de <input type=number>, autofill,
+     scrollbar em motor que ignora as regras ::-webkit-scrollbar)
+     passam a usar o widget escuro do SO/navegador em vez do claro
+     padrao. Uma linha, resolve varios "cantos" que sobravam claros
+     numa tela 100% escura. */
+  color-scheme: dark;
   --bg: #0F0F0F;
   --bg-elevated: #212121;
   --surface: #272727;
