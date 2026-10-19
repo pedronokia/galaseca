@@ -142,7 +142,15 @@ def _collect_inventory(get_page) -> tuple[str, list[dict]]:
     assets: list[dict] = []
     descriptions: list[dict] = []
     start: str | None = None
-    for _ in range(_INV_MAX_PAGES):
+    for i in range(_INV_MAX_PAGES):
+        # Faltava aqui -- toda outra sequencia de chamadas do modulo
+        # (scanner, tradeup) dorme RATE_LIMIT_DELAY_S entre uma chamada
+        # e outra, mas um inventario grande (75+ itens) paginava sem
+        # pausa nenhuma, disparando paginas uma atras da outra no MESMO
+        # endpoint ja' sensivel (gotcha #12 do AGENTS.md). Pulado na
+        # 1a pagina -- nada pra esperar ainda.
+        if i > 0:
+            time.sleep(RATE_LIMIT_DELAY_S)
         code, body = get_page(start)
         if code in (400, 403):
             return INV_PRIVATE, []
@@ -482,7 +490,11 @@ def search_market_all(query: str = "", facets: dict | None = None,
     items: list[dict] = []
     total = 0
     start = 0
-    for _ in range(_SEARCH_MAX_PAGES):
+    for i in range(_SEARCH_MAX_PAGES):
+        # Mesma lacuna do _collect_inventory (paginacao sem pausa) --
+        # corrigida junto. Pulado na 1a pagina.
+        if i > 0:
+            time.sleep(RATE_LIMIT_DELAY_S)
         status, page, page_total = search_market(
             query=query, facets=facets, sort=sort, descending=descending,
             start=start, count=100, currency=currency,

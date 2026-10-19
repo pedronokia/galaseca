@@ -634,13 +634,22 @@ class ScannerScreen(QWidget):
                 for nome_cat, fallback in alvos:
                     if self._scan_cancelled:
                         break
-                    achados, _origem = discovery.resolve_scan_items(
+                    achados, origem = discovery.resolve_scan_items(
                         nome_cat, fallback, enabled=usar_descoberta,
                     )
                     for nome in achados:
                         if nome not in vistos:
                             vistos.add(nome)
                             items.append(nome)
+                    # So' pausa quando a categoria bateu na rede de
+                    # verdade (busca por faceta, cache frio) -- cache
+                    # hit/fallback nao gastou request nenhum, nao
+                    # precisa de intervalo. "Todas as categorias" com
+                    # cache frio em todas encadeava N buscas de faceta
+                    # sem pausa nenhuma, mesma lacuna do
+                    # _collect_inventory/search_market_all.
+                    if origem == discovery.SOURCE_DISCOVERY:
+                        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
                 if not items:
                     return
                 # Guardado ANTES do loop pra _on_progress distinguir "0

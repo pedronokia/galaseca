@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import time
 from typing import Callable
 
 from skinvault import portfolio as portfolio_mod
@@ -89,6 +90,12 @@ def start_import(profile: str, remove_missing: bool,
             if status != steam_api.RESOLVE_OK or not steam_id:
                 on_done({"error": _mensagem_de_erro(status)})
                 return
+            # resolve_steam_id ja' pode ter batido na rede (link
+            # personalizado -> pagina XML do perfil) -- mesmo intervalo
+            # entre chamadas que o resto do app usa, referenciado em
+            # tempo de chamada (nao copiado pra constante) pra
+            # monkeypatch de teste alcancar (AGENTS.md #13).
+            time.sleep(steam_api.RATE_LIMIT_DELAY_S)
             status, itens = steam_api.fetch_inventory(steam_id)
             if status != steam_api.INV_OK:
                 on_done({"error": _mensagem_de_erro(status)})

@@ -164,6 +164,30 @@ def test_import_mescla_inventario_publico(monkeypatch):
     assert positions[0]["source"] == portfolio_mod.SOURCE_STEAM
 
 
+def test_import_pausa_entre_resolve_e_fetch(monkeypatch):
+    # Achado real (2026-10): resolve_steam_id (link personalizado bate
+    # na rede) seguido de fetch_inventory sem pausa nenhuma -- mesma
+    # lacuna do _collect_inventory, so' que entre as duas chamadas em
+    # vez de entre paginas.
+    monkeypatch.setattr(steam_api, "resolve_steam_id",
+                         lambda texto: (steam_api.RESOLVE_OK, "7656119"))
+    monkeypatch.setattr(steam_api, "fetch_inventory",
+                         lambda steam_id: (steam_api.INV_OK, []))
+    # time.sleep e' o mesmo modulo global em todo o processo -- patchar
+    # via inventory_data.time.sleep tambem pegaria o poll abaixo, que
+    # usa a MESMA funcao. Guarda a referencia original antes de patchar
+    # e usa so' ela pra esperar o worker terminar.
+    real_sleep = time.sleep
+    sonos = []
+    monkeypatch.setattr("skinvault.webapp.inventory_data.time.sleep",
+                         sonos.append)
+    inventory_data.start_import("alguem", False, lambda r: None)
+    deadline = time.time() + 5.0
+    while inventory_data.is_importing() and time.time() < deadline:
+        real_sleep(0.02)
+    assert sonos == [steam_api.RATE_LIMIT_DELAY_S]
+
+
 def test_import_preserva_custo_manual(monkeypatch):
     monkeypatch.setattr(steam_api, "resolve_steam_id",
                          lambda texto: (steam_api.RESOLVE_OK, "7656119"))

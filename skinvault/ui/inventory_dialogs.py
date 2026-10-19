@@ -14,6 +14,7 @@ cookie, sem chave de API.
 from __future__ import annotations
 
 import threading
+import time
 
 from PyQt6.QtCore import QObject, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -94,6 +95,9 @@ def buscar_inventario(texto: str) -> "tuple[str, list]":
     st, steam_id = steam_api.resolve_steam_id(texto)
     if st != steam_api.RESOLVE_OK or not steam_id:
         return st, []
+    # resolve_steam_id ja' pode ter batido na rede (link personalizado) --
+    # mesmo intervalo entre chamadas que o resto do app usa.
+    time.sleep(steam_api.RATE_LIMIT_DELAY_S)
     return steam_api.fetch_inventory(steam_id)
 
 

@@ -604,6 +604,43 @@ def test_fetch_inventory_empty_no_marketable(monkeypatch):
     assert status == "empty"
 
 
+def test_fetch_inventory_paginacao_dorme_entre_paginas_nao_antes_da_1a(monkeypatch):
+    # Achado real (2026-10): _collect_inventory paginava sem pausa
+    # nenhuma -- um inventario de 75+ itens disparava paginas em
+    # sequencia no endpoint ja' sensivel (gotcha #12). 2 paginas: a
+    # pausa so' pode acontecer entre a 1a e a 2a, nunca antes da 1a.
+    paginas = [
+        json.dumps({
+            "assets": [{"classid": "1", "instanceid": "1", "amount": 1}],
+            "descriptions": [{
+                "classid": "1", "instanceid": "1", "marketable": True,
+                "market_hash_name": "Item A", "tradable": 1,
+            }],
+            "more_items": 1, "last_assetid": "999",
+        }),
+        json.dumps({
+            "assets": [{"classid": "2", "instanceid": "1", "amount": 1}],
+            "descriptions": [{
+                "classid": "2", "instanceid": "1", "marketable": True,
+                "market_hash_name": "Item B", "tradable": 1,
+            }],
+        }),
+    ]
+    chamadas = []
+
+    def fake_http_get(url):
+        chamadas.append(url)
+        return 200, paginas[len(chamadas) - 1]
+
+    sonos = []
+    monkeypatch.setattr("skinvault.steam_api._http_get", fake_http_get)
+    monkeypatch.setattr("skinvault.steam_api.time.sleep", sonos.append)
+    status, items = steam_api.fetch_inventory("123")
+    assert status == "ok"
+    assert len(chamadas) == 2
+    assert sonos == [steam_api.RATE_LIMIT_DELAY_S]
+
+
 # ── fetch_public_inventory wrapper ─────────────────────────────────
 
 
@@ -857,6 +894,25 @@ def test_search_market_all_para_em_pagina_vazia(monkeypatch):
     status, items, _ = steam_api.search_market_all()
     assert status == steam_api.SEARCH_OK
     assert items == []
+
+
+def test_search_market_all_paginacao_dorme_entre_paginas(monkeypatch):
+    # Mesmo achado do fetch_inventory: paginava sem pausa nenhuma.
+    def fake(url):
+        start = int(url.split("start=")[1].split("&")[0])
+        if start >= 20:
+            return 200, _search_body([], total=20)
+        rows = [{"hash_name": f"item{start + i}", "sell_price": 100,
+                 "sell_listings": 1} for i in range(10)]
+        return 200, _search_body(rows, total=20)
+
+    sonos = []
+    monkeypatch.setattr("skinvault.steam_api._http_get", fake)
+    monkeypatch.setattr("skinvault.steam_api.time.sleep", sonos.append)
+    status, items, total = steam_api.search_market_all()
+    assert status == steam_api.SEARCH_OK
+    assert total == 20
+    assert sonos == [steam_api.RATE_LIMIT_DELAY_S]
 
 
 # ── _find_query: exato tem que vencer substring ────────────────────

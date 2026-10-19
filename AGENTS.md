@@ -826,6 +826,30 @@ lista os candidatos; rodar o `.exe` com `console=True` temporariamente
 (em vez de `False`) mostra o traceback completo se faltar algo — com
 `console=False` a exceção acontece em silêncio.
 
+### 19. Paginação própria esquece o intervalo entre chamadas (2026-10-19)
+
+O gotcha #13 cobre a cadência entre itens de um loop (Scanner, Watchlist,
+Account) — mas `_collect_inventory` (paginação do `/inventory/`) e
+`search_market_all` (paginação de `/market/search/render/`) disparavam
+a própria sequência de páginas **sem nenhuma pausa entre elas**, e
+`resolve_steam_id` (link personalizado → XML do perfil) seguido de
+`fetch_inventory` também. Achado ao vivo: importar o inventário real do
+usuário (31+ itens, várias páginas de 75) bateu em `rate_limited` —
+cada clique em "Importar da Steam" conseguia, sozinho, disparar N+1
+requisições de uma vez no mesmo endpoint sensível, sem precisar de
+nenhum teste pesado de sessão pra chegar lá.
+
+Os três pontos corrigidos (`steam_api._collect_inventory`,
+`steam_api.search_market_all`, `webapp/inventory_data.py` e
+`ui/inventory_dialogs.py` entre resolve e fetch, `ui/scanner_screen.py`
+entre categorias da descoberta por faceta) agora dormem
+`RATE_LIMIT_DELAY_S` antes de cada chamada que não seja a primeira.
+**Lição:** qualquer função nova que chame a Steam mais de uma vez em
+sequência — mesmo dentro de uma função "de alto nível" que parece uma
+chamada só — precisa da mesma pausa que os loops item-a-item já têm.
+`grep -n "_http_get\|_get_json" skinvault/*.py` e conferir quantas vezes
+cada função chama antes de devolver é o jeito de achar o próximo caso.
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`
