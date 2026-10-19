@@ -3,8 +3,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById("account-status");
   const refreshBtn = document.getElementById("btn-refresh");
-  const tbody = document.getElementById("inventory-body");
-  const emptyMsg = document.getElementById("inventory-empty");
 
   const brl = (v) => v == null ? "—" : new Intl.NumberFormat(
     "pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -25,25 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
     else card.removeAttribute("title");
   }
 
-  function renderRows(rows) {
-    tbody.innerHTML = "";
-    emptyMsg.hidden = rows.length > 0;
-    for (const r of rows) {
-      const tr = document.createElement("tr");
-      const pnlTxt = r.has_cost ? brl(r.pnl) : "—";
-      const pnlCls = r.pnl == null ? "" : (r.pnl >= 0 ? "positive" : "negative");
-      tr.innerHTML = `
-        <td>${r.display_name || r.name}</td>
-        <td class="num">${r.quantity}</td>
-        <td class="num">${brl(r.price)}</td>
-        <td class="num ${pnlCls}">${pnlTxt}</td>`;
-      tbody.appendChild(tr);
-    }
-  }
-
   function render(payload) {
     const totals = payload.totals || {};
-    renderRows(payload.rows || []);
     setStat("gross", brl(totals.market),
       { title: "Valor de mercado da carteira (Steam Market)." });
     setStat("net", brl(totals.net_if_sold), {

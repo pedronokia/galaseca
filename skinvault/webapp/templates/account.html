@@ -48,23 +48,10 @@
 
 <p class="status-line" id="account-status">Carregando…</p>
 
-<section class="card table-card">
-  <h2 class="section-title">Inventário</h2>
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Item</th>
-        <th>Qtd</th>
-        <th>Preço</th>
-        <th>Lucro/prejuízo</th>
-      </tr>
-    </thead>
-    <tbody id="inventory-body"></tbody>
-  </table>
-  <p class="muted" id="inventory-empty" hidden>
-    Nenhum item na carteira ainda.
-  </p>
-</section>
+<p class="muted">
+  A lista item a item, com custo editável e importação da Steam, está
+  na aba <a href="{{ url_for('inventory.page') }}">Inventário</a>.
+</p>
 
 <details class="diagnostics">
   <summary>Diagnóstico</summary>
