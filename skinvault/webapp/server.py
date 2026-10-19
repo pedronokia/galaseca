@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, jsonify, render_template, request
+from werkzeug.exceptions import HTTPException
 
 from skinvault import __version__
 from skinvault.webapp.routes.account import bp as account_bp
@@ -51,6 +52,38 @@ def create_app() -> Flask:
         # Toda pagina estende base.html, que usa {{ versao }} no rodape --
         # injetar aqui poupa toda rota de passar o mesmo valor na mao.
         return {"versao": __version__}
+
+    # Sem isto, uma URL digitada errada ou um erro real mostra a pagina
+    # branca padrao do Flask/Werkzeug -- quebra o tema escuro igual o
+    # confirm() nativo quebrava (ver commit do skinvaultConfirm). /api/
+    # continua devolvendo JSON, que e' o que o JS dos fetch() espera.
+    @app.errorhandler(HTTPException)
+    def _handle_http_error(err: HTTPException):
+        if request.path.startswith("/api/"):
+            return jsonify(error=err.name), err.code
+        # err.name/description vem em ingles do Werkzeug -- nao usar
+        # como texto visivel (gotcha #14 do AGENTS.md).
+        is_404 = err.code == 404
+        return render_template(
+            "error.html",
+            title="Página não encontrada" if is_404 else f"Erro {err.code}",
+            message="O endereço não existe ou não está mais disponível."
+                    if is_404 else
+                    "Algo não saiu como esperado processando este pedido.",
+            hint="Confira o link ou volte para o início.",
+        ), err.code
+
+    @app.errorhandler(Exception)
+    def _handle_unexpected_error(err: Exception):
+        app.logger.exception("Erro não tratado em %s", request.path)
+        if request.path.startswith("/api/"):
+            return jsonify(error="Erro interno."), 500
+        return render_template(
+            "error.html",
+            title="Erro inesperado",
+            message="Algo deu errado processando esta página.",
+            hint="Tente voltar para o início.",
+        ), 500
 
     return app
 
