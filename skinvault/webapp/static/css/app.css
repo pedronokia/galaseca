@@ -377,6 +377,11 @@ a {
 .table-card {
   max-width: none;
   margin-bottom: var(--space-lg);
+  /* Tabela mais larga que a janela (achado real: Inventario em janela
+     estreita) rolava a PAGINA inteira (sidebar/cabecalho iam junto),
+     em vez de so' a propria tabela -- o scroll nasce aqui, escopado
+     ao card, sem afetar nenhuma tela que ja' coubesse sem rolagem. */
+  overflow-x: auto;
 }
 
 .section-title {

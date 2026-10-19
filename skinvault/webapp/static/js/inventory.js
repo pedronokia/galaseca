@@ -136,7 +136,11 @@ document.addEventListener("DOMContentLoaded", () => {
     tdName.className = "item-cell";
     tdName.appendChild(iconElement(row));
     const nameSpan = document.createElement("span");
-    nameSpan.textContent = row.display_name || row.name;
+    const nomeCompleto = row.display_name || row.name;
+    nameSpan.textContent = nomeCompleto;
+    // Nome trunca com reticencias (CSS) pra caber numa linha so' --
+    // title garante o nome inteiro ainda disponivel, no tooltip.
+    nameSpan.title = nomeCompleto;
     tdName.appendChild(nameSpan);
     const tdQty = document.createElement("td");
     tdQty.className = "num";
