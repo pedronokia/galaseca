@@ -2,6 +2,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/inventory.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tradeup.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -17,6 +18,9 @@
     <button id="btn-add-item" class="btn-ghost" type="button">
       + Adicionar item
     </button>
+    <button id="btn-import-csv" class="btn-ghost" type="button">
+      Colar lista
+    </button>
   </div>
 </div>
 
@@ -31,6 +35,25 @@
   <button type="button" id="import-cancel" class="btn-ghost">Cancelar</button>
 </form>
 <p class="status-line" id="import-status" hidden></p>
+
+<section id="import-csv-card" class="card tradeup-form-card" hidden>
+  <label class="section-title" for="import-csv-text">Colar lista de itens</label>
+  <p class="muted">
+    Sem depender da Steam — um item por linha, no formato
+    <code>nome, custo, qtd</code> (qtd é opcional). Ex.:
+    <code>AK-47 | Redline (Field-Tested), 200, 1</code>. Útil enquanto
+    a Steam está limitando consultas: monte a lista olhando seu
+    inventário no próprio navegador.
+  </p>
+  <textarea id="import-csv-text" rows="8" class="text-input tradeup-textarea"
+            placeholder="AK-47 | Redline (Field-Tested), 200, 1
+AWP | Asiimov (Field-Tested), 650"></textarea>
+  <div class="tradeup-actions">
+    <button type="button" id="import-csv-submit" class="btn-primary">Importar lista</button>
+    <button type="button" id="import-csv-cancel" class="btn-ghost">Cancelar</button>
+  </div>
+  <p class="status-line" id="import-csv-status" hidden></p>
+</section>
 
 <form id="add-item-form" class="add-item-form" hidden>
   <input id="add-name" type="text" class="text-input"

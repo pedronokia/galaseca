@@ -56,6 +56,22 @@ def import_status():
     })
 
 
+@bp.route("/api/inventory/import-csv", methods=["POST"])
+def import_csv():
+    """Alternativa sem rede ao Importar da Steam -- so' existia como
+    `portfolio.import_csv()`, nunca tinha rota nem tela (Qt ou web).
+    Util quando a Steam esta' limitando consultas: o usuario cola a
+    lista (de qualquer fonte -- o proprio navegador logado, uma
+    planilha antiga) em vez de esperar o endpoint liberar."""
+    data = request.get_json(silent=True) or {}
+    text = data.get("text") or ""
+    if not text.strip():
+        return jsonify({"error": "cole ao menos uma linha"}), 400
+    resultado = portfolio_mod.import_csv(text)
+    payload = dict(resultado, **account_data.summary_payload())
+    return jsonify(payload)
+
+
 def _publish_and_return():
     payload = account_data.summary_payload()
     events.publish("account_eval", payload)

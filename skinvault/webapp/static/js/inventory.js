@@ -16,6 +16,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const importProfile = document.getElementById("import-profile");
   const importRemoveMissing = document.getElementById("import-remove-missing");
   const importStatus = document.getElementById("import-status");
+  const csvBtn = document.getElementById("btn-import-csv");
+  const csvCard = document.getElementById("import-csv-card");
+  const csvText = document.getElementById("import-csv-text");
+  const csvSubmit = document.getElementById("import-csv-submit");
+  const csvCancel = document.getElementById("import-csv-cancel");
+  const csvStatus = document.getElementById("import-csv-status");
 
   let rows = [];
 
@@ -194,6 +200,42 @@ document.addEventListener("DOMContentLoaded", () => {
         importStatus.textContent = "Já há uma importação em andamento.";
       }
     });
+  });
+
+  csvBtn.addEventListener("click", () => {
+    csvCard.hidden = !csvCard.hidden;
+    if (!csvCard.hidden) csvText.focus();
+  });
+  csvCancel.addEventListener("click", () => {
+    csvCard.hidden = true;
+  });
+  csvSubmit.addEventListener("click", () => {
+    const text = csvText.value;
+    if (!text.trim()) return;
+    csvStatus.hidden = false;
+    csvStatus.textContent = "Importando…";
+    fetch("/api/inventory/import-csv", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    })
+      .then((r) => r.json())
+      .then((payload) => {
+        if (payload.error) {
+          csvStatus.textContent = "Erro: " + payload.error;
+          return;
+        }
+        const partes = [`${payload.imported} item(ns) importado(s).`];
+        if (payload.skipped) partes.push(`${payload.skipped} linha(s) ignorada(s).`);
+        if (payload.errors && payload.errors.length) {
+          partes.push(`${payload.errors.length} erro(s): ${payload.errors.join(" | ")}`);
+        }
+        csvStatus.textContent = partes.join(" ");
+        if (payload.imported) {
+          csvText.value = "";
+          applyPayload(payload);
+        }
+      });
   });
 
   addBtn.addEventListener("click", () => {

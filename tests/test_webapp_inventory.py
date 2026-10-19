@@ -217,3 +217,39 @@ def test_import_rede_fora_nao_recusa_proxima_tentativa(monkeypatch):
     _wait_until_idle()
     assert "error" in resultados[0]
     assert inventory_data.is_importing() is False
+
+
+# ── /api/inventory/import-csv -- alternativa sem rede ──────────────
+
+
+def test_import_csv_rejeita_texto_vazio(client):
+    resp = client.post("/api/inventory/import-csv", json={"text": "   "})
+    assert resp.status_code == 400
+
+
+def test_import_csv_importa_linhas_validas(client):
+    portfolio_mod.save_portfolio([])
+    resp = client.post("/api/inventory/import-csv", json={
+        "text": "AK-47 | Redline (Field-Tested), 200, 1\n"
+                "AWP | Asiimov (Field-Tested), 650",
+    })
+    assert resp.status_code == 200
+    payload = resp.get_json()
+    assert payload["imported"] == 2
+    assert payload["skipped"] == 0
+    assert payload["errors"] == []
+    assert "rows" in payload  # account_data.summary_payload() mesclado
+    positions = portfolio_mod.load_portfolio()
+    assert len(positions) == 2
+
+
+def test_import_csv_reporta_linha_invalida_sem_derrubar_as_boas(client):
+    portfolio_mod.save_portfolio([])
+    resp = client.post("/api/inventory/import-csv", json={
+        "text": "AK-47 | Redline (Field-Tested), 200\n"
+                "linha sem custo nenhum",
+    })
+    payload = resp.get_json()
+    assert payload["imported"] == 1
+    assert len(payload["errors"]) == 1
+    assert len(portfolio_mod.load_portfolio()) == 1
