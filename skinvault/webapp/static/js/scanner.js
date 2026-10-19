@@ -54,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const tdScore = document.createElement("td");
       tdScore.className = `num score-cell ${scoreClass(r.score)}`;
       tdScore.textContent = String(r.score);
+      tdScore.title = r.score_tooltip || "";
       const tdPrice = document.createElement("td");
       tdPrice.className = "num";
       tdPrice.textContent = brl(r.price) + (r.derived_price ? " *" : "");

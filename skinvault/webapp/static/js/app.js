@@ -56,20 +56,26 @@ document.addEventListener("DOMContentLoaded", () => {
   // conversao unica no load nunca pegaria essas. Remover o `title`
   // cancela o balao nativo agendado (confirmado: funciona em todo
   // motor testado) antes dele aparecer.
-  // Reposiciona o balao quando o elemento esta perto da borda da janela
-  // -- centralizado (regra default) ele estourava a direita em colunas
-  // do fim de uma tabela larga (Scanner) ou botoes no canto do
-  // page-header. Roda a cada hover (nao so' na 1a vez) pra acompanhar
-  // resize/scroll. Sidebar fica de fora: tem posicionamento proprio
-  // (lado do icone) que ja nao estoura.
+  // Reposiciona o balao quando o elemento esta perto da borda da area
+  // de conteudo -- centralizado (regra default) ele estourava a
+  // direita em colunas do fim de uma tabela larga (Scanner) ou botoes
+  // no canto do page-header, e a esquerda em colunas logo apos o
+  // sidebar (overflow:auto do .app-content corta, nao so' a borda da
+  // janela -- vazado contra window.innerWidth cortava mesmo quando a
+  // conta "cabia" na janela, por nao contar o sidebar). Roda a cada
+  // hover (nao so' na 1a vez) pra acompanhar resize/scroll. Sidebar
+  // fica de fora: tem posicionamento proprio (lado do icone) que ja
+  // nao estoura.
   function posicionarTooltip(el) {
+    const container = el.closest(".app-content") || document.body;
+    const bounds = container.getBoundingClientRect();
     const rect = el.getBoundingClientRect();
     const margin = 12;
     const maxLargura = 280;
     const centro = rect.left + rect.width / 2;
-    if (centro + maxLargura / 2 > window.innerWidth - margin) {
+    if (centro + maxLargura / 2 > bounds.right - margin) {
       el.setAttribute("data-tooltip-align", "right");
-    } else if (centro - maxLargura / 2 < margin) {
+    } else if (centro - maxLargura / 2 < bounds.left + margin) {
       el.setAttribute("data-tooltip-align", "left");
     } else {
       el.removeAttribute("data-tooltip-align");
