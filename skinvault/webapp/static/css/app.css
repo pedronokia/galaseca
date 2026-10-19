@@ -101,12 +101,13 @@ a {
 }
 
 .sidebar-item.active {
-  /* Selo solido (fundo cheio + icone escuro), nao mais o tingimento
-     fraco de antes -- mesmo contraste do "S" escuro sobre verde do
-     logo, pra ler como a MESMA marca em vez de dois estilos. */
+  /* Selo solido (fundo cheio + icone escuro), mesmo contraste do "S"
+     escuro sobre verde do logo -- mas SEM brilho/sombra verde: um
+     indicador de "tela atual" brilhando mais que o logo de verdade
+     (unico, no topo) inverte a hierarquia -- o olho ia pro item da
+     lista antes de ir pra marca. */
   color: var(--bg);
   background: var(--accent);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.35);
 }
 
 .sidebar-link {
