@@ -31,12 +31,12 @@
 <form id="import-steam-form" class="add-item-form" hidden>
   <input id="import-profile" type="text" class="text-input"
          placeholder="Link ou apelido do seu perfil Steam, ex.: https://steamcommunity.com/id/seu-apelido">
-  <label class="settings-row-inline" style="flex:0 0 auto;">
-    <span>Remover da carteira o que saiu do inventário</span>
-    <input id="import-remove-missing" type="checkbox" class="toggle-checkbox">
-  </label>
   <button type="submit" class="btn-primary">Importar</button>
   <button type="button" id="import-cancel" class="btn-ghost">Cancelar</button>
+  <p class="muted" style="flex-basis:100%;margin:0;">
+    Sempre substitui: o que não estiver mais no seu inventário real sai
+    da carteira. Item que você adicionou à mão nunca é mexido.
+  </p>
 </form>
 <p class="status-line" id="import-status" hidden></p>
 
@@ -44,14 +44,16 @@
   <label class="section-title" for="import-csv-text">Colar lista de itens</label>
   <p class="muted">
     Sem depender da Steam — um item por linha, no formato
-    <code>nome, custo, qtd</code> (qtd é opcional). Ex.:
-    <code>AK-47 | Redline (Field-Tested), 200, 1</code>. Útil enquanto
+    <code>nome, custo, qtd</code> (qtd é opcional, custo pode ficar em
+    branco se não souber). Ex.:
+    <code>AK-47 | Redline (Field-Tested), 200, 1</code> ou
+    <code>AK-47 | Redline (Field-Tested), , 1</code>. Útil enquanto
     a Steam está limitando consultas: monte a lista olhando seu
     inventário no próprio navegador.
   </p>
   <textarea id="import-csv-text" rows="8" class="text-input tradeup-textarea"
             placeholder="AK-47 | Redline (Field-Tested), 200, 1
-AWP | Asiimov (Field-Tested), 650"></textarea>
+AWP | Asiimov (Field-Tested), , 1"></textarea>
   <div class="tradeup-actions">
     <button type="button" id="import-csv-submit" class="btn-primary">Importar lista</button>
     <button type="button" id="import-csv-cancel" class="btn-ghost">Cancelar</button>

@@ -194,6 +194,19 @@ def test_import_csv_invalid_cost(tmp_path):
     assert "custo invalido" in r["errors"][0]
 
 
+def test_import_csv_custo_em_branco_vira_desconhecido(tmp_path):
+    # Achado real: "0" como placeholder de "nao sei o custo" declarava
+    # "foi drop" numa posicao manual (cost=0 != cost=None) -- a tela
+    # mostrava "R$ 0,00" pra item que na verdade tem custo desconhecido.
+    p = tmp_path / "pf.json"
+    csv = "AK-47, , 1\n"
+    r = portfolio.import_csv(csv, path=p)
+    assert r["imported"] == 1
+    assert r["errors"] == []
+    loaded = portfolio.load_portfolio(p)
+    assert loaded[0]["cost"] is None
+
+
 def test_import_csv_invalid_qty(tmp_path):
     """import_csv reporta erro quando quantidade nao e' inteiro."""
     p = tmp_path / "pf.json"

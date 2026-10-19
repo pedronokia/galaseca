@@ -520,7 +520,13 @@ def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
     Formatos aceitos:
       AK-47 | Redline (Field-Tested), 200, 1
       AWP | Asiimov (FT), 650.50
+      MAC-10 | Candy Apple (FN), , 1   -- custo em branco = desconhecido
 
+    Campo de custo vazio vira cost=None (desconhecido -- mesma semantica
+    de "+ Adicionar item", que ja aceita isso). Achado real: "0" era o
+    placeholder sugerido pra quem nao sabe o preco, mas cost=0 numa
+    posicao MANUAL declara "foi drop" (ver add_position) -- a tela
+    mostrava "R$ 0,00" pra 22 itens que custaram aquilo, nao zero.
     Linhas com # sao ignoradas. Cost pode vir com R$.
     Retorna {imported, skipped, errors}."""
     imported = 0
@@ -544,11 +550,14 @@ def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
         else:
             cost_raw = parts[1]
             qty_raw = parts[2] if len(parts) >= 3 and parts[2] else ""
-        try:
-            cost = _parse_brl(cost_raw)
-        except ValueError:
-            errors.append(f"Linha {i}: custo invalido '{cost_raw}' — '{line}'")
-            continue
+        if not cost_raw:
+            cost = None
+        else:
+            try:
+                cost = _parse_brl(cost_raw)
+            except ValueError:
+                errors.append(f"Linha {i}: custo invalido '{cost_raw}' — '{line}'")
+                continue
         try:
             qty = int(qty_raw) if qty_raw else 1
         except ValueError:

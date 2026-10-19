@@ -14,7 +14,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const importForm = document.getElementById("import-steam-form");
   const importCancel = document.getElementById("import-cancel");
   const importProfile = document.getElementById("import-profile");
-  const importRemoveMissing = document.getElementById("import-remove-missing");
   const importStatus = document.getElementById("import-status");
   const csvBtn = document.getElementById("btn-import-csv");
   const csvCard = document.getElementById("import-csv-card");
@@ -218,9 +217,12 @@ document.addEventListener("DOMContentLoaded", () => {
     fetch("/api/inventory/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profile, remove_missing: importRemoveMissing.checked,
-      }),
+      // Sempre substitui: pedido do usuario -- toda sincronizacao com
+      // a Steam reflete o inventario real atual, nunca acumula item
+      // que ja' saiu de la' (vendido/trocado). Posicao manual nunca e'
+      // tocada por isto (merge_steam_inventory so' mexe em
+      // source=SOURCE_STEAM).
+      body: JSON.stringify({ profile, remove_missing: true }),
     }).then((r) => {
       if (r.status === 409) {
         importStatus.classList.remove("is-busy");
