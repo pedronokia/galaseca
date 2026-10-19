@@ -29,6 +29,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const brl = (v) => v == null ? "—" : new Intl.NumberFormat(
     "pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
+  // Os 3 formularios (Importar da Steam, Colar lista, + Adicionar
+  // item) abriam cada um por conta propria -- dava pra ter 2+ abertos
+  // ao mesmo tempo, com dois botoes "Importar" parecidos na tela ao
+  // mesmo tempo (achado real: "nao ficou confuso onde clicar?").
+  // So' um aberto por vez agora; abrir um fecha os outros.
+  function toggleExclusive(form, focusEl) {
+    const estavaAberto = !form.hidden;
+    importForm.hidden = true;
+    csvCard.hidden = true;
+    addForm.hidden = true;
+    if (!estavaAberto) {
+      form.hidden = false;
+      if (focusEl) focusEl.focus();
+    }
+  }
+
   function parseCostInput(raw) {
     if (raw == null) return null;
     let s = String(raw).trim();
@@ -200,10 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   filterInput.addEventListener("input", applyFilter);
 
-  importBtn.addEventListener("click", () => {
-    importForm.hidden = !importForm.hidden;
-    if (!importForm.hidden) importProfile.focus();
-  });
+  importBtn.addEventListener("click", () => toggleExclusive(importForm, importProfile));
   importCancel.addEventListener("click", () => {
     importForm.hidden = true;
   });
@@ -231,10 +244,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  csvBtn.addEventListener("click", () => {
-    csvCard.hidden = !csvCard.hidden;
-    if (!csvCard.hidden) csvText.focus();
-  });
+  csvBtn.addEventListener("click", () => toggleExclusive(csvCard, csvText));
   csvCancel.addEventListener("click", () => {
     csvCard.hidden = true;
   });
@@ -280,9 +290,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   addBtn.addEventListener("click", () => {
-    addForm.hidden = !addForm.hidden;
     addError.hidden = true;
-    if (!addForm.hidden) document.getElementById("add-name").focus();
+    toggleExclusive(addForm, document.getElementById("add-name"));
   });
   addCancel.addEventListener("click", () => {
     addForm.hidden = true;
