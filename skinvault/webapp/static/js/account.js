@@ -74,11 +74,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   refreshBtn.addEventListener("click", () => {
     refreshBtn.disabled = true;
+    statusEl.classList.add("is-busy");
     statusEl.textContent = "Avaliando inventário...";
     fetch("/api/account/refresh", { method: "POST" }).then((r) => {
       if (r.status === 409) {
         statusEl.textContent = "Já há uma atualização em andamento.";
         refreshBtn.disabled = false;
+        statusEl.classList.remove("is-busy");
       }
     });
   });
@@ -91,6 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     es.addEventListener("account_eval", (ev) => {
       refreshBtn.disabled = false;
+      statusEl.classList.remove("is-busy");
       const payload = JSON.parse(ev.data);
       if (payload.error) {
         statusEl.textContent = "Falha ao atualizar: " + payload.error;

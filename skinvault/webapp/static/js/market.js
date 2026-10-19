@@ -76,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const name = input.value.trim();
     if (!name) return;
     statusEl.textContent = `Consultando ${name}…`;
+    statusEl.classList.add("is-busy");
     searchBtn.disabled = true;
     fetch("/api/market/search", {
       method: "POST",
@@ -85,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .then((r) => r.json())
       .then((data) => {
         searchBtn.disabled = false;
+        statusEl.classList.remove("is-busy");
         if (data.error) {
           statusEl.textContent = "Erro: " + data.error;
           return;
@@ -108,6 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .catch(() => {
         searchBtn.disabled = false;
+        statusEl.classList.remove("is-busy");
         statusEl.textContent = "Falha ao consultar — tente de novo.";
       });
   }

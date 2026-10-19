@@ -82,6 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function applyPayload(payload) {
+    statusEl.classList.remove("is-busy");
     if (payload.error) {
       statusEl.textContent = "Erro: " + payload.error;
       return;
@@ -104,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadWatchlist();
 
   checkBtn.addEventListener("click", () => {
+    statusEl.classList.add("is-busy");
     statusEl.textContent = "Verificando…";
     fetch("/api/watchlist/check", { method: "POST" })
       .then((r) => r.json()).then(applyPayload);

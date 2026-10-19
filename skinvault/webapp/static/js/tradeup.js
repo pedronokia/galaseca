@@ -41,11 +41,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   refreshBtn.addEventListener("click", () => {
     refreshBtn.disabled = true;
+    catalogStatus.classList.add("is-busy");
     catalogStatus.textContent = "Baixando catálogo (ByMykel/CSGO-API)…";
     fetch("/api/tradeup/catalog/refresh", { method: "POST" }).then((r) => {
       if (r.status === 409) {
         catalogStatus.textContent = "Já há uma atualização em andamento.";
         refreshBtn.disabled = false;
+        catalogStatus.classList.remove("is-busy");
       }
     });
   });
@@ -133,6 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   evalBtn.addEventListener("click", () => {
     evalBtn.disabled = true;
+    statusEl.classList.add("is-busy");
     statusEl.textContent = "Buscando preços na Steam…";
     fetch("/api/tradeup/evaluate", {
       method: "POST",
@@ -142,6 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (r.status === 409) {
         statusEl.textContent = "Já há um cálculo em andamento.";
         evalBtn.disabled = false;
+        statusEl.classList.remove("is-busy");
       }
     });
   });
@@ -151,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
     es.addEventListener("tradeup_catalog", (ev) => {
       const data = JSON.parse(ev.data);
       refreshBtn.disabled = false;
+      catalogStatus.classList.remove("is-busy");
       renderCatalogStatus(data);
     });
     es.addEventListener("tradeup_progress", (ev) => {
@@ -161,6 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     es.addEventListener("tradeup_result", (ev) => {
       evalBtn.disabled = false;
+      statusEl.classList.remove("is-busy");
       const res = JSON.parse(ev.data);
       statusEl.textContent = "Pronto.";
       renderResult(res);

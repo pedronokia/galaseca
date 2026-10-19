@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     scanBtn.textContent = value ? "Cancelar scan" : "Escanear";
     scanBtn.classList.toggle("btn-secondary", value);
     scanBtn.classList.toggle("btn-primary", !value);
+    statusEl.classList.toggle("is-busy", value);
   }
 
   fetch("/api/scanner/categories").then((r) => r.json()).then((data) => {
