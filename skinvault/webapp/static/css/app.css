@@ -251,6 +251,17 @@ a {
   transform: scale(0.98);
 }
 
+/* Sem isto os botoes caiam no outline azul padrao do navegador ao
+   navegar por Tab -- destoava do verde que o resto da tela usa pra
+   foco (toggle-checkbox, text-input). */
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible,
+.btn-danger:focus-visible {
+  outline: 2px solid var(--focus-green);
+  outline-offset: 2px;
+}
+
 .btn-primary:disabled,
 .btn-secondary:disabled,
 .btn-ghost:disabled,
@@ -567,6 +578,11 @@ select.text-input {
 .row-actions button.danger:hover {
   color: var(--danger);
   border-color: var(--danger);
+}
+
+.row-actions button:focus-visible {
+  outline: 2px solid var(--focus-green);
+  outline-offset: 2px;
 }
 
 /* Controle segmentado (equivalente web do SegmentedControl do Qt) --

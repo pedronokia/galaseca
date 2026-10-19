@@ -35,6 +35,11 @@
   background: var(--surface-hov);
 }
 
+.recent-chip:focus-visible {
+  outline: 2px solid var(--focus-green);
+  outline-offset: 2px;
+}
+
 /* .market-content nao define `display` de proposito: o atributo
    [hidden] do navegador ja' basta (default display:block), e definir
    display aqui reabriria a mesma armadilha das Fases 3/5. */

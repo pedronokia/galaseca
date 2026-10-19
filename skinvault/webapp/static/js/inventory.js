@@ -96,8 +96,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const tdCost = document.createElement("td");
     tdCost.className = "num cost-cell";
     tdCost.title = "Clique para definir o custo";
+    tdCost.tabIndex = 0;
+    tdCost.setAttribute("role", "button");
     tdCost.appendChild(costCellContent(row));
     tdCost.addEventListener("click", () => startCostEdit(tdCost, row));
+    tdCost.addEventListener("keydown", (ev) => {
+      // Celula clicavel sem isto nao tinha jeito nenhum de chegar nela
+      // via teclado (td nao e' focavel por padrao, sem tabindex).
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        startCostEdit(tdCost, row);
+      }
+    });
     const tdPnl = document.createElement("td");
     tdPnl.className = `num ${pnlCls}`;
     tdPnl.textContent = pnlTxt;
