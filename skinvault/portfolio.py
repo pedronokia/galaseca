@@ -541,60 +541,6 @@ def _parse_brl(raw: str) -> float:
     return float(s)
 
 
-def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
-    """Importa linhas CSV: nome, custo, qtd (opcional).
-
-    Formatos aceitos:
-      AK-47 | Redline (Field-Tested), 200, 1
-      AWP | Asiimov (FT), 650.50
-      MAC-10 | Candy Apple (FN), , 1   -- custo em branco = desconhecido
-
-    Campo de custo vazio vira cost=None (desconhecido -- mesma semantica
-    de "+ Adicionar item", que ja aceita isso). Achado real: "0" era o
-    placeholder sugerido pra quem nao sabe o preco, mas cost=0 numa
-    posicao MANUAL declara "foi drop" (ver add_position) -- a tela
-    mostrava "R$ 0,00" pra 22 itens que custaram aquilo, nao zero.
-    Linhas com # sao ignoradas. Cost pode vir com R$.
-    Retorna {imported, skipped, errors}."""
-    imported = 0
-    skipped = 0
-    errors: list[str] = []
-    for i, raw in enumerate(text.strip().splitlines(), start=1):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            skipped += 1
-            continue
-        parts = [p.strip() for p in line.split(",")]
-        if len(parts) < 2:
-            errors.append(f"Linha {i}: formato invalido (precisa de nome, custo) — '{line}'")
-            continue
-        name = parts[0]
-        # Se tem mais de 3 partes, o custo BR tem virgula decimal
-        # ex: "AK-47, R$ 1.234,50, 1" -> parts = [AK-47, R$ 1.234, 50, 1]
-        if len(parts) > 3:
-            cost_raw = ",".join(parts[1:-1])
-            qty_raw = parts[-1]
-        else:
-            cost_raw = parts[1]
-            qty_raw = parts[2] if len(parts) >= 3 and parts[2] else ""
-        if not cost_raw:
-            cost = None
-        else:
-            try:
-                cost = _parse_brl(cost_raw)
-            except ValueError:
-                errors.append(f"Linha {i}: custo invalido '{cost_raw}' — '{line}'")
-                continue
-        try:
-            qty = int(qty_raw) if qty_raw else 1
-        except ValueError:
-            errors.append(f"Linha {i}: quantidade invalida '{qty_raw}' — '{line}'")
-            continue
-        add_position(name, cost, max(qty, 1), path)
-        imported += 1
-    return {"imported": imported, "skipped": skipped, "errors": errors}
-
-
 def update_costs_bulk(costs: dict, path: Path | str = _DEFAULT_PATH) -> dict:
     """Define o custo (unitario) de varias posicoes de uma vez.
 

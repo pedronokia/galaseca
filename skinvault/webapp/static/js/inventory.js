@@ -1,47 +1,22 @@
-// Tela de Inventario -- Fase 3. Tabela com filtro, custo editavel (clique
-// na celula) e "+ Adicionar item". Reusa o mesmo payload da Conta
-// (account_data.summary_payload) -- mesma avaliacao, mais colunas.
+// Tela de Inventario -- Fase 3. Tabela com filtro e custo editavel (clique
+// na celula). So' Steam entra com item (2026-10-20, a pedido do usuario):
+// "+ Adicionar item" e "Colar lista" saíram da tela. Reusa o mesmo payload
+// da Conta (account_data.summary_payload) -- mesma avaliacao, mais colunas.
 document.addEventListener("DOMContentLoaded", () => {
   const statusEl = document.getElementById("inventory-status");
   const tbody = document.getElementById("inventory-body");
   const emptyMsg = document.getElementById("inventory-empty");
   const filterInput = document.getElementById("filter-input");
-  const addBtn = document.getElementById("btn-add-item");
-  const addForm = document.getElementById("add-item-form");
-  const addCancel = document.getElementById("add-cancel");
-  const addError = document.getElementById("add-item-error");
   const importBtn = document.getElementById("btn-import-steam");
   const importForm = document.getElementById("import-steam-form");
   const importCancel = document.getElementById("import-cancel");
   const importProfile = document.getElementById("import-profile");
   const importStatus = document.getElementById("import-status");
-  const csvBtn = document.getElementById("btn-import-csv");
-  const csvCard = document.getElementById("import-csv-card");
-  const csvText = document.getElementById("import-csv-text");
-  const csvSubmit = document.getElementById("import-csv-submit");
-  const csvCancel = document.getElementById("import-csv-cancel");
-  const csvStatus = document.getElementById("import-csv-status");
 
   let rows = [];
 
   const brl = (v) => v == null ? "—" : new Intl.NumberFormat(
     "pt-BR", { style: "currency", currency: "BRL" }).format(v);
-
-  // Os 3 formularios (Importar da Steam, Colar lista, + Adicionar
-  // item) abriam cada um por conta propria -- dava pra ter 2+ abertos
-  // ao mesmo tempo, com dois botoes "Importar" parecidos na tela ao
-  // mesmo tempo (achado real: "nao ficou confuso onde clicar?").
-  // So' um aberto por vez agora; abrir um fecha os outros.
-  function toggleExclusive(form, focusEl) {
-    const estavaAberto = !form.hidden;
-    importForm.hidden = true;
-    csvCard.hidden = true;
-    addForm.hidden = true;
-    if (!estavaAberto) {
-      form.hidden = false;
-      if (focusEl) focusEl.focus();
-    }
-  }
 
   function parseCostInput(raw) {
     if (raw == null) return null;
@@ -176,8 +151,9 @@ document.addEventListener("DOMContentLoaded", () => {
     delBtn.textContent = "Remover";
     delBtn.addEventListener("click", () => {
       // Item sincronizado da Steam some de novo na proxima importacao
-      // (continua no inventario real) -- so' o manual/CSV e' definitivo.
-      // Nao da' pra saber aqui sem reimportar, entao confirma sempre.
+      // (continua no inventario real) -- so' a posicao manual antiga
+      // (de antes desta tela deixar de criar uma) e' definitiva. Nao
+      // da' pra saber aqui sem reimportar, entao confirma sempre.
       if (!confirm(`Remover "${nomeCompleto}" da carteira?`)) return;
       fetch("/api/inventory/remove", {
         method: "POST",
@@ -251,7 +227,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   filterInput.addEventListener("input", applyFilter);
 
-  importBtn.addEventListener("click", () => toggleExclusive(importForm, importProfile));
+  importBtn.addEventListener("click", () => {
+    importForm.hidden = !importForm.hidden;
+    if (!importForm.hidden) importProfile.focus();
+  });
   importCancel.addEventListener("click", () => {
     importForm.hidden = true;
   });
@@ -267,9 +246,9 @@ document.addEventListener("DOMContentLoaded", () => {
       headers: { "Content-Type": "application/json" },
       // Sempre substitui: pedido do usuario -- toda sincronizacao com
       // a Steam reflete o inventario real atual, nunca acumula item
-      // que ja' saiu de la' (vendido/trocado). Posicao manual nunca e'
-      // tocada por isto (merge_steam_inventory so' mexe em
-      // source=SOURCE_STEAM).
+      // que ja' saiu de la' (vendido/trocado). Posicao manual antiga
+      // (de antes desta tela deixar de criar uma) nunca e' tocada por
+      // isto (merge_steam_inventory so' mexe em source=SOURCE_STEAM).
       body: JSON.stringify({ profile, remove_missing: true }),
     }).then((r) => {
       if (r.status === 409) {
@@ -277,83 +256,6 @@ document.addEventListener("DOMContentLoaded", () => {
         importStatus.textContent = "Já há uma importação em andamento.";
       }
     });
-  });
-
-  csvBtn.addEventListener("click", () => toggleExclusive(csvCard, csvText));
-  csvCancel.addEventListener("click", () => {
-    csvCard.hidden = true;
-  });
-  csvSubmit.addEventListener("click", () => {
-    const text = csvText.value;
-    if (!text.trim()) return;
-    csvStatus.hidden = false;
-    csvStatus.textContent = "Importando…";
-    fetch("/api/inventory/import-csv", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    })
-      .then((r) => r.json())
-      .then((payload) => {
-        if (payload.error) {
-          csvStatus.textContent = "Erro: " + payload.error;
-          return;
-        }
-        const partes = [`${payload.imported} item(ns) importado(s).`];
-        if (payload.skipped) partes.push(`${payload.skipped} linha(s) ignorada(s).`);
-        if (payload.errors && payload.errors.length) {
-          partes.push(`${payload.errors.length} erro(s): ${payload.errors.join(" | ")}`);
-        }
-        csvStatus.textContent = partes.join(" ");
-        if (payload.imported) {
-          csvText.value = "";
-          applyPayload(payload);
-        }
-      });
-  });
-
-  addBtn.addEventListener("click", () => {
-    addError.hidden = true;
-    toggleExclusive(addForm, document.getElementById("add-name"));
-  });
-  addCancel.addEventListener("click", () => {
-    addForm.hidden = true;
-    addForm.reset();
-    addError.hidden = true;
-  });
-  addForm.addEventListener("submit", (ev) => {
-    ev.preventDefault();
-    const name = document.getElementById("add-name").value.trim();
-    const costRaw = document.getElementById("add-cost").value;
-    const qty = document.getElementById("add-qty").value;
-    if (!name) return;
-    const cost = parseCostInput(costRaw);
-    if (Number.isNaN(cost) || (cost !== null && cost < 0)) {
-      addError.textContent = "Custo inválido — use números, ex.: 199,90.";
-      addError.hidden = false;
-      return;
-    }
-    fetch("/api/inventory/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // NAO usar `Number(qty) || 1`: 0 e' falsy em JS e o `or` escondia
-      // um valor invalido (ex.: "0") em vez de deixar o servidor recusar.
-      body: JSON.stringify({
-        name, cost, quantity: qty.trim() === "" ? 1 : Number(qty),
-      }),
-    })
-      .then((r) => r.json())
-      .then((payload) => {
-        if (payload.error) {
-          addError.textContent = payload.error;
-          addError.hidden = false;
-          return;
-        }
-        addForm.hidden = true;
-        addForm.reset();
-        addError.hidden = true;
-        applyPayload(payload);
-      });
   });
 
   const es = window.skinvaultEvents;

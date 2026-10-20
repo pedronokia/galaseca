@@ -1,9 +1,10 @@
 """Rotas da tela de Inventario -- Fase 3 (segunda tela real).
 
-MVP: tabela com filtro, custo editavel e "+ Adicionar item". Sem grade de
-icones, comparacao com mercados externos, liquidez sob demanda, nota/topo
-nem import/export de CSV -- isso reusa a logica em ui/inventory_screen.py
-(cases.py/markets.py/signals.py) e fica pra uma fase seguinte.
+So' Steam: importar, editar custo e remover (2026-10-20, a pedido do
+usuario -- entrada manual/CSV saiu da tela, dado publico da Steam e'
+o unico jeito de entrar com item). `portfolio.add_position` continua
+usado internamente por `set_cost` (celula de custo cria a posicao se o
+nome ainda nao existir) e pela sincronizacao real.
 
 Editar custo NAO dispara avaliacao com rede: o preco nao mudou, so' o
 P&L. `account_data.summary_payload()` (cache-only) ja' reflete o novo
@@ -61,22 +62,6 @@ def import_status():
     })
 
 
-@bp.route("/api/inventory/import-csv", methods=["POST"])
-def import_csv():
-    """Alternativa sem rede ao Importar da Steam -- so' existia como
-    `portfolio.import_csv()`, nunca tinha rota nem tela (Qt ou web).
-    Util quando a Steam esta' limitando consultas: o usuario cola a
-    lista (de qualquer fonte -- o proprio navegador logado, uma
-    planilha antiga) em vez de esperar o endpoint liberar."""
-    data = request.get_json(silent=True) or {}
-    text = data.get("text") or ""
-    if not text.strip():
-        return jsonify({"error": "cole ao menos uma linha"}), 400
-    resultado = portfolio_mod.import_csv(text)
-    payload = dict(resultado, **account_data.summary_payload())
-    return jsonify(payload)
-
-
 def _publish_and_return():
     payload = account_data.summary_payload()
     events.publish("account_eval", payload)
@@ -114,32 +99,3 @@ def remove_item():
         return jsonify({"error": "item nao encontrado"}), 404
     return _publish_and_return()
 
-
-@bp.route("/api/inventory/add", methods=["POST"])
-def add_item():
-    data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "nome obrigatorio"}), 400
-    cost_raw = data.get("cost")
-    cost = None
-    if cost_raw not in (None, ""):
-        try:
-            cost = round(float(cost_raw), 2)
-        except (TypeError, ValueError):
-            return jsonify({"error": "custo invalido"}), 400
-        if cost < 0:
-            return jsonify({"error": "custo nao pode ser negativo"}), 400
-    try:
-        # NAO usar `data.get("quantity") or 1`: quantity=0 e' falsy em
-        # Python e o `or` o trocaria por 1 em vez de cair na checagem
-        # de "< 1" abaixo. `quantity ausente` e' o unico caso que deve
-        # virar o default.
-        quantity_raw = data.get("quantity")
-        quantity = 1 if quantity_raw is None else int(quantity_raw)
-    except (TypeError, ValueError):
-        return jsonify({"error": "quantidade invalida"}), 400
-    if quantity < 1:
-        return jsonify({"error": "quantidade precisa ser pelo menos 1"}), 400
-    portfolio_mod.add_position(name, cost, quantity)
-    return _publish_and_return()

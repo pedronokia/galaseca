@@ -1,8 +1,10 @@
 """Testes da tela de Inventario (web) -- Fase 3 da migracao pra Flask.
 
-So' a API: custo editavel (`/api/inventory/cost`) e "+ Adicionar item"
-(`/api/inventory/add`). Nenhuma das duas bate na rede -- so' o preco
-muda isso, e aqui so' o custo/posicao muda.
+So' a API: custo editavel (`/api/inventory/cost`) e remover item
+(`/api/inventory/remove`). Nenhuma das duas bate na rede -- so' o preco
+muda isso, e aqui so' o custo/posicao muda. "+ Adicionar item" e
+"Colar lista" saíram da tela (2026-10-20, a pedido do usuario) -- so'
+a Steam entra com item agora.
 
 Importar da Steam (`/api/inventory/import`) bate em rede publica --
 mockada via `steam_api.resolve_steam_id`/`fetch_inventory` direto
@@ -108,32 +110,6 @@ def test_remove_item_nome_inexistente(client):
 
 def test_remove_item_rejeita_nome_vazio(client):
     resp = client.post("/api/inventory/remove", json={"name": ""})
-    assert resp.status_code == 400
-
-
-def test_add_item_cria_posicao_sem_custo(client):
-    portfolio_mod.save_portfolio([])
-    resp = client.post("/api/inventory/add", json={
-        "name": "Item Drop", "quantity": 2,
-    })
-    assert resp.status_code == 200
-    positions = portfolio_mod.load_portfolio()
-    assert len(positions) == 1
-    assert positions[0]["cost"] is None
-    assert positions[0]["quantity"] == 2
-    rows = resp.get_json()["rows"]
-    assert rows[0]["has_cost"] is False
-
-
-def test_add_item_rejeita_quantidade_invalida(client):
-    resp = client.post("/api/inventory/add", json={
-        "name": "Item Y", "quantity": 0,
-    })
-    assert resp.status_code == 400
-
-
-def test_add_item_rejeita_nome_vazio(client):
-    resp = client.post("/api/inventory/add", json={"name": "   "})
     assert resp.status_code == 400
 
 
@@ -299,39 +275,3 @@ def test_import_rede_fora_nao_recusa_proxima_tentativa(monkeypatch):
     _wait_until_idle()
     assert "error" in resultados[0]
     assert inventory_data.is_importing() is False
-
-
-# ── /api/inventory/import-csv -- alternativa sem rede ──────────────
-
-
-def test_import_csv_rejeita_texto_vazio(client):
-    resp = client.post("/api/inventory/import-csv", json={"text": "   "})
-    assert resp.status_code == 400
-
-
-def test_import_csv_importa_linhas_validas(client):
-    portfolio_mod.save_portfolio([])
-    resp = client.post("/api/inventory/import-csv", json={
-        "text": "AK-47 | Redline (Field-Tested), 200, 1\n"
-                "AWP | Asiimov (Field-Tested), 650",
-    })
-    assert resp.status_code == 200
-    payload = resp.get_json()
-    assert payload["imported"] == 2
-    assert payload["skipped"] == 0
-    assert payload["errors"] == []
-    assert "rows" in payload  # account_data.summary_payload() mesclado
-    positions = portfolio_mod.load_portfolio()
-    assert len(positions) == 2
-
-
-def test_import_csv_reporta_linha_invalida_sem_derrubar_as_boas(client):
-    portfolio_mod.save_portfolio([])
-    resp = client.post("/api/inventory/import-csv", json={
-        "text": "AK-47 | Redline (Field-Tested), 200\n"
-                "linha sem custo nenhum",
-    })
-    payload = resp.get_json()
-    assert payload["imported"] == 1
-    assert len(payload["errors"]) == 1
-    assert len(portfolio_mod.load_portfolio()) == 1
