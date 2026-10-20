@@ -888,6 +888,40 @@ outra coisa — 13 testes quebraram em cadeia até o autouse fixture
 depois de cada teste, mesmo princípio do `_sem_espera_de_rate_limit`
 do gotcha #13.
 
+### 21. "Posição manual nunca é tocada" bloqueou até o ícone (2026-10-20)
+
+A regra do `merge_steam_inventory` ("posição manual nunca é alterada")
+existe pra proteger custo/quantidade que o usuário definiu — mas o
+código aplicava a mesma blindagem ao ícone também, que não tem esse
+risco (é só metadado visual, não afeta P&L). Consequência real: usuário
+que um dia usou "Colar lista" (CSV, pra contornar um bloqueio de rate
+limit) teve essas posições marcadas `source != SOURCE_STEAM` pra sempre
+— e dali em diante, toda reimportação real da Steam (que trazia o
+`icon_url` certinho) simplesmente ignorava essas posições por inteiro.
+Resultado: tela sem imagem permanentemente, mesmo com o item presente
+e íntegro no inventário real.
+
+A correção errada seria adicionar mais um botão manual pra buscar a
+imagem via scraping (`/market/listings/730/<nome>`) — e foi o que
+aconteceu primeiro (`icon_backfill.fetch_icon_hash_for_name` +
+"Buscar imagens" na tela). Funcionava, mas era tratamento de sintoma:
+o usuário teria que lembrar de clicar nesse botão pra sempre, pra
+qualquer item que algum dia tivesse passado por CSV. Revertido no
+mesmo dia a pedido do usuário ("as imagens devem sincronizar junto com
+a importação"): `merge_steam_inventory` agora atualiza `icon`/`type`
+de QUALQUER posição cujo nome bata no inventário Steam real, inclusive
+manual — só custo/quantidade/origem continuam intocados pra posição
+manual. `portfolio.positions_missing_icon`/`set_icon` (só existiam pra
+alimentar o botão removido) saíram junto; `icon_backfill.py` continua
+de pé, é módulo compartilhado com o backfill de `steam_market_events.json`
+na tela Histórico (Qt), isso é feature diferente.
+
+**Lição:** ao proteger um campo contra sobrescrita por "boa intenção"
+(não perder dado que o usuário digitou), proteger só os campos que o
+usuário de fato controla — um campo que só a rede pode preencher
+(ícone, aqui) deveria sempre poder atualizar, mesmo numa posição que
+por outro motivo virou "manual".
+
 ## Persistência (arquivos em `data/`)
 
 - `prices.json`, `portfolio.json`, `history.json`, `item_history.json`

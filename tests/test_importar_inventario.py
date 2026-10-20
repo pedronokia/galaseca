@@ -121,6 +121,22 @@ def test_posicao_manual_nunca_e_tocada(arq):
     assert pos["C"]["source"] == portfolio.SOURCE_STEAM
 
 
+def test_posicao_manual_ganha_icone_do_inventario_real(arq):
+    """Achado real (2026-10-20): item colado via CSV (manual pra sempre)
+    que por acaso E' o mesmo item do inventario Steam real nao devia
+    ficar sem imagem ate' o fim dos tempos -- so' custo/quantidade/origem
+    ficam intocados, o icone backfilla do mesmo jeito."""
+    portfolio.add_position("A", 150.0, 1, path=arq)  # manual, sem icone
+    r = portfolio.merge_steam_inventory([_item("A", 4, "hash-real")],
+                                        path=arq)
+    pos = portfolio.load_portfolio(arq)[0]
+    assert pos["icon"] == "hash-real"
+    # custo/quantidade/origem continuam intocados -- so' o icone muda.
+    assert pos["cost"] == 150.0 and pos["quantity"] == 1
+    assert pos["source"] == "manual"
+    assert r["manuais_mantidos"] == 1
+
+
 def test_custo_definido_depois_vira_manual_e_e_preservado(arq):
     portfolio.merge_steam_inventory([_item("A", 1)], path=arq)
     portfolio.update_position_cost("A", 99.9, path=arq)

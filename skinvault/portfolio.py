@@ -371,8 +371,15 @@ def merge_steam_inventory(items: list, remove_missing: bool = True,
     - item que ja' veio da Steam tem quantidade/icone atualizados -- e se o
       usuario definiu custo nele (update_position_cost troca a origem pra
       "manual"), ele passa a ser manual e nao e' mais tocado;
-    - posicao manual NUNCA e' alterada nem removida, mesmo que o item suma
-      do inventario (o usuario pode acompanhar algo fora dele);
+    - posicao manual (quantidade/custo/origem) NUNCA e' alterada nem
+      removida, mesmo que o item suma do inventario (o usuario pode
+      acompanhar algo fora dele) -- EXCETO o icone: se o nome bater com
+      algo no inventario real, o icone preenche do mesmo jeito. Achado
+      real: posicao que nasceu de "Colar lista" (CSV, pra contornar rate
+      limit) e' manual pra sempre, mesmo sendo o MESMO item que a Steam
+      devolve numa importacao de verdade depois -- sem isto a tela ficava
+      sem imagem ate' o fim dos tempos pro usuario que um dia usou CSV, so'
+      por causa de uma salvacao temporaria num momento de bloqueio;
     - item da Steam que saiu do inventario (vendido/trocado) so' sai da
       carteira com `remove_missing`.
 
@@ -394,6 +401,12 @@ def merge_steam_inventory(items: list, remove_missing: bool = True,
     for p in positions:
         nome = p.get("name")
         if p.get("source") != SOURCE_STEAM:
+            it = inv.get(nome)
+            if it:
+                if it.get("icon"):
+                    p["icon"] = it["icon"]
+                if it.get("type"):
+                    p["type"] = it["type"]
             saida.append(p)
             continue
         if nome in inv and nome not in nomes_manuais:
@@ -580,41 +593,6 @@ def import_csv(text: str, path: Path | str = _DEFAULT_PATH) -> dict:
         add_position(name, cost, max(qty, 1), path)
         imported += 1
     return {"imported": imported, "skipped": skipped, "errors": errors}
-
-
-def positions_missing_icon(positions: list[dict]) -> list[str]:
-    """Nomes unicos (ordem preservada) de posicoes sem icone -- entrada
-    manual/CSV nunca tem (sem rede, nao ha' de onde tirar), e alguma
-    sincronizacao antiga pode ter deixado passar. So' usado pra saber
-    o que vale a pena buscar (webapp/inventory_data.py)."""
-    seen: set = set()
-    out: list[str] = []
-    for p in positions:
-        if p.get("icon"):
-            continue
-        name = p.get("name")
-        if not name or name in seen:
-            continue
-        seen.add(name)
-        out.append(name)
-    return out
-
-
-def set_icon(name: str, icon_hash: str,
-             path: Path | str = _DEFAULT_PATH) -> int:
-    """Grava o hash do icone em toda posicao com esse nome que ainda
-    nao tem (duas posicoes podem compartilhar nome, ex.: uma manual e
-    uma vinda da Steam antes de uma mesclar na outra). Retorna quantas
-    posicoes foram atualizadas."""
-    positions = load_portfolio(path)
-    atualizados = 0
-    for p in positions:
-        if p.get("name") == name and not p.get("icon"):
-            p["icon"] = icon_hash
-            atualizados += 1
-    if atualizados:
-        save_portfolio(positions, path)
-    return atualizados
 
 
 def update_costs_bulk(costs: dict, path: Path | str = _DEFAULT_PATH) -> dict:
