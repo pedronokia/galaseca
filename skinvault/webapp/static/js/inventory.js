@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const importCancel = document.getElementById("import-cancel");
   const importProfile = document.getElementById("import-profile");
   const importStatus = document.getElementById("import-status");
+  const refreshBtn = document.getElementById("btn-refresh-prices");
 
   let rows = [];
 
@@ -258,9 +259,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Mesma rota/SSE da tela Conta (account_data.start_refresh) -- sem
+  // isto, quem via' direto na aba Inventario nunca tinha como sair do
+  // cache (Preco/Recebe/Lucro ficavam "—" pra sempre) sem navegar ate'
+  // Conta so' pra apertar um botao e voltar.
+  refreshBtn.addEventListener("click", () => {
+    refreshBtn.disabled = true;
+    statusEl.classList.add("is-busy");
+    statusEl.textContent = "Avaliando inventário...";
+    fetch("/api/account/refresh", { method: "POST" }).then((r) => {
+      if (r.status === 409) {
+        statusEl.textContent = "Já há uma atualização em andamento.";
+        refreshBtn.disabled = false;
+        statusEl.classList.remove("is-busy");
+      }
+    });
+  });
+
   const es = window.skinvaultEvents;
   if (es) {
+    es.addEventListener("account_progress", (ev) => {
+      const { done, total } = JSON.parse(ev.data);
+      statusEl.textContent = `Avaliando inventário... ${done}/${total}`;
+    });
     es.addEventListener("account_eval", (ev) => {
+      refreshBtn.disabled = false;
+      statusEl.classList.remove("is-busy");
       const payload = JSON.parse(ev.data);
       if (payload.error) return;
       applyPayload(payload);
