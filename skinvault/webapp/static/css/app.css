@@ -226,6 +226,12 @@ a {
   font-weight: 600;
   font-family: var(--font-family);
   cursor: pointer;
+  /* Achado real: Watchlist (2 botoes) numa janela estreita -- o rotulo
+     quebrava DENTRO do botao ("+ Adicionar\nitem", virando um retangulo
+     alto e torto) em vez do .page-actions (flex-wrap:wrap) empurrar o
+     botao inteiro pra proxima linha, que e' a quebra que o layout foi
+     desenhado pra fazer. */
+  white-space: nowrap;
   transition: background-color 0.12s ease, opacity 0.12s ease,
               transform 0.08s ease;
 }
@@ -249,6 +255,7 @@ a {
   font-weight: 600;
   font-family: var(--font-family);
   cursor: pointer;
+  white-space: nowrap;
   transition: background-color 0.12s ease, transform 0.08s ease;
 }
 
@@ -299,6 +306,19 @@ a {
   margin-bottom: var(--space-xl);
 }
 
+/* Coluna titulo+subtitulo do cabecalho (1o filho, sem classe propria
+   em nenhuma tela). Achado real: Watchlist, janela estreita -- min-width
+   default (auto) trava essa coluna no tamanho intrinseco do texto mais
+   longo do paragrafo, entao ela nao encolhia o bastante e vazava por
+   BAIXO do botao vizinho (texto cortado, visualmente sobreposto) em vez
+   de quebrar linha dentro da propria largura. min-width:0 destrava o
+   encolhimento (deixa o paragrafo quebrar em mais linhas); flex:1
+   garante que esta coluna (nao os botoes) absorve o aperto primeiro. */
+.page-header > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .page-title {
   margin: 0 0 4px;
   font-size: var(--fs-title-sm);
@@ -311,12 +331,21 @@ a {
   /* Inventario foi a 1a tela a chegar a 4 botoes -- flex-shrink:0 (era
      fixo) fazia o container nunca ser espremido pelo pai, entao
      flex-wrap sozinho nao bastava (nada forcava a largura a estreitar
-     pra disparar a quebra). min-width:0 destrava o encolhimento --
-     title ao lado absorve o aperto primeiro, exatamente como antes
-     com 1-2 botoes (titulo curto nunca chega a precisar encolher). */
+     pra disparar a quebra).
+     NAO ponha min-width:0 aqui (tentativa anterior, revertida): isto e'
+     o item flex OUTRO lado do cabecalho, e min-width:0 deixa o proprio
+     .page-actions ser espremido pelo .page-header pra uma largura
+     MENOR que o botao mais largo que ele contem -- sem nowrap nos
+     botoes isso so' forcava quebra de texto feia; COM nowrap (acima),
+     o botao simplesmente vaza pra fora da caixa (justify-content:
+     flex-end empurra o vazamento pra ESQUERDA, por cima da coluna do
+     titulo). O minimo automatico default (sem min-width:0) de um flex
+     container com wrap:true ja' e' so' o maior filho, nao a soma de
+     todos -- e' exatamente o que queremos, entao so' falta NAO
+     desligar isso. Quem deve encolher primeiro e' a coluna do titulo
+     (flex:1 1 auto acima), nao esta. */
   flex-wrap: wrap;
   justify-content: flex-end;
-  min-width: 0;
 }
 
 .btn-secondary,
@@ -326,6 +355,7 @@ a {
   border-radius: 10px;
   padding: 8px 14px;
   cursor: pointer;
+  white-space: nowrap;
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
@@ -588,6 +618,7 @@ select.text-input {
   border-radius: 6px;
   padding: 4px 8px;
   cursor: pointer;
+  white-space: nowrap;
   transition: background-color 0.12s ease, color 0.12s ease,
               border-color 0.12s ease;
 }
