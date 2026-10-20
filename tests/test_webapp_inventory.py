@@ -85,6 +85,32 @@ def test_set_cost_rejeita_nome_vazio(client):
     assert resp.status_code == 400
 
 
+def test_remove_item_remove_posicao_existente(client):
+    portfolio_mod.save_portfolio([
+        {"name": "AK-47 | Redline (Field-Tested)", "cost": 150.0, "quantity": 1},
+        {"name": "AWP | Asiimov (Field-Tested)", "cost": 650.0, "quantity": 1},
+    ])
+    resp = client.post("/api/inventory/remove", json={
+        "name": "AK-47 | Redline (Field-Tested)",
+    })
+    assert resp.status_code == 200
+    rows = resp.get_json()["rows"]
+    assert len(rows) == 1
+    assert rows[0]["name"] == "AWP | Asiimov (Field-Tested)"
+    assert len(portfolio_mod.load_portfolio()) == 1
+
+
+def test_remove_item_nome_inexistente(client):
+    portfolio_mod.save_portfolio([])
+    resp = client.post("/api/inventory/remove", json={"name": "Nao Existe"})
+    assert resp.status_code == 404
+
+
+def test_remove_item_rejeita_nome_vazio(client):
+    resp = client.post("/api/inventory/remove", json={"name": ""})
+    assert resp.status_code == 400
+
+
 def test_add_item_cria_posicao_sem_custo(client):
     portfolio_mod.save_portfolio([])
     resp = client.post("/api/inventory/add", json={

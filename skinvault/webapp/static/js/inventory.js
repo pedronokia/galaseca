@@ -170,7 +170,34 @@ document.addEventListener("DOMContentLoaded", () => {
     tdPnl.className = `num ${pnlCls}`;
     tdPnl.textContent = pnlTxt;
 
-    tr.append(tdName, tdQty, tdPrice, tdNet, tdCost, tdPnl);
+    const tdActions = document.createElement("td");
+    tdActions.className = "row-actions";
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "danger";
+    delBtn.textContent = "Remover";
+    delBtn.addEventListener("click", () => {
+      // Item sincronizado da Steam some de novo na proxima importacao
+      // (continua no inventario real) -- so' o manual/CSV e' definitivo.
+      // Nao da' pra saber aqui sem reimportar, entao confirma sempre.
+      if (!confirm(`Remover "${nomeCompleto}" da carteira?`)) return;
+      fetch("/api/inventory/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: row.name }),
+      })
+        .then((r) => r.json())
+        .then((payload) => {
+          if (payload.error) {
+            statusEl.textContent = "Erro: " + payload.error;
+            return;
+          }
+          applyPayload(payload);
+        });
+    });
+    tdActions.appendChild(delBtn);
+
+    tr.append(tdName, tdQty, tdPrice, tdNet, tdCost, tdPnl, tdActions);
     return tr;
   }
 

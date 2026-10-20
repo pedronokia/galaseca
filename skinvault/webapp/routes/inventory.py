@@ -122,6 +122,20 @@ def set_cost():
     return _publish_and_return()
 
 
+@bp.route("/api/inventory/remove", methods=["POST"])
+def remove_item():
+    # POST com nome no corpo, igual /cost -- nao DELETE/<name> na URL: nome
+    # de skin tem "|", "(", ")", espacos e as vezes ate' "/" (Holo-Foil
+    # trocado por barra na busca), frageis demais pra ir no path.
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "nome obrigatorio"}), 400
+    if not portfolio_mod.remove_position(name):
+        return jsonify({"error": "item nao encontrado"}), 404
+    return _publish_and_return()
+
+
 @bp.route("/api/inventory/add", methods=["POST"])
 def add_item():
     data = request.get_json(silent=True) or {}

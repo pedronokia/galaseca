@@ -465,6 +465,20 @@ def update_position_cost(name: str, cost: float,
     return positions
 
 
+def remove_position(name: str, path: Path | str = _DEFAULT_PATH) -> bool:
+    """Remove a(s) posicao(oes) com esse nome -- manual, CSV ou sincronizada
+    da Steam, sem distincao: o usuario pode tirar um item indesejado direto
+    da tela sem precisar reimportar/ressincronizar o inventario inteiro so'
+    pra isso. Devolve False se o nome nao existia (nada foi salvo).
+    """
+    positions = load_portfolio(path)
+    restantes = [p for p in positions if p.get("name") != name]
+    if len(restantes) == len(positions):
+        return False
+    save_portfolio(restantes, path)
+    return True
+
+
 def simulate_trade(buy_price: float, sell_price: float, quantity: int = 1,
                    fee_rate: float = STEAM_FEE) -> dict:
     """Simula uma transacao buy->sell e retorna breakdown completo pra UI.

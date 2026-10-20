@@ -111,6 +111,23 @@ def test_update_position_cost_zero_e_drop_declarado(tmp_path):
     assert portfolio.has_cost_basis(loaded[0]) is True
 
 
+def test_remove_position_existente(tmp_path):
+    p = tmp_path / "pf.json"
+    portfolio.add_position("AK-47 | Redline (FT)", 180.0, 1, path=p)
+    portfolio.add_position("AWP | Asiimov (FT)", 650.0, 1, path=p)
+    assert portfolio.remove_position("AK-47 | Redline (FT)", path=p) is True
+    restantes = portfolio.load_portfolio(p)
+    assert len(restantes) == 1
+    assert restantes[0]["name"] == "AWP | Asiimov (FT)"
+
+
+def test_remove_position_inexistente(tmp_path):
+    p = tmp_path / "pf.json"
+    portfolio.add_position("AK-47 | Redline (FT)", 180.0, 1, path=p)
+    assert portfolio.remove_position("Nao Existe", path=p) is False
+    assert len(portfolio.load_portfolio(p)) == 1
+
+
 def test_import_csv_basic(tmp_path):
     p = tmp_path / "pf.json"
     csv = (
