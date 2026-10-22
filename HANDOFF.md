@@ -517,6 +517,11 @@ continua `False`. Uma próxima sondagem deve testar uma chamada **com
 facetas** diretamente (não só uma busca de texto simples), senão o sinal
 de "recuperou" é falso positivo.
 
+**Verificado de novo em 22/10/2026:** `search_market(facets={"type":
+"CSGO_Type_Rifle"})` — chamada única, com faceta real. Ainda
+`rate_limited`. Sem mudança desde 08/08; `scanner_discovery` segue
+`False`.
+
 A resiliência do fallback continua garantida na suíte:
 - `discover_category` retorna `(None, SOURCE_FALLBACK)` em 429
   (`test_rate_limit_devolve_none`);
