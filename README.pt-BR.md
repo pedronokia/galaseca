@@ -5,7 +5,7 @@
 App desktop e web para acompanhar inventário e mercado de skins de **CS2**: quanto vale o que
 você tem, quanto você realmente lucrou depois das taxas, e quais itens estão com sinais
 de preço interessantes. **Roda 100% local e nunca pede login da Steam** — só lê dados
-públicos.
+públicos, sem conta no SkinVault, sem assinatura, e nada sai da sua máquina.
 
 | Scanner de oportunidades | Consulta de mercado |
 |---|---|

@@ -7,7 +7,7 @@
 A desktop and web app for tracking a **CS2** skin inventory and the Steam Community Market:
 what your items are worth, what you actually made after fees, and which items show price
 signals worth a look. **It runs locally and never asks for a Steam login.** It only reads
-public data.
+public data — no SkinVault account, no subscription, and nothing leaves your machine.
 
 | Opportunity scanner | Market lookup |
 |---|---|
