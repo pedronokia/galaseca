@@ -77,6 +77,37 @@ dependência/infra nova sem necessidade comprovada.
    provedor escolhido, no momento do deploy, que os itens 1-2 acima estão
    cobertos — não assuma pelo que este arquivo diz hoje.
 
+## Deploy numa VM (ex. Oracle Cloud "Always Free")
+
+Escolhido por ser a única opção pesquisada em 2026 que entrega os três
+requisitos acima sem comprometer nada: VM de verdade (sem container
+"dormindo"), disco persistente incluso, sem limite de tempo.
+`docker-compose.oracle.yml` soma HTTPS automático (Caddy + Let's Encrypt)
+por cima do `docker-compose.public-site.yml`, sem alterar `web`/`worker`.
+
+1. Crie a instância (shape Ampere `VM.Standard.A1.Flex`, Ubuntu), com IP
+   público. Abra as portas **80 e 443** (TCP) tanto na *Security List*/NSG
+   da VCN (painel da Oracle) quanto no firewall do SO (`iptables`/`ufw`
+   dentro da VM) — a Oracle filtra nos dois lugares, e esquecer um deles é
+   o erro mais comum. **Não abra a 8000** — ela só precisa ser alcançável
+   de dentro da própria VM (o Caddy fala com `web:8000` pela rede interna
+   do Docker).
+2. Instale Docker + plugin Compose na VM (`curl -fsSL https://get.docker.com | sh`
+   e `apt install docker-compose-plugin`, ou o pacote equivalente da
+   distro).
+3. Aponte um domínio pro IP público da VM (registro DNS tipo A). Sem
+   domínio próprio, um serviço gratuito como DuckDNS resolve — Caddy só
+   precisa de um nome que resolva de verdade, não de um domínio pago.
+4. Copie o repositório pra VM (`git clone`) e rode:
+   ```bash
+   SITE_DOMAIN=seudominio.exemplo docker compose \
+     -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
+     up --build -d
+   ```
+   Na primeira subida o Caddy pede o certificado Let's Encrypt sozinho —
+   não precisa de `certbot` nem configuração manual de TLS.
+5. Confirme em `https://seudominio.exemplo/healthz` → `{"ok": true}`.
+
 ## Backup
 
 `public_site.db` (contas + portfólio/trades/watchlist de todo mundo) é um
