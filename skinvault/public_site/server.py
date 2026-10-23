@@ -20,6 +20,7 @@ from skinvault.localization import localize_name
 from skinvault.public_site import fmt
 from skinvault.public_site.account import bp as account_bp
 from skinvault.public_site.trades_routes import bp as trades_bp
+from skinvault.public_site.watchlist_routes import bp as watchlist_bp
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -54,6 +55,7 @@ def create_app() -> Flask:
     app.secret_key = _load_or_create_secret_key()
     app.register_blueprint(account_bp)
     app.register_blueprint(trades_bp)
+    app.register_blueprint(watchlist_bp)
 
     @app.context_processor
     def _inject_versao():

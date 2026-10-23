@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minha watchlist — SkinVault</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo">Itens que você acompanha — avaliado com o preço e os dados já guardados, sem chamada nova à Steam.</p>
+  </header>
+
+  <main>
+    <h2 class="secao-titulo">Adicionar item</h2>
+    <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="text" name="name" placeholder="Nome exato do item" required>
+      <input type="number" name="target" step="0.01" min="0" placeholder="Alvo de preço (R$, opcional)">
+      <button type="submit">+ Acompanhar</button>
+    </form>
+
+    <h2 class="secao-titulo">Itens acompanhados</h2>
+    {% if items %}
+    <table class="tabela-candidatos">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Preço</th>
+          <th>Regras</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        <tr>
+          <td>{{ it.name_fmt }}</td>
+          <td>{{ it.price_fmt }}</td>
+          <td>{{ it.rules_resumo }}</td>
+          <td>
+            {% if it.disparado %}
+              <span class="badge-disparado" title="{{ it.alertas|map(attribute='label')|join('; ') }}">dispararia agora</span>
+            {% else %}
+              <span class="status-muted">sem gatilho agora</span>
+            {% endif %}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('watchlist.remover', name=it.name) }}" class="form-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="botao-link botao-remover">remover</button>
+            </form>
+          </td>
+        </tr>
+        <tr class="linha-regras">
+          <td colspan="5">
+            <details>
+              <summary>Editar regras de {{ it.name_fmt }}</summary>
+              <form method="post" action="{{ url_for('watchlist.editar_regras', name=it.name) }}" class="form-regras">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label>Alerta abaixo de (R$)
+                  <input type="number" name="price_below" step="0.01" min="0" value="{{ it.rules.price_below if it.rules else '' }}">
+                </label>
+                <label>Queda % desde que começou (defina o preço base abaixo)
+                  <input type="number" name="price_drop_pct" step="0.1" min="0" max="100" value="{{ it.rules.price_drop_pct if it.rules else '' }}">
+                </label>
+                <label>Preço base pra queda % (R$, opcional — usa o atual se vazio)
+                  <input type="number" name="baseline_price" step="0.01" min="0" value="{{ it.baseline_price or '' }}">
+                </label>
+                <label>Volume acima de (x da média)
+                  <input type="number" name="volume_spike" step="0.1" min="0" value="{{ it.rules.volume_spike if it.rules else '' }}">
+                </label>
+                <label>Oferta abaixo de (x da média)
+                  <input type="number" name="supply_drop" step="0.1" min="0" value="{{ it.rules.supply_drop if it.rules else '' }}">
+                </label>
+                <label>Nota a partir de
+                  <input type="number" name="score_above" step="1" min="0" max="100" value="{{ it.rules.score_above if it.rules else '' }}">
+                </label>
+                <button type="submit">Salvar regras</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="status status-vazio">Nenhum item acompanhado ainda.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Avaliado com o preço/volume/nota já guardados — pode estar desatualizado se o item não foi escaneado recentemente.
+    Não é recomendação de investimento.</p>
+    <p class="versao">SkinVault v{{ versao }}</p>
+  </footer>
+</body>
+</html>

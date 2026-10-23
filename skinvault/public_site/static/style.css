@@ -239,3 +239,68 @@ footer.rodape .versao {
   color: var(--text);
   font-size: 0.85rem;
 }
+
+/* ── Watchlist ────────────────────────────────────────── */
+.badge-disparado {
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.78rem;
+  cursor: help;
+}
+
+.status-muted {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.linha-regras td {
+  border-bottom: 1px solid var(--border);
+  padding: 0 14px 10px;
+  background: var(--bg-elevated);
+}
+
+.linha-regras summary {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.form-regras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.form-regras label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.form-regras input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+  width: 160px;
+}
+
+.form-regras button {
+  align-self: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: var(--text);
+  cursor: pointer;
+  height: 34px;
+}
+
+.form-regras button:hover { background: var(--border); }

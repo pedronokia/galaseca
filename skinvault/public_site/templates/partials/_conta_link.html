@@ -2,6 +2,7 @@
   <span class="conta-link">
     <a href="{{ url_for('account.conta') }}">{{ usuario.persona_name if usuario else "Minha conta" }}</a>
     · <a href="{{ url_for('trades.listar') }}">Trades</a>
+    · <a href="{{ url_for('watchlist.listar') }}">Watchlist</a>
     · <a href="{{ url_for('account.logout') }}">Sair</a>
   </span>
 {% else %}
