@@ -443,6 +443,7 @@ class MainWindow(QMainWindow):
         ("trades", "swap", "Trades"),
         ("tradeup", "calc", "Trade-up"),
         ("watchlist", "eye", "Watchlist"),
+        ("recommendations", "target", "Recomendações"),
     )
 
     def _build_sidebar(self, rail: bool) -> Sidebar:

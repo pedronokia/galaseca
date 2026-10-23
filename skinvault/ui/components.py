@@ -671,6 +671,14 @@ class LineIcon(QWidget):
         p.drawLine(QPointF(7.8, 8.5), QPointF(8, 12.5))
         p.drawLine(QPointF(10.2, 8.5), QPointF(10, 12.5))
 
+    def _draw_target(self, p: QPainter) -> None:
+        # alvo: 2 circulos concentricos + ponto central preenchido
+        p.drawEllipse(QRectF(2.5, 2.5, 13, 13))
+        p.drawEllipse(QRectF(6, 6, 6, 6))
+        p.setBrush(QColor(self._color))
+        p.drawEllipse(QRectF(8, 8, 2, 2))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
     def _draw_fallback(self, p: QPainter) -> None:
         p.drawEllipse(QRectF(3, 3, 12, 12))
 

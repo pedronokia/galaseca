@@ -34,6 +34,7 @@ from skinvault.ui.inventory_screen import InventoryScreen
 from skinvault.ui.components import Breadcrumb, LineIcon, fade_in
 from skinvault.ui.history_screen import HistoryScreen
 from skinvault.ui.market_screen import MarketScreen
+from skinvault.ui.recommendations_screen import RecommendationsScreen
 from skinvault.ui.scanner_screen import ScannerScreen
 from skinvault.ui.settings_screen import SettingsScreen
 from skinvault.ui.trades_screen import TradesScreen
@@ -54,6 +55,7 @@ SCREEN_TRADEUP = "tradeup"
 # trade hipotetico, mas o mesmo numero ja' sai do veredito do Market e do
 # proprio inventario, com dado real em vez de digitado a mao.
 SCREEN_WATCHLIST = "watchlist"
+SCREEN_RECOMMENDATIONS = "recommendations"
 SCREEN_CLEANUP = "cleanup"
 SCREEN_SETTINGS = "settings"
 
@@ -180,6 +182,14 @@ class ScreenRouter(QWidget):
         )
         self._stack.addWidget(self._watchlist_screen)
 
+        self._recommendations_screen = RecommendationsScreen(self)
+        self._recommendations_screen.navigate_to.connect(self.navigate)
+        self._recommendations_screen.abrir_mercado.connect(
+            self._abrir_mercado_item)
+        self._recommendations_screen.abrir_inventario.connect(
+            self._abrir_inventario_item)
+        self._stack.addWidget(self._recommendations_screen)
+
         self._cleanup_screen = CleanupScreen(self)
         self._stack.addWidget(self._cleanup_screen)
 
@@ -210,6 +220,15 @@ class ScreenRouter(QWidget):
     def _abrir_sem_custo(self) -> None:
         self.navigate(SCREEN_INVENTORY)
         self._inventory_screen.mostrar_sem_custo()
+
+    def _abrir_mercado_item(self, name: str) -> None:
+        self.navigate(SCREEN_MARKET)
+        self._market_screen._search_and_run(name)
+
+    def _abrir_inventario_item(self, name: str) -> None:
+        self.navigate(SCREEN_INVENTORY)
+        if name:
+            self._inventory_screen._filter.setText(name)
 
     def _maybe_show_welcome(self) -> None:
         """Mostra o WelcomeDialog uma vez, no primeiro boot do app.
@@ -258,6 +277,8 @@ class ScreenRouter(QWidget):
             SCREEN_TRADES: (self._trades_screen, "Trades"),
             SCREEN_TRADEUP: (self._tradeup_screen, "Trade-up"),
             SCREEN_WATCHLIST: (self._watchlist_screen, "Watchlist"),
+            SCREEN_RECOMMENDATIONS: (self._recommendations_screen,
+                                     "Recomendações"),
             SCREEN_CLEANUP: (self._cleanup_screen, "Limpeza"),
             SCREEN_SETTINGS: (self._settings_screen, "Configurações"),
         }
@@ -278,6 +299,8 @@ class ScreenRouter(QWidget):
             self._account_screen.refresh()
         elif screen == SCREEN_WATCHLIST:
             self._watchlist_screen.refresh()
+        elif screen == SCREEN_RECOMMENDATIONS:
+            self._recommendations_screen.refresh()
         elif screen == SCREEN_CLEANUP:
             self._cleanup_screen.refresh()
         elif screen == SCREEN_SETTINGS:
