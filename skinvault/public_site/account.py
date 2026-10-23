@@ -11,7 +11,9 @@ from flask import Blueprint, redirect, render_template, request, session, url_fo
 from skinvault import portfolio
 from skinvault.localization import localize_name
 from skinvault.prices import PriceCache
-from skinvault.public_site import fmt, steam_openid, user_portfolio, user_store
+from skinvault.public_site import (
+    fmt, steam_openid, user_history, user_portfolio, user_store,
+)
 from skinvault.public_site.auth import csrf_protect, csrf_token, login_required
 from skinvault.ui.profile_fetcher import fetch_public_profile
 
@@ -72,8 +74,12 @@ def conta():
     # Preço vem do mesmo cache compartilhado da Fase 1 -- leitura pura,
     # sem rede. Se o item nunca foi escaneado, a linha some sem preço
     # (igual ao app local quando a Steam não respondeu).
-    avaliacao = _formatar_linhas(
-        portfolio.evaluate_portfolio(positions, PriceCache().get))
+    avaliacao_bruta = portfolio.evaluate_portfolio(positions, PriceCache().get)
+    # Grava o ponto de histórico ANTES de formatar -- precisa do valor
+    # numérico (totals.market), não do "_fmt" em string. Dedup embutido:
+    # visitar /conta duas vezes seguidas sem nada mudar não dobra a série.
+    user_history.record_if_changed(steamid, avaliacao_bruta["totals"]["market"])
+    avaliacao = _formatar_linhas(avaliacao_bruta)
     return render_template(
         "conta.html", usuario=usuario, avaliacao=avaliacao,
         csrf_token=csrf_token(),

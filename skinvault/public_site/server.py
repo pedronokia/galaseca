@@ -21,6 +21,7 @@ from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
 from skinvault.public_site import fmt
 from skinvault.public_site.account import bp as account_bp
+from skinvault.public_site.history_routes import bp as history_bp
 from skinvault.public_site.trades_routes import bp as trades_bp
 from skinvault.public_site.watchlist_routes import bp as watchlist_bp
 
@@ -58,6 +59,7 @@ def create_app() -> Flask:
     app.register_blueprint(account_bp)
     app.register_blueprint(trades_bp)
     app.register_blueprint(watchlist_bp)
+    app.register_blueprint(history_bp)
 
     # Em produção, um proxy (Render/Fly.io/nginx) termina o HTTPS e fala
     # com o gunicorn em texto puro -- sem isto, `request.url_root` (usado

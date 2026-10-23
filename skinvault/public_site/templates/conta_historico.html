@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meu histórico — SkinVault</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo">Valor de mercado da sua carteira a cada visita a "Minha conta" — um ponto por mudança, não por segundo.</p>
+  </header>
+
+  <main>
+    {% if grafico %}
+      <div class="card grafico-card">{{ grafico|safe }}</div>
+    {% else %}
+      <p class="status status-vazio">Ainda não há pontos suficientes pra um gráfico — visite "Minha conta" de novo depois que o valor mudar.</p>
+    {% endif %}
+
+    <h2 class="secao-titulo">Pontos registrados</h2>
+    {% if pontos %}
+    <table class="tabela-candidatos">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Valor de mercado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pontos %}
+        <tr>
+          <td>{{ p.data }}</td>
+          <td>{{ p.total_fmt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="status status-vazio">Nenhum ponto registrado ainda.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Cada ponto é o valor de mercado no momento da visita — não é projeção nem recomendação de investimento.</p>
+    <p class="versao">SkinVault v{{ versao }}</p>
+  </footer>
+</body>
+</html>
