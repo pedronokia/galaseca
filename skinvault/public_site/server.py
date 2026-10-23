@@ -9,10 +9,12 @@ sempre a visão pública completa.
 """
 from __future__ import annotations
 
+import os
 import secrets
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from skinvault import __version__, recommendations, scan_store
 from skinvault._paths import DATA_DIR, atomic_write_bytes
@@ -56,6 +58,22 @@ def create_app() -> Flask:
     app.register_blueprint(account_bp)
     app.register_blueprint(trades_bp)
     app.register_blueprint(watchlist_bp)
+
+    # Em produção, um proxy (Render/Fly.io/nginx) termina o HTTPS e fala
+    # com o gunicorn em texto puro -- sem isto, `request.url_root` (usado
+    # pelo login Steam OpenID pra montar `realm`/`return_to`) reportaria
+    # "http://" mesmo com o visitante em "https://", e a Steam devolveria
+    # a um endereço que não bate com o que foi mandado. Inócuo localmente:
+    # sem cabeçalho X-Forwarded-*, não muda nada.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    # "Secure" exige HTTPS -- ligar sempre quebraria o dev local (http).
+    # Produção seta SKINVAULT_PUBLIC_SITE_SECURE_COOKIES=1 (ver
+    # skinvault/public_site/README.md).
+    app.config["SESSION_COOKIE_SECURE"] = (
+        os.environ.get("SKINVAULT_PUBLIC_SITE_SECURE_COOKIES") == "1")
 
     @app.context_processor
     def _inject_versao():

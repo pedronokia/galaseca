@@ -1,0 +1,10 @@
+# Dependências do site público (skinvault/public_site/) -- web + worker.
+#
+# Deliberadamente SEM PyQt6/pywebview/pystray/winotify/Pillow: essas são
+# só do app desktop (requirements.txt completo). O site público nunca
+# importa `skinvault.ui`/`skinvault.webapp`, então não precisa delas --
+# manter fora encolhe a imagem Docker e evita falhas de instalação de
+# libs gráficas num container Linux headless.
+Flask>=3.0,<3.2
+httpx>=0.28
+gunicorn>=23.0,<24

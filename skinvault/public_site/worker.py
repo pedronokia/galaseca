@@ -12,6 +12,7 @@ separado do "web" no provedor de hospedagem -- Fase 3).
 """
 from __future__ import annotations
 
+import os
 import sys
 import time
 
@@ -54,7 +55,14 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     return resultados
 
 
-def main(intervalo_horas: float = _INTERVALO_HORAS_DEFAULT) -> None:
+def main(intervalo_horas: "float | None" = None) -> None:
+    """`intervalo_horas=None` lê `SKINVAULT_WORKER_INTERVAL_HORAS` (env),
+    com fallback pro default -- pra ajustar a cadência em produção sem
+    mudar código."""
+    if intervalo_horas is None:
+        intervalo_horas = float(
+            os.environ.get("SKINVAULT_WORKER_INTERVAL_HORAS",
+                           _INTERVALO_HORAS_DEFAULT))
     while True:
         try:
             run_once()

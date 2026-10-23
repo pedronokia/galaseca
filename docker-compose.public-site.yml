@@ -1,0 +1,28 @@
+# Roda o site público localmente (ou num VPS) com Docker: web + worker
+# compartilhando o mesmo volume de dados. Ver skinvault/public_site/README.md.
+#
+# Uso: docker compose -f docker-compose.public-site.yml up --build
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.public-site
+    ports:
+      - "8000:8000"
+    volumes:
+      - skinvault_data:/data
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.public-site
+    command: python -m skinvault.public_site.worker
+    environment:
+      - SKINVAULT_WORKER_INTERVAL_HORAS=6
+    volumes:
+      - skinvault_data:/data
+    restart: unless-stopped
+
+volumes:
+  skinvault_data:

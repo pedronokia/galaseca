@@ -169,3 +169,50 @@ def test_run_once_default_usa_categorias_padrao(monkeypatch):
     worker.run_once()
     for pesada in worker._CATEGORIAS_PESADAS:
         assert pesada not in recebido["categories"]
+
+
+def _worker_main_uma_volta(monkeypatch):
+    """Roda `main()` e para na 1a chamada de `time.sleep` (`while True`
+    de verdade pararia a suite). Devolve os segundos passados pra sleep."""
+    monkeypatch.setattr(worker, "run_once", lambda: [])
+    chamadas = []
+
+    def _fake_sleep(segundos):
+        chamadas.append(segundos)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(worker.time, "sleep", _fake_sleep)
+    try:
+        worker.main()
+    except KeyboardInterrupt:
+        pass
+    return chamadas
+
+
+def test_main_le_intervalo_do_env(monkeypatch):
+    monkeypatch.setenv("SKINVAULT_WORKER_INTERVAL_HORAS", "2")
+    chamadas = _worker_main_uma_volta(monkeypatch)
+    assert chamadas == [2 * 3600]
+
+
+def test_main_sem_env_usa_default(monkeypatch):
+    monkeypatch.delenv("SKINVAULT_WORKER_INTERVAL_HORAS", raising=False)
+    chamadas = _worker_main_uma_volta(monkeypatch)
+    assert chamadas == [worker._INTERVALO_HORAS_DEFAULT * 3600]
+
+
+def test_main_parametro_explicito_ignora_env(monkeypatch):
+    monkeypatch.setenv("SKINVAULT_WORKER_INTERVAL_HORAS", "99")
+    monkeypatch.setattr(worker, "run_once", lambda: [])
+    chamadas = []
+
+    def _fake_sleep(segundos):
+        chamadas.append(segundos)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(worker.time, "sleep", _fake_sleep)
+    try:
+        worker.main(intervalo_horas=1.0)
+    except KeyboardInterrupt:
+        pass
+    assert chamadas == [3600]

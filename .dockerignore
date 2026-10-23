@@ -1,0 +1,12 @@
+.git
+__pycache__
+*.pyc
+data/
+tests/
+*.spec
+HANDOFF.md
+ROADMAP.md
+AGENTS.md
+.claude/
+dist/
+build/
