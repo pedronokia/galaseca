@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minha conta — SkinVault</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo">Sua carteira, com o mesmo preço guardado que o dashboard público usa — sem chamada nova à Steam.</p>
+  </header>
+
+  <main>
+    <section class="resumo-cards">
+      <div class="card"><span class="card-label">Valor de mercado</span><span class="card-valor">{{ avaliacao.totals.market_fmt }}</span></div>
+      <div class="card"><span class="card-label">Líquido se vender hoje</span><span class="card-valor">{{ avaliacao.totals.net_if_sold_fmt }}</span></div>
+      <div class="card"><span class="card-label">Investido (custo conhecido)</span><span class="card-valor">{{ avaliacao.totals.cost_known_fmt }}</span></div>
+      <div class="card">
+        <span class="card-label">Lucro (sem taxa)</span>
+        <span class="card-valor {{ 'valor-positivo' if avaliacao.totals.pnl and avaliacao.totals.pnl > 0 else ('valor-negativo' if avaliacao.totals.pnl and avaliacao.totals.pnl < 0 else '') }}">
+          {{ avaliacao.totals.pnl_fmt if avaliacao.totals.pnl is not none else "— (sem custo pra comparar)" }}
+        </span>
+      </div>
+    </section>
+
+    {% if avaliacao.totals.unknown_cost %}
+      <p class="status">{{ avaliacao.totals.unknown_cost }} posição(ões) sem custo informado — o lucro delas não entra na conta acima.</p>
+    {% endif %}
+
+    <h2 class="secao-titulo">Adicionar item</h2>
+    <form class="form-adicionar" method="post" action="{{ url_for('account.adicionar_posicao') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="text" name="name" placeholder="Nome exato do item (ex.: AK-47 | Redline (Field-Tested))" required>
+      <input type="number" name="cost" step="0.01" min="0" placeholder="Custo (R$, opcional)">
+      <input type="number" name="quantity" min="1" value="1" placeholder="Qtd">
+      <button type="submit">+ Adicionar</button>
+    </form>
+
+    <h2 class="secao-titulo">Suas posições</h2>
+    {% if avaliacao.rows %}
+    <table class="tabela-candidatos">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Qtd</th>
+          <th>Custo</th>
+          <th>Preço</th>
+          <th>Lucro (sem taxa)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in avaliacao.rows %}
+        <tr>
+          <td>{{ row.name_fmt }}</td>
+          <td>{{ row.quantity }}</td>
+          <td>
+            <form method="post" action="{{ url_for('account.editar_custo', name=row.name) }}" class="form-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="number" name="cost" step="0.01" min="0" value="{{ row.cost if row.cost else '' }}" class="input-compacto">
+              <button type="submit" class="botao-link">salvar</button>
+            </form>
+          </td>
+          <td>{{ row.price_fmt }}</td>
+          <td class="{{ 'valor-positivo' if row.has_cost and row.pnl and row.pnl > 0 else ('valor-negativo' if row.has_cost and row.pnl and row.pnl < 0 else '') }}">
+            {{ row.pnl_fmt if row.has_cost and row.pnl is not none else "—" }}
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('account.remover_posicao', name=row.name) }}" class="form-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="botao-link botao-remover">remover</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="status status-vazio">Nenhum item ainda. Adicione o primeiro acima.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Preço vem do mesmo cache público do dashboard — pode estar desatualizado se o item nunca foi escaneado.
+    Não é recomendação de investimento.</p>
+    <p class="versao">SkinVault v{{ versao }}</p>
+  </footer>
+</body>
+</html>

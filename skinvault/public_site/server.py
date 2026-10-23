@@ -9,17 +9,37 @@ sempre a visão pública completa.
 """
 from __future__ import annotations
 
+import secrets
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template
 
 from skinvault import __version__, recommendations, scan_store
+from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
+from skinvault.public_site.account import bp as account_bp
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 _LIMIT_CANDIDATOS = 20
+_SECRET_KEY_PATH = DATA_DIR / "public_site_secret.key"
+
+
+def _load_or_create_secret_key() -> bytes:
+    """Chave de assinatura da sessão do Flask, gerada uma vez e persistida.
+
+    Sem isto, toda troca de processo (ou um `app.secret_key` hardcoded no
+    código) invalidaria sessões -- ou peor, usaria a mesma chave previsível
+    em toda instalação. Gerada com `secrets.token_bytes` (criptográfico),
+    gravada com `atomic_write_bytes` (mesma disciplina de escrita atômica
+    de sempre).
+    """
+    if _SECRET_KEY_PATH.exists():
+        return _SECRET_KEY_PATH.read_bytes()
+    key = secrets.token_bytes(32)
+    atomic_write_bytes(_SECRET_KEY_PATH, key)
+    return key
 
 
 def create_app() -> Flask:
@@ -29,6 +49,8 @@ def create_app() -> Flask:
         template_folder=str(_TEMPLATES_DIR),
     )
     app.config["JSON_AS_ASCII"] = False
+    app.secret_key = _load_or_create_secret_key()
+    app.register_blueprint(account_bp)
 
     @app.context_processor
     def _inject_versao():

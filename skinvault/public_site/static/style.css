@@ -34,6 +34,37 @@ header.topo h1 {
   letter-spacing: -0.5px;
 }
 
+.topo-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.conta-link,
+.conta-link a {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.conta-link a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.conta-link-entrar {
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+
+.conta-link-entrar:hover {
+  background: var(--surface);
+}
+
 .subtitulo {
   color: var(--text-muted);
   margin: 6px 0 0;
@@ -114,4 +145,97 @@ footer.rodape {
 footer.rodape .versao {
   margin-top: 8px;
   opacity: 0.6;
+}
+
+/* ── Conta ────────────────────────────────────────────── */
+.link-sutil {
+  color: inherit;
+  text-decoration: none;
+}
+
+.resumo-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.card-label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.card-valor {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.valor-positivo { color: var(--positive); }
+.valor-negativo { color: var(--danger); }
+
+.secao-titulo {
+  font-size: 1.1rem;
+  margin: 28px 0 10px;
+}
+
+.form-adicionar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.form-adicionar input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.form-adicionar input[name="name"] { flex: 1; min-width: 220px; }
+.form-adicionar input[name="cost"] { width: 140px; }
+.form-adicionar input[name="quantity"] { width: 80px; }
+
+.form-adicionar button,
+.botao-link {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.form-adicionar button:hover,
+.botao-link:hover { background: var(--border); }
+
+.botao-remover { color: var(--danger); }
+
+.form-inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.input-compacto {
+  width: 90px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-size: 0.85rem;
 }
