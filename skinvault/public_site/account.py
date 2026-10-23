@@ -15,6 +15,10 @@ from skinvault.public_site import (
     fmt, steam_openid, user_history, user_portfolio, user_store,
 )
 from skinvault.public_site.auth import csrf_protect, csrf_token, login_required
+from skinvault.public_site.rate_limit import (
+    LOGIN_MAX_HITS, LOGIN_WINDOW_S, MUTATION_MAX_HITS, MUTATION_WINDOW_S,
+    rate_limited,
+)
 from skinvault.ui.profile_fetcher import fetch_public_profile
 
 bp = Blueprint("account", __name__)
@@ -38,6 +42,7 @@ def _formatar_linhas(avaliacao: dict) -> dict:
 
 
 @bp.route("/login")
+@rate_limited(LOGIN_MAX_HITS, LOGIN_WINDOW_S)
 def login():
     return_to = request.url_root.rstrip("/") + url_for("account.login_callback")
     realm = request.url_root
@@ -45,6 +50,7 @@ def login():
 
 
 @bp.route("/login/callback")
+@rate_limited(LOGIN_MAX_HITS, LOGIN_WINDOW_S)
 def login_callback():
     steamid = steam_openid.verify_callback(request.args.to_dict())
     if not steamid:
@@ -87,6 +93,7 @@ def conta():
 
 
 @bp.route("/conta/posicoes", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def adicionar_posicao():
@@ -104,6 +111,7 @@ def adicionar_posicao():
 
 
 @bp.route("/conta/posicoes/<name>/custo", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def editar_custo(name: str):
@@ -118,6 +126,7 @@ def editar_custo(name: str):
 
 
 @bp.route("/conta/posicoes/<name>/remover", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def remover_posicao(name: str):

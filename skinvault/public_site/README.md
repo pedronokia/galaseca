@@ -43,6 +43,20 @@ Sobe `web` (porta 8000) e `worker`, compartilhando um volume Docker pro
 `SKINVAULT_DATA_DIR`. Pra produção de verdade (hospedagem com domínio e
 HTTPS), ver a seção abaixo.
 
+## Proteção contra abuso
+
+`rate_limit.py` limita tentativas por IP em `/login`/`/login/callback`
+(10/min) e nos formulários de `/conta` (30/min) — hand-rolled, em
+memória, sem dependência nova (mesmo espírito do disjuntor de rate
+limit da Steam). **Limitação real:** o contador é por PROCESSO, não
+compartilhado entre workers do gunicorn — com `--workers 2` o limite
+efetivo dobra (2x10/min, 2x30/min). Suficiente contra um script ingênuo
+martelando uma rota; não é proteção contra um ataque distribuído de
+verdade. Se o tráfego justificar mais rigor, trocar por um backend
+compartilhado (Redis via Flask-Limiter, por exemplo) é o próximo passo
+natural — não implementado aqui de propósito, pra não trazer
+dependência/infra nova sem necessidade comprovada.
+
 ## Hospedagem — o que importa antes de escolher
 
 1. **Precisa de dois processos** (`web` + `worker`) — confirme que o plano/

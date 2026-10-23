@@ -17,6 +17,9 @@ from skinvault.localization import localize_name
 from skinvault.prices import PriceCache
 from skinvault.public_site import fmt, user_watchlist
 from skinvault.public_site.auth import csrf_protect, csrf_token, login_required
+from skinvault.public_site.rate_limit import (
+    MUTATION_MAX_HITS, MUTATION_WINDOW_S, rate_limited,
+)
 
 bp = Blueprint("watchlist", __name__)
 
@@ -84,6 +87,7 @@ def listar():
 
 
 @bp.route("/conta/watchlist", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def adicionar():
@@ -100,6 +104,7 @@ def adicionar():
 
 
 @bp.route("/conta/watchlist/<name>/regras", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def editar_regras(name: str):
@@ -119,6 +124,7 @@ def editar_regras(name: str):
 
 
 @bp.route("/conta/watchlist/<name>/remover", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def remover(name: str):

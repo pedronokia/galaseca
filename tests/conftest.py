@@ -199,6 +199,19 @@ def _sem_disjuntor_de_rate_limit():
 
 
 @pytest.fixture(autouse=True)
+def _sem_rate_limit_do_site_publico():
+    """Zera skinvault.public_site.rate_limit._hits antes e depois de
+    cada teste -- mesmo motivo da fixture acima (dict de MODULO,
+    persistente entre testes). Um teste que bate o limite de propósito
+    (ou um arquivo com muitos testes na mesma rota) vazaria hits pro
+    próximo teste da mesma sessão."""
+    from skinvault.public_site import rate_limit
+    rate_limit.reset()
+    yield
+    rate_limit.reset()
+
+
+@pytest.fixture(autouse=True)
 def _sem_welcome_dialog_modal(monkeypatch):
     """WelcomeDialog.exec() nunca abre modal de verdade na suite.
 

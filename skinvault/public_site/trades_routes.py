@@ -15,6 +15,9 @@ from skinvault import trades as trades_mod
 from skinvault.localization import localize_name
 from skinvault.public_site import fmt, user_trades
 from skinvault.public_site.auth import csrf_protect, csrf_token, login_required
+from skinvault.public_site.rate_limit import (
+    MUTATION_MAX_HITS, MUTATION_WINDOW_S, rate_limited,
+)
 
 bp = Blueprint("trades", __name__)
 
@@ -52,6 +55,7 @@ def listar():
 
 
 @bp.route("/conta/trades", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def adicionar():
@@ -71,6 +75,7 @@ def adicionar():
 
 
 @bp.route("/conta/trades/<int:index>/remover", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
 @login_required
 @csrf_protect
 def remover(index: int):
