@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SkinVault — Recomendações de skins CS2</title>
+  <meta name="description" content="Notas e motivos factuais pra skins do CS2, a partir de dados públicos da Steam Community Market. Não é recomendação de investimento.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <h1>SkinVault</h1>
+    <p class="subtitulo">Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.</p>
+  </header>
+
+  <main>
+    {% if scan %}
+      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).</p>
+    {% else %}
+      <p class="status status-vazio">Ainda não há nenhum scan salvo. Volte em breve.</p>
+    {% endif %}
+
+    {% if candidatos %}
+    <table class="tabela-candidatos">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Preço</th>
+          <th>Nota</th>
+          <th>Caixa/Cápsula</th>
+          <th>Risco</th>
+          <th>Por quê</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in candidatos %}
+        <tr>
+          <td>{{ c.name_fmt }}</td>
+          <td>{{ c.price_fmt }}</td>
+          <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
+          <td>{{ c.case_label or "—" }}</td>
+          <td class="risco risco-{{ (c.pump_risk or {}).get('level', 'low') }}">
+            {{ {"low": "Baixo", "medium": "Médio", "high": "Alto"}[(c.pump_risk or {}).get('level', 'low')] }}
+          </td>
+          <td>{{ c.reasons|join("; ") if c.reasons else "Nota neutra: nenhum fator se destacou" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="status status-vazio">Nenhum candidato no momento.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Dados públicos da Steam Community Market. SkinVault não é afiliado à Valve.
+    Mostra o que já foi medido — não é recomendação de investimento, e desempenho
+    passado não garante nada no futuro. A decisão é sempre sua.</p>
+    <p class="versao">SkinVault v{{ versao }}</p>
+  </footer>
+</body>
+</html>

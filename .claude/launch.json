@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["scripts/dev_web_server.py"],
       "port": 5055
+    },
+    {
+      "name": "skinvault-public-site",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["scripts/dev_public_site.py"],
+      "port": 5061
     }
   ]
 }

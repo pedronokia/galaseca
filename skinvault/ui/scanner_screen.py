@@ -29,7 +29,8 @@ from PyQt6.QtWidgets import (
 
 from skinvault import (
     backtest, cases, discovery, portfolio as portfolio_mod, ranking,
-    settings as sv_settings, signals, ssr_cache, steam_api, valve_events,
+    scan_engine, settings as sv_settings, signals, ssr_cache, steam_api,
+    valve_events,
 )
 from skinvault._paths import DATA_DIR
 from skinvault.scan_targets import SCAN_BY_CATEGORY as _SCAN_BY_CATEGORY
@@ -677,131 +678,31 @@ class ScannerScreen(QWidget):
         threading.Thread(target=_worker, daemon=True).start()
 
     def _scan_item(self, name: str) -> dict | None:
-        try:
-            overview = steam_api.get_market_overview(name)
-            time.sleep(steam_api.RATE_LIMIT_DELAY_S)
-            page = steam_api.get_market_page_data(name)
-        except Exception as e:
-            print(f"WARNING: _scan_item({name}) failed: {e}",
-                  file=sys.stderr)
-            return None
-
-        lowest = overview.get("lowest") if overview else None
-        median = overview.get("median") if overview else None
-        volume = overview.get("volume") if overview else None
-        derived_price = False
-
-        if lowest is None and page and page.get("price_history"):
-            ph = page["price_history"]
-            last = ph[-1]
-            price_val = last.get("price_median")
-            if price_val and price_val > 0:
-                lowest = price_val
-                derived_price = True
-
-        if lowest is None:
-            return None
-
-        self._cache.put(name, lowest)
-
-        ob = page.get("order_book") if page else None
-        # Metadados oficiais da Steam (tags da description) -- vem na mesma
-        # pagina, sem requisicao extra.
-        meta = (page.get("meta") or {}) if page else {}
-        verdict = steam_api.fair_value_verdict(
-            lowest, median,
-            spread=ob.get("spread") if ob else None,
-            buy_count=ob.get("buy_count") if ob else None,
-            sell_count=ob.get("sell_count") if ob else None,
-            price_history=page.get("price_history") if page else None,
-            tradable_restriction=meta.get("tradable_restriction"),
-        ) if page else steam_api.fair_value_verdict(lowest, median)
-        signals.record_item_price(name, lowest)
-        if volume:
-            signals.record_item_volume(name, volume)
-        supply = ob.get("sell_count") if ob else None
-        if supply is not None:
-            signals.record_item_supply(name, supply)
-
-        multi = signals.multi_trend(
-            page.get("price_history", [])
-        ) if page and page.get("price_history") else None
-        # A colecao vem da tag ItemSet da Steam: resolve item que o mapa
-        # manual _SKIN_TO_CASE nao cobre, sem sobrescrever o que ja' cobre.
-        cs = cases.case_status(name, collection=meta.get("collection"))
-        is_cont = cases.is_container(name)
-
-        score, breakdown = signals.enhanced_score(
-            verdict, volume, supply,
-            multi_trend=multi,
-            price_history=page.get("price_history") if page else None,
-            case_status=cs,
-            is_container=is_cont,
-        )
-
-        dq = signals.data_quality(
-            page.get("price_history") if page else []
-        )
-
         # Deriva categoria para valve_events exclusion no pump_risk
         _item_cat = next(
             (c for c, items in _SCAN_BY_CATEGORY.items() if name in items),
             None,
         )
-        pr = signals.pump_risk(
-            price_history=page.get("price_history") if page else None,
-            volume_history=signals.load_item_volume(name),
-            category=_item_cat,
-        )
-
-        ob_approx = bool(page.get("order_book_approx")) if page else False
-        approx_suffix = " ~" if ob_approx else ""
+        # O nucleo (preco, veredito, score+breakdown, riscos) mora em
+        # scan_engine.py -- sem Qt, reusado pelo worker do site publico
+        # (ver skinvault/public_site/worker.py). So' os campos visuais
+        # (cor/formatacao) ficam aqui.
+        result = scan_engine.scan_item(
+            name, category=_item_cat, price_cache=self._cache)
+        if result is None:
+            return None
         # Mesmo formato das outras colunas de dinheiro. "210.00" nao casava
         # com nenhum formato do sort_key_from_text e a coluna ordenava como
         # texto (R$ 9 depois de R$ 100).
-        price_str = f"{t.brl(lowest)}{' *' if derived_price else ''}"
-        return {
-            "name": name,
-            "price": lowest,
-            "price_str": price_str,
-            "median": median,
-            "score": score,
-            "breakdown": breakdown,
-            "data_quality": dq,
-            "is_container": is_cont,
-            "verdict": verdict.get("label", "—"),
-            "verdict_color": t.POSITIVE if verdict.get("diff_pct", 0) <= 0
-                             else t.DANGER,
-            # A cor acima e' a do tema da hora do scan. O scan salvo e'
-            # reaberto depois, talvez no outro tema: a tabela pinta por isto.
-            "verdict_ok": verdict.get("diff_pct", 0) <= 0,
-            # Codigo interno ("tight", "buyer_dominant"...) aparecia CRU
-            # na celula. Traduz so' pra exibir; a logica segue no codigo.
-            "spread": (_SPREAD_TXT.get(verdict.get("spread_verdict", ""),
-                                       verdict.get("spread_verdict", "")) +
-                       (approx_suffix if verdict.get("spread_verdict") else "")),
-            "book": (_BOOK_TXT.get(verdict.get("book_verdict", ""),
-                                   verdict.get("book_verdict", "")) +
-                     (approx_suffix if verdict.get("book_verdict") else "")),
-            "trend": _TREND_TXT.get(verdict.get("trend_verdict", ""),
-                                    verdict.get("trend_verdict", "")),
-            # Codigo cru pra LOGICA (market_breadth conta "rising"/...).
-            # "trend" virou texto de tela em 2026-10-17 e o cartao Mercado
-            # passou a mostrar sempre "—" ate' este campo existir.
-            "trend_code": verdict.get("trend_verdict", ""),
-            "volume": volume,
-            "supply": supply,
-            "sd_label": signals.supply_demand_ratio(volume, supply).get("label", ""),
-            "liquidity_depth": signals.liquidity_depth(
-                supply, signals.load_item_volume(name)),
-            "zscore": signals.price_zscore(
-                page.get("price_history")) if page else {},
-            "score_tooltip": signals.format_breakdown(breakdown),
-            "case_label": cs.get("label", ""),
-            "pump_risk": pr,
-            "order_book_approx": ob_approx,
-            "derived_price": derived_price,
-        }
+        result["price_str"] = (
+            f"{t.brl(result['price'])}"
+            f"{' *' if result['derived_price'] else ''}"
+        )
+        # A cor e' a do tema da hora do scan. O scan salvo e' reaberto
+        # depois, talvez no outro tema: a tabela pinta por isto.
+        result["verdict_color"] = (
+            t.POSITIVE if result["verdict_ok"] else t.DANGER)
+        return result
 
     def _on_item_done(self, result: dict) -> None:
         self._scan_results.append(result)

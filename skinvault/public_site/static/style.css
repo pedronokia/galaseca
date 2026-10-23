@@ -1,0 +1,117 @@
+/* Paleta igual ao app (tons de cinza/preto + verde=bom / vermelho=risco),
+   mas escrita direto aqui -- este servidor não importa ui/theme.py (Qt). */
+:root {
+  --bg: #0f0f0f;
+  --bg-elevated: #181818;
+  --surface: #202020;
+  --border: #303030;
+  --text: #f1f1f1;
+  --text-muted: #aaaaaa;
+  --positive: #3fb950;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+header.topo {
+  padding: 32px 24px 16px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+header.topo h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: -0.5px;
+}
+
+.subtitulo {
+  color: var(--text-muted);
+  margin: 6px 0 0;
+  max-width: 640px;
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px 40px;
+}
+
+.status {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.status-vazio {
+  padding: 32px;
+  text-align: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+table.tabela-candidatos {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+table.tabela-candidatos th,
+table.tabela-candidatos td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+table.tabela-candidatos th {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  background: var(--surface);
+}
+
+table.tabela-candidatos tbody tr:last-child td {
+  border-bottom: none;
+}
+
+table.tabela-candidatos tbody tr:hover {
+  background: var(--surface);
+}
+
+.nota { font-weight: 700; }
+.nota-alta { color: var(--positive); }
+.nota-media { color: var(--warn); }
+.nota-baixa { color: var(--danger); }
+
+.risco-low { color: var(--text-muted); }
+.risco-medium { color: var(--warn); }
+.risco-high { color: var(--danger); }
+
+footer.rodape {
+  max-width: 960px;
+  margin: 24px auto 0;
+  padding: 16px 24px 32px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+footer.rodape .versao {
+  margin-top: 8px;
+  opacity: 0.6;
+}
