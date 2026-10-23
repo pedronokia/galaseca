@@ -17,7 +17,9 @@ from flask import Flask, jsonify, render_template
 from skinvault import __version__, recommendations, scan_store
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
+from skinvault.public_site import fmt
 from skinvault.public_site.account import bp as account_bp
+from skinvault.public_site.trades_routes import bp as trades_bp
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -51,6 +53,7 @@ def create_app() -> Flask:
     app.config["JSON_AS_ASCII"] = False
     app.secret_key = _load_or_create_secret_key()
     app.register_blueprint(account_bp)
+    app.register_blueprint(trades_bp)
 
     @app.context_processor
     def _inject_versao():
@@ -84,14 +87,6 @@ def create_app() -> Flask:
     return app
 
 
-def _brl(v: float | None) -> str:
-    """Formata BRL pt-BR. Cópia mínima de `ui/theme.py:brl` sem o import de
-    PyQt6 que esse módulo carrega -- o servidor público não precisa dele."""
-    if v is None:
-        return "—"
-    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-
 def _candidatos(scan: dict | None) -> list[dict]:
     """Candidatos públicos: sem dono (sem login ainda), limitado ao topo."""
     if not scan:
@@ -99,7 +94,7 @@ def _candidatos(scan: dict | None) -> list[dict]:
     candidatos = recommendations.buy_candidates(
         scan["results"], owned_names=set(), limit=_LIMIT_CANDIDATOS)
     for c in candidatos:
-        c["price_fmt"] = _brl(c.get("price"))
+        c["price_fmt"] = fmt.brl(c.get("price"))
         c["name_fmt"] = localize_name(c.get("name") or "")
     return candidatos
 

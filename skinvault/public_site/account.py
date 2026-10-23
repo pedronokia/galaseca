@@ -6,28 +6,16 @@ acompanhar a própria carteira.
 """
 from __future__ import annotations
 
-import secrets
-from functools import wraps
-
-from flask import (
-    Blueprint, abort, redirect, render_template, request, session, url_for,
-)
+from flask import Blueprint, redirect, render_template, request, session, url_for
 
 from skinvault import portfolio
 from skinvault.localization import localize_name
 from skinvault.prices import PriceCache
-from skinvault.public_site import steam_openid, user_portfolio, user_store
+from skinvault.public_site import fmt, steam_openid, user_portfolio, user_store
+from skinvault.public_site.auth import csrf_protect, csrf_token, login_required
 from skinvault.ui.profile_fetcher import fetch_public_profile
 
 bp = Blueprint("account", __name__)
-
-
-def _brl(v: "float | None") -> str:
-    """Cópia mínima de `ui/theme.py:brl` -- este pacote não importa
-    PyQt6 de propósito (ver AGENTS.md/plano da Fase 1)."""
-    if v is None:
-        return "—"
-    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _formatar_linhas(avaliacao: dict) -> dict:
@@ -35,48 +23,16 @@ def _formatar_linhas(avaliacao: dict) -> dict:
     `server.py:_candidatos` (formata em Python, template fica simples)."""
     for row in avaliacao["rows"]:
         row["name_fmt"] = localize_name(row["name"])
-        row["price_fmt"] = _brl(row.get("price"))
-        row["cost_fmt"] = _brl(row.get("cost"))
-        row["pnl_fmt"] = _brl(row.get("pnl"))
+        row["price_fmt"] = fmt.brl(row.get("price"))
+        row["cost_fmt"] = fmt.brl(row.get("cost"))
+        row["pnl_fmt"] = fmt.brl(row.get("pnl"))
     t = avaliacao["totals"]
-    t["cost_fmt"] = _brl(t.get("cost"))
-    t["cost_known_fmt"] = _brl(t.get("cost_known"))
-    t["market_fmt"] = _brl(t.get("market"))
-    t["net_if_sold_fmt"] = _brl(t.get("net_if_sold"))
-    t["pnl_fmt"] = _brl(t.get("pnl"))
+    t["cost_fmt"] = fmt.brl(t.get("cost"))
+    t["cost_known_fmt"] = fmt.brl(t.get("cost_known"))
+    t["market_fmt"] = fmt.brl(t.get("market"))
+    t["net_if_sold_fmt"] = fmt.brl(t.get("net_if_sold"))
+    t["pnl_fmt"] = fmt.brl(t.get("pnl"))
     return avaliacao
-
-
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("steamid"):
-            return redirect(url_for("account.login"))
-        return view(*args, **kwargs)
-    return wrapped
-
-
-def _csrf_token() -> str:
-    """Token por sessão pras POST de /conta -- sem isto, qualquer site
-    externo poderia montar um form que adiciona/remove posição no seu
-    nome só por você estar logado (CSRF clássico)."""
-    if "csrf_token" not in session:
-        session["csrf_token"] = secrets.token_hex(16)
-    return session["csrf_token"]
-
-
-def csrf_protect(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        token = session.get("csrf_token")
-        # `token` precisa existir: sem isto, uma sessao que NUNCA visitou
-        # uma pagina com formulario (entao nunca gerou token) e um form
-        # forjado que tambem omite o campo comparariam None == None e
-        # passariam -- o cenario exato que o CSRF tenta impedir.
-        if not token or request.form.get("csrf_token") != token:
-            abort(403)
-        return view(*args, **kwargs)
-    return wrapped
 
 
 @bp.route("/login")
@@ -120,7 +76,7 @@ def conta():
         portfolio.evaluate_portfolio(positions, PriceCache().get))
     return render_template(
         "conta.html", usuario=usuario, avaliacao=avaliacao,
-        csrf_token=_csrf_token(),
+        csrf_token=csrf_token(),
     )
 
 
