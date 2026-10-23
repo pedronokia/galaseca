@@ -94,3 +94,16 @@ def save_user_json(steamid: str, kind: str, data: Any,
         conn.commit()
     finally:
         conn.close()
+
+
+def delete_user(steamid: str, path: "Path | str | None" = None) -> None:
+    """Apaga a conta e TODO dado pessoal (portfólio/trades/watchlist/
+    histórico) desse steamid -- usado por `/conta/excluir`. Irreversível:
+    quem chama (a rota) é responsável por confirmar antes."""
+    conn = db.connect(path)
+    try:
+        conn.execute("DELETE FROM users WHERE steamid = ?", (steamid,))
+        conn.execute("DELETE FROM user_data WHERE steamid = ?", (steamid,))
+        conn.commit()
+    finally:
+        conn.close()

@@ -133,3 +133,25 @@ def remover_posicao(name: str):
     steamid = session["steamid"]
     user_portfolio.remove_position(steamid, name)
     return redirect(url_for("account.conta"))
+
+
+@bp.route("/conta/excluir")
+@login_required
+def excluir_confirmar():
+    """Tela de confirmação -- a exclusão em si é só na rota POST abaixo.
+    Página própria (não um `confirm()` de JS) porque o site não usa
+    JavaScript em nenhuma outra tela."""
+    return render_template("conta_excluir.html", csrf_token=csrf_token())
+
+
+@bp.route("/conta/excluir", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
+@login_required
+@csrf_protect
+def excluir():
+    """Apaga a conta e todo dado pessoal (portfólio/trades/watchlist/
+    histórico) -- irreversível. Ver `user_store.delete_user`."""
+    steamid = session["steamid"]
+    user_store.delete_user(steamid)
+    session.clear()
+    return redirect(url_for("index"))

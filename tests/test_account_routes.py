@@ -163,3 +163,71 @@ def test_posicoes_isoladas_entre_contas(client, monkeypatch):
     _login(client, monkeypatch, steamid="222")
     pagina = client.get("/conta").data.decode("utf-8")
     assert "ItemDoUm" not in pagina
+
+
+# ── excluir conta ────────────────────────────────────────────
+
+def test_excluir_confirmar_sem_login_redireciona(client):
+    resp = client.get("/conta/excluir")
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["Location"]
+
+
+def test_excluir_confirmar_mostra_pagina(client, monkeypatch):
+    _login(client, monkeypatch)
+    resp = client.get("/conta/excluir")
+    assert resp.status_code == 200
+    assert "irreversível".encode("utf-8") in resp.data.lower()
+
+
+def test_excluir_sem_csrf_falha(client, monkeypatch):
+    _login(client, monkeypatch)
+    resp = client.post("/conta/excluir", data={})
+    assert resp.status_code == 403
+
+
+def test_excluir_apaga_conta_e_desloga(client, monkeypatch):
+    _login(client, monkeypatch, steamid="76561198000000000")
+    token = _csrf_token(client)
+    client.post("/conta/posicoes", data={
+        "name": "X", "cost": "1", "quantity": "1", "csrf_token": token,
+    })
+    resp = client.post("/conta/excluir", data={"csrf_token": token})
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
+    # sessao foi limpa -- /conta volta a exigir login
+    assert client.get("/conta").status_code == 302
+
+    from skinvault.public_site import user_store
+    assert user_store.get_user("76561198000000000") is None
+
+
+def test_excluir_nao_afeta_outra_conta(client, monkeypatch):
+    _login(client, monkeypatch, steamid="111")
+    token = _csrf_token(client)
+    client.post("/conta/posicoes", data={
+        "name": "ItemDoUm", "cost": "1", "quantity": "1",
+        "csrf_token": token,
+    })
+    client.get("/logout")
+
+    _login(client, monkeypatch, steamid="222")
+    token2 = _csrf_token(client)
+    client.post("/conta/excluir", data={"csrf_token": token2})
+
+    from skinvault.public_site import user_portfolio
+    assert [p["name"] for p in user_portfolio.load_positions("111")] == (
+        ["ItemDoUm"])
+
+
+# ── pagina de privacidade ────────────────────────────────────
+
+def test_privacidade_acessivel_sem_login(client):
+    resp = client.get("/privacidade")
+    assert resp.status_code == 200
+    assert "SteamID64".encode("utf-8") in resp.data
+
+
+def test_privacidade_linkada_no_rodape(client):
+    pagina = client.get("/").data.decode("utf-8")
+    assert "/privacidade" in pagina

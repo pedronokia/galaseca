@@ -106,6 +106,10 @@ def create_app() -> Flask:
     def healthz():
         return jsonify({"ok": True})
 
+    @app.route("/privacidade")
+    def privacidade():
+        return render_template("privacidade.html")
+
     return app
 
 

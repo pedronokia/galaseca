@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excluir minha conta — SkinVault</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo">Excluir conta</p>
+  </header>
+
+  <main>
+    <div class="card card-aviso">
+      <p><strong>Isto é irreversível.</strong> Ao confirmar, apagamos pra sempre:</p>
+      <ul>
+        <li>Sua conta (SteamID, nome e avatar guardados)</li>
+        <li>Todas as posições do seu portfólio</li>
+        <li>Todos os seus trades registrados</li>
+        <li>Toda a sua watchlist e as regras configuradas</li>
+        <li>Todo o seu histórico de valor</li>
+      </ul>
+      <p>O dashboard público (sem login) não é afetado — essa parte nunca teve nada seu.</p>
+      <form method="post" action="{{ url_for('account.excluir') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="botao-perigo">Sim, excluir minha conta e todos os meus dados</button>
+      </form>
+      <p><a href="{{ url_for('account.conta') }}">Cancelar e voltar</a></p>
+    </div>
+  </main>
+
+  <footer class="rodape">
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>
