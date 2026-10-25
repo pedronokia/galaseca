@@ -1,0 +1,40 @@
+name: deploy
+
+# Roda só DEPOIS que o workflow "tests" (tests.yml) passar em push pra
+# main -- nunca deploya código que não passou na suite. Pedido do
+# usuário (2026-10-25): até aqui, todo deploy era manual (scp + ssh +
+# docker compose). Precisa de 3 secrets no repositório (Settings →
+# Secrets and variables → Actions), que só o dono pode configurar --
+# a chave privada nunca deve ser colada em lugar nenhum além do campo
+# de secret do próprio GitHub:
+#   ORACLE_HOST       -- IP ou domínio da VM (ex. pedronokia.duckdns.org)
+#   ORACLE_SSH_KEY     -- conteúdo do arquivo .key baixado na criação da VM
+#   SITE_DOMAIN        -- mesmo valor usado hoje no deploy manual
+on:
+  workflow_run:
+    workflows: ["tests"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH na VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: opc
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            cd ~/skinvault
+            git pull origin main
+            # Só "web" (nunca "worker"): reiniciar o worker dispara um
+            # ciclo de scan na hora (ver worker.py `main()`), e isso não
+            # pode acontecer num horário imprevisível por causa de um
+            # deploy -- aprendido ao vivo em 2026-10-24/25. O worker
+            # pega o código novo sozinho no próximo ciclo natural dele.
+            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
+              -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
+              up --build -d web

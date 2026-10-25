@@ -225,6 +225,14 @@ def test_index_mostra_badge_proximo_scan(client, monkeypatch, tmp_path):
 
 # ── server: robots/sitemap/404/cache ─────────────────────────
 
+def test_static_app_js_tem_atalho_e_notas_locais(client):
+    resp = client.get("/static/app.js")
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "keydown" in body
+    assert "skinvault_notas" in body
+
+
 def test_robots_txt(client):
     resp = client.get("/robots.txt")
     assert resp.status_code == 200
@@ -264,7 +272,7 @@ def test_index_tem_botao_copiar_e_atalho_js(client, monkeypatch, tmp_path):
     assert "botao-copiar" in body
     assert 'data-copiar="AK-47 | Redline (Field-Tested)"' in body
     assert "campo-busca" in body
-    assert "keydown" in body  # atalho "/" presente no script
+    assert "static/app.js" in body  # atalho "/" mora no JS externo (CSP)
 
 
 def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
@@ -399,7 +407,7 @@ def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):
     ])
     body = client.get("/").data.decode("utf-8")
     assert "input-tag-local" in body
-    assert "skinvault_notas" in body
+    assert "static/app.js" in body  # localStorage mora no JS externo (CSP)
 
 
 def test_index_registra_termo_buscado(client, monkeypatch, tmp_path):
@@ -498,6 +506,79 @@ def test_api_health_sem_scan(client, monkeypatch):
     data = resp.get_json()
     assert data["scan"]["disponivel"] is False
     assert data["scan"]["idade_segundos"] is None
+
+
+# ── server: 2a rodada tecnica (500/429/admin/sobre/prefs/cookie) ──
+
+def test_sobre_page(client):
+    resp = client.get("/sobre")
+    assert resp.status_code == 200
+    assert "Por que isso existe".encode("utf-8") in resp.data or \
+        "O que é".encode("utf-8") in resp.data
+
+
+def test_500_customizado(client, monkeypatch):
+    @client.application.route("/__boom")
+    def _boom():
+        raise RuntimeError("erro de teste")
+    client.application.config["TESTING"] = False
+    client.application.config["PROPAGATE_EXCEPTIONS"] = False
+    resp = client.get("/__boom")
+    assert resp.status_code == 500
+    assert "quebrou".encode("utf-8") in resp.data
+
+
+def test_429_customizado(client, monkeypatch):
+    import flask
+    @client.application.route("/__limite")
+    def _limite():
+        flask.abort(429)
+    resp = client.get("/__limite")
+    assert resp.status_code == 429
+    assert "Muitas tentativas".encode("utf-8") in resp.data
+
+
+def test_admin_sem_token_configurado_e_404(client, monkeypatch):
+    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "")
+    resp = client.get("/admin?token=qualquer")
+    assert resp.status_code == 404
+
+
+def test_admin_com_token_errado_e_404(client, monkeypatch):
+    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "segredo")
+    resp = client.get("/admin?token=errado")
+    assert resp.status_code == 404
+
+
+def test_admin_com_token_certo_funciona(client, monkeypatch):
+    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "segredo")
+    resp = client.get("/admin?token=segredo")
+    assert resp.status_code == 200
+
+
+def test_cookie_preferencia_persiste(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [])
+    resp = client.get("/?compacto=1")
+    assert resp.headers.get("Set-Cookie") and "pref_compacto=1" in resp.headers.get("Set-Cookie")
+    # Proxima visita sem query param -- cookie decide
+    client.set_cookie("pref_compacto", "1")
+    body = client.get("/").data.decode("utf-8")
+    assert "modo-compacto" in body
+
+
+def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.visits.serie_por_dia",
+        lambda: [("2026-10-24", 3), ("2026-10-25", 5)])
+    monkeypatch.setattr(
+        "skinvault.public_site.server.buscas.mais_buscados",
+        lambda limite=10: [("ak-47", 4)])
+    monkeypatch.setattr(
+        "skinvault.public_site.server.scan_store.load_historico_ciclos",
+        lambda: [])
+    body = client.get("/status").data.decode("utf-8")
+    assert "grafico-historico" in body
+    assert "ak-47" in body
 
 
 # ── server: /status ──────────────────────────────────────────

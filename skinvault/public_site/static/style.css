@@ -31,6 +31,20 @@ body {
 a { color: var(--accent); }
 a:hover { color: var(--accent-bright); }
 
+/* Foco visível pra navegação só por teclado (achado de auditoria,
+   2026-10-25) -- outline explícito em vez de confiar no padrão do
+   navegador, que às vezes some em elementos com outline:none herdado
+   de algum reset. Não usa :focus puro (dispararia em clique de mouse
+   também, ruído visual sem necessidade). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
 header.topo {
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);

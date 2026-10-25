@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Devagar aí — SkinVault</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+    </div>
+  </header>
+
+  <main class="pagina-texto">
+    <h2 class="secao-titulo">Muitas tentativas em pouco tempo</h2>
+    <p>Essa ação (login ou algum formulário de conta) tem um limite de
+    tentativas por minuto, pra evitar abuso. Espera um minuto e tenta
+    de novo.</p>
+    <p><a href="{{ url_for('index') }}">← Voltar pro dashboard</a></p>
+  </main>
+
+  <footer class="rodape">
+    <p class="versao">SkinVault</p>
+  </footer>
+</body>
+</html>

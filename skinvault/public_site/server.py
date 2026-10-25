@@ -9,6 +9,8 @@ sempre a visão pública completa.
 """
 from __future__ import annotations
 
+import logging
+import logging.handlers
 import os
 import secrets
 import time
@@ -16,7 +18,7 @@ import urllib.parse
 from pathlib import Path
 from xml.sax.saxutils import escape as _xml_escape
 
-from flask import Flask, Response, jsonify, render_template, request
+from flask import Flask, Response, jsonify, make_response, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from skinvault import (
@@ -24,7 +26,9 @@ from skinvault import (
 )
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
-from skinvault.public_site import buscas, changelog, fmt, uptime, visits
+from skinvault.public_site import (
+    buscas, changelog, charts, db_backup, fmt, uptime, visits,
+)
 
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # Mesmo template de icons.py:_CDN_URL_TPL -- não importado de lá porque é
@@ -52,6 +56,32 @@ _LIMIT_CANDIDATOS = 20
 _PAGINA_TAMANHO = 20
 _INTERVALO_HORAS_DEFAULT = 6.0
 _SECRET_KEY_PATH = DATA_DIR / "public_site_secret.key"
+_ERROR_LOG_PATH = DATA_DIR / "errors.log"
+# Gravado pelo Dockerfile a cada build (data/hora do build, UTC) -- sem
+# isso __version__ fica preso em "1.0.0" pra sempre, sem jeito de saber
+# SE um deploy novo de fato subiu. Ausente fora de Docker (dev local).
+_BUILD_ID_PATH = Path(__file__).parent.parent.parent / "BUILD_ID"
+_ADMIN_TOKEN = os.environ.get("SKINVAULT_ADMIN_TOKEN", "")
+
+
+def _build_id() -> "str | None":
+    try:
+        return _BUILD_ID_PATH.read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def _configurar_log_erros(app: Flask) -> None:
+    """Grava exceções não tratadas em `DATA_DIR/errors.log`, separado do
+    stdout do gunicorn -- achado de hoje (pedido do usuário): sem isso,
+    um 500 em produção só aparece se alguém for catar `docker logs` na
+    hora certa. Rotativo (1MB x 3 arquivos) pra nunca crescer sem limite."""
+    handler = logging.handlers.RotatingFileHandler(
+        _ERROR_LOG_PATH, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+    handler.setLevel(logging.ERROR)
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(message)s"))
+    app.logger.addHandler(handler)
 
 
 def _parse_float_arg(nome: str) -> float | None:
@@ -107,6 +137,7 @@ def create_app() -> Flask:
     # por hash ainda); se vier a precisar, essa janela cobre o atraso.
     app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 7 * 24 * 3600
     app.secret_key = _load_or_create_secret_key()
+    _configurar_log_erros(app)
     app.register_blueprint(account_bp)
     app.register_blueprint(trades_bp)
     app.register_blueprint(watchlist_bp)
@@ -130,7 +161,8 @@ def create_app() -> Flask:
 
     @app.context_processor
     def _inject_versao():
-        return {"versao": __version__}
+        build = _build_id()
+        return {"versao": f"{__version__} ({build})" if build else __version__}
 
     @app.route("/")
     def index():
@@ -143,9 +175,16 @@ def create_app() -> Flask:
         ordenar = request.args.get("ordenar") or "nota"
         if ordenar not in ("nota", "preco"):
             ordenar = "nota"
-        compacto = request.args.get("compacto") == "1"
-        agrupar = request.args.get("agrupar") == "1"
-        minimalista = request.args.get("minimalista") == "1"
+        # Prefs (compacto/agrupar/minimalista): query param manda quando
+        # presente; na ausência, cai pro cookie salvo da última escolha
+        # -- sem isso o visitante tinha que clicar "Modo compacto" de
+        # novo em toda visita nova (pedido explícito, 2026-10-25).
+        compacto = (request.args.get("compacto") == "1" if "compacto" in request.args
+                   else request.cookies.get("pref_compacto") == "1")
+        agrupar = (request.args.get("agrupar") == "1" if "agrupar" in request.args
+                  else request.cookies.get("pref_agrupar") == "1")
+        minimalista = (request.args.get("minimalista") == "1" if "minimalista" in request.args
+                      else request.cookies.get("pref_minimalista") == "1")
         apresentacao = request.args.get("apresentacao") == "1"
         pagina = _parse_int_arg("pagina", 1)
         if busca:
@@ -156,7 +195,7 @@ def create_app() -> Flask:
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         intervalo_horas = float(os.environ.get(
             "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
-        return render_template(
+        resp = make_response(render_template(
             "index.html",
             candidatos=todos[inicio:inicio + _PAGINA_TAMANHO],
             grupos=_agrupar_por_categoria(todos) if agrupar else None,
@@ -179,7 +218,14 @@ def create_app() -> Flask:
             tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
             tem_pagina_anterior=pagina > 1,
             total_candidatos=len(todos),
-        )
+        ))
+        _UM_ANO_S = 365 * 24 * 3600
+        for nome_param, valor in (("compacto", compacto), ("agrupar", agrupar),
+                                  ("minimalista", minimalista)):
+            if nome_param in request.args:
+                resp.set_cookie(f"pref_{nome_param}", "1" if valor else "0",
+                                max_age=_UM_ANO_S, samesite="Lax")
+        return resp
 
     @app.route("/api/recommendations")
     def api_recommendations():
@@ -230,7 +276,7 @@ def create_app() -> Flask:
     def sitemap():
         base = request.url_root.rstrip("/")
         paginas = ["/", "/privacidade", "/status", "/changelog", "/api",
-                  "/ranking", "/metodo"]
+                  "/ranking", "/metodo", "/sobre"]
         urls_xml = "\n".join(
             f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
         xml = (
@@ -244,6 +290,15 @@ def create_app() -> Flask:
     @app.errorhandler(404)
     def pagina_nao_encontrada(_erro):
         return render_template("404.html"), 404
+
+    @app.errorhandler(500)
+    def erro_interno(erro):
+        app.logger.error("500 em %s: %r", request.path, erro, exc_info=erro)
+        return render_template("500.html"), 500
+
+    @app.errorhandler(429)
+    def limite_excedido(_erro):
+        return render_template("429.html"), 429
 
     @app.route("/privacidade")
     def privacidade():
@@ -280,6 +335,10 @@ def create_app() -> Flask:
     def metodo():
         return render_template("metodo.html")
 
+    @app.route("/sobre")
+    def sobre():
+        return render_template("sobre.html")
+
     @app.route("/ranking")
     def ranking_page():
         snaps = ranking.load_snapshots()
@@ -303,6 +362,32 @@ def create_app() -> Flask:
             tem_anterior=anterior is not None,
         )
 
+    @app.route("/admin")
+    def admin():
+        """Painel só pro dono, protegido por token fixo em env var (não
+        é um sistema de login de verdade -- pra isso, construir uma
+        conta admin de verdade seria desproporcional a "ver métricas sem
+        SSH"). Sem token configurado = rota sempre nega, nunca abre
+        "sem senha" por padrão."""
+        if not _ADMIN_TOKEN or request.args.get("token") != _ADMIN_TOKEN:
+            return render_template("404.html"), 404
+        erros = []
+        if _ERROR_LOG_PATH.exists():
+            linhas = _ERROR_LOG_PATH.read_text(encoding="utf-8",
+                                               errors="replace").splitlines()
+            erros = linhas[-30:]
+        backups = sorted(db_backup._BACKUP_DIR.glob("public_site-*.db")) \
+            if db_backup._BACKUP_DIR.exists() else []
+        return render_template(
+            "admin.html",
+            build=_build_id(),
+            visitas=visits.total(),
+            mais_buscados=buscas.mais_buscados(limite=20),
+            erros=erros,
+            backups=[b.name for b in reversed(backups)],
+            ciclos=list(reversed(scan_store.load_historico_ciclos()))[:10],
+        )
+
     @app.route("/api")
     def api_docs():
         return render_template(
@@ -315,11 +400,16 @@ def create_app() -> Flask:
         for c in ciclos:
             c["quando"] = scan_store.idade_txt(c["ts"])
         desde = uptime.no_ar_desde()
+        serie = visits.serie_por_dia()
+        grafico_visitas = charts.line_chart_svg(
+            [{"total": qtd} for _dia, qtd in serie])
         return render_template(
             "status.html",
             no_ar_desde_txt=scan_store.idade_txt(desde),
             visitas=visits.total(),
             ciclos=ciclos,
+            grafico_visitas=grafico_visitas,
+            mais_buscados=buscas.mais_buscados(limite=10),
         )
 
     @app.route("/feed.xml")

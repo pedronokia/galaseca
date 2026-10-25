@@ -23,6 +23,21 @@
       <div class="card"><span class="card-label">Visitas ao dashboard</span><span class="card-valor">{{ visitas }}</span></div>
     </section>
 
+    {% if grafico_visitas %}
+      <h2 class="secao-titulo">Visitas por dia</h2>
+      <div class="card grafico-card">{{ grafico_visitas|safe }}</div>
+    {% endif %}
+
+    {% if mais_buscados %}
+      <h2 class="secao-titulo">O que mais se busca aqui</h2>
+      <p>Termos agregados, sem ligação com quem buscou (ver <a href="{{ url_for('privacidade') }}">privacidade</a>).</p>
+      <ul>
+        {% for termo, qtd in mais_buscados %}
+        <li>{{ termo }} — {{ qtd }}x</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
     <h2 class="secao-titulo">Últimos ciclos do scan</h2>
     <p>O worker tenta escanear todas as categorias periodicamente. Quando a
     Steam bloqueia o acesso (rate limit), o ciclo roda até o fim sem trazer

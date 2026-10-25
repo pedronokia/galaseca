@@ -36,7 +36,7 @@
     <h2 class="secao-titulo">Adicionar item</h2>
     <form class="form-adicionar" method="post" action="{{ url_for('account.adicionar_posicao') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="text" name="name" placeholder="Nome exato do item (ex.: AK-47 | Redline (Field-Tested))" required>
+      <input type="text" name="name" placeholder="Nome exato do item (ex.: AK-47 | Redline (Field-Tested))" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" maxlength="200" required>
       <input type="number" name="cost" step="0.01" min="0" placeholder="Custo (R$, opcional)">
       <input type="number" name="quantity" min="1" value="1" placeholder="Qtd">
       <button type="submit">+ Adicionar</button>

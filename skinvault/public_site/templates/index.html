@@ -28,20 +28,20 @@
   <tr class="{{ "linha-destaque" if destaque else "" }}">
     <td class="celula-item">
       {% if destaque and not minimalista_sel %}
-      <span class="selo-top" title="Melhor da vez">★</span>
+      <span class="selo-top" title="Melhor da vez" aria-label="Melhor da vez">★</span>
       {% endif %}
       {% if c.icon_url %}
       <img class="icone-item" src="{{ c.icon_url }}" srcset="{{ c.icon_url }} 1x, {{ c.icon_url_2x }} 2x" alt="" loading="lazy" width="40" height="40">
       {% endif %}
       <a class="link-item" href="{{ c.market_url }}" target="_blank" rel="noopener">{{ c.name_fmt }}</a>
-      <button type="button" class="botao-copiar" data-copiar="{{ c.name }}" title="Copiar nome do item">📋</button>
+      <button type="button" class="botao-copiar" data-copiar="{{ c.name }}" title="Copiar nome do item" aria-label="Copiar nome de {{ c.name_fmt }}">📋</button>
       <a class="link-secundario" href="{{ c.steamdb_url }}" target="_blank" rel="noopener" title="Ver no SteamDB">SteamDB</a>
       <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" maxlength="60">
     </td>
     <td>
       {{ c.price_fmt }}
-      {% if c.tendencia == "alta" %}<span class="icone-tendencia tendencia-alta" title="Preço subiu desde o scan anterior">▲</span>
-      {% elif c.tendencia == "baixa" %}<span class="icone-tendencia tendencia-baixa" title="Preço caiu desde o scan anterior">▼</span>{% endif %}
+      {% if c.tendencia == "alta" %}<span class="icone-tendencia tendencia-alta" title="Preço subiu desde o scan anterior" aria-label="Preço subiu desde o scan anterior">▲</span>
+      {% elif c.tendencia == "baixa" %}<span class="icone-tendencia tendencia-baixa" title="Preço caiu desde o scan anterior" aria-label="Preço caiu desde o scan anterior">▼</span>{% endif %}
     </td>
     <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
     <td>
@@ -184,68 +184,6 @@
     {% include "partials/_rodape_links.html" %}
   </footer>
 
-  <script>
-    // Copiar nome do item (clipboard) e atalho "/" pra focar a busca --
-    // os únicos dois recursos desta página que genuinamente não dão pra
-    // fazer sem JS. Vanilla, sem dependência, delegação de evento (um
-    // listener só, cobre linhas criadas por qualquer um dos dois modos).
-    document.addEventListener("click", function (e) {
-      var btn = e.target.closest(".botao-copiar");
-      if (!btn) return;
-      var texto = btn.getAttribute("data-copiar");
-      if (!navigator.clipboard) return;
-      navigator.clipboard.writeText(texto).then(function () {
-        var original = btn.textContent;
-        btn.textContent = "✓";
-        setTimeout(function () { btn.textContent = original; }, 1200);
-      }).catch(function () {});
-    });
-
-    document.addEventListener("keydown", function (e) {
-      if (e.key !== "/") return;
-      var ativo = document.activeElement;
-      var campoAberto = ativo && (ativo.tagName === "INPUT"
-        || ativo.tagName === "TEXTAREA" || ativo.tagName === "SELECT");
-      if (campoAberto) return;
-      var campo = document.getElementById("campo-busca");
-      if (!campo) return;
-      e.preventDefault();
-      campo.focus();
-    });
-
-    // Notas pessoais por item -- só neste navegador (localStorage), nunca
-    // enviadas pro servidor. Tenta ler/escrever; se o navegador bloquear
-    // (aba anônima, storage desligado), a página continua funcionando
-    // normal, só sem salvar a nota.
-    (function () {
-      var CHAVE = "skinvault_notas";
-      function lerTudo() {
-        try {
-          return JSON.parse(localStorage.getItem(CHAVE) || "{}");
-        } catch (e) { return {}; }
-      }
-      try {
-        var notas = lerTudo();
-        document.querySelectorAll(".input-tag-local").forEach(function (campo) {
-          var item = campo.getAttribute("data-item");
-          if (notas[item]) campo.value = notas[item];
-        });
-      } catch (e) {}
-
-      document.addEventListener("change", function (e) {
-        if (!e.target.classList || !e.target.classList.contains("input-tag-local")) return;
-        try {
-          var todas = lerTudo();
-          var item = e.target.getAttribute("data-item");
-          if (e.target.value) {
-            todas[item] = e.target.value;
-          } else {
-            delete todas[item];
-          }
-          localStorage.setItem(CHAVE, JSON.stringify(todas));
-        } catch (e) {}
-      });
-    })();
-  </script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
 </body>
 </html>

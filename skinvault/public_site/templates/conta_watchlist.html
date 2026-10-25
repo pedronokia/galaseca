@@ -20,7 +20,7 @@
     <h2 class="secao-titulo">Adicionar item</h2>
     <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="text" name="name" placeholder="Nome exato do item" required>
+      <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" maxlength="200" required>
       <input type="number" name="target" step="0.01" min="0" placeholder="Alvo de preço (R$, opcional)">
       <button type="submit">+ Acompanhar</button>
     </form>

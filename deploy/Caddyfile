@@ -1,4 +1,18 @@
 {$SITE_DOMAIN} {
 	encode gzip zstd
+
+	# HSTS + CSP (pedido explícito do usuário, 2026-10-25). CSP exige que
+	# o único <script> externo (static/app.js) e o JSON-LD inline sejam
+	# os únicos pontos de execução -- por isso nada de 'unsafe-inline' em
+	# script-src. O JSON-LD (type="application/ld+json") não é afetado
+	# por script-src: é dado estruturado, não script executável, isento
+	# por especificação do próprio CSP.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'self'; img-src 'self' https://community.cloudflare.steamstatic.com data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'self'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
 	reverse_proxy web:8000
 }

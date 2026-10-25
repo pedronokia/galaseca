@@ -17,6 +17,7 @@ import sys
 import time
 
 from skinvault import ranking, scan_engine, scan_store, scan_targets
+from skinvault.public_site import db_backup
 
 _INTERVALO_HORAS_DEFAULT = 6.0
 _TOP_RANKING = 20
@@ -53,6 +54,13 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     scan_store.registrar_ciclo(len(resultados), duracao_min)
     print(f"Ciclo concluído: {len(resultados)} itens em {duracao_min:.1f}min",
           file=sys.stderr)
+    # Backup do banco de contas/portfolio pessoal -- auto-limitado a 1x/
+    # ~20h por `fazer_backup_se_necessario`, então chamar a cada ciclo
+    # (mesmo de 6 em 6h) não produz backup demais.
+    try:
+        db_backup.fazer_backup_se_necessario()
+    except Exception as e:
+        print(f"WARNING: backup do banco falhou: {e}", file=sys.stderr)
     return resultados
 
 

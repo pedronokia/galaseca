@@ -110,7 +110,52 @@ por cima do `docker-compose.public-site.yml`, sem alterar `web`/`worker`.
 
 ## Backup
 
-`public_site.db` (contas + portfólio/trades/watchlist de todo mundo) é um
-arquivo SQLite só — copiar esse arquivo é o backup inteiro. Fazer isso
-periodicamente, fora do volume de produção, é responsabilidade de quem
-operar o site (nada aqui agenda backup automático ainda).
+`db_backup.py` roda a cada ciclo do `worker` (chamado de dentro de
+`run_once`) e faz um backup rotativo LOCAL de `public_site.db` em
+`DATA_DIR/backups/`, via `sqlite3.Connection.backup()` (seguro mesmo com
+o `web` escrevendo ao mesmo tempo) -- no máximo 1 por dia, guarda os
+últimos 7. Isso protege contra corrupção/bug de aplicação, **não** contra
+perder a VM inteira: pra isso, copiar os arquivos de `DATA_DIR/backups/`
+pra fora da VM periodicamente (`scp`) continua sendo manual -- um destino
+externo de verdade (S3, Backblaze) pediria credenciais que não dá pra
+configurar sem uma conta.
+
+## Monitoramento externo (uptime)
+
+`/healthz` já existe pronto pra isso -- responde `{"ok": true}` sempre
+que o processo `web` está de pé (não verifica se o scan está fresco; pra
+isso, ver `/api/health`). Serviços gratuitos como
+[UptimeRobot](https://uptimerobot.com/) ou
+[Better Uptime](https://betteruptime.com/) checam essa URL a cada alguns
+minutos e avisam por e-mail se parar de responder. Precisa de conta num
+desses serviços -- passo que só o dono do site pode fazer (criação de
+conta de terceiros não é algo que um agente de IA deveria fazer por
+você).
+
+## Deploy automático (CI/CD)
+
+`.github/workflows/deploy.yml` roda depois que `tests.yml` passa em push
+pra `main`, e faz SSH na VM pra atualizar só o `web` (nunca o `worker` --
+reiniciá-lo dispara um scan na hora, o que não deve acontecer num horário
+imprevisível por causa de um deploy). Precisa de 3 secrets no repositório
+(Settings → Secrets and variables → Actions, só o dono configura):
+`ORACLE_HOST`, `ORACLE_SSH_KEY` (conteúdo do `.key` da VM), `SITE_DOMAIN`.
+Sem os secrets configurados, o workflow falha sem fazer nada (não quebra
+o deploy manual, que continua funcionando do mesmo jeito de sempre).
+
+## Painel admin
+
+`/admin?token=SEU_TOKEN` mostra buscas populares, últimos ciclos, lista
+de backups e os últimos erros 500 -- sem precisar de SSH. Só funciona com
+`SKINVAULT_ADMIN_TOKEN` definido (env var); sem ela, a rota sempre
+devolve 404 (nunca abre "sem senha" por padrão). Não é um sistema de
+login de verdade, é um token fixo -- proporcional ao que a rota faz (ver
+métricas), não construiria uma conta admin completa só pra isto.
+
+## Segurança (headers)
+
+O Caddyfile aplica HSTS, Content-Security-Policy (`script-src 'self'` --
+por isso todo JS da página fica em `static/app.js`, nunca inline),
+`X-Content-Type-Options` e `Referrer-Policy`. O 429 do rate limit e o 500
+de erro interno têm página própria (`429.html`/`500.html`), e todo 500
+fica registrado em `DATA_DIR/errors.log` (rotativo, 1MB x 3).
