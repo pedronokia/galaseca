@@ -50,6 +50,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         scan_store.save_last_scan("Todas as categorias", resultados)
         ranking.save_snapshot(resultados[:_TOP_RANKING])
     duracao_min = (time.time() - inicio) / 60
+    scan_store.registrar_ciclo(len(resultados), duracao_min)
     print(f"Ciclo concluído: {len(resultados)} itens em {duracao_min:.1f}min",
           file=sys.stderr)
     return resultados

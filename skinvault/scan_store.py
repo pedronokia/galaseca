@@ -14,6 +14,8 @@ from pathlib import Path
 from skinvault._paths import DATA_DIR, atomic_write_text
 
 _DEFAULT_PATH = DATA_DIR / "scanner_last.json"
+_HISTORICO_PATH = DATA_DIR / "scan_historico.json"
+_HISTORICO_MAX = 20
 
 
 def save_last_scan(category: str, results: list,
@@ -49,6 +51,42 @@ def load_last_scan(path: Path | str = _DEFAULT_PATH) -> "dict | None":
     return {"ts": float(data.get("ts") or 0),
             "category": str(data.get("category") or ""),
             "results": results}
+
+
+def registrar_ciclo(itens: int, duracao_min: float,
+                    path: "Path | str | None" = None,
+                    now: float | None = None) -> None:
+    """Soma um ciclo ao histórico (cap em `_HISTORICO_MAX`, mais novo por
+    último). Existe pra página `/status` -- achado real de 2026-10-24: sem
+    isso não tinha como distinguir "scan nunca rodou" de "scan rodou e
+    falhou várias vezes seguidas" olhando só pro `scanner_last.json`
+    (que só guarda o ÚLTIMO SUCESSO, nunca as falhas).
+
+    `path=None` resolvido aqui dentro, não como default de parâmetro --
+    ver AGENTS.md gotcha #17."""
+    p = Path(path) if path is not None else _HISTORICO_PATH
+    historico = load_historico_ciclos(p)
+    historico.append({
+        "ts": time.time() if now is None else now,
+        "itens": itens,
+        "duracao_min": round(duracao_min, 1),
+        "sucesso": itens > 0,
+    })
+    historico = historico[-_HISTORICO_MAX:]
+    try:
+        atomic_write_text(p, json.dumps(historico, ensure_ascii=False))
+    except OSError:
+        pass
+
+
+def load_historico_ciclos(path: "Path | str | None" = None) -> list[dict]:
+    """Lista de ciclos, mais antigo primeiro. [] se ausente/ilegível."""
+    p = Path(path) if path is not None else _HISTORICO_PATH
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return data if isinstance(data, list) else []
 
 
 def idade_txt(ts: float, now: float | None = None) -> str:

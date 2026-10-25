@@ -10,9 +10,10 @@
   <meta property="og:type" content="website">
   <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
+<body class="{{ 'modo-compacto' if compacto_sel else '' }}">
   <header class="topo">
     <div class="topo-linha">
       <h1>SkinVault</h1>
@@ -47,10 +48,14 @@
         <input type="number" name="preco_max" min="0" step="0.01" value="{{ preco_max_sel if preco_max_sel is not none else '' }}">
       </label>
       <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
+      {% if compacto_sel %}<input type="hidden" name="compacto" value="1">{% endif %}
       <button type="submit">Filtrar</button>
       {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none or busca_sel %}
         <a class="botao-link" href="{{ url_for('index') }}">Limpar filtros</a>
       {% endif %}
+      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=(None if compacto_sel else '1')) }}">
+        {{ "Modo normal" if compacto_sel else "Modo compacto" }}
+      </a>
     </form>
 
     {% if candidatos %}
@@ -58,12 +63,12 @@
     <table class="tabela-candidatos">
       <thead>
         <tr>
-          <th>Item</th>
-          <th><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
-          <th><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
-          <th>Caixa/Cápsula</th>
-          <th>Risco</th>
-          <th>Por quê</th>
+          <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
+          <th title="Menor preço anunciado agora no Steam Market"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
+          <th title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
+          <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
+          <th title="Chance de o preço ter subido rápido e artificialmente (menos confiável de confiar numa alta assim)">Risco</th>
+          <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
         </tr>
       </thead>
       <tbody>
@@ -99,11 +104,11 @@
 
     <nav class="paginacao">
       {% if tem_pagina_anterior %}
-        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina-1) }}">← Página anterior</a>
+        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina-1) }}">← Página anterior</a>
       {% endif %}
       <span class="status-muted">Página {{ pagina }} · {{ total_candidatos }} candidato{{ "s" if total_candidatos != 1 else "" }} no total</span>
       {% if tem_proxima_pagina %}
-        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina+1) }}">Ver mais →</a>
+        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina+1) }}">Ver mais →</a>
       {% endif %}
     </nav>
     {% elif scan %}

@@ -127,6 +127,42 @@ def test_idade_txt():
     assert scan_store.idade_txt(0, now=3 * 86400) == "há 3 dias"
 
 
+def test_proxima_txt():
+    assert scan_store.proxima_txt(0, 6, now=6 * 3600 - 30) == "a qualquer momento"
+    assert scan_store.proxima_txt(0, 6, now=6 * 3600 - 1200) == "em ~20 min"
+    assert scan_store.proxima_txt(0, 6, now=0) == "em ~6 h"
+
+
+def test_registrar_ciclo_sucesso(tmp_path):
+    p = tmp_path / "h.json"
+    scan_store.registrar_ciclo(42, 25.7, p, now=1000.0)
+    hist = scan_store.load_historico_ciclos(p)
+    assert hist == [{"ts": 1000.0, "itens": 42, "duracao_min": 25.7,
+                     "sucesso": True}]
+
+
+def test_registrar_ciclo_falha(tmp_path):
+    """itens=0 marca sucesso=False -- é o que distingue 'bloqueado' de
+    'funcionou normal' na página /status (achado real de 2026-10-24)."""
+    p = tmp_path / "h.json"
+    scan_store.registrar_ciclo(0, 26.4, p, now=1000.0)
+    hist = scan_store.load_historico_ciclos(p)
+    assert hist[0]["sucesso"] is False
+
+
+def test_registrar_ciclo_cap_no_tamanho_maximo(tmp_path):
+    p = tmp_path / "h.json"
+    for i in range(scan_store._HISTORICO_MAX + 5):
+        scan_store.registrar_ciclo(1, 1.0, p, now=float(i))
+    hist = scan_store.load_historico_ciclos(p)
+    assert len(hist) == scan_store._HISTORICO_MAX
+    assert hist[-1]["ts"] == float(scan_store._HISTORICO_MAX + 4)
+
+
+def test_load_historico_ciclos_ausente_vira_lista_vazia(tmp_path):
+    assert scan_store.load_historico_ciclos(tmp_path / "nao_existe.json") == []
+
+
 def test_scanner_reabre_com_ultimo_scan(monkeypatch):
     from skinvault.prices import PriceCache
     from skinvault.ui.scanner_screen import ScannerScreen

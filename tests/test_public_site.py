@@ -110,6 +110,144 @@ def test_healthz(client):
     assert resp.get_json() == {"ok": True}
 
 
+# ── server: filtros/busca/ordenar/compacto ──────────────────
+
+def test_index_busca_por_nome(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 50.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "AWP | Asiimov (Field-Tested)", "score": 70, "price": 100.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/?q=redline")
+    body = resp.data.decode("utf-8")
+    assert "Redline" in body
+    assert "Asiimov" not in body
+
+
+def test_index_ordenar_por_preco(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Caro", "score": 90, "price": 100.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Barato", "score": 50, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/?ordenar=preco")
+    body = resp.data.decode("utf-8")
+    assert body.index("Barato") < body.index("Caro")
+
+
+def test_index_nota_min_filtra(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Nota alta", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Nota baixa", "score": 30, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/?nota_min=50")
+    body = resp.data.decode("utf-8")
+    assert "Nota alta" in body
+    assert "Nota baixa" not in body
+
+
+def test_index_preco_max_filtra(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Caro", "score": 80, "price": 500.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Barato", "score": 50, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/?preco_max=10")
+    body = resp.data.decode("utf-8")
+    assert "Barato" in body
+    assert "Caro" not in body
+
+
+def test_index_pagina_2(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": f"Item {i}", "score": 100 - i, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(25)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    pagina1 = client.get("/").data.decode("utf-8")
+    pagina2 = client.get("/?pagina=2").data.decode("utf-8")
+    assert "Item 0" in pagina1
+    assert "Item 0" not in pagina2
+    assert "Item 20" in pagina2
+
+
+def test_index_descontinuada_ganha_selo(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Caixa Velha", "score": 80, "price": 1.0,
+         "case_label": "Alguma Caixa (descontinuada, 2018)",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert "selo-descontinuada" in body
+
+
+def test_index_modo_compacto_aplica_classe(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [])
+    body = client.get("/?compacto=1").data.decode("utf-8")
+    assert "modo-compacto" in body
+
+
+# ── server: /status ──────────────────────────────────────────
+
+def test_status_sem_historico(client, monkeypatch, tmp_path):
+    from skinvault.public_site import uptime, visits
+    monkeypatch.setattr(scan_store, "load_historico_ciclos", lambda: [])
+    monkeypatch.setattr(uptime, "no_ar_desde", lambda: 0.0)
+    monkeypatch.setattr(visits, "total", lambda: 0)
+    resp = client.get("/status")
+    assert resp.status_code == 200
+    assert "Ainda não há histórico".encode("utf-8") in resp.data
+
+
+def test_status_mostra_ciclos_com_falha(client, monkeypatch, tmp_path):
+    from skinvault.public_site import uptime, visits
+    monkeypatch.setattr(scan_store, "load_historico_ciclos", lambda: [
+        {"ts": 1000.0, "itens": 0, "duracao_min": 26.4, "sucesso": False},
+        {"ts": 2000.0, "itens": 185, "duracao_min": 23.1, "sucesso": True},
+    ])
+    monkeypatch.setattr(uptime, "no_ar_desde", lambda: 0.0)
+    monkeypatch.setattr(visits, "total", lambda: 7)
+    resp = client.get("/status")
+    body = resp.data.decode("utf-8")
+    assert "Sem sucesso (bloqueado)" in body
+    assert "Sucesso" in body
+
+
+# ── server: /feed.xml ────────────────────────────────────────
+
+def test_feed_sem_scan(client, monkeypatch):
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    resp = client.get("/feed.xml")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/rss+xml"
+    assert b"<rss" in resp.data
+
+
+def test_feed_com_scan_lista_item(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/feed.xml")
+    body = resp.data.decode("utf-8")
+    assert "<item>" in body
+    assert "nota 85" in body
+    assert "steamcommunity.com/market/listings" in body
+
+
 # ── worker ───────────────────────────────────────────────────
 
 def test_categorias_padrao_exclui_adesivos():

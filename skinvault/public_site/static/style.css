@@ -575,6 +575,26 @@ footer.rodape .versao {
   color: var(--text);
 }
 
+/* ── Modo compacto ────────────────────────────────────── */
+.modo-compacto table.tabela-candidatos th,
+.modo-compacto table.tabela-candidatos td {
+  padding: 5px 12px;
+  font-size: 0.82rem;
+}
+
+.modo-compacto .icone-item {
+  width: 24px;
+  height: 24px;
+}
+
+.modo-compacto .celula-item {
+  gap: 6px;
+}
+
+/* ── Status ───────────────────────────────────────────── */
+.tabela-status td.ok { color: var(--positive); }
+.tabela-status td.falha { color: var(--danger); }
+
 /* ── Responsivo (celular) ─────────────────────────────── */
 @media (max-width: 640px) {
   header.topo > * {

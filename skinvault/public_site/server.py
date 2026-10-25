@@ -13,14 +13,15 @@ import os
 import secrets
 import urllib.parse
 from pathlib import Path
+from xml.sax.saxutils import escape as _xml_escape
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from skinvault import __version__, recommendations, scan_store, scan_targets
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
-from skinvault.public_site import fmt, visits
+from skinvault.public_site import fmt, uptime, visits
 
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # Mesmo template de icons.py:_CDN_URL_TPL -- não importado de lá porque é
@@ -128,6 +129,7 @@ def create_app() -> Flask:
         ordenar = request.args.get("ordenar") or "nota"
         if ordenar not in ("nota", "preco"):
             ordenar = "nota"
+        compacto = request.args.get("compacto") == "1"
         pagina = _parse_int_arg("pagina", 1)
 
         todos = _candidatos_filtrados(
@@ -148,6 +150,7 @@ def create_app() -> Flask:
             preco_max_sel=preco_max,
             busca_sel=busca,
             ordenar_sel=ordenar,
+            compacto_sel=compacto,
             pagina=pagina,
             tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
             tem_pagina_anterior=pagina > 1,
@@ -172,6 +175,49 @@ def create_app() -> Flask:
     @app.route("/privacidade")
     def privacidade():
         return render_template("privacidade.html")
+
+    @app.route("/status")
+    def status():
+        ciclos = list(reversed(scan_store.load_historico_ciclos()))
+        for c in ciclos:
+            c["quando"] = scan_store.idade_txt(c["ts"])
+        desde = uptime.no_ar_desde()
+        return render_template(
+            "status.html",
+            no_ar_desde_txt=scan_store.idade_txt(desde),
+            visitas=visits.total(),
+            ciclos=ciclos,
+        )
+
+    @app.route("/feed.xml")
+    def feed():
+        scan = scan_store.load_last_scan()
+        candidatos = _candidatos_filtrados(scan)[:_LIMIT_CANDIDATOS]
+        base = request.url_root.rstrip("/")
+        itens_xml = "\n".join(
+            "    <item>\n"
+            f"      <title>{_xml_escape(c['name_fmt'])} — nota {c['score']}</title>\n"
+            f"      <link>{_xml_escape(c['market_url'])}</link>\n"
+            f"      <guid isPermaLink=\"false\">{_xml_escape(c['name'])}</guid>\n"
+            "      <description>"
+            f"{_xml_escape(c['price_fmt'])} — "
+            f"{_xml_escape('; '.join(c['reasons']) if c['reasons'] else 'Nota neutra')}"
+            "</description>\n"
+            "    </item>"
+            for c in candidatos
+        )
+        rss = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0"><channel>\n'
+            "  <title>SkinVault — Recomendações de skins CS2</title>\n"
+            f"  <link>{_xml_escape(base)}/</link>\n"
+            "  <description>Nota de 0 a 100 pra skins do CS2, com o motivo"
+            " escrito.</description>\n"
+            "  <language>pt-BR</language>\n"
+            f"{itens_xml}\n"
+            "</channel></rss>\n"
+        )
+        return Response(rss, mimetype="application/rss+xml")
 
     return app
 
