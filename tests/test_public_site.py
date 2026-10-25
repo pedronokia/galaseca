@@ -253,6 +253,75 @@ def test_static_tem_cache_control(client):
     assert "max-age" in resp.headers.get("Cache-Control", "")
 
 
+# ── server: polimentos (copiar/agrupar/breakdown/changelog/api) ──
+
+def test_index_tem_botao_copiar_e_atalho_js(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "botao-copiar" in body
+    assert 'data-copiar="AK-47 | Redline (Field-Tested)"' in body
+    assert "campo-busca" in body
+    assert "keydown" in body  # atalho "/" presente no script
+
+
+def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
+                                                         tmp_path):
+    resultados = [
+        {"name": "X", "score": 60, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"},
+         "breakdown": [
+             {"factor": "mediana", "delta": 10, "label": "Preço baixo (+10)"},
+             {"factor": "momentum", "delta": -5, "label": "Subiu rápido (-5)"},
+         ]},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert "lista-breakdown" in body
+    assert "Preço baixo (+10)" in body
+    assert "Subiu rápido (-5)" in body
+    assert "delta-positivo" in body
+    assert "delta-negativo" in body
+
+
+def test_index_agrupar_por_categoria(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Faca A", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [], "category": "Facas"},
+        {"name": "Luva B", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [], "category": "Luvas"},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/?agrupar=1").data.decode("utf-8")
+    assert "grupo-categoria" in body
+    assert "Facas (1)" in body
+    assert "Luvas (1)" in body
+    assert "Faca A" in body
+    assert "Luva B" in body
+
+
+def test_changelog_page(client):
+    resp = client.get("/changelog")
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "2026-10-25" in body
+
+
+def test_api_docs_page(client):
+    resp = client.get("/api")
+    assert resp.status_code == 200
+    assert b"/api/recommendations" in resp.data
+
+
+def test_rodape_tem_link_feedback_changelog_api(client):
+    body = client.get("/").data.decode("utf-8")
+    assert "github.com/pedronokia/skinvault/issues/new" in body
+    assert "/changelog" in body
+    assert "/api" in body
+
+
 # ── server: /status ──────────────────────────────────────────
 
 def test_status_sem_historico(client, monkeypatch, tmp_path):

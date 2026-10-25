@@ -204,6 +204,64 @@ table.tabela-candidatos tbody tr:hover {
   text-decoration: underline;
 }
 
+.botao-copiar {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.botao-copiar:hover {
+  background: var(--surface-hover);
+  color: var(--accent-bright);
+}
+
+.detalhe-motivo summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.detalhe-motivo summary::-webkit-details-marker { display: none; }
+
+.lista-breakdown {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.lista-breakdown .delta-positivo { color: var(--positive); }
+.lista-breakdown .delta-negativo { color: var(--danger); }
+
+.grupo-categoria {
+  margin-bottom: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.grupo-categoria summary {
+  cursor: pointer;
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--text-bright);
+  background: var(--surface);
+}
+
+.grupo-categoria summary:hover { color: var(--accent-bright); }
+
+.grupo-categoria .tabela-wrap { margin: 0; }
+.grupo-categoria table.tabela-candidatos {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .link-ordenar {
   color: var(--text-muted);
   text-decoration: none;
@@ -586,6 +644,25 @@ footer.rodape .versao {
 
 .pagina-texto .secao-titulo {
   color: var(--text);
+}
+
+.pagina-texto code {
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 0.85em;
+  color: var(--accent-bright);
+}
+
+.bloco-codigo {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.5;
 }
 
 /* ── Modo compacto ────────────────────────────────────── */

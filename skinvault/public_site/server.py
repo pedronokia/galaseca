@@ -21,7 +21,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from skinvault import __version__, recommendations, scan_store, scan_targets
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
-from skinvault.public_site import fmt, uptime, visits
+from skinvault.public_site import changelog, fmt, uptime, visits
 
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # Mesmo template de icons.py:_CDN_URL_TPL -- não importado de lá porque é
@@ -136,6 +136,7 @@ def create_app() -> Flask:
         if ordenar not in ("nota", "preco"):
             ordenar = "nota"
         compacto = request.args.get("compacto") == "1"
+        agrupar = request.args.get("agrupar") == "1"
         pagina = _parse_int_arg("pagina", 1)
 
         todos = _candidatos_filtrados(
@@ -146,6 +147,7 @@ def create_app() -> Flask:
         return render_template(
             "index.html",
             candidatos=todos[inicio:inicio + _PAGINA_TAMANHO],
+            grupos=_agrupar_por_categoria(todos) if agrupar else None,
             scan=scan,
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
             proximo_scan=(scan_store.proxima_txt(scan["ts"], intervalo_horas)
@@ -158,6 +160,7 @@ def create_app() -> Flask:
             busca_sel=busca,
             ordenar_sel=ordenar,
             compacto_sel=compacto,
+            agrupar_sel=agrupar,
             pagina=pagina,
             tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
             tem_pagina_anterior=pagina > 1,
@@ -187,7 +190,7 @@ def create_app() -> Flask:
     @app.route("/sitemap.xml")
     def sitemap():
         base = request.url_root.rstrip("/")
-        paginas = ["/", "/privacidade", "/status"]
+        paginas = ["/", "/privacidade", "/status", "/changelog", "/api"]
         urls_xml = "\n".join(
             f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
         xml = (
@@ -205,6 +208,16 @@ def create_app() -> Flask:
     @app.route("/privacidade")
     def privacidade():
         return render_template("privacidade.html")
+
+    @app.route("/changelog")
+    def changelog_page():
+        return render_template("changelog.html", entradas=changelog.ENTRADAS)
+
+    @app.route("/api")
+    def api_docs():
+        return render_template(
+            "api_docs.html",
+            exemplo_url=f"{request.url_root}api/recommendations")
 
     @app.route("/status")
     def status():
@@ -266,6 +279,21 @@ def _contagem_por_categoria(scan: "dict | None") -> dict:
         if cat:
             contagem[cat] = contagem.get(cat, 0) + 1
     return contagem
+
+
+def _agrupar_por_categoria(candidatos: list[dict]) -> list[tuple[str, list[dict]]]:
+    """Agrupa candidatos JÁ filtrados/ordenados em (categoria, itens),
+    preservando a ordem de chegada dentro de cada grupo (mesma ordenação
+    escolhida pelo visitante). "Sem categoria" entra por último."""
+    grupos: dict[str, list[dict]] = {}
+    for c in candidatos:
+        cat = c.get("category") or "Sem categoria"
+        grupos.setdefault(cat, []).append(c)
+    sem_categoria = grupos.pop("Sem categoria", None)
+    out = [(cat, grupos[cat]) for cat in sorted(grupos)]
+    if sem_categoria:
+        out.append(("Sem categoria", sem_categoria))
+    return out
 
 
 def _candidatos_filtrados(

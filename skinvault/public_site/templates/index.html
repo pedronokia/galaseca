@@ -14,6 +14,56 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="{{ 'modo-compacto' if compacto_sel else '' }}">
+  {% macro linha_candidato(c, destaque=false) %}
+  <tr class="{{ "linha-destaque" if destaque else "" }}">
+    <td class="celula-item">
+      {% if destaque %}
+      <span class="selo-top" title="Melhor da vez">★</span>
+      {% endif %}
+      {% if c.icon_url %}
+      <img class="icone-item" src="{{ c.icon_url }}" alt="" loading="lazy" width="40" height="40">
+      {% endif %}
+      <a class="link-item" href="{{ c.market_url }}" target="_blank" rel="noopener">{{ c.name_fmt }}</a>
+      <button type="button" class="botao-copiar" data-copiar="{{ c.name }}" title="Copiar nome do item">📋</button>
+    </td>
+    <td>{{ c.price_fmt }}</td>
+    <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
+    <td>
+      {% if c.descontinuada %}
+        <span class="selo-descontinuada" title="Caixa fora do drop pool -- historicamente valoriza mais">{{ c.case_label }}</span>
+      {% else %}
+        {{ c.case_label or "—" }}
+      {% endif %}
+    </td>
+    <td class="risco risco-{{ (c.pump_risk or {}).get('level', 'low') }}">
+      {{ {"low": "Baixo", "medium": "Médio", "high": "Alto"}[(c.pump_risk or {}).get('level', 'low')] }}
+    </td>
+    <td>
+      <details class="detalhe-motivo">
+        <summary>{{ c.reasons|join("; ") if c.reasons else "Nota neutra: nenhum fator se destacou" }}</summary>
+        {% if c.breakdown %}
+        <ul class="lista-breakdown">
+          {% for b in c.breakdown %}
+          <li class="{{ 'delta-positivo' if b.delta and b.delta > 0 else ('delta-negativo' if b.delta and b.delta < 0 else '') }}">{{ b.label }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </details>
+    </td>
+  </tr>
+  {% endmacro %}
+
+  {% macro cabecalho_tabela() %}
+  <tr>
+    <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
+    <th title="Menor preço anunciado agora no Steam Market"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
+    <th title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
+    <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
+    <th title="Chance de o preço ter subido rápido e artificialmente (menos confiável de confiar numa alta assim)">Risco</th>
+    <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
+  </tr>
+  {% endmacro %}
+
   <header class="topo">
     <div class="topo-linha">
       <h1>SkinVault</h1>
@@ -34,7 +84,7 @@
 
     <form class="form-filtros" method="get" action="{{ url_for('index') }}">
       <label>Buscar
-        <input type="text" name="q" placeholder="Nome do item" value="{{ busca_sel or '' }}">
+        <input type="text" name="q" id="campo-busca" placeholder="Nome do item (atalho: /)" value="{{ busca_sel or '' }}">
       </label>
       <label>Categoria
         <select name="categoria">
@@ -52,55 +102,39 @@
       </label>
       <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
       {% if compacto_sel %}<input type="hidden" name="compacto" value="1">{% endif %}
+      {% if agrupar_sel %}<input type="hidden" name="agrupar" value="1">{% endif %}
       <button type="submit">Filtrar</button>
       {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none or busca_sel %}
         <a class="botao-link" href="{{ url_for('index') }}">Limpar filtros</a>
       {% endif %}
-      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=(None if compacto_sel else '1')) }}">
+      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, agrupar=('1' if agrupar_sel else None), compacto=(None if compacto_sel else '1')) }}">
         {{ "Modo normal" if compacto_sel else "Modo compacto" }}
+      </a>
+      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=(None if agrupar_sel else '1')) }}">
+        {{ "Ver lista" if agrupar_sel else "Agrupar por categoria" }}
       </a>
     </form>
 
-    {% if candidatos %}
+    {% if agrupar_sel and grupos %}
+      {% for categoria_nome, itens in grupos %}
+      <details class="grupo-categoria" open>
+        <summary>{{ categoria_nome }} ({{ itens|length }})</summary>
+        <div class="tabela-wrap">
+        <table class="tabela-candidatos">
+          <thead>{{ cabecalho_tabela() }}</thead>
+          <tbody>
+            {% for c in itens %}{{ linha_candidato(c) }}{% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </details>
+      {% endfor %}
+    {% elif candidatos %}
     <div class="tabela-wrap">
     <table class="tabela-candidatos">
-      <thead>
-        <tr>
-          <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
-          <th title="Menor preço anunciado agora no Steam Market"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
-          <th title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
-          <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
-          <th title="Chance de o preço ter subido rápido e artificialmente (menos confiável de confiar numa alta assim)">Risco</th>
-          <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
-        </tr>
-      </thead>
+      <thead>{{ cabecalho_tabela() }}</thead>
       <tbody>
-        {% for c in candidatos %}
-        <tr class="{{ "linha-destaque" if pagina == 1 and loop.first else "" }}">
-          <td class="celula-item">
-            {% if pagina == 1 and loop.first %}
-            <span class="selo-top" title="Melhor da vez">★</span>
-            {% endif %}
-            {% if c.icon_url %}
-            <img class="icone-item" src="{{ c.icon_url }}" alt="" loading="lazy" width="40" height="40">
-            {% endif %}
-            <a class="link-item" href="{{ c.market_url }}" target="_blank" rel="noopener">{{ c.name_fmt }}</a>
-          </td>
-          <td>{{ c.price_fmt }}</td>
-          <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
-          <td>
-            {% if c.descontinuada %}
-              <span class="selo-descontinuada" title="Caixa fora do drop pool -- historicamente valoriza mais">{{ c.case_label }}</span>
-            {% else %}
-              {{ c.case_label or "—" }}
-            {% endif %}
-          </td>
-          <td class="risco risco-{{ (c.pump_risk or {}).get('level', 'low') }}">
-            {{ {"low": "Baixo", "medium": "Médio", "high": "Alto"}[(c.pump_risk or {}).get('level', 'low')] }}
-          </td>
-          <td>{{ c.reasons|join("; ") if c.reasons else "Nota neutra: nenhum fator se destacou" }}</td>
-        </tr>
-        {% endfor %}
+        {% for c in candidatos %}{{ linha_candidato(c, pagina == 1 and loop.first) }}{% endfor %}
       </tbody>
     </table>
     </div>
@@ -127,5 +161,35 @@
     passado não garante nada no futuro. A decisão é sempre sua.</p>
     {% include "partials/_rodape_links.html" %}
   </footer>
+
+  <script>
+    // Copiar nome do item (clipboard) e atalho "/" pra focar a busca --
+    // os únicos dois recursos desta página que genuinamente não dão pra
+    // fazer sem JS. Vanilla, sem dependência, delegação de evento (um
+    // listener só, cobre linhas criadas por qualquer um dos dois modos).
+    document.addEventListener("click", function (e) {
+      var btn = e.target.closest(".botao-copiar");
+      if (!btn) return;
+      var texto = btn.getAttribute("data-copiar");
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(texto).then(function () {
+        var original = btn.textContent;
+        btn.textContent = "✓";
+        setTimeout(function () { btn.textContent = original; }, 1200);
+      }).catch(function () {});
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "/") return;
+      var ativo = document.activeElement;
+      var campoAberto = ativo && (ativo.tagName === "INPUT"
+        || ativo.tagName === "TEXTAREA" || ativo.tagName === "SELECT");
+      if (campoAberto) return;
+      var campo = document.getElementById("campo-busca");
+      if (!campo) return;
+      e.preventDefault();
+      campo.focus();
+    });
+  </script>
 </body>
 </html>
