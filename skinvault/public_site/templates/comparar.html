@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comparar itens — SkinVault</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo"><a href="{{ url_for('index') }}">← Voltar pra lista</a></p>
+  </header>
+
+  <main class="pagina-texto">
+    {% if itens %}
+    <div class="tabela-wrap">
+    <table class="tabela-candidatos tabela-comparar">
+      <thead>
+        <tr>
+          <th>Item</th>
+          {% for it in itens %}
+          <th class="celula-comparar-cabecalho">
+            {% if it.icon_url %}<img class="icone-item" src="{{ it.icon_url }}" alt="" width="32" height="32">{% endif %}
+            <a href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Preço</td>{% for it in itens %}<td>{{ it.price_fmt }}</td>{% endfor %}</tr>
+        <tr><td>Nota</td>{% for it in itens %}<td class="nota nota-{{ 'alta' if it.score >= 70 else ('media' if it.score >= 45 else 'baixa') }}">{{ it.score }}</td>{% endfor %}</tr>
+        <tr><td>Caixa/Cápsula</td>{% for it in itens %}<td>{{ it.case_label or "—" }}</td>{% endfor %}</tr>
+        <tr><td>Risco</td>{% for it in itens %}<td class="risco risco-{{ (it.pump_risk or {}).get('level', 'low') }}">{{ {"low": "Baixo", "medium": "Médio", "high": "Alto"}[(it.pump_risk or {}).get('level', 'low')] }}</td>{% endfor %}</tr>
+        <tr><td>Tendência</td>{% for it in itens %}<td>{% if it.tendencia == "alta" %}<span class="tendencia-alta">▲ subiu</span>{% elif it.tendencia == "baixa" %}<span class="tendencia-baixa">▼ caiu</span>{% else %}<span class="status-muted">—</span>{% endif %}</td>{% endfor %}</tr>
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="status status-vazio">Nenhum item selecionado pra comparar. Marque até 3 itens na
+      <a href="{{ url_for('index') }}">lista</a> e clique em "Comparar".</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+  <script src="{{ static_v('app.js') }}" defer></script>
+</body>
+</html>

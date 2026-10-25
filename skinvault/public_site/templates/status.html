@@ -6,7 +6,18 @@
   <title>Status — SkinVault</title>
   <meta name="description" content="Transparência: últimos ciclos de scan, no ar desde quando, visitas.">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "SkinVault", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 2, "name": "Status", "item": "{{ request.url }}"}
+    ]
+  }
+  </script>
 </head>
 <body>
   <header class="topo">

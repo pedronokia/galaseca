@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ item.name_fmt }} — SkinVault</title>
+  <meta name="description" content="Nota {{ item.score }}/100 pra {{ item.name_fmt }} — {{ item.price_fmt }}, dado público da Steam Community Market.">
+  <meta property="og:title" content="{{ item.name_fmt }} — SkinVault">
+  <meta property="og:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}{% if item.reasons %} · {{ item.reasons|join('; ') }}{% endif %}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.svg')) }}">
+  <meta property="og:url" content="{{ request.url }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo"><a href="{{ url_for('index') }}">← Voltar pra lista</a></p>
+  </header>
+
+  <main class="pagina-texto pagina-item">
+    <div class="cabecalho-item">
+      {% if item.icon_url %}
+      <img class="icone-item icone-item-grande" src="{{ item.icon_url }}" srcset="{{ item.icon_url }} 1x, {{ item.icon_url_2x }} 2x" alt="" width="80" height="80">
+      {% endif %}
+      <div>
+        <h2 class="titulo-item">{{ item.name_fmt }}</h2>
+        <p class="status">
+          <a class="link-item" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
+          · <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
+          · <button type="button" class="botao-copiar" data-copiar="{{ item.name }}" title="Copiar nome do item" aria-label="Copiar nome">📋 Copiar nome</button>
+          · <button type="button" class="botao-favorito" data-favorito="{{ item.name }}" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar">☆ Favoritar</button>
+        </p>
+      </div>
+    </div>
+
+    <section class="resumo-cards">
+      <div class="card"><span class="card-label">Preço</span><span class="card-valor">{{ item.price_fmt }}</span></div>
+      <div class="card"><span class="card-label">Nota</span><span class="card-valor nota nota-{{ 'alta' if item.score >= 70 else ('media' if item.score >= 45 else 'baixa') }}">{{ item.score }}</span></div>
+      <div class="card"><span class="card-label">Caixa/Cápsula</span><span class="card-valor">{{ item.case_label or "—" }}</span></div>
+      <div class="card"><span class="card-label">Risco</span><span class="card-valor risco risco-{{ (item.pump_risk or {}).get('level', 'low') }}">{{ {"low": "Baixo", "medium": "Médio", "high": "Alto"}[(item.pump_risk or {}).get('level', 'low')] }}</span></div>
+      {% if tempo_aposentadoria %}
+      <div class="card"><span class="card-label">Aposentada há</span><span class="card-valor">{{ tempo_aposentadoria }}</span></div>
+      {% endif %}
+    </section>
+    {% if preco_coletado_txt %}
+    <p class="status">Preço deste item coletado {{ preco_coletado_txt }}.</p>
+    {% endif %}
+
+    {% if grafico %}
+      <h2 class="secao-titulo">Histórico de preço</h2>
+      <div class="card grafico-card">{{ grafico|safe }}</div>
+    {% endif %}
+
+    <h2 class="secao-titulo">Por quê</h2>
+    <p>{{ item.reasons|join("; ") if item.reasons else "Nota neutra: nenhum fator se destacou" }}</p>
+    {% if item.breakdown %}
+    <ul class="lista-breakdown">
+      {% for b in item.breakdown %}
+      <li class="{{ 'delta-positivo' if b.delta and b.delta > 0 else ('delta-negativo' if b.delta and b.delta < 0 else '') }}">{{ b.label }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if parecidos %}
+    <h2 class="secao-titulo">Itens parecidos</h2>
+    <ul class="lista-parecidos">
+      {% for p in parecidos %}
+      <li><a href="{{ url_for('item_detail', name=p.name) }}">{{ p.name_fmt }}</a> — nota {{ p.score }}, {{ p.price_fmt }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Dados públicos da Steam Community Market. SkinVault não é afiliado à Valve.
+    Não é recomendação de investimento.</p>
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+
+  <script src="{{ static_v('app.js') }}" defer></script>
+</body>
+</html>

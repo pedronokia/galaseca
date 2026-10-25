@@ -5,10 +5,15 @@ testes de `worker.py` mockam `scan_engine.run_full_scan`.
 """
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from skinvault import ranking, scan_store
-from skinvault.public_site import worker
+from skinvault.public_site import (
+    charts, erro_stats, icon_cache, latencia, rate_limit, scan_progress,
+    worker, worker_alert,
+)
 from skinvault.public_site.server import create_app
 
 
@@ -737,3 +742,413 @@ def test_main_parametro_explicito_ignora_env(monkeypatch):
     except KeyboardInterrupt:
         pass
     assert chamadas == [3600]
+
+
+# ── server: /item/<name> (página de detalhe) ───────────────
+
+def test_item_detail_404_para_nome_inexistente(client, monkeypatch):
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    resp = client.get("/item/Nao Existe")
+    assert resp.status_code == 404
+
+
+def test_item_detail_mostra_nota_e_preco(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85, "price": 50.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "category": "Rifles",
+         "breakdown": [{"factor": "mediana", "delta": 20, "label": "Preço baixo (+20)"}],
+         "reasons": ["Preço abaixo da mediana"]},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/item/AK-47 | Redline (Field-Tested)")
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "85" in body
+    assert "R$" in body
+
+
+def test_item_detail_itens_parecidos_exclui_o_proprio(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+        {"name": "Item B", "score": 78, "price": 12.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+        {"name": "Item C", "score": 20, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Luvas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/item/Item A")
+    body = resp.data.decode("utf-8")
+    assert "Item B" in body  # mesma categoria, nota próxima
+    assert "Item C" not in body  # categoria diferente
+
+
+# ── server: robots.txt / csp-report ─────────────────────────
+
+def test_robots_txt_bloqueia_admin(client):
+    resp = client.get("/robots.txt")
+    assert "Disallow: /admin" in resp.data.decode("utf-8")
+
+
+def test_csp_report_aceita_post_e_responde_204(client):
+    resp = client.post("/api/csp-report", data='{"csp-report": {}}',
+                       content_type="application/csp-report")
+    assert resp.status_code == 204
+
+
+# ── server: banner de scan desatualizado ────────────────────
+
+def test_index_banner_scan_desatualizado(client, monkeypatch, tmp_path):
+    resultados = [{"name": "A", "score": 80, "price": 10.0, "case_label": "",
+                  "pump_risk": {"level": "low"}, "breakdown": []}]
+    p = tmp_path / "scanner_last.json"
+    velho = time.time() - 100 * 3600
+    scan_store.save_last_scan("Facas", resultados, path=p, now=velho)
+    original_load = scan_store.load_last_scan
+    monkeypatch.setattr(
+        scan_store, "load_last_scan", lambda: original_load(path=p))
+    resp = client.get("/")
+    assert "scan está mais velho" in resp.data.decode("utf-8")
+
+
+def test_index_sem_banner_quando_scan_recente(client, monkeypatch, tmp_path):
+    resultados = [{"name": "A", "score": 80, "price": 10.0, "case_label": "",
+                  "pump_risk": {"level": "low"}, "breakdown": []}]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/")
+    assert "scan está mais velho" not in resp.data.decode("utf-8")
+
+
+# ── charts: css_class ────────────────────────────────────────
+
+def test_line_chart_svg_css_class_customizavel():
+    svg = charts.line_chart_svg(
+        [{"total": 1}, {"total": 2}], css_class="mini-sparkline")
+    assert 'class="mini-sparkline"' in svg
+
+
+def test_line_chart_svg_default_mantem_classe_antiga():
+    svg = charts.line_chart_svg([{"total": 1}, {"total": 2}])
+    assert 'class="grafico-historico"' in svg
+
+
+# ── scan_progress ─────────────────────────────────────────
+
+def test_scan_progress_round_trip(tmp_path):
+    p = tmp_path / "scan_progress.json"
+    scan_progress.registrar(5, 185, "AK-47 | Redline", path=p)
+    carregado = scan_progress.carregar(path=p)
+    assert carregado["indice"] == 5
+    assert carregado["total"] == 185
+    assert carregado["item"] == "AK-47 | Redline"
+
+
+def test_scan_progress_ausente_e_none(tmp_path):
+    assert scan_progress.carregar(path=tmp_path / "nao_existe.json") is None
+
+
+def test_admin_mostra_progresso(client, monkeypatch):
+    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "segredo")
+    monkeypatch.setattr(
+        "skinvault.public_site.server.scan_progress.carregar",
+        lambda: {"indice": 10, "total": 185, "item": "Item X", "ts": time.time()})
+    resp = client.get("/admin?token=segredo")
+    assert "Item X" in resp.data.decode("utf-8")
+
+
+# ── worker_alert ─────────────────────────────────────────────
+
+def test_worker_alert_sem_webhook_nao_alerta(monkeypatch, tmp_path):
+    monkeypatch.delenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", raising=False)
+    ciclos = [{"ts": time.time() - 10 * 3600, "itens": 0}]
+    assert worker_alert.verificar_e_alertar(
+        ciclos, path=tmp_path / "estado.json") is False
+
+
+def test_worker_alert_sucesso_recente_nao_alerta(monkeypatch, tmp_path):
+    monkeypatch.setenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    ciclos = [{"ts": time.time() - 100, "itens": 5}]
+    assert worker_alert.verificar_e_alertar(
+        ciclos, path=tmp_path / "estado.json") is False
+
+
+def test_worker_alert_manda_quando_atrasado(monkeypatch, tmp_path):
+    monkeypatch.setenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setattr(worker_alert.discord_notify, "enviar", lambda url, msg: True)
+    ciclos = [{"ts": time.time() - 10 * 3600, "itens": 0}]
+    assert worker_alert.verificar_e_alertar(
+        ciclos, path=tmp_path / "estado.json") is True
+
+
+def test_worker_alert_dedup_nao_manda_de_novo(monkeypatch, tmp_path):
+    monkeypatch.setenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    chamadas = []
+    monkeypatch.setattr(
+        worker_alert.discord_notify, "enviar",
+        lambda url, msg: chamadas.append(1) or True)
+    p = tmp_path / "estado.json"
+    ciclos = [{"ts": time.time() - 10 * 3600, "itens": 0}]
+    assert worker_alert.verificar_e_alertar(ciclos, path=p) is True
+    assert worker_alert.verificar_e_alertar(ciclos, path=p) is False
+    assert len(chamadas) == 1
+
+
+# ── worker: ordenação por nota anterior + progresso ─────────
+
+def test_ordenar_por_nota_anterior_prioriza_nota_alta(monkeypatch, tmp_path):
+    scan_path = tmp_path / "scanner_last.json"
+    scan_store.save_last_scan(
+        "Facas", [{"name": "Baixa", "score": 10}, {"name": "Alta", "score": 90}],
+        path=scan_path)
+    original_load = scan_store.load_last_scan
+    monkeypatch.setattr(
+        worker.scan_store, "load_last_scan",
+        lambda: original_load(path=scan_path))
+    out = worker._ordenar_por_nota_anterior({"Facas": ["Baixa", "Alta", "Nova"]})
+    assert out["Facas"][0] == "Alta"
+    assert out["Facas"][1] == "Nova"  # score 50 (desconhecida) > 10
+    assert out["Facas"][2] == "Baixa"
+
+
+def test_on_progress_grava_scan_progress(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        worker.scan_progress, "registrar",
+        lambda i, t, nome: chamadas.append((i, t, nome)))
+    worker._on_progress("[3/10] AK-47 | Redline")
+    assert chamadas == [(3, 10, "AK-47 | Redline")]
+
+
+def test_on_progress_ignora_mensagem_sem_formato(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        worker.scan_progress, "registrar",
+        lambda *a: chamadas.append(a))
+    worker._on_progress("mensagem qualquer")
+    assert chamadas == []
+
+
+# ── server: /comparar ────────────────────────────────────────
+
+def test_comparar_sem_nomes_mostra_vazio(client):
+    resp = client.get("/comparar")
+    assert resp.status_code == 200
+    assert "Nenhum item selecionado" in resp.data.decode("utf-8")
+
+
+def test_comparar_lista_itens_pedidos(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 60, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "medium"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/comparar?nomes=Item A,Item B")
+    body = resp.data.decode("utf-8")
+    assert "Item A" in body
+    assert "Item B" in body
+
+
+def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):
+    resultados = [{"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+                  "pump_risk": {"level": "low"}, "breakdown": []}]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/comparar?nomes=Item A,Fantasma")
+    body = resp.data.decode("utf-8")
+    assert "Item A" in body
+    assert "Fantasma" not in body
+
+
+# ── server: /readyz ──────────────────────────────────────────
+
+def test_readyz_sem_banco_e_ready(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.db_backup._DB_PATH",
+        tmp_path / "nao_existe.db")
+    resp = client.get("/readyz")
+    assert resp.status_code == 200
+    assert resp.get_json()["ready"] is True
+
+
+def test_readyz_com_banco_valido_e_ready(client, monkeypatch, tmp_path):
+    import sqlite3
+    db = tmp_path / "x.db"
+    conn = sqlite3.connect(str(db))
+    conn.execute("CREATE TABLE t (x INTEGER)")
+    conn.close()
+    monkeypatch.setattr("skinvault.public_site.server.db_backup._DB_PATH", db)
+    resp = client.get("/readyz")
+    assert resp.get_json()["ready"] is True
+
+
+def test_readyz_com_banco_corrompido_nao_e_ready(client, monkeypatch, tmp_path):
+    db = tmp_path / "corrompido.db"
+    db.write_bytes(b"isto nao e um sqlite valido nem perto")
+    monkeypatch.setattr("skinvault.public_site.server.db_backup._DB_PATH", db)
+    resp = client.get("/readyz")
+    assert resp.status_code == 503
+    assert resp.get_json()["ready"] is False
+
+
+# ── item.html: aposentadoria + preço coletado ──────────────
+
+def test_item_detail_mostra_tempo_de_aposentadoria(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Chroma 2 Case", "score": 85, "price": 1.0, "case_label": "Descontinuada",
+         "case_retired_at": "2020-01-01", "pump_risk": {"level": "low"},
+         "category": "Caixas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/item/Chroma 2 Case")
+    assert "Aposentada há" in resp.data.decode("utf-8")
+
+
+def test_item_detail_sem_data_aposentadoria_nao_mostra_card(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/item/Item X")
+    assert "Aposentada há" not in resp.data.decode("utf-8")
+
+
+# ── erro_stats ────────────────────────────────────────────────
+
+def test_agregar_por_tipo_conta_por_excecao():
+    linhas = [
+        "2026-10-25 10:00:00,000 ERROR 500 em /x: ValueError('a')",
+        "2026-10-25 10:01:00,000 ERROR 500 em /y: ValueError('b')",
+        "2026-10-25 10:02:00,000 ERROR 500 em /z: KeyError('c')",
+        "2026-10-25 10:03:00,000 ERROR CSP violation: {}",
+    ]
+    out = dict(erro_stats.agregar_por_tipo(linhas))
+    assert out["ValueError"] == 2
+    assert out["KeyError"] == 1
+    assert out["CSP violation"] == 1
+
+
+def test_agregar_por_tipo_linha_sem_match_e_outro():
+    out = dict(erro_stats.agregar_por_tipo(["linha qualquer sem padrao"]))
+    assert out["Outro"] == 1
+
+
+def test_serie_por_dia_agrupa_por_data():
+    linhas = [
+        "2026-10-24 10:00:00,000 ERROR x",
+        "2026-10-25 10:00:00,000 ERROR x",
+        "2026-10-25 11:00:00,000 ERROR x",
+    ]
+    out = dict(erro_stats.serie_por_dia(linhas))
+    assert out["2026-10-24"] == 1
+    assert out["2026-10-25"] == 2
+
+
+def test_serie_por_dia_limita_quantidade_de_dias():
+    linhas = [f"2026-10-{d:02d} 10:00:00,000 ERROR x" for d in range(1, 20)]
+    out = erro_stats.serie_por_dia(linhas, dias=5)
+    assert len(out) == 5
+
+
+# ── latencia ──────────────────────────────────────────────────
+
+def test_latencia_resumo_calcula_media():
+    latencia.reset()
+    latencia.registrar("index", 10.0)
+    latencia.registrar("index", 20.0)
+    resumo = latencia.resumo()
+    assert len(resumo) == 1
+    assert resumo[0]["endpoint"] == "index"
+    assert resumo[0]["media_ms"] == 15.0
+    assert resumo[0]["contagem"] == 2
+    latencia.reset()
+
+
+def test_latencia_ignora_endpoint_vazio():
+    latencia.reset()
+    latencia.registrar("", 10.0)
+    assert latencia.resumo() == []
+
+
+def test_requisicao_real_registra_latencia(client, monkeypatch, tmp_path):
+    latencia.reset()
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    client.get("/")
+    resumo = latencia.resumo()
+    assert any(r["endpoint"] == "index" for r in resumo)
+    latencia.reset()
+
+
+# ── icon_cache ────────────────────────────────────────────────
+
+def test_icon_cache_sem_hash_devolve_none():
+    assert icon_cache.obter("") is None
+
+
+def test_icon_cache_le_do_disco_sem_rede(monkeypatch, tmp_path):
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+    p = icon_cache._caminho("abc123")
+    p.write_bytes(b"fake-jpeg-bytes")
+
+    def _boom(*a, **kw):
+        raise AssertionError("não deveria bater na rede com cache em disco")
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", _boom)
+    assert icon_cache.obter("abc123") == b"fake-jpeg-bytes"
+
+
+def test_icon_cache_falha_de_rede_devolve_none(monkeypatch, tmp_path):
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+
+    def _boom(*a, **kw):
+        raise OSError("rede fora")
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", _boom)
+    assert icon_cache.obter("semcache") is None
+
+
+def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.icon_cache.obter", lambda h: None)
+    resp = client.get("/icone/abc123.jpg")
+    assert resp.status_code == 302
+    assert "steamstatic.com" in resp.headers["Location"]
+
+
+def test_rota_icone_com_cache_serve_bytes(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.icon_cache.obter",
+        lambda h: b"dados-da-imagem")
+    resp = client.get("/icone/abc123.jpg")
+    assert resp.status_code == 200
+    assert resp.data == b"dados-da-imagem"
+    assert "max-age" in resp.headers.get("Cache-Control", "")
+
+
+# ── rate limit nas rotas novas ───────────────────────────────
+
+def test_api_recommendations_tem_rate_limit(monkeypatch):
+    # Cria o app DEPOIS de patchear a constante: `rate_limited(...)` é
+    # avaliado na hora da decoração (dentro de `create_app()`), não a
+    # cada request -- usar o fixture `client` criaria o app antes do
+    # monkeypatch valer (mesma família de gotcha do AGENTS.md #13/#17).
+    monkeypatch.setattr(rate_limit, "API_MAX_HITS", 2)
+    app = create_app()
+    app.config["TESTING"] = True
+    c = app.test_client()
+    for _ in range(2):
+        assert c.get("/api/recommendations").status_code == 200
+    assert c.get("/api/recommendations").status_code == 429
+
+
+def test_csp_report_tem_rate_limit(monkeypatch):
+    monkeypatch.setattr(rate_limit, "CSP_REPORT_MAX_HITS", 2)
+    app = create_app()
+    app.config["TESTING"] = True
+    c = app.test_client()
+    for _ in range(2):
+        assert c.post("/api/csp-report", data="{}").status_code == 204
+    assert c.post("/api/csp-report", data="{}").status_code == 429

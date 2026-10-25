@@ -329,7 +329,9 @@ table.tabela-candidatos tbody tr:hover {
 .modo-apresentacao .form-filtros,
 .modo-apresentacao .paginacao,
 .modo-apresentacao footer.rodape,
-.modo-apresentacao .conta-link {
+.modo-apresentacao .conta-link,
+.modo-apresentacao .barra-comparar,
+.modo-apresentacao .lista-buscas-salvas {
   display: none;
 }
 
@@ -663,6 +665,8 @@ footer.rodape .versao {
   height: 160px;
 }
 
+.grafico-erros { color: var(--danger); }
+
 /* ── Excluir conta ────────────────────────────────────── */
 .link-excluir-conta {
   margin-top: 28px;
@@ -765,6 +769,139 @@ footer.rodape .versao {
 .tabela-status td.ok { color: var(--positive); }
 .tabela-status td.falha { color: var(--danger); }
 
+/* ── Banner de aviso (scan desatualizado) ────────────────── */
+.banner-aviso {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  background: rgba(228, 176, 60, 0.12);
+  border: 1px solid var(--warn);
+  border-radius: 4px;
+  color: var(--warn);
+  font-size: 0.85rem;
+}
+
+.banner-aviso a { color: var(--accent-bright); }
+
+/* ── Sparkline inline (histórico de preço na tabela) ─────── */
+.celula-sparkline { width: 130px; }
+
+.mini-sparkline {
+  display: block;
+  width: 110px;
+  height: 26px;
+  color: var(--accent);
+}
+
+/* ── Favoritos ────────────────────────────────────────── */
+.botao-favorito {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.botao-favorito:hover { background: var(--surface-hover); color: var(--warn); }
+.botao-favorito.favoritado { color: var(--warn); }
+#botao-favoritos.ativo { border-color: var(--warn); color: var(--warn); }
+
+/* ── Página de detalhe do item ────────────────────────── */
+.cabecalho-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.icone-item-grande {
+  width: 80px;
+  height: 80px;
+}
+
+.titulo-item {
+  margin: 0 0 4px;
+  color: var(--text-bright);
+}
+
+.lista-parecidos {
+  padding-left: 20px;
+}
+
+.lista-parecidos li {
+  margin-bottom: 4px;
+}
+
+/* ── Comparador ───────────────────────────────────────── */
+.checkbox-comparar {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.barra-comparar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 24px;
+  padding: 10px 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  font-size: 0.85rem;
+}
+
+.tabela-comparar td:first-child,
+.tabela-comparar th:first-child {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.celula-comparar-cabecalho {
+  text-align: center;
+}
+
+.celula-comparar-cabecalho .icone-item {
+  display: block;
+  margin: 0 auto 4px;
+}
+
+/* ── "O que mudou desde sua última visita" ───────────────── */
+.selo-mudou-nota {
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* ── Buscas salvas ────────────────────────────────────── */
+.lista-buscas-salvas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: -8px 0 20px;
+}
+
+.lista-buscas-salvas li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
 /* ── Responsivo (celular) ─────────────────────────────── */
 @media (max-width: 640px) {
   header.topo > * {
@@ -817,6 +954,10 @@ footer.rodape .versao {
   table.tabela-candidatos {
     min-width: 540px;
   }
+
+  /* Sparkline ocupa espaço que falta em tela pequena -- o histórico
+     completo continua disponível na página de detalhe do item. */
+  .celula-sparkline { display: none; }
 
   .paginacao {
     flex-direction: column;

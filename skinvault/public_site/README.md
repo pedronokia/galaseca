@@ -25,6 +25,9 @@ sempre — o `worker` é obrigatório, não opcional.
 | `PORT` | Porta que o `web` escuta — a maioria dos provedores injeta essa variável sozinha. | `8000` |
 | `SKINVAULT_WORKER_INTERVAL_HORAS` | Intervalo entre ciclos do `worker`. | `6` |
 | `SKINVAULT_PUBLIC_SITE_SECURE_COOKIES` | `1` em produção (HTTPS) pra marcar o cookie de sessão como `Secure`. Deixe **vazio/ausente** testando local em `http://`, senão o navegador descarta o cookie e o login nunca "pega". | ausente |
+| `SKINVAULT_ADMIN_TOKEN` | Token do painel `/admin?token=...`. Sem ela, a rota sempre devolve 404. | ausente |
+| `SKINVAULT_ADMIN_DISCORD_WEBHOOK` | Webhook do Discord do DONO (não do usuário) pra alertar quando o worker passar `SKINVAULT_WORKER_ALERT_HORAS` sem trazer item nenhum -- ver `worker_alert.py`. | ausente (sem alerta) |
+| `SKINVAULT_WORKER_ALERT_HORAS` | Horas sem sucesso antes do alerta acima disparar. | `3` |
 
 ## Rodar local (sem Docker)
 
@@ -114,11 +117,16 @@ por cima do `docker-compose.public-site.yml`, sem alterar `web`/`worker`.
 `run_once`) e faz um backup rotativo LOCAL de `public_site.db` em
 `DATA_DIR/backups/`, via `sqlite3.Connection.backup()` (seguro mesmo com
 o `web` escrevendo ao mesmo tempo) -- no máximo 1 por dia, guarda os
-últimos 7. Isso protege contra corrupção/bug de aplicação, **não** contra
-perder a VM inteira: pra isso, copiar os arquivos de `DATA_DIR/backups/`
-pra fora da VM periodicamente (`scp`) continua sendo manual -- um destino
-externo de verdade (S3, Backblaze) pediria credenciais que não dá pra
-configurar sem uma conta.
+últimos 7. O mesmo ciclo também zipa `scanner_last.json`/
+`scan_historico.json`/`rankings.json` (os JSON globais do dashboard) em
+`DATA_DIR/backups/json-*.zip`, mesma cadência -- até a 2a rodada
+(2026-10-25) só o banco de contas tinha backup; perder esses JSON
+significava perder o scan atual sem nenhum jeito de recuperar sem
+esperar o próximo ciclo. Isso protege contra corrupção/bug de
+aplicação, **não** contra perder a VM inteira: pra isso, copiar os
+arquivos de `DATA_DIR/backups/` pra fora da VM periodicamente (`scp`)
+continua sendo manual -- um destino externo de verdade (S3, Backblaze)
+pediria credenciais que não dá pra configurar sem uma conta.
 
 ## Monitoramento externo (uptime)
 
@@ -155,7 +163,60 @@ métricas), não construiria uma conta admin completa só pra isto.
 ## Segurança (headers)
 
 O Caddyfile aplica HSTS, Content-Security-Policy (`script-src 'self'` --
-por isso todo JS da página fica em `static/app.js`, nunca inline),
-`X-Content-Type-Options` e `Referrer-Policy`. O 429 do rate limit e o 500
-de erro interno têm página própria (`429.html`/`500.html`), e todo 500
-fica registrado em `DATA_DIR/errors.log` (rotativo, 1MB x 3).
+por isso todo JS da página fica em `static/app.js`, nunca inline, e as
+violações chegam em `/api/csp-report`), `X-Content-Type-Options` e
+`Referrer-Policy`. O 429 do rate limit e o 500 de erro interno têm
+página própria (`429.html`/`500.html`), e todo 500 fica registrado em
+`DATA_DIR/errors.log` (rotativo, 1MB x 3).
+
+## Liveness vs. readiness
+
+`/healthz` responde `{"ok": true}` sempre que o processo `web` está de
+pé -- não confere mais nada. `/readyz` confere se dá pra abrir o banco
+de contas (quando existe) sem exceção; devolve 503 com o motivo se
+falhar. Um orquestrador que decide "pode receber tráfego" deveria
+checar `/readyz`, não `/healthz`.
+
+## Painel admin: métricas além dos backups
+
+Além de backups/erros/buscas populares, o `/admin` mostra latência
+média por rota (`latencia.py` -- em memória, por worker do gunicorn,
+zera num restart), erros agregados por tipo e um gráfico de erros por
+dia (`erro_stats.py`), e o progresso do ciclo de scan em andamento
+(`scan_progress.py` -- sem isso, só dava pra ver olhando `docker logs`
+do worker).
+
+## Cache de ícone
+
+`icon_cache.py` serve o ícone do item pelo próprio domínio
+(`/icone/<hash>.jpg`), com cache em disco -- a primeira visita busca do
+CDN da Steam (`steamstatic.com`, infraestrutura pública estática, sem
+rate limit documentado -- diferente do market/inventory, que é o
+endpoint sensível de sempre) e cacheia; todas as próximas são leitura
+local. Falha de rede nunca derruba a página: cai no redirect pro CDN
+direto.
+
+## Scripts de apoio (manuais, não automáticos)
+
+- `scripts/check_env_drift.py` -- compara as env vars esperadas (tabela
+  acima) contra o ambiente atual. Rodar via SSH na VM ou
+  `docker compose exec web python scripts/check_env_drift.py`.
+- `scripts/check_tls_expiry.py <dominio> [dias_limite]` -- confere
+  quantos dias faltam pro certificado TLS expirar (conecta de verdade
+  na porta 443, sem dependência nova). `.github/workflows/tls-check.yml`
+  roda isto 1x/dia contra `SITE_DOMAIN` (secret já existente do
+  `deploy.yml`) e falha a Action se faltar pouco tempo.
+- `scripts/minify_static.py` -- minificação leve (remove comentário/
+  espaço ocioso) de `style.css`/`app.js`, chamada só dentro do
+  `Dockerfile.public-site` no build da imagem; nunca roda sobre o
+  código-fonte do repositório.
+
+## Logs do container
+
+`docker-compose.public-site.yml`/`docker-compose.oracle.yml` configuram
+o driver `json-file` do Docker com `max-size: 10m, max-file: 3` pros
+serviços `web`/`worker`/`caddy` -- sem isso, o log de stdout/stderr do
+container (onde vai o access log do gunicorn e os `print()` do worker)
+cresce sem limite no disco da VM. Separado do `errors.log` da aplicação
+(que já rotacionava em 1MB) -- aquele é só os 500 registrados pelo
+Flask; este é a saída bruta do processo.

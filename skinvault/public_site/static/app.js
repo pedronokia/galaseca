@@ -63,3 +63,256 @@ document.addEventListener("keydown", function (e) {
     } catch (e) {}
   });
 })();
+
+// Favoritos -- igual às notas acima, só neste navegador, nunca enviado
+// pro servidor. "☆ Só favoritos" filtra as linhas da tabela na hora,
+// sem recarregar a página (o filtro do servidor não sabe o que está
+// no localStorage de cada visitante).
+(function () {
+  var CHAVE = "skinvault_favoritos";
+  function lerTudo() {
+    try {
+      return JSON.parse(localStorage.getItem(CHAVE) || "{}");
+    } catch (e) { return {}; }
+  }
+  function salvar(todos) {
+    try { localStorage.setItem(CHAVE, JSON.stringify(todos)); } catch (e) {}
+  }
+  function pintarBotao(btn, favoritado) {
+    btn.textContent = btn.textContent.replace(/^[☆★]/, favoritado ? "★" : "☆");
+    btn.classList.toggle("favoritado", favoritado);
+  }
+  function aplicarEstadoInicial() {
+    var favoritos = lerTudo();
+    document.querySelectorAll(".botao-favorito").forEach(function (btn) {
+      var item = btn.getAttribute("data-favorito");
+      if (favoritos[item]) pintarBotao(btn, true);
+    });
+  }
+  try { aplicarEstadoInicial(); } catch (e) {}
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".botao-favorito");
+    if (!btn) return;
+    try {
+      var favoritos = lerTudo();
+      var item = btn.getAttribute("data-favorito");
+      var novoEstado = !favoritos[item];
+      if (novoEstado) { favoritos[item] = true; } else { delete favoritos[item]; }
+      salvar(favoritos);
+      pintarBotao(btn, novoEstado);
+    } catch (e) {}
+  });
+
+  document.addEventListener("click", function (e) {
+    if (e.target.id !== "botao-favoritos") return;
+    try {
+      var favoritos = lerTudo();
+      var ativo = e.target.classList.toggle("ativo");
+      document.querySelectorAll("table.tabela-candidatos tbody tr").forEach(function (linha) {
+        var botaoLinha = linha.querySelector(".botao-favorito");
+        if (!botaoLinha) return;
+        var item = botaoLinha.getAttribute("data-favorito");
+        linha.style.display = (ativo && !favoritos[item]) ? "none" : "";
+      });
+      e.target.textContent = ativo ? "★ Todos os itens" : "☆ Só favoritos";
+    } catch (e) {}
+  });
+})();
+
+// Exportar CSV -- lê as linhas visíveis da(s) tabela(s) de candidatos e
+// gera um arquivo client-side (sem rota nova no servidor, sem reenviar
+// nada que já está na página).
+(function () {
+  function textoCelula(td) {
+    var clone = td.cloneNode(true);
+    clone.querySelectorAll("button, .botao-copiar, .botao-favorito, svg").forEach(
+      function (el) { el.remove(); });
+    return clone.textContent.replace(/\s+/g, " ").trim();
+  }
+  function paraCsv(valor) {
+    if (/[",\n;]/.test(valor)) return '"' + valor.replace(/"/g, '""') + '"';
+    return valor;
+  }
+  document.addEventListener("click", function (e) {
+    if (e.target.id !== "botao-exportar-csv") return;
+    var linhas = [];
+    var cabecalho = document.querySelector("table.tabela-candidatos thead tr");
+    if (cabecalho) {
+      linhas.push(Array.from(cabecalho.querySelectorAll("th")).map(
+        function (th) { return paraCsv(th.textContent.trim()); }).join(";"));
+    }
+    document.querySelectorAll("table.tabela-candidatos tbody tr").forEach(function (tr) {
+      if (tr.style.display === "none") return;
+      linhas.push(Array.from(tr.querySelectorAll("td")).map(
+        function (td) { return paraCsv(textoCelula(td)); }).join(";"));
+    });
+    var blob = new Blob(["﻿" + linhas.join("\n")], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "skinvault.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+})();
+
+// Comparador -- marca até 3 itens (sessionStorage, por aba/sessão: não
+// faz sentido sobreviver semanas como os favoritos) e mostra uma barra
+// flutuante com link pra /comparar?nomes=A,B,C.
+(function () {
+  var CHAVE = "skinvault_comparar";
+  var MAX = 3;
+  function ler() {
+    try { return JSON.parse(sessionStorage.getItem(CHAVE) || "[]"); } catch (e) { return []; }
+  }
+  function salvar(lista) {
+    try { sessionStorage.setItem(CHAVE, JSON.stringify(lista)); } catch (e) {}
+  }
+  function atualizarBarra() {
+    var lista = ler();
+    var barra = document.getElementById("barra-comparar");
+    if (!barra) return;
+    if (lista.length < 2) { barra.hidden = true; return; }
+    barra.hidden = false;
+    var contagem = barra.querySelector(".contagem-comparar");
+    if (contagem) contagem.textContent = lista.length;
+    var link = barra.querySelector(".link-comparar");
+    if (link) link.href = "/comparar?nomes=" + lista.map(encodeURIComponent).join(",");
+  }
+  try {
+    var selecionados = ler();
+    document.querySelectorAll(".checkbox-comparar").forEach(function (cb) {
+      cb.checked = selecionados.indexOf(cb.getAttribute("data-comparar")) !== -1;
+    });
+    atualizarBarra();
+  } catch (e) {}
+
+  document.addEventListener("change", function (e) {
+    if (!e.target.classList || !e.target.classList.contains("checkbox-comparar")) return;
+    var lista = ler();
+    var nome = e.target.getAttribute("data-comparar");
+    if (e.target.checked) {
+      if (lista.length >= MAX) { e.target.checked = false; return; }
+      lista.push(nome);
+    } else {
+      lista = lista.filter(function (n) { return n !== nome; });
+    }
+    salvar(lista);
+    atualizarBarra();
+  });
+
+  document.addEventListener("click", function (e) {
+    if (e.target.id !== "botao-limpar-comparar") return;
+    salvar([]);
+    document.querySelectorAll(".checkbox-comparar").forEach(function (cb) { cb.checked = false; });
+    atualizarBarra();
+  });
+})();
+
+// "O que mudou desde sua última visita" -- compara a nota de cada item
+// na tabela com a última vez que ESTE navegador viu a página, destaca
+// quem mudou, e atualiza o snapshot pra próxima visita.
+(function () {
+  var CHAVE = "skinvault_ultima_visita";
+  function lerAnterior() {
+    try { return JSON.parse(localStorage.getItem(CHAVE) || "{}"); } catch (e) { return {}; }
+  }
+  try {
+    var anterior = lerAnterior();
+    var atual = {};
+    document.querySelectorAll("table.tabela-candidatos tbody tr[data-nome]").forEach(function (tr) {
+      var nome = tr.getAttribute("data-nome");
+      var nota = parseInt(tr.getAttribute("data-nota"), 10);
+      if (!nome || isNaN(nota)) return;
+      atual[nome] = nota;
+      var antes = anterior[nome];
+      if (antes === undefined || antes === nota) return;
+      var celulaNota = tr.querySelector(".nota");
+      if (!celulaNota) return;
+      var subiu = nota > antes;
+      var selo = document.createElement("span");
+      selo.className = "selo-mudou-nota " + (subiu ? "tendencia-alta" : "tendencia-baixa");
+      selo.title = "Nota " + (subiu ? "subiu" : "caiu") + " de " + antes + " pra " + nota + " desde sua última visita";
+      selo.textContent = (subiu ? " ▲" : " ▼") + Math.abs(nota - antes);
+      celulaNota.appendChild(selo);
+    });
+    if (Object.keys(atual).length) localStorage.setItem(CHAVE, JSON.stringify(atual));
+  } catch (e) {}
+})();
+
+// Atalhos de teclado pra paginação (seta esquerda/direita) -- só quando
+// nenhum campo de formulário está focado, pra não roubar a seta de
+// dentro de um <input>.
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  var ativo = document.activeElement;
+  var campoAberto = ativo && (ativo.tagName === "INPUT"
+    || ativo.tagName === "TEXTAREA" || ativo.tagName === "SELECT");
+  if (campoAberto) return;
+  var id = e.key === "ArrowLeft" ? "link-pagina-anterior" : "link-pagina-seguinte";
+  var link = document.getElementById(id);
+  if (!link) return;
+  e.preventDefault();
+  window.location.href = link.href;
+});
+
+// Buscas salvas -- guarda a querystring atual com um nome escolhido
+// pelo visitante (só neste navegador), pra voltar rápido depois sem
+// reconfigurar os filtros.
+(function () {
+  var CHAVE = "skinvault_buscas_salvas";
+  function ler() {
+    try { return JSON.parse(localStorage.getItem(CHAVE) || "[]"); } catch (e) { return []; }
+  }
+  function salvar(lista) {
+    try { localStorage.setItem(CHAVE, JSON.stringify(lista)); } catch (e) {}
+  }
+  function renderizar() {
+    var ul = document.getElementById("lista-buscas-salvas");
+    if (!ul) return;
+    var lista = ler();
+    ul.innerHTML = "";
+    if (!lista.length) { ul.hidden = true; return; }
+    ul.hidden = false;
+    lista.forEach(function (item, i) {
+      var li = document.createElement("li");
+      var a = document.createElement("a");
+      a.href = item.query;
+      a.textContent = item.nome;
+      li.appendChild(a);
+      var remover = document.createElement("button");
+      remover.type = "button";
+      remover.className = "botao-link botao-remover botao-remover-busca";
+      remover.textContent = "remover";
+      remover.setAttribute("data-indice", i);
+      li.appendChild(remover);
+      ul.appendChild(li);
+    });
+  }
+  try { renderizar(); } catch (e) {}
+
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "botao-salvar-busca") {
+      var nome = window.prompt("Nome pra esta busca:");
+      if (!nome) return;
+      try {
+        var lista = ler();
+        lista.push({ nome: nome, query: window.location.pathname + window.location.search });
+        salvar(lista);
+        renderizar();
+      } catch (err) {}
+      return;
+    }
+    if (e.target.classList && e.target.classList.contains("botao-remover-busca")) {
+      try {
+        var lista2 = ler();
+        lista2.splice(parseInt(e.target.getAttribute("data-indice"), 10), 1);
+        salvar(lista2);
+        renderizar();
+      } catch (err) {}
+    }
+  });
+})();

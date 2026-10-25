@@ -11,7 +11,7 @@
   <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
   {% if apresentacao_sel %}<meta http-equiv="refresh" content="300">{% endif %}
   <script type="application/ld+json">
   {
@@ -25,7 +25,7 @@
 </head>
 <body class="{{ 'modo-compacto' if compacto_sel else '' }} {{ 'modo-apresentacao' if apresentacao_sel else '' }}">
   {% macro linha_candidato(c, destaque=false) %}
-  <tr class="{{ "linha-destaque" if destaque else "" }}">
+  <tr class="{{ "linha-destaque" if destaque else "" }}" data-nome="{{ c.name }}" data-nota="{{ c.score }}">
     <td class="celula-item">
       {% if destaque and not minimalista_sel %}
       <span class="selo-top" title="Melhor da vez" aria-label="Melhor da vez">★</span>
@@ -33,9 +33,12 @@
       {% if c.icon_url %}
       <img class="icone-item" src="{{ c.icon_url }}" srcset="{{ c.icon_url }} 1x, {{ c.icon_url_2x }} 2x" alt="" loading="lazy" width="40" height="40">
       {% endif %}
+      <input type="checkbox" class="checkbox-comparar" data-comparar="{{ c.name }}" title="Marcar pra comparar com outros itens (até 3)" aria-label="Marcar {{ c.name_fmt }} pra comparar">
+      <button type="button" class="botao-favorito" data-favorito="{{ c.name }}" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ c.name_fmt }}">☆</button>
       <a class="link-item" href="{{ c.market_url }}" target="_blank" rel="noopener">{{ c.name_fmt }}</a>
       <button type="button" class="botao-copiar" data-copiar="{{ c.name }}" title="Copiar nome do item" aria-label="Copiar nome de {{ c.name_fmt }}">📋</button>
       <a class="link-secundario" href="{{ c.steamdb_url }}" target="_blank" rel="noopener" title="Ver no SteamDB">SteamDB</a>
+      <a class="link-secundario" href="{{ url_for('item_detail', name=c.name) }}" title="Ver detalhes e histórico de preço">Detalhes</a>
       <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" maxlength="60">
     </td>
     <td>
@@ -43,6 +46,7 @@
       {% if c.tendencia == "alta" %}<span class="icone-tendencia tendencia-alta" title="Preço subiu desde o scan anterior" aria-label="Preço subiu desde o scan anterior">▲</span>
       {% elif c.tendencia == "baixa" %}<span class="icone-tendencia tendencia-baixa" title="Preço caiu desde o scan anterior" aria-label="Preço caiu desde o scan anterior">▼</span>{% endif %}
     </td>
+    <td class="celula-sparkline">{{ c.sparkline|safe if c.sparkline else "—" }}</td>
     <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
     <td>
       {% if c.descontinuada %}
@@ -73,6 +77,7 @@
   <tr>
     <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
     <th title="Menor preço anunciado agora no Steam Market"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
+    <th class="celula-sparkline" title="Preço nos últimos pontos registrados -- mesmo histórico da página de detalhe">Histórico</th>
     <th title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
     <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
     <th title="Chance de o preço ter subido rápido e artificialmente (menos confiável de confiar numa alta assim)">Risco</th>
@@ -94,6 +99,11 @@
   <main>
     {% if scan %}
       <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).</p>
+      {% if scan_desatualizado %}
+      <p class="banner-aviso">⚠️ O scan está mais velho que o normal -- provavelmente a Steam bloqueou
+      o acesso temporariamente (ver <a href="{{ url_for('status') }}">status</a>). Os dados abaixo são
+      os últimos que conseguimos coletar, não refletem o preço de agora.</p>
+      {% endif %}
     {% else %}
       <p class="status status-vazio">Ainda não há nenhum scan salvo. Volte em breve.</p>
     {% endif %}
@@ -135,7 +145,18 @@
       <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, apresentacao='1') }}">
         Modo apresentação
       </a>
+      <button type="button" id="botao-favoritos" class="botao-link" title="Mostrar só os itens que você favoritou (só neste navegador)">
+        ☆ Só favoritos
+      </button>
+      <button type="button" id="botao-exportar-csv" class="botao-link" title="Baixar a tabela visível como CSV">
+        ⇩ Exportar CSV
+      </button>
+      <button type="button" id="botao-salvar-busca" class="botao-link" title="Salvar os filtros atuais com um nome, pra voltar rápido depois (só neste navegador)">
+        💾 Salvar busca
+      </button>
     </form>
+
+    <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>
 
     {% if agrupar_sel and grupos %}
       {% for categoria_nome, itens in grupos %}
@@ -163,11 +184,11 @@
 
     <nav class="paginacao">
       {% if tem_pagina_anterior %}
-        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina-1) }}">← Página anterior</a>
+        <a id="link-pagina-anterior" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina-1) }}" title="Atalho: seta esquerda">← Página anterior</a>
       {% endif %}
       <span class="status-muted">Página {{ pagina }} · {{ total_candidatos }} candidato{{ "s" if total_candidatos != 1 else "" }} no total</span>
       {% if tem_proxima_pagina %}
-        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina+1) }}">Ver mais →</a>
+        <a id="link-pagina-seguinte" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina+1) }}" title="Atalho: seta direita">Ver mais →</a>
       {% endif %}
     </nav>
     {% elif scan %}
@@ -184,6 +205,12 @@
     {% include "partials/_rodape_links.html" %}
   </footer>
 
-  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  <div id="barra-comparar" class="barra-comparar" hidden>
+    <span><span class="contagem-comparar">0</span>/3 selecionados pra comparar</span>
+    <a class="botao-link link-comparar" href="{{ url_for('comparar') }}">Comparar</a>
+    <button type="button" id="botao-limpar-comparar" class="botao-link botao-remover">Limpar</button>
+  </div>
+
+  <script src="{{ static_v('app.js') }}" defer></script>
 </body>
 </html>

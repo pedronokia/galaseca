@@ -6,7 +6,18 @@
   <title>Ranking — SkinVault</title>
   <meta name="description" content="Top 20 do último scan, com a mudança de posição desde o scan anterior.">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "SkinVault", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 2, "name": "Ranking", "item": "{{ request.url }}"}
+    ]
+  }
+  </script>
 </head>
 <body>
   <header class="topo">

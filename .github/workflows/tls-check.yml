@@ -1,0 +1,18 @@
+name: tls-check
+
+# Roda 1x por dia e falha (vermelho na aba Actions, GitHub pode avisar
+# por e-mail) se o certificado TLS do site estiver a menos de 14 dias
+# de expirar -- o Caddy renova sozinho (ver README), mas "renova
+# sozinho" não é "nunca falha". Reaproveita o secret SITE_DOMAIN que o
+# deploy.yml já usa; não precisa de SSH nem de nenhum secret novo.
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/check_tls_expiry.py "${{ secrets.SITE_DOMAIN }}" 14

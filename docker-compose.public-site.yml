@@ -12,6 +12,17 @@ services:
     volumes:
       - skinvault_data:/data
     restart: unless-stopped
+    logging: &log-rotativo
+      # Gunicorn/worker não rotacionam o próprio log -- escrevem em
+      # stdout/stderr e o Docker guarda isso em disco sem limite por
+      # padrão. 10MB x 3 arquivos é generoso pro volume deste site
+      # (achado 2a rodada, 2026-10-25: nunca medido, mas o `errors.log`
+      # da aplicação já rotaciona em 1MB -- o log do container merece o
+      # mesmo cuidado).
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   worker:
     build:
@@ -23,6 +34,7 @@ services:
     volumes:
       - skinvault_data:/data
     restart: unless-stopped
+    logging: *log-rotativo
 
 volumes:
   skinvault_data:

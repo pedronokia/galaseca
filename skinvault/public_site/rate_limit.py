@@ -24,6 +24,14 @@ _hits: "dict[str, deque]" = defaultdict(deque)
 LOGIN_MAX_HITS, LOGIN_WINDOW_S = 10, 60.0
 MUTATION_MAX_HITS, MUTATION_WINDOW_S = 30, 60.0
 
+# `/api/recommendations` é pública de propósito (pensada pra consumo
+# programático -- ver api_docs.html) e mais generosa que os presets de
+# formulário. `/api/csp-report` é posta só pelo próprio navegador do
+# visitante (nunca por um humano clicando), então um volume normal é
+# baixo -- o limite aqui é contra abuso, não contra uso real.
+API_MAX_HITS, API_WINDOW_S = 60, 60.0
+CSP_REPORT_MAX_HITS, CSP_REPORT_WINDOW_S = 20, 60.0
+
 
 def allow(key: str, max_hits: int, window_seconds: float,
          now: "float | None" = None) -> bool:

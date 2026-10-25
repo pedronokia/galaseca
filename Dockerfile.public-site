@@ -17,6 +17,13 @@ RUN pip install --no-cache-dir -r requirements-public-site.txt
 
 COPY skinvault/ skinvault/
 
+# Minifica style.css/app.js SÓ dentro da imagem (ver scripts/
+# minify_static.py) -- o fonte no repositório continua legível/legível
+# em dev. Script removido depois: não é runtime, só ferramenta de build.
+COPY scripts/minify_static.py scripts/minify_static.py
+RUN python scripts/minify_static.py skinvault/public_site/static \
+    && rm -rf scripts
+
 # Identificador do build (data/hora UTC), não um hash de git -- mais
 # simples de obter aqui dentro sem precisar copiar o `.git` todo pra
 # imagem. Lido por server.py pra mostrar "v1.0.0 (build ...)" no rodapé,

@@ -6,7 +6,7 @@
   <title>Admin — SkinVault</title>
   <meta name="robots" content="noindex, nofollow">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
   <header class="topo">
@@ -33,6 +33,13 @@
       <p class="status status-vazio">Nenhuma busca registrada ainda.</p>
     {% endif %}
 
+    <h2 class="secao-titulo">Ciclo em andamento</h2>
+    {% if progresso %}
+      <p>[{{ progresso.indice }}/{{ progresso.total }}] {{ progresso.item }} — atualizado {{ progresso.idade }}.</p>
+    {% else %}
+      <p class="status status-vazio">Nenhum ciclo rodou ainda nesta instância.</p>
+    {% endif %}
+
     <h2 class="secao-titulo">Últimos ciclos do worker</h2>
     {% if ciclos %}
     <ul>
@@ -53,6 +60,37 @@
     </ul>
     {% else %}
       <p class="status status-vazio">Nenhum backup ainda.</p>
+    {% endif %}
+
+    <h2 class="secao-titulo">Latência média por rota</h2>
+    {% if latencias %}
+    <ul>
+      {% for l in latencias %}
+      <li>{{ l.endpoint }} — {{ l.media_ms }}ms ({{ l.contagem }} amostras)</li>
+      {% endfor %}
+    </ul>
+    <p class="status">Só desde que este processo subiu, e só deste worker do
+    gunicorn -- não é agregado entre workers nem persiste num restart.</p>
+    {% else %}
+      <p class="status status-vazio">Sem amostras ainda.</p>
+    {% endif %}
+
+    <h2 class="secao-titulo">Erros por dia</h2>
+    {% if grafico_erros %}
+      <div class="card grafico-card grafico-erros">{{ grafico_erros|safe }}</div>
+    {% else %}
+      <p class="status status-vazio">Sem erro suficiente pra gráfico ainda.</p>
+    {% endif %}
+
+    <h2 class="secao-titulo">Erros por tipo</h2>
+    {% if erros_agregados %}
+    <ul>
+      {% for tipo, qtd in erros_agregados %}
+      <li>{{ tipo }} — {{ qtd }}x</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      <p class="status status-vazio">Sem erros registrados.</p>
     {% endif %}
 
     <h2 class="secao-titulo">Últimos erros (errors.log)</h2>

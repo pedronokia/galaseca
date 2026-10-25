@@ -13,12 +13,17 @@ import logging
 import logging.handlers
 import os
 import secrets
+import sqlite3
 import time
 import urllib.parse
+from datetime import date
 from pathlib import Path
 from xml.sax.saxutils import escape as _xml_escape
 
-from flask import Flask, Response, jsonify, make_response, render_template, request
+from flask import (
+    Flask, Response, g, jsonify, make_response, redirect, render_template,
+    request, url_for,
+)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from skinvault import (
@@ -27,18 +32,15 @@ from skinvault import (
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
 from skinvault.public_site import (
-    buscas, changelog, charts, db_backup, fmt, uptime, visits,
+    buscas, changelog, charts, db_backup, erro_stats, fmt, icon_cache,
+    latencia, rate_limit, scan_progress, uptime, visits,
 )
 
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
-# Mesmo template de icons.py:_CDN_URL_TPL -- não importado de lá porque é
-# um nome privado do módulo; o site público nunca baixa/cacheia o ícone
-# (isso é coisa do app desktop), só referencia a URL pública do CDN direto
-# no <img>, pro navegador do visitante buscar.
-_ICON_CDN_URL = (
-    "https://community.cloudflare.steamstatic.com/economy/image/"
-    "{hash}/96fx96f"
-)
+# Ícone: CDN estático da Steam (steamstatic.com), não o market/inventory
+# rate-limited -- cacheado localmente via `icon_cache.py` (2a rodada,
+# 2026-10-25) pela rota `/icone/<hash>.jpg` abaixo. Esta constante
+# continua servindo de FALLBACK (redirect) quando o cache falha.
 _ICON_CDN_URL_2X = (
     "https://community.cloudflare.steamstatic.com/economy/image/"
     "{hash}/192fx192f"
@@ -132,10 +134,11 @@ def create_app() -> Flask:
     app.config["JSON_AS_ASCII"] = False
     # Achado de auditoria (2026-10-24): sem isso, o CSS/favicon saiam com
     # "Cache-Control: no-cache" -- o navegador revalidava (ETag) em toda
-    # visita em vez de usar o cache direto por um tempo. 7 dias é seguro
-    # porque o nome do arquivo não muda a cada deploy (sem cache-busting
-    # por hash ainda); se vier a precisar, essa janela cobre o atraso.
-    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 7 * 24 * 3600
+    # visita em vez de usar o cache direto por um tempo. 1 ano agora que
+    # `static_v()` (acima) faz cache-busting via `?v=<build>` -- sem o
+    # cache-busting, 1 ano deixaria visitante com CSS/JS velho até expirar
+    # mesmo depois de um deploy; com ele, é seguro ir longe (2026-10-25).
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 365 * 24 * 3600
     app.secret_key = _load_or_create_secret_key()
     _configurar_log_erros(app)
     app.register_blueprint(account_bp)
@@ -162,7 +165,31 @@ def create_app() -> Flask:
     @app.context_processor
     def _inject_versao():
         build = _build_id()
-        return {"versao": f"{__version__} ({build})" if build else __version__}
+
+        def static_v(filename: str) -> str:
+            """`url_for('static', ...)` + `?v=<build>` -- cache-busting pro
+            `SEND_FILE_MAX_AGE_DEFAULT` de 1 ano (pedido, 2026-10-25): sem
+            isso, aumentar o cache-control faria o navegador ficar com
+            `style.css`/`app.js` velhos até expirar, mesmo depois de um
+            deploy. Cada build muda o `?v=`, então o navegador sempre busca
+            de novo quando o conteúdo de fato mudou."""
+            return f"{url_for('static', filename=filename)}?v={build or 'dev'}"
+
+        return {
+            "versao": f"{__version__} ({build})" if build else __version__,
+            "static_v": static_v,
+        }
+
+    @app.before_request
+    def _marcar_inicio_latencia():
+        g.inicio_ts = time.time()
+
+    @app.after_request
+    def _registrar_latencia(resp):
+        inicio = g.get("inicio_ts")
+        if inicio is not None and request.endpoint:
+            latencia.registrar(request.endpoint, (time.time() - inicio) * 1000)
+        return resp
 
     @app.route("/")
     def index():
@@ -195,6 +222,13 @@ def create_app() -> Flask:
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         intervalo_horas = float(os.environ.get(
             "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
+        # Banner de "dado pode estar desatualizado" -- pedido depois do
+        # bloqueio real de 429 que durou horas (2026-10-25): sem isto, a
+        # tabela mostra dado velho em silêncio, como se fosse de agora.
+        # 2x o intervalo configurado é a margem (um ciclo atrasado não
+        # é anormal; dois seguidos geralmente é bloqueio da Steam).
+        scan_desatualizado = bool(
+            scan and (time.time() - scan["ts"]) > intervalo_horas * 3600 * 2)
         resp = make_response(render_template(
             "index.html",
             candidatos=todos[inicio:inicio + _PAGINA_TAMANHO],
@@ -203,6 +237,7 @@ def create_app() -> Flask:
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
             proximo_scan=(scan_store.proxima_txt(scan["ts"], intervalo_horas)
                          if scan else None),
+            scan_desatualizado=scan_desatualizado,
             categorias=sorted(scan_targets.SCAN_BY_CATEGORY.keys()),
             contagem_categorias=_contagem_por_categoria(scan),
             categoria_sel=categoria,
@@ -227,7 +262,49 @@ def create_app() -> Flask:
                                 max_age=_UM_ANO_S, samesite="Lax")
         return resp
 
+    @app.route("/item/<name>")
+    def item_detail(name: str):
+        """Página por item -- permalink compartilhável, com o histórico
+        completo de preço (reaproveita `charts.line_chart_svg`, já usado
+        pro gráfico de visitas) e "itens parecidos" (mesma categoria,
+        nota mais próxima). Sem chamada à Steam: os mesmos dados já
+        calculados em `_candidatos_filtrados`, filtrados pelo nome."""
+        scan = scan_store.load_last_scan()
+        candidatos = _candidatos_filtrados(scan)
+        item = next((c for c in candidatos if c["name"] == name), None)
+        if item is None:
+            return render_template("404.html"), 404
+        hist = signals.load_item_history(name)
+        grafico = charts.line_chart_svg(
+            [{"total": p["price"]} for p in hist[-60:] if p.get("price")])
+        return render_template(
+            "item.html",
+            item=item,
+            grafico=grafico,
+            parecidos=_itens_parecidos(item, candidatos),
+            tempo_aposentadoria=_tempo_desde_aposentadoria(item.get("case_retired_at")),
+            # Preço mais recente DESTE item específico -- cada item do
+            # scan é coletado em instantes diferentes dentro do ciclo de
+            # ~25min (ver scan_engine.run_full_scan), então isto é mais
+            # preciso que a idade do scan como um todo.
+            preco_coletado_txt=(
+                scan_store.idade_txt(hist[-1]["ts"]) if hist else None),
+        )
+
+    @app.route("/comparar")
+    def comparar():
+        """Até 3 itens lado a lado -- a seleção em si vive no
+        `sessionStorage` do navegador (`app.js`), isto só resolve os
+        nomes recebidos em `?nomes=A,B,C` pros dados já calculados."""
+        scan = scan_store.load_last_scan()
+        candidatos = _candidatos_filtrados(scan)
+        nomes = [n for n in (request.args.get("nomes") or "").split(",") if n][:3]
+        por_nome = {c["name"]: c for c in candidatos}
+        itens = [por_nome[n] for n in nomes if n in por_nome]
+        return render_template("comparar.html", itens=itens)
+
     @app.route("/api/recommendations")
+    @rate_limit.rate_limited(rate_limit.API_MAX_HITS, rate_limit.API_WINDOW_S)
     def api_recommendations():
         scan = scan_store.load_last_scan()
         return jsonify({
@@ -241,6 +318,31 @@ def create_app() -> Flask:
     @app.route("/healthz")
     def healthz():
         return jsonify({"ok": True})
+
+    @app.route("/readyz")
+    def readyz():
+        """Diferente de `/healthz` (só "o processo está de pé"): confere
+        se dá pra abrir o banco de contas (quando existe) sem exceção --
+        pensado pro orquestrador saber se pode receber tráfego de
+        verdade, não só se o container iniciou. `scan_store` nunca
+        levanta exceção por design (ver `load_last_scan`), então só o
+        banco é checado de fato."""
+        motivos = []
+        db_path = db_backup._DB_PATH
+        if db_path.exists():
+            try:
+                conn = sqlite3.connect(str(db_path))
+                # Força ler o cabeçalho/schema de verdade -- "SELECT 1"
+                # não toca em nenhuma página do arquivo, então um banco
+                # corrompido passava como "pronto" (achado escrevendo o
+                # teste, 2026-10-25).
+                conn.execute("SELECT count(*) FROM sqlite_master")
+                conn.close()
+            except sqlite3.Error as e:
+                motivos.append(f"banco: {e}")
+        if motivos:
+            return jsonify({"ready": False, "motivos": motivos}), 503
+        return jsonify({"ready": True})
 
     @app.route("/api/health")
     def api_health():
@@ -267,10 +369,45 @@ def create_app() -> Flask:
             "visitas_total": visits.total(),
         })
 
+    @app.route("/icone/<hash_icone>.jpg")
+    def icone_cache(hash_icone: str):
+        """Ícone servido do próprio domínio (ver `icon_cache.py`) --
+        cache em disco, só busca do CDN da Steam na primeira vez que
+        aquele hash aparece. Nunca 500: cache miss + rede fora vira
+        redirect pro CDN direto, nunca erro pro visitante."""
+        dados = icon_cache.obter(hash_icone)
+        if dados is None:
+            return redirect(_ICON_CDN_URL_2X.format(hash=hash_icone))
+        resp = Response(dados, mimetype="image/jpeg")
+        resp.headers["Cache-Control"] = "public, max-age=2592000, immutable"
+        return resp
+
     @app.route("/robots.txt")
     def robots():
-        texto = f"User-agent: *\nAllow: /\nSitemap: {request.url_root}sitemap.xml\n"
+        # Disallow /admin em defesa de profundidade (2026-10-25) -- o token
+        # já nega sem ele (ver rota `admin` abaixo), isto só evita que um
+        # crawler sequer tente a URL ou a indexe se alguém linkar por engano.
+        texto = (
+            "User-agent: *\nAllow: /\nDisallow: /admin\n"
+            f"Sitemap: {request.url_root}sitemap.xml\n")
         return Response(texto, mimetype="text/plain")
+
+    @app.route("/api/csp-report", methods=["POST"])
+    @rate_limit.rate_limited(
+        rate_limit.CSP_REPORT_MAX_HITS, rate_limit.CSP_REPORT_WINDOW_S)
+    def csp_report():
+        """Endpoint de `report-uri` do CSP (Caddyfile) -- sem isto, uma
+        violação de política só aparecia se um visitante abrisse o
+        DevTools e reclamasse. Registrado como erro (mesmo pipeline do
+        `/admin`) pra aparecer nos "Últimos erros" sem precisar de SSH.
+        Sem CSRF/sessão: é o navegador que posta isto sozinho, nunca um
+        formulário."""
+        try:
+            corpo = request.get_data(as_text=True)[:2000]
+            app.logger.error("CSP violation: %s", corpo)
+        except Exception:
+            pass
+        return "", 204
 
     @app.route("/sitemap.xml")
     def sitemap():
@@ -372,20 +509,36 @@ def create_app() -> Flask:
         if not _ADMIN_TOKEN or request.args.get("token") != _ADMIN_TOKEN:
             return render_template("404.html"), 404
         erros = []
+        erros_agregados = []
+        grafico_erros = ""
         if _ERROR_LOG_PATH.exists():
             linhas = _ERROR_LOG_PATH.read_text(encoding="utf-8",
                                                errors="replace").splitlines()
             erros = linhas[-30:]
+            # Mais linhas pra agregação (tipo/dia) que pro tail cru --
+            # a tendência importa mais que as últimas 30 exatas aqui.
+            linhas_agregacao = linhas[-500:]
+            erros_agregados = erro_stats.agregar_por_tipo(linhas_agregacao)
+            grafico_erros = charts.line_chart_svg(
+                [{"total": qtd} for _dia, qtd
+                 in erro_stats.serie_por_dia(linhas_agregacao)])
         backups = sorted(db_backup._BACKUP_DIR.glob("public_site-*.db")) \
             if db_backup._BACKUP_DIR.exists() else []
+        progresso = scan_progress.carregar()
+        if progresso:
+            progresso = dict(progresso, idade=scan_store.idade_txt(progresso["ts"]))
         return render_template(
             "admin.html",
             build=_build_id(),
             visitas=visits.total(),
             mais_buscados=buscas.mais_buscados(limite=20),
             erros=erros,
+            erros_agregados=erros_agregados,
+            grafico_erros=grafico_erros,
             backups=[b.name for b in reversed(backups)],
             ciclos=list(reversed(scan_store.load_historico_ciclos()))[:10],
+            progresso=progresso,
+            latencias=latencia.resumo(),
         )
 
     @app.route("/api")
@@ -505,6 +658,48 @@ def _tendencia(name: str) -> "str | None":
     return None
 
 
+def _tempo_desde_aposentadoria(data_iso: "str | None") -> "str | None":
+    """"2.3 anos"/"40 dias" desde a aposentadoria registrada (ver
+    `skinvault/retirements.py` -- é o mesmo dado que já alimenta o
+    score, só formatado pra leitura humana). None sem data registrada
+    -- a maioria das caixas descontinuadas antigas não tem (ver
+    AGENTS.md 4c/4f: a data só começou a ser registrada em 2026-10-17)."""
+    if not data_iso:
+        return None
+    try:
+        dia = date.fromisoformat(data_iso)
+    except ValueError:
+        return None
+    dias = (date.today() - dia).days
+    if dias < 0:
+        return None
+    anos = dias / 365.25
+    return f"{anos:.1f} anos" if anos >= 1 else f"{dias} dia{'s' if dias != 1 else ''}"
+
+
+def _itens_parecidos(item: dict, candidatos: list[dict], limite: int = 5) -> list[dict]:
+    """Mesma categoria, nota mais próxima primeiro (nunca o próprio item).
+    [] sem categoria -- sem isso o item.html teria que checar na mão."""
+    cat = item.get("category")
+    if not cat:
+        return []
+    mesma_cat = [c for c in candidatos
+                if c.get("category") == cat and c["name"] != item["name"]]
+    mesma_cat.sort(key=lambda c: abs((c.get("score") or 0) - (item.get("score") or 0)))
+    return mesma_cat[:limite]
+
+
+def _sparkline(name: str) -> str:
+    """Mini-gráfico de preço por linha na tabela -- reaproveita
+    `signals.load_item_history` (mesmo histórico que já alimenta
+    `_tendencia`) e `charts.line_chart_svg` (mesmo SVG do gráfico de
+    visitas, com uma classe CSS diferente pra ficar pequeno e inline)."""
+    hist = signals.load_item_history(name)
+    pontos = [{"total": p["price"]} for p in hist[-20:] if p.get("price")]
+    return charts.line_chart_svg(
+        pontos, width=120, height=28, padding=2, css_class="mini-sparkline")
+
+
 def _candidatos_filtrados(
         scan: "dict | None", categoria: "str | None" = None,
         nota_min: "float | None" = None,
@@ -534,16 +729,19 @@ def _candidatos_filtrados(
             continue
         c["price_fmt"] = fmt.brl(c.get("price"))
         c["name_fmt"] = name_fmt
+        # Mesma URL (proxy local, servindo sempre a versão 192x192) pros
+        # dois tamanhos do srcset -- um cache só por item em vez de dois,
+        # troca otimização de banda em tela pequena por simplicidade.
         c["icon_url"] = (
-            _ICON_CDN_URL.format(hash=c["icon"]) if c.get("icon") else None)
-        c["icon_url_2x"] = (
-            _ICON_CDN_URL_2X.format(hash=c["icon"]) if c.get("icon") else None)
+            url_for("icone_cache", hash_icone=c["icon"]) if c.get("icon") else None)
+        c["icon_url_2x"] = c["icon_url"]
         c["market_url"] = _MARKET_LISTING_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["steamdb_url"] = _STEAMDB_SEARCH_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["descontinuada"] = "descontinuada" in (c.get("case_label") or "")
         c["tendencia"] = _tendencia(c.get("name") or "")
+        c["sparkline"] = _sparkline(c.get("name") or "")
         out.append(c)
     if ordenar == "preco":
         out.sort(key=lambda c: c.get("price") if c.get("price") is not None
