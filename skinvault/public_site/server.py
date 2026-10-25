@@ -124,9 +124,14 @@ def create_app() -> Flask:
         categoria = request.args.get("categoria") or None
         nota_min = _parse_float_arg("nota_min")
         preco_max = _parse_float_arg("preco_max")
+        busca = (request.args.get("q") or "").strip() or None
+        ordenar = request.args.get("ordenar") or "nota"
+        if ordenar not in ("nota", "preco"):
+            ordenar = "nota"
         pagina = _parse_int_arg("pagina", 1)
 
-        todos = _candidatos_filtrados(scan, categoria, nota_min, preco_max)
+        todos = _candidatos_filtrados(
+            scan, categoria, nota_min, preco_max, busca, ordenar)
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         intervalo_horas = float(os.environ.get(
             "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
@@ -141,6 +146,8 @@ def create_app() -> Flask:
             categoria_sel=categoria,
             nota_min_sel=nota_min,
             preco_max_sel=preco_max,
+            busca_sel=busca,
+            ordenar_sel=ordenar,
             pagina=pagina,
             tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
             tem_pagina_anterior=pagina > 1,
@@ -172,16 +179,20 @@ def create_app() -> Flask:
 def _candidatos_filtrados(
         scan: "dict | None", categoria: "str | None" = None,
         nota_min: "float | None" = None,
-        preco_max: "float | None" = None) -> list[dict]:
+        preco_max: "float | None" = None,
+        busca: "str | None" = None,
+        ordenar: str = "nota") -> list[dict]:
     """Candidatos públicos: sem dono (sem login ainda), já filtrados.
 
     Sem limite aqui de propósito -- a paginação é responsabilidade de quem
-    chama (a rota), não desta função. `buy_candidates` já ordena por nota.
+    chama (a rota), não desta função. `buy_candidates` já ordena por nota
+    (desc); `ordenar="preco"` reordena por preço (asc) depois.
     """
     if not scan:
         return []
     candidatos = recommendations.buy_candidates(
         scan["results"], owned_names=set(), limit=len(scan["results"]) or 1)
+    busca_lower = busca.lower() if busca else None
     out = []
     for c in candidatos:
         if categoria and c.get("category") != categoria:
@@ -190,13 +201,20 @@ def _candidatos_filtrados(
             continue
         if preco_max is not None and (c.get("price") or 0) > preco_max:
             continue
+        name_fmt = localize_name(c.get("name") or "")
+        if busca_lower and busca_lower not in name_fmt.lower():
+            continue
         c["price_fmt"] = fmt.brl(c.get("price"))
-        c["name_fmt"] = localize_name(c.get("name") or "")
+        c["name_fmt"] = name_fmt
         c["icon_url"] = (
             _ICON_CDN_URL.format(hash=c["icon"]) if c.get("icon") else None)
         c["market_url"] = _MARKET_LISTING_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
+        c["descontinuada"] = "descontinuada" in (c.get("case_label") or "")
         out.append(c)
+    if ordenar == "preco":
+        out.sort(key=lambda c: c.get("price") if c.get("price") is not None
+                 else float("inf"))
     return out
 
 

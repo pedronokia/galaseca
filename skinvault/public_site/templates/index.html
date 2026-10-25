@@ -29,6 +29,9 @@
     {% endif %}
 
     <form class="form-filtros" method="get" action="{{ url_for('index') }}">
+      <label>Buscar
+        <input type="text" name="q" placeholder="Nome do item" value="{{ busca_sel or '' }}">
+      </label>
       <label>Categoria
         <select name="categoria">
           <option value="">Todas</option>
@@ -43,8 +46,9 @@
       <label>Preço máximo (R$)
         <input type="number" name="preco_max" min="0" step="0.01" value="{{ preco_max_sel if preco_max_sel is not none else '' }}">
       </label>
+      <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
       <button type="submit">Filtrar</button>
-      {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none %}
+      {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none or busca_sel %}
         <a class="botao-link" href="{{ url_for('index') }}">Limpar filtros</a>
       {% endif %}
     </form>
@@ -55,8 +59,8 @@
       <thead>
         <tr>
           <th>Item</th>
-          <th>Preço</th>
-          <th>Nota</th>
+          <th><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
+          <th><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
           <th>Caixa/Cápsula</th>
           <th>Risco</th>
           <th>Por quê</th>
@@ -64,8 +68,11 @@
       </thead>
       <tbody>
         {% for c in candidatos %}
-        <tr>
+        <tr class="{{ "linha-destaque" if pagina == 1 and loop.first else "" }}">
           <td class="celula-item">
+            {% if pagina == 1 and loop.first %}
+            <span class="selo-top" title="Melhor da vez">★</span>
+            {% endif %}
             {% if c.icon_url %}
             <img class="icone-item" src="{{ c.icon_url }}" alt="" loading="lazy" width="40" height="40">
             {% endif %}
@@ -73,7 +80,13 @@
           </td>
           <td>{{ c.price_fmt }}</td>
           <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
-          <td>{{ c.case_label or "—" }}</td>
+          <td>
+            {% if c.descontinuada %}
+              <span class="selo-descontinuada" title="Caixa fora do drop pool -- historicamente valoriza mais">{{ c.case_label }}</span>
+            {% else %}
+              {{ c.case_label or "—" }}
+            {% endif %}
+          </td>
           <td class="risco risco-{{ (c.pump_risk or {}).get('level', 'low') }}">
             {{ {"low": "Baixo", "medium": "Médio", "high": "Alto"}[(c.pump_risk or {}).get('level', 'low')] }}
           </td>
@@ -86,11 +99,11 @@
 
     <nav class="paginacao">
       {% if tem_pagina_anterior %}
-        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, pagina=pagina-1) }}">← Página anterior</a>
+        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina-1) }}">← Página anterior</a>
       {% endif %}
       <span class="status-muted">Página {{ pagina }} · {{ total_candidatos }} candidato{{ "s" if total_candidatos != 1 else "" }} no total</span>
       {% if tem_proxima_pagina %}
-        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, pagina=pagina+1) }}">Ver mais →</a>
+        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina+1) }}">Ver mais →</a>
       {% endif %}
     </nav>
     {% elif scan %}

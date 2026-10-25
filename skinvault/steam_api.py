@@ -338,6 +338,8 @@ def get_market_price_status(market_hash_name: str,
       tela mesmo depois de a Steam liberar.
     - `error`: rede, HTTP ou JSON quebrado. Mesma coisa.
     """
+    if em_cooldown("priceoverview"):
+        return PRICE_RATE_LIMITED, None
     url = (
         "https://steamcommunity.com/market/priceoverview/"
         f"?appid={_APP_CS2}&currency={currency}"
@@ -345,6 +347,7 @@ def get_market_price_status(market_hash_name: str,
     )
     code, body = _http_get(url)
     if code == 429:
+        _registrar_rate_limit("priceoverview")
         return PRICE_RATE_LIMITED, None
     if code != 200 or body is None:
         return PRICE_ERROR, None
@@ -352,6 +355,7 @@ def get_market_price_status(market_hash_name: str,
         data = json.loads(body)
     except ValueError:
         return PRICE_ERROR, None
+    _limpar_rate_limit("priceoverview")
     if not data or not data.get("success"):
         # Resposta valida dizendo que nao ha' item/preco: fato sobre o item.
         return PRICE_NO_PRICE, None
@@ -369,15 +373,35 @@ def get_market_price(market_hash_name: str, currency: int = 7) -> float | None:
 
 def get_market_overview(market_hash_name: str, currency: int = 7) -> dict | None:
     """Retorna {lowest, median, volume} do Steam Market, ou None.
-    
+
     Tudo publico -- same endpoint as get_market_price, mas parseia os 3 campos.
-    Usado pelo fair-value (Tarefa 2)."""
+    Usado pelo fair-value (Tarefa 2).
+
+    Mesma familia de disjuntor ("priceoverview") de get_market_price_status
+    -- achado real de 2026-10-24: esta funcao (a que scan_item de fato
+    chama) nunca registrava 429 nenhum, entao um scan inteiro (185 itens,
+    ~26min) martelava o endpoint ja bloqueado do inicio ao fim, sempre com
+    "None" indistinguivel de "item sem preco". Sem o disjuntor aqui, as
+    outras familias (inventory/resolve/search) nao ajudam nada.
+    """
+    if em_cooldown("priceoverview"):
+        return None
     url = (
         "https://steamcommunity.com/market/priceoverview/"
         f"?appid={_APP_CS2}&currency={currency}"
         f"&market_hash_name={urllib.parse.quote(market_hash_name)}"
     )
-    data = _get_json(url)
+    code, body = _http_get(url)
+    if code == 429:
+        _registrar_rate_limit("priceoverview")
+        return None
+    if code != 200 or body is None:
+        return None
+    try:
+        data = json.loads(body)
+    except ValueError:
+        return None
+    _limpar_rate_limit("priceoverview")
     if not data or not data.get("success"):
         return None
     return {
@@ -917,14 +941,25 @@ def get_market_page_data(
       - metadata: dict -- {name, exterior, rarity, ...} (quando disponivel)
 
     Retorna None se a pagina nao carregar ou o parse falhar.
+
+    Disjuntor familia "market_listings" (mesma de icon_backfill.py, que
+    bate no mesmo endpoint) -- achado real de 2026-10-24 junto com
+    get_market_overview: sem isso, 185 itens bloqueados martelam a mesma
+    URL por ~26min sem nunca desistir cedo.
     """
+    if em_cooldown("market_listings"):
+        return None
     url = _MARKET_LISTING_URL.format(
         appid=_APP_CS2,
         name=urllib.parse.quote(market_hash_name, safe=""),
     )
     code, body = _http_get(url)
+    if code == 429:
+        _registrar_rate_limit("market_listings")
+        return None
     if code != 200 or body is None:
         return None
+    _limpar_rate_limit("market_listings")
 
     rc = _extract_render_context(body)
     if not rc:

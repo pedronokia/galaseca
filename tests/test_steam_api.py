@@ -507,16 +507,45 @@ def test_get_market_overview_not_successful(monkeypatch):
 
 
 def test_get_market_overview_parse(monkeypatch):
-    monkeypatch.setattr("skinvault.steam_api._get_json", lambda url: {
-        "success": True,
-        "lowest_price": "R$ 100,00",
-        "median_price": "R$ 110,00",
-        "volume": "1,234",
-    })
+    monkeypatch.setattr(
+        "skinvault.steam_api._http_get",
+        _fake_http(200, '{"success": true, "lowest_price": "R$ 100,00", '
+                        '"median_price": "R$ 110,00", "volume": "1,234"}'))
     r = steam_api.get_market_overview("AK")
     assert r["lowest"] == 100.0
     assert r["median"] == 110.0
     assert r["volume"] == 1234
+
+
+def test_get_market_overview_429_registra_disjuntor(monkeypatch):
+    """Achado real de 2026-10-24: esta funcao nunca registrava 429, entao
+    um scan inteiro martelava o endpoint ja bloqueado do inicio ao fim."""
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(429, None))
+    assert steam_api.get_market_overview("AK") is None
+    assert steam_api.em_cooldown("priceoverview")
+
+
+def test_get_market_overview_respeita_disjuntor_ja_armado(monkeypatch):
+    calls = []
+
+    def fake(url, timeout=15.0):
+        calls.append(url)
+        return 200, '{"success": true, "lowest_price": "R$ 1,00"}'
+
+    monkeypatch.setattr("skinvault.steam_api._http_get", fake)
+    steam_api._registrar_rate_limit("priceoverview")
+    assert steam_api.get_market_overview("AK") is None
+    assert calls == []
+
+
+def test_get_market_overview_sucesso_limpa_disjuntor(monkeypatch):
+    steam_api._registrar_rate_limit("priceoverview")
+    steam_api._limpar_rate_limit("priceoverview")  # simula liberacao externa
+    monkeypatch.setattr(
+        "skinvault.steam_api._http_get",
+        _fake_http(200, '{"success": true, "lowest_price": "R$ 1,00"}'))
+    steam_api.get_market_overview("AK")
+    assert steam_api.em_cooldown("priceoverview") is False
 
 
 # ── _parse_items ───────────────────────────────────────────────────
@@ -798,6 +827,23 @@ def test_get_market_page_data_no_queries(monkeypatch):
     html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
     monkeypatch.setattr("skinvault.steam_api._http_get", lambda url: (200, html))
     assert steam_api.get_market_page_data("AK") is None
+
+
+def test_get_market_page_data_429_registra_disjuntor(monkeypatch):
+    """Mesmo achado do get_market_overview: a listing page tambem nunca
+    registrava 429 (familia compartilhada com icon_backfill.py)."""
+    monkeypatch.setattr("skinvault.steam_api._http_get", _fake_http(429, None))
+    assert steam_api.get_market_page_data("AK") is None
+    assert steam_api.em_cooldown("market_listings")
+
+
+def test_get_market_page_data_respeita_disjuntor_ja_armado(monkeypatch):
+    calls = []
+    monkeypatch.setattr("skinvault.steam_api._http_get",
+                        lambda url: (calls.append(url), (200, "<html>"))[1])
+    steam_api._registrar_rate_limit("market_listings")
+    assert steam_api.get_market_page_data("AK") is None
+    assert calls == []
 
 
 def test_get_market_page_data_loose_match_orderbook(monkeypatch):

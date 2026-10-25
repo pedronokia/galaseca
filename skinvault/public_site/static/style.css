@@ -191,6 +191,38 @@ table.tabela-candidatos tbody tr:hover {
   text-decoration: underline;
 }
 
+.link-ordenar {
+  color: var(--text-muted);
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.link-ordenar:hover { color: var(--accent-bright); }
+
+.linha-destaque {
+  background: linear-gradient(90deg, rgba(102, 192, 244, 0.1), transparent 60%);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.selo-top {
+  color: var(--warn);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.selo-descontinuada {
+  color: var(--positive);
+  border: 1px solid var(--positive);
+  border-radius: 10px;
+  padding: 2px 9px;
+  font-size: 0.8rem;
+  cursor: help;
+  white-space: nowrap;
+}
+
 .nota {
   font-weight: 700;
   display: inline-block;
