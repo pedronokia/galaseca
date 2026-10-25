@@ -25,6 +25,14 @@
       <button type="submit">+ Acompanhar</button>
     </form>
 
+    <h2 class="secao-titulo">Alerta no Discord (opcional)</h2>
+    <p class="status">Cole a URL de um webhook de um canal seu. Quando um item disparar um alerta, mandamos uma mensagem lá — no máximo uma por item a cada hora, pra não encher o canal.</p>
+    <form class="form-adicionar" method="post" action="{{ url_for('watchlist.salvar_webhook') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}">
+      <button type="submit">Salvar</button>
+    </form>
+
     <h2 class="secao-titulo">Itens acompanhados</h2>
     {% if items %}
     <div class="tabela-wrap">

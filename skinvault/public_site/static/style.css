@@ -262,6 +262,71 @@ table.tabela-candidatos tbody tr:hover {
   box-shadow: none;
 }
 
+/* ── Tendência / ranking ──────────────────────────────── */
+.tendencia-alta { color: var(--positive); font-weight: 600; }
+.tendencia-baixa { color: var(--danger); font-weight: 600; }
+
+.selo-novo {
+  color: var(--accent-bright);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 2px 9px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.icone-tendencia {
+  font-size: 0.8rem;
+  margin-left: 4px;
+}
+
+/* ── Links secundários (SteamDB) ──────────────────────── */
+.link-secundario {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.link-secundario:hover { color: var(--accent-bright); }
+
+.celula-item {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.input-tag-local {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  width: 100%;
+  flex-basis: 100%;
+}
+
+.input-tag-local:focus {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* ── Modo apresentação ────────────────────────────────── */
+.modo-apresentacao .form-filtros,
+.modo-apresentacao .paginacao,
+.modo-apresentacao footer.rodape,
+.modo-apresentacao .conta-link {
+  display: none;
+}
+
+.modo-apresentacao table.tabela-candidatos {
+  font-size: 1.1rem;
+}
+
+.modo-apresentacao header.topo h1 {
+  font-size: 2rem;
+}
+
 .link-ordenar {
   color: var(--text-muted);
   text-decoration: none;
@@ -453,6 +518,7 @@ footer.rodape .versao {
 }
 
 .form-adicionar input[name="name"] { flex: 1; min-width: 220px; }
+.input-webhook { flex: 1; min-width: 280px; }
 .form-adicionar input[name="cost"] { width: 140px; }
 .form-adicionar input[name="quantity"] { width: 80px; }
 

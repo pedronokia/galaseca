@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Como funciona a nota — SkinVault</title>
+  <meta name="description" content="O que a nota de 0 a 100 mede, de onde vêm os números, e o que ela não é.">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo">O que a nota mede, de onde vêm os números, e o que ela não é.</p>
+  </header>
+
+  <main class="pagina-texto">
+    <h2 class="secao-titulo">O que a nota é</h2>
+    <p>Um número de 0 a 100 que resume vários sinais factuais sobre um
+    item agora: se o preço está abaixo do que costuma valer, se tem
+    poucos vendedores, se a caixa de onde ele vem ainda está sendo
+    sorteada no jogo, se o preço subiu rápido demais recentemente (o que
+    é tratado como risco, não como bônus). Cada fator soma ou subtrai
+    pontos, e o "Por quê" de cada item na tabela mostra exatamente quais
+    fatores pesaram.</p>
+
+    <h2 class="secao-titulo">O que ela não é</h2>
+    <p>Não é previsão. A nota descreve o que já foi medido até agora --
+    nunca o que vai acontecer. Nenhum fator aqui promete retorno, e
+    desempenho passado não garante nada no futuro.</p>
+
+    <h2 class="secao-titulo">Dois achados que valeram a pena contar</h2>
+    <p><strong>Caixa que para de ser sorteada tende a valorizar mais</strong> --
+    medido comparando caixas ainda ativas contra caixas já aposentadas,
+    na mesma janela de tempo. O efeito é mais forte logo depois da
+    aposentadoria e vai diminuindo com os anos. É o único fator, dos
+    medidos até hoje, que supera com folga a taxa de 15% da Steam numa
+    venda.</p>
+    <p><strong>Preço muito alto tende a valorizar menos, proporcionalmente</strong> --
+    itens mais baratos, historicamente, sobem mais em percentual do que
+    itens caros. Por isso preço entra na nota: não porque "barato é
+    melhor", mas porque é o que os dados mostraram quando comparados de
+    forma justa (mesma data, itens diferentes).</p>
+
+    <h2 class="secao-titulo">Os limites, com honestidade</h2>
+    <ul>
+      <li>A amostra é dos itens que o scanner já cobriu -- não é uma
+      amostra aleatória de tudo que existe no jogo.</li>
+      <li>"Risco" aqui mede só uma coisa: alta de preço rápida e
+      possivelmente artificial. Não cobre outros riscos (ex. mudanças
+      que a própria Valve pode fazer no jogo).</li>
+      <li>Os sinais são recalibrados de vez em quando, conforme mais
+      dado se acumula -- o que a nota pesa hoje pode não ser
+      exatamente o que pesava há meses.</li>
+    </ul>
+
+    <p>Nada disso substitui seu próprio julgamento. A decisão é sempre sua.</p>
+  </main>
+
+  <footer class="rodape">
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

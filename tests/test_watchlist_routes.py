@@ -149,3 +149,77 @@ def test_itens_isolados_entre_contas(client, monkeypatch):
     _login(client, monkeypatch, steamid="222")
     pagina = client.get("/conta/watchlist").data.decode("utf-8")
     assert "AK-47" not in pagina
+
+
+# ── webhook Discord ──────────────────────────────────────────
+
+def test_salvar_webhook(client, monkeypatch):
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/watchlist/webhook", data={
+        "webhook_url": "https://discord.example/hook", "csrf_token": token,
+    })
+    pagina = client.get("/conta/watchlist").data.decode("utf-8")
+    assert "https://discord.example/hook" in pagina
+
+
+def test_webhook_isolado_entre_contas(client, monkeypatch):
+    _login(client, monkeypatch, steamid="111")
+    token = _csrf_token(client)
+    client.post("/conta/watchlist/webhook", data={
+        "webhook_url": "https://discord.example/hook-111", "csrf_token": token,
+    })
+    client.get("/logout")
+    _login(client, monkeypatch, steamid="222")
+    pagina = client.get("/conta/watchlist").data.decode("utf-8")
+    assert "hook-111" not in pagina
+
+
+def test_item_disparado_envia_webhook(client, monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.public_site.watchlist_routes.discord_notify.enviar",
+        lambda url, texto: chamadas.append((url, texto)) or True)
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/watchlist/webhook", data={
+        "webhook_url": "https://discord.example/hook", "csrf_token": token,
+    })
+    client.post("/conta/watchlist", data={
+        "name": "AK-47", "target": "50", "csrf_token": token,
+    })
+    client.get("/conta/watchlist")
+    assert len(chamadas) == 1
+    assert chamadas[0][0] == "https://discord.example/hook"
+
+
+def test_item_nao_disparado_nao_envia_webhook(client, monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.public_site.watchlist_routes.discord_notify.enviar",
+        lambda url, texto: chamadas.append((url, texto)) or True)
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/watchlist/webhook", data={
+        "webhook_url": "https://discord.example/hook", "csrf_token": token,
+    })
+    # AK-47 preco = 10.0, target bem abaixo -- nao dispara
+    client.post("/conta/watchlist", data={
+        "name": "AK-47", "target": "1", "csrf_token": token,
+    })
+    client.get("/conta/watchlist")
+    assert chamadas == []
+
+
+def test_sem_webhook_configurado_nao_tenta_enviar(client, monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.public_site.watchlist_routes.discord_notify.enviar",
+        lambda url, texto: chamadas.append((url, texto)) or True)
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/watchlist", data={
+        "name": "AK-47", "target": "50", "csrf_token": token,
+    })
+    client.get("/conta/watchlist")
+    assert chamadas == []

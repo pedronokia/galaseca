@@ -322,6 +322,184 @@ def test_rodape_tem_link_feedback_changelog_api(client):
     assert "/api" in body
 
 
+# ── server: rodada final (tendência/ranking/método/health/etc) ──
+
+def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.signals.load_item_history",
+        lambda name: [{"ts": 1, "price": 10.0}, {"ts": 2, "price": 20.0}])
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "tendencia-alta" in body
+
+
+def test_index_sem_historico_nao_mostra_tendencia(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.signals.load_item_history",
+        lambda name: [])
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "icone-tendencia" not in body
+
+
+def test_index_busca_com_or(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "AWP | Asiimov (Field-Tested)", "score": 70, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Glock-18 | Fade (Factory New)", "score": 60, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/?q=redline+OR+asiimov").data.decode("utf-8")
+    assert "Redline" in body
+    assert "Asiimov" in body
+    assert "Glock" not in body
+
+
+def test_index_tem_steamdb_link_e_json_ld(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "steamdb.info/search" in body
+    assert "application/ld+json" in body
+
+
+def test_index_minimalista_esconde_selo_top(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    normal = client.get("/").data.decode("utf-8")
+    minimalista = client.get("/?minimalista=1").data.decode("utf-8")
+    assert "selo-top" in normal
+    assert "selo-top" not in minimalista
+
+
+def test_index_apresentacao_aplica_classe_e_refresh(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [])
+    body = client.get("/?apresentacao=1").data.decode("utf-8")
+    assert "modo-apresentacao" in body
+    assert "http-equiv=\"refresh\"" in body
+
+
+def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "input-tag-local" in body
+    assert "skinvault_notas" in body
+
+
+def test_index_registra_termo_buscado(client, monkeypatch, tmp_path):
+    chamados = []
+    monkeypatch.setattr(
+        "skinvault.public_site.server.buscas.registrar",
+        lambda termo: chamados.append(termo))
+    monkeypatch.setattr("skinvault.scan_store.load_last_scan", lambda: None)
+    client.get("/?q=redline")
+    assert chamados == ["redline"]
+
+
+def test_index_sem_busca_nao_registra_termo(client, monkeypatch):
+    chamados = []
+    monkeypatch.setattr(
+        "skinvault.public_site.server.buscas.registrar",
+        lambda termo: chamados.append(termo))
+    monkeypatch.setattr("skinvault.scan_store.load_last_scan", lambda: None)
+    client.get("/")
+    assert chamados == []
+
+
+def test_changelog_feed_xml(client):
+    resp = client.get("/changelog.xml")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/rss+xml"
+    assert b"<rss" in resp.data
+
+
+def test_metodo_page(client):
+    resp = client.get("/metodo")
+    assert resp.status_code == 200
+    assert "O que a nota é".encode("utf-8") in resp.data
+
+
+def test_ranking_page_sem_snapshots(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.load_snapshots", lambda: [])
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    resp = client.get("/ranking")
+    assert resp.status_code == 200
+    assert "Ainda não há ranking".encode("utf-8") in resp.data
+
+
+def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+        ]}])
+    # Snapshot anterior EXISTE mas nao tem o item X -- e' isso que gera
+    # "NOVO" (previous=None geraria label vazio, nao NOVO).
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.previous_snapshot",
+        lambda: {"ts": 900.0, "items": [{"name": "Y", "score": 1, "position": 1}]})
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "selo-novo" in body
+
+
+def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+            {"name": "Y", "score": 70, "position": 2},
+        ]}])
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.previous_snapshot",
+        lambda: {"ts": 900.0, "items": [
+            {"name": "X", "score": 75, "position": 3},
+            {"name": "Y", "score": 70, "position": 1},
+        ]})
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "tendencia-alta" in body
+    assert "tendencia-baixa" in body
+
+
+def test_api_health(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    resp = client.get("/api/health")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["ok"] is True
+    assert data["scan"]["disponivel"] is True
+    assert data["scan"]["itens"] == 1
+
+
+def test_api_health_sem_scan(client, monkeypatch):
+    monkeypatch.setattr("skinvault.scan_store.load_last_scan", lambda: None)
+    resp = client.get("/api/health")
+    data = resp.get_json()
+    assert data["scan"]["disponivel"] is False
+    assert data["scan"]["idade_segundos"] is None
+
+
 # ── server: /status ──────────────────────────────────────────
 
 def test_status_sem_historico(client, monkeypatch, tmp_path):

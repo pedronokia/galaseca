@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ranking — SkinVault</title>
+  <meta name="description" content="Top 20 do último scan, com a mudança de posição desde o scan anterior.">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
+  </header>
+
+  <main>
+    {% if itens %}
+      <p class="status">Atualizado {{ quando }}.{% if not tem_anterior %} Ainda não há um scan anterior pra comparar posição.{% endif %}</p>
+      <div class="tabela-wrap">
+      <table class="tabela-candidatos">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item</th>
+            <th>Nota</th>
+            <th title="Mudança de posição desde o scan anterior">Posição</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in itens %}
+          <tr>
+            <td>{{ it.position }}</td>
+            <td>{{ it.name_fmt }}</td>
+            <td class="nota nota-{{ 'alta' if it.score >= 70 else ('media' if it.score >= 45 else 'baixa') }}">{{ it.score }}</td>
+            <td>
+              {% if it.label == "NOVO" %}
+                <span class="selo-novo">NOVO</span>
+              {% elif it.delta > 0 %}
+                <span class="tendencia-alta">▲ {{ it.label }}</span>
+              {% elif it.delta < 0 %}
+                <span class="tendencia-baixa">▼ {{ it.label }}</span>
+              {% elif it.label == "=" %}
+                <span class="status-muted">=</span>
+              {% else %}
+                <span class="status-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+    {% else %}
+      <p class="status status-vazio">Ainda não há ranking salvo. Volte em breve.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Snapshot do Top 20 a cada scan bem-sucedido. Não é recomendação de investimento.</p>
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

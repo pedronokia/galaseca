@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import secrets
+import time
 import urllib.parse
 from pathlib import Path
 from xml.sax.saxutils import escape as _xml_escape
@@ -18,10 +19,12 @@ from xml.sax.saxutils import escape as _xml_escape
 from flask import Flask, Response, jsonify, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from skinvault import __version__, recommendations, scan_store, scan_targets
+from skinvault import (
+    __version__, ranking, recommendations, scan_store, scan_targets, signals,
+)
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
-from skinvault.public_site import changelog, fmt, uptime, visits
+from skinvault.public_site import buscas, changelog, fmt, uptime, visits
 
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # Mesmo template de icons.py:_CDN_URL_TPL -- não importado de lá porque é
@@ -32,6 +35,11 @@ _ICON_CDN_URL = (
     "https://community.cloudflare.steamstatic.com/economy/image/"
     "{hash}/96fx96f"
 )
+_ICON_CDN_URL_2X = (
+    "https://community.cloudflare.steamstatic.com/economy/image/"
+    "{hash}/192fx192f"
+)
+_STEAMDB_SEARCH_URL = "https://steamdb.info/search/?q={name}"
 from skinvault.public_site.account import bp as account_bp
 from skinvault.public_site.history_routes import bp as history_bp
 from skinvault.public_site.trades_routes import bp as trades_bp
@@ -137,7 +145,11 @@ def create_app() -> Flask:
             ordenar = "nota"
         compacto = request.args.get("compacto") == "1"
         agrupar = request.args.get("agrupar") == "1"
+        minimalista = request.args.get("minimalista") == "1"
+        apresentacao = request.args.get("apresentacao") == "1"
         pagina = _parse_int_arg("pagina", 1)
+        if busca:
+            buscas.registrar(busca)
 
         todos = _candidatos_filtrados(
             scan, categoria, nota_min, preco_max, busca, ordenar)
@@ -161,6 +173,8 @@ def create_app() -> Flask:
             ordenar_sel=ordenar,
             compacto_sel=compacto,
             agrupar_sel=agrupar,
+            minimalista_sel=minimalista,
+            apresentacao_sel=apresentacao,
             pagina=pagina,
             tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
             tem_pagina_anterior=pagina > 1,
@@ -182,6 +196,31 @@ def create_app() -> Flask:
     def healthz():
         return jsonify({"ok": True})
 
+    @app.route("/api/health")
+    def api_health():
+        """Versão detalhada do /healthz -- pensada pra quem consome a API
+        saber SE pode confiar no dado agora, não só se o processo web
+        está de pé (achado de 2026-10-25: distinguir "site no ar" de
+        "dado fresco" importa depois do incidente de hoje)."""
+        scan = scan_store.load_last_scan()
+        ciclos = scan_store.load_historico_ciclos()
+        ultimo_ciclo = ciclos[-1] if ciclos else None
+        intervalo_horas = float(os.environ.get(
+            "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
+        return jsonify({
+            "ok": True,
+            "scan": {
+                "disponivel": scan is not None,
+                "idade_segundos": (
+                    round(time.time() - scan["ts"], 1) if scan else None),
+                "itens": len(scan["results"]) if scan else 0,
+            },
+            "ultimo_ciclo_worker": ultimo_ciclo,
+            "intervalo_horas_configurado": intervalo_horas,
+            "no_ar_desde": uptime.no_ar_desde(),
+            "visitas_total": visits.total(),
+        })
+
     @app.route("/robots.txt")
     def robots():
         texto = f"User-agent: *\nAllow: /\nSitemap: {request.url_root}sitemap.xml\n"
@@ -190,7 +229,8 @@ def create_app() -> Flask:
     @app.route("/sitemap.xml")
     def sitemap():
         base = request.url_root.rstrip("/")
-        paginas = ["/", "/privacidade", "/status", "/changelog", "/api"]
+        paginas = ["/", "/privacidade", "/status", "/changelog", "/api",
+                  "/ranking", "/metodo"]
         urls_xml = "\n".join(
             f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
         xml = (
@@ -212,6 +252,56 @@ def create_app() -> Flask:
     @app.route("/changelog")
     def changelog_page():
         return render_template("changelog.html", entradas=changelog.ENTRADAS)
+
+    @app.route("/changelog.xml")
+    def changelog_feed():
+        base = request.url_root.rstrip("/")
+        itens_xml = "\n".join(
+            "    <item>\n"
+            f"      <title>{_xml_escape(e['data'])} — {_xml_escape(e['titulo'])}</title>\n"
+            f"      <description>{_xml_escape('; '.join(e['itens']))}</description>\n"
+            f"      <guid isPermaLink=\"false\">{_xml_escape(e['data'])}</guid>\n"
+            "    </item>"
+            for e in changelog.ENTRADAS
+        )
+        rss = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0"><channel>\n'
+            "  <title>SkinVault — Mudanças</title>\n"
+            f"  <link>{_xml_escape(base)}/changelog</link>\n"
+            "  <description>O que mudou no site, por data.</description>\n"
+            "  <language>pt-BR</language>\n"
+            f"{itens_xml}\n"
+            "</channel></rss>\n"
+        )
+        return Response(rss, mimetype="application/rss+xml")
+
+    @app.route("/metodo")
+    def metodo():
+        return render_template("metodo.html")
+
+    @app.route("/ranking")
+    def ranking_page():
+        snaps = ranking.load_snapshots()
+        atual = snaps[-1] if snaps else None
+        anterior = ranking.previous_snapshot()
+        itens = []
+        if atual:
+            for it in atual["items"]:
+                delta = ranking.position_delta(
+                    it["name"], it["position"], anterior)
+                itens.append({
+                    "name_fmt": localize_name(it["name"]),
+                    "position": it["position"],
+                    "score": it["score"],
+                    **delta,
+                })
+        return render_template(
+            "ranking.html",
+            itens=itens,
+            quando=scan_store.idade_txt(atual["ts"]) if atual else None,
+            tem_anterior=anterior is not None,
+        )
 
     @app.route("/api")
     def api_docs():
@@ -296,6 +386,35 @@ def _agrupar_por_categoria(candidatos: list[dict]) -> list[tuple[str, list[dict]
     return out
 
 
+def _busca_bate(name_fmt: str, busca: "str | None") -> bool:
+    """Suporta "termo1 OR termo2" (qualquer um presente já basta). Sem
+    "OR", é substring simples -- comportamento de antes, preservado."""
+    if not busca:
+        return True
+    alvo = name_fmt.lower()
+    termos = [t.strip() for t in busca.lower().split(" or ") if t.strip()]
+    if not termos:
+        return True
+    return any(t in alvo for t in termos)
+
+
+def _tendencia(name: str) -> "str | None":
+    """"alta"/"baixa"/None a partir dos 2 últimos preços já registrados
+    pra esse item (signals.record_item_price, chamado a cada scan desde
+    sempre -- zero custo novo, só reaproveita histórico que já existia).
+    None sem pelo menos 2 pontos (item visto pela 1a vez, ou muito raro
+    no histórico)."""
+    hist = signals.load_item_history(name)
+    if len(hist) < 2:
+        return None
+    anterior, atual = hist[-2]["price"], hist[-1]["price"]
+    if atual > anterior:
+        return "alta"
+    if atual < anterior:
+        return "baixa"
+    return None
+
+
 def _candidatos_filtrados(
         scan: "dict | None", categoria: "str | None" = None,
         nota_min: "float | None" = None,
@@ -312,7 +431,6 @@ def _candidatos_filtrados(
         return []
     candidatos = recommendations.buy_candidates(
         scan["results"], owned_names=set(), limit=len(scan["results"]) or 1)
-    busca_lower = busca.lower() if busca else None
     out = []
     for c in candidatos:
         if categoria and c.get("category") != categoria:
@@ -322,15 +440,20 @@ def _candidatos_filtrados(
         if preco_max is not None and (c.get("price") or 0) > preco_max:
             continue
         name_fmt = localize_name(c.get("name") or "")
-        if busca_lower and busca_lower not in name_fmt.lower():
+        if not _busca_bate(name_fmt, busca):
             continue
         c["price_fmt"] = fmt.brl(c.get("price"))
         c["name_fmt"] = name_fmt
         c["icon_url"] = (
             _ICON_CDN_URL.format(hash=c["icon"]) if c.get("icon") else None)
+        c["icon_url_2x"] = (
+            _ICON_CDN_URL_2X.format(hash=c["icon"]) if c.get("icon") else None)
         c["market_url"] = _MARKET_LISTING_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
+        c["steamdb_url"] = _STEAMDB_SEARCH_URL.format(
+            name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["descontinuada"] = "descontinuada" in (c.get("case_label") or "")
+        c["tendencia"] = _tendencia(c.get("name") or "")
         out.append(c)
     if ordenar == "preco":
         out.sort(key=lambda c: c.get("price") if c.get("price") is not None

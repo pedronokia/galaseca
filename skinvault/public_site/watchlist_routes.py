@@ -15,7 +15,7 @@ from flask import (
 from skinvault import alerts, scan_store, signals
 from skinvault.localization import localize_name
 from skinvault.prices import PriceCache
-from skinvault.public_site import fmt, user_watchlist
+from skinvault.public_site import discord_notify, fmt, user_watchlist, user_webhook
 from skinvault.public_site.auth import csrf_protect, csrf_token, login_required
 from skinvault.public_site.rate_limit import (
     MUTATION_MAX_HITS, MUTATION_WINDOW_S, rate_limited,
@@ -75,15 +75,48 @@ def _rules_do_form() -> dict:
     return rules
 
 
+def _notificar_discord(steamid: str, items_avaliados: list[dict]) -> None:
+    """Manda os alertas disparados AGORA pro Discord do próprio usuário,
+    um item de cada vez, respeitando o dedup de 1h (user_webhook). Falha
+    de rede/URL ausente nunca derruba a página -- `discord_notify.enviar`
+    já devolve False em qualquer erro, sem levantar."""
+    url = user_webhook.get_webhook_url(steamid)
+    if not url:
+        return
+    for it in items_avaliados:
+        if not it["disparado"]:
+            continue
+        if not user_webhook.deve_notificar(steamid, it["name"]):
+            continue
+        texto = (f"SkinVault: {it['name_fmt']} disparou um alerta -- "
+                f"{'; '.join(a['label'] for a in it['alertas'])}")
+        if discord_notify.enviar(url, texto):
+            user_webhook.marcar_notificado(steamid, it["name"])
+
+
 @bp.route("/conta/watchlist")
 @login_required
 def listar():
     steamid = session["steamid"]
     items = user_watchlist.load_items(steamid)
+    avaliados = _avaliar(items)
+    _notificar_discord(steamid, avaliados)
     return render_template(
-        "conta_watchlist.html", items=_avaliar(items),
+        "conta_watchlist.html", items=avaliados,
         csrf_token=csrf_token(),
+        webhook_url=user_webhook.get_webhook_url(steamid),
     )
+
+
+@bp.route("/conta/watchlist/webhook", methods=["POST"])
+@rate_limited(MUTATION_MAX_HITS, MUTATION_WINDOW_S)
+@login_required
+@csrf_protect
+def salvar_webhook():
+    steamid = session["steamid"]
+    url = (request.form.get("webhook_url") or "").strip()
+    user_webhook.set_webhook_url(steamid, url)
+    return redirect(url_for("watchlist.listar"))
 
 
 @bp.route("/conta/watchlist", methods=["POST"])
