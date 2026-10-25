@@ -20,11 +20,14 @@
       {% include "partials/_conta_link.html" %}
     </div>
     <p class="subtitulo">Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.</p>
+    {% if proximo_scan %}
+      <span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">🔄 Próxima atualização: {{ proximo_scan }}</span>
+    {% endif %}
   </header>
 
   <main>
     {% if scan %}
-      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados). Próximo scan: {{ proximo_scan }}.</p>
+      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).</p>
     {% else %}
       <p class="status status-vazio">Ainda não há nenhum scan salvo. Volte em breve.</p>
     {% endif %}
@@ -37,7 +40,7 @@
         <select name="categoria">
           <option value="">Todas</option>
           {% for cat in categorias %}
-          <option value="{{ cat }}" {{ "selected" if cat == categoria_sel else "" }}>{{ cat }}</option>
+          <option value="{{ cat }}" {{ "selected" if cat == categoria_sel else "" }}>{{ cat }}{{ " (" ~ contagem_categorias.get(cat, 0) ~ ")" if contagem_categorias.get(cat) else "" }}</option>
           {% endfor %}
         </select>
       </label>

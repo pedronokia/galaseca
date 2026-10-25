@@ -92,6 +92,12 @@ def create_app() -> Flask:
         template_folder=str(_TEMPLATES_DIR),
     )
     app.config["JSON_AS_ASCII"] = False
+    # Achado de auditoria (2026-10-24): sem isso, o CSS/favicon saiam com
+    # "Cache-Control: no-cache" -- o navegador revalidava (ETag) em toda
+    # visita em vez de usar o cache direto por um tempo. 7 dias é seguro
+    # porque o nome do arquivo não muda a cada deploy (sem cache-busting
+    # por hash ainda); se vier a precisar, essa janela cobre o atraso.
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 7 * 24 * 3600
     app.secret_key = _load_or_create_secret_key()
     app.register_blueprint(account_bp)
     app.register_blueprint(trades_bp)
@@ -145,6 +151,7 @@ def create_app() -> Flask:
             proximo_scan=(scan_store.proxima_txt(scan["ts"], intervalo_horas)
                          if scan else None),
             categorias=sorted(scan_targets.SCAN_BY_CATEGORY.keys()),
+            contagem_categorias=_contagem_por_categoria(scan),
             categoria_sel=categoria,
             nota_min_sel=nota_min,
             preco_max_sel=preco_max,
@@ -171,6 +178,29 @@ def create_app() -> Flask:
     @app.route("/healthz")
     def healthz():
         return jsonify({"ok": True})
+
+    @app.route("/robots.txt")
+    def robots():
+        texto = f"User-agent: *\nAllow: /\nSitemap: {request.url_root}sitemap.xml\n"
+        return Response(texto, mimetype="text/plain")
+
+    @app.route("/sitemap.xml")
+    def sitemap():
+        base = request.url_root.rstrip("/")
+        paginas = ["/", "/privacidade", "/status"]
+        urls_xml = "\n".join(
+            f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            f"{urls_xml}\n"
+            "</urlset>\n"
+        )
+        return Response(xml, mimetype="application/xml")
+
+    @app.errorhandler(404)
+    def pagina_nao_encontrada(_erro):
+        return render_template("404.html"), 404
 
     @app.route("/privacidade")
     def privacidade():
@@ -220,6 +250,22 @@ def create_app() -> Flask:
         return Response(rss, mimetype="application/rss+xml")
 
     return app
+
+
+def _contagem_por_categoria(scan: "dict | None") -> dict:
+    """{categoria: quantidade} a partir do scan cru -- alimenta os rótulos
+    do dropdown de filtro ("Facas (12)"). Conta `scan["results"]` direto
+    (não `buy_candidates`), então é uma aproximação -- itens filtrados por
+    pump_risk no dropdown continuam contados aqui. Suficiente pra dar
+    noção de tamanho, não precisa ser exato."""
+    if not scan:
+        return {}
+    contagem: dict = {}
+    for r in scan["results"]:
+        cat = r.get("category")
+        if cat:
+            contagem[cat] = contagem.get(cat, 0) + 1
+    return contagem
 
 
 def _candidatos_filtrados(

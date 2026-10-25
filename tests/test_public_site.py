@@ -198,6 +198,61 @@ def test_index_modo_compacto_aplica_classe(client, monkeypatch, tmp_path):
     assert "modo-compacto" in body
 
 
+def test_index_mostra_contagem_por_categoria(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "A", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [], "category": "Facas"},
+        {"name": "B", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [], "category": "Facas"},
+        {"name": "C", "score": 60, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [], "category": "Luvas"},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert "Facas (2)" in body
+    assert "Luvas (1)" in body
+
+
+def test_index_mostra_badge_proximo_scan(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "A", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "badge-cooldown" in body
+    assert "Próxima atualização" in body
+
+
+# ── server: robots/sitemap/404/cache ─────────────────────────
+
+def test_robots_txt(client):
+    resp = client.get("/robots.txt")
+    assert resp.status_code == 200
+    assert resp.mimetype == "text/plain"
+    assert b"Sitemap:" in resp.data
+    assert b"Allow: /" in resp.data
+
+
+def test_sitemap_xml(client):
+    resp = client.get("/sitemap.xml")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/xml"
+    assert b"<urlset" in resp.data
+    assert b"/privacidade" in resp.data
+
+
+def test_pagina_404_customizada(client):
+    resp = client.get("/isso-nao-existe")
+    assert resp.status_code == 404
+    assert "não existe".encode("utf-8") in resp.data
+
+
+def test_static_tem_cache_control(client):
+    resp = client.get("/static/style.css")
+    assert resp.status_code == 200
+    assert "max-age" in resp.headers.get("Cache-Control", "")
+
+
 # ── server: /status ──────────────────────────────────────────
 
 def test_status_sem_historico(client, monkeypatch, tmp_path):

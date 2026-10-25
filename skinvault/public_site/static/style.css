@@ -45,7 +45,20 @@ header.topo > * {
 }
 
 header.topo > .topo-linha { padding-top: 24px; }
-header.topo > .subtitulo { padding-bottom: 20px; }
+header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
+header.topo > .badge-cooldown { padding-bottom: 20px; }
+
+.badge-cooldown {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 4px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: help;
+}
 
 header.topo h1 {
   margin: 0;
