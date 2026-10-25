@@ -835,6 +835,10 @@ def _parse_item_meta(desc: dict) -> dict:
         "type_label": desc.get("type"),
         "commodity": bool(desc.get("commodity")),
         "name_color": desc.get("name_color"),
+        # Mesmo campo/semantica de _parse_items (icon_url = hash do CDN,
+        # ver icons.py) -- a description da SSR usa o mesmo schema EconItem
+        # do inventario, entao vem de graca na mesma pagina ja' buscada.
+        "icon_url": desc.get("icon_url") or None,
     }
     for origem, destino in (
         ("market_tradable_restriction", "tradable_restriction"),

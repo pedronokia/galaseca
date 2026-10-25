@@ -1,15 +1,21 @@
-/* Paleta igual ao app (tons de cinza/preto + verde=bom / vermelho=risco),
-   mas escrita direto aqui -- este servidor não importa ui/theme.py (Qt). */
+/* Paleta inspirada na Steam (azul escuro + acento azul-claro) — pra quem já
+   usa a Steam se sentir em casa aqui. Esta folha é independente da paleta
+   do app Qt (ui/theme.py) de propósito: o app continua em tons de cinza
+   (decisão separada), só o site público usa essas cores. */
 :root {
-  --bg: #0f0f0f;
-  --bg-elevated: #181818;
-  --surface: #202020;
-  --border: #303030;
-  --text: #f1f1f1;
-  --text-muted: #aaaaaa;
-  --positive: #3fb950;
-  --warn: #f59e0b;
-  --danger: #ef4444;
+  --bg: #171a21;
+  --bg-elevated: #1b2838;
+  --surface: #2a475e;
+  --surface-hover: #32587a;
+  --border: #3d5a73;
+  --text: #c6d4df;
+  --text-bright: #ffffff;
+  --text-muted: #8f98a0;
+  --accent: #66c0f4;
+  --accent-bright: #a4d8fb;
+  --positive: #a4d007;
+  --warn: #e4b03c;
+  --danger: #e0574a;
 }
 
 * { box-sizing: border-box; }
@@ -22,16 +28,31 @@ body {
   line-height: 1.5;
 }
 
+a { color: var(--accent); }
+a:hover { color: var(--accent-bright); }
+
 header.topo {
-  padding: 32px 24px 16px;
-  max-width: 960px;
-  margin: 0 auto;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
 }
+
+header.topo > * {
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+header.topo > .topo-linha { padding-top: 24px; }
+header.topo > .subtitulo { padding-bottom: 20px; }
 
 header.topo h1 {
   margin: 0;
-  font-size: 1.75rem;
-  letter-spacing: -0.5px;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text-bright);
 }
 
 .topo-linha {
@@ -49,20 +70,29 @@ header.topo h1 {
 }
 
 .conta-link a:hover {
-  color: var(--text);
+  color: var(--accent-bright);
   text-decoration: underline;
 }
 
 .conta-link-entrar {
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 14px;
+  color: var(--bg);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 7px 16px;
+  font-weight: 600;
   white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
 
 .conta-link-entrar:hover {
-  background: var(--surface);
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  color: var(--bg);
+  text-decoration: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
 }
 
 .subtitulo {
@@ -74,7 +104,7 @@ header.topo h1 {
 main {
   max-width: 960px;
   margin: 0 auto;
-  padding: 0 24px 40px;
+  padding: 24px 24px 40px;
 }
 
 .status {
@@ -87,21 +117,27 @@ main {
   text-align: center;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
+}
+
+.tabela-wrap {
+  overflow-x: auto;
 }
 
 table.tabela-candidatos {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 
 table.tabela-candidatos th,
 table.tabela-candidatos td {
-  padding: 10px 14px;
+  padding: 11px 14px;
   text-align: left;
   border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
@@ -111,27 +147,69 @@ table.tabela-candidatos th {
   color: var(--text-muted);
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  background: var(--surface);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  background: var(--bg);
 }
 
 table.tabela-candidatos tbody tr:last-child td {
   border-bottom: none;
 }
 
+table.tabela-candidatos tbody tr {
+  transition: background-color 0.15s ease;
+}
+
 table.tabela-candidatos tbody tr:hover {
   background: var(--surface);
 }
 
-.nota { font-weight: 700; }
-.nota-alta { color: var(--positive); }
-.nota-media { color: var(--warn); }
-.nota-baixa { color: var(--danger); }
+.celula-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icone-item {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.link-item {
+  color: var(--text-bright);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.link-item:hover {
+  color: var(--accent-bright);
+  text-decoration: underline;
+}
+
+.nota {
+  font-weight: 700;
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  transition: transform 0.15s ease;
+}
+
+table.tabela-candidatos tbody tr:hover .nota {
+  transform: scale(1.08);
+}
+.nota-alta { color: #0f1a06; background: var(--positive); }
+.nota-media { color: #2b1d04; background: var(--warn); }
+.nota-baixa { color: var(--text); background: var(--surface); }
 
 .risco-low { color: var(--text-muted); }
 .risco-medium { color: var(--warn); }
-.risco-high { color: var(--danger); }
+.risco-high { color: var(--danger); font-weight: 600; }
 
 footer.rodape {
   max-width: 960px;
@@ -145,6 +223,63 @@ footer.rodape {
 footer.rodape .versao {
   margin-top: 8px;
   opacity: 0.6;
+}
+
+/* ── Filtros e paginação ─────────────────────────────── */
+.form-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.form-filtros label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.form-filtros select,
+.form-filtros input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 7px 8px;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.form-filtros input[type="number"] { width: 130px; }
+
+.form-filtros button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 8px 16px;
+  color: var(--bg);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  height: 34px;
+  transition: filter 0.15s ease;
+}
+
+.form-filtros button:hover { filter: brightness(1.1); }
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 /* ── Conta ────────────────────────────────────────────── */
@@ -166,8 +301,16 @@ footer.rodape .versao {
   gap: 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 4px;
   padding: 14px 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  border-color: var(--accent);
+  transform: translateY(-2px);
 }
 
 .card-label {
@@ -178,6 +321,7 @@ footer.rodape .versao {
 .card-valor {
   font-size: 1.3rem;
   font-weight: 700;
+  color: var(--text-bright);
 }
 
 .valor-positivo { color: var(--positive); }
@@ -186,6 +330,7 @@ footer.rodape .versao {
 .secao-titulo {
   font-size: 1.1rem;
   margin: 28px 0 10px;
+  color: var(--text-bright);
 }
 
 .form-adicionar {
@@ -196,9 +341,9 @@ footer.rodape .versao {
 }
 
 .form-adicionar input {
-  background: var(--bg-elevated);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 8px 10px;
   color: var(--text);
   font-size: 0.9rem;
@@ -208,21 +353,35 @@ footer.rodape .versao {
 .form-adicionar input[name="cost"] { width: 140px; }
 .form-adicionar input[name="quantity"] { width: 80px; }
 
-.form-adicionar button,
+.form-adicionar button {
+  background: var(--positive);
+  border: 1px solid var(--positive);
+  border-radius: 3px;
+  padding: 8px 16px;
+  color: #0f1a06;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.form-adicionar button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
 .botao-link {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 8px 14px;
   color: var(--text);
   cursor: pointer;
   font-size: 0.85rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.form-adicionar button:hover,
-.botao-link:hover { background: var(--border); }
+.botao-link:hover { background: var(--surface-hover); }
 
 .botao-remover { color: var(--danger); }
+.botao-remover:hover { background: var(--surface-hover); border-color: var(--danger); }
 
 .form-inline {
   display: flex;
@@ -232,9 +391,9 @@ footer.rodape .versao {
 
 .input-compacto {
   width: 90px;
-  background: var(--bg-elevated);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 3px;
   padding: 4px 6px;
   color: var(--text);
   font-size: 0.85rem;
@@ -244,8 +403,8 @@ footer.rodape .versao {
 .badge-disparado {
   color: var(--warn);
   border: 1px solid var(--warn);
-  border-radius: 6px;
-  padding: 2px 8px;
+  border-radius: 10px;
+  padding: 2px 9px;
   font-size: 0.78rem;
   cursor: help;
 }
@@ -268,6 +427,8 @@ footer.rodape .versao {
   padding: 6px 0;
 }
 
+.linha-regras summary:hover { color: var(--accent-bright); }
+
 .form-regras {
   display: flex;
   flex-wrap: wrap;
@@ -286,7 +447,7 @@ footer.rodape .versao {
 .form-regras input {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 3px;
   padding: 6px 8px;
   color: var(--text);
   width: 160px;
@@ -294,16 +455,17 @@ footer.rodape .versao {
 
 .form-regras button {
   align-self: flex-end;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
   padding: 8px 14px;
-  color: var(--text);
+  color: var(--bg);
   cursor: pointer;
+  font-weight: 600;
   height: 34px;
 }
 
-.form-regras button:hover { background: var(--border); }
+.form-regras button:hover { background: var(--accent-bright); border-color: var(--accent-bright); }
 
 /* ── Histórico ────────────────────────────────────────── */
 .grafico-card {
@@ -351,14 +513,15 @@ footer.rodape .versao {
   background: var(--danger);
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 10px 18px;
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .botao-perigo:hover {
-  opacity: 0.9;
+  filter: brightness(1.1);
 }
 
 /* ── Páginas de texto (privacidade, etc.) ───────────────── */
@@ -378,4 +541,63 @@ footer.rodape .versao {
 
 .pagina-texto .secao-titulo {
   color: var(--text);
+}
+
+/* ── Responsivo (celular) ─────────────────────────────── */
+@media (max-width: 640px) {
+  header.topo > * {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  main {
+    padding: 16px 16px 32px;
+  }
+
+  .topo-linha {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  header.topo h1 {
+    font-size: 1.35rem;
+  }
+
+  .resumo-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .form-adicionar,
+  .form-filtros,
+  .form-regras {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-adicionar input,
+  .form-filtros input,
+  .form-filtros select,
+  .form-regras input {
+    width: 100% !important;
+  }
+
+  .form-adicionar button,
+  .form-filtros button {
+    width: 100%;
+  }
+
+  .conta-link {
+    font-size: 0.78rem;
+    line-height: 1.8;
+  }
+
+  table.tabela-candidatos {
+    min-width: 540px;
+  }
+
+  .paginacao {
+    flex-direction: column;
+    gap: 8px;
+  }
 }

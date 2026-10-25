@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#171a21"/>
+  <rect x="0" y="0" width="1200" height="630" fill="none" stroke="#3d5a73" stroke-width="2"/>
+  <text x="80" y="300" font-family="Arial, sans-serif" font-size="88" font-weight="700" fill="#ffffff">SkinVault</text>
+  <text x="80" y="380" font-family="Arial, sans-serif" font-size="34" fill="#8f98a0">Nota de 0 a 100 pra skins do CS2</text>
+  <text x="80" y="428" font-family="Arial, sans-serif" font-size="34" fill="#8f98a0">com o motivo escrito, não um palpite</text>
+  <circle cx="1020" cy="300" r="140" fill="#1b2838" stroke="#66c0f4" stroke-width="3"/>
+  <text x="1020" y="325" font-family="Arial, sans-serif" font-size="80" font-weight="700" fill="#a4d007" text-anchor="middle">72</text>
+</svg>

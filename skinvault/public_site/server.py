@@ -11,15 +11,26 @@ from __future__ import annotations
 
 import os
 import secrets
+import urllib.parse
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from skinvault import __version__, recommendations, scan_store
+from skinvault import __version__, recommendations, scan_store, scan_targets
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
-from skinvault.public_site import fmt
+from skinvault.public_site import fmt, visits
+
+_MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
+# Mesmo template de icons.py:_CDN_URL_TPL -- não importado de lá porque é
+# um nome privado do módulo; o site público nunca baixa/cacheia o ícone
+# (isso é coisa do app desktop), só referencia a URL pública do CDN direto
+# no <img>, pro navegador do visitante buscar.
+_ICON_CDN_URL = (
+    "https://community.cloudflare.steamstatic.com/economy/image/"
+    "{hash}/96fx96f"
+)
 from skinvault.public_site.account import bp as account_bp
 from skinvault.public_site.history_routes import bp as history_bp
 from skinvault.public_site.trades_routes import bp as trades_bp
@@ -29,7 +40,32 @@ _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 _LIMIT_CANDIDATOS = 20
+_PAGINA_TAMANHO = 20
+_INTERVALO_HORAS_DEFAULT = 6.0
 _SECRET_KEY_PATH = DATA_DIR / "public_site_secret.key"
+
+
+def _parse_float_arg(nome: str) -> float | None:
+    """Lê um query param numérico opcional. Vazio/inválido -> None --
+    nunca `or 0`, que confundiria "não informado" com "zero" (AGENTS.md
+    gotcha #15)."""
+    valor = request.args.get(nome)
+    if valor is None or valor == "":
+        return None
+    try:
+        return float(valor)
+    except ValueError:
+        return None
+
+
+def _parse_int_arg(nome: str, default: int) -> int:
+    valor = request.args.get(nome)
+    if valor is None or valor == "":
+        return default
+    try:
+        return max(1, int(valor))
+    except ValueError:
+        return default
 
 
 def _load_or_create_secret_key() -> bytes:
@@ -83,12 +119,32 @@ def create_app() -> Flask:
 
     @app.route("/")
     def index():
+        visits.registrar()
         scan = scan_store.load_last_scan()
+        categoria = request.args.get("categoria") or None
+        nota_min = _parse_float_arg("nota_min")
+        preco_max = _parse_float_arg("preco_max")
+        pagina = _parse_int_arg("pagina", 1)
+
+        todos = _candidatos_filtrados(scan, categoria, nota_min, preco_max)
+        inicio = (pagina - 1) * _PAGINA_TAMANHO
+        intervalo_horas = float(os.environ.get(
+            "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
         return render_template(
             "index.html",
-            candidatos=_candidatos(scan),
+            candidatos=todos[inicio:inicio + _PAGINA_TAMANHO],
             scan=scan,
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
+            proximo_scan=(scan_store.proxima_txt(scan["ts"], intervalo_horas)
+                         if scan else None),
+            categorias=sorted(scan_targets.SCAN_BY_CATEGORY.keys()),
+            categoria_sel=categoria,
+            nota_min_sel=nota_min,
+            preco_max_sel=preco_max,
+            pagina=pagina,
+            tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
+            tem_pagina_anterior=pagina > 1,
+            total_candidatos=len(todos),
         )
 
     @app.route("/api/recommendations")
@@ -99,7 +155,7 @@ def create_app() -> Flask:
                 "categoria": scan["category"] if scan else None,
                 "ts": scan["ts"] if scan else None,
             },
-            "candidatos": _candidatos(scan),
+            "candidatos": _candidatos_filtrados(scan)[:_LIMIT_CANDIDATOS],
         })
 
     @app.route("/healthz")
@@ -113,16 +169,35 @@ def create_app() -> Flask:
     return app
 
 
-def _candidatos(scan: dict | None) -> list[dict]:
-    """Candidatos públicos: sem dono (sem login ainda), limitado ao topo."""
+def _candidatos_filtrados(
+        scan: "dict | None", categoria: "str | None" = None,
+        nota_min: "float | None" = None,
+        preco_max: "float | None" = None) -> list[dict]:
+    """Candidatos públicos: sem dono (sem login ainda), já filtrados.
+
+    Sem limite aqui de propósito -- a paginação é responsabilidade de quem
+    chama (a rota), não desta função. `buy_candidates` já ordena por nota.
+    """
     if not scan:
         return []
     candidatos = recommendations.buy_candidates(
-        scan["results"], owned_names=set(), limit=_LIMIT_CANDIDATOS)
+        scan["results"], owned_names=set(), limit=len(scan["results"]) or 1)
+    out = []
     for c in candidatos:
+        if categoria and c.get("category") != categoria:
+            continue
+        if nota_min is not None and (c.get("score") or 0) < nota_min:
+            continue
+        if preco_max is not None and (c.get("price") or 0) > preco_max:
+            continue
         c["price_fmt"] = fmt.brl(c.get("price"))
         c["name_fmt"] = localize_name(c.get("name") or "")
-    return candidatos
+        c["icon_url"] = (
+            _ICON_CDN_URL.format(hash=c["icon"]) if c.get("icon") else None)
+        c["market_url"] = _MARKET_LISTING_URL.format(
+            name=urllib.parse.quote(c.get("name") or "", safe=""))
+        out.append(c)
+    return out
 
 
 def run(host: str = "127.0.0.1", port: int = 5050) -> None:

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Minha conta — SkinVault</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -43,6 +44,7 @@
 
     <h2 class="secao-titulo">Suas posições</h2>
     {% if avaliacao.rows %}
+    <div class="tabela-wrap">
     <table class="tabela-candidatos">
       <thead>
         <tr>
@@ -80,6 +82,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
       <p class="status status-vazio">Nenhum item ainda. Adicione o primeiro acima.</p>
     {% endif %}

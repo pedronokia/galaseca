@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SkinVault — Recomendações de skins CS2</title>
   <meta name="description" content="Notas e motivos factuais pra skins do CS2, a partir de dados públicos da Steam Community Market. Não é recomendação de investimento.">
+  <meta property="og:title" content="SkinVault — Recomendações de skins CS2">
+  <meta property="og:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -18,12 +23,34 @@
 
   <main>
     {% if scan %}
-      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).</p>
+      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados). Próximo scan: {{ proximo_scan }}.</p>
     {% else %}
       <p class="status status-vazio">Ainda não há nenhum scan salvo. Volte em breve.</p>
     {% endif %}
 
+    <form class="form-filtros" method="get" action="{{ url_for('index') }}">
+      <label>Categoria
+        <select name="categoria">
+          <option value="">Todas</option>
+          {% for cat in categorias %}
+          <option value="{{ cat }}" {{ "selected" if cat == categoria_sel else "" }}>{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Nota mínima
+        <input type="number" name="nota_min" min="0" max="100" step="1" value="{{ nota_min_sel if nota_min_sel is not none else '' }}">
+      </label>
+      <label>Preço máximo (R$)
+        <input type="number" name="preco_max" min="0" step="0.01" value="{{ preco_max_sel if preco_max_sel is not none else '' }}">
+      </label>
+      <button type="submit">Filtrar</button>
+      {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none %}
+        <a class="botao-link" href="{{ url_for('index') }}">Limpar filtros</a>
+      {% endif %}
+    </form>
+
     {% if candidatos %}
+    <div class="tabela-wrap">
     <table class="tabela-candidatos">
       <thead>
         <tr>
@@ -38,7 +65,12 @@
       <tbody>
         {% for c in candidatos %}
         <tr>
-          <td>{{ c.name_fmt }}</td>
+          <td class="celula-item">
+            {% if c.icon_url %}
+            <img class="icone-item" src="{{ c.icon_url }}" alt="" loading="lazy" width="40" height="40">
+            {% endif %}
+            <a class="link-item" href="{{ c.market_url }}" target="_blank" rel="noopener">{{ c.name_fmt }}</a>
+          </td>
           <td>{{ c.price_fmt }}</td>
           <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
           <td>{{ c.case_label or "—" }}</td>
@@ -50,6 +82,19 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
+
+    <nav class="paginacao">
+      {% if tem_pagina_anterior %}
+        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, pagina=pagina-1) }}">← Página anterior</a>
+      {% endif %}
+      <span class="status-muted">Página {{ pagina }} · {{ total_candidatos }} candidato{{ "s" if total_candidatos != 1 else "" }} no total</span>
+      {% if tem_proxima_pagina %}
+        <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, pagina=pagina+1) }}">Ver mais →</a>
+      {% endif %}
+    </nav>
+    {% elif scan %}
+      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index') }}">Limpar filtros</a>.</p>
     {% else %}
       <p class="status status-vazio">Nenhum candidato no momento.</p>
     {% endif %}

@@ -62,3 +62,21 @@ def idade_txt(ts: float, now: float | None = None) -> str:
         return f"há {int(seg // 3600)} h"
     dias = int(seg // 86400)
     return f"há {dias} dia{'s' if dias != 1 else ''}"
+
+
+def proxima_txt(ts: float, intervalo_horas: float,
+                now: float | None = None) -> str:
+    """"em ~5 h", "em ~20 min", "a qualquer momento" (atrasado).
+
+    `ts` é o fim do último scan (gravado por `worker.run_once`);
+    `intervalo_horas` é o mesmo valor usado pra dormir entre ciclos
+    (ver `SKINVAULT_WORKER_INTERVAL_HORAS`). Só uma estimativa visual --
+    o worker pode demorar mais se o ciclo anterior ainda estiver rodando.
+    """
+    agora = time.time() if now is None else now
+    falta = max(0.0, (ts or 0) + intervalo_horas * 3600 - agora)
+    if falta < 60:
+        return "a qualquer momento"
+    if falta < 3600:
+        return f"em ~{int(falta // 60)} min"
+    return f"em ~{int(falta // 3600)} h"
