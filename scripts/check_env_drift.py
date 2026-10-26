@@ -20,7 +20,7 @@ import sys
 _ESPERADAS: list[tuple[str, str, bool]] = [
     ("SITE_DOMAIN", "domínio público servido pelo Caddy", True),
     ("SKINVAULT_DATA_DIR", "pasta de dados persistida (volume)", True),
-    ("SKINVAULT_ADMIN_TOKEN", "token do painel /admin", False),
+    ("SKINVAULT_ADMIN_PASSWORD_HASH", "hash da senha do /admin/login", False),
     ("SKINVAULT_PUBLIC_SITE_SECURE_COOKIES", "cookies Secure (HTTPS)", False),
     ("SKINVAULT_WORKER_INTERVAL_HORAS", "intervalo do worker (default 6h)", False),
     ("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "alerta Discord de worker atrasado", False),

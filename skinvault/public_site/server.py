@@ -22,9 +22,10 @@ from xml.sax.saxutils import escape as _xml_escape
 
 from flask import (
     Flask, Response, g, jsonify, make_response, redirect, render_template,
-    request, url_for,
+    request, send_from_directory, session, url_for,
 )
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.security import check_password_hash
 
 from skinvault import (
     __version__, ranking, recommendations, scan_store, scan_targets, signals,
@@ -63,7 +64,7 @@ _ERROR_LOG_PATH = DATA_DIR / "errors.log"
 # isso __version__ fica preso em "1.0.0" pra sempre, sem jeito de saber
 # SE um deploy novo de fato subiu. Ausente fora de Docker (dev local).
 _BUILD_ID_PATH = Path(__file__).parent.parent.parent / "BUILD_ID"
-_ADMIN_TOKEN = os.environ.get("SKINVAULT_ADMIN_TOKEN", "")
+_ADMIN_PASSWORD_HASH = os.environ.get("SKINVAULT_ADMIN_PASSWORD_HASH", "")
 
 
 def _build_id() -> "str | None":
@@ -382,6 +383,17 @@ def create_app() -> Flask:
         resp.headers["Cache-Control"] = "public, max-age=2592000, immutable"
         return resp
 
+    @app.route("/sw.js")
+    def service_worker():
+        """Fora de `/static/` de propósito: um service worker só
+        controla (scope) o diretório onde é servido, a menos que o
+        servidor mande `Service-Worker-Allowed` -- rota própria na raiz
+        é mais simples que configurar esse header por cima do
+        `/static/` do Flask."""
+        resp = send_from_directory(_STATIC_DIR, "sw.js")
+        resp.headers["Service-Worker-Allowed"] = "/"
+        return resp
+
     @app.route("/robots.txt")
     def robots():
         # Disallow /admin em defesa de profundidade (2026-10-25) -- o token
@@ -499,15 +511,41 @@ def create_app() -> Flask:
             tem_anterior=anterior is not None,
         )
 
+    @app.route("/admin/login", methods=["GET", "POST"])
+    @rate_limit.rate_limited(rate_limit.LOGIN_MAX_HITS, rate_limit.LOGIN_WINDOW_S)
+    def admin_login():
+        """Login real (usuário único -- é literalmente o dono do site,
+        não precisa de conta/"esqueci a senha"). Troca o token fixo em
+        URL (vazava em log/referrer) por sessão + senha com hash
+        (`werkzeug.security`, PBKDF2/scrypt, zero dependência nova --
+        ver `scripts/hash_admin_password.py`). Sem hash configurado,
+        a rota nem existe pro visitante: sempre 404, nunca abre
+        "sem senha" por padrão."""
+        if not _ADMIN_PASSWORD_HASH:
+            return render_template("404.html"), 404
+        erro = None
+        if request.method == "POST":
+            senha = request.form.get("senha") or ""
+            if check_password_hash(_ADMIN_PASSWORD_HASH, senha):
+                session["admin"] = True
+                return redirect(url_for("admin"))
+            erro = "Senha incorreta."
+        return render_template("admin_login.html", erro=erro)
+
+    @app.route("/admin/logout")
+    def admin_logout():
+        session.pop("admin", None)
+        return redirect(url_for("index"))
+
     @app.route("/admin")
     def admin():
-        """Painel só pro dono, protegido por token fixo em env var (não
-        é um sistema de login de verdade -- pra isso, construir uma
-        conta admin de verdade seria desproporcional a "ver métricas sem
-        SSH"). Sem token configurado = rota sempre nega, nunca abre
-        "sem senha" por padrão."""
-        if not _ADMIN_TOKEN or request.args.get("token") != _ADMIN_TOKEN:
+        """Painel só pro dono -- ver `admin_login` pra como a sessão é
+        criada. Sem hash configurado OU sem sessão válida, a rota
+        sempre nega (404), nunca abre "sem senha" por padrão."""
+        if not _ADMIN_PASSWORD_HASH:
             return render_template("404.html"), 404
+        if not session.get("admin"):
+            return redirect(url_for("admin_login"))
         erros = []
         erros_agregados = []
         grafico_erros = ""

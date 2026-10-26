@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 
 import pytest
+from werkzeug.security import generate_password_hash
 
 from skinvault import ranking, scan_store
 from skinvault.public_site import (
@@ -543,22 +544,48 @@ def test_429_customizado(client, monkeypatch):
     assert "Muitas tentativas".encode("utf-8") in resp.data
 
 
-def test_admin_sem_token_configurado_e_404(client, monkeypatch):
-    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "")
-    resp = client.get("/admin?token=qualquer")
-    assert resp.status_code == 404
+def test_admin_sem_hash_configurado_e_404(client, monkeypatch):
+    monkeypatch.setattr("skinvault.public_site.server._ADMIN_PASSWORD_HASH", "")
+    assert client.get("/admin").status_code == 404
+    assert client.get("/admin/login").status_code == 404
 
 
-def test_admin_com_token_errado_e_404(client, monkeypatch):
-    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "segredo")
-    resp = client.get("/admin?token=errado")
-    assert resp.status_code == 404
+def test_admin_sem_sessao_redireciona_pro_login(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    resp = client.get("/admin")
+    assert resp.status_code == 302
+    assert "/admin/login" in resp.headers["Location"]
 
 
-def test_admin_com_token_certo_funciona(client, monkeypatch):
-    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "segredo")
-    resp = client.get("/admin?token=segredo")
+def test_admin_login_senha_errada_nao_autentica(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    resp = client.post("/admin/login", data={"senha": "errada"})
     assert resp.status_code == 200
+    assert "incorreta" in resp.data.decode("utf-8")
+    assert client.get("/admin").status_code == 302
+
+
+def test_admin_login_senha_certa_autentica_e_funciona(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    login = client.post("/admin/login", data={"senha": "segredo"})
+    assert login.status_code == 302
+    assert client.get("/admin").status_code == 200
+
+
+def test_admin_logout_encerra_sessao(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    client.post("/admin/login", data={"senha": "segredo"})
+    assert client.get("/admin").status_code == 200
+    client.get("/admin/logout")
+    assert client.get("/admin").status_code == 302
 
 
 def test_cookie_preferencia_persiste(client, monkeypatch, tmp_path):
@@ -848,11 +875,14 @@ def test_scan_progress_ausente_e_none(tmp_path):
 
 
 def test_admin_mostra_progresso(client, monkeypatch):
-    monkeypatch.setattr("skinvault.public_site.server._ADMIN_TOKEN", "segredo")
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
     monkeypatch.setattr(
         "skinvault.public_site.server.scan_progress.carregar",
         lambda: {"indice": 10, "total": 185, "item": "Item X", "ts": time.time()})
-    resp = client.get("/admin?token=segredo")
+    client.post("/admin/login", data={"senha": "segredo"})
+    resp = client.get("/admin")
     assert "Item X" in resp.data.decode("utf-8")
 
 
@@ -1152,3 +1182,26 @@ def test_csp_report_tem_rate_limit(monkeypatch):
     for _ in range(2):
         assert c.post("/api/csp-report", data="{}").status_code == 204
     assert c.post("/api/csp-report", data="{}").status_code == 429
+
+
+# ── PWA: manifest + service worker ──────────────────────────
+
+def test_manifest_json_acessivel(client):
+    resp = client.get("/static/manifest.json")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["name"] == "SkinVault"
+    assert data["start_url"] == "/"
+
+
+def test_sw_js_na_raiz_com_scope_amplo(client):
+    resp = client.get("/sw.js")
+    assert resp.status_code == 200
+    assert resp.headers.get("Service-Worker-Allowed") == "/"
+
+
+def test_index_referencia_manifest_e_theme_color(client, monkeypatch):
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    body = client.get("/").data.decode("utf-8")
+    assert "manifest.json" in body
+    assert "theme-color" in body

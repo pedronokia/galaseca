@@ -1,0 +1,14 @@
+{
+  "name": "SkinVault",
+  "short_name": "SkinVault",
+  "description": "Notas e motivos factuais pra skins do CS2, a partir de dados públicos da Steam Community Market.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#171a21",
+  "theme_color": "#171a21",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/static/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

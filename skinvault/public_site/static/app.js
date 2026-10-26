@@ -316,3 +316,10 @@ document.addEventListener("keydown", function (e) {
     }
   });
 })();
+
+// PWA: registra o service worker (ver /sw.js + manifest.json) -- só
+// pra instalabilidade ("Adicionar à tela inicial"); a lógica de cache
+// de verdade vive no próprio sw.js, não aqui.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(function () {});
+}

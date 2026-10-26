@@ -25,7 +25,7 @@ sempre — o `worker` é obrigatório, não opcional.
 | `PORT` | Porta que o `web` escuta — a maioria dos provedores injeta essa variável sozinha. | `8000` |
 | `SKINVAULT_WORKER_INTERVAL_HORAS` | Intervalo entre ciclos do `worker`. | `6` |
 | `SKINVAULT_PUBLIC_SITE_SECURE_COOKIES` | `1` em produção (HTTPS) pra marcar o cookie de sessão como `Secure`. Deixe **vazio/ausente** testando local em `http://`, senão o navegador descarta o cookie e o login nunca "pega". | ausente |
-| `SKINVAULT_ADMIN_TOKEN` | Token do painel `/admin?token=...`. Sem ela, a rota sempre devolve 404. | ausente |
+| `SKINVAULT_ADMIN_PASSWORD_HASH` | Hash da senha do `/admin/login` (gerar com `scripts/hash_admin_password.py`). Sem ela, a rota sempre devolve 404. | ausente |
 | `SKINVAULT_ADMIN_DISCORD_WEBHOOK` | Webhook do Discord do DONO (não do usuário) pra alertar quando o worker passar `SKINVAULT_WORKER_ALERT_HORAS` sem trazer item nenhum -- ver `worker_alert.py`. | ausente (sem alerta) |
 | `SKINVAULT_WORKER_ALERT_HORAS` | Horas sem sucesso antes do alerta acima disparar. | `3` |
 
@@ -153,12 +153,20 @@ o deploy manual, que continua funcionando do mesmo jeito de sempre).
 
 ## Painel admin
 
-`/admin?token=SEU_TOKEN` mostra buscas populares, últimos ciclos, lista
-de backups e os últimos erros 500 -- sem precisar de SSH. Só funciona com
-`SKINVAULT_ADMIN_TOKEN` definido (env var); sem ela, a rota sempre
-devolve 404 (nunca abre "sem senha" por padrão). Não é um sistema de
-login de verdade, é um token fixo -- proporcional ao que a rota faz (ver
-métricas), não construiria uma conta admin completa só pra isto.
+`/admin` mostra buscas populares, últimos ciclos, backups, latência por
+rota, erros agregados e progresso do scan -- sem precisar de SSH. Login
+de verdade em `/admin/login` (usuário único, é o dono do site -- sem
+"esqueci a senha"): senha com hash via `werkzeug.security` (PBKDF2/
+scrypt, zero dependência nova), sessão, sem token na URL (que vazava em
+log/referrer na versão anterior). Gere o hash com:
+
+```bash
+python scripts/hash_admin_password.py
+```
+
+e cole o resultado em `SKINVAULT_ADMIN_PASSWORD_HASH` (env var). Sem
+ela definida, `/admin` e `/admin/login` sempre devolvem 404 -- nunca
+abre "sem senha" por padrão.
 
 ## Segurança (headers)
 
