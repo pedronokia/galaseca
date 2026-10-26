@@ -13,7 +13,7 @@ from werkzeug.security import generate_password_hash
 from skinvault import ranking, scan_store, signals
 from skinvault.public_site import (
     charts, erro_stats, fmt, icon_cache, latencia, rate_limit, scan_progress,
-    worker, worker_alert,
+    user_store, worker, worker_alert,
 )
 from skinvault.public_site.server import create_app
 
@@ -557,6 +557,32 @@ def test_ranking_page_resumo_do_dia_sem_alta_nenhuma(client, monkeypatch):
     assert "resumo-do-dia" in body
     assert "0 itens novos no Top 20" in body.replace("\n", " ")
     assert "maior alta" not in body
+
+
+def test_usuario_logado_aparece_fora_de_conta(client, monkeypatch):
+    """O context processor `_inject_usuario` deve disponibilizar
+    `usuario` em QUALQUER página, não só nas rotas de /conta que já
+    passavam explicitamente -- achado 2026-10-26: `/ranking` (e as
+    outras 20 páginas com `_conta_link.html`) mostravam "Minha conta"
+    genérico mesmo logado, porque `usuario` nunca chegava até elas."""
+    monkeypatch.setattr(
+        user_store, "get_user",
+        lambda steamid, path=None: {
+            "steamid": steamid, "persona_name": "Fulano",
+            "avatar_url": "https://example.com/a.jpg",
+        })
+    with client.session_transaction() as sess:
+        sess["steamid"] = "123"
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "Fulano" in body
+    assert '<span class="conta-nome">Minha conta</span>' not in body
+    assert 'class="conta-avatar"' in body
+
+
+def test_usuario_nao_logado_mostra_entrar_com_steam(client):
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "Entrar com Steam" in body
+    assert "conta-pill" not in body
 
 
 def test_api_health(client, monkeypatch, tmp_path):

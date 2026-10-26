@@ -1,11 +1,18 @@
 {% if session.steamid %}
-  <span class="conta-link">
-    <a href="{{ url_for('account.conta') }}">{{ usuario.persona_name if usuario else "Minha conta" }}</a>
-    · <a href="{{ url_for('trades.listar') }}">Trades</a>
-    · <a href="{{ url_for('watchlist.listar') }}">Watchlist</a>
-    · <a href="{{ url_for('history.listar') }}">Histórico</a>
-    · <a href="{{ url_for('account.logout') }}">Sair</a>
+  <span class="barra-acoes">
+    <nav class="conta-nav">
+      <a href="{{ url_for('trades.listar') }}">Trades</a>
+      <a href="{{ url_for('watchlist.listar') }}">Watchlist</a>
+      <a href="{{ url_for('history.listar') }}">Histórico</a>
+    </nav>
+    <a class="conta-pill" href="{{ url_for('account.conta') }}" title="Minha conta">
+      {% if usuario and usuario.avatar_url %}
+      <img class="conta-avatar" src="{{ usuario.avatar_url }}" alt="" width="24" height="24" loading="lazy">
+      {% endif %}
+      <span class="conta-nome">{{ usuario.persona_name if usuario and usuario.persona_name else "Minha conta" }}</span>
+    </a>
+    <a class="conta-sair" href="{{ url_for('account.logout') }}" title="Sair" aria-label="Sair">⏻</a>
   </span>
 {% else %}
-  <a class="conta-link conta-link-entrar" href="{{ url_for('account.login') }}">Entrar com Steam</a>
+  <a class="conta-link-entrar" href="{{ url_for('account.login') }}">Entrar com Steam</a>
 {% endif %}

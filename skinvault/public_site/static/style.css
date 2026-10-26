@@ -63,9 +63,17 @@ summary:focus-visible {
   left: 0;
 }
 
+/* Barra superior -- espaçamento/tamanho de botão inspirados num padrão
+   comum de dashboard de skins (altura fixa, CTA bem demarcada, pill de
+   conta à direita). NÃO copia saldo/depósito/saque: o SkinVault não faz
+   transação nenhuma, só leitura de dados públicos. */
 header.topo {
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  position: sticky;
+  top: 0;
+  z-index: 30;
 }
 
 header.topo > * {
@@ -76,7 +84,7 @@ header.topo > * {
   padding-right: 24px;
 }
 
-header.topo > .topo-linha { padding-top: 24px; }
+header.topo > .topo-linha { padding-top: 14px; padding-bottom: 14px; }
 header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
 header.topo > .badge-cooldown { padding-bottom: 20px; }
 
@@ -94,39 +102,107 @@ header.topo > .badge-cooldown { padding-bottom: 20px; }
 
 header.topo h1 {
   margin: 0;
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.3px;
   color: var(--text-bright);
+  line-height: 1;
 }
 
 .topo-linha {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+  min-height: 36px;
 }
 
-.conta-link,
-.conta-link a {
+.barra-acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.conta-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.conta-nav a {
   color: var(--text-muted);
   font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.conta-nav a:hover {
+  color: var(--text-bright);
+  background: var(--surface);
   text-decoration: none;
 }
 
-.conta-link a:hover {
-  color: var(--accent-bright);
-  text-decoration: underline;
+.conta-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-bright);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 14px 5px 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.conta-pill:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.conta-avatar {
+  border-radius: 50%;
+  display: block;
+}
+
+.conta-sair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.conta-sair:hover {
+  color: var(--danger);
+  background: var(--surface);
+  text-decoration: none;
 }
 
 .conta-link-entrar {
+  display: inline-block;
   color: var(--bg);
   background: var(--accent);
   border: 1px solid var(--accent);
-  border-radius: 3px;
-  padding: 7px 16px;
-  font-weight: 600;
+  border-radius: 6px;
+  padding: 10px 22px;
+  font-weight: 700;
+  font-size: 0.9rem;
   white-space: nowrap;
+  text-decoration: none;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
 }
@@ -390,7 +466,8 @@ table.tabela-itens {
 .modo-apresentacao .form-filtros,
 .modo-apresentacao .paginacao,
 .modo-apresentacao footer.rodape,
-.modo-apresentacao .conta-link,
+.modo-apresentacao .barra-acoes,
+.modo-apresentacao .conta-link-entrar,
 .modo-apresentacao .barra-comparar,
 .modo-apresentacao .lista-buscas-salvas,
 .modo-apresentacao .botao-topo {
@@ -1048,10 +1125,25 @@ footer.rodape .versao {
     padding: 16px 16px 32px;
   }
 
+  header.topo {
+    /* sticky ocuparia espaço demais quando .barra-acoes quebra linha */
+    position: static;
+  }
+
   .topo-linha {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .barra-acoes {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .conta-nav a {
+    padding: 6px 8px;
+    font-size: 0.8rem;
   }
 
   header.topo h1 {
@@ -1079,11 +1171,6 @@ footer.rodape .versao {
   .form-adicionar button,
   .form-filtros button {
     width: 100%;
-  }
-
-  .conta-link {
-    font-size: 0.78rem;
-    line-height: 1.8;
   }
 
   table.tabela-candidatos {

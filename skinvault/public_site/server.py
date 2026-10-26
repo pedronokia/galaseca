@@ -36,7 +36,8 @@ from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
 from skinvault.public_site import (
     buscas, changelog, charts, db_backup, discord_notify, erro_stats, fmt,
-    icon_cache, latencia, rate_limit, scan_progress, uptime, visits,
+    icon_cache, latencia, rate_limit, scan_progress, user_store, uptime,
+    visits,
 )
 from skinvault.public_site.auth import csrf_token
 
@@ -183,6 +184,19 @@ def create_app() -> Flask:
             "versao": f"{__version__} ({build})" if build else __version__,
             "static_v": static_v,
         }
+
+    @app.context_processor
+    def _inject_usuario():
+        """`usuario` (nome/avatar) disponível em TODO template, não só
+        nas rotas que já passavam explicitamente -- sem isto,
+        `_conta_link.html` mostrava "Minha conta" genérico em vez do
+        nome de verdade fora de `/conta` (2026-10-26). Uma rota que já
+        passa `usuario=...` explicitamente (ex. `account.conta`) apenas
+        sobrescreve este valor com o mesmo dado -- sem conflito."""
+        steamid = session.get("steamid")
+        if not steamid:
+            return {}
+        return {"usuario": user_store.get_user(steamid)}
 
     # Filtros Jinja: nota_classe/risco_nivel/risco_label -- centraliza a
     # classificação de nota e o rótulo de risco, repetida em 4 templates
