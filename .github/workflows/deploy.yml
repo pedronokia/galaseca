@@ -29,7 +29,13 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             cd ~/skinvault
-            git pull origin main
+            # fetch + reset --hard (nunca "pull"): um merge imprevisível
+            # se o checkout da VM tiver divergido (já aconteceu com scp
+            # manual) é pior que simplesmente igualar a origin/main --
+            # mesma lição já aplicada no fluxo de deploy manual.
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
             # Só "web" (nunca "worker"): reiniciar o worker dispara um
             # ciclo de scan na hora (ver worker.py `main()`), e isso não
             # pode acontecer num horário imprevisível por causa de um

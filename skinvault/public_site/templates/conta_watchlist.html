@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Minha watchlist — SkinVault</title>
+  <meta name="robots" content="noindex">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -11,6 +12,7 @@
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -19,7 +21,7 @@
     <p class="subtitulo">Itens que você acompanha — avaliado com o preço e os dados já guardados, sem chamada nova à Steam.</p>
   </header>
 
-  <main>
+  <main id="conteudo">
     <h2 class="secao-titulo">Adicionar item</h2>
     <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -30,9 +32,12 @@
 
     <h2 class="secao-titulo">Alerta no Discord (opcional)</h2>
     <p class="status">Cole a URL de um webhook de um canal seu. Quando um item disparar um alerta, mandamos uma mensagem lá — no máximo uma por item a cada hora, pra não encher o canal.</p>
+    {% if erro_webhook %}
+    <p class="status status-erro">Essa URL não parece um webhook da Discord (precisa começar com <code>https://discord.com/api/webhooks/</code>) — não foi salva.</p>
+    {% endif %}
     <form class="form-adicionar" method="post" action="{{ url_for('watchlist.salvar_webhook') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}">
+      <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord">
       <button type="submit">Salvar</button>
     </form>
 

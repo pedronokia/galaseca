@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -23,7 +24,7 @@
     <p class="subtitulo">A mesma lista do dashboard, em JSON.</p>
   </header>
 
-  <main class="pagina-texto">
+  <main id="conteudo" class="pagina-texto">
     <h2 class="secao-titulo">GET /api/recommendations</h2>
     <p>Pública, sem autenticação, sem limite de taxa específico (mas
     nada educado abusa). Só leitura -- essa rota nunca fala com a Steam,

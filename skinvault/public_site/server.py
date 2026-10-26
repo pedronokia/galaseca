@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import os
+import re
 import secrets
 import shutil
 import sqlite3
@@ -688,6 +689,25 @@ def create_app() -> Flask:
         flash_msg = "Enviado -- confira o canal." if enviado else \
             "Falhou (webhook ausente ou Discord recusou)."
         return redirect(url_for("admin", teste_webhook=flash_msg))
+
+    @app.route("/admin/backup/<nome>")
+    def admin_backup_download(nome: str):
+        """Download de um backup do SQLite -- o painel já lista os nomes
+        (`backups=`, acima) desde a rodada anterior, mas sem link nenhum
+        pra baixar nenhum deles. Valida `nome` contra o formato EXATO que
+        `db_backup.fazer_backup_se_necessario` gera (whitelist por regex,
+        não só confiar no `send_from_directory` resolver o path -- mesmo
+        princípio do `backup._DATA_FILES` do app desktop)."""
+        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
+            return render_template("404.html"), 404
+        if not re.fullmatch(r"public_site-\d{8}-\d{6}\.db", nome):
+            return render_template("404.html"), 404
+        caminho = db_backup._BACKUP_DIR / nome
+        if not caminho.is_file():
+            return render_template("404.html"), 404
+        return send_from_directory(
+            db_backup._BACKUP_DIR, nome,
+            as_attachment=True, mimetype="application/octet-stream")
 
     @app.route("/admin/log-bruto")
     def admin_log_bruto():

@@ -146,6 +146,15 @@ header.topo h1 {
   text-decoration: none;
 }
 
+.conta-nav a[aria-current="page"] {
+  color: var(--text-bright);
+  background: var(--surface);
+}
+
+.conta-pill[aria-current="page"] {
+  border-color: var(--accent);
+}
+
 .conta-pill {
   display: flex;
   align-items: center;
@@ -239,6 +248,14 @@ main {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
+}
+
+.status-erro {
+  color: var(--danger);
+  background: rgba(224, 87, 74, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  padding: 8px 12px;
 }
 
 .resumo-do-dia {

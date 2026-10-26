@@ -8,13 +8,14 @@
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
     </div>
   </header>
 
-  <main class="pagina-texto">
+  <main id="conteudo" class="pagina-texto">
     <h2 class="secao-titulo">Muitas tentativas em pouco tempo</h2>
     <p>Essa ação (login ou algum formulário de conta) tem um limite de
     tentativas por minuto, pra evitar abuso. Espera um minuto e tenta

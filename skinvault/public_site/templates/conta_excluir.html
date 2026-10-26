@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Excluir minha conta — SkinVault</title>
+  <meta name="robots" content="noindex">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -11,6 +12,7 @@
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -19,7 +21,7 @@
     <p class="subtitulo">Excluir conta</p>
   </header>
 
-  <main>
+  <main id="conteudo">
     <div class="card card-aviso">
       <p><strong>Isto é irreversível.</strong> Ao confirmar, apagamos pra sempre:</p>
       <ul>

@@ -105,6 +105,7 @@ def listar():
         "conta_watchlist.html", items=avaliados,
         csrf_token=csrf_token(),
         webhook_url=user_webhook.get_webhook_url(steamid),
+        erro_webhook=bool(request.args.get("erro_webhook")),
     )
 
 
@@ -115,6 +116,10 @@ def listar():
 def salvar_webhook():
     steamid = session["steamid"]
     url = (request.form.get("webhook_url") or "").strip()
+    # URL vazia limpa o webhook (válido); URL não-vazia precisa bater
+    # com o formato oficial da Discord -- ver discord_notify.url_valida.
+    if url and not discord_notify.url_valida(url):
+        return redirect(url_for("watchlist.listar", erro_webhook="1"))
     user_webhook.set_webhook_url(steamid, url)
     return redirect(url_for("watchlist.listar"))
 

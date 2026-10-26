@@ -10,13 +10,35 @@ pode travar nem quebrar o carregamento de `/conta/watchlist`.
 """
 from __future__ import annotations
 
+import re
+
 _TIMEOUT = 5.0
+
+# Formato oficial de webhook do Discord (discord.com ou o domínio legado
+# discordapp.com, ambos ainda aceitos pela própria Discord). Validar
+# contra isso ANTES de deixar o servidor fazer o POST é a defesa contra
+# SSRF: sem isso, um usuário logado podia colar qualquer URL (endpoint
+# de metadata da nuvem, serviço interno do Docker) em `webhook_url` e o
+# próprio servidor faria a requisição toda vez que ele abrisse
+# `/conta/watchlist` com um alerta disparado -- achado em auditoria,
+# 2026-10-26.
+_WEBHOOK_RE = re.compile(
+    r"^https://(discord|discordapp)\.com/api/webhooks/\d+/[\w.-]+/?$")
+
+
+def url_valida(url: str) -> bool:
+    """True só pro formato oficial de webhook do Discord."""
+    return bool(url) and bool(_WEBHOOK_RE.match(url))
 
 
 def enviar(webhook_url: str, mensagem: str) -> bool:
     """POST no webhook do Discord. True se aceito (204), False em
-    qualquer outro caso -- nunca levanta exceção pra quem chama."""
-    if not webhook_url:
+    qualquer outro caso -- nunca levanta exceção pra quem chama.
+
+    Revalida o formato aqui dentro (não só na rota que salva a URL):
+    é a ÚLTIMA linha de defesa antes da requisição de rede sair, caso
+    uma URL inválida chegue até aqui por outro caminho."""
+    if not url_valida(webhook_url):
         return False
     try:
         import httpx

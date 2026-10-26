@@ -24,6 +24,7 @@
       {"@type": "Question", "name": "A nota é recomendação de investimento?", "acceptedAnswer": {"@type": "Answer", "text": "Não. A nota descreve dados já medidos -- nunca prevê o futuro. Desempenho passado não garante nada, e a decisão de comprar ou vender é sempre sua."}},
       {"@type": "Question", "name": "De onde vêm os preços?", "acceptedAnswer": {"@type": "Answer", "text": "Direto da Steam Community Market, de forma pública (o mesmo preço que qualquer um vê no site da Steam). O SkinVault não é afiliado à Valve."}},
       {"@type": "Question", "name": "Por que às vezes os dados parecem desatualizados?", "acceptedAnswer": {"@type": "Answer", "text": "A Steam limita quantas vezes um mesmo endereço pode consultar o mercado por minuto. Quando esse limite é atingido, o próximo scan fica temporariamente bloqueado -- o site avisa com um banner quando isso acontece, em vez de esconder o problema."}},
+      {"@type": "Question", "name": "Dá pra instalar o SkinVault como app no celular?", "acceptedAnswer": {"@type": "Answer", "text": "Sim. No Chrome/Edge (Android) ou Safari (iOS), use 'Adicionar à tela inicial' no menu do navegador -- o site abre como um app, sem barra de endereço, sem precisar baixar nada de loja nenhuma."}},
       {"@type": "Question", "name": "O SkinVault é gratuito?", "acceptedAnswer": {"@type": "Answer", "text": "Sim, sem custo pra usar."}},
       {"@type": "Question", "name": "Quem mantém o SkinVault?", "acceptedAnswer": {"@type": "Answer", "text": "Um projeto de uma pessoa só, código aberto no GitHub."}}
     ]
@@ -31,6 +32,7 @@
   </script>
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -39,7 +41,7 @@
     <p class="subtitulo">Respostas diretas, sem enrolação.</p>
   </header>
 
-  <main class="pagina-texto">
+  <main id="conteudo" class="pagina-texto">
     <h2 class="secao-titulo">O que é o SkinVault?</h2>
     <p>Um painel que dá nota de 0 a 100 pra skins de CS2, a partir de dados
     públicos da Steam Community Market, com o motivo escrito pra cada nota
@@ -72,6 +74,11 @@
     mercado por minuto. Quando esse limite é atingido, o próximo scan fica
     temporariamente bloqueado -- o site avisa com um banner quando isso
     acontece, em vez de esconder o problema. Ver <a href="{{ url_for('status') }}">status</a> pro histórico de ciclos.</p>
+
+    <h2 class="secao-titulo">Dá pra instalar o SkinVault como app no celular?</h2>
+    <p>Sim. No Chrome/Edge (Android) ou Safari (iOS), use "Adicionar à
+    tela inicial" no menu do navegador -- o site abre como um app, sem
+    barra de endereço, sem precisar baixar nada de loja nenhuma.</p>
 
     <h2 class="secao-titulo">O SkinVault é gratuito?</h2>
     <p>Sim, sem custo pra usar.</p>

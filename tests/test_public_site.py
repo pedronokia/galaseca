@@ -1437,6 +1437,22 @@ def test_faq_no_rodape(client):
     assert "/faq" in body
 
 
+def test_faq_menciona_instalacao_pwa(client):
+    body = client.get("/faq").data.decode("utf-8")
+    assert "tela inicial" in body
+    assert body.count('"@type": "Question"') == body.count("<h2 class=\"secao-titulo\">")
+
+
+def test_glossario_page(client):
+    resp = client.get("/glossario")
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "DefinedTermSet" in body
+    assert body.count('"@type": "DefinedTerm"') == body.count("<dt><strong>")
+    assert "Steam Community Market" in body
+    assert "Procura × Oferta" in body
+
+
 def test_sitemap_inclui_faq(client):
     body = client.get("/sitemap.xml").data.decode("utf-8")
     assert "/faq" in body
@@ -1505,6 +1521,67 @@ def test_admin_log_bruto_com_sessao_baixa_arquivo(client, monkeypatch, tmp_path)
     resp = client.get("/admin/log-bruto")
     assert resp.status_code == 200
     assert b"linha de erro" in resp.data
+
+
+def test_admin_backup_download_sem_sessao_e_404(client):
+    resp = client.get("/admin/backup/public_site-20261026-120000.db")
+    assert resp.status_code == 404
+
+
+def test_admin_backup_download_com_sessao_baixa_arquivo(client, monkeypatch, tmp_path):
+    backup = tmp_path / "public_site-20261026-120000.db"
+    backup.write_bytes(b"dados falsos de sqlite")
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr(
+        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+    client.post("/admin/login", data={"senha": "segredo"})
+    resp = client.get("/admin/backup/public_site-20261026-120000.db")
+    assert resp.status_code == 200
+    assert resp.data == b"dados falsos de sqlite"
+
+
+def test_admin_backup_download_rejeita_nome_fora_do_padrao(client, monkeypatch, tmp_path):
+    # Caso que a validação por regex existe pra pegar: nome que tenta
+    # escapar do diretório de backups ou que simplesmente não é um
+    # backup de verdade.
+    alvo = tmp_path / "secreto.txt"
+    alvo.write_text("não deveria ser servido", encoding="utf-8")
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr(
+        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+    client.post("/admin/login", data={"senha": "segredo"})
+    for nome in ("../secreto.txt", "secreto.txt", "public_site-123.db",
+                "public_site-20261026-120000.db.bak"):
+        resp = client.get(f"/admin/backup/{nome}")
+        assert resp.status_code in (404, 400), nome
+
+
+def test_admin_backup_download_arquivo_inexistente_e_404(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr(
+        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+    client.post("/admin/login", data={"senha": "segredo"})
+    resp = client.get("/admin/backup/public_site-20261026-120000.db")
+    assert resp.status_code == 404
+
+
+def test_admin_lista_backups_tem_link_de_download(client, monkeypatch, tmp_path):
+    backup = tmp_path / "public_site-20261026-120000.db"
+    backup.write_bytes(b"x")
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr(
+        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+    client.post("/admin/login", data={"senha": "segredo"})
+    body = client.get("/admin").data.decode("utf-8")
+    assert "/admin/backup/public_site-20261026-120000.db" in body
 
 
 def test_disco_info_nao_quebra_sem_dados():
@@ -1600,6 +1677,58 @@ def test_classes_com_hidden_tem_guarda_display_none():
         f"Classe(s) usadas com `hidden` no HTML, com `display` no CSS, "
         f"sem guarda `.classe[hidden] {{ display: none; }}`: {sem_guarda} "
         "-- o elemento aparece mesmo hidden (AGENTS.md gotcha #16)")
+
+
+# ── Rodada 4: acessibilidade -- skip-link + noindex em todo template ──
+
+def test_todo_template_tem_skip_link_e_main_com_id():
+    """Até 2026-10-26 só `index.html` tinha o link "Pular pro conteúdo"
+    e `id="conteudo"` no `<main>` -- as outras 21 páginas (item, ranking,
+    conta/*, admin/*, erro 404/429/500 etc.) não tinham nenhum dos dois,
+    deixando quem navega só por teclado sem atalho pra pular a barra
+    superior. Varredura genérica pra nunca faltar de novo numa página
+    nova."""
+    from pathlib import Path
+
+    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    sem_skip_link = []
+    sem_main_id = []
+    for template in raiz.glob("*.html"):  # só as páginas, não partials/
+        html = template.read_text(encoding="utf-8")
+        if "link-pular-conteudo" not in html:
+            sem_skip_link.append(template.name)
+        if 'id="conteudo"' not in html:
+            sem_main_id.append(template.name)
+
+    assert not sem_skip_link, f"Sem skip-link: {sem_skip_link}"
+    assert not sem_main_id, f"<main> sem id=\"conteudo\": {sem_main_id}"
+
+
+def test_paginas_de_conta_sao_noindex():
+    """Páginas pessoais atrás de login nunca devem ser indexadas --
+    defesa em profundidade (já não aparecem em sitemap.xml, mas um
+    crawler pode achar por outro caminho, ex. um link direto)."""
+    from pathlib import Path
+
+    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    paginas = ["conta.html", "conta_excluir.html", "conta_historico.html",
+              "conta_trades.html", "conta_watchlist.html"]
+    sem_noindex = [
+        p for p in paginas
+        if "noindex" not in (raiz / p).read_text(encoding="utf-8")
+    ]
+    assert not sem_noindex, f"Sem <meta name=\"robots\" content=\"noindex\">: {sem_noindex}"
+
+
+def test_nav_de_conta_marca_pagina_ativa(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.user_store.get_user",
+        lambda steamid, path=None: None)
+    with client.session_transaction() as sess:
+        sess["steamid"] = "123"
+    body = client.get("/conta/trades").data.decode("utf-8")
+    assert 'href="/conta/trades" aria-current="page"' in body
+    assert 'href="/conta/watchlist" aria-current="page"' not in body
 
 
 # ── Rodada 3: performance -- historico so' pra fatia visivel ──

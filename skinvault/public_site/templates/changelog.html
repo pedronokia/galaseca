@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -23,7 +24,7 @@
     <p class="subtitulo">O que mudou no site, por data.</p>
   </header>
 
-  <main class="pagina-texto">
+  <main id="conteudo" class="pagina-texto">
     {% for entrada in entradas %}
     <h2 class="secao-titulo">{{ entrada.data }} — {{ entrada.titulo }}</h2>
     <ul>

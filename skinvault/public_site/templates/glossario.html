@@ -19,17 +19,24 @@
     "@type": "DefinedTermSet",
     "name": "Glossário SkinVault",
     "hasDefinedTerm": [
+      {"@type": "DefinedTerm", "name": "Steam Community Market", "description": "O mercado oficial da própria Steam pra comprar e vender itens do jogo, incluindo skins de CS2. O SkinVault só lê os preços públicos de lá -- não vende nada, não cobra taxa, não é afiliado à Valve."},
       {"@type": "DefinedTerm", "name": "Desgaste", "description": "O estado visual de uma skin, de Nova de Fábrica (menos desgastada) até Veterana de Guerra (mais desgastada). Afeta o preço."},
       {"@type": "DefinedTerm", "name": "StatTrak™", "description": "Variante de uma skin que conta abates/rounds feitos com ela. Costuma custar mais que a versão normal do mesmo item."},
       {"@type": "DefinedTerm", "name": "Souvenir", "description": "Variante de arma que só sai de cápsulas de torneio, sem StatTrak. Geralmente mais rara e mais cara que a versão normal."},
+      {"@type": "DefinedTerm", "name": "Float", "description": "Número entre 0 e 1 que define o desgaste exato de um item específico dentro da faixa do seu Desgaste. O SkinVault não mostra float individual -- só o preço agregado por faixa de desgaste."},
       {"@type": "DefinedTerm", "name": "Nota", "description": "Número de 0 a 100 que o SkinVault calcula pra cada item, resumindo sinais factuais do mercado -- não é previsão."},
+      {"@type": "DefinedTerm", "name": "Preço típico", "description": "A mediana dos preços recentes do item -- o preço normal dele, usado como referência pra saber se o preço atual está caro ou barato."},
       {"@type": "DefinedTerm", "name": "Caixa descontinuada", "description": "Caixa que parou de ser sorteada no jogo (saiu do drop pool). Historicamente tende a valorizar mais que caixas ainda ativas."},
-      {"@type": "DefinedTerm", "name": "Risco", "description": "No SkinVault, mede só uma coisa: chance de o preço ter subido rápido e artificialmente recentemente."}
+      {"@type": "DefinedTerm", "name": "Risco", "description": "No SkinVault, mede só uma coisa: chance de o preço ter subido rápido e artificialmente recentemente."},
+      {"@type": "DefinedTerm", "name": "Trade-up", "description": "Mecânica do próprio CS2: trocar 10 skins da mesma raridade por uma skin de raridade superior (aleatória, dentro de um conjunto possível)."},
+      {"@type": "DefinedTerm", "name": "Covert", "description": "Uma das raridades de skin no CS2 (a mais alta entre as comuns, antes das facas/luvas). Aparece com borda vermelha no jogo."},
+      {"@type": "DefinedTerm", "name": "Procura × Oferta", "description": "Quantos itens são vendidos por dia comparado a quantos estão à venda agora. Abaixo de 1 significa mais gente vendendo do que comprando -- um dos fatores que compõem a nota."}
     ]
   }
   </script>
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -38,8 +45,13 @@
     <p class="subtitulo">O que cada termo significa.</p>
   </header>
 
-  <main class="pagina-texto">
+  <main id="conteudo" class="pagina-texto">
     <dl>
+      <dt><strong>Steam Community Market</strong></dt>
+      <dd>O mercado oficial da própria Steam pra comprar e vender itens do
+      jogo, incluindo skins de CS2. O SkinVault só lê os preços públicos de
+      lá -- não vende nada, não cobra taxa, não é afiliado à Valve.</dd>
+
       <dt><strong>Desgaste</strong></dt>
       <dd>O estado visual de uma skin: Nova de Fábrica, Pouco Usada, Testada
       em Campo, Bem Desgastada ou Veterana de Guerra -- nessa ordem, da
@@ -89,6 +101,11 @@
       <dt><strong>Covert</strong></dt>
       <dd>Uma das raridades de skin no CS2 (a mais alta entre as "comuns",
       antes das facas/luvas). Aparece com borda vermelha no jogo.</dd>
+
+      <dt><strong>Procura × Oferta</strong></dt>
+      <dd>Quantos itens são vendidos por dia comparado a quantos estão à
+      venda agora. Abaixo de 1 significa mais gente vendendo do que
+      comprando -- um dos fatores que compõem a nota.</dd>
     </dl>
   </main>
 

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -17,7 +18,7 @@
     <p class="subtitulo">Painel interno -- build {{ build or "dev" }}.</p>
   </header>
 
-  <main class="pagina-texto">
+  <main id="conteudo" class="pagina-texto">
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Visitas totais</span><span class="card-valor">{{ visitas }}</span></div>
       <div class="card"><span class="card-label">Backups guardados</span><span class="card-valor">{{ backups|length }}</span></div>
@@ -79,7 +80,7 @@
     {% if backups %}
     <ul>
       {% for nome in backups %}
-      <li>{{ nome }}</li>
+      <li>{{ nome }} — <a href="{{ url_for('admin_backup_download', nome=nome) }}">baixar</a></li>
       {% endfor %}
     </ul>
     {% else %}

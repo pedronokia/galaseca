@@ -153,21 +153,41 @@ def test_itens_isolados_entre_contas(client, monkeypatch):
 
 # ── webhook Discord ──────────────────────────────────────────
 
+_WEBHOOK_OK = "https://discord.com/api/webhooks/111/abcDEF"
+
+
 def test_salvar_webhook(client, monkeypatch):
     _login(client, monkeypatch)
     token = _csrf_token(client)
     client.post("/conta/watchlist/webhook", data={
-        "webhook_url": "https://discord.example/hook", "csrf_token": token,
+        "webhook_url": _WEBHOOK_OK, "csrf_token": token,
     })
     pagina = client.get("/conta/watchlist").data.decode("utf-8")
-    assert "https://discord.example/hook" in pagina
+    assert _WEBHOOK_OK in pagina
+
+
+def test_salvar_webhook_url_invalida_nao_salva(client, monkeypatch):
+    # Caso que motivou a correção (SSRF): uma URL que não é um webhook
+    # de verdade da Discord não pode ser persistida.
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    resp = client.post("/conta/watchlist/webhook", data={
+        "webhook_url": "http://169.254.169.254/latest/meta-data/",
+        "csrf_token": token,
+    })
+    assert resp.status_code == 302
+    assert "erro_webhook" in resp.headers["Location"]
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "169.254.169.254" not in pagina
+    assert "não parece um webhook" in pagina
 
 
 def test_webhook_isolado_entre_contas(client, monkeypatch):
     _login(client, monkeypatch, steamid="111")
     token = _csrf_token(client)
     client.post("/conta/watchlist/webhook", data={
-        "webhook_url": "https://discord.example/hook-111", "csrf_token": token,
+        "webhook_url": "https://discord.com/api/webhooks/111/hook-111",
+        "csrf_token": token,
     })
     client.get("/logout")
     _login(client, monkeypatch, steamid="222")
@@ -183,14 +203,14 @@ def test_item_disparado_envia_webhook(client, monkeypatch):
     _login(client, monkeypatch)
     token = _csrf_token(client)
     client.post("/conta/watchlist/webhook", data={
-        "webhook_url": "https://discord.example/hook", "csrf_token": token,
+        "webhook_url": _WEBHOOK_OK, "csrf_token": token,
     })
     client.post("/conta/watchlist", data={
         "name": "AK-47", "target": "50", "csrf_token": token,
     })
     client.get("/conta/watchlist")
     assert len(chamadas) == 1
-    assert chamadas[0][0] == "https://discord.example/hook"
+    assert chamadas[0][0] == _WEBHOOK_OK
 
 
 def test_item_nao_disparado_nao_envia_webhook(client, monkeypatch):
@@ -201,7 +221,7 @@ def test_item_nao_disparado_nao_envia_webhook(client, monkeypatch):
     _login(client, monkeypatch)
     token = _csrf_token(client)
     client.post("/conta/watchlist/webhook", data={
-        "webhook_url": "https://discord.example/hook", "csrf_token": token,
+        "webhook_url": _WEBHOOK_OK, "csrf_token": token,
     })
     # AK-47 preco = 10.0, target bem abaixo -- nao dispara
     client.post("/conta/watchlist", data={

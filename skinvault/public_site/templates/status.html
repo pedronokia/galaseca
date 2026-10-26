@@ -25,6 +25,7 @@
   </script>
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -33,7 +34,7 @@
     <p class="subtitulo">Status do site, com transparência — inclusive quando o scan falha.</p>
   </header>
 
-  <main class="pagina-texto">
+  <main id="conteudo" class="pagina-texto">
     <section class="resumo-cards">
       <div class="card"><span class="card-label">No ar desde</span><span class="card-valor">{{ no_ar_desde_txt }}</span></div>
       <div class="card"><span class="card-label">Visitas ao dashboard</span><span class="card-valor">{{ visitas }}</span></div>

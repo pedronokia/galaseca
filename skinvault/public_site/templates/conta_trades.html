@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Meus trades — SkinVault</title>
+  <meta name="robots" content="noindex">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -11,6 +12,7 @@
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -19,7 +21,7 @@
     <p class="subtitulo">Trades já encerrados (compra e venda concluídas) — lucro já com a taxa da Steam descontada.</p>
   </header>
 
-  <main>
+  <main id="conteudo">
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Trades registrados</span><span class="card-valor">{{ stats.total }}</span></div>
       <div class="card">

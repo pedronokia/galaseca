@@ -25,6 +25,7 @@
   </script>
 </head>
 <body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
       <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
@@ -33,7 +34,7 @@
     <p class="subtitulo">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
   </header>
 
-  <main>
+  <main id="conteudo">
     {% if itens %}
       <p class="status">Atualizado {{ quando }}.{% if not tem_anterior %} Ainda não há um scan anterior pra comparar posição.{% endif %}</p>
       {% if resumo_do_dia %}
