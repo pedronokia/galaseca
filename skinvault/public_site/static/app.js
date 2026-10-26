@@ -182,7 +182,7 @@ document.addEventListener("keydown", function (e) {
     var lista = ler();
     var barra = document.getElementById("barra-comparar");
     if (!barra) return;
-    if (lista.length < 2) { barra.hidden = true; return; }
+    if (lista.length < 1) { barra.hidden = true; return; }
     barra.hidden = false;
     var contagem = barra.querySelector(".contagem-comparar");
     if (contagem) contagem.textContent = lista.length;

@@ -918,6 +918,7 @@ footer.rodape .versao {
   cursor: pointer;
 }
 
+.barra-comparar[hidden] { display: none; }
 .barra-comparar {
   position: fixed;
   left: 50%;
@@ -1002,6 +1003,7 @@ footer.rodape .versao {
 }
 
 /* ── Contagem de favoritos ────────────────────────────── */
+.contagem-favoritos[hidden] { display: none; }
 .contagem-favoritos {
   display: inline-block;
   background: var(--warn);
@@ -1014,6 +1016,7 @@ footer.rodape .versao {
 }
 
 /* ── Buscas salvas ────────────────────────────────────── */
+.lista-buscas-salvas[hidden] { display: none; }
 .lista-buscas-salvas {
   display: flex;
   flex-wrap: wrap;

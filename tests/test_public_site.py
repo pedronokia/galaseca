@@ -1516,6 +1516,66 @@ def test_style_css_comentarios_balanceados():
         "e pode estar engolindo CSS real (ver style.css)")
 
 
+def test_classes_com_hidden_tem_guarda_display_none():
+    """Gotcha #16 do AGENTS.md: `.classe { display: ... }` tem
+    especificidade maior que o `[hidden]` da UA stylesheet sozinho, então
+    um elemento que nasce `hidden` no HTML aparece visível mesmo assim se
+    a classe define `display`. Já mordeu 3 vezes (.add-item-form,
+    .stat-row, .barra-comparar -- achada ao vivo nesta rodada: a barra de
+    comparar aparecia com "0/3 selecionados" na tela toda, mesmo sem
+    nada marcado). Esta varredura confere TODA classe usada junto de
+    `hidden` num template contra uma guarda `.classe[hidden] { display:
+    none; }` no CSS, pra pegar a próxima de uma vez."""
+    import re
+    from pathlib import Path
+
+    raiz = Path(__file__).parent.parent / "skinvault" / "public_site"
+    css = (raiz / "static" / "style.css").read_text(encoding="utf-8")
+
+    classes_com_hidden = set()
+    for template in (raiz / "templates").rglob("*.html"):
+        html = template.read_text(encoding="utf-8")
+        for tag in re.findall(r"<[a-z][^>]*>", html):
+            if re.search(r"\bhidden\b", tag):
+                m = re.search(r'class="([^"]+)"', tag)
+                if m:
+                    classes_com_hidden.update(m.group(1).split())
+
+    # Regras CSS sem comentario, pra nao confundir selector comentado.
+    css_sem_comentarios = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+    # Só SELETORES COMPOSTOS SIMPLES contam pra "define display" -- um
+    # seletor descendente tipo ".modo-apresentacao .classe { display:
+    # none }" é condicional a um ancestral, não sobrescreve o `[hidden]`
+    # sozinho (e já é `display: none`, então nem seria o bug mesmo).
+    regras_simples = []  # [(seletor_composto, corpo)]
+    for seletores, corpo in re.findall(r"([^{}]+)\{([^{}]*)\}", css_sem_comentarios):
+        for sel in seletores.split(","):
+            sel = sel.strip()
+            if sel and not re.search(r"[\s>+~]", sel):
+                regras_simples.append((sel, corpo))
+
+    sem_guarda = []
+    for classe in sorted(classes_com_hidden):
+        token = f".{classe}"
+        define_display = any(
+            token in sel and "[hidden]" not in sel and "display" in corpo
+            for sel, corpo in regras_simples)
+        if not define_display:
+            continue  # classe nunca define display sozinha -- [hidden] da UA basta
+        tem_guarda = any(
+            token in sel and "[hidden]" in sel
+            and re.search(r"display\s*:\s*none", corpo)
+            for sel, corpo in regras_simples)
+        if not tem_guarda:
+            sem_guarda.append(classe)
+
+    assert not sem_guarda, (
+        f"Classe(s) usadas com `hidden` no HTML, com `display` no CSS, "
+        f"sem guarda `.classe[hidden] {{ display: none; }}`: {sem_guarda} "
+        "-- o elemento aparece mesmo hidden (AGENTS.md gotcha #16)")
+
+
 # ── Rodada 3: performance -- historico so' pra fatia visivel ──
 
 def test_candidatos_filtrados_sem_historico_nao_calcula_sparkline():
