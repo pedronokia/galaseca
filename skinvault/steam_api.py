@@ -23,6 +23,7 @@ especificamente sendo sinalizado (ver `_http_get`).
 """
 from __future__ import annotations
 
+import concurrent.futures
 import html as _html
 import json
 import re
@@ -30,6 +31,13 @@ import time
 import urllib.parse
 
 import httpx
+
+# Pool fixo, pequeno -- so' existe pra dar um timeout DE VERDADE em
+# _http_get (ver docstring de la'). Um worker travado nunca morre (Python
+# nao mata thread a forca), mas o tamanho fixo limita o estrago: no pior
+# caso, 4 threads presas pra sempre, nunca mais que isso.
+_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="steam_api_http")
 
 _APP_CS2 = 730
 _CONTEXT = 2
@@ -125,12 +133,27 @@ def _http_get(url: str, timeout: float = 15.0) -> tuple[int, str | None]:
     `follow_redirects=True` porque a listing page do Market as vezes
     redireciona (ex. normalizacao de URL) -- urllib seguia isso sozinho
     por padrao; httpx exige o parametro explicito, senao devolveria o
-    302 em vez da pagina final."""
-    try:
+    302 em vez da pagina final.
+
+    Rodado num thread pool com timeout PROPRIO (nao so' o `timeout=`
+    passado pro httpx) -- achado ao vivo em 2026-10-26: o worker do site
+    publico travou minutos inteiros numa chamada, mesmo com
+    `timeout=15.0` no httpx. Causa provavel: resolucao de DNS pendurada
+    (o resolver interno da Oracle Cloud, `169.254.169.254`) -- o timeout
+    de socket do Python NAO cobre a fase de `getaddrinfo`, so' o connect
+    depois que o IP ja' foi resolvido. Sem isto, 1 lookup de DNS
+    pendurado travava o scan inteiro pro resto do ciclo."""
+    def _pedido() -> tuple[int, str | None]:
         resp = httpx.get(url, headers={"User-Agent": _UA}, timeout=timeout,
                          follow_redirects=True)
         return resp.status_code, resp.text
-    except httpx.HTTPError:
+
+    futuro = _EXECUTOR.submit(_pedido)
+    try:
+        return futuro.result(timeout=timeout)
+    except (httpx.HTTPError, concurrent.futures.TimeoutError):
+        return 0, None
+    except Exception:
         return 0, None
 
 

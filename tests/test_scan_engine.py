@@ -224,3 +224,38 @@ def test_run_full_scan_categories_vazio_nao_chama_nada(monkeypatch):
             chamados.append(name))
     scan_engine.run_full_scan({})
     assert chamados == []
+
+
+def test_scan_item_nao_quebra_com_diff_pct_none(monkeypatch):
+    """Achado ao vivo (2026-10-26): quando a mediana não vem (item sem
+    histórico suficiente), `fair_value_verdict` devolve `diff_pct: None`
+    de propósito (não ausente -- a CHAVE existe com valor None).
+    `.get("diff_pct", 0)` sozinho não pega esse caso (o default só vale
+    pra chave ausente) e `None <= 0` derrubava o scan inteiro do item
+    com TypeError. Trava a correção de scan_engine.py:125."""
+    monkeypatch.setattr(
+        "skinvault.steam_api.get_market_overview",
+        lambda name: {"lowest": 100.0, "median": None, "volume": None})
+    monkeypatch.setattr(
+        "skinvault.steam_api.get_market_page_data",
+        lambda name: {
+            "order_book": None, "price_history": [],
+            "order_book_approx": False, "meta": {},
+        })
+    monkeypatch.setattr(
+        "skinvault.steam_api.fair_value_verdict",
+        lambda lowest, median, **kw: {
+            "label": "—", "diff_pct": None, "verdict": "unknown",
+            "spread_verdict": None, "book_verdict": None,
+            "trend_verdict": None,
+        })
+    monkeypatch.setattr("skinvault.signals.record_item_price",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("skinvault.signals.record_item_volume",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr("skinvault.signals.record_item_supply",
+                        lambda *a, **kw: None)
+
+    resultado = scan_engine.scan_item("Item Sem Mediana")
+    assert resultado is not None
+    assert resultado["verdict_ok"] is True  # None tratado como 0 <= 0

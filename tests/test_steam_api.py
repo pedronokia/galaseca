@@ -390,6 +390,30 @@ def test_http_get_segue_redirecionamento(monkeypatch):
     assert recebido.get("follow_redirects") is True
 
 
+def test_http_get_timeout_de_verdade_nao_trava_pra_sempre(monkeypatch):
+    """Uma chamada que pendura (ex. DNS travado, achado 2026-10-26) tem
+    que devolver (0, None) dentro do timeout configurado, nunca ficar
+    bloqueada pra sempre -- é o que o `concurrent.futures` em volta do
+    httpx.get garante, além do `timeout=` do próprio httpx."""
+    import threading
+    import time as time_mod
+
+    liberar = threading.Event()
+
+    def _pendurado(url, **kw):
+        liberar.wait()  # só libera se o teste mandar -- simula o hang
+        return MockResponse()
+
+    monkeypatch.setattr("skinvault.steam_api.httpx.get", _pendurado)
+    inicio = time_mod.time()
+    code, body = steam_api._http_get("http://x", timeout=0.3)
+    duracao = time_mod.time() - inicio
+    assert code == 0
+    assert body is None
+    assert duracao < 2.0  # bem menor que um hang de minutos
+    liberar.set()  # libera a thread presa pro teste não vazar um warning
+
+
 # ── _get_json ──────────────────────────────────────────────────────
 
 

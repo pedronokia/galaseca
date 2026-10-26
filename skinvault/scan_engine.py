@@ -122,7 +122,12 @@ def scan_item(name: str, category: str | None = None,
         # Codigo interno traduzido na hora (textos.py) -- quem exibe nao
         # precisa saber "tight"/"buyer_dominant"/"rising".
         "verdict": verdict.get("label", "—"),
-        "verdict_ok": verdict.get("diff_pct", 0) <= 0,
+        # `.get("diff_pct", 0)` sozinho não bastava: o default só vale
+        # pra CHAVE ausente, não quando ela existe mas é None (achado ao
+        # vivo em 2026-10-26, item com mediana indisponível -- mesma
+        # armadilha do `||`/`or` do AGENTS.md #15, versão Python).
+        "verdict_ok": (verdict.get("diff_pct")
+                       if verdict.get("diff_pct") is not None else 0) <= 0,
         "spread": (textos.traduz(textos.SPREAD, verdict.get("spread_verdict"))
                    + (approx_suffix if verdict.get("spread_verdict") else "")),
         "book": (textos.traduz(textos.BOOK, verdict.get("book_verdict"))
