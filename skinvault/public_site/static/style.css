@@ -16,6 +16,23 @@
   --positive: #a4d007;
   --warn: #e4b03c;
   --danger: #e0574a;
+
+  /* Escala de raio e sombra (auditoria visual, 2026-10-26) -- antes
+     cada componente tinha seu próprio número (3/4/6/10/14/20/24px de
+     raio; pelo menos 7 combinações distintas de box-shadow), sem
+     nenhum reaproveitado de verdade entre componentes do mesmo
+     "nível". --radius-pill fica fora da lista de propósito: um pill de
+     verdade precisa de raio >= metade da própria altura, então cada
+     badge/pill continua calculando o seu (10/14/20/24px) em vez de
+     forçar um valor único que quebraria a forma em alturas diferentes.
+     --shadow-sm pros cards "no nível da página" (.card, tabela
+     principal); --shadow-md/--shadow-lg pra elementos fixos flutuando
+     por cima do conteúdo (toast, barra de comparar, botão de topo). */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
 
 * { box-sizing: border-box; }
@@ -28,8 +45,13 @@ body {
   line-height: 1.5;
 }
 
-a { color: var(--accent); }
+a { color: var(--accent); transition: color 0.15s ease; }
 a:hover { color: var(--accent-bright); }
+
+/* Checkbox nativo sem isto renderia o azul/branco padrão do sistema
+   operacional em cima de um tema escuro inteiro customizado -- destoa
+   visualmente de todo o resto. */
+input[type="checkbox"] { accent-color: var(--accent); }
 
 /* Foco visível pra navegação só por teclado (achado de auditoria,
    2026-10-25) -- outline explícito em vez de confiar no padrão do
@@ -247,14 +269,15 @@ main {
   text-align: center;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
 }
 
 .status-erro {
   color: var(--danger);
   background: rgba(224, 87, 74, 0.1);
   border: 1px solid var(--danger);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 8px 12px;
 }
 
@@ -263,9 +286,10 @@ main {
   font-size: 0.9rem;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 10px 14px;
   margin: 0 0 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .tabela-wrap {
@@ -278,9 +302,9 @@ table.tabela-candidatos {
   border-collapse: collapse;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
 }
 
 table.tabela-candidatos th,
@@ -361,7 +385,7 @@ table.tabela-itens {
   object-fit: contain;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
 
@@ -383,7 +407,7 @@ table.tabela-itens {
   cursor: pointer;
   font-size: 0.85rem;
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
 
@@ -413,8 +437,9 @@ table.tabela-itens {
   margin-bottom: 16px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
 .grupo-categoria summary {
@@ -466,7 +491,7 @@ table.tabela-itens {
   display: block;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 2px 6px;
   color: var(--text-muted);
   font-size: 0.75rem;
@@ -579,7 +604,8 @@ footer.rodape .versao {
   padding: 14px 16px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
 }
 
 .form-filtros label {
@@ -594,7 +620,7 @@ footer.rodape .versao {
 .form-filtros input {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 7px 8px;
   color: var(--text);
   font-size: 0.88rem;
@@ -605,7 +631,7 @@ footer.rodape .versao {
 .form-filtros button {
   background: var(--accent);
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 8px 16px;
   color: var(--bg);
   cursor: pointer;
@@ -645,9 +671,9 @@ footer.rodape .versao {
   gap: 4px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 14px 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-sm);
   transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
 }
 
@@ -666,6 +692,14 @@ footer.rodape .versao {
   font-size: 1.3rem;
   font-weight: 700;
   color: var(--text-bright);
+}
+
+/* O selo de Nota (.nota) dentro de um .card (item.html) herdava o
+   1.3rem do .card-valor por ordem de declaração -- ficava maior que o
+   mesmo selo em qualquer outro lugar do site (tabela, ranking), sem
+   decisão de design por trás disso. Volta pro tamanho padrão do selo. */
+.card-valor.nota {
+  font-size: 0.85rem;
 }
 
 .valor-positivo { color: var(--positive); }
@@ -687,7 +721,7 @@ footer.rodape .versao {
 .form-adicionar input {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 8px 10px;
   color: var(--text);
   font-size: 0.9rem;
@@ -701,7 +735,7 @@ footer.rodape .versao {
 .form-adicionar button {
   background: var(--positive);
   border: 1px solid var(--positive);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 8px 16px;
   color: #0f1a06;
   cursor: pointer;
@@ -715,7 +749,7 @@ footer.rodape .versao {
 .botao-link {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 8px 14px;
   color: var(--text);
   cursor: pointer;
@@ -738,7 +772,7 @@ footer.rodape .versao {
   width: 90px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 4px 6px;
   color: var(--text);
   font-size: 0.85rem;
@@ -792,7 +826,7 @@ footer.rodape .versao {
 .form-regras input {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 6px 8px;
   color: var(--text);
   width: 160px;
@@ -802,7 +836,7 @@ footer.rodape .versao {
   align-self: flex-end;
   background: var(--accent);
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 8px 14px;
   color: var(--bg);
   cursor: pointer;
@@ -860,7 +894,7 @@ footer.rodape .versao {
   background: var(--danger);
   color: #fff;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 10px 18px;
   cursor: pointer;
   font-size: 0.9rem;
@@ -880,6 +914,7 @@ footer.rodape .versao {
 .pagina-texto li {
   color: var(--text-muted);
   line-height: 1.6;
+  margin: 0 0 14px;
 }
 
 .pagina-texto ul {
@@ -900,11 +935,12 @@ footer.rodape .versao {
 
 .pagina-texto .secao-titulo {
   color: var(--text);
+  font-size: 1.3rem;
 }
 
 .pagina-texto code {
   background: var(--surface);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   padding: 2px 6px;
   font-size: 0.85em;
   color: var(--accent-bright);
@@ -913,12 +949,13 @@ footer.rodape .versao {
 .bloco-codigo {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 14px 16px;
   overflow-x: auto;
   font-size: 0.82rem;
   color: var(--text);
   line-height: 1.5;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ── Modo compacto ────────────────────────────────────── */
@@ -947,7 +984,7 @@ footer.rodape .versao {
   padding: 10px 14px;
   background: rgba(228, 176, 60, 0.12);
   border: 1px solid var(--warn);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   color: var(--warn);
   font-size: 0.85rem;
 }
@@ -972,7 +1009,7 @@ footer.rodape .versao {
   cursor: pointer;
   font-size: 0.9rem;
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
 
@@ -1025,7 +1062,7 @@ footer.rodape .versao {
   border: 1px solid var(--accent);
   border-radius: 24px;
   padding: 10px 18px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-lg);
   z-index: 10;
   font-size: 0.85rem;
 }
@@ -1171,6 +1208,13 @@ footer.rodape .versao {
     grid-template-columns: 1fr 1fr;
   }
 
+  /* Card com valor longo (ex. nome de caixa) fica apertado em 2
+     colunas numa tela pequena -- 1.1rem ainda lê bem e sobra mais
+     espaço de verdade pro conteúdo. */
+  .card-valor {
+    font-size: 1.1rem;
+  }
+
   .form-adicionar,
   .form-filtros,
   .form-regras {
@@ -1205,5 +1249,22 @@ footer.rodape .versao {
   .paginacao {
     flex-direction: column;
     gap: 8px;
+  }
+}
+
+/* Telas bem estreitas (celular em pé, ~360-400px): o pill de conta
+   (avatar + nome) ao lado do menu de navegação pode ficar apertado com
+   um nome de usuário Steam longo. Trunca com reticências em vez de
+   esconder o nome inteiro -- Steam sempre dá um avatar padrão a quem
+   nunca trocou, mas não custa nada não depender disso pra sobrar texto
+   visível no pill. */
+@media (max-width: 400px) {
+  .conta-nome {
+    display: inline-block;
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
   }
 }

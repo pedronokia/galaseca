@@ -1679,6 +1679,24 @@ def test_classes_com_hidden_tem_guarda_display_none():
         "-- o elemento aparece mesmo hidden (AGENTS.md gotcha #16)")
 
 
+def test_todas_as_custom_properties_usadas_estao_definidas():
+    """`var(--token)` sem a definição correspondente em `:root` cai pro
+    valor inicial da propriedade em vez de dar erro -- quebra silenciosa
+    (ex. `border-radius: var(--raio-sm)` com typo vira `border-radius:
+    0`, sem aviso nenhum no navegador). Varredura pega isso sem precisar
+    de um parser CSS de verdade."""
+    import re
+    from pathlib import Path
+
+    css = (Path(__file__).parent.parent / "skinvault" / "public_site"
+          / "static" / "style.css").read_text(encoding="utf-8")
+    m = re.search(r":root\s*\{([^}]*)\}", css)
+    definidas = set(re.findall(r"--([\w-]+)\s*:", m.group(1)))
+    usadas = set(re.findall(r"var\(--([\w-]+)\)", css))
+    faltando = usadas - definidas
+    assert not faltando, f"var(--x) sem definição em :root: {faltando}"
+
+
 # ── Rodada 4: acessibilidade -- skip-link + noindex em todo template ──
 
 def test_todo_template_tem_skip_link_e_main_com_id():
