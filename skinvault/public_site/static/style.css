@@ -347,12 +347,28 @@ table.tabela-itens {
   table-layout: fixed;
 }
 
-/* Largura por <colgroup> (ver cabecalho_tabela() em index.html), não
+/* Largura por <colgroup> (ver colgroup_itens() em index.html), não
    th:nth-child/td:nth-child -- achado 2026-10-26: as duas regras
    davam resultado DIFERENTE pro cabeçalho e pro corpo da mesma coluna
    (td ficava bem mais estreito que o th correspondente) quando a
    célula do corpo tinha filhos flex com largura intrínseca -- o
-   <colgroup> é a única fonte de verdade, sem essa ambiguidade. */
+   <colgroup> é a única fonte de verdade, sem essa ambiguidade.
+
+   As larguras ficam em CLASSE, nunca em `style="width: ..."` no <col>
+   -- achado ao vivo em 2026-10-27: o CSP do site (`style-src 'self'`,
+   sem 'unsafe-inline') bloqueia TODO atributo style="" inline, incluindo
+   os do <col>. O navegador descartava a largura em silêncio (sem erro
+   visível pro usuário, só um aviso no console) e table-layout:fixed sem
+   nenhuma largura declarada caía pra distribuição ~igual entre colunas
+   -- o nome do item (coluna mais importante) ficava espremido a ponto
+   de truncar pra "P…" com qualquer nome um pouco mais longo. */
+.col-item { width: 28%; }
+.col-preco { width: 9%; }
+.col-historico { width: 12%; }
+.col-nota { width: 7%; }
+.col-caixa { width: 18%; }
+.col-risco { width: 8%; }
+.col-porque { width: 18%; }
 
 .celula-item {
   display: block;

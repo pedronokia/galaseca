@@ -1697,6 +1697,54 @@ def test_todas_as_custom_properties_usadas_estao_definidas():
     assert not faltando, f"var(--x) sem definição em :root: {faltando}"
 
 
+def test_nenhum_template_usa_style_inline():
+    """O CSP do site (`style-src 'self'`, sem 'unsafe-inline') bloqueia
+    TODO atributo `style="..."` -- o navegador descarta em silêncio, só
+    com um aviso no console, sem quebrar a página visivelmente na hora.
+    Achado ao vivo em 2026-10-27: `<col style="width: 28%">` no
+    colgroup_itens() nunca funcionou em produção por causa disso --
+    table-layout:fixed sem nenhuma largura aplicada caiu pra distribuição
+    ~igual entre colunas, truncando o nome do item pra "P…". Largura
+    (ou qualquer outro valor) tem que vir de uma classe CSS, nunca de
+    `style=` inline."""
+    import re
+    from pathlib import Path
+
+    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    com_style_inline = []
+    for template in raiz.rglob("*.html"):
+        html = template.read_text(encoding="utf-8")
+        if re.search(r'''\sstyle\s*=\s*["']''', html):
+            com_style_inline.append(str(template.relative_to(raiz)))
+
+    assert not com_style_inline, (
+        f"Template(s) com style=\"...\" inline, bloqueado pelo CSP "
+        f"style-src 'self': {com_style_inline}")
+
+
+def test_colunas_da_tabela_principal_somam_100_por_cento():
+    """As classes que substituíram `<col style="width: ...">` (ver teste
+    acima) precisam continuar somando 100% -- senão table-layout:fixed
+    sobra/falta espaço na última coluna."""
+    import re
+    from pathlib import Path
+
+    raiz = Path(__file__).parent.parent / "skinvault" / "public_site"
+    css = (raiz / "static" / "style.css").read_text(encoding="utf-8")
+    html = (raiz / "templates" / "index.html").read_text(encoding="utf-8")
+
+    classes_no_colgroup = re.findall(r'<col class="(col-\w+)">', html)
+    assert len(classes_no_colgroup) == 7, (
+        f"Esperava 7 colunas no colgroup_itens(), achei {len(classes_no_colgroup)}")
+
+    total = 0
+    for classe in classes_no_colgroup:
+        m = re.search(r"\." + re.escape(classe) + r"\s*\{\s*width:\s*(\d+)%", css)
+        assert m, f"Classe {classe} usada no colgroup mas sem regra de largura em style.css"
+        total += int(m.group(1))
+    assert total == 100, f"Larguras das colunas somam {total}%, não 100%"
+
+
 # ── Rodada 4: acessibilidade -- skip-link + noindex em todo template ──
 
 def test_todo_template_tem_skip_link_e_main_com_id():
