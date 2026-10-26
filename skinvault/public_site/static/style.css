@@ -439,6 +439,20 @@ table.tabela-itens {
 
 .detalhe-motivo summary::-webkit-details-marker { display: none; }
 
+/* Clampa em 2 linhas com reticências quando fechado -- sem isso, um
+   "Por quê" de 4-5 fatores virava um parágrafo de 5+ linhas, esticando
+   a linha inteira da tabela bem além do que as outras colunas
+   precisam (achado visual, 2026-10-27: deixava a tabela com um ritmo
+   vertical bem irregular, cada linha com uma altura bem diferente).
+   O texto completo continua um clique de distância -- é um <details>,
+   não está escondido de verdade. */
+.detalhe-motivo:not([open]) summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .lista-breakdown {
   margin: 6px 0 0;
   padding-left: 18px;
@@ -563,7 +577,6 @@ table.tabela-itens {
 }
 
 .selo-descontinuada {
-  display: inline-block;
   color: var(--positive);
   border: 1px solid var(--positive);
   border-radius: 10px;
@@ -573,7 +586,20 @@ table.tabela-itens {
   /* Sem nowrap de propósito (2026-10-26): nome de caixa longo (ex.
      "Operation Breakout Weapon Case") com nowrap numa coluna de
      largura travada (table-layout: fixed) vazava visualmente por
-     cima da coluna seguinte. */
+     cima da coluna seguinte. Clampado em 2 linhas (2026-10-27) em vez
+     de deixar crescer livre -- nome de 4+ palavras esticava a linha
+     inteira da tabela; nome completo continua no title= (tooltip). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.texto-caixa {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .nota {

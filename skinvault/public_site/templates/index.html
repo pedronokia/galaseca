@@ -67,9 +67,9 @@
     <td class="nota nota-{{ c.score|nota_classe }}">{{ c.score }}</td>
     <td>
       {% if c.descontinuada %}
-        <span class="selo-descontinuada" title="Caixa fora do drop pool -- historicamente valoriza mais">{{ c.case_label }}</span>
+        <span class="selo-descontinuada" title="{{ c.case_label }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label }}</span>
       {% else %}
-        {{ c.case_label or "—" }}
+        <span class="texto-caixa" title="{{ c.case_label }}">{{ c.case_label or "—" }}</span>
       {% endif %}
     </td>
     <td class="risco risco-{{ c.pump_risk|risco_nivel }}">
