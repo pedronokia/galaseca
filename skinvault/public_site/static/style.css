@@ -191,10 +191,47 @@ table.tabela-candidatos tbody tr:hover {
   background: var(--surface);
 }
 
+/* Larguras travadas (table-layout: fixed) só na tabela principal de
+   itens -- achado 2026-10-26: sem isso, o navegador redistribui as
+   colunas de forma instável sempre que a largura disponível aperta
+   (barra lateral de extensão, por exemplo), espremendo "Por quê" a
+   ponto de quebrar caractere por caractere. Não aplica em
+   .tabela-candidatos puro, que `status.html`/`ranking.html` reusam
+   com outro número de colunas. */
+table.tabela-itens {
+  table-layout: fixed;
+}
+
+/* Largura por <colgroup> (ver cabecalho_tabela() em index.html), não
+   th:nth-child/td:nth-child -- achado 2026-10-26: as duas regras
+   davam resultado DIFERENTE pro cabeçalho e pro corpo da mesma coluna
+   (td ficava bem mais estreito que o th correspondente) quando a
+   célula do corpo tinha filhos flex com largura intrínseca -- o
+   <colgroup> é a única fonte de verdade, sem essa ambiguidade.
+
 .celula-item {
+  display: block;
+}
+
+.celula-item-principal {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.celula-item-principal .link-item {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.celula-item-acoes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
 }
 
 .icone-item {
@@ -304,12 +341,8 @@ table.tabela-candidatos tbody tr:hover {
 
 .link-secundario:hover { color: var(--accent-bright); }
 
-.celula-item {
-  flex-wrap: wrap;
-  row-gap: 4px;
-}
-
 .input-tag-local {
+  display: block;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -317,7 +350,7 @@ table.tabela-candidatos tbody tr:hover {
   color: var(--text-muted);
   font-size: 0.75rem;
   width: 100%;
-  flex-basis: 100%;
+  margin-top: 4px;
 }
 
 .input-tag-local:focus {
@@ -366,13 +399,17 @@ table.tabela-candidatos tbody tr:hover {
 }
 
 .selo-descontinuada {
+  display: inline-block;
   color: var(--positive);
   border: 1px solid var(--positive);
   border-radius: 10px;
   padding: 2px 9px;
   font-size: 0.8rem;
   cursor: help;
-  white-space: nowrap;
+  /* Sem nowrap de propósito (2026-10-26): nome de caixa longo (ex.
+     "Operation Breakout Weapon Case") com nowrap numa coluna de
+     largura travada (table-layout: fixed) vazava visualmente por
+     cima da coluna seguinte. */
 }
 
 .nota {
@@ -761,7 +798,7 @@ footer.rodape .versao {
   height: 24px;
 }
 
-.modo-compacto .celula-item {
+.modo-compacto .celula-item-principal {
   gap: 6px;
 }
 
@@ -958,6 +995,10 @@ footer.rodape .versao {
   /* Sparkline ocupa espaço que falta em tela pequena -- o histórico
      completo continua disponível na página de detalhe do item. */
   .celula-sparkline { display: none; }
+
+  /* Larguras travadas (ver regra desktop acima) presumem as 7 colunas
+     -- com uma escondida, volta pro auto pra não sobrar vão em branco. */
+  table.tabela-itens { table-layout: auto; }
 
   .paginacao {
     flex-direction: column;
