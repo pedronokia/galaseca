@@ -84,6 +84,11 @@
       {% if tempo_aposentadoria %}
       <div class="card"><span class="card-label">Aposentada há</span><span class="card-valor">{{ tempo_aposentadoria }}</span></div>
       {% endif %}
+      {% if itens_da_caixa %}
+      <div class="card" title="Quantas skins desta caixa já estão mapeadas no SkinVault -- não é a contagem oficial do jogo">
+        <span class="card-label">Itens desta caixa</span><span class="card-valor">{{ itens_da_caixa }}</span>
+      </div>
+      {% endif %}
     </section>
     {% if preco_coletado_txt %}
     <p class="status">Preço deste item coletado {{ preco_coletado_txt }}.</p>

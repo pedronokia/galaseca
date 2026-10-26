@@ -401,3 +401,21 @@ document.addEventListener("click", function (e) {
     mostrarToast("CSV baixado.");
   }
 });
+
+// Prefetch da página de detalhes ao passar o mouse no link "Detalhes" --
+// quando o visitante de fato clica, a página já está no cache do
+// navegador. `rel="prefetch"` é uma dica (o navegador pode ignorar sob
+// dados limitados/economia de bateria); nunca prefetch em toque (mobile
+// não tem hover de verdade, e isso dispararia prefetch em todo scroll).
+(function () {
+  var jaPrefetchado = {};
+  document.addEventListener("mouseover", function (e) {
+    var link = e.target.closest('a.link-secundario[href^="/item/"]');
+    if (!link || jaPrefetchado[link.href]) return;
+    jaPrefetchado[link.href] = true;
+    var tag = document.createElement("link");
+    tag.rel = "prefetch";
+    tag.href = link.href;
+    document.head.appendChild(tag);
+  });
+})();

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glossário — SkinVault</title>
+  <meta name="description" content="O que cada termo usado no SkinVault significa, pra quem está começando com skins de CS2.">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="{{ request.url }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+  <meta name="theme-color" content="#171a21">
+  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "DefinedTermSet",
+    "name": "Glossário SkinVault",
+    "hasDefinedTerm": [
+      {"@type": "DefinedTerm", "name": "Desgaste", "description": "O estado visual de uma skin, de Nova de Fábrica (menos desgastada) até Veterana de Guerra (mais desgastada). Afeta o preço."},
+      {"@type": "DefinedTerm", "name": "StatTrak™", "description": "Variante de uma skin que conta abates/rounds feitos com ela. Costuma custar mais que a versão normal do mesmo item."},
+      {"@type": "DefinedTerm", "name": "Souvenir", "description": "Variante de arma que só sai de cápsulas de torneio, sem StatTrak. Geralmente mais rara e mais cara que a versão normal."},
+      {"@type": "DefinedTerm", "name": "Nota", "description": "Número de 0 a 100 que o SkinVault calcula pra cada item, resumindo sinais factuais do mercado -- não é previsão."},
+      {"@type": "DefinedTerm", "name": "Caixa descontinuada", "description": "Caixa que parou de ser sorteada no jogo (saiu do drop pool). Historicamente tende a valorizar mais que caixas ainda ativas."},
+      {"@type": "DefinedTerm", "name": "Risco", "description": "No SkinVault, mede só uma coisa: chance de o preço ter subido rápido e artificialmente recentemente."}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-linha">
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      {% include "partials/_conta_link.html" %}
+    </div>
+    <p class="subtitulo">O que cada termo significa.</p>
+  </header>
+
+  <main class="pagina-texto">
+    <dl>
+      <dt><strong>Desgaste</strong></dt>
+      <dd>O estado visual de uma skin: Nova de Fábrica, Pouco Usada, Testada
+      em Campo, Bem Desgastada ou Veterana de Guerra -- nessa ordem, da
+      menos pra mais desgastada. Afeta o preço (geralmente quanto menos
+      desgastada, mais cara).</dd>
+
+      <dt><strong>StatTrak™</strong></dt>
+      <dd>Variante de uma skin que conta abates/rounds feitos com ela.
+      Costuma custar mais que a versão normal do mesmo item.</dd>
+
+      <dt><strong>Souvenir</strong></dt>
+      <dd>Variante de arma que só sai de cápsulas de torneio (compradas
+      durante partidas assistidas em campeonatos oficiais), sem StatTrak.
+      Geralmente mais rara e mais cara que a versão normal.</dd>
+
+      <dt><strong>Float</strong></dt>
+      <dd>Número entre 0 e 1 que define o desgaste exato de um item
+      específico dentro da faixa do seu "Desgaste" (acima). O SkinVault não
+      mostra float individual -- só o preço agregado por faixa de
+      desgaste.</dd>
+
+      <dt><strong>Nota</strong></dt>
+      <dd>Número de 0 a 100 que o SkinVault calcula pra cada item,
+      resumindo sinais factuais do mercado de agora -- não é previsão. Ver
+      <a href="{{ url_for('metodo') }}">como a nota funciona</a>.</dd>
+
+      <dt><strong>Preço típico</strong></dt>
+      <dd>A mediana dos preços recentes do item -- o "preço normal" dele,
+      usado como referência pra saber se o preço atual está caro ou
+      barato.</dd>
+
+      <dt><strong>Caixa/Cápsula descontinuada</strong></dt>
+      <dd>Caixa ou cápsula que parou de ser sorteada no jogo (saiu do
+      "drop pool"). Historicamente, itens de caixas descontinuadas tendem a
+      valorizar mais que os de caixas ainda ativas.</dd>
+
+      <dt><strong>Risco</strong></dt>
+      <dd>No SkinVault, mede só uma coisa: a chance de o preço ter subido
+      rápido e possivelmente artificialmente recentemente. Não cobre outros
+      tipos de risco.</dd>
+
+      <dt><strong>Trade-up</strong></dt>
+      <dd>Mecânica do próprio CS2: trocar 10 skins da mesma raridade por
+      uma skin de raridade superior (aleatória, dentro de um conjunto
+      possível).</dd>
+
+      <dt><strong>Covert</strong></dt>
+      <dd>Uma das raridades de skin no CS2 (a mais alta entre as "comuns",
+      antes das facas/luvas). Aparece com borda vermelha no jogo.</dd>
+    </dl>
+  </main>
+
+  <footer class="rodape">
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

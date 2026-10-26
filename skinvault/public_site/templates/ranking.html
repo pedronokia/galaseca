@@ -36,6 +36,14 @@
   <main>
     {% if itens %}
       <p class="status">Atualizado {{ quando }}.{% if not tem_anterior %} Ainda não há um scan anterior pra comparar posição.{% endif %}</p>
+      {% if resumo_do_dia %}
+      <p class="resumo-do-dia">
+        Comparado com o ranking de {{ resumo_do_dia.quando }}:
+        {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }} no Top 20{% if resumo_do_dia.maior_alta %}; maior alta de nota foi
+        <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
+        ({{ resumo_do_dia.maior_alta.de }} → {{ resumo_do_dia.maior_alta.para }}){% endif %}.
+      </p>
+      {% endif %}
       <div class="tabela-wrap">
       <table class="tabela-candidatos">
         <thead>

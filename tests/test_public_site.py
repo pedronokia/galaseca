@@ -10,7 +10,7 @@ import time
 import pytest
 from werkzeug.security import generate_password_hash
 
-from skinvault import ranking, scan_store
+from skinvault import ranking, scan_store, signals
 from skinvault.public_site import (
     charts, erro_stats, fmt, icon_cache, latencia, rate_limit, scan_progress,
     worker, worker_alert,
@@ -237,6 +237,7 @@ def test_static_app_js_tem_atalho_e_notas_locais(client):
     body = resp.data.decode("utf-8")
     assert "keydown" in body
     assert "skinvault_notas" in body
+    assert "mouseover" in body and "prefetch" in body
 
 
 def test_robots_txt(client):
@@ -471,6 +472,9 @@ def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
     monkeypatch.setattr(
         "skinvault.public_site.server.ranking.previous_snapshot",
         lambda: {"ts": 900.0, "items": [{"name": "Y", "score": 1, "position": 1}]})
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.latest_before",
+        lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert "selo-novo" in body
 
@@ -488,9 +492,71 @@ def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
             {"name": "X", "score": 75, "position": 3},
             {"name": "Y", "score": 70, "position": 1},
         ]})
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.latest_before",
+        lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert "tendencia-alta" in body
     assert "tendencia-baixa" in body
+
+
+def test_ranking_page_resumo_do_dia_sem_snapshot_antigo(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.latest_before",
+        lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "resumo-do-dia" not in body
+
+
+def test_ranking_page_resumo_do_dia_com_snapshot_antigo(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+            {"name": "Y", "score": 70, "position": 2},
+        ]}])
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.latest_before",
+        lambda ts: {"ts": 900.0, "items": [
+            {"name": "X", "score": 60, "position": 2},
+        ]})
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "resumo-do-dia" in body
+    assert "1 item novo no Top 20" in body
+    assert "X" in body
+
+
+def test_ranking_page_resumo_do_dia_sem_alta_nenhuma(client, monkeypatch):
+    # Unico item em comum caiu de nota -- "maior alta" nao deve aparecer,
+    # so' a contagem de novos (0, aqui).
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 40, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "skinvault.public_site.server.ranking.latest_before",
+        lambda ts: {"ts": 900.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+        ]})
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "resumo-do-dia" in body
+    assert "0 itens novos no Top 20" in body.replace("\n", " ")
+    assert "maior alta" not in body
 
 
 def test_api_health(client, monkeypatch, tmp_path):
@@ -661,6 +727,33 @@ def test_feed_com_scan_lista_item(client, monkeypatch, tmp_path):
     assert "<item>" in body
     assert "nota 85" in body
     assert "steamcommunity.com/market/listings" in body
+
+
+def test_feed_filtrado_por_categoria(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [], "category": "Rifles"},
+        {"name": "M9 Bayonet | Doppler", "score": 60,
+         "price": 500.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [], "category": "Facas"},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/feed.xml?categoria=Facas").data.decode("utf-8")
+    assert "M9 Bayonet" in body
+    assert "AK-47" not in body
+    # categoria inexistente -- ignora o filtro em vez de devolver vazio
+    body_invalida = client.get("/feed.xml?categoria=NaoExiste").data.decode("utf-8")
+    assert "AK-47" in body_invalida
+    assert "M9 Bayonet" in body_invalida
+
+
+def test_opensearch_xml(client):
+    resp = client.get("/opensearch.xml")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/opensearchdescription+xml"
+    assert b"OpenSearchDescription" in resp.data
+    assert b"searchTerms" in resp.data
 
 
 # ── worker ───────────────────────────────────────────────────
@@ -1044,6 +1137,27 @@ def test_item_detail_sem_data_aposentadoria_nao_mostra_card(client, monkeypatch,
     assert "Aposentada há" not in resp.data.decode("utf-8")
 
 
+def test_item_detail_mostra_itens_da_caixa(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Chroma 2 Case", "score": 85, "price": 1.0, "case_label": "Descontinuada",
+         "case": "Chroma 2 Case", "pump_risk": {"level": "low"},
+         "category": "Caixas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/item/Chroma 2 Case").data.decode("utf-8")
+    assert "Itens desta caixa" in body
+
+
+def test_item_detail_sem_caixa_nao_mostra_card_de_itens(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert "Itens desta caixa" not in body
+
+
 # ── erro_stats ────────────────────────────────────────────────
 
 def test_agregar_por_tipo_conta_por_excecao():
@@ -1400,3 +1514,51 @@ def test_style_css_comentarios_balanceados():
     assert abre == fecha, (
         f"{abre} '/*' contra {fecha} '*/' -- algum comentário não fechou "
         "e pode estar engolindo CSS real (ver style.css)")
+
+
+# ── Rodada 3: performance -- historico so' pra fatia visivel ──
+
+def test_candidatos_filtrados_sem_historico_nao_calcula_sparkline():
+    from skinvault.public_site.server import _candidatos_filtrados
+    scan = {"ts": time.time(), "category": "x", "results": [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]}
+    out = _candidatos_filtrados(scan, com_historico=False)
+    assert "sparkline" not in out[0]
+    assert "tendencia" not in out[0]
+
+
+def test_enriquecer_com_historico_preenche_campos(monkeypatch):
+    from skinvault.public_site.server import _enriquecer_com_historico
+    monkeypatch.setattr(
+        "skinvault.public_site.server.signals.load_item_history",
+        lambda name: [{"ts": 1, "price": 10.0}, {"ts": 2, "price": 12.0}])
+    candidatos = [{"name": "Item A"}]
+    _enriquecer_com_historico(candidatos)
+    assert candidatos[0]["tendencia"] == "alta"
+    assert "mini-sparkline" in candidatos[0]["sparkline"]
+
+
+def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
+    """152 candidatos, só 20 por página -- load_item_history não pode
+    ser chamado mais que o necessário pra essa página (acrescido de uma
+    pequena folga, caso algum outro ponto do request chame por outro
+    motivo)."""
+    resultados = [
+        {"name": f"Item {i:03d}", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(152)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    chamadas = []
+
+    def _contado(name, *a, **kw):
+        chamadas.append(name)
+        return []
+
+    monkeypatch.setattr(
+        "skinvault.public_site.server.signals.load_item_history", _contado)
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert len(chamadas) <= 25  # pagina de 20 + folga, nunca os 152

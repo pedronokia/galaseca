@@ -1067,6 +1067,15 @@ def case_from_collection(collection: str | None) -> str | None:
     return _COLLECTION_TO_CASE.get(collection.strip())
 
 
+def skins_in_case(case_name: "str | None") -> int:
+    """Quantas skins mapeadas em `_SKIN_TO_CASE` pertencem a essa caixa --
+    puramente descritivo ("N itens desta caixa já mapeados"), nunca a
+    contagem oficial do jogo (o mapa cobre ~100 skins do total real)."""
+    if not case_name:
+        return 0
+    return sum(1 for v in _SKIN_TO_CASE.values() if v == case_name)
+
+
 def case_status(name: str, collection: str | None = None,
                 as_of: float | None = None) -> dict:
     """Retorna informacoes de caixa/colecao/capsula para o item.

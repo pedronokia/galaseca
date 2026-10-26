@@ -24,6 +24,8 @@ _ROTAS = [
     ("/sobre", 200),
     ("/metodo", 200),
     ("/faq", 200),
+    ("/glossario", 200),
+    ("/opensearch.xml", 200),
     ("/status", 200),
     ("/ranking", 200),
     ("/privacidade", 200),

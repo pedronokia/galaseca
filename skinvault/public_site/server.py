@@ -29,7 +29,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash
 
 from skinvault import (
-    __version__, ranking, recommendations, scan_store, scan_targets, signals,
+    __version__, cases, ranking, recommendations, scan_store, scan_targets,
+    signals,
 )
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
@@ -236,8 +237,19 @@ def create_app() -> Flask:
             buscas.registrar(busca)
 
         todos = _candidatos_filtrados(
-            scan, categoria, nota_min, preco_max, busca, ordenar)
+            scan, categoria, nota_min, preco_max, busca, ordenar,
+            com_historico=False)
         inicio = (pagina - 1) * _PAGINA_TAMANHO
+        # Histórico (tendência/sparkline) só pra quem vai aparecer de
+        # verdade: a página atual (20 itens) ou, no modo agrupado, todo
+        # mundo -- porque ali não tem paginação, todos os candidatos
+        # filtrados aparecem de uma vez.
+        if agrupar:
+            _enriquecer_com_historico(todos)
+            candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
+        else:
+            candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
+            _enriquecer_com_historico(candidatos_pagina)
         intervalo_horas = float(os.environ.get(
             "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
         # Banner de "dado pode estar desatualizado" -- pedido depois do
@@ -249,7 +261,7 @@ def create_app() -> Flask:
             scan and (time.time() - scan["ts"]) > intervalo_horas * 3600 * 2)
         resp = make_response(render_template(
             "index.html",
-            candidatos=todos[inicio:inicio + _PAGINA_TAMANHO],
+            candidatos=candidatos_pagina,
             grupos=_agrupar_por_categoria(todos) if agrupar else None,
             scan=scan,
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
@@ -304,6 +316,7 @@ def create_app() -> Flask:
             grafico=grafico,
             parecidos=_itens_parecidos(item, candidatos),
             tempo_aposentadoria=_tempo_desde_aposentadoria(item.get("case_retired_at")),
+            itens_da_caixa=cases.skins_in_case(item.get("case")),
             # Preço mais recente DESTE item específico -- cada item do
             # scan é coletado em instantes diferentes dentro do ciclo de
             # ~25min (ver scan_engine.run_full_scan), então isto é mais
@@ -454,7 +467,7 @@ def create_app() -> Flask:
     def sitemap():
         base = request.url_root.rstrip("/")
         paginas = ["/", "/privacidade", "/status", "/changelog", "/api",
-                  "/ranking", "/metodo", "/sobre", "/faq"]
+                  "/ranking", "/metodo", "/sobre", "/faq", "/glossario"]
         urls_xml = "\n".join(
             f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
         xml = (
@@ -464,6 +477,25 @@ def create_app() -> Flask:
             "</urlset>\n"
         )
         return Response(xml, mimetype="application/xml")
+
+    @app.route("/opensearch.xml")
+    def opensearch():
+        """Descrição OpenSearch -- deixa o navegador oferecer "Adicionar
+        mecanismo de busca: SkinVault" na barra de endereço, usando a
+        própria busca por nome (`q=`) que a página inicial já tem."""
+        base = request.url_root.rstrip("/")
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">\n'
+            "  <ShortName>SkinVault</ShortName>\n"
+            "  <Description>Buscar uma skin de CS2 por nome no SkinVault"
+            "</Description>\n"
+            f"  <Image width=\"32\" height=\"32\" type=\"image/svg+xml\">{_xml_escape(base)}/static/favicon.svg</Image>\n"
+            f"  <Url type=\"text/html\" template=\"{_xml_escape(base)}/?q={{searchTerms}}\"/>\n"
+            "  <InputEncoding>UTF-8</InputEncoding>\n"
+            "</OpenSearchDescription>\n"
+        )
+        return Response(xml, mimetype="application/opensearchdescription+xml")
 
     @app.errorhandler(404)
     def pagina_nao_encontrada(_erro):
@@ -518,6 +550,10 @@ def create_app() -> Flask:
     def faq():
         return render_template("faq.html")
 
+    @app.route("/glossario")
+    def glossario():
+        return render_template("glossario.html")
+
     @app.route("/sobre")
     def sobre():
         return render_template("sobre.html")
@@ -543,6 +579,7 @@ def create_app() -> Flask:
             itens=itens,
             quando=scan_store.idade_txt(atual["ts"]) if atual else None,
             tem_anterior=anterior is not None,
+            resumo_do_dia=_resumo_do_dia(atual),
         )
 
     @app.route("/admin/login", methods=["GET", "POST"])
@@ -679,8 +716,11 @@ def create_app() -> Flask:
     @app.route("/feed.xml")
     @rate_limit.rate_limited(rate_limit.API_MAX_HITS, rate_limit.API_WINDOW_S)
     def feed():
+        categoria = request.args.get("categoria") or None
+        if categoria and categoria not in scan_targets.SCAN_BY_CATEGORY:
+            categoria = None
         scan = scan_store.load_last_scan()
-        candidatos = _candidatos_filtrados(scan)[:_LIMIT_CANDIDATOS]
+        candidatos = _candidatos_filtrados(scan, categoria)[:_LIMIT_CANDIDATOS]
         base = request.url_root.rstrip("/")
         itens_xml = "\n".join(
             "    <item>\n"
@@ -694,11 +734,15 @@ def create_app() -> Flask:
             "    </item>"
             for c in candidatos
         )
+        titulo = (f"SkinVault — Recomendações de {_xml_escape(categoria)}"
+                  if categoria else "SkinVault — Recomendações de skins CS2")
+        link_self = f"{base}/feed.xml" + (
+            f"?categoria={urllib.parse.quote(categoria)}" if categoria else "")
         rss = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<rss version="2.0"><channel>\n'
-            "  <title>SkinVault — Recomendações de skins CS2</title>\n"
-            f"  <link>{_xml_escape(base)}/</link>\n"
+            f"  <title>{titulo}</title>\n"
+            f"  <link>{_xml_escape(link_self)}</link>\n"
             "  <description>Nota de 0 a 100 pra skins do CS2, com o motivo"
             " escrito.</description>\n"
             "  <language>pt-BR</language>\n"
@@ -761,6 +805,10 @@ def _tendencia(name: str) -> "str | None":
     None sem pelo menos 2 pontos (item visto pela 1a vez, ou muito raro
     no histórico)."""
     hist = signals.load_item_history(name)
+    return _tendencia_do_historico(hist)
+
+
+def _tendencia_do_historico(hist: list) -> "str | None":
     if len(hist) < 2:
         return None
     anterior, atual = hist[-2]["price"], hist[-1]["price"]
@@ -874,15 +922,63 @@ def _itens_parecidos(item: dict, candidatos: list[dict], limite: int = 5) -> lis
     return mesma_cat[:limite]
 
 
+def _resumo_do_dia(atual: "dict | None") -> "dict | None":
+    """Resumo factual do Top 20 comparado com o snapshot de ~1 dia atrás
+    (nunca previsão -- AGENTS.md "nunca prever futuro"). None sem
+    snapshot velho o suficiente (site novo ou só 1 scan até agora)."""
+    if not atual:
+        return None
+    antigo = ranking.latest_before(atual["ts"] - 20 * 3600)
+    if not antigo:
+        return None
+    itens_antigos = {it["name"]: it for it in antigo.get("items", [])}
+    novos = [it for it in atual["items"] if it["name"] not in itens_antigos]
+    maior_alta = None
+    for it in atual["items"]:
+        velho = itens_antigos.get(it["name"])
+        if not velho:
+            continue
+        diff = it.get("score", 0) - velho.get("score", 0)
+        if diff > 0 and (maior_alta is None or diff > maior_alta["diff"]):
+            maior_alta = {
+                "name_fmt": localize_name(it["name"]),
+                "diff": diff,
+                "de": velho.get("score"),
+                "para": it.get("score"),
+            }
+    return {
+        "novos_no_top": len(novos),
+        "maior_alta": maior_alta,
+        "quando": scan_store.idade_txt(antigo["ts"]),
+    }
+
+
 def _sparkline(name: str) -> str:
     """Mini-gráfico de preço por linha na tabela -- reaproveita
     `signals.load_item_history` (mesmo histórico que já alimenta
     `_tendencia`) e `charts.line_chart_svg` (mesmo SVG do gráfico de
     visitas, com uma classe CSS diferente pra ficar pequeno e inline)."""
     hist = signals.load_item_history(name)
+    return _sparkline_do_historico(hist)
+
+
+def _sparkline_do_historico(hist: list) -> str:
     pontos = [{"total": p["price"]} for p in hist[-20:] if p.get("price")]
     return charts.line_chart_svg(
         pontos, width=120, height=28, padding=2, css_class="mini-sparkline")
+
+
+def _enriquecer_com_historico(candidatos: list[dict]) -> None:
+    """Preenche `tendencia`/`sparkline` -- feito à parte de
+    `_candidatos_filtrados` (acima) de propósito: ler o histórico de
+    TODOS os candidatos (até ~150) quando só 20 aparecem na página é
+    caro à toa (2 leituras de disco por item, uma pra cada campo, antes
+    desta função existir). Só chamar com a fatia que vai renderizar de
+    verdade (a página atual, ou o grupo aberto)."""
+    for c in candidatos:
+        hist = signals.load_item_history(c.get("name") or "")
+        c["tendencia"] = _tendencia_do_historico(hist)
+        c["sparkline"] = _sparkline_do_historico(hist)
 
 
 def _candidatos_filtrados(
@@ -890,12 +986,20 @@ def _candidatos_filtrados(
         nota_min: "float | None" = None,
         preco_max: "float | None" = None,
         busca: "str | None" = None,
-        ordenar: str = "nota") -> list[dict]:
+        ordenar: str = "nota",
+        com_historico: bool = True) -> list[dict]:
     """Candidatos públicos: sem dono (sem login ainda), já filtrados.
 
     Sem limite aqui de propósito -- a paginação é responsabilidade de quem
     chama (a rota), não desta função. `buy_candidates` já ordena por nota
     (desc); `ordenar="preco"` reordena por preço (asc) depois.
+
+    `com_historico=False` pula tendência/sparkline (2 leituras de disco
+    por item) -- usar quando quem chama só vai exibir uma FATIA do
+    resultado (ex. uma página de 20 em até ~150 candidatos) e vai chamar
+    `_enriquecer_com_historico` só nessa fatia depois. Achado 2026-10-26:
+    o `index()` lia o histórico de TODOS os candidatos em toda visita,
+    mesmo mostrando só 20 por vez.
     """
     if not scan:
         return []
@@ -925,8 +1029,9 @@ def _candidatos_filtrados(
         c["steamdb_url"] = _STEAMDB_SEARCH_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["descontinuada"] = "descontinuada" in (c.get("case_label") or "")
-        c["tendencia"] = _tendencia(c.get("name") or "")
-        c["sparkline"] = _sparkline(c.get("name") or "")
+        if com_historico:
+            c["tendencia"] = _tendencia(c.get("name") or "")
+            c["sparkline"] = _sparkline(c.get("name") or "")
         out.append(c)
     if ordenar == "preco":
         out.sort(key=lambda c: c.get("price") if c.get("price") is not None

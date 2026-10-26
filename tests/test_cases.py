@@ -22,6 +22,18 @@ def test_normalize_strips_souvenir():
     ) == "AWP | Dragon Lore"
 
 
+def test_skins_in_case_conta_mapeadas():
+    assert cases.skins_in_case("Operation Phoenix Weapon Case") >= 1
+
+
+def test_skins_in_case_sem_nome():
+    assert cases.skins_in_case(None) == 0
+
+
+def test_skins_in_case_nome_desconhecido():
+    assert cases.skins_in_case("Caixa Que Nao Existe") == 0
+
+
 def test_case_status_discontinued():
     r = cases.case_status("AK-47 | Redline (Field-Tested)")
     assert r["case"] == "Operation Phoenix Weapon Case"

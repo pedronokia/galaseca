@@ -5,24 +5,37 @@
 #   web    -> gunicorn servindo o dashboard + /conta (Fases 1/2)
 #   worker -> processo solitário que fala com a Steam (worker.py)
 #
+# Multi-stage (2026-10-26): o Dockerfile de 1 estágio anterior fazia
+# `COPY scripts/minify_static.py` + `RUN ... && rm -rf scripts` numa
+# única imagem -- mas camadas Docker são aditivas, então o `rm -rf`
+# cria uma camada NOVA que esconde o arquivo, sem removê-lo do tamanho
+# final da imagem (o script e o cache de instalação do pip continuavam
+# lá, só invisíveis no `ls`). Separar builder/final é o jeito correto:
+# só os arquivos copiados explicitamente com `--from=builder` entram na
+# imagem final.
+#
 # Build:  docker build -f Dockerfile.public-site -t skinvault-public-site .
-FROM python:3.9-slim
 
+FROM python:3.9-slim AS builder
 WORKDIR /app
 
 # So' as dependencias do site (Flask/httpx/gunicorn) -- NUNCA PyQt6/
 # pywebview/etc. (essas sao do app desktop; ver requirements-public-site.txt).
 COPY requirements-public-site.txt .
-RUN pip install --no-cache-dir -r requirements-public-site.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements-public-site.txt
 
 COPY skinvault/ skinvault/
 
-# Minifica style.css/app.js SÓ dentro da imagem (ver scripts/
-# minify_static.py) -- o fonte no repositório continua legível/legível
-# em dev. Script removido depois: não é runtime, só ferramenta de build.
+# Minifica style.css/app.js dentro do builder -- o fonte no repositório
+# continua legível em dev; só a cópia minificada segue pro estágio final.
 COPY scripts/minify_static.py scripts/minify_static.py
-RUN python scripts/minify_static.py skinvault/public_site/static \
-    && rm -rf scripts
+RUN python scripts/minify_static.py skinvault/public_site/static
+
+FROM python:3.9-slim
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY --from=builder /app/skinvault skinvault/
 
 # Identificador do build (data/hora UTC), não um hash de git -- mais
 # simples de obter aqui dentro sem precisar copiar o `.git` todo pra
