@@ -12,6 +12,7 @@ separado do "web" no provedor de hospedagem -- Fase 3).
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import sys
@@ -21,6 +22,17 @@ from skinvault import ranking, scan_engine, scan_store, scan_targets
 from skinvault.public_site import db_backup, scan_progress, worker_alert
 
 _PROGRESSO_RE = re.compile(r"^\[(\d+)/(\d+)\] (.+)$")
+
+# `logging` em vez de `print(..., file=sys.stderr)` -- achado ao vivo em
+# 2026-10-26: o print do except em main() só mostrava `str(e)`
+# ("'<=' not supported..."), sem o traceback. Descobrir ONDE a exceção
+# nascia exigiu reproduzir o bug manualmente numa sessão à parte --
+# `exc_info=True` grava o traceback completo de graça, sem precisar
+# disso da próxima vez.
+logging.basicConfig(
+    level=logging.INFO, stream=sys.stderr,
+    format="%(asctime)s %(levelname)s %(message)s")
+_logger = logging.getLogger("skinvault.worker")
 
 _INTERVALO_HORAS_DEFAULT = 6.0
 _TOP_RANKING = 20
@@ -57,7 +69,7 @@ def _ordenar_por_nota_anterior(
 
 
 def _on_progress(msg: str) -> None:
-    print(msg, file=sys.stderr)
+    _logger.info(msg)
     m = _PROGRESSO_RE.match(msg)
     if not m:
         return
@@ -79,27 +91,33 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         ranking.save_snapshot(resultados[:_TOP_RANKING])
     duracao_min = (time.time() - inicio) / 60
     scan_store.registrar_ciclo(len(resultados), duracao_min)
-    print(f"Ciclo concluído: {len(resultados)} itens em {duracao_min:.1f}min",
-          file=sys.stderr)
+    _logger.info("Ciclo concluído: %d itens em %.1fmin",
+                len(resultados), duracao_min)
     # Backup do banco de contas/portfolio pessoal -- auto-limitado a 1x/
     # ~20h por `fazer_backup_se_necessario`, então chamar a cada ciclo
     # (mesmo de 6 em 6h) não produz backup demais.
     try:
         db_backup.fazer_backup_se_necessario()
-    except Exception as e:
-        print(f"WARNING: backup do banco falhou: {e}", file=sys.stderr)
+    except Exception:
+        _logger.warning("backup do banco falhou", exc_info=True)
     # Backup dos JSON globais do dashboard (scan_store/ranking) -- achado
     # da 2a rodada (2026-10-25): só o SQLite tinha backup até aqui.
     try:
         db_backup.fazer_backup_json_se_necessario()
-    except Exception as e:
-        print(f"WARNING: backup dos JSON falhou: {e}", file=sys.stderr)
+    except Exception:
+        _logger.warning("backup dos JSON falhou", exc_info=True)
     # Alerta Discord do dono se o worker ficar horas sem trazer item
     # nenhum (ver worker_alert.py) -- sem webhook configurado, é no-op.
     try:
         worker_alert.verificar_e_alertar(scan_store.load_historico_ciclos())
-    except Exception as e:
-        print(f"WARNING: alerta de atraso falhou: {e}", file=sys.stderr)
+    except Exception:
+        _logger.warning("alerta de atraso falhou", exc_info=True)
+    # Alerta Discord do dono se o disco da VM estiver ficando cheio --
+    # mesmo webhook/env var do alerta acima, checagem independente.
+    try:
+        worker_alert.verificar_disco_e_alertar()
+    except Exception:
+        _logger.warning("alerta de disco falhou", exc_info=True)
     return resultados
 
 
@@ -114,8 +132,8 @@ def main(intervalo_horas: "float | None" = None) -> None:
     while True:
         try:
             run_once()
-        except Exception as e:
-            print(f"WARNING: ciclo do worker falhou: {e}", file=sys.stderr)
+        except Exception:
+            _logger.error("ciclo do worker falhou", exc_info=True)
         time.sleep(intervalo_horas * 3600)
 
 

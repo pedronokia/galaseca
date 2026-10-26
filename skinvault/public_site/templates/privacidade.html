@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacidade — SkinVault</title>
   <meta name="description" content="O que o SkinVault guarda, por quê, e como excluir seus dados.">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="{{ request.url }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -23,9 +25,11 @@
 
   <main class="pagina-texto">
     <h2 class="secao-titulo">O painel público (sem login)</h2>
-    <p>A página inicial e a tabela de recomendações não guardam nada seu.
-    Não há cookie de rastreamento, não há conta, não há dado nenhum ligado
-    a você. É só uma leitura de preços públicos da Steam Community Market.</p>
+    <p>A página inicial e a tabela de recomendações não guardam nada seu no
+    servidor. Não há cookie de rastreamento, não há conta. O único cookie
+    possível aqui é opcional, só se você clicar em "Modo compacto" ou
+    parecido (ver "Cookies" abaixo) — fora isso, é só uma leitura de preços
+    públicos da Steam Community Market.</p>
 
     <h2 class="secao-titulo">Se você entra com "Entrar com Steam"</h2>
     <p>O login usa o <strong>Steam OpenID</strong>, o mecanismo público que
@@ -49,18 +53,33 @@
     conta).</p>
 
     <h2 class="secao-titulo">Cookies</h2>
-    <p>Um cookie de sessão (pra saber que você está logado) e um token
-    contra CSRF. Nenhum cookie de rastreamento ou publicidade.</p>
+    <p>Nenhum cookie de rastreamento ou publicidade. Os que existem:</p>
+    <ul>
+      <li><code>session</code> — só se você usar "Entrar com Steam": guarda
+      que você está logado e o token contra CSRF dos formulários</li>
+      <li><code>pref_compacto</code>, <code>pref_agrupar</code>,
+      <code>pref_minimalista</code>, <code>pref_ordenar</code> — só se você
+      clicar em "Modo compacto", "Agrupar por categoria", "Modo
+      minimalista" ou mudar a ordenação na página inicial: lembra sua
+      preferência de exibição pra próxima visita. Nenhum tem relação com
+      identidade nem é compartilhado com ninguém.</li>
+    </ul>
 
     <h2 class="secao-titulo">Onde fica guardado</h2>
     <p>Num banco de dados no servidor do SkinVault. Não vendemos, não
     compartilhamos e não analisamos esse dado pra nada além de mostrar sua
     própria carteira pra você.</p>
 
+    <h2 class="secao-titulo">Exportar seus dados</h2>
+    <p>Em "Minha conta", o link "Exportar meus dados (JSON)" baixa uma
+    cópia completa do que guardamos sobre você -- perfil, portfólio,
+    trades, watchlist e histórico de valor -- na hora, sem precisar
+    pedir pra ninguém.</p>
+
     <h2 class="secao-titulo">Excluir sua conta</h2>
     <p>Em "Minha conta", o link "Excluir minha conta e todos os meus
-    dados" apaga tudo — conta, portfólio, trades, watchlist e histórico —
-    na hora, sem precisar pedir pra ninguém.</p>
+    dados" apaga tudo — conta, portfólio, trades, watchlist, histórico e
+    o avatar/nome em cache — na hora, sem precisar pedir pra ninguém.</p>
 
     <h2 class="secao-titulo">Uma coisa que isto nunca é</h2>
     <p>Nada no SkinVault é recomendação de investimento. As notas e sinais

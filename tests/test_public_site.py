@@ -12,7 +12,7 @@ from werkzeug.security import generate_password_hash
 
 from skinvault import ranking, scan_store
 from skinvault.public_site import (
-    charts, erro_stats, icon_cache, latencia, rate_limit, scan_progress,
+    charts, erro_stats, fmt, icon_cache, latencia, rate_limit, scan_progress,
     worker, worker_alert,
 )
 from skinvault.public_site.server import create_app
@@ -1205,3 +1205,198 @@ def test_index_referencia_manifest_e_theme_color(client, monkeypatch):
     body = client.get("/").data.decode("utf-8")
     assert "manifest.json" in body
     assert "theme-color" in body
+
+
+# ── Lote 2: testes de casos de borda (2026-10-26) ───────────
+
+def test_item_detail_nome_com_caracteres_especiais(client, monkeypatch, tmp_path):
+    nome = "StatTrak™ Karambit | Doppler (Factory New) ★"
+    resultados = [{"name": nome, "score": 90, "price": 5000.0, "case_label": "",
+                  "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []}]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/item/" + nome)
+    assert resp.status_code == 200
+    assert "90" in resp.data.decode("utf-8")
+
+
+def test_sitemap_xml_bem_formado(client):
+    import xml.etree.ElementTree as ET
+    resp = client.get("/sitemap.xml")
+    raiz = ET.fromstring(resp.data)  # levanta ParseError se malformado
+    assert raiz.tag.endswith("urlset")
+
+
+def test_robots_txt_conteudo_completo(client):
+    corpo = client.get("/robots.txt").data.decode("utf-8")
+    assert corpo.startswith("User-agent: *\n")
+    assert "Allow: /\n" in corpo
+    assert "Disallow: /admin\n" in corpo
+    assert "Sitemap: " in corpo
+    assert corpo.rstrip("\n").endswith("sitemap.xml")
+
+
+def test_comparar_trunca_em_3_mesmo_com_mais_nomes(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": f"Item {i}", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(5)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    resp = client.get("/comparar?nomes=" + ",".join(f"Item {i}" for i in range(5)))
+    body = resp.data.decode("utf-8")
+    presentes = sum(1 for i in range(5) if f"Item {i}" in body)
+    assert presentes == 3
+
+
+def test_fmt_brl_valor_negativo():
+    assert fmt.brl(-42.5) == "R$ -42,50"
+
+
+def test_fmt_brl_valor_grande():
+    assert fmt.brl(1234567.89) == "R$ 1.234.567,89"
+
+
+def test_agrupar_por_categoria_item_sem_categoria():
+    from skinvault.public_site.server import _agrupar_por_categoria
+    candidatos = [{"name": "X", "score": 10}]  # sem a chave "category" de vez
+    grupos = _agrupar_por_categoria(candidatos)
+    assert grupos == [("Sem categoria", candidatos)]
+
+
+def test_csp_report_corpo_vazio_ainda_responde_204(client):
+    resp = client.post("/api/csp-report", data="")
+    assert resp.status_code == 204
+
+
+def test_icon_cache_caminho_sanitiza_hash_nao_alfanumerico():
+    p = icon_cache._caminho("../../etc/passwd")
+    assert ".." not in p.name
+    assert "/" not in p.name
+    assert p.parent == icon_cache._CACHE_DIR
+
+
+def test_readyz_com_db_path_sendo_diretorio(client, monkeypatch, tmp_path):
+    diretorio = tmp_path / "isto_e_pasta"
+    diretorio.mkdir()
+    monkeypatch.setattr("skinvault.public_site.server.db_backup._DB_PATH", diretorio)
+    resp = client.get("/readyz")
+    assert resp.status_code == 503
+    assert resp.get_json()["ready"] is False
+
+
+# ── Lote 6: pagina /faq ──────────────────────────────────────
+
+def test_faq_page(client):
+    resp = client.get("/faq")
+    assert resp.status_code == 200
+    assert "FAQPage" in resp.data.decode("utf-8")
+
+
+def test_faq_no_rodape(client):
+    body = client.get("/").data.decode("utf-8")
+    assert "/faq" in body
+
+
+def test_sitemap_inclui_faq(client):
+    body = client.get("/sitemap.xml").data.decode("utf-8")
+    assert "/faq" in body
+
+
+# ── Lote 8: admin -- disco, usuarios, webhook, log bruto ────
+
+def test_admin_mostra_disco_e_usuarios(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    client.post("/admin/login", data={"senha": "segredo"})
+    resp = client.get("/admin")
+    body = resp.data.decode("utf-8")
+    assert "Disco livre" in body
+    assert "Contas com login" in body
+
+
+def test_admin_testar_webhook_sem_sessao_e_404(client):
+    resp = client.post("/admin/testar-webhook", data={})
+    assert resp.status_code == 404
+
+
+def test_admin_testar_webhook_sem_csrf_e_403(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    client.post("/admin/login", data={"senha": "segredo"})
+    resp = client.post("/admin/testar-webhook", data={})
+    assert resp.status_code == 403
+
+
+def test_admin_testar_webhook_com_csrf_funciona(client, monkeypatch):
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr(
+        "skinvault.public_site.server.discord_notify.enviar",
+        lambda url, msg: True)
+    client.post("/admin/login", data={"senha": "segredo"})
+    with client.session_transaction() as sess:
+        token = sess.get("csrf_token")
+    if not token:
+        # primeira visita no admin ainda nao gerou token -- visita a
+        # pagina (que agora gera via csrf_token()) antes de testar.
+        client.get("/admin")
+        with client.session_transaction() as sess:
+            token = sess["csrf_token"]
+    resp = client.post("/admin/testar-webhook", data={"csrf_token": token})
+    assert resp.status_code == 302
+
+
+def test_admin_log_bruto_sem_sessao_e_404(client):
+    resp = client.get("/admin/log-bruto")
+    assert resp.status_code == 404
+
+
+def test_admin_log_bruto_com_sessao_baixa_arquivo(client, monkeypatch, tmp_path):
+    log = tmp_path / "errors.log"
+    log.write_text("linha de erro\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr("skinvault.public_site.server._ERROR_LOG_PATH", log)
+    client.post("/admin/login", data={"senha": "segredo"})
+    resp = client.get("/admin/log-bruto")
+    assert resp.status_code == 200
+    assert b"linha de erro" in resp.data
+
+
+def test_disco_info_nao_quebra_sem_dados():
+    from skinvault.public_site.server import _disco_info
+    info = _disco_info()
+    assert "livre_fmt" in info
+
+
+def test_contagem_usuarios_sem_banco_e_zero(monkeypatch, tmp_path):
+    from skinvault.public_site.server import _contagem_usuarios
+    monkeypatch.setattr(
+        "skinvault.public_site.server.db_backup._DB_PATH",
+        tmp_path / "nao_existe.db")
+    assert _contagem_usuarios() == 0
+
+
+# ── Guarda contra comentário CSS não fechado (achado 2026-10-26) ──
+
+def test_style_css_comentarios_balanceados():
+    """Um /* sem */ correspondente engole silenciosamente toda regra
+    CSS real até o próximo fechamento -- achado ao vivo nesta mesma
+    rodada (ver feedback-comentario-css-nao-fechado na memória do
+    projeto). Conta simples de marcadores pega isso sem precisar de
+    parser CSS de verdade."""
+    import re
+    from pathlib import Path
+
+    caminho = (Path(__file__).parent.parent / "skinvault" / "public_site"
+              / "static" / "style.css")
+    css = caminho.read_text(encoding="utf-8")
+    abre = len(re.findall(re.escape("/*"), css))
+    fecha = len(re.findall(re.escape("*/"), css))
+    assert abre == fecha, (
+        f"{abre} '/*' contra {fecha} '*/' -- algum comentário não fechou "
+        "e pode estar engolindo CSS real (ver style.css)")

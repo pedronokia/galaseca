@@ -38,3 +38,10 @@ jobs:
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d web
+
+      - name: Confirma que o site subiu (2a rodada, 2026-10-26)
+        run: |
+          sleep 5
+          curl -sf "https://${{ secrets.SITE_DOMAIN }}/healthz" | grep -q '"ok": *true' \
+            && echo "OK: /healthz respondeu" \
+            || (echo "FALHOU: /healthz não respondeu como esperado" && exit 1)

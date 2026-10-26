@@ -218,6 +218,31 @@ direto.
   espaço ocioso) de `style.css`/`app.js`, chamada só dentro do
   `Dockerfile.public-site` no build da imagem; nunca roda sobre o
   código-fonte do repositório.
+- `scripts/smoke_test.py <url>` -- confirma que as rotas principais
+  respondem com o status esperado, contra o site de verdade depois de
+  um deploy. Pega erro de config/infra que só aparece em produção
+  (`python scripts/smoke_test.py https://seudominio.com`).
+
+## Rollback de um deploy ruim
+
+Se um deploy subir código quebrado, o jeito mais rápido de reverter
+(assumindo deploy manual, não automático via `deploy.yml`):
+
+```bash
+# na VM, dentro de ~/skinvault
+git log --oneline -5             # acha o commit bom anterior
+git checkout <sha-do-commit-bom> -- .
+SITE_DOMAIN=seudominio sudo -E docker compose \
+  -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
+  up --build -d web
+```
+
+Depois, resolver o problema localmente, commitar a correção e fazer o
+deploy de novo pra voltar pro HEAD do `main` -- não deixar a VM presa
+num commit antigo por muito tempo (os próximos deploys manuais vão
+partir desse estado "quase bom", não do que está no GitHub, até alguém
+notar). `scripts/smoke_test.py` depois do rollback confirma que voltou
+a funcionar antes de seguir em frente.
 
 ## Logs do container
 

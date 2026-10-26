@@ -9,8 +9,8 @@
 document.addEventListener("click", function (e) {
   var btn = e.target.closest(".botao-copiar");
   if (!btn) return;
-  var texto = btn.getAttribute("data-copiar");
-  if (!navigator.clipboard) return;
+  var texto = btn.getAttribute("data-copiar") || btn.getAttribute("data-copiar-link");
+  if (!texto || !navigator.clipboard) return;
   navigator.clipboard.writeText(texto).then(function () {
     var original = btn.textContent;
     btn.textContent = "✓";
@@ -105,17 +105,24 @@ document.addEventListener("keydown", function (e) {
   });
 
   document.addEventListener("click", function (e) {
-    if (e.target.id !== "botao-favoritos") return;
+    var botao = e.target.closest("#botao-favoritos");
+    if (!botao) return;
     try {
       var favoritos = lerTudo();
-      var ativo = e.target.classList.toggle("ativo");
+      var ativo = botao.classList.toggle("ativo");
+      var algumVisivel = false;
       document.querySelectorAll("table.tabela-candidatos tbody tr").forEach(function (linha) {
         var botaoLinha = linha.querySelector(".botao-favorito");
         if (!botaoLinha) return;
         var item = botaoLinha.getAttribute("data-favorito");
-        linha.style.display = (ativo && !favoritos[item]) ? "none" : "";
+        var escondida = ativo && !favoritos[item];
+        linha.style.display = escondida ? "none" : "";
+        if (!escondida) algumVisivel = true;
       });
-      e.target.textContent = ativo ? "★ Todos os itens" : "☆ Só favoritos";
+      var textoBotao = document.getElementById("texto-botao-favoritos");
+      if (textoBotao) textoBotao.textContent = ativo ? "★ Todos os itens" : "☆ Só favoritos";
+      var msgVazio = document.getElementById("msg-sem-favoritos");
+      if (msgVazio) msgVazio.hidden = !(ativo && !algumVisivel);
     } catch (e) {}
   });
 })();
@@ -303,6 +310,7 @@ document.addEventListener("keydown", function (e) {
         lista.push({ nome: nome, query: window.location.pathname + window.location.search });
         salvar(lista);
         renderizar();
+        mostrarToast("Busca \"" + nome + "\" salva.");
       } catch (err) {}
       return;
     }
@@ -323,3 +331,73 @@ document.addEventListener("keydown", function (e) {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(function () {});
 }
+
+// Toast -- confirmação visual curta (salvar busca, exportar CSV). Um
+// elemento só, reaproveitado -- não empilha vários se clicar rápido.
+function mostrarToast(mensagem) {
+  try {
+    var area = document.getElementById("area-toast");
+    if (!area) return;
+    area.textContent = mensagem;
+    area.classList.add("visivel");
+    clearTimeout(area._timeout);
+    area._timeout = setTimeout(function () {
+      area.classList.remove("visivel");
+    }, 2200);
+  } catch (e) {}
+}
+
+// Botão "voltar ao topo" -- aparece só depois de rolar um pouco.
+(function () {
+  var botao = document.getElementById("botao-topo");
+  if (!botao) return;
+  function atualizar() {
+    botao.hidden = window.scrollY < 600;
+  }
+  document.addEventListener("scroll", atualizar, { passive: true });
+  botao.addEventListener("click", function () {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  try { atualizar(); } catch (e) {}
+})();
+
+// Contagem de favoritos no botão de filtro + atalho de teclado "f".
+(function () {
+  function contarFavoritos() {
+    try {
+      var favoritos = JSON.parse(localStorage.getItem("skinvault_favoritos") || "{}");
+      return Object.keys(favoritos).length;
+    } catch (e) { return 0; }
+  }
+  function atualizarBadge() {
+    var badge = document.getElementById("contagem-favoritos");
+    if (!badge) return;
+    var n = contarFavoritos();
+    badge.textContent = n;
+    badge.hidden = n === 0;
+  }
+  try { atualizarBadge(); } catch (e) {}
+  document.addEventListener("click", function (e) {
+    if (e.target.closest(".botao-favorito") || e.target.id === "botao-favoritos") {
+      setTimeout(atualizarBadge, 0);
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "f" && e.key !== "F") return;
+    var ativo = document.activeElement;
+    var campoAberto = ativo && (ativo.tagName === "INPUT"
+      || ativo.tagName === "TEXTAREA" || ativo.tagName === "SELECT");
+    if (campoAberto) return;
+    var botao = document.getElementById("botao-favoritos");
+    if (botao) botao.click();
+  });
+})();
+
+// Conecta os toasts nas ações que já existiam (salvar busca / exportar
+// CSV) -- os handlers originais continuam noutro listener; este só
+// escuta o mesmo clique pra mostrar a confirmação visual.
+document.addEventListener("click", function (e) {
+  if (e.target.id === "botao-exportar-csv") {
+    mostrarToast("CSV baixado.");
+  }
+});

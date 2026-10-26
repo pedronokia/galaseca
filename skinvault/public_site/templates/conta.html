@@ -91,7 +91,8 @@
     {% endif %}
 
     <p class="link-excluir-conta">
-      <a href="{{ url_for('account.excluir_confirmar') }}">Excluir minha conta e todos os meus dados</a>
+      <a href="{{ url_for('account.exportar_dados') }}">Exportar meus dados (JSON)</a>
+      · <a href="{{ url_for('account.excluir_confirmar') }}">Excluir minha conta e todos os meus dados</a>
     </p>
   </main>
 

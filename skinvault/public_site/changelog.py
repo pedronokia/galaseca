@@ -8,6 +8,20 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
+        "data": "2026-10-26",
+        "titulo": "Página de item, login, PWA, e uma correção de verdade no scan",
+        "itens": [
+            "Página de detalhe por item, comparador lado a lado, "
+            "favoritos, buscas salvas, exportar CSV",
+            "Site instalável (PWA) e login do painel interno trocado "
+            "por senha de verdade, sem token na URL",
+            "Corrigido um bug real que travava o scan inteiro num item "
+            "sem preço médio disponível",
+            "FAQ, exportar seus próprios dados em JSON, e mais de 50 "
+            "ajustes de acessibilidade, SEO e segurança",
+        ],
+    },
+    {
         "data": "2026-10-25",
         "titulo": "Polimentos e infraestrutura técnica",
         "itens": [

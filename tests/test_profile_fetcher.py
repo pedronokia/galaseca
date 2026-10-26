@@ -172,48 +172,37 @@ class TestCacheHelpers:
 
 
 class TestHttpHelpers:
-    """Testa helpers HTTP internas (mockando urllib)."""
+    """Testa helpers HTTP internas (mockando httpx -- ver AGENTS.md/
+    steam_api.py: trocado de urllib em 2026-10-26)."""
 
     def test_http_get_success(self, monkeypatch):
         """_http_get retorna bytes quando status=200."""
         class MockResp:
-            status = 200
-            def read(self):
-                return b"body"
+            status_code = 200
+            content = b"body"
 
-        class MockUrlOpen:
-            def __enter__(self):
-                return MockResp()
-            def __exit__(self, *a):
-                pass
-
-        monkeypatch.setattr("urllib.request.urlopen",
-                            lambda req, timeout=10.0: MockUrlOpen())
+        monkeypatch.setattr("skinvault.ui.profile_fetcher.httpx.get",
+                            lambda url, **kw: MockResp())
         assert pf._http_get("https://example.com") == b"body"
 
     def test_http_get_non_200(self, monkeypatch):
         """_http_get retorna None quando status != 200."""
         class MockResp:
-            status = 404
-            def read(self):
-                return b"not found"
+            status_code = 404
+            content = b"not found"
 
-        class MockUrlOpen:
-            def __enter__(self):
-                return MockResp()
-            def __exit__(self, *a):
-                pass
-
-        monkeypatch.setattr("urllib.request.urlopen",
-                            lambda req, timeout=10.0: MockUrlOpen())
+        monkeypatch.setattr("skinvault.ui.profile_fetcher.httpx.get",
+                            lambda url, **kw: MockResp())
         assert pf._http_get("https://example.com") is None
 
     def test_http_get_exception(self, monkeypatch):
-        """_http_get retorna None em URLError."""
-        import urllib.error
-        monkeypatch.setattr("urllib.request.urlopen",
-                            lambda req, timeout=10.0: (_ for _ in ()).throw(
-                                urllib.error.URLError("fail")))
+        """_http_get retorna None em erro de rede."""
+        import httpx
+
+        def _raise(url, **kw):
+            raise httpx.ConnectError("fail")
+
+        monkeypatch.setattr("skinvault.ui.profile_fetcher.httpx.get", _raise)
         assert pf._http_get("https://example.com") is None
 
 

@@ -6,20 +6,23 @@ acompanhar a própria carteira.
 """
 from __future__ import annotations
 
-from flask import Blueprint, redirect, render_template, request, session, url_for
+import time
+
+from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
 from skinvault import portfolio
 from skinvault.localization import localize_name
 from skinvault.prices import PriceCache
 from skinvault.public_site import (
-    fmt, steam_openid, user_history, user_portfolio, user_store,
+    fmt, steam_openid, user_history, user_portfolio, user_store, user_trades,
+    user_watchlist,
 )
 from skinvault.public_site.auth import csrf_protect, csrf_token, login_required
 from skinvault.public_site.rate_limit import (
     LOGIN_MAX_HITS, LOGIN_WINDOW_S, MUTATION_MAX_HITS, MUTATION_WINDOW_S,
     rate_limited,
 )
-from skinvault.ui.profile_fetcher import fetch_public_profile
+from skinvault.ui.profile_fetcher import apagar_perfil_cache, fetch_public_profile
 
 bp = Blueprint("account", __name__)
 
@@ -135,6 +138,27 @@ def remover_posicao(name: str):
     return redirect(url_for("account.conta"))
 
 
+@bp.route("/conta/exportar")
+@login_required
+def exportar_dados():
+    """JSON com todo dado pessoal ligado a essa conta -- LGPD/direito de
+    portabilidade: o usuário não deveria precisar pedir pra ninguém pra
+    ter uma cópia do que o SkinVault guarda sobre ele."""
+    steamid = session["steamid"]
+    usuario = user_store.get_user(steamid)
+    resp = jsonify({
+        "exportado_em": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "usuario": usuario,
+        "portfolio": user_portfolio.load_positions(steamid),
+        "trades": user_trades.load_trades(steamid),
+        "watchlist": user_watchlist.load_items(steamid),
+        "historico_valor": user_history.load_history(steamid),
+    })
+    resp.headers["Content-Disposition"] = (
+        f'attachment; filename="skinvault-dados-{steamid}.json"')
+    return resp
+
+
 @bp.route("/conta/excluir")
 @login_required
 def excluir_confirmar():
@@ -153,5 +177,6 @@ def excluir():
     histórico) -- irreversível. Ver `user_store.delete_user`."""
     steamid = session["steamid"]
     user_store.delete_user(steamid)
+    apagar_perfil_cache(steamid)
     session.clear()
     return redirect(url_for("index"))

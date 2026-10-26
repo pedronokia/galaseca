@@ -8,12 +8,13 @@ recebe None e usa fallback (silhueta generica + steamid como nome).
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import re
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
+
+import httpx
 
 from skinvault._paths import DATA_DIR, atomic_write_text
 
@@ -22,15 +23,26 @@ _AVATARS_DIR = DATA_DIR / "avatars"
 _TTL_SECONDS = 24 * 3600
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
 
+# httpx (não urllib) com timeout via thread pool -- mesmo achado de
+# `steam_api._http_get` (2026-10-26): urllib.request era especificamente
+# sinalizado pela Steam onde httpx passava, e o timeout de socket do
+# Python não cobre DNS pendurado. Este módulo roda dentro do request do
+# Flask no login público -- um hang aqui travaria o worker do gunicorn
+# que atendeu aquele visitante.
+_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="profile_fetcher_http")
+
 
 def _http_get(url: str, timeout: float = 10.0) -> bytes | None:
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    def _pedido():
+        resp = httpx.get(url, headers={"User-Agent": _UA}, timeout=timeout,
+                         follow_redirects=True)
+        return resp.content if resp.status_code == 200 else None
+
+    futuro = _EXECUTOR.submit(_pedido)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            if resp.status != 200:
-                return None
-            return resp.read()
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError):
+        return futuro.result(timeout=timeout)
+    except Exception:
         return None
 
 
@@ -140,6 +152,26 @@ def load_cached_profile(steamid: str) -> dict | None:
     if not steamid:
         return None
     return _load_cache().get(steamid)
+
+
+def apagar_perfil_cache(steamid: str) -> None:
+    """Remove o avatar em disco + a entrada do cache desse steamid --
+    achado 2026-10-26: `/conta/excluir` apagava o banco (portfólio/
+    trades/watchlist) mas não isto, deixando um JPEG órfão e uma linha
+    de cache pra trás depois de "excluir todos os meus dados"."""
+    if not steamid:
+        return
+    try:
+        cache = _load_cache()
+        if steamid in cache:
+            del cache[steamid]
+            _save_cache(cache)
+    except Exception:
+        pass
+    try:
+        (_AVATARS_DIR / f"{steamid}.jpg").unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def load_avatar_bytes(steamid: str) -> bytes | None:

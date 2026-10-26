@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ranking — SkinVault</title>
   <meta name="description" content="Top 20 do último scan, com a mudança de posição desde o scan anterior.">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="{{ request.url }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -49,7 +51,7 @@
           <tr>
             <td>{{ it.position }}</td>
             <td>{{ it.name_fmt }}</td>
-            <td class="nota nota-{{ 'alta' if it.score >= 70 else ('media' if it.score >= 45 else 'baixa') }}">{{ it.score }}</td>
+            <td class="nota nota-{{ it.score|nota_classe }}">{{ it.score }}</td>
             <td>
               {% if it.label == "NOVO" %}
                 <span class="selo-novo">NOVO</span>

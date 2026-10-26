@@ -17,7 +17,14 @@
 
   <main class="pagina-texto">
     <h2 class="secao-titulo">Essa página não existe</h2>
-    <p>O link pode estar errado, ou a página pode ter sido removida.</p>
+    <p>O link pode estar errado, ou a página pode ter sido removida.
+    Se procurava um item, tenta buscar direto:</p>
+    <form class="form-filtros" method="get" action="{{ url_for('index') }}">
+      <label>Buscar
+        <input type="text" name="q" placeholder="Nome do item">
+      </label>
+      <button type="submit">Buscar</button>
+    </form>
     <p><a href="{{ url_for('index') }}">← Voltar pro dashboard</a></p>
   </main>
 

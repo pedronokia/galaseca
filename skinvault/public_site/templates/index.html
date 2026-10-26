@@ -9,6 +9,13 @@
   <meta property="og:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:url" content="{{ request.url_root }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SkinVault — Recomendações de skins CS2">
+  <meta name="twitter:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
+  <meta name="twitter:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
+  <link rel="canonical" href="{{ request.url_root }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -27,6 +34,7 @@
   </script>
 </head>
 <body class="{{ 'modo-compacto' if compacto_sel else '' }} {{ 'modo-apresentacao' if apresentacao_sel else '' }}">
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   {% macro linha_candidato(c, destaque=false) %}
   <tr class="{{ "linha-destaque" if destaque else "" }}" data-nome="{{ c.name }}" data-nota="{{ c.score }}">
     <td class="celula-item">
@@ -43,6 +51,7 @@
       </div>
       <div class="celula-item-acoes">
         <button type="button" class="botao-copiar" data-copiar="{{ c.name }}" title="Copiar nome do item" aria-label="Copiar nome de {{ c.name_fmt }}">📋</button>
+        <button type="button" class="botao-copiar" data-copiar-link="{{ request.url_root.rstrip('/') }}{{ url_for('item_detail', name=c.name) }}" title="Copiar link pra compartilhar este item" aria-label="Copiar link de {{ c.name_fmt }}">🔗</button>
         <a class="link-secundario" href="{{ c.steamdb_url }}" target="_blank" rel="noopener" title="Ver no SteamDB">SteamDB</a>
         <a class="link-secundario" href="{{ url_for('item_detail', name=c.name) }}" title="Ver detalhes e histórico de preço">Detalhes</a>
       </div>
@@ -54,7 +63,7 @@
       {% elif c.tendencia == "baixa" %}<span class="icone-tendencia tendencia-baixa" title="Preço caiu desde o scan anterior" aria-label="Preço caiu desde o scan anterior">▼</span>{% endif %}
     </td>
     <td class="celula-sparkline">{{ c.sparkline|safe if c.sparkline else "—" }}</td>
-    <td class="nota nota-{{ 'alta' if c.score >= 70 else ('media' if c.score >= 45 else 'baixa') }}">{{ c.score }}</td>
+    <td class="nota nota-{{ c.score|nota_classe }}">{{ c.score }}</td>
     <td>
       {% if c.descontinuada %}
         <span class="selo-descontinuada" title="Caixa fora do drop pool -- historicamente valoriza mais">{{ c.case_label }}</span>
@@ -62,8 +71,8 @@
         {{ c.case_label or "—" }}
       {% endif %}
     </td>
-    <td class="risco risco-{{ (c.pump_risk or {}).get('level', 'low') }}">
-      {{ {"low": "Baixo", "medium": "Médio", "high": "Alto"}[(c.pump_risk or {}).get('level', 'low')] }}
+    <td class="risco risco-{{ c.pump_risk|risco_nivel }}">
+      {{ c.pump_risk|risco_label }}
     </td>
     <td>
       <details class="detalhe-motivo">
@@ -91,9 +100,9 @@
   {% macro cabecalho_tabela() %}
   <tr>
     <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
-    <th title="Menor preço anunciado agora no Steam Market"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
+    <th title="Menor preço anunciado agora no Steam Market" aria-sort="{{ 'ascending' if ordenar_sel == 'preco' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
     <th class="celula-sparkline" title="Preço nos últimos pontos registrados -- mesmo histórico da página de detalhe">Histórico</th>
-    <th title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
+    <th title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)" aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
     <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
     <th title="Chance de o preço ter subido rápido e artificialmente (menos confiável de confiar numa alta assim)">Risco</th>
     <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
@@ -111,7 +120,7 @@
     {% endif %}
   </header>
 
-  <main>
+  <main id="conteudo">
     {% if scan %}
       <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).</p>
       {% if scan_desatualizado %}
@@ -125,7 +134,7 @@
 
     <form class="form-filtros" method="get" action="{{ url_for('index') }}">
       <label>Buscar
-        <input type="text" name="q" id="campo-busca" placeholder="Nome do item (atalho: /)" value="{{ busca_sel or '' }}">
+        <input type="text" name="q" id="campo-busca" placeholder="Ex.: AK-47 | Redline (atalho: /)" value="{{ busca_sel or '' }}">
       </label>
       <label>Categoria
         <select name="categoria">
@@ -160,8 +169,8 @@
       <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, apresentacao='1') }}">
         Modo apresentação
       </a>
-      <button type="button" id="botao-favoritos" class="botao-link" title="Mostrar só os itens que você favoritou (só neste navegador)">
-        ☆ Só favoritos
+      <button type="button" id="botao-favoritos" class="botao-link" title="Mostrar só os itens que você favoritou (só neste navegador) -- atalho: f">
+        <span id="texto-botao-favoritos">☆ Só favoritos</span> <span id="contagem-favoritos" class="contagem-favoritos" hidden>0</span>
       </button>
       <button type="button" id="botao-exportar-csv" class="botao-link" title="Baixar a tabela visível como CSV">
         ⇩ Exportar CSV
@@ -172,6 +181,8 @@
     </form>
 
     <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>
+
+    <p id="msg-sem-favoritos" class="status status-vazio" hidden>Nenhum item favoritado nesta página ainda — clique na ☆ ao lado de um item pra favoritar.</p>
 
     {% if agrupar_sel and grupos %}
       {% for categoria_nome, itens in grupos %}
@@ -225,6 +236,9 @@
     <a class="botao-link link-comparar" href="{{ url_for('comparar') }}">Comparar</a>
     <button type="button" id="botao-limpar-comparar" class="botao-link botao-remover">Limpar</button>
   </div>
+
+  <button type="button" id="botao-topo" class="botao-topo" hidden title="Voltar ao topo" aria-label="Voltar ao topo">↑</button>
+  <div id="area-toast" class="area-toast" aria-live="polite"></div>
 
   <script src="{{ static_v('app.js') }}" defer></script>
 </body>

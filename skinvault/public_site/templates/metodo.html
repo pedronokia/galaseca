@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Como funciona a nota — SkinVault</title>
   <meta name="description" content="O que a nota de 0 a 100 mede, de onde vêm os números, e o que ela não é.">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="{{ request.url }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
@@ -18,6 +20,29 @@
     "itemListElement": [
       {"@type": "ListItem", "position": 1, "name": "SkinVault", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "Método", "item": "{{ request.url }}"}
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "O que a nota do SkinVault mede?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Um número de 0 a 100 que resume vários sinais factuais sobre um item agora: se o preço está abaixo do que costuma valer, se tem poucos vendedores, se a caixa de onde ele vem ainda está sendo sorteada no jogo, se o preço subiu rápido demais recentemente (tratado como risco, não como bônus)."}
+      },
+      {
+        "@type": "Question",
+        "name": "A nota é uma previsão de preço futuro?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Não. A nota descreve o que já foi medido até agora -- nunca o que vai acontecer. Nenhum fator promete retorno, e desempenho passado não garante nada no futuro."}
+      },
+      {
+        "@type": "Question",
+        "name": "Quais são os limites da nota?",
+        "acceptedAnswer": {"@type": "Answer", "text": "A amostra é dos itens que o scanner já cobriu, não é aleatória de tudo que existe no jogo. O 'Risco' mede só alta de preço rápida e possivelmente artificial, não outros riscos. Os sinais são recalibrados conforme mais dado se acumula."}
+      }
     ]
   }
   </script>
@@ -40,6 +65,12 @@
     é tratado como risco, não como bônus). Cada fator soma ou subtrai
     pontos, e o "Por quê" de cada item na tabela mostra exatamente quais
     fatores pesaram.</p>
+    <p>Por exemplo, um item pode mostrar na coluna "Por quê": <em>"Preço
+    14% abaixo do típico (+17); Abaixo do preço típico (+5); Caixa que não
+    sai mais no jogo (+5)"</em> -- cada número entre parênteses é quanto
+    aquele fator específico somou (ou subtraiu) da nota final. Clicar na
+    linha abre a lista completa de fatores que entraram no cálculo
+    daquele item, positivos e negativos.</p>
 
     <h2 class="secao-titulo">O que ela não é</h2>
     <p>Não é previsão. A nota descreve o que já foi medido até agora --

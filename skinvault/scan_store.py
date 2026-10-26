@@ -80,13 +80,20 @@ def registrar_ciclo(itens: int, duracao_min: float,
 
 
 def load_historico_ciclos(path: "Path | str | None" = None) -> list[dict]:
-    """Lista de ciclos, mais antigo primeiro. [] se ausente/ilegível."""
+    """Lista de ciclos, mais antigo primeiro. [] se ausente/ilegível.
+
+    Descarta entradas sem "ts" (achado 2026-10-26): `worker_alert.
+    verificar_e_alertar` faz `historico[0]["ts"]` sem `.get` -- uma
+    entrada malformada ali derrubaria o alerta de worker atrasado, que
+    existe justamente pra avisar quando algo está errado."""
     p = Path(path) if path is not None else _HISTORICO_PATH
     try:
         data = json.loads(p.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
-    return data if isinstance(data, list) else []
+    if not isinstance(data, list):
+        return []
+    return [c for c in data if isinstance(c, dict) and "ts" in c]
 
 
 def idade_txt(ts: float, now: float | None = None) -> str:

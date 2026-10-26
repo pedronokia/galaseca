@@ -20,3 +20,18 @@ jobs:
           cache: pip
       - run: python -m pip install -r requirements.txt pytest
       - run: python -m pytest -q
+
+  # Informativo por enquanto (continue-on-error) -- rodada 2026-10-26.
+  # Sobe pra falhar o workflow de verdade depois de rodar limpo algumas
+  # vezes; travar a CI na primeira execução sem saber o que vai achar
+  # seria arriscado demais pra fazer sem poder corrigir antes.
+  pip-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pip-audit
+      - run: python -m pip_audit -r requirements-public-site.txt

@@ -13,6 +13,7 @@ import logging
 import logging.handlers
 import os
 import secrets
+import shutil
 import sqlite3
 import time
 import urllib.parse
@@ -33,9 +34,10 @@ from skinvault import (
 from skinvault._paths import DATA_DIR, atomic_write_bytes
 from skinvault.localization import localize_name
 from skinvault.public_site import (
-    buscas, changelog, charts, db_backup, erro_stats, fmt, icon_cache,
-    latencia, rate_limit, scan_progress, uptime, visits,
+    buscas, changelog, charts, db_backup, discord_notify, erro_stats, fmt,
+    icon_cache, latencia, rate_limit, scan_progress, uptime, visits,
 )
+from skinvault.public_site.auth import csrf_token
 
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # Ícone: CDN estático da Steam (steamstatic.com), não o market/inventory
@@ -181,6 +183,16 @@ def create_app() -> Flask:
             "static_v": static_v,
         }
 
+    # Filtros Jinja: nota_classe/risco_nivel/risco_label -- centraliza a
+    # classificação de nota e o rótulo de risco, repetida em 4 templates
+    # até 2026-10-26 (index/item/comparar/ranking). Um filtro só precisa
+    # ser registrado uma vez pra ficar disponível em todos os templates,
+    # ao contrário de uma macro Jinja (que exige `{% import %}` em cada
+    # arquivo).
+    app.jinja_env.filters["nota_classe"] = _nota_classe
+    app.jinja_env.filters["risco_nivel"] = _risco_nivel
+    app.jinja_env.filters["risco_label"] = _risco_label
+
     @app.before_request
     def _marcar_inicio_latencia():
         g.inicio_ts = time.time()
@@ -200,7 +212,12 @@ def create_app() -> Flask:
         nota_min = _parse_float_arg("nota_min")
         preco_max = _parse_float_arg("preco_max")
         busca = (request.args.get("q") or "").strip() or None
-        ordenar = request.args.get("ordenar") or "nota"
+        # "ordenar" segue o mesmo padrão de cookie que compacto/agrupar/
+        # minimalista abaixo: query param manda quando presente, senão
+        # cai pro último escolhido (sem isso, re-ordenar por preço não
+        # sobrevivia a uma nova visita).
+        ordenar = (request.args.get("ordenar") if "ordenar" in request.args
+                  else request.cookies.get("pref_ordenar")) or "nota"
         if ordenar not in ("nota", "preco"):
             ordenar = "nota"
         # Prefs (compacto/agrupar/minimalista): query param manda quando
@@ -261,6 +278,9 @@ def create_app() -> Flask:
             if nome_param in request.args:
                 resp.set_cookie(f"pref_{nome_param}", "1" if valor else "0",
                                 max_age=_UM_ANO_S, samesite="Lax")
+        if "ordenar" in request.args:
+            resp.set_cookie("pref_ordenar", ordenar,
+                            max_age=_UM_ANO_S, samesite="Lax")
         return resp
 
     @app.route("/item/<name>")
@@ -308,13 +328,20 @@ def create_app() -> Flask:
     @rate_limit.rate_limited(rate_limit.API_MAX_HITS, rate_limit.API_WINDOW_S)
     def api_recommendations():
         scan = scan_store.load_last_scan()
-        return jsonify({
+        resp = jsonify({
+            "api_version": 1,
             "ultimo_scan": {
                 "categoria": scan["category"] if scan else None,
                 "ts": scan["ts"] if scan else None,
             },
             "candidatos": _candidatos_filtrados(scan)[:_LIMIT_CANDIDATOS],
         })
+        # O dado só muda quando um ciclo do worker termina (até 6h) --
+        # cache curto evita reprocessar `_candidatos_filtrados` (passa
+        # por `recommendations.buy_candidates` + localize_name por item)
+        # a cada poll de quem consome a API programaticamente.
+        resp.headers["Cache-Control"] = "public, max-age=300"
+        return resp
 
     @app.route("/healthz")
     def healthz():
@@ -358,6 +385,7 @@ def create_app() -> Flask:
             "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
         return jsonify({
             "ok": True,
+            "api_version": 1,
             "scan": {
                 "disponivel": scan is not None,
                 "idade_segundos": (
@@ -422,10 +450,11 @@ def create_app() -> Flask:
         return "", 204
 
     @app.route("/sitemap.xml")
+    @rate_limit.rate_limited(rate_limit.API_MAX_HITS, rate_limit.API_WINDOW_S)
     def sitemap():
         base = request.url_root.rstrip("/")
         paginas = ["/", "/privacidade", "/status", "/changelog", "/api",
-                  "/ranking", "/metodo", "/sobre"]
+                  "/ranking", "/metodo", "/sobre", "/faq"]
         urls_xml = "\n".join(
             f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
         xml = (
@@ -478,11 +507,16 @@ def create_app() -> Flask:
             f"{itens_xml}\n"
             "</channel></rss>\n"
         )
-        return Response(rss, mimetype="application/rss+xml")
+        return Response(rss, mimetype="application/rss+xml",
+                        headers={"Cache-Control": "public, max-age=3600"})
 
     @app.route("/metodo")
     def metodo():
         return render_template("metodo.html")
+
+    @app.route("/faq")
+    def faq():
+        return render_template("faq.html")
 
     @app.route("/sobre")
     def sobre():
@@ -577,7 +611,46 @@ def create_app() -> Flask:
             ciclos=list(reversed(scan_store.load_historico_ciclos()))[:10],
             progresso=progresso,
             latencias=latencia.resumo(),
+            disco=_disco_info(),
+            usuarios=_contagem_usuarios(),
+            webhook_configurado=bool(
+                os.environ.get("SKINVAULT_ADMIN_DISCORD_WEBHOOK")),
+            teste_webhook_msg=request.args.get("teste_webhook"),
+            csrf_token=csrf_token(),
         )
+
+    @app.route("/admin/testar-webhook", methods=["POST"])
+    @rate_limit.rate_limited(rate_limit.LOGIN_MAX_HITS, rate_limit.LOGIN_WINDOW_S)
+    def admin_testar_webhook():
+        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
+            return render_template("404.html"), 404
+        # CSRF checado aqui dentro (não via @csrf_protect) de propósito:
+        # o decorator rodaria ANTES deste check de sessão admin, e uma
+        # visita anônima sem csrf_token nenhum na sessão levaria 403 em
+        # vez de 404 -- vazando que a rota existe pra quem não é admin.
+        token = session.get("csrf_token")
+        if not token or request.form.get("csrf_token") != token:
+            return "", 403
+        webhook = os.environ.get("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "")
+        enviado = discord_notify.enviar(
+            webhook, "🔧 SkinVault: mensagem de teste do painel admin.")
+        flash_msg = "Enviado -- confira o canal." if enviado else \
+            "Falhou (webhook ausente ou Discord recusou)."
+        return redirect(url_for("admin", teste_webhook=flash_msg))
+
+    @app.route("/admin/log-bruto")
+    def admin_log_bruto():
+        """Download do errors.log completo -- as 30 últimas linhas no
+        painel bastam pro dia a dia, mas investigar um padrão (quantas
+        vezes um erro específico apareceu ao longo de dias) pede o
+        arquivo inteiro."""
+        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
+            return render_template("404.html"), 404
+        if not _ERROR_LOG_PATH.exists():
+            return render_template("404.html"), 404
+        return send_from_directory(
+            _ERROR_LOG_PATH.parent, _ERROR_LOG_PATH.name,
+            as_attachment=True, mimetype="text/plain")
 
     @app.route("/api")
     def api_docs():
@@ -604,6 +677,7 @@ def create_app() -> Flask:
         )
 
     @app.route("/feed.xml")
+    @rate_limit.rate_limited(rate_limit.API_MAX_HITS, rate_limit.API_WINDOW_S)
     def feed():
         scan = scan_store.load_last_scan()
         candidatos = _candidatos_filtrados(scan)[:_LIMIT_CANDIDATOS]
@@ -631,7 +705,8 @@ def create_app() -> Flask:
             f"{itens_xml}\n"
             "</channel></rss>\n"
         )
-        return Response(rss, mimetype="application/rss+xml")
+        return Response(rss, mimetype="application/rss+xml",
+                        headers={"Cache-Control": "public, max-age=300"})
 
     return app
 
@@ -694,6 +769,78 @@ def _tendencia(name: str) -> "str | None":
     if atual < anterior:
         return "baixa"
     return None
+
+
+def _tamanho_fmt(bytes_: int) -> str:
+    """"1.2 MB"/"340 KB" -- só pro painel admin, não precisa de precisão."""
+    valor = float(bytes_)
+    for unidade in ("B", "KB", "MB", "GB"):
+        if valor < 1024 or unidade == "GB":
+            return f"{valor:.1f} {unidade}" if unidade != "B" else f"{int(valor)} B"
+        valor /= 1024
+    return f"{valor:.1f} GB"
+
+
+def _disco_info() -> dict:
+    """Espaço em disco da partição de `DATA_DIR` + tamanho dos arquivos
+    de registro -- pensado pra avisar ANTES de faltar espaço pros
+    backups, não depois (achado: numa VM pequena, 1-2GB livres somem
+    rápido com `ssr_cache`/backups acumulando)."""
+    try:
+        uso = shutil.disk_usage(DATA_DIR)
+        livre_pct = round(100 * uso.free / uso.total, 1) if uso.total else 0.0
+    except OSError:
+        uso = None
+        livre_pct = None
+    db_tamanho = (db_backup._DB_PATH.stat().st_size
+                 if db_backup._DB_PATH.exists() else 0)
+    backups_tamanho = sum(
+        p.stat().st_size for p in db_backup._BACKUP_DIR.glob("*")
+    ) if db_backup._BACKUP_DIR.exists() else 0
+    return {
+        "livre_fmt": _tamanho_fmt(uso.free) if uso else "—",
+        "total_fmt": _tamanho_fmt(uso.total) if uso else "—",
+        "livre_pct": livre_pct,
+        "db_fmt": _tamanho_fmt(db_tamanho),
+        "backups_fmt": _tamanho_fmt(backups_tamanho),
+    }
+
+
+def _contagem_usuarios() -> int:
+    """Quantas contas Steam já logaram ao menos uma vez -- 0 se o banco
+    ainda não existe (site sem nenhum login ainda)."""
+    if not db_backup._DB_PATH.exists():
+        return 0
+    try:
+        conn = sqlite3.connect(str(db_backup._DB_PATH))
+        n = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        conn.close()
+        return int(n)
+    except sqlite3.Error:
+        return 0
+
+
+_RISCO_LABELS = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
+
+
+def _nota_classe(score: "int | float | None") -> str:
+    """"alta"/"media"/"baixa" -- mesma faixa repetida em 4 templates
+    (index/item/comparar/ranking) até 2026-10-26; centralizado aqui como
+    filtro Jinja pra não divergir se a faixa mudar um dia."""
+    score = score or 0
+    if score >= 70:
+        return "alta"
+    if score >= 45:
+        return "media"
+    return "baixa"
+
+
+def _risco_nivel(pump_risk: "dict | None") -> str:
+    return (pump_risk or {}).get("level", "low")
+
+
+def _risco_label(pump_risk: "dict | None") -> str:
+    return _RISCO_LABELS[_risco_nivel(pump_risk)]
 
 
 def _tempo_desde_aposentadoria(data_iso: "str | None") -> "str | None":

@@ -45,6 +45,24 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 
+/* ── Acessibilidade: pular pro conteúdo ──────────────────── */
+.link-pular-conteudo {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--accent);
+  color: var(--bg);
+  padding: 10px 16px;
+  border-radius: 0 0 4px 0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-pular-conteudo:focus {
+  left: 0;
+}
+
 header.topo {
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
@@ -207,7 +225,7 @@ table.tabela-itens {
    davam resultado DIFERENTE pro cabeçalho e pro corpo da mesma coluna
    (td ficava bem mais estreito que o th correspondente) quando a
    célula do corpo tinha filhos flex com largura intrínseca -- o
-   <colgroup> é a única fonte de verdade, sem essa ambiguidade.
+   <colgroup> é a única fonte de verdade, sem essa ambiguidade. */
 
 .celula-item {
   display: block;
@@ -364,7 +382,8 @@ table.tabela-itens {
 .modo-apresentacao footer.rodape,
 .modo-apresentacao .conta-link,
 .modo-apresentacao .barra-comparar,
-.modo-apresentacao .lista-buscas-salvas {
+.modo-apresentacao .lista-buscas-salvas,
+.modo-apresentacao .botao-topo {
   display: none;
 }
 
@@ -916,6 +935,60 @@ footer.rodape .versao {
   font-size: 0.72rem;
   font-weight: 600;
   margin-left: 4px;
+}
+
+/* ── Voltar ao topo ───────────────────────────────────── */
+.botao-topo {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  z-index: 9;
+}
+
+.botao-topo:hover { background: var(--accent-bright); }
+
+/* ── Toast ────────────────────────────────────────────── */
+.area-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translate(-50%, 20px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  color: var(--text-bright);
+  padding: 10px 18px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 20;
+}
+
+.area-toast.visivel {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ── Contagem de favoritos ────────────────────────────── */
+.contagem-favoritos {
+  display: inline-block;
+  background: var(--warn);
+  color: #2b1d04;
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-left: 2px;
 }
 
 /* ── Buscas salvas ────────────────────────────────────── */

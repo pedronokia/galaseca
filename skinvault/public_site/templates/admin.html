@@ -21,7 +21,30 @@
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Visitas totais</span><span class="card-valor">{{ visitas }}</span></div>
       <div class="card"><span class="card-label">Backups guardados</span><span class="card-valor">{{ backups|length }}</span></div>
+      <div class="card"><span class="card-label">Contas com login</span><span class="card-valor">{{ usuarios }}</span></div>
+      <div class="card"><span class="card-label">Disco livre</span><span class="card-valor {{ 'valor-negativo' if disco.livre_pct is not none and disco.livre_pct < 15 else '' }}">{{ disco.livre_fmt }} ({{ disco.livre_pct }}%)</span></div>
     </section>
+
+    {% if teste_webhook_msg %}
+      <p class="status">{{ teste_webhook_msg }}</p>
+    {% endif %}
+
+    <h2 class="secao-titulo">Armazenamento</h2>
+    <ul>
+      <li>Disco: {{ disco.livre_fmt }} livres de {{ disco.total_fmt }}</li>
+      <li>Banco de contas (public_site.db): {{ disco.db_fmt }}</li>
+      <li>Backups acumulados: {{ disco.backups_fmt }}</li>
+    </ul>
+
+    <h2 class="secao-titulo">Webhook do Discord (alerta de worker atrasado)</h2>
+    {% if webhook_configurado %}
+      <form method="post" action="{{ url_for('admin_testar_webhook') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="botao-link">Enviar mensagem de teste</button>
+      </form>
+    {% else %}
+      <p class="status status-vazio">SKINVAULT_ADMIN_DISCORD_WEBHOOK não configurado.</p>
+    {% endif %}
 
     <h2 class="secao-titulo">Termos mais buscados</h2>
     {% if mais_buscados %}
@@ -97,6 +120,7 @@
     <h2 class="secao-titulo">Últimos erros (errors.log)</h2>
     {% if erros %}
     <pre class="bloco-codigo">{{ erros|join("\n") }}</pre>
+    <p class="status"><a href="{{ url_for('admin_log_bruto') }}">Baixar errors.log completo</a></p>
     {% else %}
       <p class="status status-vazio">Sem erros registrados.</p>
     {% endif %}

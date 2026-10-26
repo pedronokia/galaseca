@@ -231,3 +231,44 @@ def test_privacidade_acessivel_sem_login(client):
 def test_privacidade_linkada_no_rodape(client):
     pagina = client.get("/").data.decode("utf-8")
     assert "/privacidade" in pagina
+
+
+# ── Lote 10: exportar dados (LGPD) + limpeza de avatar na exclusão ──
+
+def test_exportar_dados_sem_login_redireciona(client):
+    resp = client.get("/conta/exportar")
+    assert resp.status_code == 302
+
+
+def test_exportar_dados_com_login_devolve_json(client, monkeypatch):
+    _login(client, monkeypatch, steamid="76561198000000001")
+    token = _csrf_token(client)
+    client.post("/conta/posicoes", data={
+        "name": "AK-47 | Redline", "cost": "100", "quantity": "2",
+        "csrf_token": token,
+    })
+    resp = client.get("/conta/exportar")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["usuario"]["steamid"] == "76561198000000001"
+    assert len(data["portfolio"]) == 1
+    assert data["portfolio"][0]["name"] == "AK-47 | Redline"
+    assert "attachment" in resp.headers.get("Content-Disposition", "")
+
+
+def test_excluir_apaga_avatar_em_cache(client, monkeypatch, tmp_path):
+    from skinvault.ui import profile_fetcher
+    monkeypatch.setattr(profile_fetcher, "_PROFILES_PATH", tmp_path / "perfis.json")
+    monkeypatch.setattr(profile_fetcher, "_AVATARS_DIR", tmp_path / "avatars")
+    steamid = "76561198000000002"
+    profile_fetcher._AVATARS_DIR.mkdir(parents=True, exist_ok=True)
+    avatar_path = profile_fetcher._AVATARS_DIR / f"{steamid}.jpg"
+    avatar_path.write_bytes(b"fake-jpeg")
+    profile_fetcher._save_cache({steamid: {"name": "Fulano"}})
+
+    _login(client, monkeypatch, steamid=steamid)
+    token = _csrf_token(client)
+    client.post("/conta/excluir", data={"csrf_token": token})
+
+    assert not avatar_path.exists()
+    assert steamid not in profile_fetcher._load_cache()

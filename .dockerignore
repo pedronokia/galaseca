@@ -1,12 +1,19 @@
-.git
-__pycache__
+# Reduz o contexto enviado pro build do Docker -- sem isso, .git (pode
+# ser centenas de MB de histórico) e __pycache__/venv de toda sessão de
+# dev iam junto em todo `docker build`, deixando o build mais lento à
+# toa (achado 2026-10-26, rodada de polimento).
+.git/
+__pycache__/
 *.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
 data/
-tests/
-*.spec
-HANDOFF.md
-ROADMAP.md
-AGENTS.md
-.claude/
 dist/
 build/
+*.spec
+.vscode/
+.idea/
+node_modules/
+*.log
