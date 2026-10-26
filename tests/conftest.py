@@ -165,6 +165,18 @@ def _sem_rede(monkeypatch):
 
     monkeypatch.setattr(httpx, "Client", _ClienteBloqueado)
 
+    # steam_api._http_get usa o atalho `httpx.get(...)` (desde 2026-10-26,
+    # trocado de urllib por um achado ao vivo -- ver steam_api.py). Esse
+    # atalho NAO passa pelo `httpx.Client` patcheado acima (resolve a
+    # classe internamente, no import do pacote, nao via atributo do
+    # modulo) -- sem este patch extra, teste sem mock de `_http_get`
+    # fazia chamada de rede REAL em silencio (achado ao escrever o teste
+    # de migracao urllib->httpx).
+    def _httpx_get_bloqueado(*_a, **_kw):
+        raise httpx.ConnectError("rede bloqueada na suite de testes")
+
+    monkeypatch.setattr(httpx, "get", _httpx_get_bloqueado)
+
 
 @pytest.fixture(autouse=True)
 def _sem_espera_de_rate_limit(monkeypatch):

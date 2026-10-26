@@ -13,7 +13,13 @@ senha, cookie de sessao ou API key privada. Le' so' o que ja' e' publico:
 
 Sem login => nao da' pra roubar item, nao da' pra dar ban. Informa, nao age.
 
-Implementado com urllib (stdlib): o "momento magico" roda sem pip install.
+Implementado com httpx (ja' e' dependencia de verdade do projeto --
+icons.py/icon_backfill.py ja' usam). Era urllib (stdlib) ate' 2026-10-26:
+trocado depois de um achado ao vivo no site publico -- a Steam devolvia
+429 pra urllib.request e 200 pro MESMO pedido (mesma URL, mesmo
+User-Agent, mesmo segundo) via httpx ou curl. Nao era bloqueio de IP
+nem de volume de trafego: era o fingerprint TLS/HTTP do urllib
+especificamente sendo sinalizado (ver `_http_get`).
 """
 from __future__ import annotations
 
@@ -21,9 +27,9 @@ import html as _html
 import json
 import re
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
+
+import httpx
 
 _APP_CS2 = 730
 _CONTEXT = 2
@@ -114,14 +120,17 @@ INV_ERROR = "error"             # rede/erro inesperado
 
 def _http_get(url: str, timeout: float = 15.0) -> tuple[int, str | None]:
     """GET cru. Retorna (status_code, body). status 0 = erro de rede.
-    Esta e' a unica camada que toca a rede -- e' o ponto de mock nos testes."""
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    Esta e' a unica camada que toca a rede -- e' o ponto de mock nos testes.
+
+    `follow_redirects=True` porque a listing page do Market as vezes
+    redireciona (ex. normalizacao de URL) -- urllib seguia isso sozinho
+    por padrao; httpx exige o parametro explicito, senao devolveria o
+    302 em vez da pagina final."""
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, resp.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        return exc.code, None
-    except Exception:
+        resp = httpx.get(url, headers={"User-Agent": _UA}, timeout=timeout,
+                         follow_redirects=True)
+        return resp.status_code, resp.text
+    except httpx.HTTPError:
         return 0, None
 
 

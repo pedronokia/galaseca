@@ -338,48 +338,56 @@ class TestParseBRL:
 
 
 class MockResponse:
-    """Simula resposta de urllib.request.urlopen."""
-    def __init__(self, status=200, body=b"ok"):
-        self.status = status
-        self._body = body
-    def read(self):
-        return self._body
-    def __enter__(self):
-        return self
-    def __exit__(self, *a):
-        pass
+    """Simula resposta de httpx.get."""
+    def __init__(self, status_code=200, text="ok"):
+        self.status_code = status_code
+        self.text = text
 
 
 def test_http_get_success(monkeypatch):
-    monkeypatch.setattr("urllib.request.urlopen", lambda req, timeout=15: MockResponse())
+    monkeypatch.setattr(
+        "skinvault.steam_api.httpx.get",
+        lambda url, **kw: MockResponse())
     code, body = steam_api._http_get("http://x")
     assert code == 200
     assert body == "ok"
 
 
 def test_http_get_httperror_returns_code(monkeypatch):
-    """HTTPError retorna o codigo do erro."""
-    import urllib.error
-
-    def _raise(url, *a, **kw):
-        raise urllib.error.HTTPError("http://x", 429, "rate", {}, None)
-
-    monkeypatch.setattr("urllib.request.urlopen", _raise)
+    """Status de erro (429) vem direto na resposta -- httpx nao levanta
+    excecao por status, diferente do urllib antigo."""
+    monkeypatch.setattr(
+        "skinvault.steam_api.httpx.get",
+        lambda url, **kw: MockResponse(status_code=429, text=""))
     code, body = steam_api._http_get("http://x")
     assert code == 429
-    assert body is None
 
 
 def test_http_get_network_error_returns_zero(monkeypatch):
     """Erro generico de rede retorna 0."""
+    import httpx
 
-    def _raise(url, *a, **kw):
-        raise OSError("connection refused")
+    def _raise(url, **kw):
+        raise httpx.ConnectError("connection refused")
 
-    monkeypatch.setattr("urllib.request.urlopen", _raise)
+    monkeypatch.setattr("skinvault.steam_api.httpx.get", _raise)
     code, body = steam_api._http_get("http://x")
     assert code == 0
     assert body is None
+
+
+def test_http_get_segue_redirecionamento(monkeypatch):
+    """follow_redirects=True precisa estar explicito -- httpx nao segue
+    redirect por padrao, diferente do urllib antigo (achado 2026-10-26)."""
+    recebido = {}
+
+    def _get(url, **kw):
+        recebido.update(kw)
+        return MockResponse()
+
+    monkeypatch.setattr("skinvault.steam_api.httpx.get", _get)
+    steam_api._http_get("http://x")
+    assert recebido.get("follow_redirects") is True
 
 
 # ── _get_json ──────────────────────────────────────────────────────
