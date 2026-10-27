@@ -104,6 +104,17 @@ class MarketScreen(QWidget):
         self._bridge.data_ready.connect(self._on_data)
         self._recent: list[str] = _load_recent()
         self._started_at: float = 0.0
+        # Cada _on_search() incrementa -- a thread carrega o valor no
+        # fechamento e _on_data() so' aplica o resultado se ainda for o
+        # mais recente. Sem isto, buscar "SLOW" e, antes dela voltar,
+        # buscar "FAST" podia deixar a tela com o titulo/preco de "SLOW"
+        # (que demorou mais e chegou por ultimo) enquanto o campo de busca
+        # mostrava "FAST" -- a Steam nao garante ordem de resposta entre
+        # duas requisicoes concorrentes. Achado navegando a tela de
+        # verdade, 2026-10-27 (ver tambem o bug equivalente ja corrigido
+        # no Inventario da UI web, mesma familia "resultado desatualizado
+        # sobrescreve o mais novo").
+        self._search_seq: int = 0
         self._build()
         self._rebuild_recent_menu()
 
@@ -531,6 +542,8 @@ class MarketScreen(QWidget):
         # desliga quando os dados chegam (via set_data/set_loading False).
         self._price_chart.set_loading(True)
         self._started_at = time.time()
+        self._search_seq += 1
+        seq = self._search_seq
 
         def _worker():
             # try/except/finally: get_market_page_data faz parsing pesado de
@@ -538,7 +551,7 @@ class MarketScreen(QWidget):
             # uma excecao aqui matava a thread ANTES de emitir data_ready,
             # e o botao "Consultar item" + o spinner ficavam presos pra
             # sempre com a tela em branco (achado no diagnostico da Fase 2).
-            data: dict = {"name": name}
+            data: dict = {"name": name, "seq": seq}
             try:
                 overview = steam_api.get_market_overview(name)
                 if overview:
@@ -554,6 +567,11 @@ class MarketScreen(QWidget):
         threading.Thread(target=_worker, daemon=True).start()
 
     def _on_clear(self) -> None:
+        # Invalida qualquer busca ainda em voo -- sem isto, limpar a tela
+        # enquanto uma consulta anterior ainda nao voltou nao cancelava
+        # nada: o resultado reaparecia sozinho (nome e preco de um item
+        # que o usuario ja' tinha limpado) assim que a thread terminasse.
+        self._search_seq += 1
         self._search_inp.clear()
         self._search_inp.setFocus()
         self._loading.setVisible(False)
@@ -583,6 +601,17 @@ class MarketScreen(QWidget):
         )
 
     def _on_data(self, data: dict) -> None:
+        # Resposta de uma busca ja' superada por outra mais recente (ver
+        # comentario de _search_seq no __init__) -- ignora inteira, sem
+        # tocar em loading/visibilidade/texto nenhum. A busca mais nova
+        # ainda esta' em voo e vai chamar _on_data() por conta propria
+        # quando voltar; mexer no estado aqui so' desfaria isso fora de
+        # ordem. So' o worker real de _on_search() inclui "seq" -- chamar
+        # _on_data() direto (como a suite de teste ja fazia antes deste
+        # fix, passando um dict montado a mao) continua processando
+        # normal, sem exigir o campo.
+        if "seq" in data and data["seq"] != self._search_seq:
+            return
         # set_button_loading(False) roda incondicionalmente, ANTES de
         # olhar sucesso/erro -- o _worker agora tem try/finally e sempre
         # chega aqui, entao o botao nunca mais fica preso desabilitado.

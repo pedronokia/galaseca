@@ -3559,6 +3559,103 @@ class TestMarketScreen:
         screen._on_data(data)
         assert "Dados insuficientes" in screen._detail_msg.text()
 
+    # ── corrida entre buscas concorrentes ─────────────────
+    #
+    # Achado navegando a tela de verdade, 2026-10-27: a Steam nao garante
+    # ordem de resposta entre duas requisicoes. Buscar "SLOW" e, antes
+    # dela voltar, buscar "FAST" podia deixar a tela com o resultado de
+    # "SLOW" (que demorou mais e chegou por ultimo) enquanto o campo de
+    # busca ja mostrava "FAST". _search_seq resolve isto -- os testes
+    # abaixo adiam o alvo da thread em vez de rodar de verdade, pra
+    # controlar deterministicamente a ORDEM de chegada sem depender de
+    # timing real.
+
+    class _AdiaThread:
+        """threading.Thread fake: guarda o alvo em vez de rodar."""
+        pendentes: list = []
+
+        def __init__(self, target=None, daemon=False):
+            self._target = target
+
+        def start(self):
+            type(self).pendentes.append(self._target)
+
+    def test_busca_desatualizada_nao_sobrescreve_mais_nova(self, monkeypatch):
+        from skinvault.prices import PriceCache
+        from skinvault.ui.market_screen import MarketScreen
+        self._AdiaThread.pendentes = []
+        monkeypatch.setattr("threading.Thread", self._AdiaThread)
+        monkeypatch.setattr(
+            "skinvault.steam_api.get_market_page_data", lambda n: None)
+        monkeypatch.setattr(
+            "skinvault.steam_api.fair_value_verdict",
+            lambda *a, **kw: {"verdict": "fair", "label": "Justo",
+                              "diff_pct": 0.0})
+        monkeypatch.setattr("skinvault.cases.case_status", lambda n: {})
+        monkeypatch.setattr("skinvault.signals.record_item_volume",
+                            lambda n, v: None)
+        monkeypatch.setattr("skinvault.signals.load_item_volume",
+                            lambda n: [])
+        monkeypatch.setattr("skinvault.signals.volume_anomaly",
+                            lambda h: {"is_anomaly": False})
+
+        def overview_por_nome(n):
+            return {"lowest": 1.0 if n == "SLOW" else 2.0,
+                    "median": 1.0 if n == "SLOW" else 2.0, "volume": 10}
+        monkeypatch.setattr(
+            "skinvault.steam_api.get_market_overview", overview_por_nome)
+
+        screen = MarketScreen(PriceCache(ttl=3600))
+        screen._search_inp.setText("SLOW")
+        screen._on_search()
+        screen._search_inp.setText("FAST")
+        screen._on_search()
+        assert len(self._AdiaThread.pendentes) == 2
+
+        # Chega fora de ordem: FAST (mais nova) primeiro, SLOW depois --
+        # exatamente o cenario que expos o bug.
+        self._AdiaThread.pendentes[1]()
+        self._AdiaThread.pendentes[0]()
+
+        assert screen._search_inp.text() == "FAST"
+        assert "FAST" in screen._detail_title.text()
+        assert "R$ 2,00" in screen._stat_lowest._value.text()
+
+    def test_limpar_durante_busca_ignora_resultado_atrasado(self, monkeypatch):
+        from skinvault.prices import PriceCache
+        from skinvault.ui.market_screen import MarketScreen
+        self._AdiaThread.pendentes = []
+        monkeypatch.setattr("threading.Thread", self._AdiaThread)
+        monkeypatch.setattr(
+            "skinvault.steam_api.get_market_overview",
+            lambda n: {"lowest": 9.0, "median": 9.0, "volume": 10})
+        monkeypatch.setattr(
+            "skinvault.steam_api.get_market_page_data", lambda n: None)
+        monkeypatch.setattr(
+            "skinvault.steam_api.fair_value_verdict",
+            lambda *a, **kw: {"verdict": "fair", "label": "Justo",
+                              "diff_pct": 0.0})
+        monkeypatch.setattr("skinvault.cases.case_status", lambda n: {})
+        monkeypatch.setattr("skinvault.signals.record_item_volume",
+                            lambda n, v: None)
+        monkeypatch.setattr("skinvault.signals.load_item_volume",
+                            lambda n: [])
+        monkeypatch.setattr("skinvault.signals.volume_anomaly",
+                            lambda h: {"is_anomaly": False})
+
+        screen = MarketScreen(PriceCache(ttl=3600))
+        screen._search_inp.setText("SLOW")
+        screen._on_search()
+        assert len(self._AdiaThread.pendentes) == 1
+
+        screen._on_clear()
+        # Resultado chega DEPOIS do usuario ja ter limpado a tela.
+        self._AdiaThread.pendentes[0]()
+
+        assert screen._search_inp.text() == ""
+        assert screen._stat_lowest._value.text() == "—"
+        assert screen._detail_title.text() == "Detalhes do item"
+
 
 class TestTradesScreen:
     """Testes do TradesScreen."""
