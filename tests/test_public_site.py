@@ -1298,6 +1298,23 @@ def test_rota_icone_com_cache_serve_bytes(client, monkeypatch):
     assert "max-age" in resp.headers.get("Cache-Control", "")
 
 
+def test_rota_icone_tem_rate_limit(monkeypatch):
+    """Sem login, cache miss grava arquivo novo em disco -- sem limite,
+    um hash diferente por chamada enche o disco sem fim (achado
+    2026-10-27 junto da sanitização em icon_cache.obter()). Mesmo
+    gotcha de `rate_limited` avaliado na decoração: patcha ANTES de
+    `create_app()`."""
+    monkeypatch.setattr(
+        "skinvault.public_site.server.icon_cache.obter", lambda h: b"x")
+    monkeypatch.setattr(rate_limit, "ICON_MAX_HITS", 2)
+    app = create_app()
+    app.config["TESTING"] = True
+    c = app.test_client()
+    for _ in range(2):
+        assert c.get("/icone/abc123.jpg").status_code == 200
+    assert c.get("/icone/abc123.jpg").status_code == 429
+
+
 # ── rate limit nas rotas novas ───────────────────────────────
 
 def test_api_recommendations_tem_rate_limit(monkeypatch):

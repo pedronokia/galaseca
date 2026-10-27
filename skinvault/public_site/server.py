@@ -427,11 +427,17 @@ def create_app() -> Flask:
         })
 
     @app.route("/icone/<hash_icone>.jpg")
+    @rate_limit.rate_limited(rate_limit.ICON_MAX_HITS, rate_limit.ICON_WINDOW_S)
     def icone_cache(hash_icone: str):
         """Ícone servido do próprio domínio (ver `icon_cache.py`) --
         cache em disco, só busca do CDN da Steam na primeira vez que
         aquele hash aparece. Nunca 500: cache miss + rede fora vira
-        redirect pro CDN direto, nunca erro pro visitante."""
+        redirect pro CDN direto, nunca erro pro visitante.
+
+        Rate limit (2026-10-27): sem login, cache miss grava arquivo
+        novo em disco pra QUALQUER hash -- sem isto, um script batendo
+        com hash diferente a cada chamada enche o disco sem fim (ver
+        rate_limit.ICON_MAX_HITS)."""
         dados = icon_cache.obter(hash_icone)
         if dados is None:
             return redirect(_ICON_CDN_URL_2X.format(hash=hash_icone))

@@ -32,6 +32,15 @@ MUTATION_MAX_HITS, MUTATION_WINDOW_S = 30, 60.0
 API_MAX_HITS, API_WINDOW_S = 60, 60.0
 CSP_REPORT_MAX_HITS, CSP_REPORT_WINDOW_S = 20, 60.0
 
+# `/icone/<hash>.jpg` (icon_cache.py) é pública, sem login, e um cache
+# miss dispara requisição de rede pro CDN da Steam + grava um arquivo
+# novo em disco -- sem limite nenhum, um hash diferente a cada chamada
+# vira disco cheio (sem eviction no cache de ícone) e tráfego de saída
+# sem fim, achado 2026-10-27 junto da sanitização do hash em
+# icon_cache.obter(). Generoso o bastante pra uma página carregar
+# dezenas de ícones distintos de uma vez sem barrar uso normal.
+ICON_MAX_HITS, ICON_WINDOW_S = 120, 60.0
+
 
 def allow(key: str, max_hits: int, window_seconds: float,
          now: "float | None" = None) -> bool:
