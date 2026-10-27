@@ -16,10 +16,7 @@
   <meta name="twitter:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
   <meta name="twitter:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
   <link rel="canonical" href="{{ request.url_root }}">
-  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
-  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
-  <meta name="theme-color" content="#171a21">
+  {% include "partials/_head_pwa.html" %}
   <link rel="alternate" type="application/rss+xml" title="AlertaSkins — Recomendações" href="{{ url_for('feed') }}">
   <link rel="search" type="application/opensearchdescription+xml" title="AlertaSkins" href="{{ url_for('opensearch') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
