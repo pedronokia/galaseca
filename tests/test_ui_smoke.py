@@ -2105,6 +2105,7 @@ def _watchlist_screen(monkeypatch, items):
 
 
 def test_watchlist_toast_ao_remover_item(monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
     items = [{"name": "AK-47 | Redline (Field-Tested)", "target": 10.0}]
     screen = _watchlist_screen(monkeypatch, items)
     toasts = []
@@ -2112,13 +2113,30 @@ def test_watchlist_toast_ao_remover_item(monkeypatch):
         "skinvault.ui.watchlist_screen.Toast.show_toast",
         lambda parent, text, variant="info", **kw: toasts.append(
             (text, variant)))
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *a, **kw: QMessageBox.StandardButton.Yes)
     screen._on_remove_item(items[0])
     assert items == []  # remove_watch mockado de fato tirou o item
     assert toasts and toasts[-1][1] == "info"
     assert "removido da watchlist" in toasts[-1][0]
 
 
+def test_watchlist_remover_item_cancela_sem_confirmar(monkeypatch):
+    """QMessageBox.question com 'Não' não remove nada -- regressão do
+    achado 2026-10-27 (remoção sem confirmação alguma antes)."""
+    from PyQt6.QtWidgets import QMessageBox
+    items = [{"name": "AK-47 | Redline (Field-Tested)", "target": 10.0}]
+    screen = _watchlist_screen(monkeypatch, items)
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *a, **kw: QMessageBox.StandardButton.No)
+    screen._on_remove_item(items[0])
+    assert items != []  # recusou -- item continua
+
+
 def test_watchlist_toast_ao_remover_varios(monkeypatch):
+    from PyQt6.QtWidgets import QMessageBox
     items = [
         {"name": "AK-47 | Redline (Field-Tested)", "target": 10.0},
         {"name": "Kilowatt Case", "target": 0.0},
@@ -2130,8 +2148,29 @@ def test_watchlist_toast_ao_remover_varios(monkeypatch):
         "skinvault.ui.watchlist_screen.Toast.show_toast",
         lambda parent, text, variant="info", **kw: toasts.append(
             (text, variant)))
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *a, **kw: QMessageBox.StandardButton.Yes)
     screen._on_delete_selected()
     assert toasts and "2 item(ns) removido(s)" in toasts[-1][0]
+
+
+def test_watchlist_deletar_varios_cancela_sem_confirmar(monkeypatch):
+    """Ctrl+A + Delete sem confirmar não apaga a seleção inteira --
+    regressão do achado 2026-10-27 (atalho Delete operava em toda a
+    seleção sem nenhum aviso antes)."""
+    from PyQt6.QtWidgets import QMessageBox
+    items = [
+        {"name": "AK-47 | Redline (Field-Tested)", "target": 10.0},
+        {"name": "Kilowatt Case", "target": 0.0},
+    ]
+    screen = _watchlist_screen(monkeypatch, items)
+    screen._table.selectAll()
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *a, **kw: QMessageBox.StandardButton.No)
+    screen._on_delete_selected()
+    assert len(items) == 2  # recusou -- nada removido
 
 
 def test_watchlist_sem_selecao_nao_dispara_toast(monkeypatch):
@@ -4521,6 +4560,7 @@ def test_watchlist_edit_rules_saves(monkeypatch, tmp_path):
 
 def test_watchlist_remove_item(monkeypatch, tmp_path):
     """_on_remove_item chama remove_watch no indice certo."""
+    from PyQt6.QtWidgets import QMessageBox
     from skinvault.prices import PriceCache
     from skinvault.ui.watchlist_screen import WatchlistScreen
     monkeypatch.setattr("skinvault.watchlist.load_watchlist", lambda: [
@@ -4529,6 +4569,9 @@ def test_watchlist_remove_item(monkeypatch, tmp_path):
     removed = []
     monkeypatch.setattr("skinvault.watchlist.remove_watch",
                         lambda idx: removed.append(idx))
+    monkeypatch.setattr(
+        QMessageBox, "question",
+        lambda *a, **kw: QMessageBox.StandardButton.Yes)
     screen = WatchlistScreen(PriceCache(tmp_path / "p.json", ttl=3600))
     screen._on_remove_item(screen._items[0])
     assert removed == [0]

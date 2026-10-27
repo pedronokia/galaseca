@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMenu,
+    QMessageBox,
     QPushButton,
     QSpinBox,
     QTabWidget,
@@ -755,6 +756,17 @@ class WatchlistScreen(QWidget):
         Toast.show_toast(self, msg, "info")
 
     def _on_remove_item(self, item: dict) -> None:
+        # QMessageBox.question igual ao "Remover trade" de trades_screen.py
+        # -- mesma ação (apagar 1 registro salvo via menu de contexto),
+        # sem confirmação antes só aqui. Inconsistência achada numa
+        # varredura de CTA/confirmação, 2026-10-27.
+        r = QMessageBox.question(
+            self, "Remover item",
+            f"Remover “{item['name']}” da watchlist?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if r != QMessageBox.StandardButton.Yes:
+            return
         idx = next((i for i, it in enumerate(self._items)
                     if it.get("name") == item["name"]), None)
         if idx is not None:
@@ -770,6 +782,17 @@ class WatchlistScreen(QWidget):
             if item is not None and item["name"] not in names:
                 names.append(item["name"])
         if not names:
+            return
+        # Atalho Delete opera em TODA a seleção -- sem confirmar, um
+        # Ctrl+A seguido de Delete apagava a watchlist inteira de uma vez,
+        # sem aviso nenhum (achado na mesma varredura acima).
+        plural = "s" if len(names) != 1 else ""
+        r = QMessageBox.question(
+            self, "Remover da watchlist",
+            f"Remover {len(names)} item{plural} da watchlist?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if r != QMessageBox.StandardButton.Yes:
             return
         for name in names:
             pos = next((i for i, it in enumerate(self._items)
