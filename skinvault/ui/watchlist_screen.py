@@ -927,19 +927,40 @@ class WatchlistScreen(QWidget):
                         item["triggered"] = bool(item.get("triggered_rules"))
                     if not hit:
                         time.sleep(steam_api.RATE_LIMIT_DELAY_S)
-                # Persiste estado atualizado da watchlist. O snapshot foi
-                # lido no inicio: um "Silenciar" feito durante a rodada
-                # seria apagado por ele -- relê o estado de mute do disco.
+                # Persiste estado atualizado da watchlist. NAO grava
+                # items_snapshot direto por cima -- ele e' a mesma lista
+                # capturada no INICIO da validacao, e todo handler de
+                # mutacao desta tela (remover item, editar regras, etc.)
+                # chama self.refresh(), que troca self._items por uma
+                # lista NOVA vinda do disco; items_snapshot fica preso na
+                # lista velha. Escrever o snapshot por cima resuscitava
+                # um item removido DURANTE a rodada (seu dict continuava
+                # em items_snapshot, so' o disco+self._items tinham
+                # perdido ele) e podia perder um item adicionado durante
+                # a rodada (nunca existiu em items_snapshot). Mute já
+                # tinha esse cuidado antes (relendo só esse campo do
+                # disco) -- mergear pela lista ATUAL do disco resolve
+                # isso de graça pra TODOS os campos, não só o mute:
+                # só leva os campos que o worker escreveu pros itens que
+                # CONTINUAM existindo no disco agora. Achado numa caçada
+                # dirigida por essa família de bug, 2026-10-27.
                 try:
-                    atual = {i.get("name"): i.get("muted_until")
-                             for i in wl.load_watchlist()}
-                    for i in items_snapshot:
-                        ate = atual.get(i.get("name"))
-                        if ate:
-                            i["muted_until"] = ate
-                        else:
-                            i.pop("muted_until", None)
-                    wl.save_watchlist(items_snapshot)
+                    campos_validacao = (
+                        "current_score", "score_ts", "data_quality",
+                        "sd_label", "sd_approx", "sd_ts",
+                        "triggered", "triggered_rules",
+                    )
+                    atual = wl.load_watchlist()
+                    validado_por_nome = {i.get("name"): i
+                                         for i in items_snapshot}
+                    for i in atual:
+                        validado = validado_por_nome.get(i.get("name"))
+                        if validado is None:
+                            continue
+                        for campo in campos_validacao:
+                            if campo in validado:
+                                i[campo] = validado[campo]
+                    wl.save_watchlist(atual)
                 except Exception:
                     pass
                 if fired_alerts:

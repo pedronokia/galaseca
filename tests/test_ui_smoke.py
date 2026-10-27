@@ -9185,6 +9185,67 @@ def test_watchlist_validate_grava_oferta_demanda(monkeypatch):
     assert item.get("sd_label")
 
 
+def test_watchlist_validate_nao_resuscita_item_removido_durante_a_rodada(
+        monkeypatch):
+    """O save final da validacao nao pode trazer de volta um item que o
+    usuario removeu ENQUANTO a validacao ainda rodava em segundo plano.
+
+    `items_snapshot` e' capturado no INICIO (igual a `self._items` na
+    hora), mas `_on_remove_item`/`_on_delete_selected` chamam
+    `self.refresh()`, que troca `self._items` por uma lista NOVA vinda
+    do disco -- `items_snapshot` fica preso na lista velha, ainda com o
+    item removido. O worker reescrevia o disco com esse snapshot por
+    cima no final, resuscitando o item em silencio. Achado numa caçada
+    dirigida por essa família de bug ("resultado assíncrono sobrescreve
+    o mais novo"), 2026-10-27."""
+    import threading
+    from skinvault.prices import PriceCache
+    from skinvault.ui.watchlist_screen import WatchlistScreen
+
+    items = [
+        {"name": "A", "target": 0},
+        {"name": "B", "target": 0},
+    ]
+    # Simula o momento em que o worker TERMINA e rele' o disco: "B" ja'
+    # foi removido por outra acao enquanto a validacao ainda rodava, so'
+    # "A" continua la'.
+    monkeypatch.setattr("skinvault.watchlist.load_watchlist",
+                        lambda: [{"name": "A", "target": 0}])
+    monkeypatch.setattr(
+        "skinvault.ssr_cache.cached_price_history_and_book",
+        lambda name, cache=None: (
+            [{"time": i, "price_median": 10.0, "purchases": 50}
+             for i in range(10)],
+            None,
+        ),
+    )
+    monkeypatch.setattr("skinvault.backtest.simulate_item", lambda n, ph: [])
+    monkeypatch.setattr("skinvault.backtest.score_from_history",
+                        lambda n, ph: 60)
+    monkeypatch.setattr("skinvault.alerts.evaluate_item",
+                        lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.alerts.diff_new_alerts",
+                        lambda item, fresh: [])
+
+    done = threading.Event()
+    saved: dict = {}
+
+    def _fake_save(snapshot):
+        saved["items"] = snapshot
+        done.set()
+
+    monkeypatch.setattr("skinvault.watchlist.save_watchlist", _fake_save)
+
+    screen = WatchlistScreen(PriceCache(ttl=3600))
+    screen._items = items  # snapshot que o worker captura -- ainda tem "B"
+    screen._on_validate_watchlist()
+    assert done.wait(timeout=5), "worker nao terminou a tempo"
+
+    nomes_salvos = {i["name"] for i in saved["items"]}
+    assert nomes_salvos == {"A"}, (
+        f"item removido durante a validacao foi resuscitado: {nomes_salvos}")
+
+
 # ── Schedule automatico Watchlist ───────────────────────
 
 def test_watchlist_timer_criado(monkeypatch):
