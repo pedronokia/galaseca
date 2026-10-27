@@ -8,6 +8,7 @@ listing page com o MESMO fixture que tests/test_steam_api.py ja usa.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -99,3 +100,36 @@ def test_search_grava_preco_no_cache(client, tmp_path, monkeypatch):
     result = market_data.search(_NAME, cache=cache)
     assert result["found"] is True
     assert cache.get(_NAME) == pytest.approx(100.0)
+
+
+def test_runsearch_js_descarta_resposta_superada():
+    """runSearch() em market.js nao tinha nenhuma guarda contra busca
+    concorrente -- searchBtn.disabled nao desabilita o CAMPO de texto,
+    entao buscar um item lento e apertar Enter de novo com outro nome
+    antes da resposta voltar disparava uma segunda busca em paralelo.
+    Se a resposta da busca antiga chegasse depois da nova, a tela
+    acabava mostrando o preco do item ERRADO. Mesma familia de bug ja'
+    corrigida nesta sessao em market_screen.py (Qt), inventory.js e
+    _price_worker.py (contador de geracao). O cliente de teste do
+    Flask nao executa JS -- a rede de seguranca e' garantir que a
+    correcao (incrementar `searchGen` em runSearch() e conferir em
+    ambos os `.then`/`.catch`) nao regrida, lendo o codigo-fonte."""
+    js = Path(__file__).parent.parent / "skinvault" / "webapp" \
+        / "static" / "js" / "market.js"
+    src = js.read_text(encoding="utf-8")
+    assert "searchGen" in src, (
+        "contador de geracao (searchGen) sumiu de market.js -- buscas "
+        "concorrentes voltam a poder sobrescrever o resultado mais "
+        "novo com um mais antigo")
+    # Recorte exato do corpo de runSearch() -- do nome da funcao ate' a
+    # proxima declarada logo abaixo dela no arquivo (`function render`).
+    # Sem regex guloso: um `.*` com DOTALL procurando o fechamento `}`
+    # mais parecido transbordava pro corpo de render() tambem.
+    inicio = src.index("function runSearch() {")
+    fim = src.index("function render(data) {")
+    assert inicio < fim, "runSearch() precisa vir antes de render() no arquivo"
+    corpo = src[inicio:fim]
+    assert corpo.count("gen !== searchGen") == 2, (
+        "runSearch() precisa conferir `gen !== searchGen` nos dois "
+        "callbacks (.then de sucesso E .catch de erro) antes de tocar "
+        "no estado da tela")

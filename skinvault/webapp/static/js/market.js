@@ -13,6 +13,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const sparkWrap = document.getElementById("sparkline-wrap");
   const sparkEmpty = document.getElementById("sparkline-empty");
 
+  // Incrementado em toda runSearch() -- so' aplica a resposta se ainda
+  // for a mais recente. Sem isto, buscar um item lento e, antes dele
+  // voltar, buscar outro rapido (clique + Enter nao tem nenhuma guarda
+  // entre si -- searchBtn.disabled nao desabilita o campo de texto)
+  // podia deixar a tela mostrando o preco do item ERRADO, se a resposta
+  // da busca antiga chegasse depois da nova. Mesma familia de bug ja'
+  // corrigida nesta sessao em market_screen.py (Qt, _search_seq),
+  // inventory.js e _price_worker.py -- achado aqui revisando o fluxo de
+  // runSearch(), 2026-10-27.
+  let searchGen = 0;
+
   const brl = (v) => v == null ? "—" : new Intl.NumberFormat(
     "pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
@@ -75,6 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function runSearch() {
     const name = input.value.trim();
     if (!name) return;
+    searchGen += 1;
+    const gen = searchGen;
     statusEl.textContent = `Consultando ${name}…`;
     statusEl.classList.add("is-busy");
     searchBtn.disabled = true;
@@ -85,6 +98,11 @@ document.addEventListener("DOMContentLoaded", () => {
     })
       .then((r) => r.json())
       .then((data) => {
+        // Resposta de uma busca ja' superada por outra mais recente --
+        // a mais nova ainda esta' em voo e vai aplicar o proprio
+        // resultado quando voltar; mexer no estado aqui so' desfaria
+        // isso fora de ordem.
+        if (gen !== searchGen) return;
         searchBtn.disabled = false;
         statusEl.classList.remove("is-busy");
         if (data.error) {
@@ -109,6 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : "Pronto.";
       })
       .catch(() => {
+        if (gen !== searchGen) return;
         searchBtn.disabled = false;
         statusEl.classList.remove("is-busy");
         statusEl.textContent = "Falha ao consultar — tente de novo.";
