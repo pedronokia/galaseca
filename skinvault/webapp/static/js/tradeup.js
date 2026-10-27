@@ -18,6 +18,18 @@ document.addEventListener("DOMContentLoaded", () => {
     "pt-BR", { style: "currency", currency: "BRL" }).format(v);
   const pct = (v) => v == null ? "—" : `${(v * 100).toFixed(1)}%`;
 
+  // "Calcular" (quickBtn, so' cache, rapido) e "Buscar precos na Steam"
+  // (evalBtn, via SSE, pode levar segundos) escrevem no MESMO resultado
+  // na tela, sem nenhuma guarda entre si -- clicar em "Buscar precos",
+  // e antes dele voltar clicar em "Calcular" com a entrada mudada,
+  // deixava o preview rapido na tela ate' o resultado antigo do
+  // "Buscar precos" chegar via SSE e sobrescrever por cima, mostrando
+  // dado de uma entrada que ja' nao e' mais a que esta' no campo. Mesma
+  // familia de bug ja' corrigida nesta sessao em market_screen.py (Qt),
+  // inventory.js e _price_worker.py.
+  let resultGen = 0;
+  let pendingEvalGen = 0;
+
   function fmtDate(ts) {
     if (!ts) return "nunca";
     return new Date(ts * 1000).toLocaleString("pt-BR");
@@ -120,6 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   quickBtn.addEventListener("click", () => {
+    resultGen += 1;
+    const gen = resultGen;
     statusEl.textContent = "Calculando…";
     fetch("/api/tradeup/plan", {
       method: "POST",
@@ -128,12 +142,15 @@ document.addEventListener("DOMContentLoaded", () => {
     })
       .then((r) => r.json())
       .then((res) => {
+        if (gen !== resultGen) return;  // superado por um calculo mais novo
         statusEl.textContent = "Calculado com os preços já guardados.";
         renderResult(res);
       });
   });
 
   evalBtn.addEventListener("click", () => {
+    resultGen += 1;
+    pendingEvalGen = resultGen;
     evalBtn.disabled = true;
     statusEl.classList.add("is-busy");
     statusEl.textContent = "Buscando preços na Steam…";
@@ -167,6 +184,7 @@ document.addEventListener("DOMContentLoaded", () => {
     es.addEventListener("tradeup_result", (ev) => {
       evalBtn.disabled = false;
       statusEl.classList.remove("is-busy");
+      if (pendingEvalGen !== resultGen) return;  // superado por um "Calcular" mais novo
       const res = JSON.parse(ev.data);
       statusEl.textContent = "Pronto.";
       renderResult(res);

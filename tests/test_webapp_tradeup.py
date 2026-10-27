@@ -7,6 +7,7 @@ sempre bloqueada pela fixture autouse de conftest.py.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pytest
 
@@ -145,3 +146,39 @@ def test_rota_evaluate_recusa_concorrente(client, monkeypatch):
 def test_pagina_tradeup_responde(client):
     resp = client.get("/trade-up")
     assert resp.status_code == 200
+
+
+def test_tradeup_js_descarta_resultado_superado():
+    """"Calcular" (quickBtn, so' cache, rapido) e "Buscar precos na
+    Steam" (evalBtn, via SSE, pode levar segundos) escreviam no MESMO
+    resultado na tela sem nenhuma guarda entre si -- clicar em "Buscar
+    precos" e, antes dele voltar, clicar em "Calcular" com a entrada
+    mudada, deixava o preview rapido na tela ate' o resultado ANTIGO do
+    "Buscar precos" chegar via SSE e sobrescrever por cima. Mesma
+    familia de bug ja' corrigida nesta sessao em market_screen.py (Qt),
+    inventory.js e _price_worker.py (contador de geracao). O cliente de
+    teste do Flask nao executa JS -- a rede de seguranca e' garantir
+    que a correcao nao regrida, lendo o codigo-fonte."""
+    js = Path(__file__).parent.parent / "skinvault" / "webapp" \
+        / "static" / "js" / "tradeup.js"
+    src = js.read_text(encoding="utf-8")
+    assert "resultGen" in src and "pendingEvalGen" in src, (
+        "contador de geracao (resultGen/pendingEvalGen) sumiu de "
+        "tradeup.js -- 'Calcular' e 'Buscar precos' voltam a poder "
+        "sobrescrever o resultado mais novo um do outro")
+    inicio_quick = src.index('quickBtn.addEventListener("click"')
+    inicio_eval = src.index('evalBtn.addEventListener("click"')
+    fim_eval = src.index('const es = window.skinvaultEvents;')
+    corpo_quick = src[inicio_quick:inicio_eval]
+    corpo_eval = src[inicio_eval:fim_eval]
+    assert "gen !== resultGen" in corpo_quick, (
+        "handler de quickBtn precisa conferir `gen !== resultGen` "
+        "antes de chamar renderResult()")
+    assert "resultGen += 1" in corpo_eval and "pendingEvalGen = resultGen" in corpo_eval, (
+        "handler de evalBtn precisa incrementar resultGen e guardar em "
+        "pendingEvalGen antes de disparar o fetch")
+    inicio_sse = src.index('es.addEventListener("tradeup_result"')
+    corpo_sse = src[inicio_sse:]
+    assert "pendingEvalGen !== resultGen" in corpo_sse, (
+        "handler do evento SSE tradeup_result precisa conferir "
+        "`pendingEvalGen !== resultGen` antes de chamar renderResult()")
