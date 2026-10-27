@@ -679,6 +679,36 @@ footer.rodape .versao {
 
 .form-filtros button:hover { filter: brightness(1.1); }
 
+/* #botao-favoritos e #botao-menu-opcoes são <button class="botao-link">
+   DENTRO de .form-filtros -- a regra acima (.form-filtros button) tem
+   mais especificidade que .botao-link sozinha e pintava os dois do
+   mesmo azul do "Filtrar" sem ninguém ter pedido isso (achado ao vivo
+   com print do usuário, 2026-10-27: só devia existir UM botão de
+   destaque por tela). Seletor por id pra garantir que ganha. */
+.form-filtros button#botao-favoritos,
+.form-filtros button#botao-menu-opcoes {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  font-weight: 400;
+  height: auto;
+}
+
+/* Precisa bater a especificidade de ".form-filtros button#..." acima
+   (id + classe + tipo) pra o estado "ativo" (filtro de favoritos
+   ligado) continuar aparecendo em var(--warn) -- ver #botao-favoritos
+   .ativo mais abaixo no arquivo, que sozinho perderia pra regra nova. */
+.form-filtros button#botao-favoritos.ativo {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.form-filtros button#botao-favoritos:hover,
+.form-filtros button#botao-menu-opcoes:hover {
+  background: var(--surface-hover);
+  filter: none;
+}
+
 .paginacao {
   display: flex;
   align-items: center;
