@@ -36,7 +36,19 @@ class PriceWorker(QObject):
         super().__init__(parent)
         self._cache = cache
 
-    def start(self) -> None:
+    def start(self, seq: int | None = None) -> None:
+        # `seq` e' opcional (default None): quem chama sem passar nada
+        # (toda a suite de testes existente, e qualquer chamador que so'
+        # dispara uma avaliacao por vez) continua funcionando identico.
+        # Quem chama com `seq` (AccountScreen.refresh) pode disparar esta
+        # thread mais de uma vez em sequencia -- navegar pra Conta, editar
+        # custo no Inventario, navegar de novo, tudo chama refresh() sem
+        # nenhuma guarda. Como o tempo de avaliacao varia MUITO (rate
+        # limit por item), a mais ANTIGA pode terminar DEPOIS da mais
+        # recente e sobrescrever o resultado fresco com dado velho --
+        # mesma familia do bug ja' corrigido em market_screen.py
+        # (_search_seq) e inventory.js (stale save). `_on_eval` descarta
+        # qualquer resultado cujo `seq` nao seja mais o mais recente.
         sig_progress = self.progress
         sig_done = self.eval_done
 
@@ -78,20 +90,26 @@ class PriceWorker(QObject):
                 result = portfolio_mod.evaluate_portfolio(
                     positions, price_fn,
                 )
-                _safe_emit(sig_done, {
+                payload = {
                     "positions": positions,
                     "rows": result["rows"],
                     "totals": result["totals"],
                     "rate_limited": limitado[0],
-                })
+                }
+                if seq is not None:
+                    payload["seq"] = seq
+                _safe_emit(sig_done, payload)
             except Exception as exc:
-                _safe_emit(sig_done, {
+                payload = {
                     "positions": [],
                     "rows": [],
                     "totals": {"market": 0, "net_if_sold": 0, "pnl": 0,
                                "cost": 0},
                     "error": str(exc),
-                })
+                }
+                if seq is not None:
+                    payload["seq"] = seq
+                _safe_emit(sig_done, payload)
 
         threading.Thread(target=worker, daemon=True).start()
 

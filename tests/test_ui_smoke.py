@@ -6320,6 +6320,50 @@ def test_account_sem_rows_nao_grava_snapshot(monkeypatch):
     assert recorded == []
 
 
+def test_account_screen_descarta_eval_desatualizado(monkeypatch):
+    """refresh() dispara de novo (navegar pra Conta de novo, ou editar
+    custo no Inventario enquanto a avaliacao anterior ainda nao voltou)
+    -- PriceWorker nao tinha NENHUMA guarda contra isso (diferente de
+    BatchPriceWorker/IconWorker, que tem `_running`). Como o tempo de
+    avaliacao varia muito (rate limit por item), a avaliacao mais ANTIGA
+    pode terminar DEPOIS da mais recente e sobrescrever o estado fresco
+    com dado velho. Mesma familia do bug ja' corrigido em
+    market_screen.py (_search_seq) e inventory.js (stale save),
+    achada numa varredura dirigida por essa causa raiz, 2026-10-27."""
+    from skinvault.prices import PriceCache
+    from skinvault.ui.account_screen import AccountScreen
+    monkeypatch.setattr("skinvault.history.load_history", lambda *a, **kw: [])
+    monkeypatch.setattr("skinvault.history.record_snapshot",
+                        lambda *a, **kw: None)
+    screen = AccountScreen(PriceCache(ttl=3600))
+
+    seq_antigo = 1   # 1a chamada -- vai demorar, chega por ultimo
+    seq_novo = 2     # 2a chamada -- mais recente, chega primeiro
+    screen._refresh_seq = seq_novo
+
+    row_novo = {"name": "Novo", "quantity": 1, "price": 10.0,
+                "market": 10.0, "net_if_sold": 8.5, "pnl": 1.0,
+                "cost_total": 9.0}
+    row_velho = {"name": "Velho", "quantity": 1, "price": 999.0,
+                 "market": 999.0, "net_if_sold": 850.0, "pnl": 500.0,
+                 "cost_total": 450.0}
+
+    # resultado mais NOVO chega primeiro
+    screen._on_eval({"rows": [row_novo],
+                     "totals": {"market": 10.0, "net_if_sold": 8.5,
+                                "pnl": 1.0},
+                     "positions": [], "seq": seq_novo})
+    assert "10" in screen._stat_gross._value.text()
+
+    # resultado mais VELHO chega depois -- deve ser descartado inteiro
+    screen._on_eval({"rows": [row_velho],
+                     "totals": {"market": 999.0, "net_if_sold": 850.0,
+                                "pnl": 500.0},
+                     "positions": [], "seq": seq_antigo})
+    assert "10" in screen._stat_gross._value.text()
+    assert "999" not in screen._stat_gross._value.text()
+
+
 # ── cartoes de desempenho: o denominador precisa se explicar ───────
 #
 # Bug de 30/07/2026: 31 posicoes, 2 com custo declarado. O cartao dizia

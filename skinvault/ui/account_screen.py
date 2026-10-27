@@ -96,6 +96,11 @@ class AccountScreen(QWidget):
         # ValueChart fica em esqueleto durante a avaliacao.
         self._vc_tem_pontos = False
         self._series_export: list[dict] = []
+        # Incrementado em TODA avaliacao disparada (refresh() e o atalho
+        # de _on_validate_finished) -- _on_eval descarta qualquer
+        # resultado cujo "seq" nao seja mais o mais recente. Ver
+        # comentario em _price_worker.PriceWorker.start().
+        self._refresh_seq: int = 0
         self._price_worker = PriceWorker(cache, self)
         self._price_worker.eval_done.connect(self._on_eval)
         self._price_worker.progress.connect(self._on_eval_progress)
@@ -422,7 +427,8 @@ class AccountScreen(QWidget):
         # do historico). Com serie na tela, manter a linha -- reavaliar
         # nao deve apagar o que o usuario esta' lendo.
         self._value_chart.set_loading(not self._vc_tem_pontos)
-        self._price_worker.start()
+        self._refresh_seq += 1
+        self._price_worker.start(seq=self._refresh_seq)
         self._reload_activity()
 
     def _reload_activity(self) -> None:
@@ -608,8 +614,14 @@ class AccountScreen(QWidget):
                                                        lambda n: None)
             rows = result["rows"]
             # _on_eval ja' repassa pra InventoryScreen via inventory_ready.
+            # seq proprio (mesma contagem do PriceWorker): se um refresh()
+            # assincrono mais recente estiver em voo quando esta validacao
+            # terminar, ele ainda vai vencer quando chegar -- e vice-versa,
+            # esta validacao vence qualquer refresh() mais antigo que
+            # ainda nao tenha retornado.
+            self._refresh_seq += 1
             self._on_eval({"rows": rows, "totals": result["totals"],
-                          "positions": positions})
+                          "positions": positions, "seq": self._refresh_seq})
             return
         # Reusa o dialog do scanner pra manter UX coerente
         from skinvault.ui.scanner_dialogs import _BacktestResultDialog
@@ -640,6 +652,13 @@ class AccountScreen(QWidget):
         self._stop_schedule()
 
     def _on_eval(self, data: dict) -> None:
+        # Resultado de uma avaliacao ja' superada por outra mais recente
+        # (refresh() disparado de novo, ou validacao terminando fora de
+        # ordem) -- descarta inteiro. Chamada direta sem "seq" (toda a
+        # suite de teste existente, e o caminho de teste que monta o
+        # dict a mao) continua aplicando normal, sem exigir o campo.
+        if "seq" in data and data["seq"] != self._refresh_seq:
+            return
         rows = data["rows"]
         totals = data["totals"]
         positions = data.get("positions", [])
