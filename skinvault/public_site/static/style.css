@@ -240,6 +240,22 @@ header.topo h1 {
   text-decoration: none;
 }
 
+/* Legenda curta embaixo do CTA -- sem ela o botão ficava sozinho sem
+   dizer o porquê de logar (achado visual, 2026-10-27). */
+.entrar-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.entrar-cta-legenda {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  max-width: 220px;
+  text-align: right;
+}
+
 .subtitulo {
   color: var(--text-muted);
   margin: 6px 0 0;
@@ -559,7 +575,7 @@ table.tabela-itens {
 .modo-apresentacao .paginacao,
 .modo-apresentacao footer.rodape,
 .modo-apresentacao .barra-acoes,
-.modo-apresentacao .conta-link-entrar,
+.modo-apresentacao .entrar-cta,
 .modo-apresentacao .barra-comparar,
 .modo-apresentacao .lista-buscas-salvas,
 .modo-apresentacao .botao-topo {
@@ -1238,10 +1254,23 @@ footer.rodape .versao {
 }
 
 /* ── "O que mudou desde sua última visita" ───────────────── */
+/* Pílula com borda, não só texto colorido -- antes herdava .tendencia-
+   alta/.tendencia-baixa igual ao ▲/▼ de preço (.icone-tendencia), o
+   sinal de MERCADO ao lado do preço. Os dois setinhas iguais lado a
+   lado confundiam "subiu desde seu último scan" (preço, factual) com
+   "subiu desde sua ÚLTIMA VISITA" (só neste navegador, comparação
+   pessoal) -- achado visual, 2026-10-27. A cor ainda vem de
+   .tendencia-alta/.tendencia-baixa (herdada via currentColor), só a
+   forma de pílula que separa visualmente dos dois usos. */
 .selo-mudou-nota {
-  font-size: 0.72rem;
-  font-weight: 600;
+  display: inline-block;
   margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: help;
 }
 
 /* ── Voltar ao topo ───────────────────────────────────── */
@@ -1351,6 +1380,14 @@ footer.rodape .versao {
   .conta-nav a {
     padding: 6px 8px;
     font-size: 0.8rem;
+  }
+
+  .entrar-cta {
+    align-items: flex-start;
+  }
+
+  .entrar-cta-legenda {
+    text-align: left;
   }
 
   header.topo h1 {
