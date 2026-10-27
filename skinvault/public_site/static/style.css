@@ -113,10 +113,6 @@ header.topo > .badge-cooldown { padding-bottom: 20px; }
 .badge-cooldown {
   display: inline-block;
   margin-top: 10px;
-  padding: 4px 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   color: var(--text-muted);
   font-size: 0.78rem;
   cursor: help;
@@ -225,26 +221,23 @@ header.topo h1 {
 
 .conta-link-entrar {
   display: inline-block;
-  color: var(--bg);
-  background: var(--accent);
+  color: var(--accent-bright);
+  background: transparent;
   border: 1px solid var(--accent);
   border-radius: 6px;
-  padding: 10px 22px;
-  font-weight: 700;
-  font-size: 0.9rem;
+  padding: 9px 20px;
+  font-weight: 600;
+  font-size: 0.88rem;
   white-space: nowrap;
   text-decoration: none;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .conta-link-entrar:hover {
-  background: var(--accent-bright);
-  border-color: var(--accent-bright);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg);
   text-decoration: none;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-  transform: translateY(-1px);
 }
 
 .subtitulo {
@@ -448,7 +441,7 @@ table.tabela-itens {
    não está escondido de verdade. */
 .detalhe-motivo:not([open]) summary {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

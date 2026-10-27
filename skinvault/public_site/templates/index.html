@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SkinVault — Recomendações de skins CS2</title>
+  <title>AlertaSkins — Recomendações de skins CS2</title>
   <meta name="description" content="Notas e motivos factuais pra skins do CS2, a partir de dados públicos da Steam Community Market. Não é recomendação de investimento.">
-  <meta property="og:title" content="SkinVault — Recomendações de skins CS2">
+  <meta property="og:title" content="AlertaSkins — Recomendações de skins CS2">
   <meta property="og:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
   <meta property="og:locale" content="pt_BR">
   <meta property="og:url" content="{{ request.url_root }}">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="SkinVault — Recomendações de skins CS2">
+  <meta name="twitter:title" content="AlertaSkins — Recomendações de skins CS2">
   <meta name="twitter:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
   <meta name="twitter:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
   <link rel="canonical" href="{{ request.url_root }}">
@@ -20,15 +20,15 @@
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <meta name="theme-color" content="#171a21">
-  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
-  <link rel="search" type="application/opensearchdescription+xml" title="SkinVault" href="{{ url_for('opensearch') }}">
+  <link rel="alternate" type="application/rss+xml" title="AlertaSkins — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="search" type="application/opensearchdescription+xml" title="AlertaSkins" href="{{ url_for('opensearch') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   {% if apresentacao_sel %}<meta http-equiv="refresh" content="300">{% endif %}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "SkinVault",
+    "name": "AlertaSkins",
     "url": "{{ request.url_root }}",
     "description": "Nota de 0 a 100 pra skins do CS2, com o motivo escrito, a partir de dados públicos da Steam Community Market."
   }
@@ -112,18 +112,14 @@
 
   <header class="topo">
     <div class="topo-linha">
-      <h1>SkinVault</h1>
+      <h1>AlertaSkins</h1>
       {% include "partials/_conta_link.html" %}
     </div>
-    <p class="subtitulo">Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.</p>
-    {% if proximo_scan %}
-      <span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">🔄 Próxima atualização: {{ proximo_scan }}</span>
-    {% endif %}
   </header>
 
   <main id="conteudo">
     {% if scan %}
-      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).</p>
+      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).{% if proximo_scan %} <span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">Próxima atualização: {{ proximo_scan }}.</span>{% endif %}</p>
       {% if scan_desatualizado %}
       <p class="banner-aviso">⚠️ O scan está mais velho que o normal -- provavelmente a Steam bloqueou
       o acesso temporariamente (ver <a href="{{ url_for('status') }}">status</a>). Os dados abaixo são
@@ -229,7 +225,7 @@
   </main>
 
   <footer class="rodape">
-    <p>Dados públicos da Steam Community Market. SkinVault não é afiliado à Valve.
+    <p>Dados públicos da Steam Community Market. AlertaSkins não é afiliado à Valve.
     Mostra o que já foi medido — não é recomendação de investimento, e desempenho
     passado não garante nada no futuro. A decisão é sempre sua.</p>
     {% include "partials/_rodape_links.html" %}

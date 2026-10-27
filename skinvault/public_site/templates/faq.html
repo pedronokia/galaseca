@@ -3,30 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Perguntas frequentes — SkinVault</title>
-  <meta name="description" content="Respostas diretas sobre o que o SkinVault é, se é seguro, se é recomendação de investimento, e de onde vêm os dados.">
+  <title>Perguntas frequentes — AlertaSkins</title>
+  <meta name="description" content="Respostas diretas sobre o que o AlertaSkins é, se é seguro, se é recomendação de investimento, e de onde vêm os dados.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <meta name="theme-color" content="#171a21">
-  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="AlertaSkins — Recomendações" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      {"@type": "Question", "name": "O que é o SkinVault?", "acceptedAnswer": {"@type": "Answer", "text": "Um painel que dá nota de 0 a 100 pra skins de CS2, a partir de dados públicos da Steam Community Market, com o motivo escrito pra cada nota -- não um palpite."}},
+      {"@type": "Question", "name": "O que é o AlertaSkins?", "acceptedAnswer": {"@type": "Answer", "text": "Um painel que dá nota de 0 a 100 pra skins de CS2, a partir de dados públicos da Steam Community Market, com o motivo escrito pra cada nota -- não um palpite."}},
       {"@type": "Question", "name": "É seguro usar?", "acceptedAnswer": {"@type": "Answer", "text": "O painel principal não pede login nem senha nenhuma. O login opcional ('Entrar com Steam') usa o Steam OpenID, o mesmo mecanismo público que qualquer site usa -- você loga direto no domínio da Steam, nunca digita senha aqui."}},
       {"@type": "Question", "name": "Preciso fazer login pra usar?", "acceptedAnswer": {"@type": "Answer", "text": "Não. O painel de recomendações é público e não exige conta. O login só é necessário pra acompanhar portfólio, trades e watchlist pessoais."}},
       {"@type": "Question", "name": "A nota é recomendação de investimento?", "acceptedAnswer": {"@type": "Answer", "text": "Não. A nota descreve dados já medidos -- nunca prevê o futuro. Desempenho passado não garante nada, e a decisão de comprar ou vender é sempre sua."}},
-      {"@type": "Question", "name": "De onde vêm os preços?", "acceptedAnswer": {"@type": "Answer", "text": "Direto da Steam Community Market, de forma pública (o mesmo preço que qualquer um vê no site da Steam). O SkinVault não é afiliado à Valve."}},
+      {"@type": "Question", "name": "De onde vêm os preços?", "acceptedAnswer": {"@type": "Answer", "text": "Direto da Steam Community Market, de forma pública (o mesmo preço que qualquer um vê no site da Steam). O AlertaSkins não é afiliado à Valve."}},
       {"@type": "Question", "name": "Por que às vezes os dados parecem desatualizados?", "acceptedAnswer": {"@type": "Answer", "text": "A Steam limita quantas vezes um mesmo endereço pode consultar o mercado por minuto. Quando esse limite é atingido, o próximo scan fica temporariamente bloqueado -- o site avisa com um banner quando isso acontece, em vez de esconder o problema."}},
-      {"@type": "Question", "name": "Dá pra instalar o SkinVault como app no celular?", "acceptedAnswer": {"@type": "Answer", "text": "Sim. No Chrome/Edge (Android) ou Safari (iOS), use 'Adicionar à tela inicial' no menu do navegador -- o site abre como um app, sem barra de endereço, sem precisar baixar nada de loja nenhuma."}},
-      {"@type": "Question", "name": "O SkinVault é gratuito?", "acceptedAnswer": {"@type": "Answer", "text": "Sim, sem custo pra usar."}},
-      {"@type": "Question", "name": "Quem mantém o SkinVault?", "acceptedAnswer": {"@type": "Answer", "text": "Um projeto de uma pessoa só, código aberto no GitHub."}}
+      {"@type": "Question", "name": "Dá pra instalar o AlertaSkins como app no celular?", "acceptedAnswer": {"@type": "Answer", "text": "Sim. No Chrome/Edge (Android) ou Safari (iOS), use 'Adicionar à tela inicial' no menu do navegador -- o site abre como um app, sem barra de endereço, sem precisar baixar nada de loja nenhuma."}},
+      {"@type": "Question", "name": "O AlertaSkins é gratuito?", "acceptedAnswer": {"@type": "Answer", "text": "Sim, sem custo pra usar."}},
+      {"@type": "Question", "name": "Quem mantém o AlertaSkins?", "acceptedAnswer": {"@type": "Answer", "text": "Um projeto de uma pessoa só, código aberto no GitHub."}}
     ]
   }
   </script>
@@ -35,14 +35,14 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">AlertaSkins</a></h1>
       {% include "partials/_conta_link.html" %}
     </div>
     <p class="subtitulo">Respostas diretas, sem enrolação.</p>
   </header>
 
   <main id="conteudo" class="pagina-texto">
-    <h2 class="secao-titulo">O que é o SkinVault?</h2>
+    <h2 class="secao-titulo">O que é o AlertaSkins?</h2>
     <p>Um painel que dá nota de 0 a 100 pra skins de CS2, a partir de dados
     públicos da Steam Community Market, com o motivo escrito pra cada nota
     -- não um palpite.</p>
@@ -66,7 +66,7 @@
 
     <h2 class="secao-titulo">De onde vêm os preços?</h2>
     <p>Direto da Steam Community Market, de forma pública (o mesmo preço
-    que qualquer um vê no site da Steam). O SkinVault não é afiliado à
+    que qualquer um vê no site da Steam). O AlertaSkins não é afiliado à
     Valve.</p>
 
     <h2 class="secao-titulo">Por que às vezes os dados parecem desatualizados?</h2>
@@ -75,15 +75,15 @@
     temporariamente bloqueado -- o site avisa com um banner quando isso
     acontece, em vez de esconder o problema. Ver <a href="{{ url_for('status') }}">status</a> pro histórico de ciclos.</p>
 
-    <h2 class="secao-titulo">Dá pra instalar o SkinVault como app no celular?</h2>
+    <h2 class="secao-titulo">Dá pra instalar o AlertaSkins como app no celular?</h2>
     <p>Sim. No Chrome/Edge (Android) ou Safari (iOS), use "Adicionar à
     tela inicial" no menu do navegador -- o site abre como um app, sem
     barra de endereço, sem precisar baixar nada de loja nenhuma.</p>
 
-    <h2 class="secao-titulo">O SkinVault é gratuito?</h2>
+    <h2 class="secao-titulo">O AlertaSkins é gratuito?</h2>
     <p>Sim, sem custo pra usar.</p>
 
-    <h2 class="secao-titulo">Quem mantém o SkinVault?</h2>
+    <h2 class="secao-titulo">Quem mantém o AlertaSkins?</h2>
     <p>Um projeto de uma pessoa só, código aberto no GitHub. Ver <a href="{{ url_for('sobre') }}">sobre</a>.</p>
   </main>
 

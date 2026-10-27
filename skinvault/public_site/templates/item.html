@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ item.name_fmt }} — SkinVault</title>
+  <title>{{ item.name_fmt }} — AlertaSkins</title>
   <meta name="description" content="Nota {{ item.score }}/100 pra {{ item.name_fmt }} — {{ item.price_fmt }}, dado público da Steam Community Market.">
-  <meta property="og:title" content="{{ item.name_fmt }} — SkinVault">
+  <meta property="og:title" content="{{ item.name_fmt }} — AlertaSkins">
   <meta property="og:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}{% if item.reasons %} · {{ item.reasons|join('; ') }}{% endif %}">
   <meta property="og:type" content="website">
   <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.svg')) }}">
   <meta property="og:url" content="{{ request.url }}">
   <meta property="og:locale" content="pt_BR">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="{{ item.name_fmt }} — SkinVault">
+  <meta name="twitter:title" content="{{ item.name_fmt }} — AlertaSkins">
   <meta name="twitter:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}">
   <meta name="twitter:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.svg')) }}">
   <link rel="canonical" href="{{ request.url }}">
@@ -39,7 +39,7 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "SkinVault", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "AlertaSkins", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "{{ item.name_fmt }}", "item": "{{ request.url }}"}
     ]
   }
@@ -48,14 +48,14 @@
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <meta name="theme-color" content="#171a21">
-  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="AlertaSkins — Recomendações" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">AlertaSkins</a></h1>
       {% include "partials/_conta_link.html" %}
     </div>
     <p class="subtitulo"><a href="{{ url_for('index') }}">← Voltar pra lista</a></p>
@@ -86,7 +86,7 @@
       <div class="card"><span class="card-label">Aposentada há</span><span class="card-valor">{{ tempo_aposentadoria }}</span></div>
       {% endif %}
       {% if itens_da_caixa %}
-      <div class="card" title="Quantas skins desta caixa já estão mapeadas no SkinVault -- não é a contagem oficial do jogo">
+      <div class="card" title="Quantas skins desta caixa já estão mapeadas no AlertaSkins -- não é a contagem oficial do jogo">
         <span class="card-label">Itens desta caixa</span><span class="card-valor">{{ itens_da_caixa }}</span>
       </div>
       {% endif %}
@@ -124,7 +124,7 @@
   </main>
 
   <footer class="rodape">
-    <p>Dados públicos da Steam Community Market. SkinVault não é afiliado à Valve.
+    <p>Dados públicos da Steam Community Market. AlertaSkins não é afiliado à Valve.
     Não é recomendação de investimento.</p>
     {% include "partials/_rodape_links.html" %}
   </footer>

@@ -1227,7 +1227,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                      f"Já em {pct:.0%} do maior preço já registrado (-8)")
             elif band == "at_ath":
                 _add("rel_ath", -10,
-                     f"Perto do recorde: {pct:.0%} do maior preço (-10)")
+                     f"Está em {pct:.0%} do maior preço já registrado (-10)")
 
     # Nivel de preco absoluto (2026-07-30). O preco vem do ULTIMO ponto do
     # prefixo, entao no backtest e' o preco no instante simulado -- sem
@@ -1280,7 +1280,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                     breakdown.append({
                         "factor": "vintage",
                         "delta": _VINTAGE_BONUS,
-                        "label": f"Vintage ({age} anos descontinuado) (+{_VINTAGE_BONUS})",
+                        "label": f"Descontinuada há {age} anos (+{_VINTAGE_BONUS})",
                     })
 
     # V3/V4: pump_risk penalty -5 em 'high' (2+ flags combinadas).

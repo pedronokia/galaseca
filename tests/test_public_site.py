@@ -1330,7 +1330,7 @@ def test_manifest_json_acessivel(client):
     resp = client.get("/static/manifest.json")
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["name"] == "SkinVault"
+    assert data["name"] == "AlertaSkins"
     assert data["start_url"] == "/"
 
 

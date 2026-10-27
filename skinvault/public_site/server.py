@@ -496,14 +496,14 @@ def create_app() -> Flask:
     @app.route("/opensearch.xml")
     def opensearch():
         """Descrição OpenSearch -- deixa o navegador oferecer "Adicionar
-        mecanismo de busca: SkinVault" na barra de endereço, usando a
+        mecanismo de busca: AlertaSkins" na barra de endereço, usando a
         própria busca por nome (`q=`) que a página inicial já tem."""
         base = request.url_root.rstrip("/")
         xml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">\n'
-            "  <ShortName>SkinVault</ShortName>\n"
-            "  <Description>Buscar uma skin de CS2 por nome no SkinVault"
+            "  <ShortName>AlertaSkins</ShortName>\n"
+            "  <Description>Buscar uma skin de CS2 por nome no AlertaSkins"
             "</Description>\n"
             f"  <Image width=\"32\" height=\"32\" type=\"image/svg+xml\">{_xml_escape(base)}/static/favicon.svg</Image>\n"
             f"  <Url type=\"text/html\" template=\"{_xml_escape(base)}/?q={{searchTerms}}\"/>\n"
@@ -547,7 +547,7 @@ def create_app() -> Flask:
         rss = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<rss version="2.0"><channel>\n'
-            "  <title>SkinVault — Mudanças</title>\n"
+            "  <title>AlertaSkins — Mudanças</title>\n"
             f"  <link>{_xml_escape(base)}/changelog</link>\n"
             "  <description>O que mudou no site, por data.</description>\n"
             "  <language>pt-BR</language>\n"
@@ -685,7 +685,7 @@ def create_app() -> Flask:
             return "", 403
         webhook = os.environ.get("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "")
         enviado = discord_notify.enviar(
-            webhook, "🔧 SkinVault: mensagem de teste do painel admin.")
+            webhook, "🔧 AlertaSkins: mensagem de teste do painel admin.")
         flash_msg = "Enviado -- confira o canal." if enviado else \
             "Falhou (webhook ausente ou Discord recusou)."
         return redirect(url_for("admin", teste_webhook=flash_msg))
@@ -768,8 +768,8 @@ def create_app() -> Flask:
             "    </item>"
             for c in candidatos
         )
-        titulo = (f"SkinVault — Recomendações de {_xml_escape(categoria)}"
-                  if categoria else "SkinVault — Recomendações de skins CS2")
+        titulo = (f"AlertaSkins — Recomendações de {_xml_escape(categoria)}"
+                  if categoria else "AlertaSkins — Recomendações de skins CS2")
         link_self = f"{base}/feed.xml" + (
             f"?categoria={urllib.parse.quote(categoria)}" if categoria else "")
         rss = (

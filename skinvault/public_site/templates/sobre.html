@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sobre — SkinVault</title>
-  <meta name="description" content="Por que o SkinVault existe e pra quem ele foi feito.">
+  <title>Sobre — AlertaSkins</title>
+  <meta name="description" content="Por que o AlertaSkins existe e pra quem ele foi feito.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
   <meta name="theme-color" content="#171a21">
-  <link rel="alternate" type="application/rss+xml" title="SkinVault — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="AlertaSkins — Recomendações" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "SkinVault", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "AlertaSkins", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "Sobre", "item": "{{ request.url }}"}
     ]
   }
@@ -28,7 +28,7 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1><a href="{{ url_for('index') }}" class="link-sutil">SkinVault</a></h1>
+      <h1><a href="{{ url_for('index') }}" class="link-sutil">AlertaSkins</a></h1>
       {% include "partials/_conta_link.html" %}
     </div>
     <p class="subtitulo">Por que isso existe.</p>
@@ -36,7 +36,7 @@
 
   <main id="conteudo" class="pagina-texto">
     <h2 class="secao-titulo">O que é</h2>
-    <p>O SkinVault nasceu como uma ferramenta pessoal pra organizar
+    <p>O AlertaSkins nasceu como uma ferramenta pessoal pra organizar
     portfólio de skins de CS2 e, com o tempo, virou um motor de análise
     próprio -- sinais de preço, oferta, caixa descontinuada, risco de
     alta artificial. Esse site público é a parte dessa ferramenta que
