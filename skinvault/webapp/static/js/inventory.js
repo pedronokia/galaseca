@@ -75,8 +75,19 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     input.addEventListener("blur", commit);
     input.addEventListener("keydown", (ev) => {
-      if (ev.key === "Enter") { ev.preventDefault(); input.blur(); }
-      if (ev.key === "Escape") { done = true; render(rows); }
+      // stopPropagation nos dois -- sem isto o keydown borbulhava pro
+      // tdCost pai, que tem o PRÓPRIO listener de Enter/Space (celula
+      // acessivel via teclado, tabIndex=0) pra ABRIR edicao. Resultado
+      // real medido: Enter salvava (fetch com o valor novo) E reabria
+      // a edicao na mesma cela com o `row.cost` ANTIGO (ainda nao
+      // atualizado) -- essa segunda edicao, nunca tocada pelo usuario,
+      // perdia o foco no proximo render() (disparado pelo proprio save
+      // ou por um "account_eval" via SSE) e seu commit() disparava um
+      // SEGUNDO fetch com o valor velho, sobrescrevendo o que acabou
+      // de ser salvo. Achado ao vivo navegando a tela de verdade com
+      // Playwright, 2026-10-27.
+      if (ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); input.blur(); }
+      if (ev.key === "Escape") { ev.stopPropagation(); done = true; render(rows); }
     });
   }
 

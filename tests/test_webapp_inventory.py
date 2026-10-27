@@ -14,7 +14,9 @@ simular aqui.
 """
 from __future__ import annotations
 
+import re
 import time
+from pathlib import Path
 
 import pytest
 
@@ -275,3 +277,32 @@ def test_import_rede_fora_nao_recusa_proxima_tentativa(monkeypatch):
     _wait_until_idle()
     assert "error" in resultados[0]
     assert inventory_data.is_importing() is False
+
+
+def test_cost_edit_enter_nao_borbulha_pro_td():
+    """Achado navegando a tela de verdade com Playwright, 2026-10-27: o
+    `<td class="cost-cell">` é `tabIndex=0`/`role="button"` com seu
+    próprio keydown de Enter/Espaço pra reabrir a edição via teclado
+    (acessibilidade). Sem `stopPropagation()` no keydown do `<input>` de
+    dentro, apertar Enter pra SALVAR também borbulhava pro `<td>` pai,
+    que reabria a edição com o `row.cost` ainda não atualizado -- essa
+    segunda edição, nunca tocada pelo usuário, perdia o foco no próximo
+    render() e seu próprio commit() disparava um SEGUNDO POST com o
+    valor antigo, sobrescrevendo o que acabou de ser salvo em silêncio
+    (reproduzido ao vivo: dois fetches, 199.9 seguido de 120.5).
+
+    Não dá pra reproduzir o bubbling de verdade sem um DOM real (Flask
+    test client não executa JS) -- a rede de segurança é garantir que a
+    correção (stopPropagation no handler de Enter E Escape do input)
+    não regrida, lendo o código-fonte."""
+    js = (Path(__file__).parent.parent / "skinvault" / "webapp"
+          / "static" / "js" / "inventory.js").read_text(encoding="utf-8")
+    m = re.search(
+        r'input\.addEventListener\("keydown",\s*\(ev\)\s*=>\s*\{(.*?)\}\);',
+        js, re.S)
+    assert m, "handler de keydown do input de custo não encontrado"
+    corpo = m.group(1)
+    assert "stopPropagation" in corpo, (
+        "o keydown do input de edição de custo perdeu o stopPropagation() "
+        "-- Enter/Escape voltam a borbulhar pro <td> pai (que reabre a "
+        "edição via acessibilidade) e um save pode se autodestruir")
