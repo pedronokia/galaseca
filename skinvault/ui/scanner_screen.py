@@ -36,7 +36,6 @@ from skinvault._paths import DATA_DIR
 from skinvault.scan_targets import SCAN_BY_CATEGORY as _SCAN_BY_CATEGORY
 from skinvault.ui.components import SortableItem, auto_cell
 from skinvault.prices import PriceCache
-from skinvault.ui import textos
 from skinvault.ui import theme as t
 from skinvault.ui.components import (
     Card, EmptyState, LoadingState, PageHeader, SectionHeader, StatCard,
@@ -52,10 +51,6 @@ _CS2_APPID = 730
 # migracao web): UI Qt e UI web importam a mesma lista, em vez de
 # manter ~85 nomes duplicados em dois lugares.
 
-# Codigos internos do veredito -> texto da tela (ver ui/textos.py).
-_SPREAD_TXT = textos.SPREAD
-_BOOK_TXT = textos.BOOK
-_TREND_TXT = textos.TREND
 # CSV exportado: mesmo vocabulario da tela, nao o codigo interno.
 _CONF_CSV = {"high": "Alta", "medium": "Média", "low": "Baixa",
              "very_low": "Mínima", "none": ""}

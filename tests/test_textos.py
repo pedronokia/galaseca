@@ -20,13 +20,15 @@ def test_codigo_desconhecido_ou_vazio():
     assert textos.traduz(textos.TREND, None) == ""
 
 
-def test_scanner_nao_mostra_codigo_cru():
-    """Antes de 2026-10-17 a celula mostrava 'tight'/'buyer_dominant'."""
-    from skinvault.ui import scanner_screen
-    for mapa in (scanner_screen._SPREAD_TXT, scanner_screen._BOOK_TXT,
-                 scanner_screen._TREND_TXT):
-        for codigo, texto in mapa.items():
-            assert "_" not in texto and texto != codigo
+# A cobertura de "scanner nao mostra codigo cru" mora em
+# test_scan_engine.py::test_scan_item_sucesso -- é lá que a tradução de
+# verdade acontece (scan_engine.scan_item), não em scanner_screen.py.
+# Removido 2026-10-27: o teste que existia aqui testava só os aliases
+# _SPREAD_TXT/_BOOK_TXT/_TREND_TXT de scanner_screen.py, que nunca
+# chegaram a ser usados por nenhum código de exibição -- a tradução
+# migrou pra scan_engine.py em algum ponto e os aliases ficaram
+# vestigiais, sem que o teste notasse (ele testava os próprios aliases,
+# não o pipeline real).
 
 
 def test_botoes_padrao_do_qt_em_portugues():
