@@ -436,38 +436,20 @@ class SettingsScreen(QWidget):
             Toast.show_toast(self, f"Falha ao criar backup: {e}", "error")
 
     def _on_restore_backup(self) -> None:
-        from skinvault.backup import list_backups, restore_backup
-        backups = list_backups()
-        if not backups:
-            Toast.show_toast(self, "Nenhum backup encontrado.", "warning")
-            return
-        items = [f"{b['ts']:%d/%m/%Y %H:%M} ({b['path'].name})"
-                 for b in backups]
-        from PyQt6.QtWidgets import QInputDialog
-        choice, ok = QInputDialog.getItem(
-            self, "Restaurar backup",
-            "Selecione o backup para restaurar:",
-            items, 0, False,
-        )
-        if not ok:
-            return
-        idx = items.index(choice)
-        path = backups[idx]["path"]
-        confirm = QMessageBox.question(
-            self, "Confirmar restauração",
-            f"Restaurar o backup {path.name}?\n"
-            "Os dados atuais SERÃO SUBSTITUÍDOS.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if confirm != QMessageBox.StandardButton.Yes:
-            return
-        try:
-            count = restore_backup(path)
-            Toast.show_toast(
-                self, f"Restaurados {count} arquivos.", "success",
-            )
-        except Exception as e:
-            Toast.show_toast(self, f"Falha ao restaurar: {e}", "error")
+        # Era uma reimplementacao propria (QInputDialog) que divergiu do
+        # formato real de backup.list_backups() -- lia b['ts'] (datetime)
+        # e b['path'].name (Path), mas list_backups() sempre devolveu
+        # b['mtime'] (float) e b['path'] (str): KeyError garantido no
+        # primeiro clique com qualquer backup existente, derrubando o
+        # processo inteiro (sem try/except em volta do parsing). O
+        # BackupDialog de gui.py ja' faz a mesma coisa certo (usado por
+        # MainWindow._open_backups) e tem 8+ testes cobrindo restaurar/
+        # deletar/atualizar -- reusa em vez de manter duas implementacoes
+        # divergentes do mesmo recurso. Achado navegando o app de verdade
+        # offscreen, 2026-10-27.
+        from skinvault.gui import BackupDialog
+        dlg = BackupDialog(self)
+        dlg.exec()
 
     def _on_reset(self) -> None:
         confirm = QMessageBox.question(

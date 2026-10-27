@@ -6933,6 +6933,32 @@ def test_settings_screen_reset(monkeypatch):
     assert saved[-1]["fee_rate"] == ss.DEFAULTS["fee_rate"]
 
 
+def test_settings_screen_restaurar_backup_nao_crasha(monkeypatch):
+    """Regressao: clicar 'Restaurar backup...' derrubava o processo com
+    KeyError('ts') com qualquer backup existente (achado navegando o app
+    de verdade offscreen, 2026-10-27). _on_restore_backup reimplementava
+    a propria logica de list_backups() (QInputDialog) e assumia
+    b['ts']/b['path'] como datetime/Path -- list_backups() sempre
+    devolveu b['mtime'] (float) e b['path'] (str). Corrigido delegando
+    pro BackupDialog de gui.py, ja' testado e correto (usado por
+    MainWindow._open_backups)."""
+    from skinvault.gui import BackupDialog
+    from skinvault.ui import settings_screen as ss
+    monkeypatch.setattr(
+        "skinvault.backup.list_backups", lambda: [
+            {"name": "skinvault_backup_20261027_120000.zip",
+             "path": "/tmp/skinvault_backup_20261027_120000.zip",
+             "mtime": 1_792_500_000.0, "size": 4096},
+        ])
+    abertos = []
+    monkeypatch.setattr(BackupDialog, "exec",
+                        lambda self: abertos.append(self) or 0)
+    screen = ss.SettingsScreen()
+    screen._on_restore_backup()  # nao pode levantar KeyError
+    assert len(abertos) == 1
+    assert isinstance(abertos[0], BackupDialog)
+
+
 # ── modo overlay na tela de Configuracoes ────────────────
 #
 # Ate' 29/07/2026 a opcao so' existia no menu de contexto da bandeja. Ela
