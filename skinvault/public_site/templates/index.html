@@ -57,7 +57,7 @@
         <a class="link-secundario" href="{{ c.steamdb_url }}" target="_blank" rel="noopener" title="Ver no SteamDB">SteamDB</a>
         <a class="link-secundario" href="{{ url_for('item_detail', name=c.name) }}" title="Ver detalhes e histórico de preço">Detalhes</a>
       </div>
-      <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" maxlength="60" hidden>
+      <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" aria-label="Sua nota pessoal sobre {{ c.name_fmt }}, salva só neste navegador" maxlength="60" hidden>
     </td>
     <td>
       {{ c.price_fmt }}

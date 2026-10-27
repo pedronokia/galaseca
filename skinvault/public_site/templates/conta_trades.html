@@ -35,11 +35,11 @@
     <h2 class="secao-titulo">Registrar trade encerrado</h2>
     <form class="form-adicionar" method="post" action="{{ url_for('trades.adicionar') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" maxlength="200" required>
-      <input type="number" name="buy_cost" step="0.01" min="0.01" placeholder="Comprou por (R$)" required>
-      <input type="number" name="sell_price" step="0.01" min="0.01" placeholder="Vendeu por (R$)" required>
-      <input type="number" name="quantity" min="1" value="1" placeholder="Qtd">
-      <input type="text" name="notes" placeholder="Notas (opcional)">
+      <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" aria-label="Nome exato do item" maxlength="200" required>
+      <input type="number" name="buy_cost" step="0.01" min="0.01" placeholder="Comprou por (R$)" aria-label="Valor de compra, em reais" required>
+      <input type="number" name="sell_price" step="0.01" min="0.01" placeholder="Vendeu por (R$)" aria-label="Valor de venda, em reais" required>
+      <input type="number" name="quantity" min="1" value="1" placeholder="Qtd" aria-label="Quantidade">
+      <input type="text" name="notes" placeholder="Notas (opcional)" aria-label="Notas, opcional">
       <button type="submit">+ Registrar</button>
     </form>
 

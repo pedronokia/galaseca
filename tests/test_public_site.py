@@ -1786,6 +1786,40 @@ def test_paginas_de_conta_sao_noindex():
     assert not sem_noindex, f"Sem <meta name=\"robots\" content=\"noindex\">: {sem_noindex}"
 
 
+def test_todo_campo_de_formulario_tem_nome_acessivel():
+    """Até 2026-10-27, as 4 telas de /conta (adicionar posição, editar
+    custo, registrar trade, adicionar à watchlist, webhook do Discord) e
+    o login do /admin usavam só `placeholder=`/`title=` pra identificar
+    cada campo -- nenhum dos dois é nome acessível de verdade (o
+    placeholder some ao digitar, e leitor de tela não anuncia `title`
+    como rótulo). `index.html`/`404.html` já faziam certo com `<label>`
+    envolvendo o campo; as telas de `/conta` ficaram pra trás. Varredura
+    genérica, no mesmo espírito de `test_todo_template_tem_skip_link_e_
+    main_com_id`, pra nenhum campo novo repetir o gap: todo `<input>`
+    visível (não hidden/submit/checkbox) precisa ter `aria-label=` OU
+    estar dentro de um `<label>...</label>`."""
+    import re
+    from pathlib import Path
+
+    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    sem_nome_acessivel = []
+    for template in raiz.rglob("*.html"):
+        html = template.read_text(encoding="utf-8")
+        blocos_label = re.findall(r"<label\b.*?</label>", html, flags=re.S)
+        for campo in re.findall(r"<input\b[^>]*>", html):
+            tipo = re.search(r'type="([^"]+)"', campo)
+            if tipo and tipo.group(1) in ("hidden", "submit", "checkbox", "radio"):
+                continue
+            if "aria-label=" in campo or "aria-labelledby=" in campo:
+                continue
+            if any(campo in bloco for bloco in blocos_label):
+                continue
+            sem_nome_acessivel.append(f"{template.name}: {campo[:70]}")
+
+    assert not sem_nome_acessivel, (
+        "Campo(s) sem aria-label nem <label> envolvendo: " + "; ".join(sem_nome_acessivel))
+
+
 def test_nav_de_conta_marca_pagina_ativa(client, monkeypatch):
     monkeypatch.setattr(
         "skinvault.public_site.server.user_store.get_user",

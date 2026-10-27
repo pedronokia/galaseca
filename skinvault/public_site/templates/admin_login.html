@@ -19,7 +19,7 @@
 
   <main id="conteudo" class="pagina-texto">
     <form class="form-adicionar" method="post" action="{{ url_for('admin_login') }}">
-      <input type="password" name="senha" placeholder="Senha" autofocus required>
+      <input type="password" name="senha" placeholder="Senha" aria-label="Senha" autofocus required>
       <button type="submit">Entrar</button>
     </form>
     {% if erro %}

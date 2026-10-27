@@ -41,9 +41,9 @@
     <h2 class="secao-titulo">Adicionar item</h2>
     <form class="form-adicionar" method="post" action="{{ url_for('account.adicionar_posicao') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="text" name="name" placeholder="Nome exato do item (ex.: AK-47 | Redline (Field-Tested))" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" maxlength="200" required>
-      <input type="number" name="cost" step="0.01" min="0" placeholder="Custo (R$, opcional)">
-      <input type="number" name="quantity" min="1" value="1" placeholder="Qtd">
+      <input type="text" name="name" placeholder="Nome exato do item (ex.: AK-47 | Redline (Field-Tested))" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" aria-label="Nome exato do item" maxlength="200" required>
+      <input type="number" name="cost" step="0.01" min="0" placeholder="Custo (R$, opcional)" aria-label="Custo em reais, opcional">
+      <input type="number" name="quantity" min="1" value="1" placeholder="Qtd" aria-label="Quantidade">
       <button type="submit">+ Adicionar</button>
     </form>
 
@@ -69,7 +69,7 @@
           <td>
             <form method="post" action="{{ url_for('account.editar_custo', name=row.name) }}" class="form-inline">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-              <input type="number" name="cost" step="0.01" min="0" value="{{ row.cost if row.cost else '' }}" class="input-compacto">
+              <input type="number" name="cost" step="0.01" min="0" value="{{ row.cost if row.cost else '' }}" class="input-compacto" aria-label="Novo custo de {{ row.name_fmt }}, em reais">
               <button type="submit" class="botao-link">salvar</button>
             </form>
           </td>

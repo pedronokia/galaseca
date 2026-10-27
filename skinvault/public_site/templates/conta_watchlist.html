@@ -25,8 +25,8 @@
     <h2 class="secao-titulo">Adicionar item</h2>
     <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" maxlength="200" required>
-      <input type="number" name="target" step="0.01" min="0" placeholder="Alvo de preço (R$, opcional)">
+      <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" aria-label="Nome exato do item" maxlength="200" required>
+      <input type="number" name="target" step="0.01" min="0" placeholder="Alvo de preço (R$, opcional)" aria-label="Alvo de preço em reais, opcional">
       <button type="submit">+ Acompanhar</button>
     </form>
 
@@ -37,7 +37,7 @@
     {% endif %}
     <form class="form-adicionar" method="post" action="{{ url_for('watchlist.salvar_webhook') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord">
+      <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord" aria-label="URL do webhook do Discord">
       <button type="submit">Salvar</button>
     </form>
 
