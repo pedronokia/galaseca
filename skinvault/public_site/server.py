@@ -61,7 +61,7 @@ _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 _LIMIT_CANDIDATOS = 20
-_PAGINA_TAMANHO = 20
+_PAGINA_TAMANHO = 10
 _INTERVALO_HORAS_DEFAULT = 6.0
 _SECRET_KEY_PATH = DATA_DIR / "public_site_secret.key"
 _ERROR_LOG_PATH = DATA_DIR / "errors.log"
@@ -256,7 +256,7 @@ def create_app() -> Flask:
             com_historico=False)
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         # Histórico (tendência/sparkline) só pra quem vai aparecer de
-        # verdade: a página atual (20 itens) ou, no modo agrupado, todo
+        # verdade: a página atual (10 itens) ou, no modo agrupado, todo
         # mundo -- porque ali não tem paginação, todos os candidatos
         # filtrados aparecem de uma vez.
         if agrupar:
@@ -1030,10 +1030,10 @@ def _candidatos_filtrados(
 
     `com_historico=False` pula tendência/sparkline (2 leituras de disco
     por item) -- usar quando quem chama só vai exibir uma FATIA do
-    resultado (ex. uma página de 20 em até ~150 candidatos) e vai chamar
+    resultado (ex. uma página de 10 em até ~150 candidatos) e vai chamar
     `_enriquecer_com_historico` só nessa fatia depois. Achado 2026-10-26:
     o `index()` lia o histórico de TODOS os candidatos em toda visita,
-    mesmo mostrando só 20 por vez.
+    mesmo mostrando só uma página por vez.
     """
     if not scan:
         return []

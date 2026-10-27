@@ -184,7 +184,7 @@ def test_index_pagina_2(client, monkeypatch, tmp_path):
     pagina2 = client.get("/?pagina=2").data.decode("utf-8")
     assert "Item 0" in pagina1
     assert "Item 0" not in pagina2
-    assert "Item 20" in pagina2
+    assert "Item 10" in pagina2
 
 
 def test_index_descontinuada_ganha_selo(client, monkeypatch, tmp_path):
