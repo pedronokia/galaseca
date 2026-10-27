@@ -660,9 +660,18 @@ footer.rodape .versao {
   padding: 7px 8px;
   color: var(--text);
   font-size: 0.88rem;
+  text-overflow: ellipsis;
 }
 
 .form-filtros input[type="number"] { width: 130px; }
+
+/* Campo de busca sem largura nenhuma usava o default do navegador
+   (~170px) -- raso demais pro placeholder inteiro ("Ex.: AK-47 |
+   Redline (atalho: /)", 33 caracteres), que cortava no meio da palavra
+   sem reticências (achado com print do usuário, 2026-10-27). */
+.form-filtros input[type="text"]#campo-busca {
+  min-width: 220px;
+}
 
 .form-filtros button {
   background: var(--accent);
