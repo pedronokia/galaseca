@@ -69,7 +69,7 @@
     {% if ciclos %}
     <ul>
       {% for c in ciclos %}
-      <li>{{ c.ts|int }} — {{ c.itens }} itens em {{ c.duracao_min }}min — {{ "ok" if c.sucesso else "FALHOU" }}</li>
+      <li>{{ c.quando }} — {{ c.itens }} itens em {{ c.duracao_min }}min — {{ "ok" if c.sucesso else "FALHOU" }}</li>
       {% endfor %}
     </ul>
     {% else %}

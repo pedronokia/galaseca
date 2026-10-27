@@ -671,6 +671,14 @@ def create_app() -> Flask:
         progresso = scan_progress.carregar()
         if progresso:
             progresso = dict(progresso, idade=scan_store.idade_txt(progresso["ts"]))
+        # Mesmo padrão de `quando` que /status já usa pro histórico de
+        # ciclos -- sem isto o admin mostrava `c.ts` cru (epoch em
+        # segundos, tipo "1792500195") em vez de "há 20 min" (achado
+        # 2026-10-27: os dois templates leem a mesma lista, só o /status
+        # formatava).
+        ciclos_admin = list(reversed(scan_store.load_historico_ciclos()))[:10]
+        for c in ciclos_admin:
+            c["quando"] = scan_store.idade_txt(c["ts"])
         return render_template(
             "admin.html",
             build=_build_id(),
@@ -680,7 +688,7 @@ def create_app() -> Flask:
             erros_agregados=erros_agregados,
             grafico_erros=grafico_erros,
             backups=[b.name for b in reversed(backups)],
-            ciclos=list(reversed(scan_store.load_historico_ciclos()))[:10],
+            ciclos=ciclos_admin,
             progresso=progresso,
             latencias=latencia.resumo(),
             disco=_disco_info(),

@@ -1075,6 +1075,28 @@ def test_admin_mostra_progresso(client, monkeypatch):
     assert "Item X" in resp.data.decode("utf-8")
 
 
+def test_admin_formata_quando_dos_ciclos_em_vez_de_timestamp_cru(
+        client, monkeypatch):
+    """Achado 2026-10-27: /status já formatava `c["ts"]` com idade_txt
+    ("há X min") antes de passar pro template; /admin lia a mesma lista
+    de scan_store.load_historico_ciclos e mostrava o epoch cru
+    (`{{ c.ts|int }}`, tipo "1792500195") porque nunca recebeu o mesmo
+    tratamento."""
+    monkeypatch.setattr(
+        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    ts_fixo = 1700000000.0  # epoch arbitrário, fixo -- não depende do "agora"
+    monkeypatch.setattr(
+        "skinvault.public_site.server.scan_store.load_historico_ciclos",
+        lambda: [{"ts": ts_fixo, "itens": 152,
+                 "duracao_min": 22.3, "sucesso": True}])
+    client.post("/admin/login", data={"senha": "segredo"})
+    body = client.get("/admin").data.decode("utf-8")
+    assert "152 itens" in body
+    assert "há " in body
+    assert str(int(ts_fixo)) not in body  # nenhum epoch cru na página
+
+
 # ── worker_alert ─────────────────────────────────────────────
 
 def test_worker_alert_sem_webhook_nao_alerta(monkeypatch, tmp_path):
