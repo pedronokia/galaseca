@@ -783,6 +783,7 @@ footer.rodape .versao {
 .form-adicionar button:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
 .botao-link {
+  display: inline-block;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -790,13 +791,62 @@ footer.rodape .versao {
   color: var(--text);
   cursor: pointer;
   font-size: 0.85rem;
+  text-decoration: none;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-.botao-link:hover { background: var(--surface-hover); }
+.botao-link:hover {
+  background: var(--surface-hover);
+  text-decoration: none;
+}
 
 .botao-remover { color: var(--danger); }
 .botao-remover:hover { background: var(--surface-hover); border-color: var(--danger); }
+
+/* Menu "⋯" de opções secundárias -- evita lotar o painel de filtros
+   com 8 botões do mesmo peso visual (achado 2026-10-27). Só "Filtrar"
+   e "Só favoritos" ficam soltos; o resto (modo de exibição, agrupar,
+   RSS, apresentação, exportar, salvar busca) entra aqui. */
+.menu-opcoes {
+  position: relative;
+}
+
+.lista-menu-opcoes[hidden] { display: none; }
+.lista-menu-opcoes {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 15;
+}
+
+.item-menu {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.item-menu:hover {
+  background: var(--surface);
+  text-decoration: none;
+}
 
 .form-inline {
   display: flex;

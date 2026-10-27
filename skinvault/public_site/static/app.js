@@ -419,3 +419,42 @@ document.addEventListener("click", function (e) {
     document.head.appendChild(tag);
   });
 })();
+
+// Menu "⋯ Mais opções" do painel de filtros -- junta modo de exibição/
+// agrupar/RSS/apresentação/exportar/salvar busca num só lugar, em vez
+// de 8 botões soltos com o mesmo peso visual (achado 2026-10-27).
+(function () {
+  var botao = document.getElementById("botao-menu-opcoes");
+  var lista = document.getElementById("lista-menu-opcoes");
+  if (!botao || !lista) return;
+
+  function fechar() {
+    lista.hidden = true;
+    botao.setAttribute("aria-expanded", "false");
+  }
+  function aberto() {
+    return !lista.hidden;
+  }
+
+  botao.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (aberto()) {
+      fechar();
+    } else {
+      lista.hidden = false;
+      botao.setAttribute("aria-expanded", "true");
+    }
+  });
+
+  // Clique fora fecha -- padrão de qualquer menu suspenso.
+  document.addEventListener("click", function (e) {
+    if (aberto() && !lista.contains(e.target) && e.target !== botao) fechar();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && aberto()) {
+      fechar();
+      botao.focus();
+    }
+  });
+})();

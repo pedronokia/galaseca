@@ -154,30 +154,38 @@
       {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none or busca_sel %}
         <a class="botao-link" href="{{ url_for('index') }}">Limpar filtros</a>
       {% endif %}
-      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, agrupar=('1' if agrupar_sel else None), compacto=(None if compacto_sel else '1')) }}">
-        {{ "Modo normal" if compacto_sel else "Modo compacto" }}
-      </a>
-      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=(None if agrupar_sel else '1')) }}">
-        {{ "Ver lista" if agrupar_sel else "Agrupar por categoria" }}
-      </a>
-      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), minimalista=(None if minimalista_sel else '1')) }}">
-        {{ "Mostrar selo ★" if minimalista_sel else "Modo minimalista" }}
-      </a>
-      <a class="botao-link" href="{{ url_for('feed', categoria=categoria_sel) }}" title="Feed RSS{{ ' só desta categoria' if categoria_sel else '' }}">
-        📡 RSS{{ " — " ~ categoria_sel if categoria_sel else "" }}
-      </a>
-      <a class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, apresentacao='1') }}">
-        Modo apresentação
-      </a>
       <button type="button" id="botao-favoritos" class="botao-link" title="Mostrar só os itens que você favoritou (só neste navegador) -- atalho: f">
         <span id="texto-botao-favoritos">☆ Só favoritos</span> <span id="contagem-favoritos" class="contagem-favoritos" hidden>0</span>
       </button>
-      <button type="button" id="botao-exportar-csv" class="botao-link" title="Baixar a tabela visível como CSV">
-        ⇩ Exportar CSV
-      </button>
-      <button type="button" id="botao-salvar-busca" class="botao-link" title="Salvar os filtros atuais com um nome, pra voltar rápido depois (só neste navegador)">
-        💾 Salvar busca
-      </button>
+
+      <div class="menu-opcoes">
+        <button type="button" id="botao-menu-opcoes" class="botao-link" aria-haspopup="true" aria-expanded="false" aria-controls="lista-menu-opcoes">
+          ⋯ Mais opções
+        </button>
+        <div id="lista-menu-opcoes" class="lista-menu-opcoes" hidden>
+          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, agrupar=('1' if agrupar_sel else None), compacto=(None if compacto_sel else '1')) }}">
+            {{ "Modo normal" if compacto_sel else "Modo compacto" }}
+          </a>
+          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=(None if agrupar_sel else '1')) }}">
+            {{ "Ver lista" if agrupar_sel else "Agrupar por categoria" }}
+          </a>
+          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), minimalista=(None if minimalista_sel else '1')) }}">
+            {{ "Mostrar selo ★" if minimalista_sel else "Modo minimalista" }}
+          </a>
+          <a class="item-menu" href="{{ url_for('feed', categoria=categoria_sel) }}" title="Feed RSS{{ ' só desta categoria' if categoria_sel else '' }}">
+            RSS{{ " — " ~ categoria_sel if categoria_sel else "" }}
+          </a>
+          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, apresentacao='1') }}">
+            Modo apresentação
+          </a>
+          <button type="button" id="botao-exportar-csv" class="item-menu" title="Baixar a tabela visível como CSV">
+            Exportar CSV
+          </button>
+          <button type="button" id="botao-salvar-busca" class="item-menu" title="Salvar os filtros atuais com um nome, pra voltar rápido depois (só neste navegador)">
+            Salvar busca
+          </button>
+        </div>
+      </div>
     </form>
 
     <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>
