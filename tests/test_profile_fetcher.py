@@ -100,6 +100,47 @@ class TestFetchPublicProfile:
         assert second == first
         assert call_count[0] == before_calls
 
+    def test_dois_steamids_concorrentes_nao_se_apagam(self, monkeypatch,
+                                                        tmp_path: Path):
+        """Corrida leitura-modificacao-escrita no cache compartilhado:
+        no site publico, `fetch_public_profile` roda dentro de um
+        request do Flask a cada login -- dois visitantes DIFERENTES
+        logando perto um do outro faziam o segundo a terminar
+        sobrescrever o arquivo com uma copia carregada ANTES do
+        primeiro salvar, apagando a entrada do primeiro em silencio.
+        Simula o interleaving sem thread real: a chamada de rede de A
+        dispara um fetch COMPLETO de B no meio (igual uma segunda
+        requisicao concorrente de verdade faria), achado numa cacada
+        dirigida por essa familia de bug, 2026-10-27."""
+        monkeypatch.setattr(pf, "_PROFILES_PATH", tmp_path / "profiles.json")
+        monkeypatch.setattr(pf, "_AVATARS_DIR", tmp_path / "avatars")
+
+        def mock_get_a(url, timeout=10.0):
+            if "?xml=1" in url:
+                # "B" termina o fetch dela por completo ENQUANTO "A"
+                # ainda esta' no meio da propria chamada de rede --
+                # mesma janela que duas threads/requests concorrentes
+                # abririam de verdade.
+                monkeypatch.setattr(pf, "_http_get", mock_get_b)
+                pf.fetch_public_profile("steamid-B")
+                monkeypatch.setattr(pf, "_http_get", mock_get_a)
+                return SAMPLE_XML.encode("utf-8")
+            return b"\xff\xd8\xff\xe0fake-jpeg"
+
+        def mock_get_b(url, timeout=10.0):
+            if "?xml=1" in url:
+                return SAMPLE_XML.encode("utf-8")
+            return b"\xff\xd8\xff\xe0fake-jpeg"
+
+        monkeypatch.setattr(pf, "_http_get", mock_get_a)
+        pf.fetch_public_profile("steamid-A")
+
+        cache_final = json.loads(pf._PROFILES_PATH.read_text(encoding="utf-8"))
+        assert "steamid-A" in cache_final
+        assert "steamid-B" in cache_final, (
+            "entrada de B sumiu do cache -- A salvou por cima com o "
+            "snapshot que tinha carregado ANTES de B escrever")
+
     def test_force_bypasses_cache(self, monkeypatch, tmp_path: Path):
         monkeypatch.setattr(pf, "_PROFILES_PATH", tmp_path / "profiles.json")
         monkeypatch.setattr(pf, "_AVATARS_DIR", tmp_path / "avatars")

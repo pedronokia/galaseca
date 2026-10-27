@@ -11,6 +11,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -22,6 +23,19 @@ _PROFILES_PATH = DATA_DIR / "steam_profiles.json"
 _AVATARS_DIR = DATA_DIR / "avatars"
 _TTL_SECONDS = 24 * 3600
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
+
+# Protege o ciclo leitura-modificacao-escrita do cache (um JSON so',
+# com entrada por steamid). Achado numa cacada dirigida por essa familia
+# de bug, 2026-10-27: no site publico, `fetch_public_profile` roda
+# dentro de um request do Flask toda vez que alguem loga -- dois
+# visitantes DIFERENTES logando perto um do outro podiam fazer o
+# segundo sobrescrever o arquivo inteiro com uma copia carregada ANTES
+# do primeiro salvar, apagando a entrada do primeiro em silencio
+# (self-cura no proximo cache miss, mas e' trabalho jogado fora e um
+# `write` perdido de verdade). `atomic_write_text` so' protege contra
+# arquivo corrompido por escrita cortada -- nao protege contra dois
+# escritores concorrentes com snapshots diferentes do mesmo dict.
+_cache_lock = threading.Lock()
 
 # httpx (não urllib) com timeout via thread pool -- mesmo achado de
 # `steam_api._http_get` (2026-10-26): urllib.request era especificamente
@@ -96,8 +110,9 @@ def fetch_public_profile(steamid: str,
     """
     if not steamid:
         return None
-    cache = _load_cache()
-    entry = cache.get(steamid)
+    with _cache_lock:
+        cache = _load_cache()
+        entry = cache.get(steamid)
     now = time.time()
 
     if not force and entry and now - entry.get("fetched_at", 0) < _TTL_SECONDS:
@@ -126,8 +141,14 @@ def fetch_public_profile(steamid: str,
         "avatar_path": avatar_path,
         "fetched_at": now,
     }
-    cache[steamid] = record
-    _save_cache(cache)
+    # Re-le sob o lock em vez de reusar o `cache` carregado la' em cima --
+    # outro steamid pode ter escrito uma entrada nova enquanto este
+    # fazia a chamada de rede (fora do lock, de proposito: nao serializa
+    # fetch lento atras de um lock).
+    with _cache_lock:
+        cache = _load_cache()
+        cache[steamid] = record
+        _save_cache(cache)
     return record
 
 
