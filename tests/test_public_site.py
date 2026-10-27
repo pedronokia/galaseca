@@ -1415,6 +1415,35 @@ def test_icon_cache_caminho_sanitiza_hash_nao_alfanumerico():
     assert p.parent == icon_cache._CACHE_DIR
 
 
+def test_icon_cache_requisicao_de_rede_usa_hash_sanitizado(monkeypatch, tmp_path):
+    """A rota `/icone/<hash>.jpg` repassa o `<hash>` da URL direto pra
+    `obter()`, sem validar -- qualquer visitante, sem login. Até
+    2026-10-27 só `_caminho()` (o nome do arquivo em disco) sanitizava;
+    a chamada de rede usava o hash cru. Trava que a URL batida de
+    verdade contém só a parte alfanumérica, nunca o valor original com
+    caractere estranho."""
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+    urls_chamadas = []
+
+    class _RespostaFalsa:
+        status_code = 200
+        content = b"fake-jpeg-bytes"
+
+    def _get_falso(url, timeout=None):
+        urls_chamadas.append(url)
+        return _RespostaFalsa()
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", _get_falso)
+
+    resultado = icon_cache.obter("abc/../123?x=1")
+    assert resultado == b"fake-jpeg-bytes"
+    assert len(urls_chamadas) == 1
+    assert "abc123" in urls_chamadas[0]
+    assert ".." not in urls_chamadas[0]
+    assert "?x=1" not in urls_chamadas[0]
+
+
 def test_readyz_com_db_path_sendo_diretorio(client, monkeypatch, tmp_path):
     diretorio = tmp_path / "isto_e_pasta"
     diretorio.mkdir()

@@ -37,10 +37,22 @@ def _caminho(hash_icone: str) -> Path:
 def obter(hash_icone: str) -> "bytes | None":
     """Bytes da imagem, do cache de disco ou buscando (e cacheando) do
     CDN da Steam. None se o hash for inválido ou a busca falhar -- quem
-    chama decide o fallback."""
-    if not hash_icone:
+    chama decide o fallback.
+
+    A rota `/icone/<hash>.jpg` (server.py) passa o `<hash>` da URL direto
+    pra cá, sem validar nada -- é QUALQUER visitante, sem login. Até
+    2026-10-27 só `_caminho()` sanitizava (pro nome do arquivo em disco);
+    a requisição de rede usava `hash_icone` cru, sem passar pelo mesmo
+    filtro. O host de destino é fixo (`_CDN_URL_TPL` já tem o domínio
+    embutido antes do `{hash}`, então não dá pra redirecionar pra outro
+    host por aqui), mas um hash arbitrário ainda fazia o servidor buscar
+    (e cachear em disco) qualquer path dentro de steamstatic.com por
+    conta de qualquer um -- sanitiza ANTES de usar nos dois lugares,
+    não só no caminho do arquivo."""
+    hash_seguro = "".join(c for c in (hash_icone or "") if c.isalnum())[:128]
+    if not hash_seguro:
         return None
-    p = _caminho(hash_icone)
+    p = _caminho(hash_seguro)
     if p.exists():
         try:
             return p.read_bytes()
@@ -48,7 +60,7 @@ def obter(hash_icone: str) -> "bytes | None":
             pass
     try:
         import httpx
-        resp = httpx.get(_CDN_URL_TPL.format(hash=hash_icone), timeout=_TIMEOUT)
+        resp = httpx.get(_CDN_URL_TPL.format(hash=hash_seguro), timeout=_TIMEOUT)
         if resp.status_code != 200 or not resp.content:
             return None
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
