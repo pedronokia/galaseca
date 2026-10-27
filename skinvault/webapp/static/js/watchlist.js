@@ -17,6 +17,26 @@ document.addEventListener("DOMContentLoaded", () => {
     "pt-BR", { style: "currency", currency: "BRL" }).format(v);
   const dateTime = (ts) => ts ? new Date(ts * 1000).toLocaleString("pt-BR") : "—";
 
+  // applyPayload() reescreve a lista INTEIRA (body.innerHTML = "" + volta
+  // a montar) e e' chamado de 6 lugares diferentes (carregar, Verificar
+  // agora, silenciar, remover, adicionar, salvar regras) -- cada um
+  // dispara seu proprio fetch, sem nenhum deles desabilitar nada que
+  // impeca outro ser disparado antes do primeiro voltar. Se o usuario
+  // clica "Remover" num item e, antes da resposta voltar, clica
+  // "Silenciar" noutro, a resposta do silenciar (que reflete o estado
+  // ANTES da remocao) pode chegar DEPOIS e sobrescrever a lista inteira
+  // -- ressuscitando o item removido na tela, mesmo ja removido no
+  // servidor. Mesma familia de bug ja' corrigida nesta sessao em
+  // market_screen.py/_price_worker.py/cleanup_screen.py/watchlist_screen.py
+  // (Qt, esta ultima com o MESMO sintoma de item ressuscitado) e
+  // inventory.js/market.js/tradeup.js (web). `listGen` so' deixa a
+  // resposta da acao MAIS RECENTE aplicar.
+  let listGen = 0;
+  function applyPayloadSeGen(gen, payload) {
+    if (gen !== listGen) return;
+    applyPayload(payload);
+  }
+
   function parseMoney(raw) {
     let s = String(raw || "").trim();
     if (!s) return null;
@@ -60,11 +80,12 @@ document.addEventListener("DOMContentLoaded", () => {
     muteBtn.type = "button";
     muteBtn.textContent = item.muted ? "Reativar" : "Silenciar 24h";
     muteBtn.addEventListener("click", () => {
+      const gen = ++listGen;
       fetch(`/api/watchlist/${item.index}/mute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hours: item.muted ? null : 24 }),
-      }).then((r) => r.json()).then(applyPayload);
+      }).then((r) => r.json()).then((p) => applyPayloadSeGen(gen, p));
     });
     const delBtn = document.createElement("button");
     delBtn.type = "button";
@@ -75,8 +96,9 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Remover item", confirmLabel: "Remover", danger: true,
       }).then((ok) => {
         if (!ok) return;
+        const gen = ++listGen;
         fetch(`/api/watchlist/${item.index}`, { method: "DELETE" })
-          .then((r) => r.json()).then(applyPayload);
+          .then((r) => r.json()).then((p) => applyPayloadSeGen(gen, p));
       });
     });
     tdActions.append(rulesBtn, muteBtn, delBtn);
@@ -104,15 +126,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function loadWatchlist() {
-    fetch("/api/watchlist").then((r) => r.json()).then(applyPayload);
+    const gen = ++listGen;
+    fetch("/api/watchlist").then((r) => r.json())
+      .then((p) => applyPayloadSeGen(gen, p));
   }
   loadWatchlist();
 
   checkBtn.addEventListener("click", () => {
+    const gen = ++listGen;
     statusEl.classList.add("is-busy");
     statusEl.textContent = "Verificando…";
     fetch("/api/watchlist/check", { method: "POST" })
-      .then((r) => r.json()).then(applyPayload);
+      .then((r) => r.json()).then((p) => applyPayloadSeGen(gen, p));
   });
 
   // ── adicionar ──────────────────────────────────────────
@@ -137,6 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
       addError.hidden = false;
       return;
     }
+    const gen = ++listGen;
     fetch("/api/watchlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -150,7 +176,7 @@ document.addEventListener("DOMContentLoaded", () => {
       addForm.hidden = true;
       addForm.reset();
       addError.hidden = true;
-      applyPayload(payload);
+      applyPayloadSeGen(gen, payload);
     });
   });
 
@@ -210,6 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
       rulesError.hidden = false;
       return;
     }
+    const gen = ++listGen;
     fetch(`/api/watchlist/${rulesIndex}/rules`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -221,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       modal.hidden = true;
-      applyPayload(payload);
+      applyPayloadSeGen(gen, payload);
     });
   });
 

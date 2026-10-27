@@ -8,6 +8,8 @@ modulo.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from skinvault import alerts as alerts_mod
@@ -143,3 +145,38 @@ def test_check_nao_dispara_de_novo_item_silenciado(client):
 def test_log_vazio(client):
     resp = client.get("/api/watchlist/log")
     assert resp.get_json()["entries"] == []
+
+
+def test_watchlist_js_todo_applypayload_tem_guarda_de_geracao():
+    """applyPayload() reescreve a lista INTEIRA da tela e e' chamado de
+    6 lugares (carregar, Verificar agora, silenciar, remover, adicionar,
+    salvar regras) -- cada um dispara seu proprio fetch, sem nenhum
+    deles bloquear outro. Se "Remover" e "Silenciar" forem clicados em
+    sequencia rapida, a resposta mais lenta (que reflete o estado ANTES
+    da outra acao) podia chegar por ultimo e sobrescrever a lista
+    inteira, ressuscitando um item ja removido -- mesmo sintoma do bug
+    ja corrigido em watchlist_screen.py (Qt). `listGen` fecha isso:
+    so' a resposta da acao MAIS RECENTE pode aplicar. Cliente de teste
+    do Flask nao executa JS, entao a rede de seguranca e' estrutural
+    (fonte), mesmo padrao ja usado em test_webapp_market.py/
+    test_webapp_tradeup.py pros fixes irmaos desta sessao."""
+    js = (Path(__file__).parent.parent / "skinvault" / "webapp"
+          / "static" / "js" / "watchlist.js").read_text(encoding="utf-8")
+    assert "let listGen = 0" in js, (
+        "contador de geracao (listGen) sumiu de watchlist.js -- acoes "
+        "concorrentes podem voltar a se sobrescrever")
+    assert ".then(applyPayload)" not in js, (
+        "algum call site voltou a chamar applyPayload() direto, sem "
+        "passar pela guarda de geracao (applyPayloadSeGen)")
+    # Um "gen = ++listGen" por acao que escreve a lista: carregar,
+    # verificar, mute, remover, adicionar, salvar regras.
+    assert js.count("++listGen") == 6, (
+        f"esperava 6 pontos de disparo incrementando listGen (um por "
+        f"acao que chama applyPayload), achei {js.count('++listGen')} "
+        "-- alguma acao pode ter ficado sem a guarda")
+    # 7, nao 6: a propria definicao de applyPayloadSeGen(gen, payload)
+    # tambem bate nesse grep, alem das 6 chamadas reais.
+    assert js.count("applyPayloadSeGen(gen,") == 7, (
+        "esperava 6 chamadas de applyPayloadSeGen(gen, ...) + a definicao "
+        "da funcao -- alguma acao pode estar aplicando o payload sem "
+        "conferir a geracao")
