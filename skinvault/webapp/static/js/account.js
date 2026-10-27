@@ -65,9 +65,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Se o usuario navegou pra fora da tela de Conta com um refresh em
+  // andamento (a thread do servidor continua rodando, publica o SSE
+  // "account_eval" pra QUALQUER conexao escutando, independente de
+  // quem disparou) e voltou, esta pintura inicial (cache, rapida) e o
+  // account_eval desse refresh antigo competem pelo mesmo render(). Se
+  // o SSE (dado mais fresco, pos-avaliacao) chegar ANTES desta pintura
+  // resolver, nao deixa o cache antigo sobrescrever por cima. Mesma
+  // familia de bug ja' corrigida nesta sessao em varios outros pontos.
+  let liveApplied = false;
   fetch("/api/account/summary")
     .then((r) => r.json())
-    .then(render)
+    .then((payload) => { if (!liveApplied) render(payload); })
     .catch(() => { statusEl.textContent = "Não consegui carregar a carteira."; });
 
   refreshBtn.addEventListener("click", () => {
@@ -94,9 +103,14 @@ document.addEventListener("DOMContentLoaded", () => {
       statusEl.classList.remove("is-busy");
       const payload = JSON.parse(ev.data);
       if (payload.error) {
+        // Nao marca liveApplied aqui -- se a pintura inicial do cache
+        // ainda estiver pendente, deixa ela aplicar normal (melhor
+        // mostrar o ultimo dado bom conhecido do que deixar os cartoes
+        // vazios pra sempre so' porque ESTE refresh falhou).
         statusEl.textContent = "Falha ao atualizar: " + payload.error;
         return;
       }
+      liveApplied = true;
       render(payload);
     });
   }

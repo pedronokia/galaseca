@@ -6,6 +6,7 @@ testadas via Flask test client, sem subir servidor de verdade.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 import pytest
 
@@ -129,3 +130,29 @@ def test_start_refresh_publica_progresso_e_resultado(tmp_path):
     assert resultado, "on_done nunca foi chamado"
     assert progresso, "on_progress nunca foi chamado"
     assert "rows" in resultado[0]
+
+
+def test_account_js_pintura_inicial_nao_sobrescreve_sse_mais_fresco():
+    """Se o usuario navegar pra fora da tela de Conta com um refresh em
+    andamento e voltar, a pintura inicial (cache) e o "account_eval" do
+    refresh antigo (a thread do servidor continua rodando e publica o
+    SSE pra qualquer conexao escutando) competem pelo mesmo render().
+    `liveApplied` impede o cache (mais velho) de sobrescrever o SSE
+    (mais fresco) se o SSE chegar primeiro. Mesma familia de bug ja
+    corrigida em market.js/tradeup.js/watchlist.js/history.js nesta
+    sessao. Cliente de teste do Flask nao executa JS -- rede de
+    seguranca estrutural, mesmo padrao das outras correcoes."""
+    js = (Path(__file__).parent.parent / "skinvault" / "webapp"
+          / "static" / "js" / "account.js").read_text(encoding="utf-8")
+    assert "let liveApplied = false" in js, (
+        "flag liveApplied sumiu de account.js -- a pintura inicial do "
+        "cache pode voltar a sobrescrever um resultado de SSE mais fresco")
+    idx_fetch = js.index('fetch("/api/account/summary")')
+    assert "if (!liveApplied) render(payload)" in js[idx_fetch:idx_fetch + 300], (
+        "a pintura inicial precisa conferir `!liveApplied` antes de "
+        "chamar render()")
+    idx_eval = js.index('addEventListener("account_eval"')
+    corpo_eval = js[idx_eval:idx_eval + 900]
+    assert "liveApplied = true" in corpo_eval, (
+        "account_eval precisa marcar liveApplied = true no caminho de "
+        "sucesso, antes de chamar render()")
