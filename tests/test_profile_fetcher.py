@@ -141,6 +141,47 @@ class TestFetchPublicProfile:
             "entrada de B sumiu do cache -- A salvou por cima com o "
             "snapshot que tinha carregado ANTES de B escrever")
 
+    @pytest.mark.skipif(pf.fcntl is None, reason="flock e' POSIX-only")
+    def test_lock_e_entre_processos_de_verdade(self, tmp_path: Path):
+        """threading.Lock sozinho so' protege threads do MESMO processo
+        -- o site publico roda com `gunicorn --workers 2` (processos
+        separados). Prova que `_ciclo_protegido()` tambem usa
+        `fcntl.flock` (nao so' o Lock) segurando o lock num SUBPROCESSO
+        de verdade (via `subprocess.Popen`, interpretador novo -- não
+        `os.fork()`: o pytest roda multi-thread nesse ponto da suite, e
+        o proprio Python avisa que fork() depois de threads pode
+        travar) e confirmando que o processo principal fica bloqueado
+        ate' o subprocesso soltar o lock -- achado numa cacada dirigida
+        por essa familia de bug, 2026-10-27."""
+        import subprocess
+        import sys
+        import time as _time
+
+        lock_path = tmp_path / "lock.lock"
+        script = (
+            "import sys, time, fcntl\n"
+            "f = open(sys.argv[1], 'a')\n"
+            "fcntl.flock(f, fcntl.LOCK_EX)\n"
+            "print('pronto', flush=True)\n"
+            "time.sleep(0.4)\n"
+        )
+        proc = subprocess.Popen(
+            [sys.executable, "-c", script, str(lock_path)],
+            stdout=subprocess.PIPE, text=True,
+        )
+        try:
+            assert proc.stdout.readline().strip() == "pronto", (
+                "subprocesso nao chegou a segurar o lock")
+            inicio = _time.monotonic()
+            with pf._ciclo_protegido(path=lock_path):
+                duracao = _time.monotonic() - inicio
+        finally:
+            proc.wait(timeout=5)
+        assert duracao >= 0.35, (
+            f"_ciclo_protegido() nao esperou o subprocesso soltar o "
+            f"flock (levou so' {duracao:.3f}s) -- lock entre processos "
+            "nao esta' funcionando")
+
     def test_force_bypasses_cache(self, monkeypatch, tmp_path: Path):
         monkeypatch.setattr(pf, "_PROFILES_PATH", tmp_path / "profiles.json")
         monkeypatch.setattr(pf, "_AVATARS_DIR", tmp_path / "avatars")
