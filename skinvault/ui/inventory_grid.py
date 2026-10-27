@@ -1035,8 +1035,33 @@ class InventoryGrid(QWidget):
         self._detail = ItemDetailPanel()
         raiz.addWidget(self._detail, 0)
 
+    @staticmethod
+    def _chave_item(item: dict | None) -> str | None:
+        """Identidade estavel de um item pra sobreviver a um
+        repovoamento (os dicts sao recriados do zero a cada chamada)."""
+        if not item:
+            return None
+        return item.get("raw_name") or item.get("name")
+
     def set_items(self, items: list) -> None:
-        """Repovoa a grade. Ordena por valor: o que importa aparece antes."""
+        """Repovoa a grade. Ordena por valor: o que importa aparece antes.
+
+        Preserva a selecao atual quando o item selecionado ainda existe
+        na lista nova (por raw_name/name, ja' que os dicts e tiles sao
+        recriados do zero aqui). Sem isto, QUALQUER repovoamento --
+        inclusive o que `InventoryScreen._on_icons_ready` dispara
+        sozinho em background quando os icones terminam de carregar --
+        resetava a selecao em silencio pro primeiro item da lista,
+        arrancando o usuario do item que estava inspecionando no meio
+        da leitura. Mesma familia de bug ja' corrigida varias vezes
+        nesta sessao (resultado/estado assincrono sobrescrevendo o que
+        o usuario tinha no momento), achada aqui numa rodada de teste
+        ao vivo, 2026-10-27.
+        """
+        selecionado_antes = self._chave_item(next(
+            (getattr(t, "item", None) for t in self._tiles
+             if getattr(t, "_selected", False)), None))
+
         for tile in self._tiles:
             tile.setParent(None)
             tile.deleteLater()
@@ -1051,9 +1076,16 @@ class InventoryGrid(QWidget):
             self._tiles.append(tile)
         self._visiveis = list(self._tiles)
         self._reposicionar()
-        self._detail.show_item(ordenados[0] if ordenados else None)
-        if self._tiles:
-            self._tiles[0].set_selected(True)
+
+        alvo = None
+        if selecionado_antes is not None:
+            alvo = next((i for i in ordenados
+                        if self._chave_item(i) == selecionado_antes), None)
+        if alvo is None:
+            alvo = ordenados[0] if ordenados else None
+        self._detail.show_item(alvo)
+        for tile in self._tiles:
+            tile.set_selected(tile.item is alvo)
 
     # Chaves de ordenacao. "valor" e' o total do lote, nao o unitario: 21
     # caixas de R$ 1 pesam mais na carteira que uma skin de R$ 15.

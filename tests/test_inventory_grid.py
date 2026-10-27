@@ -971,6 +971,45 @@ def test_dados_substituem_o_esqueleto(app):
     assert all(getattr(tl, "item", None) is not None for tl in g._tiles)
 
 
+def test_repovoar_preserva_selecao_quando_item_continua_existindo(app):
+    """Achado numa rodada de teste ao vivo, 2026-10-27:
+    `InventoryScreen._on_icons_ready` chama `_populate_grid()` sozinho
+    em background quando os icones terminam de carregar, repovoando a
+    grade com `set_items()` de novo -- sem preservar selecao, isso
+    arrancava o usuario do item que ele tinha acabado de clicar pra
+    inspecionar, voltando pro primeiro item da lista em silencio."""
+    g = InventoryGrid()
+    itens = [_item(f"Item {i}", steam=10.0) for i in range(5)]
+    g.set_items(itens)
+    g._on_tile(itens[3])
+    assert g._detail._item["name"] == "Item 3"
+
+    # Repovoamento com os MESMOS dados (dicts novos, mesmo nome) -- e'
+    # exatamente o que `_on_icons_ready` faz: reconstroi a lista de
+    # itens do zero com o icone agora preenchido.
+    itens_novos = [_item(f"Item {i}", steam=10.0) for i in range(5)]
+    g.set_items(itens_novos)
+    assert g._detail._item["name"] == "Item 3"
+    selecionados = [tl.item["name"] for tl in g._tiles if tl._selected]
+    assert selecionados == ["Item 3"]
+
+
+def test_repovoar_cai_pro_primeiro_quando_item_selecionado_sumiu(app):
+    """Item vendido/removido durante a selecao -- nao ha' mais pra onde
+    apontar a selecao, cai pro primeiro item da lista nova (mesmo
+    comportamento de sempre quando nao ha' selecao anterior)."""
+    g = InventoryGrid()
+    itens = [_item(f"Item {i}", steam=10.0) for i in range(5)]
+    g.set_items(itens)
+    g._on_tile(itens[3])
+    assert g._detail._item["name"] == "Item 3"
+
+    sem_o_3 = [i for i in itens if i["name"] != "Item 3"]
+    g.set_items(sem_o_3)
+    assert g._detail._item is not None
+    assert g._detail._item["name"] != "Item 3"
+
+
 def test_filtrar_durante_o_carregamento_nao_quebra(app):
     """Fantasma nao tem `.item`; filtrar nao pode explodir nem escondê-los."""
     g = InventoryGrid()
