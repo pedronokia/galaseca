@@ -34,6 +34,12 @@ document.addEventListener("keydown", function (e) {
 // enviadas pro servidor. Tenta ler/escrever; se o navegador bloquear
 // (aba anônima, storage desligado), a página continua funcionando
 // normal, só sem salvar a nota.
+//
+// O campo nasce com [hidden] (pouca gente usa, não vale ocupar espaço
+// em toda linha da tabela o tempo todo -- achado visual, 2026-10-27).
+// .botao-nota-toggle revela/esconde; se já existe nota salva, o campo
+// aparece revelado desde o load e o botão ganha .tem-nota como sinal
+// permanente, mesmo fechado.
 (function () {
   var CHAVE = "skinvault_notas";
   function lerTudo() {
@@ -41,13 +47,35 @@ document.addEventListener("keydown", function (e) {
       return JSON.parse(localStorage.getItem(CHAVE) || "{}");
     } catch (e) { return {}; }
   }
+  function botaoDoCampo(campo) {
+    var celula = campo.closest(".celula-item");
+    return celula ? celula.querySelector(".botao-nota-toggle") : null;
+  }
   try {
     var notas = lerTudo();
     document.querySelectorAll(".input-tag-local").forEach(function (campo) {
       var item = campo.getAttribute("data-item");
-      if (notas[item]) campo.value = notas[item];
+      if (!notas[item]) return;
+      campo.value = notas[item];
+      campo.hidden = false;
+      var botao = botaoDoCampo(campo);
+      if (botao) {
+        botao.classList.add("tem-nota");
+        botao.setAttribute("aria-expanded", "true");
+      }
     });
   } catch (e) {}
+
+  document.addEventListener("click", function (e) {
+    var botao = e.target.closest(".botao-nota-toggle");
+    if (!botao) return;
+    var celula = botao.closest(".celula-item");
+    var campo = celula && celula.querySelector(".input-tag-local");
+    if (!campo) return;
+    campo.hidden = !campo.hidden;
+    botao.setAttribute("aria-expanded", String(!campo.hidden));
+    if (!campo.hidden) campo.focus();
+  });
 
   document.addEventListener("change", function (e) {
     if (!e.target.classList || !e.target.classList.contains("input-tag-local")) return;
@@ -61,7 +89,20 @@ document.addEventListener("keydown", function (e) {
       }
       localStorage.setItem(CHAVE, JSON.stringify(todas));
     } catch (e) {}
+    var botao = botaoDoCampo(e.target);
+    if (botao) botao.classList.toggle("tem-nota", !!e.target.value);
   });
+
+  // blur não borbulha -- precisa de capture pra pegar no listener do
+  // document. Campo vazio ao perder foco volta a ficar escondido, pra
+  // não deixar a linha "aberta" depois que o usuário desistiu de anotar.
+  document.addEventListener("blur", function (e) {
+    if (!e.target.classList || !e.target.classList.contains("input-tag-local")) return;
+    if (e.target.value) return;
+    e.target.hidden = true;
+    var botao = botaoDoCampo(e.target);
+    if (botao) botao.setAttribute("aria-expanded", "false");
+  }, true);
 })();
 
 // Favoritos -- igual às notas acima, só neste navegador, nunca enviado

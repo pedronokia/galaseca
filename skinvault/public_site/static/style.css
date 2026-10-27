@@ -425,6 +425,8 @@ table.tabela-itens {
   color: var(--accent-bright);
 }
 
+.botao-nota-toggle.tem-nota { color: var(--accent-bright); }
+
 .detalhe-motivo summary {
   cursor: pointer;
   list-style: none;
@@ -438,13 +440,32 @@ table.tabela-itens {
    precisam (achado visual, 2026-10-27: deixava a tabela com um ritmo
    vertical bem irregular, cada linha com uma altura bem diferente).
    O texto completo continua um clique de distância -- é um <details>,
-   não está escondido de verdade. */
-.detalhe-motivo:not([open]) summary {
+   não está escondido de verdade. O clamp vai no <span> interno
+   (.texto-motivo), não no summary direto, pra sobrar espaço pra
+   .dica-expandir aparecer sempre fora do corte de 4 linhas (2026-10-27:
+   um <summary> com reticências e nada mais parecia texto estático,
+   sem nenhum indício de que dava pra clicar). */
+.detalhe-motivo:not([open]) .texto-motivo {
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Guarda por convenção (gotcha #16) -- na prática o teste de varredura
+   confunde `aria-hidden="true"` com o atributo `hidden`, mas a regra é
+   inofensiva e deixa o CSS consistente com as demais classes. */
+.dica-expandir[hidden] { display: none; }
+
+.dica-expandir {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-bright);
+}
+
+.detalhe-motivo[open] .dica-expandir { display: none; }
 
 .lista-breakdown {
   margin: 6px 0 0;
@@ -509,6 +530,12 @@ table.tabela-itens {
 }
 
 .link-secundario:hover { color: var(--accent-bright); }
+
+/* Escondido por padrão -- revelado só ao clicar em .botao-nota-toggle
+   ou quando já existe uma nota salva (app.js). Regra [hidden] precisa
+   vir antes da de display, senão a classe (mesma especificidade) vence
+   e o campo nasce visível mesmo com o atributo (gotcha #16). */
+.input-tag-local[hidden] { display: none; }
 
 .input-tag-local {
   display: block;

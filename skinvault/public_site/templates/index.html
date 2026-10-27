@@ -53,10 +53,11 @@
       <div class="celula-item-acoes">
         <button type="button" class="botao-copiar" data-copiar="{{ c.name }}" title="Copiar nome do item" aria-label="Copiar nome de {{ c.name_fmt }}">📋</button>
         <button type="button" class="botao-copiar" data-copiar-link="{{ request.url_root.rstrip('/') }}{{ url_for('item_detail', name=c.name) }}" title="Copiar link pra compartilhar este item" aria-label="Copiar link de {{ c.name_fmt }}">🔗</button>
+        <button type="button" class="botao-copiar botao-nota-toggle" title="Nota pessoal (só neste navegador)" aria-label="Abrir nota pessoal de {{ c.name_fmt }}" aria-expanded="false">📝</button>
         <a class="link-secundario" href="{{ c.steamdb_url }}" target="_blank" rel="noopener" title="Ver no SteamDB">SteamDB</a>
         <a class="link-secundario" href="{{ url_for('item_detail', name=c.name) }}" title="Ver detalhes e histórico de preço">Detalhes</a>
       </div>
-      <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" maxlength="60">
+      <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" maxlength="60" hidden>
     </td>
     <td>
       {{ c.price_fmt }}
@@ -77,7 +78,10 @@
     </td>
     <td>
       <details class="detalhe-motivo">
-        <summary>{{ c.reasons|join("; ") if c.reasons else "Nota neutra: nenhum fator se destacou" }}</summary>
+        <summary>
+          <span class="texto-motivo">{{ c.reasons|join("; ") if c.reasons else "Nota neutra: nenhum fator se destacou" }}</span>
+          {% if c.breakdown %}<span class="dica-expandir" aria-hidden="true">ver mais ▾</span>{% endif %}
+        </summary>
         {% if c.breakdown %}
         <ul class="lista-breakdown">
           {% for b in c.breakdown %}
