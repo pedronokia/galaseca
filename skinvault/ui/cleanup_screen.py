@@ -204,6 +204,7 @@ class CleanupScreen(QWidget):
         self._loading = False
         self._rows: dict = {}
         self._scan: dict = {}
+        self._refresh_pending = False
         self._scan_worker = ScanWorker(self)
         self._scan_worker.done.connect(self._on_scan_done)
         self._clean_worker = CleanWorker(self)
@@ -364,8 +365,19 @@ class CleanupScreen(QWidget):
 
     # ── medicao ───────────────────────────────────────────
     def refresh(self) -> None:
-        """Remede os alvos (chamado pelo router ao navegar e no Recalcular)."""
+        """Remede os alvos (chamado pelo router ao navegar, no Recalcular,
+        e por `_on_clean_done` pra mostrar o tamanho pós-limpeza)."""
         if self._scan_worker.running:
+            # Uma rodada de scan já está em voo (ex. usuário clicou
+            # "Recalcular" perto da hora em que a limpeza terminou) --
+            # marca que um refresh novo é devido assim que ESSA rodada
+            # acabar, em vez de simplesmente descartar o pedido. Sem
+            # isto, o refresh automático que `_on_clean_done` dispara no
+            # fim podia ser engolido em silêncio, deixando o tamanho
+            # exibido desatualizado (pré-limpeza) até o usuário clicar
+            # "Recalcular" de novo por conta própria -- achado numa
+            # caçada dirigida por essa família de bug, 2026-10-27.
+            self._refresh_pending = True
             return
         self._rescan_btn.setEnabled(False)
         for row in self._rows.values():
@@ -379,6 +391,9 @@ class CleanupScreen(QWidget):
             row.set_scan(self._scan.get(key))
         self._rescan_btn.setEnabled(True)
         self._sync_button()
+        if self._refresh_pending:
+            self._refresh_pending = False
+            self.refresh()
 
     # ── limpeza ───────────────────────────────────────────
     def _on_clean_clicked(self) -> None:

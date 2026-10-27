@@ -304,6 +304,32 @@ def test_clean_worker_nao_reentra(monkeypatch):
     w.start([cleanup_mod.TEMP_FILES])  # o mock de `clean` levantaria
 
 
+def test_refresh_pendente_nao_e_engolido_por_scan_em_andamento(monkeypatch):
+    """`_on_clean_done` chama `refresh()` no final pra mostrar o tamanho
+    pós-limpeza -- mas se o usuário clicar "Recalcular" perto da hora em
+    que a limpeza termina, o scan manual já está rodando quando
+    `_on_clean_done` chama `refresh()` de novo, e sem `_refresh_pending`
+    esse segundo pedido era descartado em silêncio (`if
+    self._scan_worker.running: return`), deixando o tamanho exibido
+    desatualizado até o usuário clicar "Recalcular" por conta própria de
+    novo. Achado 2026-10-27."""
+    scr = _make(monkeypatch)
+    chamadas = []
+    scr._scan_worker.start = lambda *a, **kw: chamadas.append(1)
+
+    # Simula um scan ja' em andamento (usuario clicou "Recalcular").
+    scr._scan_worker._running = True
+    scr.refresh()
+    assert chamadas == [], "nao devia iniciar um scan novo com um ja rodando"
+    assert scr._refresh_pending is True
+
+    # O scan em andamento termina.
+    scr._scan_worker._running = False
+    scr._on_scan_done({})
+    assert chamadas == [1], "refresh pendente devia disparar um scan novo"
+    assert scr._refresh_pending is False
+
+
 # ── integracao com o router ──────────────────────────────────
 def test_router_navega_pra_limpeza(monkeypatch):
     from skinvault.prices import PriceCache
