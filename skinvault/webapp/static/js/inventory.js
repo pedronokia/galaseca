@@ -155,20 +155,30 @@ document.addEventListener("DOMContentLoaded", () => {
       // (continua no inventario real) -- so' a posicao manual antiga
       // (de antes desta tela deixar de criar uma) e' definitiva. Nao
       // da' pra saber aqui sem reimportar, entao confirma sempre.
-      if (!confirm(`Remover "${nomeCompleto}" da carteira?`)) return;
-      fetch("/api/inventory/remove", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: row.name }),
-      })
-        .then((r) => r.json())
-        .then((payload) => {
-          if (payload.error) {
-            statusEl.textContent = "Erro: " + payload.error;
-            return;
-          }
-          applyPayload(payload);
-        });
+      //
+      // window.skinvaultConfirm (app.js), não confirm() nativo -- o
+      // próprio app.js documenta por quê: color-scheme não alcança
+      // window.confirm, só controles de formulário, então o balão
+      // nativo aparecia claro no meio do app inteiro em tema escuro.
+      window.skinvaultConfirm(
+        `Remover "${nomeCompleto}" da carteira?`,
+        { title: "Remover item", confirmLabel: "Remover", danger: true },
+      ).then((ok) => {
+        if (!ok) return;
+        fetch("/api/inventory/remove", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: row.name }),
+        })
+          .then((r) => r.json())
+          .then((payload) => {
+            if (payload.error) {
+              statusEl.textContent = "Erro: " + payload.error;
+              return;
+            }
+            applyPayload(payload);
+          });
+      });
     });
     tdActions.appendChild(delBtn);
 

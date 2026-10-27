@@ -106,9 +106,20 @@ document.addEventListener("DOMContentLoaded", () => {
     delBtn.className = "danger";
     delBtn.textContent = "Excluir";
     delBtn.addEventListener("click", () => {
-      fetch(`/api/trades/${trade.index}`, { method: "DELETE" })
-        .then((r) => r.json())
-        .then(applyPayload);
+      // Ação destrutiva de verdade pede confirm() antes do fetch (padrão
+      // do AGENTS.md) -- faltava aqui, achado nesta rodada: um clique
+      // sozinho em "Excluir" apagava o trade sem nenhuma confirmação,
+      // diferente do botão "Remover" da Watchlist logo ao lado, que já
+      // usa o mesmo window.skinvaultConfirm (app.js).
+      window.skinvaultConfirm(
+        `Excluir o trade de "${trade.name}"?`,
+        { title: "Excluir trade", confirmLabel: "Excluir", danger: true },
+      ).then((ok) => {
+        if (!ok) return;
+        fetch(`/api/trades/${trade.index}`, { method: "DELETE" })
+          .then((r) => r.json())
+          .then(applyPayload);
+      });
     });
     tdActions.append(editBtn, delBtn);
     tr.appendChild(tdActions);
