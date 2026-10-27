@@ -87,6 +87,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const simError = document.getElementById("sim-error");
   const simResult = document.getElementById("sim-result");
 
+  // "Calcular" nao desabilita nada durante o fetch -- clicar de novo
+  // com valores diferentes antes da primeira resposta voltar disparava
+  // uma segunda chamada concorrente escrevendo no MESMO simResult.
+  // Se a primeira (mais lenta) chegasse depois da segunda, o resultado
+  // da entrada ANTIGA sobrescrevia o da entrada atual nos campos.
+  // Mesma familia de bug ja' corrigida nesta sessao em market.js/
+  // tradeup.js/watchlist.js (web) e varios pontos do Qt.
+  let simGen = 0;
+
   document.getElementById("sim-calc").addEventListener("click", () => {
     const buy = parseMoney(document.getElementById("sim-buy").value);
     const sell = parseMoney(document.getElementById("sim-sell").value);
@@ -102,6 +111,8 @@ document.addEventListener("DOMContentLoaded", () => {
       simError.hidden = false;
       return;
     }
+    simGen += 1;
+    const gen = simGen;
     fetch("/api/history/simulate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -112,6 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
       .then((r) => r.json())
       .then((res) => {
+        if (gen !== simGen) return;  // superado por um calculo mais novo
         if (res.error) {
           simError.textContent = res.error;
           simError.hidden = false;

@@ -1,6 +1,8 @@
 """Testes da tela de Historico (web) -- Fase 7."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from skinvault import history as history_mod
@@ -80,3 +82,26 @@ def test_simulate_default_quantidade_um(client):
     })
     assert resp.status_code == 200
     assert resp.get_json()["quantity"] == 1
+
+
+def test_history_js_simulador_tem_guarda_de_geracao():
+    """"Calcular" (sim-calc) nao desabilitava nada durante o fetch --
+    clicar de novo com valores diferentes antes da primeira resposta
+    voltar podia deixar o resultado da entrada ANTIGA sobrescrever o da
+    entrada atual, se a resposta mais lenta chegasse por ultimo. Mesma
+    familia de bug ja corrigida em market.js/tradeup.js/watchlist.js
+    (web) e varios pontos do Qt nesta sessao. Cliente de teste do Flask
+    nao executa JS -- rede de seguranca estrutural, mesmo padrao das
+    outras correcoes desta familia."""
+    js = (Path(__file__).parent.parent / "skinvault" / "webapp"
+          / "static" / "js" / "history.js").read_text(encoding="utf-8")
+    assert "let simGen = 0" in js, (
+        "contador de geracao (simGen) sumiu de history.js -- calculos "
+        "concorrentes do simulador podem voltar a se sobrescrever")
+    idx = js.index('document.getElementById("sim-calc")')
+    corpo = js[idx:]
+    assert "simGen += 1" in corpo, (
+        "handler de sim-calc precisa incrementar simGen a cada clique")
+    assert "gen !== simGen" in corpo, (
+        "handler de sim-calc precisa conferir `gen !== simGen` antes de "
+        "aplicar o resultado em simResult/simError")
