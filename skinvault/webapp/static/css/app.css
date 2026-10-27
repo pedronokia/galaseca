@@ -380,6 +380,16 @@ a {
   color: var(--text);
 }
 
+.status-line[hidden] {
+  /* Mesma armadilha do .add-item-form[hidden]/.stat-row[hidden]: `display:
+     flex` abaixo vence a regra `[hidden]` do UA stylesheet por
+     especificidade. Achado em inventory.html -- #import-status nasce
+     hidden e sem texto, mas renderizava como uma linha flex vazia (gap
+     em branco) acima do "Carregando..." antes de qualquer importação
+     começar. */
+  display: none;
+}
+
 .status-line {
   color: var(--text-muted);
   font-size: var(--fs-muted);
