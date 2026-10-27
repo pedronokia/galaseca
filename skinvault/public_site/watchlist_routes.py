@@ -75,12 +75,17 @@ def _rules_do_form() -> dict:
     return rules
 
 
-def _notificar_discord(steamid: str, items_avaliados: list[dict]) -> None:
+def _notificar_discord(steamid: str, items_avaliados: list[dict],
+                       url: str) -> None:
     """Manda os alertas disparados AGORA pro Discord do próprio usuário,
     um item de cada vez, respeitando o dedup de 1h (user_webhook). Falha
     de rede/URL ausente nunca derruba a página -- `discord_notify.enviar`
-    já devolve False em qualquer erro, sem levantar."""
-    url = user_webhook.get_webhook_url(steamid)
+    já devolve False em qualquer erro, sem levantar.
+
+    `url` vem de fora (não busca sozinho) -- `listar()` já precisa do
+    mesmo valor pro template, e cada `get_webhook_url` é uma conexão
+    SQLite nova (`user_store.load_user_json` via `db.connect`); buscar
+    duas vezes na mesma requisição dobrava a leitura à toa."""
     if not url:
         return
     for it in items_avaliados:
@@ -100,11 +105,12 @@ def listar():
     steamid = session["steamid"]
     items = user_watchlist.load_items(steamid)
     avaliados = _avaliar(items)
-    _notificar_discord(steamid, avaliados)
+    webhook_url = user_webhook.get_webhook_url(steamid)
+    _notificar_discord(steamid, avaliados, webhook_url)
     return render_template(
         "conta_watchlist.html", items=avaliados,
         csrf_token=csrf_token(),
-        webhook_url=user_webhook.get_webhook_url(steamid),
+        webhook_url=webhook_url,
         erro_webhook=bool(request.args.get("erro_webhook")),
     )
 

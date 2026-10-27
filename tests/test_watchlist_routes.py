@@ -243,3 +243,24 @@ def test_sem_webhook_configurado_nao_tenta_enviar(client, monkeypatch):
     })
     client.get("/conta/watchlist")
     assert chamadas == []
+
+
+def test_listar_busca_webhook_url_uma_vez_so(client, monkeypatch):
+    """get_webhook_url abre uma conexão SQLite por chamada (db.connect
+    via user_store.load_user_json) -- listar() buscava duas vezes na
+    mesma requisição (uma pra _notificar_discord, outra pro template).
+    Corrigido pra buscar uma vez e reaproveitar."""
+    chamadas = []
+    original = watchlist_routes.user_webhook.get_webhook_url
+
+    def _contada(steamid, path=None):
+        chamadas.append(steamid)
+        return original(steamid, path=path)
+
+    monkeypatch.setattr(
+        watchlist_routes.user_webhook, "get_webhook_url", _contada)
+    _login(client, monkeypatch)
+    _csrf_token(client)  # já conta 1 GET -- reseta antes da medição
+    chamadas.clear()
+    client.get("/conta/watchlist")
+    assert len(chamadas) == 1
