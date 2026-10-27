@@ -282,6 +282,20 @@ def test_index_tem_botao_copiar_e_atalho_js(client, monkeypatch, tmp_path):
     assert "static/app.js" in body  # atalho "/" mora no JS externo (CSP)
 
 
+def test_index_linha_tem_data_nota_pro_selo_de_mudanca(client, monkeypatch,
+                                                        tmp_path):
+    """app.js compara data-nota de cada <tr> com o que salvou na última
+    visita (localStorage) pra desenhar .selo-mudou-nota -- sem o atributo
+    certo na linha, a comparação de "o que mudou" nunca dispara."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 73, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert 'data-nome="X"' in body
+    assert 'data-nota="73"' in body
+
+
 def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
                                                          tmp_path):
     resultados = [
@@ -299,6 +313,23 @@ def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
     assert "Subiu rápido (-5)" in body
     assert "delta-positivo" in body
     assert "delta-negativo" in body
+
+
+def test_index_dica_expandir_so_aparece_com_breakdown(client, monkeypatch,
+                                                       tmp_path):
+    """.dica-expandir ("ver mais") só faz sentido quando há algo a mais
+    pra revelar -- sem breakdown, o <details> não abre em nada novo."""
+    resultados = [
+        {"name": "Com breakdown", "score": 60, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 10,
+                        "label": "Preço baixo (+10)"}]},
+        {"name": "Sem breakdown", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert body.count("dica-expandir") == 1
 
 
 def test_index_agrupar_por_categoria(client, monkeypatch, tmp_path):
@@ -415,6 +446,25 @@ def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):
     body = client.get("/").data.decode("utf-8")
     assert "input-tag-local" in body
     assert "static/app.js" in body  # localStorage mora no JS externo (CSP)
+
+
+def test_index_campo_nota_pessoal_nasce_escondido_atras_de_botao(
+        client, monkeypatch, tmp_path):
+    """O campo de nota ocupava espaço em toda linha da tabela mesmo pra
+    quem nunca usa -- nasce `hidden`, só .botao-nota-toggle revela (JS)."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "botao-nota-toggle" in body
+    assert 'class="input-tag-local" data-item="X"' in body
+    assert body.count("input-tag-local") >= 1
+    # O <input> precisa estar hidden por padrão -- sem isso a correção
+    # de 2026-10-27 regrediu (volta a aparecer em toda linha).
+    idx = body.index('class="input-tag-local"')
+    tag_fechamento = body.index(">", idx)
+    assert "hidden" in body[idx:tag_fechamento]
 
 
 def test_index_registra_termo_buscado(client, monkeypatch, tmp_path):
@@ -583,6 +633,26 @@ def test_usuario_nao_logado_mostra_entrar_com_steam(client):
     body = client.get("/ranking").data.decode("utf-8")
     assert "Entrar com Steam" in body
     assert "conta-pill" not in body
+
+
+def test_cta_login_tem_legenda_de_proposito(client):
+    """O botão sozinho não dizia por que logar -- legenda curta embaixo."""
+    body = client.get("/").data.decode("utf-8")
+    assert "entrar-cta-legenda" in body
+    assert "portfólio" in body.lower()
+
+
+def test_usuario_logado_nao_mostra_legenda_do_cta(client, monkeypatch):
+    monkeypatch.setattr(
+        user_store, "get_user",
+        lambda steamid, path=None: {
+            "steamid": steamid, "persona_name": "Fulano",
+            "avatar_url": "https://example.com/a.jpg",
+        })
+    with client.session_transaction() as sess:
+        sess["steamid"] = "123"
+    body = client.get("/").data.decode("utf-8")
+    assert "entrar-cta-legenda" not in body
 
 
 def test_api_health(client, monkeypatch, tmp_path):
