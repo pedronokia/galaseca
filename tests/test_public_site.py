@@ -1923,3 +1923,53 @@ def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
     resp = client.get("/")
     assert resp.status_code == 200
     assert len(chamadas) <= 25  # pagina de 20 + folga, nunca os 152
+
+
+def test_item_detail_nao_calcula_historico_dos_outros_candidatos(client, monkeypatch, tmp_path):
+    """Mesma família do teste acima (`test_index_so_enriquece_a_pagina_
+    atual`) -- `/item/<nome>` mostra UM item, mas até 2026-10-27 chamava
+    `_candidatos_filtrados` com o default `com_historico=True`, lendo
+    tendência/sparkline dos ~150 candidatos inteiros à toa (nem
+    `item.html` nem `_itens_parecidos` usam esses dois campos vindos
+    dali -- o gráfico da página usa `signals.load_item_history`
+    diretamente, numa chamada à parte)."""
+    resultados = [
+        {"name": f"Item {i:03d}", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(152)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    chamadas = []
+
+    def _contado(name, *a, **kw):
+        chamadas.append(name)
+        return []
+
+    monkeypatch.setattr(
+        "skinvault.public_site.server.signals.load_item_history", _contado)
+    resp = client.get("/item/Item 000")
+    assert resp.status_code == 200
+    assert len(chamadas) <= 2  # só a chamada do gráfico da própria página
+
+
+def test_comparar_so_enriquece_os_itens_comparados(client, monkeypatch, tmp_path):
+    """Mesma família -- `/comparar` mostra no máximo 3 itens
+    (`comparar.html` usa `tendencia`), mas até 2026-10-27 calculava
+    histórico dos ~150 candidatos inteiros pra exibir só os comparados."""
+    resultados = [
+        {"name": f"Item {i:03d}", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(152)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    chamadas = []
+
+    def _contado(name, *a, **kw):
+        chamadas.append(name)
+        return []
+
+    monkeypatch.setattr(
+        "skinvault.public_site.server.signals.load_item_history", _contado)
+    resp = client.get("/comparar?nomes=Item 000,Item 001,Item 002")
+    assert resp.status_code == 200
+    assert len(chamadas) <= 3  # só os 3 itens comparados, nunca os 152

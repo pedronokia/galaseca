@@ -316,9 +316,16 @@ def create_app() -> Flask:
         completo de preço (reaproveita `charts.line_chart_svg`, já usado
         pro gráfico de visitas) e "itens parecidos" (mesma categoria,
         nota mais próxima). Sem chamada à Steam: os mesmos dados já
-        calculados em `_candidatos_filtrados`, filtrados pelo nome."""
+        calculados em `_candidatos_filtrados`, filtrados pelo nome.
+
+        `com_historico=False` (2026-10-27): esta rota nunca usou
+        `tendencia`/`sparkline` dos ~150 candidatos -- o gráfico próprio
+        da página vem de `hist` (linha abaixo), e `_itens_parecidos` só
+        olha categoria/nota/nome. Mesmo bug que o `index()` já teve
+        corrigido em 2026-10-26 (ler histórico de TODOS os candidatos
+        quando só um é exibido), que não tinha se propagado pra cá."""
         scan = scan_store.load_last_scan()
-        candidatos = _candidatos_filtrados(scan)
+        candidatos = _candidatos_filtrados(scan, com_historico=False)
         item = next((c for c in candidatos if c["name"] == name), None)
         if item is None:
             return render_template("404.html"), 404
@@ -344,12 +351,19 @@ def create_app() -> Flask:
     def comparar():
         """Até 3 itens lado a lado -- a seleção em si vive no
         `sessionStorage` do navegador (`app.js`), isto só resolve os
-        nomes recebidos em `?nomes=A,B,C` pros dados já calculados."""
+        nomes recebidos em `?nomes=A,B,C` pros dados já calculados.
+
+        `com_historico=False` + `_enriquecer_com_historico` só nos até 3
+        itens exibidos (2026-10-27): `comparar.html` usa `tendencia`
+        (não `sparkline`), mas só dos itens comparados -- calcular pros
+        ~150 candidatos inteiros pra mostrar no máximo 3 era o mesmo
+        desperdício já corrigido no `index()` em 2026-10-26."""
         scan = scan_store.load_last_scan()
-        candidatos = _candidatos_filtrados(scan)
+        candidatos = _candidatos_filtrados(scan, com_historico=False)
         nomes = [n for n in (request.args.get("nomes") or "").split(",") if n][:3]
         por_nome = {c["name"]: c for c in candidatos}
         itens = [por_nome[n] for n in nomes if n in por_nome]
+        _enriquecer_com_historico(itens)
         return render_template("comparar.html", itens=itens)
 
     @app.route("/api/recommendations")
