@@ -8,6 +8,22 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
+        "data": "2026-10-27",
+        "titulo": "Tabela mais leve e CTA de login explicado",
+        "itens": [
+            "Página principal mostra 10 itens por vez em vez de 20 -- "
+            "rola menos pra achar o botão \"Ver mais\"",
+            "A nota pessoal por item some atrás de um ícone até você "
+            "clicar nele, em vez de ocupar espaço em toda linha",
+            "O selo de \"mudou desde sua última visita\" agora tem uma "
+            "forma diferente do ▲/▼ de preço, pra não confundir os dois",
+            "\"Entrar com Steam\" ganhou uma frase explicando o que você "
+            "ganha ao logar (portfólio, trades e watchlist)",
+            "Mais acessível pra quem usa leitor de tela nos formulários "
+            "de conta, trades, watchlist e login do painel interno",
+        ],
+    },
+    {
         "data": "2026-10-26",
         "titulo": "Página de item, login, PWA, e uma correção de verdade no scan",
         "itens": [
