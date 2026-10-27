@@ -236,6 +236,19 @@ def _sem_welcome_dialog_modal(monkeypatch):
     exec() da classe real, nao no nome do modulo -- preserva testes que
     instanciam WelcomeDialog de verdade sem chamar exec()
     (test_welcome_dialog_instantiates).
+
+    2026-10-27: import de PyQt6 aqui era incondicional -- quebrava o job
+    de CI `public-site-linux` (ubuntu-latest, so' requirements-public-
+    site.txt, DE PROPOSITO sem PyQt6/pywebview/etc.), que nao testa nada
+    de skinvault.ui mas herda este fixture autouse igual qualquer outro
+    teste do repo. `tests.yml` falhava sempre nesse job, e por isso
+    `deploy.yml` (so' roda se `tests` passar) nunca chegou a disparar --
+    achado revisando por que um push pra main nao refletia no site ao
+    vivo. Sem PyQt6 instalado, nenhum teste desse ambiente cria
+    WelcomeDialog mesmo, entao nao ha' nada pra patchar.
     """
-    from skinvault.ui.welcome_dialog import WelcomeDialog
+    try:
+        from skinvault.ui.welcome_dialog import WelcomeDialog
+    except ImportError:
+        return
     monkeypatch.setattr(WelcomeDialog, "exec", lambda self: 0)
