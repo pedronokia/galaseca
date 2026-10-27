@@ -78,7 +78,6 @@ def logout():
 @login_required
 def conta():
     steamid = session["steamid"]
-    usuario = user_store.get_user(steamid)
     positions = user_portfolio.load_positions(steamid)
     # Preço vem do mesmo cache compartilhado da Fase 1 -- leitura pura,
     # sem rede. Se o item nunca foi escaneado, a linha some sem preço
@@ -89,8 +88,14 @@ def conta():
     # visitar /conta duas vezes seguidas sem nada mudar não dobra a série.
     user_history.record_if_changed(steamid, avaliacao_bruta["totals"]["market"])
     avaliacao = _formatar_linhas(avaliacao_bruta)
+    # `usuario` NÃO é passado aqui de propósito (2026-10-27): o context
+    # processor `_inject_usuario` (server.py) já busca o mesmo
+    # `user_store.get_user(steamid)` pra TODO template com sessão ativa
+    # -- passar de novo aqui só dobrava a leitura SQLite (mesma conexão
+    # aberta/fechada duas vezes) sem mudar nenhum valor, já que é
+    # exatamente o mesmo steamid da sessão.
     return render_template(
-        "conta.html", usuario=usuario, avaliacao=avaliacao,
+        "conta.html", avaliacao=avaliacao,
         csrf_token=csrf_token(),
     )
 

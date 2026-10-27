@@ -87,6 +87,28 @@ def test_conta_logado_mostra_pagina(client, monkeypatch):
     assert "Fulano".encode() in resp.data
 
 
+def test_conta_busca_usuario_uma_vez_so(client, monkeypatch):
+    """`conta()` passava `usuario=user_store.get_user(steamid)` pro
+    template, mas o context processor `_inject_usuario` (server.py) já
+    busca o MESMO usuário pra todo template com sessão ativa -- dobrava
+    a leitura SQLite (duas conexões abertas/fechadas) sem mudar nenhum
+    valor. Corrigido pra deixar só o context processor buscar."""
+    from skinvault.public_site import user_store
+    _login(client, monkeypatch)
+    chamadas = []
+    original = user_store.get_user
+
+    def _contada(steamid, path=None):
+        chamadas.append(steamid)
+        return original(steamid, path=path)
+
+    monkeypatch.setattr(user_store, "get_user", _contada)
+    resp = client.get("/conta")
+    assert resp.status_code == 200
+    assert "Fulano".encode() in resp.data
+    assert len(chamadas) == 1
+
+
 def test_conta_vazia_mostra_empty_state(client, monkeypatch):
     _login(client, monkeypatch)
     resp = client.get("/conta")
