@@ -460,10 +460,17 @@ table.tabela-itens {
    (.texto-motivo), não no summary direto, pra sobrar espaço pra
    .dica-expandir aparecer sempre fora do corte de 4 linhas (2026-10-27:
    um <summary> com reticências e nada mais parecia texto estático,
-   sem nenhum indício de que dava pra clicar). */
+   sem nenhum indício de que dava pra clicar).
+
+   Clamp é 3 (não 4) de propósito: a linha do .dica-expandir soma +1
+   linha de altura por cima do clamp -- com 4+1 a coluna "Por quê"
+   ficava mais alta que as outras da mesma linha (checkbox/nome/ícones
+   da coluna Item, por exemplo), abrindo um vão vazio visível embaixo
+   delas (achado ao vivo, mesmo dia, depois do deploy do .dica-expandir).
+   3+1 devolve a altura de linha que a tabela já tinha antes dele. */
 .detalhe-motivo:not([open]) .texto-motivo {
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
