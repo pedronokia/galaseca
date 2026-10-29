@@ -142,12 +142,14 @@
           {% endfor %}
         </select>
       </label>
-      <label>Nota mínima
-        <input type="number" name="nota_min" min="0" max="100" step="1" value="{{ nota_min_sel if nota_min_sel is not none else '' }}">
-      </label>
-      <label>Preço máximo (R$)
-        <input type="number" name="preco_max" min="0" step="0.01" value="{{ preco_max_sel if preco_max_sel is not none else '' }}">
-      </label>
+      <div class="filtros-numericos">
+        <label>Nota mínima
+          <input type="number" name="nota_min" min="0" max="100" step="1" value="{{ nota_min_sel if nota_min_sel is not none else '' }}">
+        </label>
+        <label>Preço máximo (R$)
+          <input type="number" name="preco_max" min="0" step="0.01" value="{{ preco_max_sel if preco_max_sel is not none else '' }}">
+        </label>
+      </div>
       <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
       {% if compacto_sel %}<input type="hidden" name="compacto" value="1">{% endif %}
       {% if agrupar_sel %}<input type="hidden" name="agrupar" value="1">{% endif %}
@@ -188,6 +190,10 @@
         </div>
       </div>
     </form>
+
+    {% if candidatos %}
+    <p class="dica-rolagem-tabela">Deslize a tabela para ver as demais colunas.</p>
+    {% endif %}
 
     <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>
 

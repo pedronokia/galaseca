@@ -707,6 +707,16 @@ footer.rodape .versao {
 
 .form-filtros input[type="number"] { width: 130px; }
 
+.filtros-numericos {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.dica-rolagem-tabela {
+  display: none;
+}
+
 /* Campo de busca sem largura nenhuma usava o default do navegador
    (~170px) -- raso demais pro placeholder inteiro ("Ex.: AK-47 |
    Redline (atalho: /)", 33 caracteres), que cortava no meio da palavra
@@ -1410,6 +1420,13 @@ footer.rodape .versao {
     align-items: stretch;
   }
 
+  .filtros-numericos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    width: 100%;
+  }
+
   .form-adicionar input,
   .form-filtros input,
   .form-filtros select,
@@ -1420,6 +1437,13 @@ footer.rodape .versao {
   .form-adicionar button,
   .form-filtros button {
     width: 100%;
+  }
+
+  .dica-rolagem-tabela {
+    display: block;
+    margin: -8px 0 10px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
   }
 
   table.tabela-candidatos {

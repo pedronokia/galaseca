@@ -9,6 +9,16 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-10-29",
+        "titulo": "Filtros mais compactos no celular",
+        "itens": [
+            "Nota mínima e preço máximo agora aparecem lado a lado "
+            "em telas pequenas",
+            "Uma indicação mostra que a tabela pode ser deslizada "
+            "para ver as outras colunas",
+        ],
+    },
+    {
+        "data": "2026-10-29",
         "titulo": "Formulários e documentação mais claros",
         "itens": [
             "Formulários de carteira, trades e watchlist agora avisam "
