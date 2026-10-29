@@ -789,7 +789,12 @@ def test_admin_logout_encerra_sessao(client, monkeypatch):
         generate_password_hash("segredo"))
     client.post("/admin/login", data={"senha": "segredo"})
     assert client.get("/admin").status_code == 200
-    client.get("/admin/logout")
+    assert client.get("/admin/logout").status_code == 405
+    assert client.post("/admin/logout", data={}).status_code == 403
+    with client.session_transaction() as sess:
+        token = sess["csrf_token"]
+    logout = client.post("/admin/logout", data={"csrf_token": token})
+    assert logout.status_code == 302
     assert client.get("/admin").status_code == 302
 
 

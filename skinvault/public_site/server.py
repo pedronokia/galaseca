@@ -640,8 +640,13 @@ def create_app() -> Flask:
             erro = "Senha incorreta."
         return render_template("admin_login.html", erro=erro)
 
-    @app.route("/admin/logout")
+    @app.route("/admin/logout", methods=["POST"])
     def admin_logout():
+        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
+            return render_template("404.html"), 404
+        token = session.get("csrf_token")
+        if not token or request.form.get("csrf_token") != token:
+            return "", 403
         session.pop("admin", None)
         return redirect(url_for("index"))
 
