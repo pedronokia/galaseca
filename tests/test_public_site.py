@@ -1164,6 +1164,31 @@ def test_run_once_grava_scan_store_e_ranking(monkeypatch, tmp_path):
     assert [it["name"] for it in snaps[0]["items"]] == ["A", "B"]
 
 
+def test_run_once_ranking_usa_maiores_notas_de_todo_o_scan(
+        monkeypatch, tmp_path):
+    # Ordem do scan: 25 itens nota 50 e só depois os dois melhores --
+    # cortar antes de ordenar deixava os dois de fora do Top 20.
+    resultados = ([{"name": f"R{i}", "score": 50} for i in range(25)]
+                  + [{"name": "Caixa", "score": 90},
+                     {"name": "Capsula", "score": 85}])
+    original_save_snapshot = ranking.save_snapshot
+    rank_path = tmp_path / "rankings.json"
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan",
+                        lambda categories, on_progress=None: resultados)
+    monkeypatch.setattr(worker.scan_store, "save_last_scan",
+                        lambda cat, res: None)
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(
+        worker.ranking, "save_snapshot",
+        lambda res: original_save_snapshot(res, path=rank_path))
+
+    worker.run_once({"Rifles": ["x"]})
+    itens = ranking.load_snapshots(path=rank_path)[0]["items"]
+    assert len(itens) == 20
+    assert [it["name"] for it in itens[:2]] == ["Caixa", "Capsula"]
+
+
 def test_run_once_sem_resultado_nao_grava_nada(monkeypatch, tmp_path):
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
                         lambda categories, on_progress=None: [])
@@ -2387,3 +2412,23 @@ def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):
 
     assert ">Caixa CS:GO Weapon (descontinuada, 2013)</span>" in body
     assert "<title>AlertaSkins — Preços e notas de skins CS2</title>" in body
+
+
+def test_feed_e_api_nao_leem_historico_de_todos_os_itens(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": f"Item {i}", "score": 60, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(30)
+    ])
+    lidos = []
+    monkeypatch.setattr(signals, "load_item_history",
+                        lambda name: lidos.append(name) or [])
+
+    assert client.get("/feed.xml").status_code == 200
+    assert lidos == []
+
+    resp = client.get("/api/recommendations")
+    assert len(resp.get_json()["candidatos"]) == 20
+    assert len(lidos) == 20
+    assert "sparkline" in resp.get_json()["candidatos"][0]

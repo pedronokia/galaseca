@@ -89,7 +89,11 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         _ordenar_por_nota_anterior(categories), on_progress=_on_progress)
     if resultados:
         scan_store.save_last_scan("Todas as categorias", resultados)
-        ranking.save_snapshot(resultados[:_TOP_RANKING])
+        # Ordena ANTES de cortar: `resultados` vem na ordem do scan
+        # (categoria por categoria), então `[:20]` direto pegava os 20
+        # primeiros escaneados, não as 20 maiores notas.
+        ranking.save_snapshot(sorted(
+            resultados, key=lambda r: -r.get("score", 0))[:_TOP_RANKING])
     duracao_min = (time.time() - inicio) / 60
     scan_store.registrar_ciclo(len(resultados), duracao_min)
     _logger.info("Ciclo concluído: %d itens em %.1fmin",

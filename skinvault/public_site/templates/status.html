@@ -33,7 +33,7 @@
 
   <main id="conteudo" class="pagina-texto">
     <section class="resumo-cards">
-      <div class="card"><span class="card-label">No ar desde</span><span class="card-valor">{{ no_ar_desde_txt }}</span></div>
+      <div class="card"><span class="card-label">No ar</span><span class="card-valor">{{ no_ar_desde_txt }}</span></div>
       <div class="card"><span class="card-label">Visitas ao dashboard</span><span class="card-valor">{{ visitas }}</span></div>
     </section>
 
@@ -74,7 +74,7 @@
         <tr>
           <td>{{ c.quando }}</td>
           <td>{{ c.itens }}</td>
-          <td>{{ c.duracao_min }} min</td>
+          <td>{{ "%.1f"|format(c.duracao_min or 0)|replace(".", ",") }} min</td>
           <td class="{{ 'ok' if c.sucesso else 'falha' }}">{{ "Sucesso" if c.sucesso else "Sem sucesso (bloqueado)" }}</td>
         </tr>
         {% endfor %}

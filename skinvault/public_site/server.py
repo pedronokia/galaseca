@@ -365,13 +365,16 @@ def create_app() -> Flask:
     @rate_limit.rate_limited(rate_limit.API_MAX_HITS, rate_limit.API_WINDOW_S)
     def api_recommendations():
         scan = scan_store.load_last_scan()
+        candidatos = _candidatos_filtrados(
+            scan, com_historico=False)[:_LIMIT_CANDIDATOS]
+        _enriquecer_com_historico(candidatos)
         resp = jsonify({
             "api_version": 1,
             "ultimo_scan": {
                 "categoria": scan["category"] if scan else None,
                 "ts": scan["ts"] if scan else None,
             },
-            "candidatos": _candidatos_filtrados(scan)[:_LIMIT_CANDIDATOS],
+            "candidatos": candidatos,
         })
         # O dado só muda quando um ciclo do worker termina (até 6h) --
         # cache curto evita reprocessar `_candidatos_filtrados` (passa
@@ -781,7 +784,10 @@ def create_app() -> Flask:
         if categoria and categoria not in scan_targets.SCAN_BY_CATEGORY:
             categoria = None
         scan = scan_store.load_last_scan()
-        candidatos = _candidatos_filtrados(scan, categoria)[:_LIMIT_CANDIDATOS]
+        # O RSS não exibe tendência nem sparkline -- ler o histórico dos
+        # ~150 candidatos custava ~3s por request (medido 2026-10-29).
+        candidatos = _candidatos_filtrados(
+            scan, categoria, com_historico=False)[:_LIMIT_CANDIDATOS]
         base = request.url_root.rstrip("/")
         itens_xml = "\n".join(
             "    <item>\n"
