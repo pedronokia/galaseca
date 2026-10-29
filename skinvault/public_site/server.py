@@ -208,6 +208,7 @@ def create_app() -> Flask:
     app.jinja_env.filters["nota_classe"] = _nota_classe
     app.jinja_env.filters["risco_nivel"] = _risco_nivel
     app.jinja_env.filters["risco_label"] = _risco_label
+    app.jinja_env.filters["rotulo_caixa"] = _rotulo_caixa
 
     @app.before_request
     def _marcar_inicio_latencia():
@@ -794,8 +795,8 @@ def create_app() -> Flask:
             "    </item>"
             for c in candidatos
         )
-        titulo = (f"AlertaSkins — Recomendações de {_xml_escape(categoria)}"
-                  if categoria else "AlertaSkins — Recomendações de skins CS2")
+        titulo = (f"AlertaSkins — Preços e notas de {_xml_escape(categoria)}"
+                  if categoria else "AlertaSkins — Preços e notas de skins CS2")
         link_self = f"{base}/feed.xml" + (
             f"?categoria={urllib.parse.quote(categoria)}" if categoria else "")
         rss = (
@@ -929,6 +930,16 @@ def _contagem_usuarios() -> int:
 
 
 _RISCO_LABELS = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
+
+
+def _rotulo_caixa(case_label: "str | None") -> str:
+    """Traduz o nome da caixa em "X Case (descontinuada, 2014)" com o mesmo
+    `localize_name` da coluna Item -- sem isso a linha mostrava "Caixa
+    CS:GO Weapon" no nome e "CS:GO Weapon Case" ao lado."""
+    if not case_label:
+        return ""
+    nome, sep, resto = case_label.partition(" (")
+    return localize_name(nome) + sep + resto
 
 
 def _nota_classe(score: "int | float | None") -> str:

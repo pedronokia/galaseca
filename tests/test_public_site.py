@@ -2375,3 +2375,15 @@ def test_item_detail_nao_repete_motivos(client, monkeypatch, tmp_path):
     main = body[body.index("<main"):]
 
     assert main.count("Preço 18% abaixo do típico (+20)") == 1
+
+
+def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "CS:GO Weapon Case", "score": 70, "price": 600.0,
+         "case_label": "CS:GO Weapon Case (descontinuada, 2013)",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+
+    assert ">Caixa CS:GO Weapon (descontinuada, 2013)</span>" in body
+    assert "<title>AlertaSkins — Preços e notas de skins CS2</title>" in body

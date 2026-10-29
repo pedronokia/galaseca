@@ -3,21 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AlertaSkins — Recomendações de skins CS2</title>
+  <title>AlertaSkins — Preços e notas de skins CS2</title>
   <meta name="description" content="Notas e motivos factuais pra skins do CS2, a partir de dados públicos da Steam Community Market. Não é recomendação de investimento.">
-  <meta property="og:title" content="AlertaSkins — Recomendações de skins CS2">
+  <meta property="og:title" content="AlertaSkins — Preços e notas de skins CS2">
   <meta property="og:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
   <meta property="og:locale" content="pt_BR">
   <meta property="og:url" content="{{ request.url_root }}">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="AlertaSkins — Recomendações de skins CS2">
+  <meta name="twitter:title" content="AlertaSkins — Preços e notas de skins CS2">
   <meta name="twitter:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
   <meta name="twitter:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
   <link rel="canonical" href="{{ request.url_root }}">
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="AlertaSkins — Recomendações" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="AlertaSkins — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="search" type="application/opensearchdescription+xml" title="AlertaSkins" href="{{ url_for('opensearch') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   {% if apresentacao_sel %}<meta http-equiv="refresh" content="300">{% endif %}
@@ -81,9 +81,9 @@
     <td class="nota nota-{{ c.score|nota_classe }}" data-label="Nota">{{ c.score }}</td>
     <td data-label="Caixa/Cápsula">
       {% if c.descontinuada %}
-        <span class="selo-descontinuada" title="{{ c.case_label }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label }}</span>
+        <span class="selo-descontinuada" title="{{ c.case_label|rotulo_caixa }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label|rotulo_caixa }}</span>
       {% else %}
-        <span class="texto-caixa" title="{{ c.case_label }}">{{ c.case_label or "—" }}</span>
+        <span class="texto-caixa" title="{{ c.case_label|rotulo_caixa }}">{{ c.case_label|rotulo_caixa or "—" }}</span>
       {% endif %}
     </td>
     <td class="risco risco-{{ c.pump_risk|risco_nivel }}" data-label="Risco">
