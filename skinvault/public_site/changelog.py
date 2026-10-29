@@ -15,6 +15,8 @@ ENTRADAS = [
             "quando os dados informados são inválidos",
             "Regras já salvas continuam preservadas quando uma nova "
             "regra é inválida",
+            "Login Steam agora confirma que o retorno pertence à sessão "
+            "que iniciou o acesso",
             "Documentação da API atualizada com o limite de consultas "
             "e um exemplo fiel à resposta atual",
         ],

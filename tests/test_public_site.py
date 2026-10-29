@@ -381,6 +381,7 @@ def test_changelog_page(client):
     body = resp.data.decode("utf-8")
     assert "2026-10-25" in body
     assert "Formulários e documentação mais claros" in body
+    assert "retorno pertence à sessão" in body
 
 
 def test_api_docs_page(client):

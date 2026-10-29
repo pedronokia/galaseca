@@ -7,6 +7,8 @@ pra não depender de velocidade real.
 """
 from __future__ import annotations
 
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
 
 from skinvault.public_site import db, rate_limit
@@ -28,7 +30,15 @@ def _login(client, monkeypatch, steamid="76561198000000000"):
     monkeypatch.setattr(
         "skinvault.public_site.account.fetch_public_profile",
         lambda sid: {"name": "Fulano", "avatar_url": None})
-    client.get("/login/callback")
+    login_resp = client.get("/login")
+    openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)
+    return_to = openid_params["openid.return_to"][0]
+    query = {
+        key: values[0]
+        for key, values in parse_qs(urlsplit(return_to).query).items()
+    }
+    query.update({"openid.mode": "id_res", "openid.return_to": return_to})
+    client.get("/login/callback", query_string=query)
 
 
 def test_login_bloqueia_apos_limite(client):
@@ -41,10 +51,20 @@ def test_login_bloqueia_apos_limite(client):
 
 def test_login_rota_independente_de_outras(client, monkeypatch):
     """Bater o limite de /login nao bloqueia /logout nem /conta."""
-    for _ in range(rate_limit.LOGIN_MAX_HITS):
-        client.get("/login")
+    _login(client, monkeypatch)
+    ultimo_login = None
+    for _ in range(rate_limit.LOGIN_MAX_HITS - 1):
+        ultimo_login = client.get("/login")
+        assert ultimo_login.status_code == 302
     assert client.get("/login").status_code == 429
-    _login(client, monkeypatch)  # usa /login/callback, rota diferente
+    openid_params = parse_qs(urlsplit(ultimo_login.headers["Location"]).query)
+    return_to = openid_params["openid.return_to"][0]
+    query = {
+        key: values[0]
+        for key, values in parse_qs(urlsplit(return_to).query).items()
+    }
+    query.update({"openid.mode": "id_res", "openid.return_to": return_to})
+    client.get("/login/callback", query_string=query)
     assert client.get("/conta").status_code == 200
 
 

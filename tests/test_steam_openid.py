@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from skinvault.public_site import steam_openid
 
@@ -20,7 +21,16 @@ def _args_validos():
     return {
         "openid.claimed_id": "https://steamcommunity.com/openid/id/76561198000000000",
         "openid.identity": "https://steamcommunity.com/openid/id/76561198000000000",
+        "openid.mode": "id_res",
         "openid.ns": "http://specs.openid.net/auth/2.0",
+        "openid.op_endpoint": steam_openid.STEAM_OPENID_URL,
+        "openid.return_to": "https://example.com/login/callback?state=abc",
+        "openid.response_nonce": "2026-10-29T17:00:00Zabc",
+        "openid.assoc_handle": "handle",
+        "openid.signed": (
+            "op_endpoint,return_to,response_nonce,assoc_handle,"
+            "claimed_id,identity"
+        ),
         "openid.sig": "assinatura",
     }
 
@@ -41,6 +51,55 @@ def test_verify_callback_claimed_id_invalido():
 
 def test_verify_callback_sem_claimed_id():
     assert steam_openid.verify_callback({}) is None
+
+
+@pytest.mark.parametrize("campo", [
+    "op_endpoint",
+    "return_to",
+    "response_nonce",
+    "assoc_handle",
+    "claimed_id",
+    "identity",
+])
+def test_verify_callback_exige_campos_obrigatorios_assinados(
+        monkeypatch, campo):
+    chamadas = []
+
+    class _Resp:
+        text = "is_valid:true"
+
+    monkeypatch.setattr(
+        httpx, "post", lambda *a, **kw: chamadas.append(a) or _Resp())
+    args = _args_validos()
+    campos_assinados = args["openid.signed"].split(",")
+    campos_assinados.remove(campo)
+    args["openid.signed"] = ",".join(campos_assinados)
+
+    assert steam_openid.verify_callback(args) is None
+    assert chamadas == []
+
+
+@pytest.mark.parametrize(("campo", "valor"), [
+    ("openid.mode", "cancel"),
+    ("openid.ns", "http://specs.openid.net/auth/1.1"),
+    ("openid.op_endpoint", "https://evil.example/openid"),
+    ("openid.identity",
+     "https://steamcommunity.com/openid/id/76561198000000001"),
+])
+def test_verify_callback_rejeita_assertion_incompativel(
+        monkeypatch, campo, valor):
+    chamadas = []
+
+    class _Resp:
+        text = "is_valid:true"
+
+    monkeypatch.setattr(
+        httpx, "post", lambda *a, **kw: chamadas.append(a) or _Resp())
+    args = _args_validos()
+    args[campo] = valor
+
+    assert steam_openid.verify_callback(args) is None
+    assert chamadas == []
 
 
 def test_verify_callback_steam_rejeita(monkeypatch):

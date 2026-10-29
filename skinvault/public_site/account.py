@@ -7,7 +7,9 @@ acompanhar a própria carteira.
 from __future__ import annotations
 
 import math
+import secrets
 import time
+import urllib.parse
 
 from flask import (
     Blueprint, flash, jsonify, redirect, render_template, request, session,
@@ -31,6 +33,24 @@ from skinvault.ui.profile_fetcher import apagar_perfil_cache, fetch_public_profi
 bp = Blueprint("account", __name__)
 
 
+def _openid_return_to_matches(expected: "str | None") -> bool:
+    if not expected or request.args.get("openid.return_to") != expected:
+        return False
+
+    expected_url = urllib.parse.urlsplit(expected)
+    current_url = urllib.parse.urlsplit(request.base_url)
+    if (expected_url.scheme, expected_url.netloc, expected_url.path) != (
+            current_url.scheme, current_url.netloc, current_url.path):
+        return False
+
+    expected_query = urllib.parse.parse_qs(
+        expected_url.query, keep_blank_values=True)
+    return all(
+        request.args.getlist(key) == values
+        for key, values in expected_query.items()
+    )
+
+
 def _formatar_linhas(avaliacao: dict) -> dict:
     """Acrescenta campos *_fmt pro template -- mesmo padrão de
     `server.py:_candidatos` (formata em Python, template fica simples)."""
@@ -51,7 +71,10 @@ def _formatar_linhas(avaliacao: dict) -> dict:
 @bp.route("/login")
 @rate_limited(LOGIN_MAX_HITS, LOGIN_WINDOW_S)
 def login():
-    return_to = request.url_root.rstrip("/") + url_for("account.login_callback")
+    state = secrets.token_urlsafe(32)
+    return_to = url_for(
+        "account.login_callback", state=state, _external=True)
+    session["steam_openid_return_to"] = return_to
     realm = request.url_root
     return redirect(steam_openid.login_redirect_url(return_to, realm))
 
@@ -59,6 +82,11 @@ def login():
 @bp.route("/login/callback")
 @rate_limited(LOGIN_MAX_HITS, LOGIN_WINDOW_S)
 def login_callback():
+    return_to = session.get("steam_openid_return_to")
+    if not _openid_return_to_matches(return_to):
+        return redirect(url_for("index"))
+    session.pop("steam_openid_return_to", None)
+
     steamid = steam_openid.verify_callback(request.args.to_dict())
     if not steamid:
         return redirect(url_for("index"))

@@ -9,6 +9,8 @@ não como valor de parâmetro congelado na definição).
 """
 from __future__ import annotations
 
+from urllib.parse import parse_qs, urlsplit
+
 import pytest
 
 from skinvault.public_site import db
@@ -31,7 +33,23 @@ def _login(client, monkeypatch, steamid="76561198000000000",
     monkeypatch.setattr(
         "skinvault.public_site.account.fetch_public_profile",
         lambda sid: {"name": nome, "avatar_url": avatar})
-    return client.get("/login/callback?openid.mode=id_res")
+    return client.get(
+        "/login/callback", query_string=_callback_query(_start_login(client)))
+
+
+def _start_login(client):
+    login_resp = client.get("/login")
+    openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)
+    return openid_params["openid.return_to"][0]
+
+
+def _callback_query(return_to):
+    query = {
+        key: values[0]
+        for key, values in parse_qs(urlsplit(return_to).query).items()
+    }
+    query.update({"openid.mode": "id_res", "openid.return_to": return_to})
+    return query
 
 
 # ── login/logout ─────────────────────────────────────────────
@@ -46,9 +64,57 @@ def test_login_callback_invalido_volta_pro_dashboard(client, monkeypatch):
     monkeypatch.setattr(
         "skinvault.public_site.account.steam_openid.verify_callback",
         lambda args: None)
-    resp = client.get("/login/callback")
+    resp = client.get(
+        "/login/callback", query_string=_callback_query(_start_login(client)))
     assert resp.status_code == 302
     assert resp.headers["Location"].endswith("/")
+
+
+def test_login_callback_sem_fluxo_iniciado_nao_autentica(client, monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.public_site.account.steam_openid.verify_callback",
+        lambda args: chamadas.append(args) or "76561198000000000")
+
+    resp = client.get("/login/callback?openid.mode=id_res")
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
+    assert chamadas == []
+    with client.session_transaction() as sess:
+        assert "steamid" not in sess
+
+
+def test_login_callback_exige_return_to_da_sessao(client, monkeypatch):
+    return_to = _start_login(client)
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.public_site.account.steam_openid.verify_callback",
+        lambda args: chamadas.append(args) or "76561198000000000")
+
+    query = _callback_query(return_to)
+    query["state"] = "estado-de-outra-sessao"
+    resp = client.get("/login/callback", query_string=query)
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/")
+    assert chamadas == []
+
+
+def test_login_callback_so_aceita_o_return_to_uma_vez(client, monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(
+        "skinvault.public_site.account.steam_openid.verify_callback",
+        lambda args: chamadas.append(args) or "76561198000000000")
+    return_to = _start_login(client)
+    query = _callback_query(return_to)
+
+    primeiro = client.get("/login/callback", query_string=query)
+    replay = client.get("/login/callback", query_string=query)
+
+    assert primeiro.headers["Location"].endswith("/conta")
+    assert replay.headers["Location"].endswith("/")
+    assert len(chamadas) == 1
 
 
 def test_login_callback_sucesso_cria_sessao_e_redireciona_pra_conta(

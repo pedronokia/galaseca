@@ -6,6 +6,7 @@ Mesmo padrão de `test_account_routes.py`: `db._DB_PATH` monkeypatchado
 from __future__ import annotations
 
 import re
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -28,7 +29,15 @@ def _login(client, monkeypatch, steamid="76561198000000000"):
     monkeypatch.setattr(
         "skinvault.public_site.account.fetch_public_profile",
         lambda sid: {"name": "Fulano", "avatar_url": None})
-    client.get("/login/callback")
+    login_resp = client.get("/login")
+    openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)
+    return_to = openid_params["openid.return_to"][0]
+    query = {
+        key: values[0]
+        for key, values in parse_qs(urlsplit(return_to).query).items()
+    }
+    query.update({"openid.mode": "id_res", "openid.return_to": return_to})
+    client.get("/login/callback", query_string=query)
 
 
 def _csrf_token(client):

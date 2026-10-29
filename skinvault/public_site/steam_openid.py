@@ -56,6 +56,24 @@ def verify_callback(args: "dict[str, str]") -> "str | None":
     if not m:
         return None
 
+    campos_assinados = set((args.get("openid.signed") or "").split(","))
+    campos_obrigatorios = {
+        "op_endpoint", "return_to", "response_nonce", "assoc_handle",
+        "claimed_id", "identity",
+    }
+    if not campos_obrigatorios.issubset(campos_assinados):
+        return None
+    if (
+        args.get("openid.mode") != "id_res"
+        or args.get("openid.ns") != "http://specs.openid.net/auth/2.0"
+        or args.get("openid.op_endpoint") != STEAM_OPENID_URL
+        or args.get("openid.identity") != claimed_id
+        or not args.get("openid.return_to")
+        or not args.get("openid.response_nonce")
+        or not args.get("openid.assoc_handle")
+    ):
+        return None
+
     verify_params = dict(args)
     verify_params["openid.mode"] = "check_authentication"
     try:
