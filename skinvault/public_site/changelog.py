@@ -8,6 +8,18 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
+        "data": "2026-10-29",
+        "titulo": "Formulários e documentação mais claros",
+        "itens": [
+            "Formulários de carteira, trades e watchlist agora avisam "
+            "quando os dados informados são inválidos",
+            "Regras já salvas continuam preservadas quando uma nova "
+            "regra é inválida",
+            "Documentação da API atualizada com o limite de consultas "
+            "e um exemplo fiel à resposta atual",
+        ],
+    },
+    {
         "data": "2026-10-27",
         "titulo": "Tabela mais leve e CTA de login explicado",
         "itens": [

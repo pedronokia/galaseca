@@ -19,6 +19,8 @@
   </header>
 
   <main id="conteudo">
+    {% include "partials/_mensagens.html" %}
+
     <h2 class="secao-titulo">Adicionar item</h2>
     <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -78,22 +80,22 @@
               <form method="post" action="{{ url_for('watchlist.editar_regras', name=it.name) }}" class="form-regras">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <label>Alerta abaixo de (R$)
-                  <input type="number" name="price_below" step="0.01" min="0" value="{{ it.rules.price_below if it.rules else '' }}">
+                  <input type="number" name="price_below" step="0.01" min="0.01" value="{{ it.rules.price_below if it.rules else '' }}">
                 </label>
                 <label>Queda % desde que começou (defina o preço base abaixo)
-                  <input type="number" name="price_drop_pct" step="0.1" min="0" max="100" value="{{ it.rules.price_drop_pct if it.rules else '' }}">
+                  <input type="number" name="price_drop_pct" step="0.1" min="0.1" max="100" value="{{ it.rules.price_drop_pct if it.rules else '' }}">
                 </label>
                 <label>Preço base pra queda % (R$, opcional — usa o atual se vazio)
-                  <input type="number" name="baseline_price" step="0.01" min="0" value="{{ it.baseline_price or '' }}">
+                  <input type="number" name="baseline_price" step="0.01" min="0.01" value="{{ it.baseline_price or '' }}">
                 </label>
                 <label>Volume acima de (x da média)
-                  <input type="number" name="volume_spike" step="0.1" min="0" value="{{ it.rules.volume_spike if it.rules else '' }}">
+                  <input type="number" name="volume_spike" step="0.1" min="0.1" value="{{ it.rules.volume_spike if it.rules else '' }}">
                 </label>
                 <label>Oferta abaixo de (x da média)
-                  <input type="number" name="supply_drop" step="0.1" min="0" value="{{ it.rules.supply_drop if it.rules else '' }}">
+                  <input type="number" name="supply_drop" step="0.1" min="0.1" value="{{ it.rules.supply_drop if it.rules else '' }}">
                 </label>
                 <label>Nota a partir de
-                  <input type="number" name="score_above" step="1" min="0" max="100" value="{{ it.rules.score_above if it.rules else '' }}">
+                  <input type="number" name="score_above" step="1" min="1" max="100" value="{{ it.rules.score_above if it.rules else '' }}">
                 </label>
                 <button type="submit">Salvar regras</button>
               </form>

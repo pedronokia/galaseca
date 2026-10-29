@@ -81,7 +81,7 @@ def test_api_recommendations_sem_scan(client, monkeypatch):
 def test_api_recommendations_com_scan(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "Item X", "score": 90, "price": 10.0, "case_label": "",
-         "pump_risk": {"level": "low"}, "breakdown": []},
+         "icon": "abc123", "pump_risk": {"level": "low"}, "breakdown": []},
         {"name": "Item Y", "score": 40, "price": 5.0, "case_label": "",
          "pump_risk": {"level": "high"}, "breakdown": []},
     ]
@@ -93,6 +93,9 @@ def test_api_recommendations_com_scan(client, monkeypatch, tmp_path):
     # Item Y tem pump_risk "high" -- filtrado por buy_candidates (default
     # max_pump_risk="medium")
     assert nomes == ["Item X"]
+    assert data["api_version"] == 1
+    assert data["candidatos"][0]["icon_url"] == "/icone/abc123.jpg"
+    assert data["candidatos"][0]["icon_url_2x"] == "/icone/abc123.jpg"
 
 
 def test_api_recommendations_filtra_owned_vazio_sempre(client, monkeypatch,
@@ -106,6 +109,7 @@ def test_api_recommendations_filtra_owned_vazio_sempre(client, monkeypatch,
     resp = client.get("/api/recommendations")
     data = resp.get_json()
     assert [c["name"] for c in data["candidatos"]] == ["Item Z"]
+    assert data["candidatos"][0]["icon_url"] is None
 
 
 # ── server: /healthz ─────────────────────────────────────────
@@ -171,6 +175,29 @@ def test_index_preco_max_filtra(client, monkeypatch, tmp_path):
     body = resp.data.decode("utf-8")
     assert "Barato" in body
     assert "Caro" not in body
+
+
+@pytest.mark.parametrize(("parametro", "valor"), [
+    ("nota_min", "nan"),
+    ("nota_min", "inf"),
+    ("nota_min", "-inf"),
+    ("preco_max", "nan"),
+    ("preco_max", "inf"),
+    ("preco_max", "-inf"),
+])
+def test_index_ignora_filtros_nao_finitos(client, monkeypatch, tmp_path,
+                                           parametro, valor):
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 60, "price": 20.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get(f"/?{parametro}={valor}").data.decode("utf-8")
+    assert "Item A" in body
+    assert "Item B" in body
+    assert f'value="{valor}"' not in body
 
 
 def test_index_pagina_2(client, monkeypatch, tmp_path):
@@ -353,12 +380,21 @@ def test_changelog_page(client):
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     assert "2026-10-25" in body
+    assert "Formulários e documentação mais claros" in body
 
 
 def test_api_docs_page(client):
     resp = client.get("/api")
     assert resp.status_code == 200
     assert b"/api/recommendations" in resp.data
+    body = " ".join(resp.data.decode("utf-8").split())
+    assert "60 consultas por minuto por IP" in body
+    assert "HTTP 429" in body
+    assert "sem limite de taxa específico" not in body
+    assert '"api_version": 1' in body
+    assert '"icon_url": "/icone/' in body
+    assert "community.cloudflare.steamstatic.com" not in body
+    assert "o valor é <code>null</code> quando" in body
 
 
 def test_rodape_tem_link_feedback_changelog_api(client):
@@ -366,6 +402,12 @@ def test_rodape_tem_link_feedback_changelog_api(client):
     assert "github.com/pedronokia/skinvault/issues/new" in body
     assert "/changelog" in body
     assert "/api" in body
+
+
+def test_rodape_nao_afirma_data_futura(client):
+    body = client.get("/").data.decode("utf-8")
+    assert "Criado por" in body
+    assert "desde novembro de 2026" not in body
 
 
 # ── server: rodada final (tendência/ranking/método/health/etc) ──

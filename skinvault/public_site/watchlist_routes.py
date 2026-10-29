@@ -8,8 +8,10 @@ princípio da Fase 1.
 """
 from __future__ import annotations
 
+import math
+
 from flask import (
-    Blueprint, redirect, render_template, request, session, url_for,
+    Blueprint, flash, redirect, render_template, request, session, url_for,
 )
 
 from skinvault import alerts, scan_store, signals
@@ -69,9 +71,16 @@ def _rules_do_form() -> dict:
         if not bruto:
             continue
         try:
-            rules[campo] = float(bruto)
+            valor = float(bruto)
         except ValueError:
-            continue
+            raise ValueError(campo)
+        if not math.isfinite(valor) or valor <= 0:
+            raise ValueError(campo)
+        if campo in ("price_drop_pct", "score_above") and valor > 100:
+            raise ValueError(campo)
+        if campo == "score_above" and not valor.is_integer():
+            raise ValueError(campo)
+        rules[campo] = valor
     return rules
 
 
@@ -137,13 +146,27 @@ def salvar_webhook():
 def adicionar():
     steamid = session["steamid"]
     name = (request.form.get("name") or "").strip()
-    if name:
-        target_raw = (request.form.get("target") or "").strip()
-        try:
-            target = float(target_raw) if target_raw else 0.0
-        except ValueError:
-            target = 0.0
-        user_watchlist.add_item(steamid, name, target)
+    if not name:
+        flash("Informe o nome do item.", "error")
+        return redirect(url_for("watchlist.listar"))
+
+    target_raw = (request.form.get("target") or "").strip()
+    try:
+        target = float(target_raw) if target_raw else 0.0
+    except ValueError:
+        flash(
+            "O preço-alvo precisa ser um número válido e igual ou maior que zero.",
+            "error",
+        )
+        return redirect(url_for("watchlist.listar"))
+    if not math.isfinite(target) or target < 0:
+        flash(
+            "O preço-alvo precisa ser um número válido e igual ou maior que zero.",
+            "error",
+        )
+        return redirect(url_for("watchlist.listar"))
+
+    user_watchlist.add_item(steamid, name, target)
     return redirect(url_for("watchlist.listar"))
 
 
@@ -153,12 +176,35 @@ def adicionar():
 @csrf_protect
 def editar_regras(name: str):
     steamid = session["steamid"]
-    rules = _rules_do_form()
-    baseline_raw = (request.form.get("baseline_price") or "").strip()
     try:
-        baseline = float(baseline_raw) if baseline_raw else None
+        rules = _rules_do_form()
     except ValueError:
-        baseline = None
+        flash(
+            "As regras não foram salvas. Use números maiores que zero; "
+            "percentuais e nota devem ficar entre 0 e 100, e a nota deve "
+            "ser inteira.",
+            "error",
+        )
+        return redirect(url_for("watchlist.listar"))
+
+    baseline_raw = (request.form.get("baseline_price") or "").strip()
+    baseline = None
+    if baseline_raw:
+        try:
+            baseline = float(baseline_raw)
+        except ValueError:
+            flash(
+                "O preço-base precisa ser um número válido maior que zero.",
+                "error",
+            )
+            return redirect(url_for("watchlist.listar"))
+        if not math.isfinite(baseline) or baseline <= 0:
+            flash(
+                "O preço-base precisa ser um número válido maior que zero.",
+                "error",
+            )
+            return redirect(url_for("watchlist.listar"))
+
     # Sem baseline informado mas com price_drop_pct: comeca a contar a
     # queda a partir do preco guardado agora.
     if rules.get("price_drop_pct") and baseline is None:

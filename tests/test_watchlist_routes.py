@@ -115,6 +115,17 @@ def test_price_below_nao_dispara_quando_preco_acima(client, monkeypatch):
     assert "sem gatilho agora" in pagina
 
 
+def test_alvo_invalido_nao_cria_item_e_mostra_erro(client, monkeypatch):
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    resp = client.post("/conta/watchlist", data={
+        "name": "AK-47", "target": "abc", "csrf_token": token,
+    })
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "O preço-alvo precisa ser um número válido e igual ou maior que zero" in pagina
+    assert "Nenhum item acompanhado ainda" in pagina
+
+
 def test_editar_regras(client, monkeypatch):
     _login(client, monkeypatch)
     token = _csrf_token(client)
@@ -125,6 +136,25 @@ def test_editar_regras(client, monkeypatch):
         "price_drop_pct": "10", "baseline_price": "20", "csrf_token": token,
     })
     pagina = client.get("/conta/watchlist").data.decode("utf-8")
+    assert "queda 10%" in pagina
+
+
+def test_regra_invalida_preserva_regras_existentes(client, monkeypatch):
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/watchlist", data={
+        "name": "AK-47", "csrf_token": token,
+    })
+    client.post("/conta/watchlist/AK-47/regras", data={
+        "price_drop_pct": "10", "baseline_price": "20",
+        "csrf_token": token,
+    })
+    resp = client.post("/conta/watchlist/AK-47/regras", data={
+        "price_drop_pct": "abc", "baseline_price": "30",
+        "csrf_token": token,
+    })
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "As regras não foram salvas" in pagina
     assert "queda 10%" in pagina
 
 

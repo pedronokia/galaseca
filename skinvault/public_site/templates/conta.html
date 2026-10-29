@@ -19,6 +19,8 @@
   </header>
 
   <main id="conteudo">
+    {% include "partials/_mensagens.html" %}
+
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Valor de mercado</span><span class="card-valor">{{ avaliacao.totals.market_fmt }}</span></div>
       <div class="card"><span class="card-label">Líquido se vender hoje</span><span class="card-valor">{{ avaliacao.totals.net_if_sold_fmt }}</span></div>

@@ -7,8 +7,10 @@ estão presas a um caminho de arquivo (gotcha #17 do AGENTS.md).
 """
 from __future__ import annotations
 
+import math
+
 from flask import (
-    Blueprint, redirect, render_template, request, session, url_for,
+    Blueprint, flash, redirect, render_template, request, session, url_for,
 )
 
 from skinvault import trades as trades_mod
@@ -61,16 +63,43 @@ def listar():
 def adicionar():
     steamid = session["steamid"]
     name = (request.form.get("name") or "").strip()
-    try:
-        buy_cost = float(request.form.get("buy_cost") or 0)
-        sell_price = float(request.form.get("sell_price") or 0)
-        quantity = max(1, int(request.form.get("quantity") or 1))
-    except ValueError:
+    if not name:
+        flash("Informe o nome do item.", "error")
         return redirect(url_for("trades.listar"))
+
+    try:
+        buy_cost = float(request.form.get("buy_cost") or "")
+        sell_price = float(request.form.get("sell_price") or "")
+    except ValueError:
+        flash(
+            "Confira os valores: compra e venda precisam ser números maiores que zero.",
+            "error",
+        )
+        return redirect(url_for("trades.listar"))
+
+    quantity_raw = (request.form.get("quantity") or "").strip()
+    try:
+        quantity = int(quantity_raw) if quantity_raw else 1
+    except ValueError:
+        quantity = 0
+    if quantity < 1:
+        flash(
+            "A quantidade precisa ser um número inteiro maior que zero.",
+            "error",
+        )
+        return redirect(url_for("trades.listar"))
+
+    if (not math.isfinite(buy_cost) or buy_cost <= 0
+            or not math.isfinite(sell_price) or sell_price <= 0):
+        flash(
+            "Confira os valores: compra e venda precisam ser números maiores que zero.",
+            "error",
+        )
+        return redirect(url_for("trades.listar"))
+
     notes = (request.form.get("notes") or "").strip()
-    if name and buy_cost > 0 and sell_price > 0:
-        user_trades.add_trade(
-            steamid, name, buy_cost, sell_price, quantity, notes)
+    user_trades.add_trade(
+        steamid, name, buy_cost, sell_price, quantity, notes)
     return redirect(url_for("trades.listar"))
 
 

@@ -19,6 +19,8 @@
   </header>
 
   <main id="conteudo">
+    {% include "partials/_mensagens.html" %}
+
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Trades registrados</span><span class="card-valor">{{ stats.total }}</span></div>
       <div class="card">

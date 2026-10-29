@@ -23,13 +23,15 @@
 
   <main id="conteudo" class="pagina-texto">
     <h2 class="secao-titulo">GET /api/recommendations</h2>
-    <p>Pública, sem autenticação, sem limite de taxa específico (mas
-    nada educado abusa). Só leitura -- essa rota nunca fala com a Steam,
+    <p>Pública e sem autenticação. Cada processo do site aceita até 60
+    consultas por minuto por IP nesta rota; acima disso, responde HTTP 429
+    (muitas consultas). Só leitura -- essa rota nunca fala com a Steam,
     é o mesmo cache que alimenta o dashboard.</p>
 
     <h2 class="secao-titulo">Exemplo</h2>
     <p><code>{{ exemplo_url }}</code></p>
     <pre class="bloco-codigo">{
+  "api_version": 1,
   "ultimo_scan": {
     "categoria": "Todas as categorias",
     "ts": 1792884599.44
@@ -45,7 +47,7 @@
       "pump_risk": {"level": "low"},
       "reasons": ["Preço 10% abaixo do típico (+12)"],
       "market_url": "https://steamcommunity.com/market/listings/730/...",
-      "icon_url": "https://community.cloudflare.steamstatic.com/economy/image/..."
+      "icon_url": "/icone/abc123.jpg"
     }
   ]
 }</pre>
@@ -55,7 +57,7 @@
       <li><strong>score</strong> — nota de 0 a 100 (ver <a href="{{ url_for('index') }}">dashboard</a> pra entender o cálculo)</li>
       <li><strong>reasons</strong> — até 3 motivos factuais que mais somaram pontos</li>
       <li><strong>pump_risk.level</strong> — "low", "medium" ou "high"</li>
-      <li><strong>icon_url</strong> — pode vir ausente, se o item nunca foi re-escaneado desde que isso foi adicionado</li>
+      <li><strong>icon_url</strong> — endereço no próprio site para o ícone; o valor é <code>null</code> quando o item não tem hash de ícone</li>
     </ul>
 
     <p>Limitado aos 20 melhores candidatos no momento. Pra filtros/

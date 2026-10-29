@@ -1,0 +1,3 @@
+{% for mensagem in get_flashed_messages() %}
+  <p class="status status-erro" role="alert">{{ mensagem }}</p>
+{% endfor %}

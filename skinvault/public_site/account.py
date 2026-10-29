@@ -6,9 +6,13 @@ acompanhar a própria carteira.
 """
 from __future__ import annotations
 
+import math
 import time
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint, flash, jsonify, redirect, render_template, request, session,
+    url_for,
+)
 
 from skinvault import portfolio
 from skinvault.localization import localize_name
@@ -107,14 +111,37 @@ def conta():
 def adicionar_posicao():
     steamid = session["steamid"]
     name = (request.form.get("name") or "").strip()
-    if name:
-        cost_raw = (request.form.get("cost") or "").strip()
-        cost = float(cost_raw) if cost_raw else None
+    if not name:
+        flash("Informe o nome do item.", "error")
+        return redirect(url_for("account.conta"))
+
+    cost_raw = (request.form.get("cost") or "").strip()
+    cost = None
+    if cost_raw:
         try:
-            quantity = max(1, int(request.form.get("quantity") or 1))
+            cost = float(cost_raw)
         except ValueError:
-            quantity = 1
-        user_portfolio.add_position(steamid, name, cost, quantity)
+            cost = None
+        if cost is None or not math.isfinite(cost) or cost < 0:
+            flash(
+                "O custo precisa ser um número válido e igual ou maior que zero.",
+                "error",
+            )
+            return redirect(url_for("account.conta"))
+
+    quantity_raw = (request.form.get("quantity") or "").strip()
+    try:
+        quantity = int(quantity_raw) if quantity_raw else 1
+    except ValueError:
+        quantity = 0
+    if quantity < 1:
+        flash(
+            "A quantidade precisa ser um número inteiro maior que zero.",
+            "error",
+        )
+        return redirect(url_for("account.conta"))
+
+    user_portfolio.add_position(steamid, name, cost, quantity)
     return redirect(url_for("account.conta"))
 
 
@@ -127,9 +154,16 @@ def editar_custo(name: str):
     cost_raw = (request.form.get("cost") or "").strip()
     if cost_raw:
         try:
-            user_portfolio.update_position_cost(steamid, name, float(cost_raw))
+            cost = float(cost_raw)
         except ValueError:
-            pass
+            cost = None
+        if cost is None or not math.isfinite(cost) or cost < 0:
+            flash(
+                "O custo precisa ser um número válido e igual ou maior que zero.",
+                "error",
+            )
+            return redirect(url_for("account.conta"))
+        user_portfolio.update_position_cost(steamid, name, cost)
     return redirect(url_for("account.conta"))
 
 

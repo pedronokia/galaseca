@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import logging.handlers
+import math
 import os
 import re
 import secrets
@@ -93,16 +94,17 @@ def _configurar_log_erros(app: Flask) -> None:
 
 
 def _parse_float_arg(nome: str) -> float | None:
-    """Lê um query param numérico opcional. Vazio/inválido -> None --
-    nunca `or 0`, que confundiria "não informado" com "zero" (AGENTS.md
-    gotcha #15)."""
+    """Lê um query param numérico opcional. Vazio/inválido/não-finito ->
+    None -- nunca `or 0`, que confundiria "não informado" com "zero"
+    (AGENTS.md gotcha #15)."""
     valor = request.args.get(nome)
     if valor is None or valor == "":
         return None
     try:
-        return float(valor)
+        numero = float(valor)
     except ValueError:
         return None
+    return numero if math.isfinite(numero) else None
 
 
 def _parse_int_arg(nome: str, default: int) -> int:

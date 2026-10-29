@@ -75,12 +75,25 @@ def test_adicionar_trade_sem_csrf_falha(client, monkeypatch):
 def test_adicionar_trade_custo_invalido_nao_grava(client, monkeypatch):
     _login(client, monkeypatch)
     token = _csrf_token(client)
-    client.post("/conta/trades", data={
+    resp = client.post("/conta/trades", data={
         "name": "X", "buy_cost": "abc", "sell_price": "2",
         "csrf_token": token,
     })
-    pagina = client.get("/conta/trades").data.decode("utf-8")
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "Confira os valores" in pagina
     assert "Nenhum trade registrado".encode("utf-8") in pagina.encode("utf-8")
+
+
+def test_adicionar_trade_rejeita_quantidade_zero(client, monkeypatch):
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    resp = client.post("/conta/trades", data={
+        "name": "X", "buy_cost": "1", "sell_price": "2", "quantity": "0",
+        "csrf_token": token,
+    })
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "A quantidade precisa ser um número inteiro maior que zero" in pagina
+    assert "Nenhum trade registrado" in pagina
 
 
 def test_remover_trade(client, monkeypatch):

@@ -150,6 +150,32 @@ def test_adicionar_posicao_sem_login_redireciona(client):
     assert "/login" in resp.headers["Location"]
 
 
+def test_adicionar_posicao_rejeita_custo_nao_numerico(client, monkeypatch):
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    resp = client.post("/conta/posicoes", data={
+        "name": "X", "cost": "abc", "quantity": "1",
+        "csrf_token": token,
+    })
+    assert resp.status_code == 302
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "O custo precisa ser um número válido e igual ou maior que zero" in pagina
+    assert "Nenhum item ainda" in pagina
+
+
+def test_adicionar_posicao_rejeita_quantidade_zero(client, monkeypatch):
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    resp = client.post("/conta/posicoes", data={
+        "name": "X", "cost": "10", "quantity": "0",
+        "csrf_token": token,
+    })
+    assert resp.status_code == 302
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "A quantidade precisa ser um número inteiro maior que zero" in pagina
+    assert "Nenhum item ainda" in pagina
+
+
 def test_editar_custo(client, monkeypatch):
     _login(client, monkeypatch)
     token = _csrf_token(client)
@@ -161,6 +187,21 @@ def test_editar_custo(client, monkeypatch):
     })
     pagina = client.get("/conta").data.decode("utf-8")
     assert "99,90" in pagina
+
+
+def test_editar_custo_invalido_preserva_custo_atual(client, monkeypatch):
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/posicoes", data={
+        "name": "X", "cost": "10", "quantity": "1", "csrf_token": token,
+    })
+    resp = client.post("/conta/posicoes/X/custo", data={
+        "cost": "-1", "csrf_token": token,
+    })
+    assert resp.status_code == 302
+    pagina = client.get(resp.headers["Location"]).data.decode("utf-8")
+    assert "O custo precisa ser um número válido e igual ou maior que zero" in pagina
+    assert "10,00" in pagina
 
 
 def test_remover_posicao(client, monkeypatch):
