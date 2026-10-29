@@ -466,10 +466,12 @@ table.tabela-itens {
    nenhuma largura declarada caía pra distribuição ~igual entre colunas
    -- o nome do item (coluna mais importante) ficava espremido a ponto
    de truncar pra "P…" com qualquer nome um pouco mais longo. */
-.col-item { width: 27%; }
+.col-item { width: 25%; }
 .col-preco { width: 9%; }
 .col-historico { width: 12%; }
-.col-nota { width: 8%; }
+/* 10%: com o cabeçalho no tamanho dos outros, "Nota (0–100) ▼" não
+   cabia em 8% e o ▼ da ordenação era cortado. */
+.col-nota { width: 10%; }
 .col-caixa { width: 18%; }
 .col-risco { width: 8%; }
 .col-porque { width: 18%; }
@@ -1052,6 +1054,16 @@ footer.rodape .versao {
    decisão de design por trás disso. Volta pro tamanho padrão do selo. */
 .card-valor.nota {
   font-size: 0.85rem;
+  /* O .card é coluna flex: sem isto o selo esticava na largura do card. */
+  align-self: flex-start;
+}
+
+/* Nome de caixa é texto, não número: no 1.3rem do .card-valor quebrava em
+   4 linhas e ficava maior que o preço do lado. */
+.card-valor.card-valor-texto {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .valor-positivo { color: var(--positive); }
@@ -1426,6 +1438,15 @@ footer.rodape .versao {
 .botao-favorito:hover { background: var(--surface-hover); color: var(--warn); }
 .botao-favorito.favoritado { color: var(--warn); }
 #botao-favoritos.ativo { border-color: var(--warn); color: var(--warn); }
+
+/* No detalhe o botão tem texto ("☆ Favoritar"); os 28px fixos da tabela,
+   pensados só pra estrela, jogavam a ☆ numa linha acima do texto. */
+.pagina-item .botao-favorito {
+  width: auto;
+  height: auto;
+  padding: 0 4px;
+  white-space: nowrap;
+}
 
 /* ── Página de detalhe do item ────────────────────────── */
 .cabecalho-item {
