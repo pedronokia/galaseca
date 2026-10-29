@@ -1031,8 +1031,13 @@ def test_is_score_stale_old():
     assert signals.is_score_stale(ts) is True
 
 
-def test_is_score_stale_boundary():
-    ts = time.time() - 7 * 86400  # exatos 7d
+def test_is_score_stale_boundary(monkeypatch):
+    # Relógio congelado: no Linux o time.time() de dentro da função já
+    # andou alguns µs, e "exatos 7d" virava 7d + ε (passava só no
+    # Windows, cujo relógio anda em passos de ~15ms).
+    agora = 1_800_000_000.0
+    monkeypatch.setattr(signals.time, "time", lambda: agora)
+    ts = agora - 7 * 86400  # exatos 7d
     assert signals.is_score_stale(ts) is False
 
 
