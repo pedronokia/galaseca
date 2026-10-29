@@ -18,6 +18,12 @@ document.addEventListener("click", function (e) {
   }).catch(function () {});
 });
 
+document.addEventListener("error", function (e) {
+  if (e.target.matches && e.target.matches(".icone-item")) {
+    e.target.classList.add("icone-item-indisponivel");
+  }
+}, true);
+
 document.addEventListener("keydown", function (e) {
   if (e.key !== "/") return;
   var ativo = document.activeElement;

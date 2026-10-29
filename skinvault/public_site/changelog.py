@@ -9,6 +9,20 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-10-29",
+        "titulo": "Tabela mais clara e ações organizadas",
+        "itens": [
+            "Texto e espaçamento das linhas ficaram mais confortáveis de ler",
+            "A tabela destaca um motivo por item; os demais fatores continuam "
+            "disponíveis ao expandir a explicação",
+            "Favoritar e comparar ficam visíveis; as outras ações foram "
+            "agrupadas em um menu",
+            "O espaço da miniatura fica reservado mesmo quando a imagem "
+            "ainda não está disponível",
+            "A etiqueta de caixa descontinuada ficou mais discreta",
+        ],
+    },
+    {
+        "data": "2026-10-29",
         "titulo": "Miniaturas das skins e nomes mais fáceis de ler",
         "itens": [
             "A tabela recupera as imagens das skins quando o scan as recebe "

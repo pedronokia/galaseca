@@ -391,10 +391,10 @@ table.tabela-candidatos {
 
 table.tabela-candidatos th,
 table.tabela-candidatos td {
-  padding: 11px 14px;
+  padding: 12px 14px;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 table.tabela-candidatos th {
@@ -494,8 +494,29 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  gap: 4px 6px;
   margin-top: 8px;
+}
+
+.icone-item-quadro[hidden] { display: none; }
+
+.icone-item-quadro {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.icone-item-placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--bg-elevated), var(--bg));
 }
 
 .icone-item {
@@ -506,6 +527,20 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   flex-shrink: 0;
+}
+
+.celula-item .icone-item {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.icone-item[hidden],
+.icone-item-indisponivel {
+  display: none;
 }
 
 .link-item {
@@ -530,10 +565,66 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
   flex-shrink: 0;
 }
 
+.lista-acoes-item .botao-copiar {
+  font: inherit;
+  padding: 7px 10px;
+  text-align: left;
+  width: 100%;
+}
+
 .botao-copiar:hover {
   background: var(--surface-hover);
   color: var(--accent-bright);
 }
+
+.menu-acoes-item {
+  position: relative;
+}
+
+.menu-acoes-item[open] { z-index: 25; }
+
+.menu-acoes-item-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 28px;
+  padding: 2px 6px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.menu-acoes-item-toggle::-webkit-details-marker { display: none; }
+.menu-acoes-item-toggle:hover { background: var(--surface-hover); color: var(--text-bright); }
+
+.lista-acoes-item {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 25;
+  min-width: 190px;
+  margin: 0;
+  padding: 5px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.lista-acoes-item a {
+  display: block;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.lista-acoes-item a:hover { background: var(--surface-hover); color: var(--text-bright); }
 
 .botao-nota-toggle.tem-nota { color: var(--accent-bright); }
 
@@ -544,9 +635,8 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
 
 .detalhe-motivo summary::-webkit-details-marker { display: none; }
 
-/* O resumo mostra até dois motivos e fica limitado a duas linhas; o
-   link "ver mais" sinaliza que a explicação completa pode ser aberta.
-   O breakdown dentro do <details> continua listando todos os fatores. */
+/* O resumo mostra um motivo e fica limitado a duas linhas; o link
+   "ver mais" sinaliza que a explicação completa pode ser aberta. */
 @media (min-width: 641px) {
   main.pagina-inicial {
     max-width: 1280px;
@@ -603,6 +693,15 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
 }
 
 .grupo-categoria summary:hover { color: var(--accent-bright); }
+
+.grupo-categoria table .menu-acoes-item-toggle,
+.grupo-categoria table .detalhe-motivo > summary {
+  padding: 2px 6px;
+  background: transparent;
+  font-weight: 400;
+}
+
+.grupo-categoria table .detalhe-motivo > summary { color: var(--text); }
 
 .grupo-categoria .tabela-wrap { margin: 0; }
 .grupo-categoria table.tabela-candidatos {
@@ -716,10 +815,11 @@ table.tabela-candidatos td.celula-preco {
 }
 
 .selo-descontinuada {
-  color: var(--positive);
-  border: 1px solid var(--positive);
+  color: #bfd27d;
+  border: 1px solid rgba(164, 208, 7, 0.35);
   border-radius: 10px;
-  padding: 2px 9px;
+  padding: 2px 7px;
+  background: rgba(164, 208, 7, 0.08);
   font-size: 0.8rem;
   cursor: help;
   /* Sem nowrap de propósito (2026-10-26): nome de caixa longo (ex.
@@ -1252,6 +1352,12 @@ footer.rodape .versao {
   height: 24px;
 }
 
+.modo-compacto .icone-item-quadro {
+  flex-basis: 24px;
+  width: 24px;
+  height: 24px;
+}
+
 .modo-compacto .celula-item-principal {
   gap: 6px;
 }
@@ -1290,7 +1396,9 @@ footer.rodape .versao {
   color: var(--text-muted);
   cursor: pointer;
   font-size: 0.9rem;
-  padding: 2px 4px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border-radius: var(--radius-md);
   flex-shrink: 0;
 }
@@ -1327,6 +1435,8 @@ footer.rodape .versao {
 
 /* ── Comparador ───────────────────────────────────────── */
 .checkbox-comparar {
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   cursor: pointer;
 }

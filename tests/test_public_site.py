@@ -82,13 +82,33 @@ def test_index_exibe_miniatura_e_separa_acoes_do_nome(
         r'<div class="celula-item-acoes">(.*?)</div>',
         celula, re.DOTALL).group(1)
 
+    assert 'class="icone-item-quadro"' in principal
     assert 'src="/icone/skin-icon-hash.jpg"' in principal
-    assert 'alt="" aria-hidden="true"' in principal
+    assert 'class="icone-item"' in principal
     assert "link-item" in principal
-    assert "checkbox-comparar" not in principal
-    assert "botao-favorito" not in principal
+    assert "menu-acoes-item" in acoes
+    assert "Copiar nome" in acoes
+    assert "Copiar link" in acoes
+    assert "SteamDB" in acoes
+    assert "Detalhes" in acoes
     assert "checkbox-comparar" in acoes
     assert "botao-favorito" in acoes
+
+
+def test_index_reserva_espaco_da_miniatura_sem_hash(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item sem imagem", "score": 50, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+
+    body = client.get("/").data.decode("utf-8")
+    celula = re.search(
+        r'<td class="celula-item">(.*?)</td>', body, re.DOTALL).group(1)
+
+    assert 'class="icone-item-quadro"' in celula
+    assert 'class="icone-item-placeholder"' in celula
+    assert 'class="icone-item"' not in celula
 
 
 def test_index_explicita_escala_da_nota_e_rotulo_textual_de_risco(
@@ -108,7 +128,7 @@ def test_index_explicita_escala_da_nota_e_rotulo_textual_de_risco(
     assert ">Baixo</span>" in body
 
 
-def test_index_resume_dois_motivos_e_preserva_fatores_completos(
+def test_index_resume_um_motivo_e_preserva_fatores_completos(
         client, monkeypatch, tmp_path):
     resultados = [
         {"name": "Item de teste", "score": 85, "price": 50.0,
@@ -123,7 +143,8 @@ def test_index_resume_dois_motivos_e_preserva_fatores_completos(
     body = client.get("/").data.decode("utf-8")
 
     assert '<main id="conteudo" class="pagina-inicial">' in body
-    assert '<span class="texto-motivo">Preço baixo; Boa liquidez</span>' in body
+    assert '<span class="texto-motivo">Preço baixo</span>' in body
+    assert '<li class="delta-positivo">Boa liquidez</li>' in body
     assert "<li class=\"delta-positivo\">Caixa descontinuada</li>" in body
 
 
@@ -552,6 +573,8 @@ def test_changelog_page(client):
     resp = client.get("/changelog")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
+    assert "Tabela mais clara e ações organizadas" in body
+    assert "O espaço da miniatura fica reservado" in body
     assert "2026-10-25" in body
     assert "Formulários e documentação mais claros" in body
     assert "retorno pertence à sessão" in body
