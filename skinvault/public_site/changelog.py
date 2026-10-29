@@ -15,6 +15,8 @@ ENTRADAS = [
             "em telas pequenas",
             "Uma indicação mostra que a tabela pode ser deslizada "
             "para ver as outras colunas",
+            "A paginação informa quantos itens estão visíveis e o total "
+            "encontrado nos filtros",
         ],
     },
     {

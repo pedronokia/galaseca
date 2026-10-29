@@ -241,9 +241,13 @@ def test_index_pagina_2(client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, resultados)
     pagina1 = client.get("/").data.decode("utf-8")
     pagina2 = client.get("/?pagina=2").data.decode("utf-8")
+    pagina3 = client.get("/?pagina=3").data.decode("utf-8")
     assert "Item 0" in pagina1
     assert "Item 0" not in pagina2
     assert "Item 10" in pagina2
+    assert "Mostrando 1–10 de 25 itens" in pagina1
+    assert "Mostrando 11–20 de 25 itens" in pagina2
+    assert "Mostrando 21–25 de 25 itens" in pagina3
 
 
 def test_index_descontinuada_ganha_selo(client, monkeypatch, tmp_path):

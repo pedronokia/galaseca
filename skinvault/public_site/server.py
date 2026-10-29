@@ -289,6 +289,8 @@ def create_app() -> Flask:
             minimalista_sel=minimalista,
             apresentacao_sel=apresentacao,
             pagina=pagina,
+            primeiro_item=inicio + 1,
+            ultimo_item=inicio + len(candidatos_pagina),
             tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
             tem_pagina_anterior=pagina > 1,
             total_candidatos=len(todos),
