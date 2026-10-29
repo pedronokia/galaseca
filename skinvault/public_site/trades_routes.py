@@ -1,9 +1,7 @@
 """Blueprint de trades pessoais -- `/conta/trades`.
 
-Mesmo padrão do portfólio (Fase 2a): a matemática (`trade_stats`,
-`build_trade`) continua 100% em `skinvault/trades.py`, sem alteração --
-só a mutação (adicionar/remover) é nova, porque as funções do app local
-estão presas a um caminho de arquivo (gotcha #17 do AGENTS.md).
+A matemática continua em `skinvault/trades.py`; os dados pessoais são
+persistidos separadamente por conta.
 """
 from __future__ import annotations
 

@@ -1,9 +1,8 @@
-# SkinVault — site público
+# AlertaSkins — site público
 
-Dashboard público de recomendações (Fase 1) + login "Entrar com Steam" com
-portfólio/trades/watchlist pessoais (Fase 2). Pacote separado do app
-desktop (`skinvault/ui/`, `skinvault/webapp/`) e sem nenhuma dependência
-deles — ver `AGENTS.md` do repositório pra contexto completo de por quê.
+Site público com dados do Steam Market e áreas pessoais opcionais para
+portfólio, trades e watchlist. A autenticação usa Steam OpenID; o site nunca
+recebe a senha ou o cookie de sessão da Steam.
 
 ## Dois processos, sempre
 

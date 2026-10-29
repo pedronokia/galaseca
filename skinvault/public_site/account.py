@@ -28,7 +28,9 @@ from skinvault.public_site.rate_limit import (
     LOGIN_MAX_HITS, LOGIN_WINDOW_S, MUTATION_MAX_HITS, MUTATION_WINDOW_S,
     rate_limited,
 )
-from skinvault.ui.profile_fetcher import apagar_perfil_cache, fetch_public_profile
+from skinvault.public_site.profile_fetcher import (
+    apagar_perfil_cache, fetch_public_profile,
+)
 
 bp = Blueprint("account", __name__)
 
@@ -113,7 +115,7 @@ def conta():
     positions = user_portfolio.load_positions(steamid)
     # Preço vem do mesmo cache compartilhado da Fase 1 -- leitura pura,
     # sem rede. Se o item nunca foi escaneado, a linha some sem preço
-    # (igual ao app local quando a Steam não respondeu).
+    # quando a Steam não respondeu).
     avaliacao_bruta = portfolio.evaluate_portfolio(positions, PriceCache().get)
     # Grava o ponto de histórico ANTES de formatar -- precisa do valor
     # numérico (totals.market), não do "_fmt" em string. Dedup embutido:

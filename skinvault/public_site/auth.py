@@ -1,9 +1,4 @@
-"""Login exigido + proteção CSRF, compartilhado entre as telas de `/conta`.
-
-Extraído de `account.py` quando `trades_routes.py` (Fase 2b) precisou dos
-mesmos dois decorators -- evita duas cópias divergindo (mesma lição do
-AGENTS.md #5/#12 sobre lógica duplicada).
-"""
+"""Login exigido e proteção CSRF compartilhados pelas rotas pessoais."""
 from __future__ import annotations
 
 import secrets

@@ -235,8 +235,8 @@ def _collect_inventory(get_page) -> tuple[str, list[dict]]:
         # (scanner, tradeup) dorme RATE_LIMIT_DELAY_S entre uma chamada
         # e outra, mas um inventario grande (75+ itens) paginava sem
         # pausa nenhuma, disparando paginas uma atras da outra no MESMO
-        # endpoint ja' sensivel (gotcha #12 do AGENTS.md). Pulado na
-        # 1a pagina -- nada pra esperar ainda.
+        # endpoint ja' sensivel. Pulado na 1a pagina -- nada pra esperar
+        # ainda.
         if i > 0:
             time.sleep(RATE_LIMIT_DELAY_S)
         code, body = get_page(start)

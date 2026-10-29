@@ -1,6 +1,6 @@
 """Registro de aposentadoria de caixas: QUANDO cada uma parou de entrar no jogo.
 
-Por que existe: o estudo de coortes (AGENTS.md 4c) mostrou que o retorno de
+Por que existe: o estudo de coortes resumido em AGENTS.md mostrou que o retorno de
 caixa depende de *anos desde a aposentadoria* -- salto na saida do pool,
 depois decaimento -- e nao do ano de lancamento. `cases.py` so' sabia o ano
 de lancamento e o status de HOJE. Sem a data, o fator nao podia nem ser

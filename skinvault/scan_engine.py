@@ -1,17 +1,4 @@
-"""Motor de scan sem Qt -- usado pelo Scanner (UI) e pelo worker do site
-público (`skinvault/public_site/worker.py`).
-
-`scan_item` é o núcleo que antes vivia dentro de
-`ui/scanner_screen.py::_scan_item`, extraído pra cá pra não duplicar a
-lógica em dois lugares (mesma lição do AGENTS.md #5/#12 -- duplicar quebra
-em silêncio quando um lado muda e o outro não). `scanner_screen.py` agora
-chama esta função; os campos puramente visuais (cor/formatação Qt) ficam
-por conta de quem chama, porque este módulo não importa PyQt6 de propósito
--- o worker do site público roda num processo que não precisa dele.
-
-`run_full_scan` é o laço de "todas as categorias" sem threading/sinais Qt,
-pro worker rodar sozinho.
-"""
+"""Lógica de coleta e avaliação usada pelo worker do site público."""
 from __future__ import annotations
 
 import sys
@@ -20,7 +7,7 @@ from typing import Callable
 
 from skinvault import cases, discovery, scan_targets, signals, steam_api
 from skinvault.prices import PriceCache
-from skinvault.ui import textos
+from skinvault import textos
 
 
 def scan_item(name: str, category: str | None = None,
@@ -31,10 +18,9 @@ def scan_item(name: str, category: str | None = None,
     (ver `signals.pump_risk`). `price_cache`, se passado, recebe o preço
     mais recente (mesmo papel do `self._cache.put(...)` do Scanner).
 
-    Retorna None se a Steam não devolveu preço nenhum (falha de rede,
-    item sem listagem, ou rate limit -- ver AGENTS.md #12: várias
-    chamadas sem `price_history` em sequência é suspeita de bloqueio, não
-    prova de item sem histórico).
+    Retorna None se a Steam não devolveu preço nenhum     (falha de rede, item sem listagem, ou rate limit. Várias páginas sem
+    `price_history` em sequência são suspeita de bloqueio, não prova de
+    que os itens não têm histórico).
     """
     try:
         overview = steam_api.get_market_overview(name)
@@ -123,9 +109,7 @@ def scan_item(name: str, category: str | None = None,
         # precisa saber "tight"/"buyer_dominant"/"rising".
         "verdict": verdict.get("label", "—"),
         # `.get("diff_pct", 0)` sozinho não bastava: o default só vale
-        # pra CHAVE ausente, não quando ela existe mas é None (achado ao
-        # vivo em 2026-10-26, item com mediana indisponível -- mesma
-        # armadilha do `||`/`or` do AGENTS.md #15, versão Python).
+        # para chave ausente, não quando ela existe mas é None.
         "verdict_ok": (verdict.get("diff_pct")
                        if verdict.get("diff_pct") is not None else 0) <= 0,
         "spread": (textos.traduz(textos.SPREAD, verdict.get("spread_verdict"))

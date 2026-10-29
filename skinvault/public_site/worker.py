@@ -59,7 +59,8 @@ def _ordenar_por_nota_anterior(
         categories: "dict[str, list[str]]") -> "dict[str, list[str]]":
     """Reordena os nomes de cada categoria pela nota do scan anterior
     (desc). Se o ciclo for interrompido pelo bloqueio da Steam (comum,
-    ver AGENTS.md #12/#20), os itens já conhecidos como mais relevantes
+    ver as regras de rate limit e cooldown da Steam em AGENTS.md, os itens
+    já conhecidos como mais relevantes
     ficam com dado fresco antes dos nunca vistos -- tratados como nota
     50 (nem primeiro, nem último), não penalizados por serem novos."""
     scan = scan_store.load_last_scan()

@@ -1668,7 +1668,7 @@ def test_api_recommendations_tem_rate_limit(monkeypatch):
     # Cria o app DEPOIS de patchear a constante: `rate_limited(...)` é
     # avaliado na hora da decoração (dentro de `create_app()`), não a
     # cada request -- usar o fixture `client` criaria o app antes do
-    # monkeypatch valer (mesma família de gotcha do AGENTS.md #13/#17).
+    # monkeypatch valer; os limites são capturados ao criar o app.
     monkeypatch.setattr(rate_limit, "API_MAX_HITS", 2)
     app = create_app()
     app.config["TESTING"] = True
@@ -2069,7 +2069,7 @@ def test_classes_com_hidden_tem_guarda_display_none():
     assert not sem_guarda, (
         f"Classe(s) usadas com `hidden` no HTML, com `display` no CSS, "
         f"sem guarda `.classe[hidden] {{ display: none; }}`: {sem_guarda} "
-        "-- o elemento aparece mesmo hidden (AGENTS.md gotcha #16)")
+        "-- o elemento aparece mesmo hidden")
 
 
 def test_todas_as_custom_properties_usadas_estao_definidas():

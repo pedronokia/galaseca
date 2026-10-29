@@ -1,10 +1,9 @@
 """Histórico de valor da carteira (site público) -- por usuário.
 
-Mesma forma de ponto que `history.json` do app local usa: {ts, total}.
-`record_if_changed` espelha o dedup de `AccountScreen._record_value_snapshot`
-(Qt): pular quando o total é igual ao último ponto, senão toda visita a
-`/conta` encheria a série de pontos repetidos. Cap em 500 pontos, igual
-ao `history.py` do app local.
+Cada ponto contém `{ts, total}`.
+`record_if_changed` pula pontos quando o total é igual ao último; sem isso,
+cada visita a `/conta` encheria a série de repetições. O histórico tem limite
+de 500 pontos.
 """
 from __future__ import annotations
 

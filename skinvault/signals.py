@@ -45,7 +45,7 @@ from skinvault._paths import (
 #   90d  -> Spearman -0.0002, Pearson -0.0031
 #   365d -> Spearman -0.0080, Pearson -0.0067
 # Nenhum passa o criterio de Sp >= +0.002; em 365d atrapalha claramente.
-# Bate com o estudo de coortes do mesmo dia (AGENTS.md 4c): dentro das
+# Bate com o estudo de coortes descrito em AGENTS.md: dentro das
 # aposentadas, Spearman(idade, retorno) = -0.762. Premiar idade e' premiar
 # a ponta que DECAI -- o ganho esta' na aposentadoria recente, nao na
 # antiguidade.
@@ -92,7 +92,8 @@ _SUPPLY_PATH = DATA_DIR / "supply_history.json"
 
 # EXPERIMENT 2026-07-30: nivel de preco absoluto.
 # Medido em 84 itens / 7541 amostras / 365d, cross-sectional por data
-# (AGENTS.md 4d): IC do preco absoluto = -0.2635 no geral, -0.3036 em
+# (evidência histórica resumida em AGENTS.md): IC do preço absoluto =
+# -0.2635 no geral, -0.3036 em
 # caixas, -0.0415 em skins. Negativo em 80% das janelas de 90d.
 # Mediana do retorno 365d por faixa: R$0-1 +73.0%, R$1-5 +41.1%,
 # R$5-20 +44.0%, R$20-100 +27.4%, R$100-500 +18.7%, R$500+ +8.7%.
@@ -110,13 +111,14 @@ _SUPPLY_PATH = DATA_DIR / "supply_history.json"
 _PRICE_LEVEL_ENABLED = True
 
 # 2026-10-17: momentum e multi_period com o SINAL DE REVERSAO A MEDIA.
-# O backtest de 2026-07-28 (AGENTS.md 4b) mediu IC negativo nos dois em
+# O backtest de 2026-07-28 (ver evidência histórica em AGENTS.md) mediu
+# IC negativo nos dois em
 # TODOS os horizontes de 7d a 365d (momentum -0.327 em 7d, -0.190 em 90d),
 # estavel nas duas metades cronologicas -- e invertendo-os o IC do score
 # ia de +0.051 a +0.207. A mudanca ficou registrada e nunca foi aplicada:
 # o score seguia premiando "acima da media" e "todos os periodos subindo",
 # exatamente o que o dado diz que reverte. +1 = pro-tendencia (antigo),
-# -1 = reversao. Medicao ON x OFF: ver AGENTS.md 4e.
+# -1 = reversão. Medição ON x OFF: ver evidência histórica em AGENTS.md.
 #
 # SKINS-ONLY. Re-medido em 2026-10-17 (373 series, ~50-58 mil amostras por
 # horizonte, IC transversal):
@@ -135,7 +137,7 @@ _REVERSAL_IN_CONTAINERS = False
 _DRAWDOWN_AT_HIGH_ENABLED = True
 
 # relative_to_ath (fator rel_ath + flag de ATH do pump_risk) com o topo da
-# serie DIARIA ponderada por volume em vez do ponto bruto (AGENTS.md 4g).
+# série DIÁRIA ponderada por volume em vez do ponto bruto.
 # Medido ON x OFF em 2026-10-17 (373 series): dSp 0.0000 em 7d/90d/365d,
 # caixas e skins. Neutro no backtest porque os pontos HORARIOS -- onde mora
 # o outlier (Redline FT: 1 compra a R$ 1.403 num item de ~R$ 220) -- so'
@@ -744,8 +746,8 @@ def relative_to_ath(price_history: list[dict]) -> dict:
     }
 
 
-# Retorno mediano 365d por faixa de preco, medido em 2026-07-30 (AGENTS.md
-# 4d, 84 itens, 7541 amostras). Usado SO' como referencia historica no
+# Retorno mediano 365d por faixa de preço, medido em 2026-07-30
+# (84 itens, 7541 amostras). Usado só como referência histórica no
 # tooltip do contexto de saida -- nao e' projecao.
 _HIST_365D_POR_FAIXA = (
     (1.0, "R$ 0–1", 73.0),
@@ -762,7 +764,8 @@ def exit_context(price_history: list[dict] | None,
     """Contexto descritivo pra quem ja' tem o item: perto do topo? que faixa?
 
     Junta os dois fatores mais fortes que o backtest mediu no longo prazo
-    (AGENTS.md 4d): distancia do topo historico (IC -0,20) e preco absoluto
+    (evidência histórica resumida em AGENTS.md): distância do topo histórico
+    (IC -0,20) e preço absoluto
     (IC -0,26; -0,30 em caixas). Descreve onde o item ESTA e o que a faixa
     rendeu no passado -- nao diz o que vai acontecer nem manda vender.
 
@@ -773,7 +776,7 @@ def exit_context(price_history: list[dict] | None,
     Topo = maximo da serie DIARIA ponderada por volume, nao o ponto bruto.
     Medido em 2026-10-17: o maximo bruto da AK-47 Redline FT era R$ 1.403,
     um ponto HORARIO com 1 compra; o diario ponderado da' R$ 403. O fator
-    `rel_ath` do score ainda usa o bruto (pendencia em AGENTS.md 4g).
+    `rel_ath` do score ainda usa o bruto.
     """
     if not price_history:
         return {}

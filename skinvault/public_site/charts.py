@@ -1,8 +1,4 @@
-"""Gráfico de linha em SVG, gerado no servidor -- sem JS nem lib de
-charting (mesmo espírito do "preferir QPainter a lib de charting" do app
-Qt: desenhar a própria linha é mais simples e mais barato do que
-carregar uma biblioteca de gráficos só pra isto).
-"""
+"""Gráfico de linha em SVG, gerado no servidor sem dependência de charting."""
 from __future__ import annotations
 
 

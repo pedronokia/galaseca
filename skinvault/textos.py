@@ -1,12 +1,11 @@
-"""Textos da tela para codigos internos -- linguagem de usuario comum.
+"""Textos de exibição para códigos internos -- linguagem de usuário comum.
 
 Os modulos de analise (steam_api, signals) trabalham com codigos curtos em
 ingles ("tight", "buyer_dominant", "rising"): o score, o backtest e os
-testes dependem deles. So' a EXIBICAO traduz, e sempre por aqui, pra que
-Scanner e Market digam a mesma coisa do mesmo jeito.
+testes dependem deles. Só a exibição traduz, e sempre por aqui, para manter os termos consistentes.
 
-Ate' 2026-10-17 esses codigos apareciam crus nas celulas do Scanner e nos
-detalhes do Market.
+Os códigos continuam em inglês nas interfaces internas; os rótulos
+apresentados aos visitantes ficam em português.
 """
 from __future__ import annotations
 

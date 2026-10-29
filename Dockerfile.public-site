@@ -1,6 +1,5 @@
-# Imagem do SITE PÚBLICO (skinvault/public_site/) -- não do app desktop.
-#
-# Duas imagens, dois usos, da MESMA imagem (ver docker-compose.public-site.yml
+# Imagem do site público AlertaSkins.
+# A mesma imagem atende aos dois serviços (ver docker-compose.public-site.yml
 # e skinvault/public_site/README.md):
 #   web    -> gunicorn servindo o dashboard + /conta (Fases 1/2)
 #   worker -> processo solitário que fala com a Steam (worker.py)
@@ -19,8 +18,7 @@
 FROM python:3.9-slim AS builder
 WORKDIR /app
 
-# So' as dependencias do site (Flask/httpx/gunicorn) -- NUNCA PyQt6/
-# pywebview/etc. (essas sao do app desktop; ver requirements-public-site.txt).
+# Dependências runtime do site e do worker.
 COPY requirements-public-site.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements-public-site.txt
 

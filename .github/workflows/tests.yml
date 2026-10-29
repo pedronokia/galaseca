@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -18,51 +18,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - run: python -m pip install -r requirements.txt pytest
+          cache-dependency-path: requirements-public-site.txt
+      - run: python -m pip install -r requirements-public-site.txt pytest
       - run: python -m pytest -q
 
-  # Site público roda em container Linux de verdade (ver Dockerfile.
-  # public-site) -- a suíte principal acima só roda em windows-latest
-  # (decisão de propósito pro resto do projeto, Windows-only), então um
-  # bug de path ('/' vs '\') ou de permissão de arquivo só apareceria
-  # depois do deploy. Instala só requirements-public-site.txt (NUNCA
-  # PyQt6/pywebview/winotify -- são do app desktop e nem instalam num
-  # Linux headless) e roda só os arquivos de teste do site público,
-  # listados explicitamente -- apontar pra um arquivo específico evita
-  # o pytest tentar IMPORTAR os testes de UI Qt (que falhariam ao
-  # importar PyQt6, mesmo que um "-k" os filtrasse depois de coletados).
-  public-site-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - run: python -m pip install -r requirements-public-site.txt pytest
-      - run: >
-          python -m pytest -q
-          tests/test_public_site.py
-          tests/test_public_site_production.py
-          tests/test_account_routes.py
-          tests/test_db_backup.py
-          tests/test_discord_notify.py
-          tests/test_history_routes.py
-          tests/test_rate_limit.py
-          tests/test_rate_limit_routes.py
-          tests/test_trades_routes.py
-          tests/test_user_portfolio.py
-          tests/test_user_store.py
-          tests/test_user_trades.py
-          tests/test_user_watchlist.py
-          tests/test_user_webhook.py
-          tests/test_watchlist.py
-          tests/test_watchlist_routes.py
-
-  # Informativo por enquanto (continue-on-error) -- rodada 2026-10-26.
-  # Sobe pra falhar o workflow de verdade depois de rodar limpo algumas
-  # vezes; travar a CI na primeira execução sem saber o que vai achar
-  # seria arriscado demais pra fazer sem poder corrigir antes.
   pip-audit:
     runs-on: ubuntu-latest
     continue-on-error: true

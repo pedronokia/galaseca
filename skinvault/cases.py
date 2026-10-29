@@ -33,7 +33,7 @@ _CASES: dict[str, dict] = {
     "Huntsman Weapon Case": {"status": "discontinued", "year": 2014},
     "Operation Wildfire Case": {"status": "discontinued", "year": 2016},
     # "Operation Bloodhound Weapon Case" removida em 2026-07-29: nao existe
-    # no Market. Verificado pelo <title> da listing page (ver AGENTS.md #12)
+    # no Market. Verificado pelo <title> da listing page
     # nas tres grafias plausiveis -- todas devolvem o generico "Market Item".
     # A Operation Bloodhound nao trouxe caixa propria; a caixa dela e' a
     # Falchion Case, que ja' esta' catalogada logo abaixo.
@@ -1093,9 +1093,9 @@ def case_status(name: str, collection: str | None = None,
 
     `as_of` (epoch): instante de referencia do status. None = hoje. Com
     data de aposentadoria registrada (`retirements`), uma amostra ANTERIOR
-    a ela ve a caixa como ativa -- sem isso o backtest enxergava o status
-    de hoje no passado (AGENTS.md 4b, coluna `case`). Caixas descontinuadas
-    sem data no registro seguem como estavam.
+    a ela ve a caixa como ativa -- isso evita usar o status atual em pontos
+    históricos. Caixas descontinuadas sem data no registro seguem como
+    estavam.
 
     Aceita 4 tipos de input:
     1. Nome de skin (ex: "AK-47 | Redline (Field-Tested)") -> mapeia via _SKIN_TO_CASE

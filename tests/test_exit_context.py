@@ -73,24 +73,6 @@ def test_rotulo_ath_em_reais():
     assert rta["label"] == "Preço a 80% do ATH (R$ 12,50)"
 
 
-# ── celula do inventario ─────────────────────────────────────
-def test_celula_topo_do_inventario():
-    from PyQt6.QtWidgets import QApplication
-    QApplication.instance() or QApplication([])
-    from skinvault.ui import theme as t
-    from skinvault.ui.inventory_screen import InventoryScreen
-
-    item = InventoryScreen._top_item(
-        "AK-47 | Redline (Field-Tested)",
-        {"pct_of_ath": 0.93, "ath": 100.0, "current": 93.0, "ts": 1})
-    assert item.text() == "93% do topo"
-    assert item.foreground().color().name().lower() == t.WARN_TEXT.lower()
-    assert "topo histórico" in item.toolTip()
-
-    vazio = InventoryScreen._top_item("X", None)
-    assert vazio.text() == "—" and "Atualizar notas" in vazio.toolTip()
-
-
 def test_rel_ath_do_score_ignora_ponto_horario_isolado():
     """O fator rel_ath da nota usa o mesmo topo diario do exit_context:
     uma compra horaria anomala nao pode virar o "maior preco"."""

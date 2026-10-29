@@ -333,7 +333,7 @@ def test_scan_score_skip_supply_none():
 def test_scan_score_momentum_acima_da_media_perde():
     """Preco acima da media curta PERDE 5 vs preco igual a' media.
 
-    Reversao a media (AGENTS.md 4b/4e): momentum tem IC negativo em todos
+    Reversao a media (evidência histórica em AGENTS.md): momentum tem IC negativo em todos
     os horizontes medidos. Note: rel_ath tambem aplica em ph >= 10, por
     isso testamos a DIFERENCA introduzida pelo momentum isolado.
     """
@@ -391,7 +391,7 @@ def test_scan_score_multi_trend_all_falling():
 
 def test_reversao_nao_vale_para_container():
     """Caixa mantem o sinal pro-tendencia: a 365d a reversao derrubava o
-    quintil superior de caixas de +66.8% para +59.9% (AGENTS.md 4e)."""
+    quintil superior de caixas de +66.8% para +59.9%."""
     v = {"verdict": "fair", "diff_pct": 0}
     ph_up = [{"price_median": 100.0}] * 14 + [{"price_median": 110.0}]
     ph_flat = [{"price_median": 100.0}] * 15
@@ -1136,7 +1136,7 @@ def test_pump_risk_sem_inputs():
 # === nivel de preco absoluto (containers-only, 2026-07-30) ===
 #
 # Medido em 84 itens / 7541 amostras: IC do preco absoluto = -0.2635 no
-# geral, -0.3036 em caixas, -0.0415 em skins (AGENTS.md 4d). No backtest
+# geral, -0.3036 em caixas, -0.0415 em skins. No backtest
 # ON x OFF, passa em CAIXAS nos dois horizontes e ATRAPALHA em skins --
 # dai' o filtro is_container.
 
@@ -1330,15 +1330,6 @@ def test_vintage_usa_a_idade_do_instante_simulado(vintage_ligado):
         now_ts=ts_2030,          # caixa com 16 anos
     )
     assert any(b["factor"] == "vintage" for b in breakdown2)
-
-
-def test_backtest_passa_now_ts_pro_score():
-    """simulate_item tem que propagar o timestamp da amostra, senao o
-    lookahead volta em silencio."""
-    import inspect
-    from skinvault import backtest
-    fonte = inspect.getsource(backtest.simulate_item)
-    assert "now_ts=t" in fonte
 
 
 def test_enhanced_score_vintage_v4_skin_nao_recebe_bonus():

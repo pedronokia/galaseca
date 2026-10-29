@@ -386,7 +386,7 @@ def test_exportar_dados_com_login_devolve_json(client, monkeypatch):
 
 
 def test_excluir_apaga_avatar_em_cache(client, monkeypatch, tmp_path):
-    from skinvault.ui import profile_fetcher
+    from skinvault.public_site import profile_fetcher
     monkeypatch.setattr(profile_fetcher, "_PROFILES_PATH", tmp_path / "perfis.json")
     monkeypatch.setattr(profile_fetcher, "_AVATARS_DIR", tmp_path / "avatars")
     steamid = "76561198000000002"

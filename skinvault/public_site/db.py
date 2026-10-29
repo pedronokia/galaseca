@@ -40,11 +40,9 @@ def connect(path: "Path | str | None" = None) -> sqlite3.Connection:
     """Abre uma conexao nova, com o schema garantido.
 
     `path=None` resolve `_DB_PATH` AQUI DENTRO (em tempo de chamada), nao
-    como default de parametro -- e' exatamente o que o gotcha #17 do
-    AGENTS.md avisa: um default resolvido na DEFINICAO da funcao nao
-    reage a monkeypatch/override depois. Cada chamador abre e fecha a
-    propria conexao (sqlite3.connect e' barato); nao ha' conexao global
-    compartilhada entre requests.
+    como default de parametro, para permitir que testes e chamadores
+    escolham um caminho atual. Cada chamador abre e fecha a propria
+    conexao; nao ha' conexao global compartilhada entre requests.
     """
     p = Path(path) if path is not None else _DB_PATH
     p.parent.mkdir(parents=True, exist_ok=True)

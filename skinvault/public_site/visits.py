@@ -20,8 +20,8 @@ def registrar(path: "Path | str | None" = None,
               now: "float | None" = None) -> int:
     """Soma 1 (total e no dia de hoje) e grava. Devolve o total atualizado.
 
-    `path=None` resolvido aqui dentro (não como default de parâmetro --
-    ver AGENTS.md gotcha #17), senão monkeypatch em teste não alcançaria.
+    `path=None` é resolvido aqui dentro, não como default de parâmetro,
+    para que testes possam apontar para um arquivo isolado.
     """
     p = Path(path) if path is not None else _DEFAULT_PATH
     data = load_json_record(p, {"total": 0, "por_dia": {}})

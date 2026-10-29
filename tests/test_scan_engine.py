@@ -1,4 +1,4 @@
-"""Testes de scan_engine.py (nucleo de scan sem Qt)."""
+"""Testes do pipeline de coleta usado pelo worker do site."""
 from __future__ import annotations
 
 from skinvault import scan_engine

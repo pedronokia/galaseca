@@ -62,8 +62,8 @@ def registrar_ciclo(itens: int, duracao_min: float,
     falhou várias vezes seguidas" olhando só pro `scanner_last.json`
     (que só guarda o ÚLTIMO SUCESSO, nunca as falhas).
 
-    `path=None` resolvido aqui dentro, não como default de parâmetro --
-    ver AGENTS.md gotcha #17."""
+    `path=None` resolvido aqui dentro, não como default de parâmetro, para
+    que o chamador possa redirecionar o arquivo em tempo de chamada."""
     p = Path(path) if path is not None else _HISTORICO_PATH
     historico = load_historico_ciclos(p)
     historico.append({

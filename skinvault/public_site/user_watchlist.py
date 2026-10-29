@@ -2,9 +2,8 @@
 
 A avaliação de regras (`alerts.evaluate_item`) e o resumo de regras
 (`alerts.format_rules_summary`) continuam 100% em `alerts.py`, sem
-alteração. Só a mutação (adicionar/editar regras/remover) é nova aqui,
-mesmo motivo de `user_portfolio.py`/`user_trades.py` (as funções do app
-local usam `path: Path = _DEFAULT_PATH`, gotcha #17 do AGENTS.md).
+alteração. Os dados de cada visitante são persistidos separadamente por
+conta.
 """
 from __future__ import annotations
 

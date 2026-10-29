@@ -13,7 +13,6 @@ data/*
 !data/.gitkeep
 .env
 .vscode/
-*.spec
 *.log
 *.tmp
 _diag*.py

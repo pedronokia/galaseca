@@ -1,4 +1,4 @@
-"""Busca avatar + nome do perfil Steam publico (F11).
+"""Busca avatar e nome de um perfil público da Steam.
 
 Endpoint legado e' estavel: https://steamcommunity.com/profiles/{id}?xml=1
 retorna XML do perfil publico (sem login). Avatar fica em data/avatars/.
@@ -22,10 +22,8 @@ from skinvault._paths import DATA_DIR, atomic_write_text
 
 try:
     import fcntl
-except ImportError:  # Windows -- este modulo so' e' importado hoje pelo
-    fcntl = None      # login do site publico (Linux/Docker), mas mora em
-                       # skinvault/ui/, pacote-alvo Windows; guarda por
-                       # seguranca caso uma tela Qt venha a importa-lo.
+except ImportError:  # Windows não oferece fcntl; o lock local ainda protege threads.
+    fcntl = None
 
 _PROFILES_PATH = DATA_DIR / "steam_profiles.json"
 _LOCK_PATH = DATA_DIR / "steam_profiles.json.lock"
@@ -39,7 +37,7 @@ _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
 # - threading.Lock: threads do MESMO processo.
 # - fcntl.flock num arquivo de lock DEDICADO (nao o JSON em si -- um
 #   flock no proprio arquivo do cache entraria em conflito com o padrao
-#   replace-via-temp-file do atomic_write_text, gotcha #10 do
+#   replace-via-temp-file do atomic_write_text, descrito em
 #   AGENTS.md): processos DIFERENTES. O site publico roda com
 #   `gunicorn --workers 2` (confirmado em Dockerfile.public-site),
 #   processos separados que NAO compartilham threading.Lock nenhum.
@@ -65,10 +63,9 @@ def _ciclo_protegido(path: Path | None = None):
 
     `path` e' parametro so' pra teste apontar pra um arquivo isolado em
     `tmp_path` -- chamador real nunca passa, usa sempre `_LOCK_PATH`.
-    Default `None` (resolvido pro `_LOCK_PATH` ATUAL dentro da funcao,
-    nao `= _LOCK_PATH` na assinatura) de proposito -- gotcha #13/#17 do
-    AGENTS.md: um default fixado na definicao da funcao nunca enxerga
-    um monkeypatch feito depois no atributo do modulo."""
+    Default `None` (resolvido pro `_LOCK_PATH` atual dentro da função,
+    não `= _LOCK_PATH` na assinatura) permite substituir o caminho em
+    testes após a importação do módulo."""
     if path is None:
         path = _LOCK_PATH
     with _cache_lock:

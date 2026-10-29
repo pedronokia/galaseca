@@ -94,8 +94,8 @@ def evaluate_item(
                 "severity": "opportunity",
             })
 
-    # 5. Nota acima do limite. (O "85+ retorna +50%" que estava aqui vinha
-    # do backtest de jun/2026, contaminado -- AGENTS.md 4b.)
+    # 5. Nota acima do limite. Resultados históricos não são promessa de
+    # retorno e não devem ser usados como texto de alerta.
     score_thr = rules.get("score_above")
     if score_thr and current_score is not None and current_score >= int(score_thr):
         alerts.append({
@@ -178,7 +178,7 @@ def format_rules_summary(rules: dict | None) -> str:
     if rules.get("price_below"):
         parts.append(f"abaixo de R$ {rules['price_below']:.0f}")
     if rules.get("price_drop_pct"):
-        # price_drop_pct e' ponto percentual 0-100 (AGENTS.md #1)
+        # price_drop_pct usa pontos percentuais, na escala de 0 a 100.
         parts.append(f"queda {rules['price_drop_pct']:g}%")
     if rules.get("volume_spike"):
         parts.append(f"vol {rules['volume_spike']:g}x")

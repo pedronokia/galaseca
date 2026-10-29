@@ -2,11 +2,8 @@
 
 A matemática (lucro, custo, % retorno) continua 100% em `trades.py`
 (`build_trade`/`trade_stats`/`monthly_pnl`) -- todas já recebem a lista
-de trades direto, sem caminho de arquivo. Só a MUTAÇÃO (adicionar/
-remover) é nova aqui, mesmo motivo do `user_portfolio.py`: `trades.
-record_trade`/`remove_trade` usam `path: Path = _DEFAULT_PATH` (gotcha
-#17 do AGENTS.md) e não dão pra redirecionar pra um usuário sem reescrever
-a assinatura usada pelo app Qt.
+de trades direto, sem caminho de arquivo. Os dados de cada visitante são
+persistidos separadamente por conta.
 """
 from __future__ import annotations
 

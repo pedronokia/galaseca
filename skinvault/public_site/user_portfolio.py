@@ -1,11 +1,8 @@
 """Portfólio pessoal (site público) -- mutação por usuário.
 
-A matemática (valor, lucro, breakeven) continua 100% em `portfolio.py`,
-sem alteração -- `evaluate_portfolio(positions, price_fn)` já recebe a
-lista direto, não um caminho de arquivo. Só a MUTAÇÃO (adicionar/editar/
-remover) é nova aqui, porque `portfolio.add_position`/etc. do app local
-usam `path: Path = _DEFAULT_PATH` (gotcha #17 do AGENTS.md) e não dão pra
-redirecionar pra um usuário sem reescrever a assinatura usada pelo app Qt.
+A matemática (valor, lucro, breakeven) continua em `portfolio.py`:
+`evaluate_portfolio(positions, price_fn)` já recebe a lista direto. Os
+dados de cada visitante são persistidos separadamente por conta.
 
 Mesma forma de posição que `portfolio.json` já usa: {name, cost, quantity,
 added_ts, source}.
@@ -29,7 +26,7 @@ def add_position(steamid: str, name: str, cost: "float | None",
                  quantity: int = 1,
                  path: "Path | str | None" = None) -> list[dict]:
     """Adiciona uma posição nova (não funde com uma existente do mesmo
-    nome -- igual ao `portfolio.add_position` do app local, cada adição é
+    nome -- cada adição é
     uma linha própria)."""
     positions = load_positions(steamid, path=path)
     positions.append({

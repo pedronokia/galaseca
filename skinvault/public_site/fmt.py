@@ -1,8 +1,4 @@
-"""Formatação compartilhada entre as telas do site público.
-
-Cópia mínima de `ui/theme.py:brl` -- este pacote não importa PyQt6 de
-propósito (ver AGENTS.md/plano da Fase 1).
-"""
+"""Formatação monetária usada pelos templates do site público."""
 from __future__ import annotations
 
 

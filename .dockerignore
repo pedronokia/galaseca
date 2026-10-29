@@ -12,7 +12,6 @@ venv/
 data/
 dist/
 build/
-*.spec
 .vscode/
 .idea/
 node_modules/

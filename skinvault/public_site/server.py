@@ -1,11 +1,10 @@
-"""Flask app factory do site público -- só leitura, sem login.
+"""Fábrica Flask do site público.
 
 Serve só o que `worker.py` (processo separado) já escreveu em
 `scan_store.json`/`rankings.json`. NUNCA fala com a Steam por requisição
-de visitante -- ver AGENTS.md e o plano desta fase (Fase 1: dashboard
-público, sem conta, sem dado pessoal). `recommendations.buy_candidates`
-roda com `owned_names=set()`: ninguém é "dono" de nada aqui, então é
-sempre a visão pública completa.
+de visitante. As rotas pessoais usam autenticação e armazenamento por
+conta; a página pública chama `recommendations.buy_candidates` com
+`owned_names=set()` para apresentar o ranking geral.
 """
 from __future__ import annotations
 
@@ -95,8 +94,7 @@ def _configurar_log_erros(app: Flask) -> None:
 
 def _parse_float_arg(nome: str) -> float | None:
     """Lê um query param numérico opcional. Vazio/inválido/não-finito ->
-    None -- nunca `or 0`, que confundiria "não informado" com "zero"
-    (AGENTS.md gotcha #15)."""
+    None -- nunca `or 0`, que confundiria "não informado" com "zero"."""
     valor = request.args.get(nome)
     if valor is None or valor == "":
         return None
@@ -725,8 +723,7 @@ def create_app() -> Flask:
         (`backups=`, acima) desde a rodada anterior, mas sem link nenhum
         pra baixar nenhum deles. Valida `nome` contra o formato EXATO que
         `db_backup.fazer_backup_se_necessario` gera (whitelist por regex,
-        não só confiar no `send_from_directory` resolver o path -- mesmo
-        princípio do `backup._DATA_FILES` do app desktop)."""
+        não só confiar no `send_from_directory` resolver o path)."""
         if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
             return render_template("404.html"), 404
         if not re.fullmatch(r"public_site-\d{8}-\d{6}\.db", nome):
@@ -958,8 +955,8 @@ def _tempo_desde_aposentadoria(data_iso: "str | None") -> "str | None":
     """"2.3 anos"/"40 dias" desde a aposentadoria registrada (ver
     `skinvault/retirements.py` -- é o mesmo dado que já alimenta o
     score, só formatado pra leitura humana). None sem data registrada
-    -- a maioria das caixas descontinuadas antigas não tem (ver
-    AGENTS.md 4c/4f: a data só começou a ser registrada em 2026-10-17)."""
+    -- a maioria das caixas descontinuadas antigas não tem; o registro
+    só começou em 2026-10-17."""
     if not data_iso:
         return None
     try:
@@ -987,7 +984,7 @@ def _itens_parecidos(item: dict, candidatos: list[dict], limite: int = 5) -> lis
 
 def _resumo_do_dia(atual: "dict | None") -> "dict | None":
     """Resumo factual do Top 20 comparado com o snapshot de ~1 dia atrás
-    (nunca previsão -- AGENTS.md "nunca prever futuro"). None sem
+    (nunca previsão). None sem
     snapshot velho o suficiente (site novo ou só 1 scan até agora)."""
     if not atual:
         return None

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from skinvault.ui import profile_fetcher as pf
+from skinvault.public_site import profile_fetcher as pf
 
 
 SAMPLE_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -263,7 +263,7 @@ class TestHttpHelpers:
             status_code = 200
             content = b"body"
 
-        monkeypatch.setattr("skinvault.ui.profile_fetcher.httpx.get",
+        monkeypatch.setattr("skinvault.public_site.profile_fetcher.httpx.get",
                             lambda url, **kw: MockResp())
         assert pf._http_get("https://example.com") == b"body"
 
@@ -273,7 +273,7 @@ class TestHttpHelpers:
             status_code = 404
             content = b"not found"
 
-        monkeypatch.setattr("skinvault.ui.profile_fetcher.httpx.get",
+        monkeypatch.setattr("skinvault.public_site.profile_fetcher.httpx.get",
                             lambda url, **kw: MockResp())
         assert pf._http_get("https://example.com") is None
 
@@ -284,7 +284,9 @@ class TestHttpHelpers:
         def _raise(url, **kw):
             raise httpx.ConnectError("fail")
 
-        monkeypatch.setattr("skinvault.ui.profile_fetcher.httpx.get", _raise)
+        monkeypatch.setattr(
+            "skinvault.public_site.profile_fetcher.httpx.get", _raise
+        )
         assert pf._http_get("https://example.com") is None
 
 
