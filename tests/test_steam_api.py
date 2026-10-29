@@ -1291,3 +1291,15 @@ def test_rate_limit_delay_e_conservador(monkeypatch):
     """
     monkeypatch.undo()
     assert steam_api.RATE_LIMIT_DELAY_S >= 3.0
+
+
+@pytest.mark.parametrize("trecho", [
+    '<img src="https://cdn/economy/image/abc-_9/192fx192f">',
+    r'"icon":"https:\/\/cdn\/economy\/image\/abc-_9\/360fx360f"',
+    r'"https://cdn/economy/image/abc-_9/96f"',
+])
+def test_extract_market_icon_hash_aceita_barra_escapada_do_json(trecho):
+    # No JSON do SSR a URL vem com "\/" ou "/"; só "/" deixava os 173
+    # itens do scan de 2026-10-29 sem miniatura.
+    from skinvault.steam_api import extract_market_icon_hash
+    assert extract_market_icon_hash(trecho) == "abc-_9"

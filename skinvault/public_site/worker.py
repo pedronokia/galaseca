@@ -94,6 +94,11 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         # primeiros escaneados, não as 20 maiores notas.
         ranking.save_snapshot(sorted(
             resultados, key=lambda r: -r.get("score", 0))[:_TOP_RANKING])
+    # Termômetro da extração de miniatura (sem requisição extra): se o
+    # número ficar igual ao total, o HTML da Steam mudou de formato.
+    _logger.info("Itens sem miniatura: %d de %d",
+                 sum(1 for r in resultados if not r.get("icon")),
+                 len(resultados))
     duracao_min = (time.time() - inicio) / 60
     scan_store.registrar_ciclo(len(resultados), duracao_min)
     _logger.info("Ciclo concluído: %d itens em %.1fmin",

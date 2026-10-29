@@ -389,8 +389,11 @@ table.tabela-candidatos {
   box-shadow: var(--shadow-md);
 }
 
+/* Abaixo disso a tabela rola dentro do .tabela-wrap (tablet). Com 860px
+   a coluna Nota (10%) ficava com 86px: "Nota (0–100) ▼" invadia a
+   coluna vizinha e o preço quebrava em "R$" / "715,89". */
 table.tabela-itens {
-  min-width: 860px;
+  min-width: 1040px;
 }
 
 table.tabela-candidatos th,
@@ -745,6 +748,8 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
 table.tabela-candidatos td.celula-preco {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  /* "R$ 8.023,95" quebrava entre o símbolo e o número. */
+  white-space: nowrap;
 }
 
 .celula-preco .icone-tendencia {
@@ -822,9 +827,17 @@ table.tabela-candidatos td.celula-preco {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
+/* Texto em vez de ★: a estrela amarela colada na ☆ de favoritar parecia
+   um segundo botão de favorito. */
 .selo-top {
   color: var(--warn);
-  font-size: 1.1rem;
+  border: 1px solid var(--warn);
+  border-radius: 10px;
+  padding: 0 7px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
@@ -1734,13 +1747,6 @@ footer.rodape .versao {
   .form-adicionar button,
   .form-filtros button {
     width: 100%;
-  }
-
-  .dica-rolagem-tabela {
-    display: block;
-    margin: -8px 0 10px;
-    color: var(--text-muted);
-    font-size: 0.9rem;
   }
 
   .form-filtros input,

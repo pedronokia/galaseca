@@ -158,7 +158,7 @@ def test_index_organiza_filtros_no_celular_e_avisa_rolagem_da_tabela(
     body = client.get("/").data.decode("utf-8")
 
     assert '<div class="filtros-numericos">' in body
-    assert "Em telas menores, cada item vira um cartão" in body
+    assert "Deslize a tabela para o lado" in body
 
 
 def test_index_exibe_cartoes_mobile_com_rotulos_e_historico_acessivel(
@@ -183,7 +183,7 @@ def test_index_exibe_cartoes_mobile_com_rotulos_e_historico_acessivel(
     for label in ("Item", "Preço", "Histórico", "Nota", "Caixa/Cápsula",
                   "Risco", "Por quê"):
         assert f'data-label="{label}"' in body
-    assert "Em telas menores, cada item vira um cartão" in body
+    assert "Deslize a tabela para o lado" in body
     assert 'aria-label="Ver histórico completo de AK-47 | Redline (Testada em Campo)"' in body
     assert ".pagina-inicial table.tabela-itens tbody tr" in css_text
     assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css_text
@@ -2467,3 +2467,19 @@ def test_favoritos_fora_da_pagina_e_estilos_da_tabela(client):
     assert "font-size: inherit" in ordenar[:ordenar.index("}")]
     checkbox = css[css.index(".checkbox-comparar {"):]
     assert "appearance: none" in checkbox[:checkbox.index("}")]
+
+
+def test_run_once_registra_itens_sem_miniatura(monkeypatch, caplog):
+    import logging
+    resultados = [{"name": "A", "score": 60, "icon": "h"},
+                  {"name": "B", "score": 50}]
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan",
+                        lambda categories, on_progress=None: resultados)
+    monkeypatch.setattr(worker.scan_store, "save_last_scan", lambda *a: None)
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda *a, **kw: None)
+    monkeypatch.setattr(worker.ranking, "save_snapshot", lambda res: None)
+
+    with caplog.at_level(logging.INFO):
+        worker.run_once({"Rifles": ["A", "B"]})
+    assert "Itens sem miniatura: 1 de 2" in caplog.text

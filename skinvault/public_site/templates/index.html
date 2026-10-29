@@ -49,7 +49,7 @@
         <input type="checkbox" class="checkbox-comparar" data-comparar="{{ c.name }}" title="Marcar pra comparar com outros itens (até 3)" aria-label="Marcar {{ c.name_fmt }} pra comparar">
         <button type="button" class="botao-favorito" data-favorito="{{ c.name }}" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ c.name_fmt }}">☆</button>
         {% if destaque and not minimalista_sel %}
-        <span class="selo-top" title="Melhor da vez" aria-label="Melhor da vez">★</span>
+        <span class="selo-top" title="Maior nota da lista atual">Maior nota</span>
         {% endif %}
         <details class="menu-acoes-item">
           <summary class="menu-acoes-item-toggle" aria-label="Mais ações para {{ c.name_fmt }}" title="Mais ações">
@@ -78,7 +78,7 @@
       <span aria-label="Histórico indisponível">—</span>
       {% endif %}
     </td>
-    <td class="nota nota-{{ c.score|nota_classe }}" data-label="Nota">{{ c.score }}</td>
+    <td class="celula-nota" data-label="Nota"><span class="nota nota-{{ c.score|nota_classe }}">{{ c.score }}</span></td>
     <td data-label="Caixa/Cápsula">
       {% if c.descontinuada %}
         <span class="selo-descontinuada" title="{{ c.case_label|rotulo_caixa(c.name) }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label|rotulo_caixa(c.name) }}</span>
@@ -253,7 +253,7 @@
     {% endif %}
 
     {% if candidatos %}
-    <p class="dica-rolagem-tabela">Em telas menores, cada item vira um cartão ou a tabela pode ser rolada.</p>
+    <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
     {% endif %}
 
     <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>

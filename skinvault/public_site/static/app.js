@@ -320,7 +320,7 @@ document.addEventListener("keydown", function (e) {
       atual[nome] = nota;
       var antes = anterior[nome];
       if (antes === undefined || antes === nota) return;
-      var celulaNota = tr.querySelector(".nota");
+      var celulaNota = tr.querySelector(".celula-nota");
       if (!celulaNota) return;
       var subiu = nota > antes;
       var selo = document.createElement("span");
