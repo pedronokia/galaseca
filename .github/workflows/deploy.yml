@@ -36,13 +36,13 @@ jobs:
             git fetch origin
             git reset --hard origin/main
             git clean -fd
-            # Só "web" (nunca "worker"): reiniciar o worker dispara um
-            # ciclo de scan na hora (ver worker.py `main()`), e isso não
-            # pode acontecer num horário imprevisível por causa de um
-            # deploy -- aprendido ao vivo em 2026-10-24/25. ATENÇÃO: o
-            # worker NÃO pega o código novo sozinho -- é um processo de
-            # longa duração (`while True` em worker.main) numa imagem que
-            # só é reconstruída com [restart-worker] no commit.
+            # Só "web". O worker NÃO pega o código novo sozinho -- é um
+            # processo de longa duração (`while True` em worker.main) numa
+            # imagem que só é reconstruída com [restart-worker] no commit.
+            # Desde 2026-10-29 o worker espera o próximo ciclo ao subir
+            # (`espera_ate_proximo_ciclo`), então reiniciá-lo fora de um
+            # scan não custa requisição; reiniciar NO MEIO de um scan
+            # ainda interrompe a coleta, por isso continua opt-in.
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d web
@@ -63,7 +63,8 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             cd ~/skinvault
-            # Reiniciar o worker inicia um scan completo imediatamente.
+            # Ao subir, o worker espera o próximo ciclo (conta do último
+            # registrado); só escaneia na hora se o ciclo já estiver atrasado.
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d worker

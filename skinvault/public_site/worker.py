@@ -131,6 +131,24 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     return resultados
 
 
+def espera_ate_proximo_ciclo(intervalo_horas: float,
+                             now: "float | None" = None) -> float:
+    """Segundos até o próximo ciclo, contados do fim do último ciclo
+    registrado (`scan_store.registrar_ciclo`). 0 sem histórico ou quando o
+    ciclo já está atrasado.
+
+    Existe para reiniciar o worker não custar um scan: antes, `main()`
+    escaneava assim que subia, então todo deploy de código do worker
+    dependia de decidir à mão quando pagar ~28 min de requisições à Steam
+    fora da cadência (2026-10-29)."""
+    historico = scan_store.load_historico_ciclos()
+    if not historico:
+        return 0.0
+    ultimo = max(float(c["ts"]) for c in historico)
+    agora = time.time() if now is None else now
+    return max(0.0, ultimo + intervalo_horas * 3600 - agora)
+
+
 def main(intervalo_horas: "float | None" = None) -> None:
     """`intervalo_horas=None` lê `SKINVAULT_WORKER_INTERVAL_HORAS` (env),
     com fallback pro default -- pra ajustar a cadência em produção sem
@@ -139,6 +157,11 @@ def main(intervalo_horas: "float | None" = None) -> None:
         intervalo_horas = float(
             os.environ.get("SKINVAULT_WORKER_INTERVAL_HORAS",
                            _INTERVALO_HORAS_DEFAULT))
+    espera = espera_ate_proximo_ciclo(intervalo_horas)
+    if espera > 0:
+        _logger.info("Último ciclo terminou há pouco; próximo em %.1f min",
+                     espera / 60)
+        time.sleep(espera)
     while True:
         try:
             run_once()

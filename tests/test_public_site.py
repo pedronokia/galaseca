@@ -1220,6 +1220,7 @@ def test_run_once_default_usa_categorias_padrao(monkeypatch):
 def _worker_main_uma_volta(monkeypatch):
     """Roda `main()` e para na 1a chamada de `time.sleep` (`while True`
     de verdade pararia a suite). Devolve os segundos passados pra sleep."""
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
     monkeypatch.setattr(worker, "run_once", lambda: [])
     chamadas = []
 
@@ -1249,6 +1250,7 @@ def test_main_sem_env_usa_default(monkeypatch):
 
 def test_main_parametro_explicito_ignora_env(monkeypatch):
     monkeypatch.setenv("SKINVAULT_WORKER_INTERVAL_HORAS", "99")
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
     monkeypatch.setattr(worker, "run_once", lambda: [])
     chamadas = []
 
@@ -2483,3 +2485,40 @@ def test_run_once_registra_itens_sem_miniatura(monkeypatch, caplog):
     with caplog.at_level(logging.INFO):
         worker.run_once({"Rifles": ["A", "B"]})
     assert "Itens sem miniatura: 1 de 2" in caplog.text
+
+
+def test_espera_ate_proximo_ciclo_conta_do_ultimo_ciclo(monkeypatch):
+    agora = 1_800_000_000.0
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [
+        {"ts": agora - 5 * 3600}, {"ts": agora - 3600}])
+
+    assert worker.espera_ate_proximo_ciclo(6, now=agora) == 5 * 3600
+    assert worker.espera_ate_proximo_ciclo(0.5, now=agora) == 0.0
+
+
+def test_espera_ate_proximo_ciclo_sem_historico_e_zero(monkeypatch):
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
+    assert worker.espera_ate_proximo_ciclo(6) == 0.0
+
+
+def test_main_reiniciado_logo_apos_ciclo_espera_antes_de_escanear(
+        monkeypatch):
+    # Reiniciar o worker (deploy) não pode disparar um scan fora da cadência.
+    agora = time.time()
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos",
+                        lambda: [{"ts": agora - 3600}])
+    escaneou = []
+    monkeypatch.setattr(worker, "run_once", lambda: escaneou.append(1))
+    esperas = []
+
+    def _fake_sleep(segundos):
+        esperas.append(segundos)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(worker.time, "sleep", _fake_sleep)
+    try:
+        worker.main(intervalo_horas=6)
+    except KeyboardInterrupt:
+        pass
+    assert escaneou == []
+    assert 5 * 3600 - 5 < esperas[0] <= 5 * 3600
