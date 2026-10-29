@@ -1150,15 +1150,19 @@ def test_index_banner_scan_desatualizado(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
         scan_store, "load_last_scan", lambda: original_load(path=p))
     resp = client.get("/")
-    assert "scan está mais velho" in resp.data.decode("utf-8")
+    body = resp.data.decode("utf-8")
+    assert "scan está mais velho" in body
+    assert "status-scan-desatualizado" in body
+    assert "Dados coletados:" in body
 
 
 def test_index_sem_banner_quando_scan_recente(client, monkeypatch, tmp_path):
     resultados = [{"name": "A", "score": 80, "price": 10.0, "case_label": "",
                   "pump_risk": {"level": "low"}, "breakdown": []}]
     _salva_scan(tmp_path, monkeypatch, resultados)
-    resp = client.get("/")
-    assert "scan está mais velho" not in resp.data.decode("utf-8")
+    body = client.get("/").data.decode("utf-8")
+    assert "scan está mais velho" not in body
+    assert "status-scan-recente" in body
 
 
 # ── charts: css_class ────────────────────────────────────────

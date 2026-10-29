@@ -120,7 +120,11 @@
 
   <main id="conteudo" class="pagina-inicial">
     {% if scan %}
-      <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).{% if proximo_scan %} <span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">Próxima atualização: {{ proximo_scan }}.</span>{% endif %}</p>
+      <p class="status status-scan {{ 'status-scan-desatualizado' if scan_desatualizado else 'status-scan-recente' }}">
+        <strong>Dados coletados:</strong> {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).
+        {% if scan_desatualizado %}<strong class="status-scan-alerta">Atualização atrasada</strong>{% endif %}
+        {% if proximo_scan %}<span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">Próxima atualização: {{ proximo_scan }}.</span>{% endif %}
+      </p>
       {% if scan_desatualizado %}
       <p class="banner-aviso">⚠️ O scan está mais velho que o normal -- provavelmente a Steam bloqueou
       o acesso temporariamente (ver <a href="{{ url_for('status') }}">status</a>). Os dados abaixo são

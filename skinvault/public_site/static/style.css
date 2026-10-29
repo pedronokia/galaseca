@@ -273,6 +273,24 @@ main {
   font-size: 0.9rem;
 }
 
+.status-scan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.status-scan strong { color: var(--text-bright); }
+.status-scan-desatualizado { border-color: var(--warn); }
+.status-scan .status-scan-alerta { color: var(--warn); }
+.status[hidden] { display: none; }
+
 .status-vazio {
   padding: 32px;
   text-align: center;
