@@ -296,6 +296,20 @@ class TestGetMarketPageData:
         assert result["order_book"]["buy_count"] == 2744
         assert result["order_book"]["sell_count"] == 65
 
+    def test_extracts_icon_hash_from_listing_html_when_description_has_none(
+            self, monkeypatch):
+        html = _build_mock_html(SAMPLE_RENDER_CONTEXT).replace(
+            "</body>",
+            '<img src="https://community.cloudflare.steamstatic.com/'
+            'economy/image/skin-icon-hash/192fx192f"></body>',
+        )
+        monkeypatch.setattr(
+            "skinvault.steam_api._http_get", lambda url: (200, html))
+
+        result = get_market_page_data("AK-47 | Redline (Field-Tested)")
+
+        assert result["meta"]["icon_url"] == "skin-icon-hash"
+
     def test_returns_none_on_http_error(self, monkeypatch):
         def mock_get(url: str, timeout: float = 15.0):
             return 404, None

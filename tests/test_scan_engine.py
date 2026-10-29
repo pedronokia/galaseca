@@ -51,6 +51,23 @@ def test_scan_item_sucesso(monkeypatch):
     assert r["trend_code"] == "rising"
 
 
+def test_scan_item_preserva_hash_do_icone(monkeypatch):
+    _mock_steam_ok(monkeypatch)
+    monkeypatch.setattr(
+        "skinvault.steam_api.get_market_page_data",
+        lambda name: {
+            "order_book": {"spread": 5, "buy_count": 10, "sell_count": 20},
+            "price_history": [],
+            "order_book_approx": False,
+            "meta": {"icon_url": "skin-icon-hash"},
+        },
+    )
+
+    resultado = scan_engine.scan_item("AK-47 | Redline (Field-Tested)")
+
+    assert resultado["icon"] == "skin-icon-hash"
+
+
 def test_scan_item_excecao_de_rede_devolve_none(monkeypatch):
     monkeypatch.setattr(
         "skinvault.steam_api.get_market_overview",

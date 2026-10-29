@@ -42,6 +42,7 @@ _EXECUTOR = concurrent.futures.ThreadPoolExecutor(
 _APP_CS2 = 730
 _CONTEXT = 2
 _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
+_ICON_IMAGE_RE = re.compile(r'/economy/image/(?P<hash>[^/\s"\']+)/')
 
 # Espaco minimo entre chamadas ao Market (priceoverview/listagem/inventario).
 # 2026-08-07: pesquisado apos um scan de "Todas as categorias" estourar 429.
@@ -917,6 +918,14 @@ def _parse_item_meta(desc: dict) -> dict:
     return meta
 
 
+def extract_market_icon_hash(html: str | None) -> str | None:
+    """Extrai o hash de imagem embutido na pagina publica do Market."""
+    if not html:
+        return None
+    match = _ICON_IMAGE_RE.search(html)
+    return match.group("hash") if match else None
+
+
 def _collect_item_meta(queries: list) -> dict:
     """{market_hash_name: meta} pra todas as descriptions da pagina."""
     out: dict = {}
@@ -1042,6 +1051,15 @@ def get_market_page_data(
         meta = items_meta.get(market_hash_name)
         if meta:
             result["meta"] = meta
+
+    meta = result.get("meta")
+    if not meta or not meta.get("icon_url"):
+        icon_hash = extract_market_icon_hash(body)
+        if icon_hash:
+            if meta is None:
+                meta = {}
+                result["meta"] = meta
+            meta["icon_url"] = icon_hash
 
     if order_data and isinstance(order_data, dict):
         result["order_book_approx"] = order_approx
@@ -1224,4 +1242,3 @@ def parse_brl(text: str | None) -> float | None:
         return float(s)
     except ValueError:
         return None
-

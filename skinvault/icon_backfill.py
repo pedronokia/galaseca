@@ -18,7 +18,6 @@ icon_url sao ignorados).
 from __future__ import annotations
 
 import json
-import re
 import time
 import urllib.parse
 from pathlib import Path
@@ -29,9 +28,7 @@ from skinvault._paths import DATA_DIR, atomic_write_text
 
 _EVENTS_PATH = DATA_DIR / "steam_market_events.json"
 _LISTING_URL_TPL = "https://steamcommunity.com/market/listings/730/{name}"
-# Mesmo padrao usado em steam_api._ICON_RE — pagina de listing tambem
-# embeda imagens via /economy/image/<hash>/.
-_ICON_RE = re.compile(r'/economy/image/(?P<hash>[^/\s"\']+)/')
+# Usa o parser compartilhado com os metadados do scan.
 _UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
@@ -42,10 +39,7 @@ _THROTTLE_S = 2.0  # conservador
 
 def extract_icon_hash(html: str) -> str | None:
     """Extrai o primeiro icon hash do HTML de uma pagina de listing."""
-    if not html:
-        return None
-    m = _ICON_RE.search(html)
-    return m.group("hash") if m else None
+    return steam_api.extract_market_icon_hash(html)
 
 
 _RATE_LIMIT_FAMILIA = "market_listings"

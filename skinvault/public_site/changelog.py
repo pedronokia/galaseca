@@ -9,6 +9,16 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-10-29",
+        "titulo": "Miniaturas das skins e nomes mais fáceis de ler",
+        "itens": [
+            "A tabela recupera as imagens das skins quando o scan as recebe "
+            "da página pública da Steam",
+            "O nome do item não fica mais espremido entre os controles; "
+            "ações e links ganharam uma linha própria",
+        ],
+    },
+    {
+        "data": "2026-10-29",
         "titulo": "Mais clareza na página de recomendações",
         "itens": [
             "O estado dos dados deixa mais claro quando a coleta está atrasada",

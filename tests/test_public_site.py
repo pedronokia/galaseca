@@ -64,6 +64,33 @@ def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
     assert "85" in body
 
 
+def test_index_exibe_miniatura_e_separa_acoes_do_nome(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "icon": "skin-icon-hash", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+
+    body = client.get("/").data.decode("utf-8")
+    celula = re.search(
+        r'<td class="celula-item">(.*?)</td>', body, re.DOTALL).group(1)
+    principal = re.search(
+        r'<div class="celula-item-principal">(.*?)</div>',
+        celula, re.DOTALL).group(1)
+    acoes = re.search(
+        r'<div class="celula-item-acoes">(.*?)</div>',
+        celula, re.DOTALL).group(1)
+
+    assert 'src="/icone/skin-icon-hash.jpg"' in principal
+    assert 'alt="" aria-hidden="true"' in principal
+    assert "link-item" in principal
+    assert "checkbox-comparar" not in principal
+    assert "botao-favorito" not in principal
+    assert "checkbox-comparar" in acoes
+    assert "botao-favorito" in acoes
+
+
 def test_index_explicita_escala_da_nota_e_rotulo_textual_de_risco(
         client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [
