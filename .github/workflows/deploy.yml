@@ -39,8 +39,10 @@ jobs:
             # Só "web" (nunca "worker"): reiniciar o worker dispara um
             # ciclo de scan na hora (ver worker.py `main()`), e isso não
             # pode acontecer num horário imprevisível por causa de um
-            # deploy -- aprendido ao vivo em 2026-10-24/25. O worker
-            # pega o código novo sozinho no próximo ciclo natural dele.
+            # deploy -- aprendido ao vivo em 2026-10-24/25. ATENÇÃO: o
+            # worker NÃO pega o código novo sozinho -- é um processo de
+            # longa duração (`while True` em worker.main) numa imagem que
+            # só é reconstruída com [restart-worker] no commit.
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d web

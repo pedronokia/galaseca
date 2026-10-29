@@ -276,3 +276,21 @@ def test_scan_item_nao_quebra_com_diff_pct_none(monkeypatch):
     resultado = scan_engine.scan_item("Item Sem Mediana")
     assert resultado is not None
     assert resultado["verdict_ok"] is True  # None tratado como 0 <= 0
+
+
+def test_facas_e_luvas_usam_nome_de_mercado_com_estrela():
+    # Sem o "★ " a listing page não existe: as 28 facas/luvas voltavam
+    # vazias em todo ciclo e as categorias apareciam sem nenhum item.
+    from skinvault import scan_targets
+
+    for cat in ("Facas", "Luvas"):
+        for nome in scan_targets.SCAN_BY_CATEGORY[cat]:
+            assert nome.startswith("★ "), nome
+
+
+def test_dragon_king_usa_nome_de_mercado_real():
+    from skinvault import cases, scan_targets
+
+    nome = "M4A4 | 龍王 (Dragon King) (Minimal Wear)"
+    assert nome in scan_targets.SCAN_BY_CATEGORY["Rifles"]
+    assert cases.case_status(nome)["case"] == "Chroma Case"

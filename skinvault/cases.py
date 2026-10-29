@@ -873,6 +873,8 @@ _SKIN_TO_CASE: dict[str, str] = {
     # Chroma (2015)
     "AK-47 | Cartel": "Chroma Case",
     "M4A4 | Dragon King": "Chroma Case",
+    # Nome de mercado real leva os ideogramas: "M4A4 | 龍王 (Dragon King)".
+    "M4A4 | 龍王 (Dragon King)": "Chroma Case",
     "AWP | Man-o'-war": "Chroma Case",
 
     # Chroma 2 (2015)
