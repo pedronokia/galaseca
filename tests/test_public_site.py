@@ -396,6 +396,26 @@ def test_index_agrupar_respeita_limite_de_10_e_pagina(client, monkeypatch, tmp_p
     assert "Item 9" not in pagina2
 
 
+def test_index_desativa_agrupamento_salvo_no_cookie(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": f"Faca {i}", "score": 100 - i, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [], "category": "Facas"}
+        for i in range(2)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agrupada = client.get("/?agrupar=1").data.decode("utf-8")
+
+    assert "Ver lista" in agrupada
+    assert "agrupar=0" in agrupada
+
+    resposta_lista = client.get("/?agrupar=0")
+    lista = resposta_lista.data.decode("utf-8")
+    assert "grupo-categoria" not in lista
+    assert "Agrupar por categoria" in lista
+    assert "pref_agrupar=0" in resposta_lista.headers.get("Set-Cookie", "")
+
+
 def test_changelog_page(client):
     resp = client.get("/changelog")
     assert resp.status_code == 200

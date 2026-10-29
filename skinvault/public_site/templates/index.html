@@ -167,7 +167,7 @@
           <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, agrupar=('1' if agrupar_sel else None), compacto=(None if compacto_sel else '1')) }}">
             {{ "Modo normal" if compacto_sel else "Modo compacto" }}
           </a>
-          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=(None if agrupar_sel else '1')) }}">
+          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('0' if agrupar_sel else '1')) }}">
             {{ "Ver lista" if agrupar_sel else "Agrupar por categoria" }}
           </a>
           <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), minimalista=(None if minimalista_sel else '1')) }}">
