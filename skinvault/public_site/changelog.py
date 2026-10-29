@@ -19,6 +19,8 @@ ENTRADAS = [
             "que iniciou o acesso",
             "Documentação da API atualizada com o limite de consultas "
             "e um exemplo fiel à resposta atual",
+            "Tabela mais larga em telas grandes; a coluna 'Por quê' "
+            "resume os dois primeiros fatores e permite abrir o restante",
         ],
     },
     {

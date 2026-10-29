@@ -61,6 +61,25 @@ def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
     assert "85" in body
 
 
+def test_index_resume_dois_motivos_e_preserva_fatores_completos(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item de teste", "score": 85, "price": 50.0,
+         "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [
+             {"factor": "um", "delta": 20, "label": "Preço baixo"},
+             {"factor": "dois", "delta": 15, "label": "Boa liquidez"},
+             {"factor": "tres", "delta": 10, "label": "Caixa descontinuada"},
+         ]},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+
+    assert '<main id="conteudo" class="pagina-inicial">' in body
+    assert '<span class="texto-motivo">Preço baixo; Boa liquidez</span>' in body
+    assert "<li class=\"delta-positivo\">Caixa descontinuada</li>" in body
+
+
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
     """Garantia estrutural: nenhuma rota de server.py importa steam_api."""
     import skinvault.public_site.server as srv
@@ -423,6 +442,7 @@ def test_changelog_page(client):
     assert "2026-10-25" in body
     assert "Formulários e documentação mais claros" in body
     assert "retorno pertence à sessão" in body
+    assert "Tabela mais larga em telas grandes" in body
 
 
 def test_api_docs_page(client):

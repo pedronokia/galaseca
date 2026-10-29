@@ -76,7 +76,7 @@
     <td>
       <details class="detalhe-motivo">
         <summary>
-          <span class="texto-motivo">{{ c.reasons|join("; ") if c.reasons else "Nota neutra: nenhum fator se destacou" }}</span>
+          <span class="texto-motivo">{{ c.reasons[:2]|join("; ") if c.reasons else "Nota neutra: nenhum fator se destacou" }}</span>
           {% if c.breakdown %}<span class="dica-expandir" aria-hidden="true">ver mais ▾</span>{% endif %}
         </summary>
         {% if c.breakdown %}
@@ -118,7 +118,7 @@
     </div>
   </header>
 
-  <main id="conteudo">
+  <main id="conteudo" class="pagina-inicial">
     {% if scan %}
       <p class="status">Último scan: {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).{% if proximo_scan %} <span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">Próxima atualização: {{ proximo_scan }}.</span>{% endif %}</p>
       {% if scan_desatualizado %}

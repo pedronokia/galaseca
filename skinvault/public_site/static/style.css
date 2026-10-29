@@ -450,27 +450,18 @@ table.tabela-itens {
 
 .detalhe-motivo summary::-webkit-details-marker { display: none; }
 
-/* Clampa em 2 linhas com reticências quando fechado -- sem isso, um
-   "Por quê" de 4-5 fatores virava um parágrafo de 5+ linhas, esticando
-   a linha inteira da tabela bem além do que as outras colunas
-   precisam (achado visual, 2026-10-27: deixava a tabela com um ritmo
-   vertical bem irregular, cada linha com uma altura bem diferente).
-   O texto completo continua um clique de distância -- é um <details>,
-   não está escondido de verdade. O clamp vai no <span> interno
-   (.texto-motivo), não no summary direto, pra sobrar espaço pra
-   .dica-expandir aparecer sempre fora do corte de 4 linhas (2026-10-27:
-   um <summary> com reticências e nada mais parecia texto estático,
-   sem nenhum indício de que dava pra clicar).
+/* O resumo mostra até dois motivos e fica limitado a duas linhas; o
+   link "ver mais" sinaliza que a explicação completa pode ser aberta.
+   O breakdown dentro do <details> continua listando todos os fatores. */
+@media (min-width: 641px) {
+  main.pagina-inicial {
+    max-width: 1280px;
+  }
+}
 
-   Clamp é 3 (não 4) de propósito: a linha do .dica-expandir soma +1
-   linha de altura por cima do clamp -- com 4+1 a coluna "Por quê"
-   ficava mais alta que as outras da mesma linha (checkbox/nome/ícones
-   da coluna Item, por exemplo), abrindo um vão vazio visível embaixo
-   delas (achado ao vivo, mesmo dia, depois do deploy do .dica-expandir).
-   3+1 devolve a altura de linha que a tabela já tinha antes dele. */
 .detalhe-motivo:not([open]) .texto-motivo {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
