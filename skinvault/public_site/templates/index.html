@@ -216,14 +216,15 @@
       </tbody>
     </table>
     </div>
-
+    {% endif %}
+    {% if candidatos %}
     <nav class="paginacao">
       {% if tem_pagina_anterior %}
-        <a id="link-pagina-anterior" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina-1) }}" title="Atalho: seta esquerda">← Página anterior</a>
+        <a id="link-pagina-anterior" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), pagina=pagina-1) }}" title="Atalho: seta esquerda">← Página anterior</a>
       {% endif %}
       <span class="status-muted">Página {{ pagina }} · {{ total_candidatos }} candidato{{ "s" if total_candidatos != 1 else "" }} no total</span>
       {% if tem_proxima_pagina %}
-        <a id="link-pagina-seguinte" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), pagina=pagina+1) }}" title="Atalho: seta direita">Ver mais →</a>
+        <a id="link-pagina-seguinte" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), pagina=pagina+1) }}" title="Atalho: seta direita">Ver mais →</a>
       {% endif %}
     </nav>
     {% elif scan %}

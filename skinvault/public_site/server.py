@@ -257,16 +257,8 @@ def create_app() -> Flask:
             scan, categoria, nota_min, preco_max, busca, ordenar,
             com_historico=False)
         inicio = (pagina - 1) * _PAGINA_TAMANHO
-        # Histórico (tendência/sparkline) só pra quem vai aparecer de
-        # verdade: a página atual (10 itens) ou, no modo agrupado, todo
-        # mundo -- porque ali não tem paginação, todos os candidatos
-        # filtrados aparecem de uma vez.
-        if agrupar:
-            _enriquecer_com_historico(todos)
-            candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
-        else:
-            candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
-            _enriquecer_com_historico(candidatos_pagina)
+        candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
+        _enriquecer_com_historico(candidatos_pagina)
         intervalo_horas = float(os.environ.get(
             "SKINVAULT_WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
         # Banner de "dado pode estar desatualizado" -- pedido depois do
@@ -279,7 +271,7 @@ def create_app() -> Flask:
         resp = make_response(render_template(
             "index.html",
             candidatos=candidatos_pagina,
-            grupos=_agrupar_por_categoria(todos) if agrupar else None,
+            grupos=_agrupar_por_categoria(candidatos_pagina) if agrupar else None,
             scan=scan,
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
             proximo_scan=(scan_store.proxima_txt(scan["ts"], intervalo_horas)
@@ -1040,7 +1032,7 @@ def _sparkline_do_historico(hist: list) -> str:
 def _enriquecer_com_historico(candidatos: list[dict]) -> None:
     """Preenche `tendencia`/`sparkline` -- feito à parte de
     `_candidatos_filtrados` (acima) de propósito: ler o histórico de
-    TODOS os candidatos (até ~150) quando só 20 aparecem na página é
+    TODOS os candidatos (até ~150) quando só 10 aparecem na página é
     caro à toa (2 leituras de disco por item, uma pra cada campo, antes
     desta função existir). Só chamar com a fatia que vai renderizar de
     verdade (a página atual, ou o grupo aberto)."""

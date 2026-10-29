@@ -375,6 +375,27 @@ def test_index_agrupar_por_categoria(client, monkeypatch, tmp_path):
     assert "Luva B" in body
 
 
+def test_index_agrupar_respeita_limite_de_10_e_pagina(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": f"Item {i}", "score": 100 - i, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [], "category": "Facas"}
+        for i in range(15)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    pagina1 = client.get("/?agrupar=1").data.decode("utf-8")
+    pagina2 = client.get("/?agrupar=1&pagina=2").data.decode("utf-8")
+
+    assert "Item 9" in pagina1
+    assert "Item 10" not in pagina1
+    assert "Facas (10)" in pagina1
+    assert "Ver mais" in pagina1
+    assert "agrupar=1" in pagina1
+    assert "Item 10" in pagina2
+    assert "Item 14" in pagina2
+    assert "Item 9" not in pagina2
+
+
 def test_changelog_page(client):
     resp = client.get("/changelog")
     assert resp.status_code == 200
@@ -2042,7 +2063,7 @@ def test_enriquecer_com_historico_preenche_campos(monkeypatch):
 
 
 def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
-    """152 candidatos, só 20 por página -- load_item_history não pode
+    """152 candidatos, só 10 por página -- load_item_history não pode
     ser chamado mais que o necessário pra essa página (acrescido de uma
     pequena folga, caso algum outro ponto do request chame por outro
     motivo)."""
@@ -2062,7 +2083,7 @@ def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
         "skinvault.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/")
     assert resp.status_code == 200
-    assert len(chamadas) <= 25  # pagina de 20 + folga, nunca os 152
+    assert len(chamadas) <= 15  # página de 10 + folga, nunca os 152
 
 
 def test_item_detail_nao_calcula_historico_dos_outros_candidatos(client, monkeypatch, tmp_path):
