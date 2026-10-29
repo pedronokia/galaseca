@@ -51,3 +51,17 @@ jobs:
           curl -sf "https://${{ secrets.SITE_DOMAIN }}/healthz" | grep -q '"ok": *true' \
             && echo "OK: /healthz respondeu" \
             || (echo "FALHOU: /healthz não respondeu como esperado" && exit 1)
+
+      - name: Atualiza o worker quando o commit solicitar
+        if: ${{ contains(github.event.workflow_run.head_commit.message, '[restart-worker]') }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: opc
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            cd ~/skinvault
+            # Reiniciar o worker inicia um scan completo imediatamente.
+            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
+              -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
+              up --build -d worker
