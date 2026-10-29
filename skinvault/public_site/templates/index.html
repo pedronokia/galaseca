@@ -56,10 +56,10 @@
       </div>
       <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" aria-label="Sua nota pessoal sobre {{ c.name_fmt }}, salva só neste navegador" maxlength="60" hidden>
     </td>
-    <td>
+    <td class="celula-preco">
       {{ c.price_fmt }}
-      {% if c.tendencia == "alta" %}<span class="icone-tendencia tendencia-alta" title="Preço subiu desde o scan anterior" aria-label="Preço subiu desde o scan anterior">▲</span>
-      {% elif c.tendencia == "baixa" %}<span class="icone-tendencia tendencia-baixa" title="Preço caiu desde o scan anterior" aria-label="Preço caiu desde o scan anterior">▼</span>{% endif %}
+      {% if c.tendencia == "alta" %}<span class="icone-tendencia tendencia-alta" title="Preço subiu desde o scan anterior" aria-label="Preço subiu desde o scan anterior"><span aria-hidden="true">▲</span> Subiu</span>
+      {% elif c.tendencia == "baixa" %}<span class="icone-tendencia tendencia-baixa" title="Preço caiu desde o scan anterior" aria-label="Preço caiu desde o scan anterior"><span aria-hidden="true">▼</span> Caiu</span>{% endif %}
     </td>
     <td class="celula-sparkline">{{ c.sparkline|safe if c.sparkline else "—" }}</td>
     <td class="nota nota-{{ c.score|nota_classe }}">{{ c.score }}</td>
@@ -71,7 +71,7 @@
       {% endif %}
     </td>
     <td class="risco risco-{{ c.pump_risk|risco_nivel }}">
-      {{ c.pump_risk|risco_label }}
+      <span class="selo-risco" aria-label="Risco {{ c.pump_risk|risco_label|lower }}" title="Indica a possibilidade de uma alta rápida e artificial do preço.">{{ c.pump_risk|risco_label }}</span>
     </td>
     <td>
       <details class="detalhe-motivo">
@@ -104,7 +104,7 @@
     <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
     <th title="Menor preço anunciado agora no Steam Market" aria-sort="{{ 'ascending' if ordenar_sel == 'preco' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
     <th class="celula-sparkline" title="Preço nos últimos pontos registrados -- mesmo histórico da página de detalhe">Histórico</th>
-    <th title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)" aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='nota') }}">Nota {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
+    <th class="cabecalho-nota" title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.)" aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='nota') }}">Nota (0–100) {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
     <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
     <th title="Chance de o preço ter subido rápido e artificialmente (menos confiável de confiar numa alta assim)">Risco</th>
     <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
@@ -134,6 +134,19 @@
       <p class="status status-vazio">Ainda não há nenhum scan salvo. Volte em breve.</p>
     {% endif %}
 
+    {% macro url_sem_filtro(remover) -%}
+      {{ url_for('index',
+          categoria=(None if remover == 'categoria' else categoria_sel),
+          nota_min=(None if remover == 'nota_min' else nota_min_sel),
+          preco_max=(None if remover == 'preco_max' else preco_max_sel),
+          q=(None if remover == 'q' else busca_sel),
+          ordenar=ordenar_sel,
+          compacto=('1' if compacto_sel else None),
+          agrupar=('1' if agrupar_sel else None),
+          minimalista=('1' if minimalista_sel else None),
+          apresentacao=('1' if apresentacao_sel else None)) }}
+    {%- endmacro %}
+
     <form class="form-filtros" method="get" action="{{ url_for('index') }}">
       <label>Buscar
         <input type="text" name="q" id="campo-busca" placeholder="Ex.: AK-47 | Redline (atalho: /)" value="{{ busca_sel or '' }}">
@@ -158,9 +171,6 @@
       {% if compacto_sel %}<input type="hidden" name="compacto" value="1">{% endif %}
       {% if agrupar_sel %}<input type="hidden" name="agrupar" value="1">{% endif %}
       <button type="submit">Filtrar</button>
-      {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none or busca_sel %}
-        <a class="botao-link" href="{{ url_for('index') }}">Limpar filtros</a>
-      {% endif %}
       <button type="button" id="botao-favoritos" class="botao-link" title="Mostrar só os itens que você favoritou (só neste navegador) -- atalho: f">
         <span id="texto-botao-favoritos">☆ Só favoritos</span> <span id="contagem-favoritos" class="contagem-favoritos" hidden>0</span>
       </button>
@@ -195,6 +205,37 @@
       </div>
     </form>
 
+    {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none or busca_sel %}
+    <nav class="filtros-ativos" aria-label="Filtros aplicados">
+      <span class="filtros-ativos-titulo">Filtrando por:</span>
+      {% if busca_sel %}
+      <a class="chip-filtro" data-filtro="q" href="{{ url_sem_filtro('q') }}" aria-label="Remover filtro de busca: {{ busca_sel }}">
+        Busca: {{ busca_sel }} <span aria-hidden="true">×</span>
+      </a>
+      {% endif %}
+      {% if categoria_sel %}
+      <a class="chip-filtro" data-filtro="categoria" href="{{ url_sem_filtro('categoria') }}" aria-label="Remover filtro de categoria: {{ categoria_sel }}">
+        Categoria: {{ categoria_sel }} <span aria-hidden="true">×</span>
+      </a>
+      {% endif %}
+      {% if nota_min_sel is not none %}
+      <a class="chip-filtro" data-filtro="nota_min" href="{{ url_sem_filtro('nota_min') }}" aria-label="Remover nota mínima de {{ nota_min_sel|int }}">
+        Nota mínima: {{ nota_min_sel|int }} <span aria-hidden="true">×</span>
+      </a>
+      {% endif %}
+      {% if preco_max_sel is not none %}
+      <a class="chip-filtro" data-filtro="preco_max" href="{{ url_sem_filtro('preco_max') }}" aria-label="Remover preço máximo">
+        Preço máximo: R$ {{ "%.2f"|format(preco_max_sel)|replace(".", ",") }} <span aria-hidden="true">×</span>
+      </a>
+      {% endif %}
+      <a id="limpar-filtros-ativos" class="botao-link" href="{{ url_for('index', ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), minimalista=('1' if minimalista_sel else None), apresentacao=('1' if apresentacao_sel else None)) }}">Limpar todos</a>
+    </nav>
+    {% endif %}
+
+    {% if candidatos %}
+    <p class="ajuda-nota">A nota resume fatores observados, não é promessa nem previsão de lucro. Risco indica a possibilidade de uma alta rápida e artificial no preço.</p>
+    {% endif %}
+
     {% if candidatos %}
     <p class="dica-rolagem-tabela">Deslize a tabela para ver as demais colunas.</p>
     {% endif %}
@@ -209,7 +250,7 @@
         <summary>{{ categoria_nome }} ({{ itens|length }})</summary>
         <div class="tabela-wrap">
         <table class="tabela-candidatos tabela-itens">{{ colgroup_itens() }}
-          <thead>{{ cabecalho_tabela() }}</thead>
+          <thead class="cabecalho-fixo">{{ cabecalho_tabela() }}</thead>
           <tbody>
             {% for c in itens %}{{ linha_candidato(c) }}{% endfor %}
           </tbody>
@@ -220,7 +261,7 @@
     {% elif candidatos %}
     <div class="tabela-wrap">
     <table class="tabela-candidatos tabela-itens">{{ colgroup_itens() }}
-      <thead>{{ cabecalho_tabela() }}</thead>
+      <thead class="cabecalho-fixo">{{ cabecalho_tabela() }}</thead>
       <tbody>
         {% for c in candidatos %}{{ linha_candidato(c, pagina == 1 and loop.first) }}{% endfor %}
       </tbody>
@@ -238,7 +279,7 @@
       {% endif %}
     </nav>
     {% elif scan %}
-      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index') }}">Limpar filtros</a>.</p>
+      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), minimalista=('1' if minimalista_sel else None), apresentacao=('1' if apresentacao_sel else None)) }}">Limpar filtros</a>.</p>
     {% else %}
       <p class="status status-vazio">Nenhum candidato no momento.</p>
     {% endif %}

@@ -319,6 +319,61 @@ main {
   box-shadow: var(--shadow-sm);
 }
 
+.filtros-ativos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.filtros-ativos-titulo {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.chip-filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 10px;
+  color: var(--text-bright);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+
+.chip-filtro:hover {
+  background: var(--surface-hover);
+  text-decoration: none;
+}
+
+.chip-filtro span {
+  color: var(--accent-bright);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ajuda-nota {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.selo-risco {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .tabela-wrap {
   overflow-x: auto;
 }
@@ -349,6 +404,24 @@ table.tabela-candidatos th {
   font-size: 0.72rem;
   letter-spacing: 0.05em;
   background: var(--bg);
+}
+
+@media (min-width: 1024px) {
+  .pagina-inicial .tabela-wrap,
+  .pagina-inicial table.tabela-candidatos,
+  .pagina-inicial .grupo-categoria {
+    overflow: visible;
+  }
+
+  table.tabela-itens thead.cabecalho-fixo th {
+    position: sticky;
+    top: 108px;
+    z-index: 20;
+    box-shadow: 0 1px 0 var(--border);
+  }
+
+  table.tabela-itens thead th:first-child { border-top-left-radius: var(--radius-sm); }
+  table.tabela-itens thead th:last-child { border-top-right-radius: var(--radius-sm); }
 }
 
 table.tabela-candidatos tbody tr:last-child td {
@@ -389,13 +462,15 @@ table.tabela-itens {
    nenhuma largura declarada caía pra distribuição ~igual entre colunas
    -- o nome do item (coluna mais importante) ficava espremido a ponto
    de truncar pra "P…" com qualquer nome um pouco mais longo. */
-.col-item { width: 28%; }
+.col-item { width: 27%; }
 .col-preco { width: 9%; }
 .col-historico { width: 12%; }
-.col-nota { width: 7%; }
+.col-nota { width: 8%; }
 .col-caixa { width: 18%; }
 .col-risco { width: 8%; }
 .col-porque { width: 18%; }
+
+table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
 
 .celula-item {
   display: block;
@@ -549,8 +624,19 @@ table.tabela-itens {
 }
 
 .icone-tendencia {
-  font-size: 0.8rem;
-  margin-left: 4px;
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+table.tabela-candidatos td.celula-preco {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.celula-preco .icone-tendencia {
+  text-align: right;
 }
 
 /* ── Links secundários (SteamDB) ──────────────────────── */

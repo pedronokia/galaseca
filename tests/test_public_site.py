@@ -5,7 +5,10 @@ testes de `worker.py` mockam `scan_engine.run_full_scan`.
 """
 from __future__ import annotations
 
+import html
+import re
 import time
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 from werkzeug.security import generate_password_hash
@@ -61,6 +64,23 @@ def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
     assert "85" in body
 
 
+def test_index_explicita_escala_da_nota_e_rotulo_textual_de_risco(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85, "price": 50.0,
+         "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 20,
+                       "label": "Preço baixo (+20)"}]},
+    ])
+    body = client.get("/").data.decode("utf-8")
+
+    assert "Nota (0\u2013100)" in body
+    assert "não é promessa nem previsão de lucro" in body
+    assert "Risco indica a possibilidade de uma alta rápida e artificial" in body
+    assert 'class="selo-risco" aria-label="Risco baixo"' in body
+    assert ">Baixo</span>" in body
+
+
 def test_index_resume_dois_motivos_e_preserva_fatores_completos(
         client, monkeypatch, tmp_path):
     resultados = [
@@ -91,6 +111,55 @@ def test_index_organiza_filtros_no_celular_e_avisa_rolagem_da_tabela(
 
     assert '<div class="filtros-numericos">' in body
     assert "Deslize a tabela para ver as demais colunas." in body
+
+
+def test_index_marca_cabecalho_para_fixacao_no_desktop(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 20,
+                       "label": "Preço baixo (+20)"}]},
+    ])
+    body = client.get("/").data.decode("utf-8")
+
+    assert '<thead class="cabecalho-fixo">' in body
+
+
+def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80,
+         "price": 10.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    body = client.get(
+        "/?categoria=Facas&nota_min=70&preco_max=20&q=AK-47"
+        "&ordenar=preco&compacto=1&agrupar=1&minimalista=1&pagina=2").data.decode()
+    hrefs = {
+        filtro: parse_qs(urlsplit(html.unescape(href)).query)
+        for filtro, href in re.findall(
+            r'<a class="chip-filtro" data-filtro="([^"]+)" href="([^"]+)"',
+            body)
+    }
+
+    assert set(hrefs) == {"categoria", "nota_min", "preco_max", "q"}
+    for filtro, query in hrefs.items():
+        assert filtro not in query
+        assert query["ordenar"] == ["preco"]
+        assert query["compacto"] == ["1"]
+        assert query["agrupar"] == ["1"]
+        assert query["minimalista"] == ["1"]
+        assert "pagina" not in query
+    assert hrefs["categoria"]["nota_min"] == ["70.0"]
+    assert hrefs["categoria"]["preco_max"] == ["20.0"]
+    assert hrefs["categoria"]["q"] == ["AK-47"]
+
+    limpar = re.search(
+        r'<a[^>]*id="limpar-filtros-ativos"[^>]*href="([^"]+)"', body)
+    assert limpar
+    query_limpa = parse_qs(urlsplit(html.unescape(limpar.group(1))).query)
+    assert set(query_limpa) == {"ordenar", "compacto", "agrupar", "minimalista"}
 
 
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
@@ -492,15 +561,21 @@ def test_rodape_nao_afirma_data_futura(client):
 # ── server: rodada final (tendência/ranking/método/health/etc) ──
 
 def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
+    def marca_tendencia_alta(candidatos):
+        for candidato in candidatos:
+            candidato["tendencia"] = "alta"
+
     monkeypatch.setattr(
-        "skinvault.public_site.server.signals.load_item_history",
-        lambda name: [{"ts": 1, "price": 10.0}, {"ts": 2, "price": 20.0}])
+        "skinvault.public_site.server._enriquecer_com_historico",
+        marca_tendencia_alta)
     _salva_scan(tmp_path, monkeypatch, [
-        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
     body = client.get("/").data.decode("utf-8")
     assert "tendencia-alta" in body
+    assert "> Subiu</span>" in body
+    assert "class=\"celula-preco\"" in body
 
 
 def test_index_sem_historico_nao_mostra_tendencia(client, monkeypatch, tmp_path):

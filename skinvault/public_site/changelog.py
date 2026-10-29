@@ -9,6 +9,17 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-10-29",
+        "titulo": "Mais clareza na página de recomendações",
+        "itens": [
+            "O estado dos dados deixa mais claro quando a coleta está atrasada",
+            "Filtros ativos podem ser removidos separadamente sem perder os demais",
+            "Preços ficam alinhados e a tendência também aparece por escrito",
+            "A nota e o risco ganharam explicações visíveis",
+            "O cabeçalho da tabela acompanha a rolagem em telas grandes",
+        ],
+    },
+    {
+        "data": "2026-10-29",
         "titulo": "Filtros mais compactos no celular",
         "itens": [
             "Nota mínima e preço máximo agora aparecem lado a lado "
