@@ -74,7 +74,7 @@ def test_index_exibe_miniatura_e_separa_acoes_do_nome(
 
     body = client.get("/").data.decode("utf-8")
     celula = re.search(
-        r'<td class="celula-item">(.*?)</td>', body, re.DOTALL).group(1)
+        r'<td class="celula-item"[^>]*>(.*?)</td>', body, re.DOTALL).group(1)
     principal = re.search(
         r'<div class="celula-item-principal">(.*?)</div>',
         celula, re.DOTALL).group(1)
@@ -104,7 +104,7 @@ def test_index_reserva_espaco_da_miniatura_sem_hash(
 
     body = client.get("/").data.decode("utf-8")
     celula = re.search(
-        r'<td class="celula-item">(.*?)</td>', body, re.DOTALL).group(1)
+        r'<td class="celula-item"[^>]*>(.*?)</td>', body, re.DOTALL).group(1)
 
     assert 'class="icone-item-quadro"' in celula
     assert 'class="icone-item-placeholder"' in celula
@@ -158,7 +158,35 @@ def test_index_organiza_filtros_no_celular_e_avisa_rolagem_da_tabela(
     body = client.get("/").data.decode("utf-8")
 
     assert '<div class="filtros-numericos">' in body
-    assert "Deslize a tabela para ver as demais colunas." in body
+    assert "Em telas menores, cada item vira um cartão" in body
+
+
+def test_index_exibe_cartoes_mobile_com_rotulos_e_historico_acessivel(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "Caixa de teste",
+         "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 20,
+                       "label": "Preço abaixo do típico"}]},
+    ])
+    monkeypatch.setattr(signals, "load_item_history", lambda name: [
+        {"ts": "2026-10-28T12:00:00", "price": 48.0},
+        {"ts": "2026-10-29T12:00:00", "price": 50.0},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    css = (client.application.root_path
+           + "/static/style.css")
+    from pathlib import Path
+    css_text = Path(css).read_text(encoding="utf-8")
+
+    for label in ("Item", "Preço", "Histórico", "Nota", "Caixa/Cápsula",
+                  "Risco", "Por quê"):
+        assert f'data-label="{label}"' in body
+    assert "Em telas menores, cada item vira um cartão" in body
+    assert 'aria-label="Ver histórico completo de AK-47 | Redline (Testada em Campo)"' in body
+    assert ".pagina-inicial table.tabela-itens tbody tr" in css_text
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in css_text
 
 
 def test_index_marca_cabecalho_para_fixacao_no_desktop(
@@ -2320,3 +2348,30 @@ def test_comparar_so_enriquece_os_itens_comparados(client, monkeypatch, tmp_path
     resp = client.get("/comparar?nomes=Item 000,Item 001,Item 002")
     assert resp.status_code == 200
     assert len(chamadas) <= 3  # só os 3 itens comparados, nunca os 152
+
+
+def test_index_explica_categoria_sem_coleta(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "category": "Rifles", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ], category="Rifles")
+    body = client.get("/?categoria=Facas").data.decode("utf-8")
+
+    assert "A categoria Facas ainda não tem itens coletados" in body
+    assert "Nenhum candidato com esses filtros" not in body
+    assert "Facas (sem dados ainda)" in body
+
+
+def test_item_detail_nao_repete_motivos(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 20,
+                       "label": "Preço 18% abaixo do típico (+20)"}]},
+    ])
+    body = client.get("/item/AK-47 | Redline (Field-Tested)").data.decode(
+        "utf-8")
+    main = body[body.index("<main"):]
+
+    assert main.count("Preço 18% abaixo do típico (+20)") == 1

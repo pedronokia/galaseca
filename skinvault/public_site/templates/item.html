@@ -98,7 +98,9 @@
     {% endif %}
 
     <h2 class="secao-titulo">Por quê</h2>
+    {% if not item.breakdown %}
     <p>{{ item.reasons|join("; ") if item.reasons else "Nota neutra: nenhum fator se destacou" }}</p>
+    {% endif %}
     {% if item.breakdown %}
     <ul class="lista-breakdown">
       {% for b in item.breakdown %}

@@ -1407,3 +1407,20 @@ def test_enhanced_score_pump_v3_low_sem_penalty():
     v = {"verdict": "fair", "diff_pct": 0}
     _, breakdown = signals.enhanced_score(v, price_history=ph)
     assert not any(b["factor"] == "pump_risk" for b in breakdown)
+
+
+def test_enhanced_score_rotulos_legiveis_para_iniciante():
+    from skinvault.signals import enhanced_score
+    verdict = {"diff_pct": -10, "verdict": "below_median"}
+    _, bd_caixa = enhanced_score(
+        verdict, volume=21148, case_status={"is_discontinued": True},
+        is_container=True)
+    _, bd_skin = enhanced_score(
+        verdict, case_status={"is_discontinued": True})
+    rotulos = [b["label"] for b in bd_caixa]
+
+    assert "Muito negociado: 21.148 vendas em 24h (+5)" in rotulos
+    assert "Não sai mais no jogo (+5)" in rotulos
+    assert "Bônus por estar 5% ou mais abaixo do típico (+5)" in rotulos
+    assert "Vem de caixa que não sai mais no jogo (+5)" in [
+        b["label"] for b in bd_skin]

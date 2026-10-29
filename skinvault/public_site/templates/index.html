@@ -35,7 +35,7 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   {% macro linha_candidato(c, destaque=false) %}
   <tr class="{{ "linha-destaque" if destaque else "" }}" data-nome="{{ c.name }}" data-nota="{{ c.score }}">
-    <td class="celula-item">
+    <td class="celula-item" data-label="Item">
       <div class="celula-item-principal">
         <span class="icone-item-quadro" aria-hidden="true">
           <span class="icone-item-placeholder"></span>
@@ -66,24 +66,30 @@
       </div>
       <input type="text" class="input-tag-local" data-item="{{ c.name }}" placeholder="sua nota (só neste navegador)" aria-label="Sua nota pessoal sobre {{ c.name_fmt }}, salva só neste navegador" maxlength="60" hidden>
     </td>
-    <td class="celula-preco">
+    <td class="celula-preco" data-label="Preço">
       {{ c.price_fmt }}
       {% if c.tendencia == "alta" %}<span class="icone-tendencia tendencia-alta" title="Preço subiu desde o scan anterior" aria-label="Preço subiu desde o scan anterior"><span aria-hidden="true">▲</span> Subiu</span>
       {% elif c.tendencia == "baixa" %}<span class="icone-tendencia tendencia-baixa" title="Preço caiu desde o scan anterior" aria-label="Preço caiu desde o scan anterior"><span aria-hidden="true">▼</span> Caiu</span>{% endif %}
     </td>
-    <td class="celula-sparkline">{{ c.sparkline|safe if c.sparkline else "—" }}</td>
-    <td class="nota nota-{{ c.score|nota_classe }}">{{ c.score }}</td>
-    <td>
+    <td class="celula-sparkline" data-label="Histórico">
+      {% if c.sparkline %}
+      <a class="link-historico" href="{{ url_for('item_detail', name=c.name) }}" aria-label="Ver histórico completo de {{ c.name_fmt }}" title="Abrir datas e preços do histórico completo">{{ c.sparkline|safe }}</a>
+      {% else %}
+      <span aria-label="Histórico indisponível">—</span>
+      {% endif %}
+    </td>
+    <td class="nota nota-{{ c.score|nota_classe }}" data-label="Nota">{{ c.score }}</td>
+    <td data-label="Caixa/Cápsula">
       {% if c.descontinuada %}
         <span class="selo-descontinuada" title="{{ c.case_label }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label }}</span>
       {% else %}
         <span class="texto-caixa" title="{{ c.case_label }}">{{ c.case_label or "—" }}</span>
       {% endif %}
     </td>
-    <td class="risco risco-{{ c.pump_risk|risco_nivel }}">
+    <td class="risco risco-{{ c.pump_risk|risco_nivel }}" data-label="Risco">
       <span class="selo-risco" aria-label="Risco {{ c.pump_risk|risco_label|lower }}" title="Indica a possibilidade de uma alta rápida e artificial do preço.">{{ c.pump_risk|risco_label }}</span>
     </td>
-    <td>
+    <td data-label="Por quê">
       <details class="detalhe-motivo">
         <summary>
           <span class="texto-motivo">{{ c.reasons[:1]|join if c.reasons else "Nota neutra: nenhum fator se destacou" }}</span>
@@ -165,7 +171,7 @@
         <select name="categoria">
           <option value="">Todas</option>
           {% for cat in categorias %}
-          <option value="{{ cat }}" {{ "selected" if cat == categoria_sel else "" }}>{{ cat }}{{ " (" ~ contagem_categorias.get(cat, 0) ~ ")" if contagem_categorias.get(cat) else "" }}</option>
+          <option value="{{ cat }}" {{ "selected" if cat == categoria_sel else "" }}>{{ cat }}{{ " (" ~ contagem_categorias.get(cat, 0) ~ ")" if contagem_categorias.get(cat) else " (sem dados ainda)" }}</option>
           {% endfor %}
         </select>
       </label>
@@ -247,7 +253,7 @@
     {% endif %}
 
     {% if candidatos %}
-    <p class="dica-rolagem-tabela">Deslize a tabela para ver as demais colunas.</p>
+    <p class="dica-rolagem-tabela">Em telas menores, cada item vira um cartão ou a tabela pode ser rolada.</p>
     {% endif %}
 
     <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>
@@ -288,8 +294,10 @@
         <a id="link-pagina-seguinte" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), pagina=pagina+1) }}" title="Atalho: seta direita">Ver mais →</a>
       {% endif %}
     </nav>
+    {% elif scan and categoria_sel and not contagem_categorias.get(categoria_sel) %}
+      <p class="status status-vazio">A categoria {{ categoria_sel }} ainda não tem itens coletados. A coleta atual cobre só as categorias com número ao lado do nome no filtro. <a href="{{ url_for('index') }}">Ver todas as categorias</a></p>
     {% elif scan %}
-      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), minimalista=('1' if minimalista_sel else None), apresentacao=('1' if apresentacao_sel else None)) }}">Limpar filtros</a>.</p>
+      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), minimalista=('1' if minimalista_sel else None), apresentacao=('1' if apresentacao_sel else None)) }}">Limpar filtros</a></p>
     {% else %}
       <p class="status status-vazio">Nenhum candidato no momento.</p>
     {% endif %}

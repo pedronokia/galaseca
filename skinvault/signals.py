@@ -1090,7 +1090,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
 
     v = verdict.get("verdict", "")
     if v == "below_median":
-        _add("verdict", 5, "Abaixo do preço típico (+5)")
+        _add("verdict", 5, "Bônus por estar 5% ou mais abaixo do típico (+5)")
     elif v == "overpriced":
         _add("verdict", -5, "Bem acima do preço típico (-5)")
 
@@ -1207,7 +1207,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     # Bonus de volume
     if volume is not None and volume > 2000:
         _add("liquidity", 5,
-             f"Muito negociado: {int(volume)} vendas em 24h (+5)")
+             f"Muito negociado: {int(volume):,} vendas em 24h (+5)".replace(",", "."))
 
     # Distancia ao ATH historico — UNIVERSAL (skins + containers).
     # Inicialmente testado so' para containers apos investigacao do Clutch Case.
@@ -1262,7 +1262,8 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     # com retorno 365d ja observado.
     if case_status:
         if case_status.get("is_discontinued"):
-            _add("case", 5, "Caixa que não sai mais no jogo (+5)")
+            _add("case", 5, "Não sai mais no jogo (+5)" if is_container
+                 else "Vem de caixa que não sai mais no jogo (+5)")
         elif case_status.get("is_rare"):
             _add("case", 3, "Caixa rara (+3)")
 

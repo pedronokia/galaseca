@@ -361,7 +361,7 @@ main {
 .ajuda-nota {
   margin: 0 0 10px;
   color: var(--text);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .selo-risco {
@@ -387,6 +387,10 @@ table.tabela-candidatos {
   border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow: var(--shadow-md);
+}
+
+table.tabela-itens {
+  min-width: 860px;
 }
 
 table.tabela-candidatos th,
@@ -504,9 +508,9 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
   position: relative;
   display: grid;
   place-items: center;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
   overflow: hidden;
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
@@ -517,6 +521,12 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
   position: absolute;
   inset: 0;
   background: linear-gradient(135deg, var(--bg-elevated), var(--bg));
+}
+
+.icone-item-placeholder::before {
+  content: "◇";
+  color: var(--text-muted);
+  font-size: 1.4rem;
 }
 
 .icone-item {
@@ -639,7 +649,7 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
    "ver mais" sinaliza que a explicação completa pode ser aberta. */
 @media (min-width: 641px) {
   main.pagina-inicial {
-    max-width: 1280px;
+    max-width: 1440px;
   }
 }
 
@@ -856,6 +866,14 @@ table.tabela-candidatos tbody tr:hover .nota {
 .nota-alta { color: #0f1a06; background: var(--positive); }
 .nota-media { color: #2b1d04; background: var(--warn); }
 .nota-baixa { color: var(--text); background: var(--surface); }
+
+.link-historico {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 36px;
+  align-items: center;
+  border-radius: var(--radius-sm);
+}
 
 .risco-low { color: var(--text-muted); }
 .risco-medium { color: var(--warn); }
@@ -1343,8 +1361,8 @@ footer.rodape .versao {
 /* ── Modo compacto ────────────────────────────────────── */
 .modo-compacto table.tabela-candidatos th,
 .modo-compacto table.tabela-candidatos td {
-  padding: 5px 12px;
-  font-size: 0.82rem;
+  padding: 8px 12px;
+  font-size: 0.9rem;
 }
 
 .modo-compacto .icone-item {
@@ -1353,9 +1371,9 @@ footer.rodape .versao {
 }
 
 .modo-compacto .icone-item-quadro {
-  flex-basis: 24px;
-  width: 24px;
-  height: 24px;
+  flex-basis: 40px;
+  width: 40px;
+  height: 40px;
 }
 
 .modo-compacto .celula-item-principal {
@@ -1385,7 +1403,7 @@ footer.rodape .versao {
 .mini-sparkline {
   display: block;
   width: 110px;
-  height: 26px;
+  height: 32px;
   color: var(--accent);
 }
 
@@ -1658,28 +1676,104 @@ footer.rodape .versao {
     display: block;
     margin: -8px 0 10px;
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: 0.9rem;
   }
 
-  table.tabela-candidatos {
-    min-width: 540px;
+  .form-filtros input,
+  .form-filtros select,
+  .form-filtros button {
+    min-height: 44px;
   }
 
-  table.tabela-itens td.celula-item {
-    min-width: 190px;
+  .pagina-inicial .tabela-wrap {
+    overflow: visible;
   }
 
-  /* Sparkline ocupa espaço que falta em tela pequena -- o histórico
-     completo continua disponível na página de detalhe do item. */
-  .celula-sparkline { display: none; }
+  .pagina-inicial table.tabela-itens {
+    display: block;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+  }
 
-  /* Larguras travadas (ver regra desktop acima) presumem as 7 colunas
-     -- com uma escondida, volta pro auto pra não sobrar vão em branco. */
-  table.tabela-itens { table-layout: auto; }
+  .pagina-inicial table.tabela-itens colgroup,
+  .pagina-inicial table.tabela-itens thead {
+    display: none;
+  }
+
+  .pagina-inicial table.tabela-itens tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .pagina-inicial table.tabela-itens tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 12px;
+    padding: 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .pagina-inicial table.tabela-itens tbody td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    padding: 10px 8px;
+    border: 0;
+    font-size: 0.95rem;
+  }
+
+  .pagina-inicial table.tabela-itens tbody td::before {
+    content: attr(data-label);
+    margin-bottom: 4px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .pagina-inicial table.tabela-itens td.celula-item,
+  .pagina-inicial table.tabela-itens td[data-label="Por quê"] {
+    grid-column: 1 / -1;
+  }
+
+  .pagina-inicial table.tabela-itens .celula-item-principal {
+    align-items: center;
+  }
+
+  .pagina-inicial table.tabela-itens .celula-item-acoes {
+    margin-top: 8px;
+  }
+
+  .pagina-inicial table.tabela-itens .celula-sparkline {
+    display: flex;
+  }
+
+  .pagina-inicial table.tabela-itens .detalhe-motivo,
+  .pagina-inicial table.tabela-itens .texto-motivo {
+    max-width: 100%;
+  }
 
   .paginacao {
     flex-direction: column;
     gap: 8px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1023px) {
+  .dica-rolagem-tabela {
+    display: block;
+    margin: -8px 0 10px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
   }
 }
 
