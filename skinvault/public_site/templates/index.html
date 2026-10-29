@@ -81,9 +81,9 @@
     <td class="nota nota-{{ c.score|nota_classe }}" data-label="Nota">{{ c.score }}</td>
     <td data-label="Caixa/Cápsula">
       {% if c.descontinuada %}
-        <span class="selo-descontinuada" title="{{ c.case_label|rotulo_caixa }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label|rotulo_caixa }}</span>
+        <span class="selo-descontinuada" title="{{ c.case_label|rotulo_caixa(c.name) }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label|rotulo_caixa(c.name) }}</span>
       {% else %}
-        <span class="texto-caixa" title="{{ c.case_label|rotulo_caixa }}">{{ c.case_label|rotulo_caixa or "—" }}</span>
+        <span class="texto-caixa" title="{{ c.case_label|rotulo_caixa(c.name) }}">{{ c.case_label|rotulo_caixa(c.name) or "—" }}</span>
       {% endif %}
     </td>
     <td class="risco risco-{{ c.pump_risk|risco_nivel }}" data-label="Risco">
@@ -258,7 +258,10 @@
 
     <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>
 
-    <p id="msg-sem-favoritos" class="status status-vazio" hidden>Nenhum item favoritado nesta página ainda — clique na ☆ ao lado de um item pra favoritar.</p>
+    <div id="msg-sem-favoritos" class="status status-vazio" hidden>
+      <p id="texto-sem-favoritos">Nenhum item favoritado ainda — clique na ☆ ao lado de um item pra favoritar.</p>
+      <ul id="lista-favoritos-fora" class="lista-favoritos-fora" hidden></ul>
+    </div>
 
     {% if agrupar_sel and grupos %}
       {% for categoria_nome, itens in grupos %}

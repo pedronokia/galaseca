@@ -938,13 +938,22 @@ def _contagem_usuarios() -> int:
 _RISCO_LABELS = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
 
 
-def _rotulo_caixa(case_label: "str | None") -> str:
+def _rotulo_caixa(case_label: "str | None",
+                  item_name: "str | None" = None) -> str:
     """Traduz o nome da caixa em "X Case (descontinuada, 2014)" com o mesmo
     `localize_name` da coluna Item -- sem isso a linha mostrava "Caixa
-    CS:GO Weapon" no nome e "CS:GO Weapon Case" ao lado."""
+    CS:GO Weapon" no nome e "CS:GO Weapon Case" ao lado.
+
+    Com `item_name` igual à própria caixa/cápsula, devolve só o status
+    ("Descontinuada · lançada em 2024"): repetir o nome que já está na
+    coluna Item ocupava a célula sem dizer nada novo."""
     if not case_label:
         return ""
     nome, sep, resto = case_label.partition(" (")
+    if item_name and nome == item_name and resto:
+        status, _, ano = resto.rstrip(")").partition(", ")
+        texto = status[:1].upper() + status[1:]
+        return f"{texto} · lançada em {ano}" if ano else texto
     return localize_name(nome) + sep + resto
 
 

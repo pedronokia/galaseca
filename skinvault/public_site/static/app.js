@@ -138,6 +138,34 @@ document.addEventListener("keydown", function (e) {
   }
   try { aplicarEstadoInicial(); } catch (e) {}
 
+  // Favoritos ficam no navegador e a página mostra só 10 itens: com o
+  // contador em "1" e nada na tela, a mensagem antiga ("nenhum item
+  // favoritado") contradizia o próprio contador. Lista os que estão em
+  // outras páginas, com link pro detalhe de cada um.
+  function mostrarFavoritosFora(nomes) {
+    var texto = document.getElementById("texto-sem-favoritos");
+    var lista = document.getElementById("lista-favoritos-fora");
+    if (!texto || !lista) return;
+    lista.textContent = "";
+    if (!nomes.length) {
+      texto.textContent = "Nenhum item favoritado ainda — clique na ☆ ao lado de um item pra favoritar.";
+      lista.hidden = true;
+      return;
+    }
+    texto.textContent = nomes.length === 1
+      ? "Seu favorito está em outra página da lista:"
+      : "Seus " + nomes.length + " favoritos estão em outras páginas da lista:";
+    nomes.sort().forEach(function (nome) {
+      var li = document.createElement("li");
+      var a = document.createElement("a");
+      a.href = "/item/" + encodeURIComponent(nome);
+      a.textContent = nome;
+      li.appendChild(a);
+      lista.appendChild(li);
+    });
+    lista.hidden = false;
+  }
+
   document.addEventListener("click", function (e) {
     var btn = e.target.closest(".botao-favorito");
     if (!btn) return;
@@ -168,8 +196,16 @@ document.addEventListener("keydown", function (e) {
       });
       var textoBotao = document.getElementById("texto-botao-favoritos");
       if (textoBotao) textoBotao.textContent = ativo ? "★ Todos os itens" : "☆ Só favoritos";
+      var semNenhum = ativo && !algumVisivel;
+      // Sem linha visível, o cabeçalho da tabela sozinho só ocupava espaço.
+      document.querySelectorAll("table.tabela-candidatos").forEach(function (t) {
+        t.style.display = semNenhum ? "none" : "";
+      });
       var msgVazio = document.getElementById("msg-sem-favoritos");
-      if (msgVazio) msgVazio.hidden = !(ativo && !algumVisivel);
+      if (msgVazio) {
+        msgVazio.hidden = !semNenhum;
+        mostrarFavoritosFora(Object.keys(favoritos));
+      }
     } catch (e) {}
   });
 })();

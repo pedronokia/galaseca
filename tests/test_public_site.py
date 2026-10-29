@@ -2404,7 +2404,8 @@ def test_item_detail_nao_repete_motivos(client, monkeypatch, tmp_path):
 
 def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [
-        {"name": "CS:GO Weapon Case", "score": 70, "price": 600.0,
+        {"name": "AWP | Lightning Strike (Factory New)", "score": 70,
+         "price": 600.0,
          "case_label": "CS:GO Weapon Case (descontinuada, 2013)",
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
@@ -2432,3 +2433,37 @@ def test_feed_e_api_nao_leem_historico_de_todos_os_itens(
     assert len(resp.get_json()["candidatos"]) == 20
     assert len(lidos) == 20
     assert "sparkline" in resp.get_json()["candidatos"][0]
+
+
+def test_coluna_caixa_nao_repete_nome_da_propria_capsula(
+        client, monkeypatch, tmp_path):
+    nome = "Shanghai 2024 Legends Sticker Capsule"
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": nome, "score": 82, "price": 3.07,
+         "case_label": f"{nome} (descontinuada, 2024)",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 69, "price": 170.0,
+         "case_label": "Operation Phoenix Weapon Case (descontinuada, 2014)",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+
+    assert ">Descontinuada · lançada em 2024</span>" in body
+    assert f">{nome} (descontinuada, 2024)</span>" not in body
+    assert ">Caixa Fênix da Operação (descontinuada, 2014)</span>" in body
+
+
+def test_favoritos_fora_da_pagina_e_estilos_da_tabela(client):
+    from pathlib import Path
+    body = client.get("/").data.decode("utf-8")
+    static = Path(client.application.root_path) / "static"
+    css = (static / "style.css").read_text(encoding="utf-8")
+    js = (static / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="lista-favoritos-fora"' in body or "Ainda não há" in body
+    assert "mostrarFavoritosFora(Object.keys(favoritos))" in js
+    assert "a.textContent = nome" in js  # nunca innerHTML com dado do usuário
+    ordenar = css[css.index(".link-ordenar {"):]
+    assert "font-size: inherit" in ordenar[:ordenar.index("}")]
+    checkbox = css[css.index(".checkbox-comparar {"):]
+    assert "appearance: none" in checkbox[:checkbox.index("}")]

@@ -77,7 +77,7 @@
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Preço</span><span class="card-valor">{{ item.price_fmt }}</span></div>
       <div class="card"><span class="card-label">Nota</span><span class="card-valor nota nota-{{ item.score|nota_classe }}">{{ item.score }}</span></div>
-      <div class="card"><span class="card-label">Caixa/Cápsula</span><span class="card-valor">{{ item.case_label|rotulo_caixa or "—" }}</span></div>
+      <div class="card"><span class="card-label">Caixa/Cápsula</span><span class="card-valor">{{ item.case_label|rotulo_caixa(item.name) or "—" }}</span></div>
       <div class="card"><span class="card-label">Risco</span><span class="card-valor risco risco-{{ item.pump_risk|risco_nivel }}">{{ item.pump_risk|risco_label }}</span></div>
       {% if tempo_aposentadoria %}
       <div class="card"><span class="card-label">Aposentada há</span><span class="card-valor">{{ tempo_aposentadoria }}</span></div>
