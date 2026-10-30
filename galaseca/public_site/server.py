@@ -1138,7 +1138,13 @@ def _candidatos_filtrados(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["steamdb_url"] = _STEAMDB_SEARCH_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
-        c["descontinuada"] = "descontinuada" in (c.get("case_label") or "")
+        # achado 2026-10-30: quando tem data exata registrada em
+        # retirements.py, cases.py gera "aposentada em DD/MM/AAAA" em
+        # vez de "descontinuada" -- esse rótulo (o mais confiável, por
+        # ter fonte factual) ficava sem o selo .selo-descontinuada.
+        _rotulo_cx = c.get("case_label") or ""
+        c["descontinuada"] = (
+            "descontinuada" in _rotulo_cx or "aposentada" in _rotulo_cx)
         if com_historico:
             _enriquecer_com_historico([c])
         out.append(c)

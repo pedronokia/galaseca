@@ -418,6 +418,22 @@ def test_index_descontinuada_ganha_selo(client, monkeypatch, tmp_path):
     assert "selo-descontinuada" in body
 
 
+def test_index_aposentada_com_data_tambem_ganha_selo(client, monkeypatch,
+                                                      tmp_path):
+    """achado 2026-10-30: com data exata registrada em retirements.py,
+    cases.py gera "aposentada em DD/MM/AAAA" em vez de "descontinuada"
+    -- esse rótulo (o mais confiável, por ter fonte factual) ficava sem
+    o selo .selo-descontinuada."""
+    resultados = [
+        {"name": "Caixa Gallery", "score": 80, "price": 1.0,
+         "case_label": "Caixa Gallery (aposentada em 01/10/2025)",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert "selo-descontinuada" in body
+
+
 def test_index_modo_compacto_aplica_classe(client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [])
     body = client.get("/?compacto=1").data.decode("utf-8")
