@@ -930,7 +930,7 @@ def test_ranking_page_resumo_do_dia_sem_alta_nenhuma(client, monkeypatch):
     assert "maior alta" not in body
 
 
-def test_usuario_logado_aparece_fora_de_conta(client, monkeypatch):
+def test_usuario_logado_aparece_fora_de_conta(client, monkeypatch, tmp_path):
     """O context processor `_inject_usuario` deve disponibilizar
     `usuario` em QUALQUER página, não só nas rotas de /conta que já
     passavam explicitamente -- achado 2026-10-26: `/ranking` (e as
@@ -942,12 +942,48 @@ def test_usuario_logado_aparece_fora_de_conta(client, monkeypatch):
             "steamid": steamid, "persona_name": "Fulano",
             "avatar_url": "https://example.com/a.jpg",
         })
+    monkeypatch.setattr(
+        "galaseca.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
+    (tmp_path / "123.jpg").write_bytes(b"jpeg")
     with client.session_transaction() as sess:
         sess["steamid"] = "123"
     body = client.get("/ranking").data.decode("utf-8")
     assert "Fulano" in body
     assert '<span class="conta-nome">Minha conta</span>' not in body
-    assert 'class="conta-avatar"' in body
+    assert 'class="conta-avatar" src="/conta/avatar.jpg"' in body
+    # Nunca o host da Steam direto: fora da CSP, a imagem saía quebrada.
+    assert "example.com/a.jpg" not in body
+
+
+def test_avatar_sem_arquivo_em_disco_nao_renderiza_img(
+        client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        user_store, "get_user",
+        lambda steamid, path=None: {
+            "steamid": steamid, "persona_name": "Fulano",
+            "avatar_url": "https://example.com/a.jpg",
+        })
+    monkeypatch.setattr(
+        "galaseca.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
+    with client.session_transaction() as sess:
+        sess["steamid"] = "123"
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "conta-avatar" not in body
+    assert client.get("/conta/avatar.jpg").status_code == 404
+
+
+def test_rota_avatar_serve_o_arquivo_do_usuario_logado(
+        client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "galaseca.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
+    (tmp_path / "123.jpg").write_bytes(b"jpeg-do-123")
+    (tmp_path / "456.jpg").write_bytes(b"jpeg-do-456")
+    assert client.get("/conta/avatar.jpg").status_code == 302  # sem login
+    with client.session_transaction() as sess:
+        sess["steamid"] = "123"
+    resp = client.get("/conta/avatar.jpg")
+    assert resp.status_code == 200
+    assert resp.data == b"jpeg-do-123"
 
 
 def test_usuario_nao_logado_mostra_entrar_com_steam(client):
@@ -1729,6 +1765,40 @@ def test_icon_cache_falha_de_rede_devolve_none(monkeypatch, tmp_path):
     assert icon_cache.obter("semcache") is None
 
 
+_HASH_REAL = (
+    "i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM"
+    "-vMGmW8VNxu5Dx60noTyL8ypexwjFS4_ega6F_H_eAMWrEwL9JtORqRiSygRI1jDCAnobsLGXB"
+    "awMlXJohFLRY5BO5kILiMuzrsQTWi9gWnyr9insYuCZj5LtQVaEk5OSJ2CFIuQ75")
+
+
+def test_icon_cache_preserva_hash_real_na_url(monkeypatch, tmp_path):
+    """Hash da Steam tem "-" e "_" e ~200 caracteres. Um filtro
+    `isalnum()[:128]` montava URL que dava 404 pra todo item -- nenhum
+    ícone aparecia no site (2026-10-30)."""
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+    pedidas = []
+
+    class _Resp:
+        status_code = 200
+        content = b"jpeg"
+
+    def _get(url, **kw):
+        pedidas.append((url, kw))
+        return _Resp()
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", _get)
+    assert icon_cache.obter(_HASH_REAL) == b"jpeg"
+    url, kw = pedidas[0]
+    assert f"/economy/image/{_HASH_REAL}/" in url
+    assert kw.get("follow_redirects") is True
+    assert icon_cache._caminho(_HASH_REAL).exists()
+
+
+def test_icon_cache_sanitiza_hash_malicioso():
+    assert icon_cache._sanitizar("../../etc/passwd") == "etcpasswd"
+
+
 def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.icon_cache.obter", lambda h: None)
@@ -1895,7 +1965,7 @@ def test_icon_cache_requisicao_de_rede_usa_hash_sanitizado(monkeypatch, tmp_path
         status_code = 200
         content = b"fake-jpeg-bytes"
 
-    def _get_falso(url, timeout=None):
+    def _get_falso(url, timeout=None, **kw):
         urls_chamadas.append(url)
         return _RespostaFalsa()
 

@@ -12,8 +12,8 @@ import time
 import urllib.parse
 
 from flask import (
-    Blueprint, flash, jsonify, redirect, render_template, request, session,
-    url_for,
+    Blueprint, flash, jsonify, redirect, render_template, request,
+    send_file, session, url_for,
 )
 
 from galaseca import portfolio
@@ -29,7 +29,7 @@ from galaseca.public_site.rate_limit import (
     rate_limited,
 )
 from galaseca.public_site.profile_fetcher import (
-    apagar_perfil_cache, fetch_public_profile,
+    apagar_perfil_cache, caminho_avatar, fetch_public_profile,
 )
 
 bp = Blueprint("account", __name__)
@@ -100,6 +100,17 @@ def login_callback():
     )
     session["steamid"] = steamid
     return redirect(url_for("account.conta"))
+
+
+@bp.route("/conta/avatar.jpg")
+@login_required
+def avatar():
+    path = caminho_avatar(session["steamid"])
+    if path is None:
+        return "", 404
+    resp = send_file(path, mimetype="image/jpeg")
+    resp.headers["Cache-Control"] = "private, max-age=86400"
+    return resp
 
 
 @bp.route("/logout")

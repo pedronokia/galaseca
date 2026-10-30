@@ -24,14 +24,26 @@ from pathlib import Path
 from galaseca._paths import DATA_DIR
 
 _CACHE_DIR = DATA_DIR / "icon_cache"
+# `community.cloudflare.steamstatic.com` passou a responder 301 pra este
+# host (medido em 2026-10-30) -- e o httpx não segue redirect por padrão,
+# então todo cache miss virava None em silêncio.
 _CDN_URL_TPL = (
-    "https://community.cloudflare.steamstatic.com/economy/image/{hash}/192fx192f")
+    "https://community.steamstatic.com/economy/image/{hash}/192fx192f")
 _TIMEOUT = 5.0
+# Hash de ícone da Steam é base64 url-safe: letras, dígitos, "-" e "_",
+# ~200 caracteres. Um filtro só `isalnum()` (até 2026-10-30) arrancava os
+# "-"/"_" e cortava em 128 -- a URL montada dava 404 pra TODO item.
+_CHARS_HASH = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+_MAX_HASH = 512
+
+
+def _sanitizar(hash_icone: str) -> str:
+    return "".join(c for c in (hash_icone or "") if c in _CHARS_HASH)[:_MAX_HASH]
 
 
 def _caminho(hash_icone: str) -> Path:
-    nome_seguro = "".join(c for c in hash_icone if c.isalnum())[:128]
-    return _CACHE_DIR / f"{nome_seguro}.jpg"
+    return _CACHE_DIR / f"{_sanitizar(hash_icone)}.jpg"
 
 
 def obter(hash_icone: str) -> "bytes | None":
@@ -49,7 +61,7 @@ def obter(hash_icone: str) -> "bytes | None":
     (e cachear em disco) qualquer path dentro de steamstatic.com por
     conta de qualquer um -- sanitiza ANTES de usar nos dois lugares,
     não só no caminho do arquivo."""
-    hash_seguro = "".join(c for c in (hash_icone or "") if c.isalnum())[:128]
+    hash_seguro = _sanitizar(hash_icone)
     if not hash_seguro:
         return None
     p = _caminho(hash_seguro)
@@ -60,7 +72,8 @@ def obter(hash_icone: str) -> "bytes | None":
             pass
     try:
         import httpx
-        resp = httpx.get(_CDN_URL_TPL.format(hash=hash_seguro), timeout=_TIMEOUT)
+        resp = httpx.get(_CDN_URL_TPL.format(hash=hash_seguro), timeout=_TIMEOUT,
+                         follow_redirects=True)
         if resp.status_code != 200 or not resp.content:
             return None
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)

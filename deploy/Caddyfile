@@ -22,7 +22,7 @@
 		# (não usamos <object>, não trocamos <base>, todo form já
 		# submete pra rota própria), só fecham brechas que um XSS
 		# hipotético poderia explorar mesmo com o resto da CSP no lugar.
-		Content-Security-Policy "default-src 'self'; img-src 'self' https://community.cloudflare.steamstatic.com data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; report-uri /api/csp-report"
+		Content-Security-Policy "default-src 'self'; img-src 'self' https://community.steamstatic.com https://community.cloudflare.steamstatic.com data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; report-uri /api/csp-report"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		# Reforço do CSP frame-ancestors acima: navegador muito antigo que

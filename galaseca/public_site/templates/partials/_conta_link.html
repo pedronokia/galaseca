@@ -6,8 +6,8 @@
       <a href="{{ url_for('history.listar') }}"{% if request.endpoint == 'history.listar' %} aria-current="page"{% endif %}>Histórico</a>
     </nav>
     <a class="conta-pill" href="{{ url_for('account.conta') }}" title="Minha conta"{% if request.endpoint == 'account.conta' %} aria-current="page"{% endif %}>
-      {% if usuario and usuario.avatar_url %}
-      <img class="conta-avatar" src="{{ usuario.avatar_url }}" alt="" width="24" height="24" loading="lazy">
+      {% if avatar_local %}
+      <img class="conta-avatar" src="{{ url_for('account.avatar') }}" alt="" width="24" height="24" loading="lazy">
       {% endif %}
       <span class="conta-nome">{{ usuario.persona_name if usuario and usuario.persona_name else "Minha conta" }}</span>
     </a>

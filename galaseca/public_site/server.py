@@ -37,8 +37,8 @@ from galaseca._paths import DATA_DIR, atomic_write_bytes
 from galaseca.localization import localize_name
 from galaseca.public_site import (
     buscas, changelog, charts, db_backup, discord_notify, erro_stats, fmt,
-    icon_cache, latencia, rate_limit, scan_progress, user_store, uptime,
-    visits,
+    icon_cache, latencia, profile_fetcher, rate_limit, scan_progress,
+    user_store, uptime, visits,
 )
 from galaseca.public_site.auth import csrf_token
 
@@ -48,7 +48,7 @@ _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # 2026-10-25) pela rota `/icone/<hash>.jpg` abaixo. Esta constante
 # continua servindo de FALLBACK (redirect) quando o cache falha.
 _ICON_CDN_URL_2X = (
-    "https://community.cloudflare.steamstatic.com/economy/image/"
+    "https://community.steamstatic.com/economy/image/"
     "{hash}/192fx192f"
 )
 _STEAMDB_SEARCH_URL = "https://steamdb.info/search/?q={name}"
@@ -198,7 +198,10 @@ def create_app() -> Flask:
         steamid = session.get("steamid")
         if not steamid:
             return {}
-        return {"usuario": user_store.get_user(steamid)}
+        return {
+            "usuario": user_store.get_user(steamid),
+            "avatar_local": profile_fetcher.caminho_avatar(steamid) is not None,
+        }
 
     # Filtros Jinja: nota_classe/risco_nivel/risco_label -- centraliza a
     # classificação de nota e o rótulo de risco, repetida em 4 templates

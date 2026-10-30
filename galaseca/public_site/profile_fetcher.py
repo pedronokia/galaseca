@@ -211,6 +211,18 @@ def _download_avatar(steamid: str, url: str) -> str | None:
         return None
 
 
+def caminho_avatar(steamid: str) -> "Path | None":
+    """Avatar já baixado no login, ou None. Servido pelo próprio site
+    (`/conta/avatar.jpg`) em vez de apontar o `<img>` pro CDN da Steam:
+    o XML do perfil passou a devolver `avatars.fastly.steamstatic.com`,
+    host fora da CSP (`img-src`), e o avatar aparecia quebrado
+    (2026-10-30). Servir local não depende do host que a Steam usar."""
+    if not steamid or not steamid.isdigit():
+        return None
+    path = _AVATARS_DIR / f"{steamid}.jpg"
+    return path if path.is_file() else None
+
+
 def load_cached_profile(steamid: str) -> dict | None:
     """Le do cache sem bater na rede. Util pra UI no startup."""
     if not steamid:
