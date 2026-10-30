@@ -19,6 +19,16 @@
   });
 })();
 
+// Filtros aplicam sozinhos: o <select> de categoria envia o form ao mudar
+// e os campos de texto/número já enviam com Enter. Com JS ativo o botão
+// "Filtrar" vira redundante e some (classe js-ativo); sem JS ele continua.
+document.documentElement.classList.add("js-ativo");
+document.addEventListener("change", function (e) {
+  var campo = e.target;
+  if (!campo.matches || !campo.matches("[data-enviar-ao-mudar]") || !campo.form) return;
+  campo.form.submit();
+});
+
 // Copiar nome do item (clipboard) e atalho "/" pra focar a busca -- os
 // únicos dois recursos desta página que genuinamente não dão pra fazer
 // sem JS. Delegação de evento (um listener só, cobre linhas criadas por

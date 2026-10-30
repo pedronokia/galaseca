@@ -106,7 +106,67 @@ header.topo > * {
   padding-right: 24px;
 }
 
-header.topo > .topo-linha { padding-top: 14px; padding-bottom: 14px; }
+header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
+
+/* Home: o topo acompanha a largura da tabela (1440px) -- com os 960px
+   padrão, logo e "Entrar" ficavam soltos no meio, desalinhados das
+   bordas do conteúdo logo abaixo. */
+@media (min-width: 641px) {
+  header.topo.topo-larga > * { max-width: 1440px; }
+}
+
+/* ── Logo ─────────────────────────────────────────────── */
+.titulo-logo { margin: 0; line-height: 1; }
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-bright);
+  text-decoration: none;
+}
+
+.logo:hover { color: var(--text-bright); }
+.logo:hover .logo-marca-linha,
+.logo:hover .logo-marca-ponto { stroke: var(--accent-bright); }
+
+.logo-marca[hidden] { display: none; }
+.logo-marca { display: block; flex-shrink: 0; }
+
+.logo-marca-g {
+  fill: none;
+  stroke: var(--text-bright);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.logo-marca-linha {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.15s ease;
+}
+
+.logo-marca-ponto {
+  fill: var(--accent);
+  stroke: var(--accent);
+  stroke-width: 0.4;
+  transition: stroke 0.15s ease;
+}
+
+.logo-texto {
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+}
+
+.logo-texto-forte {
+  font-weight: 800;
+  color: var(--accent);
+}
 header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
 header.topo > .badge-cooldown { padding-bottom: 20px; }
 
@@ -242,11 +302,13 @@ header.topo h1 {
 
 /* Legenda curta embaixo do CTA -- sem ela o botão ficava sozinho sem
    dizer o porquê de logar (achado visual, 2026-10-27). */
+/* Legenda ao lado do botão (não embaixo): embaixo, as 2 linhas dela
+   faziam o topo inteiro ter quase o dobro da altura do botão. */
 .entrar-cta {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 12px;
 }
 
 .entrar-cta-legenda {
@@ -366,6 +428,7 @@ main {
 
 .selo-risco {
   display: inline-block;
+  margin-left: 6px;
   padding: 2px 7px;
   border: 1px solid currentColor;
   border-radius: 12px;
@@ -469,15 +532,14 @@ table.tabela-itens {
    nenhuma largura declarada caía pra distribuição ~igual entre colunas
    -- o nome do item (coluna mais importante) ficava espremido a ponto
    de truncar pra "P…" com qualquer nome um pouco mais longo. */
-.col-item { width: 25%; }
-.col-preco { width: 9%; }
+.col-item { width: 28%; }
+.col-preco { width: 10%; }
 .col-historico { width: 12%; }
 /* 10%: com o cabeçalho no tamanho dos outros, "Nota (0–100) ▼" não
    cabia em 8% e o ▼ da ordenação era cortado. */
 .col-nota { width: 10%; }
-.col-caixa { width: 18%; }
-.col-risco { width: 8%; }
-.col-porque { width: 18%; }
+.col-caixa { width: 15%; }
+.col-porque { width: 25%; }
 
 table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
 
@@ -825,20 +887,6 @@ table.tabela-candidatos td.celula-preco {
 .linha-destaque {
   background: linear-gradient(90deg, rgba(102, 192, 244, 0.1), transparent 60%);
   box-shadow: inset 3px 0 0 var(--accent);
-}
-
-/* Texto em vez de ★: a estrela amarela colada na ☆ de favoritar parecia
-   um segundo botão de favorito. */
-.selo-top {
-  color: var(--warn);
-  border: 1px solid var(--warn);
-  border-radius: 10px;
-  padding: 0 7px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1.6;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .selo-descontinuada {
@@ -1701,7 +1749,9 @@ footer.rodape .versao {
   }
 
   .entrar-cta {
+    flex-direction: column;
     align-items: flex-start;
+    gap: 3px;
   }
 
   .entrar-cta-legenda {
@@ -1861,5 +1911,83 @@ footer.rodape .versao {
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: middle;
+  }
+}
+
+/* ── Rodada de UI 2026-10-29 ─────────────────────────────── */
+
+/* Texto apagado pra "não tem dado" -- um "—" solto parecia erro. */
+.texto-sem-dado {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.cabecalho-sub {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Com JS os filtros aplicam sozinhos (ver app.js). */
+.js-ativo .form-filtros .botao-filtrar-sem-js { display: none; }
+
+/* Abas de categoria: troca rápida sem abrir o dropdown. */
+.abas-categoria {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.aba-categoria {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--text);
+  font-size: 0.82rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.aba-categoria:hover {
+  background: var(--surface);
+  color: var(--text-bright);
+}
+
+.aba-categoria[aria-current="page"] {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--text-bright);
+}
+
+.aba-contagem {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ações da linha (comparar, favoritar, ⋯) só aparecem no hover/foco em
+   telas com mouse -- repetidas em toda linha, viravam ruído. Ficam
+   visíveis quando estão "em uso" (marcado/favoritado/menu aberto) e
+   sempre em tela de toque, onde não existe hover. */
+@media (hover: hover) {
+  .tabela-itens .celula-item-acoes > * {
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .tabela-itens tr:hover .celula-item-acoes > *,
+  .tabela-itens tr:focus-within .celula-item-acoes > *,
+  .tabela-itens .checkbox-comparar:checked,
+  .tabela-itens .botao-favorito.favoritado,
+  .tabela-itens .menu-acoes-item[open] {
+    opacity: 1;
   }
 }

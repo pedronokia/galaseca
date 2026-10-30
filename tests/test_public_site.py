@@ -123,9 +123,21 @@ def test_index_explicita_escala_da_nota_e_rotulo_textual_de_risco(
 
     assert "Nota (0\u2013100)" in body
     assert "não é promessa nem previsão de lucro" in body
-    assert "Risco indica a possibilidade de uma alta rápida e artificial" in body
-    assert 'class="selo-risco" aria-label="Risco baixo"' in body
-    assert ">Baixo</span>" in body
+    assert "selo de risco, quando aparece, indica a possibilidade" in body
+    # Risco baixo é o caso comum: sem coluna nem selo (era uma coluna
+    # inteira repetindo "Baixo" em toda linha).
+    assert 'class="selo-risco' not in body
+
+
+def test_index_risco_medio_vira_selo_ao_lado_da_nota(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "medium"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
+    assert 'class="selo-risco risco-medium" aria-label="Risco médio"' in celula
+    assert ">Risco médio</span>" in celula
 
 
 def test_index_resume_um_motivo_e_preserva_fatores_completos(
@@ -181,7 +193,7 @@ def test_index_exibe_cartoes_mobile_com_rotulos_e_historico_acessivel(
     css_text = Path(css).read_text(encoding="utf-8")
 
     for label in ("Item", "Preço", "Histórico", "Nota", "Caixa/Cápsula",
-                  "Risco", "Por quê"):
+                  "Por quê"):
         assert f'data-label="{label}"' in body
     assert "Deslize a tabela para o lado" in body
     assert 'aria-label="Ver histórico completo de AK-47 | Redline (Testada em Campo)"' in body
@@ -517,8 +529,10 @@ def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/").data.decode("utf-8")
     assert "lista-breakdown" in body
-    assert "Preço baixo (+10)" in body
-    assert "Subiu rápido (-5)" in body
+    # "(+10)" é contribuição pra nota, não porcentagem -- vira "+10 pts".
+    assert "Preço baixo · +10 pts" in body
+    assert "Subiu rápido · -5 pts" in body
+    assert "(+10)" not in body
     assert "delta-positivo" in body
     assert "delta-negativo" in body
 
@@ -656,6 +670,20 @@ def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
     assert "class=\"celula-preco\"" in body
 
 
+def test_index_tendencia_mostra_variacao_percentual(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: [{"ts": 1, "price": 10.0}, {"ts": 2, "price": 9.68}])
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 9.68, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "tendencia-baixa" in body
+    assert "> 3,2%</span>" in body
+    assert 'title="Preço caiu 3,2% desde o scan anterior"' in body
+
+
 def test_index_sem_historico_nao_mostra_tendencia(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
         "galaseca.public_site.server.signals.load_item_history",
@@ -694,15 +722,33 @@ def test_index_tem_steamdb_link_e_json_ld(client, monkeypatch, tmp_path):
     assert "application/ld+json" in body
 
 
-def test_index_minimalista_esconde_selo_top(client, monkeypatch, tmp_path):
+def test_index_sem_selo_maior_nota(client, monkeypatch, tmp_path):
+    # A lista já vem ordenada pela nota: o selo só repetia isso.
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "X", "score": 80, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
-    normal = client.get("/").data.decode("utf-8")
-    minimalista = client.get("/?minimalista=1").data.decode("utf-8")
-    assert "selo-top" in normal
-    assert "selo-top" not in minimalista
+    assert "selo-top" not in client.get("/").data.decode("utf-8")
+
+
+def test_index_abas_de_categoria_so_com_dados(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "category": "Rifles", "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/?categoria=Rifles").data.decode("utf-8")
+    abas = body.split('class="abas-categoria"', 1)[1].split("</nav>", 1)[0]
+    assert ">Todas <span" in abas
+    assert 'aria-current="page">Rifles <span class="aba-contagem">1</span>' in abas
+    assert ">Facas <span" not in abas
+
+
+def test_index_logo_no_topo(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [])
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="logo"' in body
+    assert 'class="logo-marca"' in body
+    assert ">Gala<span class=\"logo-texto-forte\">Seca</span>" in body
 
 
 def test_index_apresentacao_aplica_classe_e_refresh(client, monkeypatch, tmp_path):
@@ -2182,8 +2228,8 @@ def test_colunas_da_tabela_principal_somam_100_por_cento():
     html = (raiz / "templates" / "index.html").read_text(encoding="utf-8")
 
     classes_no_colgroup = re.findall(r'<col class="(col-\w+)">', html)
-    assert len(classes_no_colgroup) == 7, (
-        f"Esperava 7 colunas no colgroup_itens(), achei {len(classes_no_colgroup)}")
+    assert len(classes_no_colgroup) == 6, (
+        f"Esperava 6 colunas no colgroup_itens(), achei {len(classes_no_colgroup)}")
 
     total = 0
     for classe in classes_no_colgroup:
@@ -2450,7 +2496,7 @@ def test_coluna_caixa_nao_repete_nome_da_propria_capsula(
     ])
     body = client.get("/").data.decode("utf-8")
 
-    assert ">Descontinuada · lançada em 2024</span>" in body
+    assert ">Descontinuada · 2024</span>" in body
     assert f">{nome} (descontinuada, 2024)</span>" not in body
     assert ">Caixa Fênix da Operação (descontinuada, 2014)</span>" in body
 

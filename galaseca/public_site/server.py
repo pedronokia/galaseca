@@ -210,6 +210,7 @@ def create_app() -> Flask:
     app.jinja_env.filters["risco_nivel"] = _risco_nivel
     app.jinja_env.filters["risco_label"] = _risco_label
     app.jinja_env.filters["rotulo_caixa"] = _rotulo_caixa
+    app.jinja_env.filters["motivo_fmt"] = _motivo_fmt
 
     @app.before_request
     def _marcar_inicio_latencia():
@@ -864,16 +865,6 @@ def _busca_bate(name_fmt: str, busca: "str | None") -> bool:
     return any(t in alvo for t in termos)
 
 
-def _tendencia(name: str) -> "str | None":
-    """"alta"/"baixa"/None a partir dos 2 últimos preços já registrados
-    pra esse item (signals.record_item_price, chamado a cada scan desde
-    sempre -- zero custo novo, só reaproveita histórico que já existia).
-    None sem pelo menos 2 pontos (item visto pela 1a vez, ou muito raro
-    no histórico)."""
-    hist = signals.load_item_history(name)
-    return _tendencia_do_historico(hist)
-
-
 def _tendencia_do_historico(hist: list) -> "str | None":
     if len(hist) < 2:
         return None
@@ -883,6 +874,31 @@ def _tendencia_do_historico(hist: list) -> "str | None":
     if atual < anterior:
         return "baixa"
     return None
+
+
+def _variacao_pct_do_historico(hist: list) -> "float | None":
+    """Variação % entre os 2 últimos preços registrados -- o mesmo par que
+    `_tendencia_do_historico` compara. Só "Subiu"/"Caiu" não dizia quanto:
+    uma oscilação de centavos e uma de 30% apareciam iguais na tabela."""
+    if len(hist) < 2:
+        return None
+    anterior, atual = hist[-2]["price"], hist[-1]["price"]
+    if not anterior or atual == anterior:
+        return None
+    return (atual - anterior) / anterior * 100
+
+
+_PONTOS_NO_FIM_RE = re.compile(r"\s*\(([+-]\d+)\)\s*$")
+
+
+def _motivo_fmt(texto: "str | None") -> str:
+    """"Preço 22% abaixo do típico (+26)" -> "... · +26 pts". O número
+    entre parênteses é a contribuição do fator pra nota, mas solto assim
+    lia como outra porcentagem. Só reformata a exibição; o rótulo
+    original continua vindo de `signals` (compartilhado com o app)."""
+    if not texto:
+        return ""
+    return _PONTOS_NO_FIM_RE.sub(r" · \1 pts", texto)
 
 
 def _tamanho_fmt(bytes_: int) -> str:
@@ -944,7 +960,7 @@ def _rotulo_caixa(case_label: "str | None",
     CS:GO Weapon" no nome e "CS:GO Weapon Case" ao lado.
 
     Com `item_name` igual à própria caixa/cápsula, devolve só o status
-    ("Descontinuada · lançada em 2024"): repetir o nome que já está na
+    ("Descontinuada · 2024"): repetir o nome que já está na
     coluna Item ocupava a célula sem dizer nada novo."""
     if not case_label:
         return ""
@@ -952,7 +968,7 @@ def _rotulo_caixa(case_label: "str | None",
     if item_name and nome == item_name and resto:
         status, _, ano = resto.rstrip(")").partition(", ")
         texto = status[:1].upper() + status[1:]
-        return f"{texto} · lançada em {ano}" if ano else texto
+        return f"{texto} · {ano}" if ano else texto
     return localize_name(nome) + sep + resto
 
 
@@ -1038,15 +1054,6 @@ def _resumo_do_dia(atual: "dict | None") -> "dict | None":
     }
 
 
-def _sparkline(name: str) -> str:
-    """Mini-gráfico de preço por linha na tabela -- reaproveita
-    `signals.load_item_history` (mesmo histórico que já alimenta
-    `_tendencia`) e `charts.line_chart_svg` (mesmo SVG do gráfico de
-    visitas, com uma classe CSS diferente pra ficar pequeno e inline)."""
-    hist = signals.load_item_history(name)
-    return _sparkline_do_historico(hist)
-
-
 def _sparkline_do_historico(hist: list) -> str:
     pontos = [{"total": p["price"]} for p in hist[-20:] if p.get("price")]
     return charts.line_chart_svg(
@@ -1063,6 +1070,7 @@ def _enriquecer_com_historico(candidatos: list[dict]) -> None:
     for c in candidatos:
         hist = signals.load_item_history(c.get("name") or "")
         c["tendencia"] = _tendencia_do_historico(hist)
+        c["variacao_pct"] = _variacao_pct_do_historico(hist)
         c["sparkline"] = _sparkline_do_historico(hist)
 
 
@@ -1115,8 +1123,7 @@ def _candidatos_filtrados(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["descontinuada"] = "descontinuada" in (c.get("case_label") or "")
         if com_historico:
-            c["tendencia"] = _tendencia(c.get("name") or "")
-            c["sparkline"] = _sparkline(c.get("name") or "")
+            _enriquecer_com_historico([c])
         out.append(c)
     if ordenar == "preco":
         out.sort(key=lambda c: c.get("price") if c.get("price") is not None
