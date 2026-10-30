@@ -127,46 +127,22 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
 }
 
 .logo:hover { color: var(--text-bright); }
-.logo:hover .logo-marca-linha,
-.logo:hover .logo-marca-ponto { stroke: var(--accent-bright); }
+/* Sem folga o contorno de foco encosta no ponto final da marca. */
+.logo:focus-visible { outline-offset: 5px; border-radius: var(--radius-sm); }
+.logo:hover .logo-marca-ponto { fill: var(--accent-bright); }
 
 .logo-marca[hidden] { display: none; }
 .logo-marca { display: block; flex-shrink: 0; }
 
-.logo-marca-g {
-  fill: none;
-  stroke: var(--text-bright);
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.logo-marca-linha {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: stroke 0.15s ease;
-}
+.logo-marca-letras { fill: currentColor; }
 
 .logo-marca-ponto {
   fill: var(--accent);
-  stroke: var(--accent);
-  stroke-width: 0.4;
-  transition: stroke 0.15s ease;
+  transition: fill 0.15s ease;
 }
 
-.logo-texto {
-  font-size: 1.35rem;
-  font-weight: 500;
-  letter-spacing: -0.4px;
-}
+.modo-apresentacao .logo-marca { height: 36px; width: auto; }
 
-.logo-texto-forte {
-  font-weight: 800;
-  color: var(--accent);
-}
 header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
 header.topo > .badge-cooldown { padding-bottom: 20px; }
 

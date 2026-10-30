@@ -748,7 +748,8 @@ def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     body = client.get("/").data.decode("utf-8")
     assert 'class="logo"' in body
     assert 'class="logo-marca"' in body
-    assert ">Gala<span class=\"logo-texto-forte\">Seca</span>" in body
+    assert 'class="logo-marca-ponto"' in body
+    assert 'aria-label="GalaSeca — página inicial"' in body
 
 
 def test_index_apresentacao_aplica_classe_e_refresh(client, monkeypatch, tmp_path):
@@ -2460,7 +2461,7 @@ def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):
     body = client.get("/").data.decode("utf-8")
 
     assert ">Caixa CS:GO Weapon (descontinuada, 2013)</span>" in body
-    assert "<title>GalaSeca — Preços e notas de skins CS2</title>" in body
+    assert "<title>Skins</title>" in body
 
 
 def test_feed_e_api_nao_leem_historico_de_todos_os_itens(
