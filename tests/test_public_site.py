@@ -530,8 +530,10 @@ def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
     body = client.get("/").data.decode("utf-8")
     assert "lista-breakdown" in body
     # "(+10)" é contribuição pra nota, não porcentagem -- vira "+10 pts".
-    assert "Preço baixo · +10 pts" in body
-    assert "Subiu rápido · -5 pts" in body
+    # Espaço fixo ( ) entre "·"/número/"pts" pra não quebrar linha
+    # deixando "pts" sozinho -- ver _motivo_fmt.
+    assert "Preço baixo · +10 pts" in body
+    assert "Subiu rápido · -5 pts" in body
     assert "(+10)" not in body
     assert "delta-positivo" in body
     assert "delta-negativo" in body
@@ -741,6 +743,23 @@ def test_index_abas_de_categoria_so_com_dados(client, monkeypatch, tmp_path):
     assert ">Todas <span" in abas
     assert 'aria-current="page">Rifles <span class="aba-contagem">1</span>' in abas
     assert ">Facas <span" not in abas
+
+
+def test_index_aba_todas_bate_com_total_mostrado(client, monkeypatch, tmp_path):
+    """achado 2026-10-30: a aba "Todas" contava `scan["results"]` cru,
+    mas a lista abaixo usa `buy_candidates`, que descarta risco alto de
+    pump -- a aba dizia um número e "Mostrando ... de N itens" dizia
+    outro, sem explicação nenhuma pro visitante."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Y", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "high"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    abas = body.split('class="abas-categoria"', 1)[1].split("</nav>", 1)[0]
+    assert ">Todas <span class=\"aba-contagem\">1</span>" in abas
+    assert "Mostrando 1–1 de 1 itens" in body
 
 
 def test_index_logo_no_topo(client, monkeypatch, tmp_path):

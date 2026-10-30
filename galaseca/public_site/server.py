@@ -260,6 +260,14 @@ def create_app() -> Flask:
         todos = _candidatos_filtrados(
             scan, categoria, nota_min, preco_max, busca, ordenar,
             com_historico=False)
+        # Total real da aba "Todas" -- achado 2026-10-30: `scan["results"]`
+        # inclui item com risco alto de pump, que `buy_candidates` descarta
+        # antes de qualquer filtro do visitante. Sem isto a aba dizia um
+        # número (ex. 183) e a lista abaixo mostrava outro (176) sem
+        # explicação. Sem filtro nenhum ativo, `todos` já é esse total;
+        # só recalcula quando algum filtro do visitante reduziu `todos`.
+        total_geral = (len(todos) if not (categoria or nota_min or preco_max or busca)
+                       else len(_candidatos_filtrados(scan, com_historico=False)))
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
         _enriquecer_com_historico(candidatos_pagina)
@@ -282,6 +290,7 @@ def create_app() -> Flask:
             scan_desatualizado=scan_desatualizado,
             categorias=sorted(scan_targets.SCAN_BY_CATEGORY.keys()),
             contagem_categorias=_contagem_por_categoria(scan),
+            total_geral=total_geral,
             categoria_sel=categoria,
             nota_min_sel=nota_min,
             preco_max_sel=preco_max,
@@ -898,10 +907,15 @@ def _motivo_fmt(texto: "str | None") -> str:
     """"Preço 22% abaixo do típico (+26)" -> "... · +26 pts". O número
     entre parênteses é a contribuição do fator pra nota, mas solto assim
     lia como outra porcentagem. Só reformata a exibição; o rótulo
-    original continua vindo de `signals` (compartilhado com o app)."""
+    original continua vindo de `signals` (compartilhado com o app).
+
+    Espaços fixos (\\u00a0) entre "·", o número e "pts" -- achado
+    2026-10-30: com espaço normal, a quebra de linha na coluna "Por
+    quê" às vezes deixava só "pts" sozinho numa linha. O espaço antes
+    de "·" continua normal, pra quebra poder acontecer ali."""
     if not texto:
         return ""
-    return _PONTOS_NO_FIM_RE.sub(r" · \1 pts", texto)
+    return _PONTOS_NO_FIM_RE.sub(" · \\1 pts", texto)
 
 
 def _tamanho_fmt(bytes_: int) -> str:
