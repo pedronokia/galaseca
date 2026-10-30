@@ -46,9 +46,12 @@ _UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
 # `\/economy\/image\/<hash>\/...` ou com `/` -- o regex só com "/" não
 # casava nesse formato (scan de 2026-10-29: 0 de 173 itens com miniatura).
 _BARRA = r'(?:/|\\/|\\u002[Ff])'
+# O hash pode terminar em aspas, sem barra depois: o layout de 2026-10-29
+# põe `<link rel="preload" href=".../economy/image/<hash>">` sem o sufixo
+# de tamanho.
 _ICON_IMAGE_RE = re.compile(
     _BARRA + r'economy' + _BARRA + r'image' + _BARRA
-    + r'(?P<hash>[^/\s"\'\\]+)' + _BARRA)
+    + r'(?P<hash>[^/\s"\'\\]+)' + r'(?:' + _BARRA + r'|(?=["\'\s]))')
 
 # Espaco minimo entre chamadas ao Market (priceoverview/listagem/inventario).
 # 2026-08-07: pesquisado apos um scan de "Todas as categorias" estourar 429.
@@ -699,7 +702,22 @@ def _extract_render_context(html: str) -> dict | None:
 
     O dado esta' embutido em:
       window.SSR.renderContext = JSON.parse("...");
+    ou, no layout de 2026-10-29 em diante, num JSON puro:
+      <script type="application/json" id="valve-ssr-data">{..., "renderContext": {...}}</script>
+    Sem o segundo formato, toda pagina voltava None: sem historico, sem
+    order book e sem miniatura em 100% dos itens.
     """
+    m = re.search(
+        r'<script[^>]*\bid="valve-ssr-data"[^>]*>(.*?)</script>',
+        html, re.DOTALL,
+    )
+    if m:
+        try:
+            rc = json.loads(m.group(1)).get("renderContext")
+        except (ValueError, TypeError, AttributeError):
+            rc = None
+        if isinstance(rc, dict):
+            return rc
     m = re.search(
         r'window\.SSR\.renderContext\s*=\s*JSON\.parse\("(.*?)"\)',
         html, re.DOTALL,

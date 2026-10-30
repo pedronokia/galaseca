@@ -210,6 +210,20 @@ class TestExtractRenderContext:
         html = '<script>window.SSR.renderContext = JSON.parse("{bad")</script>'
         assert _extract_render_context(html) is None
 
+    def test_extracts_from_valve_ssr_data_script(self):
+        # Layout de 2026-10-29: JSON puro num <script id="valve-ssr-data">,
+        # com o renderContext aninhado. Sem isso toda pagina voltava None.
+        payload = json.dumps({"route": "x", "renderContext": json.loads(SAMPLE_RENDER_CONTEXT)})
+        html = ('<script type="application/json" id="valve-ssr-data" nonce="n">'
+                + payload + '</script>')
+        rc = _extract_render_context(html)
+        assert rc is not None
+        assert "queryData" in rc
+
+    def test_valve_ssr_data_quebrado_cai_no_formato_antigo(self):
+        html = '<script type="application/json" id="valve-ssr-data">{bad</script>' + MOCK_HTML
+        assert "queryData" in _extract_render_context(html)
+
 
 class TestFindQuery:
     def test_finds_by_key(self):
@@ -1297,6 +1311,7 @@ def test_rate_limit_delay_e_conservador(monkeypatch):
     '<img src="https://cdn/economy/image/abc-_9/192fx192f">',
     r'"icon":"https:\/\/cdn\/economy\/image\/abc-_9\/360fx360f"',
     r'"https://cdn/economy/image/abc-_9/96f"',
+    '<link rel="preload" as="image" href="https://cdn/economy/image/abc-_9">',
 ])
 def test_extract_market_icon_hash_aceita_barra_escapada_do_json(trecho):
     # No JSON do SSR a URL vem com "\/" ou "/"; só "/" deixava os 173
