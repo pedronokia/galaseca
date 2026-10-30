@@ -369,6 +369,10 @@ document.addEventListener("keydown", function (e) {
     ul.hidden = false;
     lista.forEach(function (item, i) {
       var li = document.createElement("li");
+      // Busca salva só vira link pro próprio site (o valor vem do
+      // localStorage, editável por qualquer extensão ou pelo próprio visitante).
+      if (!item || typeof item.query !== "string" || item.query.charAt(0) !== "/" ||
+          item.query.charAt(1) === "/") return;
       var a = document.createElement("a");
       a.href = item.query;
       a.textContent = item.nome;

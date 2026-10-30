@@ -1,4 +1,5 @@
-{$SITE_DOMAIN} {
+# Cabeçalhos de segurança e proxy do site (snippet: o www só redireciona).
+(site) {
 	encode gzip zstd
 
 	# HSTS + CSP (pedido explícito do usuário, 2026-10-25). CSP exige que
@@ -33,4 +34,13 @@
 	}
 
 	reverse_proxy web:8000
+}
+
+# Domínio principal desde 2026-10-29.
+galaseca.com {
+	import site
+}
+
+www.galaseca.com {
+	redir https://galaseca.com{uri} permanent
 }

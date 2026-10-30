@@ -47,12 +47,33 @@ jobs:
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d web
 
+      # Antes da checagem abaixo: ela bate no domínio que o Caddy novo serve.
+      - name: Recria o Caddy quando o commit solicitar
+        if: ${{ contains(github.event.workflow_run.head_commit.message, '[restart-caddy]') }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_HOST }}
+          username: opc
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            cd ~/skinvault
+            # `caddy reload` já reportou sucesso sem aplicar mudança de
+            # cabeçalho; recriar o container relê o Caddyfile com certeza.
+            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
+              -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
+              up -d --force-recreate caddy
+
       - name: Confirma que o site subiu (2a rodada, 2026-10-26)
         run: |
-          sleep 5
-          curl -sf "https://${{ secrets.SITE_DOMAIN }}/healthz" | grep -q '"ok": *true' \
-            && echo "OK: /healthz respondeu" \
-            || (echo "FALHOU: /healthz não respondeu como esperado" && exit 1)
+          # Até ~60s: no primeiro deploy de um domínio o Caddy ainda está
+          # emitindo o certificado quando esta checagem começa.
+          for i in $(seq 1 12); do
+            sleep 5
+            if curl -sf "https://galaseca.com/healthz" | grep -q '"ok": *true'; then
+              echo "OK: /healthz respondeu"; exit 0
+            fi
+          done
+          echo "FALHOU: /healthz não respondeu como esperado"; exit 1
 
       - name: Atualiza o worker quando o commit solicitar
         if: ${{ contains(github.event.workflow_run.head_commit.message, '[restart-worker]') }}
