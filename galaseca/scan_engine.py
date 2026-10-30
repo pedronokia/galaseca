@@ -82,6 +82,7 @@ def scan_item(name: str, category: str | None = None,
         price_history=page.get("price_history") if page else None,
         case_status=cs,
         is_container=is_cont,
+        category=category,
     )
 
     dq = signals.data_quality(

@@ -1046,6 +1046,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
                    is_container: bool = False,
                    volume_history: list[dict] | None = None,
                    now_ts: float | None = None,
+                   category: str | None = None,
                    ) -> tuple[int, list[dict]]:
     """Score 0-100 + breakdown com contribuicao de cada fator.
 
@@ -1295,7 +1296,7 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     # apenas em catalisadores muito recentes. Efeito apenas live (backtest
     # nao passa category para pump_risk).
     if _PUMP_PENALTY_ENABLED and price_history:
-        pr = pump_risk(price_history, volume_history)
+        pr = pump_risk(price_history, volume_history, category=category)
         if pr["level"] == "high":
             reason_short = ", ".join(pr["reasons"][:2]) or "multiplas flags"
             _add("pump_risk", _PUMP_HIGH_PENALTY,
@@ -1312,10 +1313,12 @@ def scan_score(verdict: dict, volume: int | None = None,
                multi_trend: dict | None = None,
                price_history: list[dict] | None = None,
                case_status: dict | None = None,
-               is_container: bool = False) -> int:
+               is_container: bool = False,
+               category: str | None = None) -> int:
     """Wrapper retornando apenas o score. Ver enhanced_score para breakdown."""
     score, _ = enhanced_score(verdict, volume, supply, multi_trend,
-                              price_history, case_status, is_container)
+                              price_history, case_status, is_container,
+                              category=category)
     return score
 
 

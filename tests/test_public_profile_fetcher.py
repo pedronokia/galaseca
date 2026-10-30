@@ -318,14 +318,13 @@ class TestSaveCacheErrors:
         assert pf._download_avatar("7656", "https://example.com/a.jpg") is None
 
     def test_download_avatar_write_fails(self, monkeypatch, tmp_path: Path):
-        """_download_avatar retorna None se write_bytes falha."""
+        """_download_avatar retorna None se a escrita atômica falha."""
         avdir = tmp_path / "avatars"
         avdir.mkdir()
         monkeypatch.setattr(pf, "_AVATARS_DIR", avdir)
         monkeypatch.setattr(pf, "_http_get", lambda url, timeout=15.0: b"data")
-        from pathlib import Path as _Path
-        monkeypatch.setattr(_Path, "write_bytes",
-                            lambda self_, data: (_ for _ in ()).throw(OSError()))
+        monkeypatch.setattr(pf, "atomic_write_bytes",
+                            lambda path, data: (_ for _ in ()).throw(OSError()))
         assert pf._download_avatar("7656", "https://example.com/a.jpg") is None
 
 

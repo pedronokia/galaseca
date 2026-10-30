@@ -1393,6 +1393,39 @@ def test_enhanced_score_pump_v3_high_aplica_penalty_menos_5():
     assert pump_factor["delta"] == -5
 
 
+def test_enhanced_score_propaga_category_pra_exclusao_de_evento_valve(
+        monkeypatch):
+    """Regressao: enhanced_score nao tinha parametro `category` e por isso
+    nunca passava pra pump_risk interno -- a exclusao de ATH/rally por
+    evento recente da Valve (ver pump_risk) nunca se aplicava ao SCORE,
+    so' a exibicao direta de pump_risk (scan_engine chama os dois,
+    exibicao com category e score sem). Mesmo padrao de
+    test_enhanced_score_pump_v3_high_aplica_penalty_menos_5, mas com um
+    regime change recente que deve suspender o penalty."""
+    import datetime as _dt
+    from galaseca import valve_events
+
+    prices = [10.0] * 30 + [20.0, 40.0, 60.0, 80.0, 100.0]
+    ph = [{"time": i, "price_median": p, "purchases": 1}
+          for i, p in enumerate(prices)]
+    v = {"verdict": "fair", "diff_pct": 0}
+
+    monkeypatch.setattr(valve_events, "EVENTS", [
+        {"categories": ["Caixas"],
+         "date": _dt.date.today() - _dt.timedelta(days=5)},
+    ])
+
+    score_sem_category, bd_sem = signals.enhanced_score(v, price_history=ph)
+    score_com_category, bd_com = signals.enhanced_score(
+        v, price_history=ph, category="Caixas")
+
+    # Sem category: comportamento de sempre, penalty aplicado.
+    assert any(b["factor"] == "pump_risk" for b in bd_sem)
+    # Com category e evento recente: ATH/rally suspensos -> sem penalty.
+    assert not any(b["factor"] == "pump_risk" for b in bd_com)
+    assert score_com_category > score_sem_category
+
+
 def test_enhanced_score_pump_v3_medium_sem_penalty():
     """pump_risk level=='medium' (1 flag) -> sem penalty no score."""
     # Near ATH (peso 1) mas sem rally — gera medium

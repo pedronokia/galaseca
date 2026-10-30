@@ -16,6 +16,7 @@ import re
 import secrets
 import shutil
 import sqlite3
+import tempfile
 import time
 import urllib.parse
 from datetime import date
@@ -33,7 +34,7 @@ from galaseca import (
     __version__, cases, ranking, recommendations, scan_store, scan_targets,
     signals,
 )
-from galaseca._paths import DATA_DIR, atomic_write_bytes
+from galaseca._paths import DATA_DIR
 from galaseca.localization import localize_name
 from galaseca.public_site import (
     buscas, changelog, charts, db_backup, discord_notify, erro_stats, fmt,
@@ -121,14 +122,40 @@ def _load_or_create_secret_key() -> bytes:
 
     Sem isto, toda troca de processo (ou um `app.secret_key` hardcoded no
     código) invalidaria sessões -- ou peor, usaria a mesma chave previsível
-    em toda instalação. Gerada com `secrets.token_bytes` (criptográfico),
-    gravada com `atomic_write_bytes` (mesma disciplina de escrita atômica
-    de sempre).
+    em toda instalação. Gerada com `secrets.token_bytes` (criptográfico).
+
+    O gunicorn roda sem `--preload` (`Dockerfile.public-site`), então cada
+    worker importa o módulo e chama isto de forma independente após o
+    fork. No primeiro boot (arquivo ainda não existe), dois workers podem
+    cair no `exists() == False` ao mesmo tempo; `atomic_write_bytes`
+    sozinho não resolveria -- ele só garante que a escrita de CADA worker
+    não corrompe o arquivo, mas `os.replace` sempre troca por quem
+    escrever por último, e o worker que "perdeu" ficaria com `app.secret_key`
+    em memória diferente do que está em disco (sessão/CSRF de um worker
+    invalidada ao cair no outro). `os.link` com destino inexistente é
+    atômico e falha com `FileExistsError` se outro processo já criou o
+    arquivo -- aí lemos a chave que venceu em vez de manter a nossa.
     """
     if _SECRET_KEY_PATH.exists():
         return _SECRET_KEY_PATH.read_bytes()
     key = secrets.token_bytes(32)
-    atomic_write_bytes(_SECRET_KEY_PATH, key)
+    _SECRET_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(
+        dir=str(_SECRET_KEY_PATH.parent), prefix=_SECRET_KEY_PATH.name + ".")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(key)
+            fh.flush()
+            os.fsync(fh.fileno())
+        try:
+            os.link(tmp, _SECRET_KEY_PATH)
+        except FileExistsError:
+            key = _SECRET_KEY_PATH.read_bytes()
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
     return key
 
 

@@ -214,6 +214,37 @@ def test_value_inventory_miss_fetches(monkeypatch, tmp_path):
     assert rows[0]["total"] == 200.0
 
 
+def test_value_inventory_sem_mercado_nao_refaz_fetch(monkeypatch, tmp_path):
+    """Item sem preco no Market deve ficar cacheado (TTL negativo) -- uma
+    2a chamada de value_inventory nao pode bater na rede de novo pra ele.
+
+    Regressao: o laco de value_inventory tratava cache.get() == None como
+    MISS mesmo quando era um "sem preco" valido ja' cacheado (cache.has()
+    True), e nunca chamava cache.put(name, None) nesse caminho -- entao
+    o TTL negativo documentado no modulo nunca valia pra quem usa
+    value_inventory."""
+    calls = []
+    monkeypatch.setattr(
+        steam_api, "fetch_inventory",
+        lambda sid: (steam_api.INV_OK, [
+            {"name": "Item sem mercado", "quantity": 1, "tradable": True},
+        ]),
+    )
+    monkeypatch.setattr(steam_api, "get_market_price_status",
+                        _fake_status(steam_api.PRICE_NO_PRICE, calls=calls))
+    monkeypatch.setattr(time, "sleep", lambda _: None)
+
+    c = prices.PriceCache(path=tmp_path / "p.json")
+    prices.value_inventory("123", cache=c, throttle=0)
+    assert c.has("Item sem mercado") is True
+    assert c.get("Item sem mercado") is None
+    assert len(calls) == 1
+
+    # 2a chamada: deve ser cache hit (negativo), sem bater na rede outra vez.
+    prices.value_inventory("123", cache=c, throttle=0)
+    assert len(calls) == 1
+
+
 def test_value_inventory_throttle_default_e_dinamico(monkeypatch, tmp_path):
     """throttle=None (default) le' RATE_LIMIT_DELAY_S NA HORA da chamada,
     nao no momento em que o modulo foi importado -- monkeypatch precisa

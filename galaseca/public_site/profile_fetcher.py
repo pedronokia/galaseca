@@ -18,7 +18,7 @@ from pathlib import Path
 
 import httpx
 
-from galaseca._paths import DATA_DIR, atomic_write_text
+from galaseca._paths import DATA_DIR, atomic_write_bytes, atomic_write_text
 
 try:
     import fcntl
@@ -205,7 +205,7 @@ def _download_avatar(steamid: str, url: str) -> str | None:
         return None
     path = _AVATARS_DIR / f"{steamid}.jpg"
     try:
-        path.write_bytes(data)
+        atomic_write_bytes(path, data)
         return str(path)
     except OSError:
         return None

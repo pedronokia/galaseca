@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from galaseca._paths import DATA_DIR
+from galaseca._paths import DATA_DIR, atomic_write_bytes
 
 _CACHE_DIR = DATA_DIR / "icon_cache"
 _CDN_URL_TPL = (
@@ -64,7 +64,7 @@ def obter(hash_icone: str) -> "bytes | None":
         if resp.status_code != 200 or not resp.content:
             return None
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(resp.content)
+        atomic_write_bytes(p, resp.content)
         return resp.content
     except Exception:
         return None

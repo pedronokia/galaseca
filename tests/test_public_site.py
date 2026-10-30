@@ -1728,6 +1728,37 @@ def test_icon_cache_falha_de_rede_devolve_none(monkeypatch, tmp_path):
     assert icon_cache.obter("semcache") is None
 
 
+def test_icon_cache_grava_em_disco_de_forma_atomica(monkeypatch, tmp_path):
+    """Regressao (achado 2026-10-30): `obter()` usava `Path.write_bytes`,
+    que TRUNCA o arquivo antes de escrever -- dois visitantes pedindo o
+    mesmo ícone ainda não cacheado ao mesmo tempo podiam fazer um ler o
+    arquivo truncado/pela metade do outro (JPEG corrompido servido pro
+    navegador). Precisa passar por `atomic_write_bytes` (escreve num
+    temporário e troca com `os.replace`)."""
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+
+    class _Resp:
+        status_code = 200
+        content = b"fake-jpeg-bytes"
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **kw: _Resp())
+
+    chamadas = []
+    orig = icon_cache.atomic_write_bytes
+
+    def _espiao(path, data):
+        chamadas.append((path, data))
+        orig(path, data)
+
+    monkeypatch.setattr(icon_cache, "atomic_write_bytes", _espiao)
+
+    assert icon_cache.obter("novohash") == b"fake-jpeg-bytes"
+    assert len(chamadas) == 1
+    assert chamadas[0][1] == b"fake-jpeg-bytes"
+    assert icon_cache._caminho("novohash").read_bytes() == b"fake-jpeg-bytes"
+
+
 def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.icon_cache.obter", lambda h: None)
@@ -2090,6 +2121,53 @@ def test_contagem_usuarios_sem_banco_e_zero(monkeypatch, tmp_path):
         "galaseca.public_site.server.db_backup._DB_PATH",
         tmp_path / "nao_existe.db")
     assert _contagem_usuarios() == 0
+
+
+# ── Guarda contra corrida na criação da chave de sessão (achado 2026-10-30) ──
+
+def test_secret_key_race_perdedor_usa_chave_do_vencedor(monkeypatch, tmp_path):
+    """O gunicorn roda com `--workers 2` sem `--preload` (ver
+    Dockerfile.public-site): no primeiro boot, dois processos podem cair
+    juntos no caminho de criação da chave (arquivo ainda não existe pra
+    nenhum dos dois). `os.link` com destino novo falha com
+    `FileExistsError` se outro processo já criou o arquivo entre o nosso
+    `exists()` e o nosso `link` -- aí devemos usar a chave que ele gravou,
+    não a nossa, senão metade das sessões/CSRF cai dependendo de qual
+    worker atendeu a requisição."""
+    import os as _os
+
+    from galaseca.public_site import server
+
+    key_path = tmp_path / "secret.key"
+    monkeypatch.setattr(server, "_SECRET_KEY_PATH", key_path)
+
+    chave_do_vencedor = b"V" * 32
+
+    def _link_perde_a_corrida(src, dst):
+        # Simula o outro worker vencendo a corrida entre o nosso
+        # exists()==False e o nosso link: grava a chave dele primeiro.
+        key_path.write_bytes(chave_do_vencedor)
+        raise FileExistsError()
+
+    monkeypatch.setattr(server.os, "link", _link_perde_a_corrida)
+
+    resultado = server._load_or_create_secret_key()
+    assert resultado == chave_do_vencedor
+    # Não sobrou temporário órfão no diretório.
+    assert list(key_path.parent.iterdir()) == [key_path]
+
+
+def test_secret_key_sem_corrida_grava_e_persiste(tmp_path, monkeypatch):
+    """Caminho feliz (sem corrida): gera, grava, e uma 2a chamada (ou
+    outro processo lendo depois) lê a mesma chave do disco."""
+    from galaseca.public_site import server
+
+    key_path = tmp_path / "secret.key"
+    monkeypatch.setattr(server, "_SECRET_KEY_PATH", key_path)
+
+    primeira = server._load_or_create_secret_key()
+    assert key_path.exists()
+    assert server._load_or_create_secret_key() == primeira
 
 
 # ── Guarda contra comentário CSS não fechado (achado 2026-10-26) ──

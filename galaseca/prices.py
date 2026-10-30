@@ -170,11 +170,11 @@ def value_inventory(
     n = len(items)
     for i, it in enumerate(items, start=1):
         name = it["name"]
-        price = cache.get(name)
-        if price is None:                       # MISS -> rede + throttle
+        if cache.has(name):                     # HIT (inclusive negativo)
+            price = cache.get(name)
+        else:                                    # MISS -> rede + throttle
             price = _fetch_with_backoff(name)
-            if price is not None:
-                cache.put(name, price)
+            cache.put(name, price)
             time.sleep(throttle)
         if progress:
             progress(i, n, name)
