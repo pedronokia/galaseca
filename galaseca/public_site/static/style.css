@@ -121,8 +121,9 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
 .logo {
   display: inline-flex;
   align-items: center;
-  /* Sem gap: o espaço entre a vírgula e o slogan já está no viewBox. */
-  gap: 0;
+  /* O viewBox já reserva algum espaço após a vírgula, mas pouco:
+     soma-se uma folga extra pra não grudar no início do slogan. */
+  gap: 5px;
   color: var(--text-bright);
   text-decoration: none;
 }
