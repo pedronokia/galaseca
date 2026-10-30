@@ -121,7 +121,8 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
 .logo {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  /* Sem gap: o espaço entre a vírgula e o slogan já está no viewBox. */
+  gap: 0;
   color: var(--text-bright);
   text-decoration: none;
 }
@@ -131,8 +132,10 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
 .logo:focus-visible { outline-offset: 5px; border-radius: var(--radius-sm); }
 .logo:hover .logo-marca-ponto { fill: var(--accent-bright); }
 
-.logo-marca[hidden] { display: none; }
-.logo-marca { display: block; flex-shrink: 0; }
+.logo-marca[hidden],
+.logo-slogan[hidden] { display: none; }
+.logo-marca,
+.logo-slogan { display: block; flex-shrink: 0; }
 
 .logo-marca-letras { fill: currentColor; }
 
@@ -141,7 +144,13 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
   transition: fill 0.15s ease;
 }
 
-.modo-apresentacao .logo-marca { height: 36px; width: auto; }
+.modo-apresentacao .logo-marca,
+.modo-apresentacao .logo-slogan { height: 36px; width: auto; }
+
+/* Logo + slogan dá ~310px: abaixo disso só a marca. */
+@media (max-width: 400px) {
+  .logo-slogan { display: none; }
+}
 
 header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
 header.topo > .badge-cooldown { padding-bottom: 20px; }

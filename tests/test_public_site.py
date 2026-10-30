@@ -749,7 +749,8 @@ def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     assert 'class="logo"' in body
     assert 'class="logo-marca"' in body
     assert 'class="logo-marca-ponto"' in body
-    assert 'aria-label="GalaSeca — página inicial"' in body
+    assert 'aria-label="GalaSeca, pesquisa antes — página inicial"' in body
+    assert 'class="logo-slogan"' in body
 
 
 def test_index_apresentacao_aplica_classe_e_refresh(client, monkeypatch, tmp_path):
