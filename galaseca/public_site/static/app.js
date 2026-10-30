@@ -461,6 +461,23 @@ function mostrarToast(mensagem) {
   } catch (e) {}
 }
 
+// Altura do header.topo em --altura-topo: o cabeçalho fixo da tabela
+// (style.css) gruda logo abaixo dele. Medido em vez de fixo porque o
+// header muda de altura (logado/deslogado, zoom, fonte).
+(function () {
+  var topo = document.querySelector("header.topo");
+  if (!topo) return;
+  function atualizar() {
+    document.documentElement.style.setProperty(
+      "--altura-topo", topo.getBoundingClientRect().height + "px");
+  }
+  try {
+    atualizar();
+    if (window.ResizeObserver) new ResizeObserver(atualizar).observe(topo);
+    else window.addEventListener("resize", atualizar);
+  } catch (e) {}
+})();
+
 // Botão "voltar ao topo" -- aparece só depois de rolar um pouco.
 (function () {
   var botao = document.getElementById("botao-topo");
