@@ -1,6 +1,6 @@
 # GalaSeca
 
-[![tests](https://github.com/pedronokia/skinvault/actions/workflows/tests.yml/badge.svg)](https://github.com/pedronokia/skinvault/actions/workflows/tests.yml)
+[![tests](https://github.com/pedronokia/galaseca/actions/workflows/tests.yml/badge.svg)](https://github.com/pedronokia/galaseca/actions/workflows/tests.yml)
 
 GalaSeca is a public website for observed data from the Steam Community
 Market. It shows prices, history, explainable scores, and descriptive signals;

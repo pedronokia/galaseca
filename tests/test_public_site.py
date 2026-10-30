@@ -625,7 +625,7 @@ def test_api_docs_page(client):
 
 def test_rodape_tem_link_feedback_changelog_api(client):
     body = client.get("/").data.decode("utf-8")
-    assert "github.com/pedronokia/skinvault/issues/new" in body
+    assert "github.com/pedronokia/galaseca/issues/new" in body
     assert "/changelog" in body
     assert "/api" in body
 
