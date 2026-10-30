@@ -532,6 +532,10 @@ table.tabela-itens {
 .col-porque { width: 25%; }
 
 table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
+/* "Histórico (20)" quebrava em duas linhas (coluna mais estreita que
+   as outras) enquanto os outros cabeçalhos ficam numa linha só; "20
+   scans" virou "(20)" porque o title= do <th> já explica o resto. */
+table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
 .celula-item {
   display: block;
