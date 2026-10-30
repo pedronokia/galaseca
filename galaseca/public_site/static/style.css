@@ -1859,7 +1859,8 @@ footer.rodape .versao {
   }
 
   .pagina-inicial table.tabela-itens td.celula-item,
-  .pagina-inicial table.tabela-itens td[data-label="Por quê"] {
+  .pagina-inicial table.tabela-itens td[data-label="Por quê"],
+  .pagina-inicial table.tabela-itens td[data-label="Caixa/Cápsula"] {
     grid-column: 1 / -1;
   }
 
