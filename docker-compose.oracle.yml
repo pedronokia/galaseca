@@ -1,7 +1,7 @@
 # Override pra produção num VPS com domínio próprio (ex. Oracle Cloud
 # Always Free). Soma HTTPS automático (Caddy + Let's Encrypt) ao
 # docker-compose.public-site.yml -- não modifica web/worker, só adiciona o
-# proxy na frente. Ver skinvault/public_site/README.md, seção "Deploy".
+# proxy na frente. Ver galaseca/public_site/README.md, seção "Deploy".
 #
 # Uso:
 #   SITE_DOMAIN=seudominio.com docker compose \
@@ -10,7 +10,7 @@
 services:
   web:
     environment:
-      - SKINVAULT_PUBLIC_SITE_SECURE_COOKIES=1
+      - GALASECA_PUBLIC_SITE_SECURE_COOKIES=1
 
   caddy:
     image: caddy:2-alpine

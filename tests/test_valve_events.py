@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from skinvault import valve_events
+from galaseca import valve_events
 
 
 _REF = date(2026, 6, 8)

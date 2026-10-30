@@ -1,7 +1,7 @@
 """Testes de configuração/dedup do webhook Discord pessoal."""
 from __future__ import annotations
 
-from skinvault.public_site import user_webhook
+from galaseca.public_site import user_webhook
 
 
 def test_set_e_get_webhook_url(tmp_path):

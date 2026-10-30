@@ -1,7 +1,7 @@
 """Testes de rate_limit.py (limite de tentativas por IP, em memória)."""
 from __future__ import annotations
 
-from skinvault.public_site import rate_limit
+from galaseca.public_site import rate_limit
 
 
 def test_allow_dentro_do_limite():

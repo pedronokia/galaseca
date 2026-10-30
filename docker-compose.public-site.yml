@@ -1,5 +1,5 @@
 # Roda o site público localmente (ou num VPS) com Docker: web + worker
-# compartilhando o mesmo volume de dados. Ver skinvault/public_site/README.md.
+# compartilhando o mesmo volume de dados. Ver galaseca/public_site/README.md.
 #
 # Uso: docker compose -f docker-compose.public-site.yml up --build
 services:
@@ -28,13 +28,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.public-site
-    command: python -m skinvault.public_site.worker
+    command: python -m galaseca.public_site.worker
     environment:
-      - SKINVAULT_WORKER_INTERVAL_HORAS=6
+      - GALASECA_WORKER_INTERVAL_HORAS=6
     volumes:
       - skinvault_data:/data
     restart: unless-stopped
     logging: *log-rotativo
 
+# NÃO renomear para galaseca_data: o nome do volume é a chave dos dados
+# de produção (banco de contas, scans, chave de sessão). Um nome novo cria
+# um volume vazio e o site perde tudo. Ficou com o nome antigo de propósito
+# na troca SkinVault -> GalaSeca (2026-10-29), assim como a pasta ~/skinvault
+# na VM, que define o nome do projeto Docker e, portanto, o dos volumes.
 volumes:
   skinvault_data:

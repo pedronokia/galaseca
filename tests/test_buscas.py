@@ -1,7 +1,7 @@
-"""Testes do contador de termos buscados (skinvault/public_site/buscas.py)."""
+"""Testes do contador de termos buscados (galaseca/public_site/buscas.py)."""
 from __future__ import annotations
 
-from skinvault.public_site import buscas
+from galaseca.public_site import buscas
 
 
 def test_registrar_e_contar(tmp_path):

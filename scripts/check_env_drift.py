@@ -19,12 +19,12 @@ import sys
 # (variável, descrição, obrigatória?)
 _ESPERADAS: list[tuple[str, str, bool]] = [
     ("SITE_DOMAIN", "domínio público servido pelo Caddy", True),
-    ("SKINVAULT_DATA_DIR", "pasta de dados persistida (volume)", True),
-    ("SKINVAULT_ADMIN_PASSWORD_HASH", "hash da senha do /admin/login", False),
-    ("SKINVAULT_PUBLIC_SITE_SECURE_COOKIES", "cookies Secure (HTTPS)", False),
-    ("SKINVAULT_WORKER_INTERVAL_HORAS", "intervalo do worker (default 6h)", False),
-    ("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "alerta Discord de worker atrasado", False),
-    ("SKINVAULT_WORKER_ALERT_HORAS", "limite de horas pro alerta acima", False),
+    ("GALASECA_DATA_DIR", "pasta de dados persistida (volume)", True),
+    ("GALASECA_ADMIN_PASSWORD_HASH", "hash da senha do /admin/login", False),
+    ("GALASECA_PUBLIC_SITE_SECURE_COOKIES", "cookies Secure (HTTPS)", False),
+    ("GALASECA_WORKER_INTERVAL_HORAS", "intervalo do worker (default 6h)", False),
+    ("GALASECA_ADMIN_DISCORD_WEBHOOK", "alerta Discord de worker atrasado", False),
+    ("GALASECA_WORKER_ALERT_HORAS", "limite de horas pro alerta acima", False),
 ]
 
 

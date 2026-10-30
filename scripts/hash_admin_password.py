@@ -1,4 +1,4 @@
-"""Gera o hash pra `SKINVAULT_ADMIN_PASSWORD_HASH` (login real do /admin).
+"""Gera o hash pra `GALASECA_ADMIN_PASSWORD_HASH` (login real do /admin).
 
 O `/admin` trocou o token fixo em URL por um login de verdade (usuário
 único, sem "esqueci a senha" -- é literalmente o dono do site). A senha
@@ -9,7 +9,7 @@ o Flask, zero dependência nova).
 Uso:
     python scripts/hash_admin_password.py
     # digita a senha quando pedir, copia o hash impresso pra
-    # SKINVAULT_ADMIN_PASSWORD_HASH no ambiente do `web`.
+    # GALASECA_ADMIN_PASSWORD_HASH no ambiente do `web`.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def main() -> int:
     if senha != confirmacao:
         print("As senhas não bateram -- cancelado.")
         return 1
-    print("\nSKINVAULT_ADMIN_PASSWORD_HASH=" + generate_password_hash(senha))
+    print("\nGALASECA_ADMIN_PASSWORD_HASH=" + generate_password_hash(senha))
     return 0
 
 

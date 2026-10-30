@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from skinvault import gamedata
+from galaseca import gamedata
 
 
 # ---------------------------------------------------------------------------
@@ -337,7 +337,7 @@ def test_fetch_recent_commits_rate_limited(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_record_events_as_alerts(tmp_path):
-    from skinvault import alerts
+    from galaseca import alerts
     log = tmp_path / "alerts_log.json"
     events = [
         {"type": "drop_pool_removed", "internal": "set_timed_drops_warm",

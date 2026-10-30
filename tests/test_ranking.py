@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from skinvault import ranking
+from galaseca import ranking
 
 
 def test_save_snapshot_basic(tmp_path):

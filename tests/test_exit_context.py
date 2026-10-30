@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from skinvault import signals
+from galaseca import signals
 
 DIA = 86400
 

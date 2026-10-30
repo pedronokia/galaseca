@@ -1,15 +1,15 @@
 """Testes do pipeline de coleta usado pelo worker do site."""
 from __future__ import annotations
 
-from skinvault import scan_engine
+from galaseca import scan_engine
 
 
 def _mock_steam_ok(monkeypatch, price_history=None):
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_overview",
+        "galaseca.steam_api.get_market_overview",
         lambda name: {"lowest": 100.0, "median": 120.0, "volume": 500})
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_page_data",
+        "galaseca.steam_api.get_market_page_data",
         lambda name: {
             "order_book": {"spread": 5, "buy_count": 10, "sell_count": 20},
             "price_history": price_history or [],
@@ -17,17 +17,17 @@ def _mock_steam_ok(monkeypatch, price_history=None):
             "meta": {},
         })
     monkeypatch.setattr(
-        "skinvault.steam_api.fair_value_verdict",
+        "galaseca.steam_api.fair_value_verdict",
         lambda lowest, median, **kw: {
             "label": "COMPRA", "diff_pct": -5,
             "spread_verdict": "tight", "book_verdict": "buyer_dominant",
             "trend_verdict": "rising",
         })
-    monkeypatch.setattr("skinvault.signals.record_item_price",
+    monkeypatch.setattr("galaseca.signals.record_item_price",
                         lambda *a, **kw: None)
-    monkeypatch.setattr("skinvault.signals.record_item_volume",
+    monkeypatch.setattr("galaseca.signals.record_item_volume",
                         lambda *a, **kw: None)
-    monkeypatch.setattr("skinvault.signals.record_item_supply",
+    monkeypatch.setattr("galaseca.signals.record_item_supply",
                         lambda *a, **kw: None)
 
 
@@ -54,7 +54,7 @@ def test_scan_item_sucesso(monkeypatch):
 def test_scan_item_preserva_hash_do_icone(monkeypatch):
     _mock_steam_ok(monkeypatch)
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_page_data",
+        "galaseca.steam_api.get_market_page_data",
         lambda name: {
             "order_book": {"spread": 5, "buy_count": 10, "sell_count": 20},
             "price_history": [],
@@ -70,43 +70,43 @@ def test_scan_item_preserva_hash_do_icone(monkeypatch):
 
 def test_scan_item_excecao_de_rede_devolve_none(monkeypatch):
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_overview",
+        "galaseca.steam_api.get_market_overview",
         lambda name: (_ for _ in ()).throw(Exception("fail")))
     assert scan_engine.scan_item("X") is None
 
 
 def test_scan_item_sem_overview_devolve_none(monkeypatch):
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_overview", lambda name: None)
+        "galaseca.steam_api.get_market_overview", lambda name: None)
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_page_data", lambda name: None)
+        "galaseca.steam_api.get_market_page_data", lambda name: None)
     assert scan_engine.scan_item("X") is None
 
 
 def test_scan_item_sem_preco_nenhum_devolve_none(monkeypatch):
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_overview",
+        "galaseca.steam_api.get_market_overview",
         lambda name: {"lowest": None, "median": None, "volume": None})
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_page_data",
+        "galaseca.steam_api.get_market_page_data",
         lambda name: {"order_book": None, "price_history": []})
     assert scan_engine.scan_item("X") is None
 
 
 def test_scan_item_deriva_preco_do_historico(monkeypatch):
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_overview",
+        "galaseca.steam_api.get_market_overview",
         lambda name: {"lowest": None, "median": 50.0, "volume": None})
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_page_data",
+        "galaseca.steam_api.get_market_page_data",
         lambda name: {
             "order_book": None,
             "price_history": [{"time": 1, "price_median": 42.0}],
         })
     monkeypatch.setattr(
-        "skinvault.steam_api.fair_value_verdict",
+        "galaseca.steam_api.fair_value_verdict",
         lambda lowest, median, **kw: {"label": "—", "diff_pct": 0})
-    monkeypatch.setattr("skinvault.signals.record_item_price",
+    monkeypatch.setattr("galaseca.signals.record_item_price",
                         lambda *a, **kw: None)
     r = scan_engine.scan_item("X")
     assert r is not None
@@ -144,7 +144,7 @@ def test_scan_item_usa_categoria_no_pump_risk(monkeypatch):
         recebido["category"] = category
         return {"level": "low", "flags": 0, "reasons": []}
 
-    monkeypatch.setattr("skinvault.signals.pump_risk", _fake_pump_risk)
+    monkeypatch.setattr("galaseca.signals.pump_risk", _fake_pump_risk)
     scan_engine.scan_item("X", category="Facas")
     assert recebido["category"] == "Facas"
 
@@ -220,7 +220,7 @@ def test_run_full_scan_respeita_cancelled(monkeypatch):
 
 def test_run_full_scan_default_usa_scan_targets(monkeypatch):
     """Sem `categories`, usa scan_targets.SCAN_BY_CATEGORY (lista real)."""
-    from skinvault import scan_targets
+    from galaseca import scan_targets
 
     chamados = []
     monkeypatch.setattr(
@@ -251,26 +251,26 @@ def test_scan_item_nao_quebra_com_diff_pct_none(monkeypatch):
     pra chave ausente) e `None <= 0` derrubava o scan inteiro do item
     com TypeError. Trava a correção de scan_engine.py:125."""
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_overview",
+        "galaseca.steam_api.get_market_overview",
         lambda name: {"lowest": 100.0, "median": None, "volume": None})
     monkeypatch.setattr(
-        "skinvault.steam_api.get_market_page_data",
+        "galaseca.steam_api.get_market_page_data",
         lambda name: {
             "order_book": None, "price_history": [],
             "order_book_approx": False, "meta": {},
         })
     monkeypatch.setattr(
-        "skinvault.steam_api.fair_value_verdict",
+        "galaseca.steam_api.fair_value_verdict",
         lambda lowest, median, **kw: {
             "label": "—", "diff_pct": None, "verdict": "unknown",
             "spread_verdict": None, "book_verdict": None,
             "trend_verdict": None,
         })
-    monkeypatch.setattr("skinvault.signals.record_item_price",
+    monkeypatch.setattr("galaseca.signals.record_item_price",
                         lambda *a, **kw: None)
-    monkeypatch.setattr("skinvault.signals.record_item_volume",
+    monkeypatch.setattr("galaseca.signals.record_item_volume",
                         lambda *a, **kw: None)
-    monkeypatch.setattr("skinvault.signals.record_item_supply",
+    monkeypatch.setattr("galaseca.signals.record_item_supply",
                         lambda *a, **kw: None)
 
     resultado = scan_engine.scan_item("Item Sem Mediana")
@@ -281,7 +281,7 @@ def test_scan_item_nao_quebra_com_diff_pct_none(monkeypatch):
 def test_facas_e_luvas_usam_nome_de_mercado_com_estrela():
     # Sem o "★ " a listing page não existe: as 28 facas/luvas voltavam
     # vazias em todo ciclo e as categorias apareciam sem nenhum item.
-    from skinvault import scan_targets
+    from galaseca import scan_targets
 
     for cat in ("Facas", "Luvas"):
         for nome in scan_targets.SCAN_BY_CATEGORY[cat]:
@@ -289,7 +289,7 @@ def test_facas_e_luvas_usam_nome_de_mercado_com_estrela():
 
 
 def test_dragon_king_usa_nome_de_mercado_real():
-    from skinvault import cases, scan_targets
+    from galaseca import cases, scan_targets
 
     nome = "M4A4 | 龍王 (Dragon King) (Minimal Wear)"
     assert nome in scan_targets.SCAN_BY_CATEGORY["Rifles"]

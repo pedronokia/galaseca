@@ -1,7 +1,7 @@
 """Testes de recommendations.py (candidatos de compra + vigia de venda)."""
 from __future__ import annotations
 
-from skinvault import recommendations as rec
+from galaseca import recommendations as rec
 
 
 def _scan_row(name, score, pump_level="low", breakdown=None, **extra):

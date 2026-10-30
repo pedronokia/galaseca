@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from skinvault import portfolio
+from galaseca import portfolio
 
 
 def test_net_proceeds_and_break_even():

@@ -13,12 +13,12 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from werkzeug.security import generate_password_hash
 
-from skinvault import ranking, scan_store, signals
-from skinvault.public_site import (
+from galaseca import ranking, scan_store, signals
+from galaseca.public_site import (
     charts, erro_stats, fmt, icon_cache, latencia, rate_limit, scan_progress,
     user_store, worker, worker_alert,
 )
-from skinvault.public_site.server import create_app
+from galaseca.public_site.server import create_app
 
 
 @pytest.fixture
@@ -240,7 +240,7 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
 
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
     """Garantia estrutural: nenhuma rota de server.py importa steam_api."""
-    import skinvault.public_site.server as srv
+    import galaseca.public_site.server as srv
     assert not hasattr(srv, "steam_api")
 
 
@@ -444,7 +444,7 @@ def test_static_app_js_tem_atalho_e_notas_locais(client):
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     assert "keydown" in body
-    assert "skinvault_notas" in body
+    assert "galaseca_notas" in body
     assert "mouseover" in body and "prefetch" in body
 
 
@@ -644,7 +644,7 @@ def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
             candidato["tendencia"] = "alta"
 
     monkeypatch.setattr(
-        "skinvault.public_site.server._enriquecer_com_historico",
+        "galaseca.public_site.server._enriquecer_com_historico",
         marca_tendencia_alta)
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 1.0, "case_label": "",
@@ -658,7 +658,7 @@ def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
 
 def test_index_sem_historico_nao_mostra_tendencia(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "skinvault.public_site.server.signals.load_item_history",
+        "galaseca.public_site.server.signals.load_item_history",
         lambda name: [])
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "X", "score": 80, "price": 1.0, "case_label": "",
@@ -744,9 +744,9 @@ def test_index_campo_nota_pessoal_nasce_escondido_atras_de_botao(
 def test_index_registra_termo_buscado(client, monkeypatch, tmp_path):
     chamados = []
     monkeypatch.setattr(
-        "skinvault.public_site.server.buscas.registrar",
+        "galaseca.public_site.server.buscas.registrar",
         lambda termo: chamados.append(termo))
-    monkeypatch.setattr("skinvault.scan_store.load_last_scan", lambda: None)
+    monkeypatch.setattr("galaseca.scan_store.load_last_scan", lambda: None)
     client.get("/?q=redline")
     assert chamados == ["redline"]
 
@@ -754,9 +754,9 @@ def test_index_registra_termo_buscado(client, monkeypatch, tmp_path):
 def test_index_sem_busca_nao_registra_termo(client, monkeypatch):
     chamados = []
     monkeypatch.setattr(
-        "skinvault.public_site.server.buscas.registrar",
+        "galaseca.public_site.server.buscas.registrar",
         lambda termo: chamados.append(termo))
-    monkeypatch.setattr("skinvault.scan_store.load_last_scan", lambda: None)
+    monkeypatch.setattr("galaseca.scan_store.load_last_scan", lambda: None)
     client.get("/")
     assert chamados == []
 
@@ -776,9 +776,9 @@ def test_metodo_page(client):
 
 def test_ranking_page_sem_snapshots(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.load_snapshots", lambda: [])
+        "galaseca.public_site.server.ranking.load_snapshots", lambda: [])
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.previous_snapshot",
+        "galaseca.public_site.server.ranking.previous_snapshot",
         lambda: None)
     resp = client.get("/ranking")
     assert resp.status_code == 200
@@ -787,17 +787,17 @@ def test_ranking_page_sem_snapshots(client, monkeypatch):
 
 def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.load_snapshots",
+        "galaseca.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
         ]}])
     # Snapshot anterior EXISTE mas nao tem o item X -- e' isso que gera
     # "NOVO" (previous=None geraria label vazio, nao NOVO).
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.previous_snapshot",
+        "galaseca.public_site.server.ranking.previous_snapshot",
         lambda: {"ts": 900.0, "items": [{"name": "Y", "score": 1, "position": 1}]})
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.latest_before",
+        "galaseca.public_site.server.ranking.latest_before",
         lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert "selo-novo" in body
@@ -805,19 +805,19 @@ def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
 
 def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.load_snapshots",
+        "galaseca.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
             {"name": "Y", "score": 70, "position": 2},
         ]}])
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.previous_snapshot",
+        "galaseca.public_site.server.ranking.previous_snapshot",
         lambda: {"ts": 900.0, "items": [
             {"name": "X", "score": 75, "position": 3},
             {"name": "Y", "score": 70, "position": 1},
         ]})
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.latest_before",
+        "galaseca.public_site.server.ranking.latest_before",
         lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert "tendencia-alta" in body
@@ -826,15 +826,15 @@ def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
 
 def test_ranking_page_resumo_do_dia_sem_snapshot_antigo(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.load_snapshots",
+        "galaseca.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.previous_snapshot",
+        "galaseca.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.latest_before",
+        "galaseca.public_site.server.ranking.latest_before",
         lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert "resumo-do-dia" not in body
@@ -842,16 +842,16 @@ def test_ranking_page_resumo_do_dia_sem_snapshot_antigo(client, monkeypatch):
 
 def test_ranking_page_resumo_do_dia_com_snapshot_antigo(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.load_snapshots",
+        "galaseca.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 90, "position": 1},
             {"name": "Y", "score": 70, "position": 2},
         ]}])
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.previous_snapshot",
+        "galaseca.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.latest_before",
+        "galaseca.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 60, "position": 2},
         ]})
@@ -865,15 +865,15 @@ def test_ranking_page_resumo_do_dia_sem_alta_nenhuma(client, monkeypatch):
     # Unico item em comum caiu de nota -- "maior alta" nao deve aparecer,
     # so' a contagem de novos (0, aqui).
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.load_snapshots",
+        "galaseca.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 40, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.previous_snapshot",
+        "galaseca.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "skinvault.public_site.server.ranking.latest_before",
+        "galaseca.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 90, "position": 1},
         ]})
@@ -943,7 +943,7 @@ def test_api_health(client, monkeypatch, tmp_path):
 
 
 def test_api_health_sem_scan(client, monkeypatch):
-    monkeypatch.setattr("skinvault.scan_store.load_last_scan", lambda: None)
+    monkeypatch.setattr("galaseca.scan_store.load_last_scan", lambda: None)
     resp = client.get("/api/health")
     data = resp.get_json()
     assert data["scan"]["disponivel"] is False
@@ -981,14 +981,14 @@ def test_429_customizado(client, monkeypatch):
 
 
 def test_admin_sem_hash_configurado_e_404(client, monkeypatch):
-    monkeypatch.setattr("skinvault.public_site.server._ADMIN_PASSWORD_HASH", "")
+    monkeypatch.setattr("galaseca.public_site.server._ADMIN_PASSWORD_HASH", "")
     assert client.get("/admin").status_code == 404
     assert client.get("/admin/login").status_code == 404
 
 
 def test_admin_sem_sessao_redireciona_pro_login(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     resp = client.get("/admin")
     assert resp.status_code == 302
@@ -997,7 +997,7 @@ def test_admin_sem_sessao_redireciona_pro_login(client, monkeypatch):
 
 def test_admin_login_senha_errada_nao_autentica(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     resp = client.post("/admin/login", data={"senha": "errada"})
     assert resp.status_code == 200
@@ -1007,7 +1007,7 @@ def test_admin_login_senha_errada_nao_autentica(client, monkeypatch):
 
 def test_admin_login_senha_certa_autentica_e_funciona(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     login = client.post("/admin/login", data={"senha": "segredo"})
     assert login.status_code == 302
@@ -1016,7 +1016,7 @@ def test_admin_login_senha_certa_autentica_e_funciona(client, monkeypatch):
 
 def test_admin_logout_encerra_sessao(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     client.post("/admin/login", data={"senha": "segredo"})
     assert client.get("/admin").status_code == 200
@@ -1041,13 +1041,13 @@ def test_cookie_preferencia_persiste(client, monkeypatch, tmp_path):
 
 def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.visits.serie_por_dia",
+        "galaseca.public_site.server.visits.serie_por_dia",
         lambda: [("2026-10-24", 3), ("2026-10-25", 5)])
     monkeypatch.setattr(
-        "skinvault.public_site.server.buscas.mais_buscados",
+        "galaseca.public_site.server.buscas.mais_buscados",
         lambda limite=10: [("ak-47", 4)])
     monkeypatch.setattr(
-        "skinvault.public_site.server.scan_store.load_historico_ciclos",
+        "galaseca.public_site.server.scan_store.load_historico_ciclos",
         lambda: [])
     body = client.get("/status").data.decode("utf-8")
     assert "grafico-historico" in body
@@ -1057,7 +1057,7 @@ def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
 # ── server: /status ──────────────────────────────────────────
 
 def test_status_sem_historico(client, monkeypatch, tmp_path):
-    from skinvault.public_site import uptime, visits
+    from galaseca.public_site import uptime, visits
     monkeypatch.setattr(scan_store, "load_historico_ciclos", lambda: [])
     monkeypatch.setattr(uptime, "no_ar_desde", lambda: 0.0)
     monkeypatch.setattr(visits, "total", lambda: 0)
@@ -1067,7 +1067,7 @@ def test_status_sem_historico(client, monkeypatch, tmp_path):
 
 
 def test_status_mostra_ciclos_com_falha(client, monkeypatch, tmp_path):
-    from skinvault.public_site import uptime, visits
+    from galaseca.public_site import uptime, visits
     monkeypatch.setattr(scan_store, "load_historico_ciclos", lambda: [
         {"ts": 1000.0, "itens": 0, "duracao_min": 26.4, "sucesso": False},
         {"ts": 2000.0, "itens": 185, "duracao_min": 23.1, "sucesso": True},
@@ -1237,19 +1237,19 @@ def _worker_main_uma_volta(monkeypatch):
 
 
 def test_main_le_intervalo_do_env(monkeypatch):
-    monkeypatch.setenv("SKINVAULT_WORKER_INTERVAL_HORAS", "2")
+    monkeypatch.setenv("GALASECA_WORKER_INTERVAL_HORAS", "2")
     chamadas = _worker_main_uma_volta(monkeypatch)
     assert chamadas == [2 * 3600]
 
 
 def test_main_sem_env_usa_default(monkeypatch):
-    monkeypatch.delenv("SKINVAULT_WORKER_INTERVAL_HORAS", raising=False)
+    monkeypatch.delenv("GALASECA_WORKER_INTERVAL_HORAS", raising=False)
     chamadas = _worker_main_uma_volta(monkeypatch)
     assert chamadas == [worker._INTERVALO_HORAS_DEFAULT * 3600]
 
 
 def test_main_parametro_explicito_ignora_env(monkeypatch):
-    monkeypatch.setenv("SKINVAULT_WORKER_INTERVAL_HORAS", "99")
+    monkeypatch.setenv("GALASECA_WORKER_INTERVAL_HORAS", "99")
     monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
     monkeypatch.setattr(worker, "run_once", lambda: [])
     chamadas = []
@@ -1375,10 +1375,10 @@ def test_scan_progress_ausente_e_none(tmp_path):
 
 def test_admin_mostra_progresso(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "skinvault.public_site.server.scan_progress.carregar",
+        "galaseca.public_site.server.scan_progress.carregar",
         lambda: {"indice": 10, "total": 185, "item": "Item X", "ts": time.time()})
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin")
@@ -1393,11 +1393,11 @@ def test_admin_formata_quando_dos_ciclos_em_vez_de_timestamp_cru(
     (`{{ c.ts|int }}`, tipo "1792500195") porque nunca recebeu o mesmo
     tratamento."""
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     ts_fixo = 1700000000.0  # epoch arbitrário, fixo -- não depende do "agora"
     monkeypatch.setattr(
-        "skinvault.public_site.server.scan_store.load_historico_ciclos",
+        "galaseca.public_site.server.scan_store.load_historico_ciclos",
         lambda: [{"ts": ts_fixo, "itens": 152,
                  "duracao_min": 22.3, "sucesso": True}])
     client.post("/admin/login", data={"senha": "segredo"})
@@ -1410,21 +1410,21 @@ def test_admin_formata_quando_dos_ciclos_em_vez_de_timestamp_cru(
 # ── worker_alert ─────────────────────────────────────────────
 
 def test_worker_alert_sem_webhook_nao_alerta(monkeypatch, tmp_path):
-    monkeypatch.delenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", raising=False)
+    monkeypatch.delenv("GALASECA_ADMIN_DISCORD_WEBHOOK", raising=False)
     ciclos = [{"ts": time.time() - 10 * 3600, "itens": 0}]
     assert worker_alert.verificar_e_alertar(
         ciclos, path=tmp_path / "estado.json") is False
 
 
 def test_worker_alert_sucesso_recente_nao_alerta(monkeypatch, tmp_path):
-    monkeypatch.setenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     ciclos = [{"ts": time.time() - 100, "itens": 5}]
     assert worker_alert.verificar_e_alertar(
         ciclos, path=tmp_path / "estado.json") is False
 
 
 def test_worker_alert_manda_quando_atrasado(monkeypatch, tmp_path):
-    monkeypatch.setenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     monkeypatch.setattr(worker_alert.discord_notify, "enviar", lambda url, msg: True)
     ciclos = [{"ts": time.time() - 10 * 3600, "itens": 0}]
     assert worker_alert.verificar_e_alertar(
@@ -1432,7 +1432,7 @@ def test_worker_alert_manda_quando_atrasado(monkeypatch, tmp_path):
 
 
 def test_worker_alert_dedup_nao_manda_de_novo(monkeypatch, tmp_path):
-    monkeypatch.setenv("SKINVAULT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     chamadas = []
     monkeypatch.setattr(
         worker_alert.discord_notify, "enviar",
@@ -1515,7 +1515,7 @@ def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):
 
 def test_readyz_sem_banco_e_ready(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "skinvault.public_site.server.db_backup._DB_PATH",
+        "galaseca.public_site.server.db_backup._DB_PATH",
         tmp_path / "nao_existe.db")
     resp = client.get("/readyz")
     assert resp.status_code == 200
@@ -1528,7 +1528,7 @@ def test_readyz_com_banco_valido_e_ready(client, monkeypatch, tmp_path):
     conn = sqlite3.connect(str(db))
     conn.execute("CREATE TABLE t (x INTEGER)")
     conn.close()
-    monkeypatch.setattr("skinvault.public_site.server.db_backup._DB_PATH", db)
+    monkeypatch.setattr("galaseca.public_site.server.db_backup._DB_PATH", db)
     resp = client.get("/readyz")
     assert resp.get_json()["ready"] is True
 
@@ -1536,7 +1536,7 @@ def test_readyz_com_banco_valido_e_ready(client, monkeypatch, tmp_path):
 def test_readyz_com_banco_corrompido_nao_e_ready(client, monkeypatch, tmp_path):
     db = tmp_path / "corrompido.db"
     db.write_bytes(b"isto nao e um sqlite valido nem perto")
-    monkeypatch.setattr("skinvault.public_site.server.db_backup._DB_PATH", db)
+    monkeypatch.setattr("galaseca.public_site.server.db_backup._DB_PATH", db)
     resp = client.get("/readyz")
     assert resp.status_code == 503
     assert resp.get_json()["ready"] is False
@@ -1684,7 +1684,7 @@ def test_icon_cache_falha_de_rede_devolve_none(monkeypatch, tmp_path):
 
 def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.icon_cache.obter", lambda h: None)
+        "galaseca.public_site.server.icon_cache.obter", lambda h: None)
     resp = client.get("/icone/abc123.jpg")
     assert resp.status_code == 302
     assert "steamstatic.com" in resp.headers["Location"]
@@ -1692,7 +1692,7 @@ def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
 
 def test_rota_icone_com_cache_serve_bytes(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.icon_cache.obter",
+        "galaseca.public_site.server.icon_cache.obter",
         lambda h: b"dados-da-imagem")
     resp = client.get("/icone/abc123.jpg")
     assert resp.status_code == 200
@@ -1707,7 +1707,7 @@ def test_rota_icone_tem_rate_limit(monkeypatch):
     gotcha de `rate_limited` avaliado na decoração: patcha ANTES de
     `create_app()`."""
     monkeypatch.setattr(
-        "skinvault.public_site.server.icon_cache.obter", lambda h: b"x")
+        "galaseca.public_site.server.icon_cache.obter", lambda h: b"x")
     monkeypatch.setattr(rate_limit, "ICON_MAX_HITS", 2)
     app = create_app()
     app.config["TESTING"] = True
@@ -1816,7 +1816,7 @@ def test_fmt_brl_valor_grande():
 
 
 def test_agrupar_por_categoria_item_sem_categoria():
-    from skinvault.public_site.server import _agrupar_por_categoria
+    from galaseca.public_site.server import _agrupar_por_categoria
     candidatos = [{"name": "X", "score": 10}]  # sem a chave "category" de vez
     grupos = _agrupar_por_categoria(candidatos)
     assert grupos == [("Sem categoria", candidatos)]
@@ -1866,7 +1866,7 @@ def test_icon_cache_requisicao_de_rede_usa_hash_sanitizado(monkeypatch, tmp_path
 def test_readyz_com_db_path_sendo_diretorio(client, monkeypatch, tmp_path):
     diretorio = tmp_path / "isto_e_pasta"
     diretorio.mkdir()
-    monkeypatch.setattr("skinvault.public_site.server.db_backup._DB_PATH", diretorio)
+    monkeypatch.setattr("galaseca.public_site.server.db_backup._DB_PATH", diretorio)
     resp = client.get("/readyz")
     assert resp.status_code == 503
     assert resp.get_json()["ready"] is False
@@ -1910,7 +1910,7 @@ def test_sitemap_inclui_faq(client):
 
 def test_admin_mostra_disco_e_usuarios(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin")
@@ -1926,7 +1926,7 @@ def test_admin_testar_webhook_sem_sessao_e_404(client):
 
 def test_admin_testar_webhook_sem_csrf_e_403(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.post("/admin/testar-webhook", data={})
@@ -1935,10 +1935,10 @@ def test_admin_testar_webhook_sem_csrf_e_403(client, monkeypatch):
 
 def test_admin_testar_webhook_com_csrf_funciona(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "skinvault.public_site.server.discord_notify.enviar",
+        "galaseca.public_site.server.discord_notify.enviar",
         lambda url, msg: True)
     client.post("/admin/login", data={"senha": "segredo"})
     with client.session_transaction() as sess:
@@ -1962,9 +1962,9 @@ def test_admin_log_bruto_com_sessao_baixa_arquivo(client, monkeypatch, tmp_path)
     log = tmp_path / "errors.log"
     log.write_text("linha de erro\n", encoding="utf-8")
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
-    monkeypatch.setattr("skinvault.public_site.server._ERROR_LOG_PATH", log)
+    monkeypatch.setattr("galaseca.public_site.server._ERROR_LOG_PATH", log)
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin/log-bruto")
     assert resp.status_code == 200
@@ -1980,10 +1980,10 @@ def test_admin_backup_download_com_sessao_baixa_arquivo(client, monkeypatch, tmp
     backup = tmp_path / "public_site-20261026-120000.db"
     backup.write_bytes(b"dados falsos de sqlite")
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin/backup/public_site-20261026-120000.db")
     assert resp.status_code == 200
@@ -1997,10 +1997,10 @@ def test_admin_backup_download_rejeita_nome_fora_do_padrao(client, monkeypatch, 
     alvo = tmp_path / "secreto.txt"
     alvo.write_text("não deveria ser servido", encoding="utf-8")
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     for nome in ("../secreto.txt", "secreto.txt", "public_site-123.db",
                 "public_site-20261026-120000.db.bak"):
@@ -2010,10 +2010,10 @@ def test_admin_backup_download_rejeita_nome_fora_do_padrao(client, monkeypatch, 
 
 def test_admin_backup_download_arquivo_inexistente_e_404(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin/backup/public_site-20261026-120000.db")
     assert resp.status_code == 404
@@ -2023,25 +2023,25 @@ def test_admin_lista_backups_tem_link_de_download(client, monkeypatch, tmp_path)
     backup = tmp_path / "public_site-20261026-120000.db"
     backup.write_bytes(b"x")
     monkeypatch.setattr(
-        "skinvault.public_site.server._ADMIN_PASSWORD_HASH",
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "skinvault.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     body = client.get("/admin").data.decode("utf-8")
     assert "/admin/backup/public_site-20261026-120000.db" in body
 
 
 def test_disco_info_nao_quebra_sem_dados():
-    from skinvault.public_site.server import _disco_info
+    from galaseca.public_site.server import _disco_info
     info = _disco_info()
     assert "livre_fmt" in info
 
 
 def test_contagem_usuarios_sem_banco_e_zero(monkeypatch, tmp_path):
-    from skinvault.public_site.server import _contagem_usuarios
+    from galaseca.public_site.server import _contagem_usuarios
     monkeypatch.setattr(
-        "skinvault.public_site.server.db_backup._DB_PATH",
+        "galaseca.public_site.server.db_backup._DB_PATH",
         tmp_path / "nao_existe.db")
     assert _contagem_usuarios() == 0
 
@@ -2057,7 +2057,7 @@ def test_style_css_comentarios_balanceados():
     import re
     from pathlib import Path
 
-    caminho = (Path(__file__).parent.parent / "skinvault" / "public_site"
+    caminho = (Path(__file__).parent.parent / "galaseca" / "public_site"
               / "static" / "style.css")
     css = caminho.read_text(encoding="utf-8")
     abre = len(re.findall(re.escape("/*"), css))
@@ -2080,7 +2080,7 @@ def test_classes_com_hidden_tem_guarda_display_none():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "skinvault" / "public_site"
+    raiz = Path(__file__).parent.parent / "galaseca" / "public_site"
     css = (raiz / "static" / "style.css").read_text(encoding="utf-8")
 
     classes_com_hidden = set()
@@ -2136,7 +2136,7 @@ def test_todas_as_custom_properties_usadas_estao_definidas():
     import re
     from pathlib import Path
 
-    css = (Path(__file__).parent.parent / "skinvault" / "public_site"
+    css = (Path(__file__).parent.parent / "galaseca" / "public_site"
           / "static" / "style.css").read_text(encoding="utf-8")
     m = re.search(r":root\s*\{([^}]*)\}", css)
     definidas = set(re.findall(r"--([\w-]+)\s*:", m.group(1)))
@@ -2158,7 +2158,7 @@ def test_nenhum_template_usa_style_inline():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
     com_style_inline = []
     for template in raiz.rglob("*.html"):
         html = template.read_text(encoding="utf-8")
@@ -2177,7 +2177,7 @@ def test_colunas_da_tabela_principal_somam_100_por_cento():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "skinvault" / "public_site"
+    raiz = Path(__file__).parent.parent / "galaseca" / "public_site"
     css = (raiz / "static" / "style.css").read_text(encoding="utf-8")
     html = (raiz / "templates" / "index.html").read_text(encoding="utf-8")
 
@@ -2204,7 +2204,7 @@ def test_todo_template_tem_skip_link_e_main_com_id():
     nova."""
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
     sem_skip_link = []
     sem_main_id = []
     for template in raiz.glob("*.html"):  # só as páginas, não partials/
@@ -2224,7 +2224,7 @@ def test_paginas_de_conta_sao_noindex():
     crawler pode achar por outro caminho, ex. um link direto)."""
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
     paginas = ["conta.html", "conta_excluir.html", "conta_historico.html",
               "conta_trades.html", "conta_watchlist.html"]
     sem_noindex = [
@@ -2249,7 +2249,7 @@ def test_todo_campo_de_formulario_tem_nome_acessivel():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "skinvault" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
     sem_nome_acessivel = []
     for template in raiz.rglob("*.html"):
         html = template.read_text(encoding="utf-8")
@@ -2270,7 +2270,7 @@ def test_todo_campo_de_formulario_tem_nome_acessivel():
 
 def test_nav_de_conta_marca_pagina_ativa(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.server.user_store.get_user",
+        "galaseca.public_site.server.user_store.get_user",
         lambda steamid, path=None: None)
     with client.session_transaction() as sess:
         sess["steamid"] = "123"
@@ -2282,7 +2282,7 @@ def test_nav_de_conta_marca_pagina_ativa(client, monkeypatch):
 # ── Rodada 3: performance -- historico so' pra fatia visivel ──
 
 def test_candidatos_filtrados_sem_historico_nao_calcula_sparkline():
-    from skinvault.public_site.server import _candidatos_filtrados
+    from galaseca.public_site.server import _candidatos_filtrados
     scan = {"ts": time.time(), "category": "x", "results": [
         {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
@@ -2293,9 +2293,9 @@ def test_candidatos_filtrados_sem_historico_nao_calcula_sparkline():
 
 
 def test_enriquecer_com_historico_preenche_campos(monkeypatch):
-    from skinvault.public_site.server import _enriquecer_com_historico
+    from galaseca.public_site.server import _enriquecer_com_historico
     monkeypatch.setattr(
-        "skinvault.public_site.server.signals.load_item_history",
+        "galaseca.public_site.server.signals.load_item_history",
         lambda name: [{"ts": 1, "price": 10.0}, {"ts": 2, "price": 12.0}])
     candidatos = [{"name": "Item A"}]
     _enriquecer_com_historico(candidatos)
@@ -2321,7 +2321,7 @@ def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
         return []
 
     monkeypatch.setattr(
-        "skinvault.public_site.server.signals.load_item_history", _contado)
+        "galaseca.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/")
     assert resp.status_code == 200
     assert len(chamadas) <= 15  # página de 10 + folga, nunca os 152
@@ -2348,7 +2348,7 @@ def test_item_detail_nao_calcula_historico_dos_outros_candidatos(client, monkeyp
         return []
 
     monkeypatch.setattr(
-        "skinvault.public_site.server.signals.load_item_history", _contado)
+        "galaseca.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/item/Item 000")
     assert resp.status_code == 200
     assert len(chamadas) <= 2  # só a chamada do gráfico da própria página
@@ -2371,7 +2371,7 @@ def test_comparar_so_enriquece_os_itens_comparados(client, monkeypatch, tmp_path
         return []
 
     monkeypatch.setattr(
-        "skinvault.public_site.server.signals.load_item_history", _contado)
+        "galaseca.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/comparar?nomes=Item 000,Item 001,Item 002")
     assert resp.status_code == 200
     assert len(chamadas) <= 3  # só os 3 itens comparados, nunca os 152

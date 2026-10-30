@@ -1,6 +1,6 @@
 # Imagem do site público GalaSeca.
 # A mesma imagem atende aos dois serviços (ver docker-compose.public-site.yml
-# e skinvault/public_site/README.md):
+# e galaseca/public_site/README.md):
 #   web    -> gunicorn servindo o dashboard + /conta (Fases 1/2)
 #   worker -> processo solitário que fala com a Steam (worker.py)
 #
@@ -13,7 +13,7 @@
 # só os arquivos copiados explicitamente com `--from=builder` entram na
 # imagem final.
 #
-# Build:  docker build -f Dockerfile.public-site -t skinvault-public-site .
+# Build:  docker build -f Dockerfile.public-site -t galaseca-public-site .
 
 FROM python:3.9-slim AS builder
 WORKDIR /app
@@ -22,18 +22,18 @@ WORKDIR /app
 COPY requirements-public-site.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements-public-site.txt
 
-COPY skinvault/ skinvault/
+COPY galaseca/ galaseca/
 
 # Minifica style.css/app.js dentro do builder -- o fonte no repositório
 # continua legível em dev; só a cópia minificada segue pro estágio final.
 COPY scripts/minify_static.py scripts/minify_static.py
-RUN python scripts/minify_static.py skinvault/public_site/static
+RUN python scripts/minify_static.py galaseca/public_site/static
 
 FROM python:3.9-slim
 WORKDIR /app
 
 COPY --from=builder /install /usr/local
-COPY --from=builder /app/skinvault skinvault/
+COPY --from=builder /app/galaseca galaseca/
 
 # Identificador do build (data/hora UTC), não um hash de git -- mais
 # simples de obter aqui dentro sem precisar copiar o `.git` todo pra
@@ -43,7 +43,7 @@ RUN date -u +%Y%m%d-%H%M%S > BUILD_ID
 
 # DATA_DIR de verdade vem de um volume montado aqui (SQLite + os JSON
 # globais do dashboard tem que sobreviver a redeploy -- ver _paths.py).
-ENV SKINVAULT_DATA_DIR=/data
+ENV GALASECA_DATA_DIR=/data
 VOLUME ["/data"]
 
 EXPOSE 8000
@@ -51,4 +51,4 @@ EXPOSE 8000
 # Shell form (nao exec form) de proposito: $PORT e' quem muitos provedores
 # (Render/Railway/Fly.io) usam pra dizer em que porta escutar -- shell form
 # expande a variavel; exec form nao.
-CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 skinvault.public_site.wsgi:app
+CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 galaseca.public_site.wsgi:app

@@ -13,8 +13,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from skinvault.public_site import db
-from skinvault.public_site.server import create_app
+from galaseca.public_site import db
+from galaseca.public_site.server import create_app
 
 
 @pytest.fixture
@@ -28,10 +28,10 @@ def client(tmp_path, monkeypatch):
 def _login(client, monkeypatch, steamid="76561198000000000",
           nome="Fulano", avatar="http://x/a.jpg"):
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: steamid)
     monkeypatch.setattr(
-        "skinvault.public_site.account.fetch_public_profile",
+        "galaseca.public_site.account.fetch_public_profile",
         lambda sid: {"name": nome, "avatar_url": avatar})
     return client.get(
         "/login/callback", query_string=_callback_query(_start_login(client)))
@@ -62,7 +62,7 @@ def test_login_redireciona_pra_steam(client):
 
 def test_login_callback_invalido_volta_pro_dashboard(client, monkeypatch):
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: None)
     resp = client.get(
         "/login/callback", query_string=_callback_query(_start_login(client)))
@@ -73,7 +73,7 @@ def test_login_callback_invalido_volta_pro_dashboard(client, monkeypatch):
 def test_login_callback_sem_fluxo_iniciado_nao_autentica(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: chamadas.append(args) or "76561198000000000")
 
     resp = client.get("/login/callback?openid.mode=id_res")
@@ -89,7 +89,7 @@ def test_login_callback_exige_return_to_da_sessao(client, monkeypatch):
     return_to = _start_login(client)
     chamadas = []
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: chamadas.append(args) or "76561198000000000")
 
     query = _callback_query(return_to)
@@ -104,7 +104,7 @@ def test_login_callback_exige_return_to_da_sessao(client, monkeypatch):
 def test_login_callback_so_aceita_o_return_to_uma_vez(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: chamadas.append(args) or "76561198000000000")
     return_to = _start_login(client)
     query = _callback_query(return_to)
@@ -126,7 +126,7 @@ def test_login_callback_sucesso_cria_sessao_e_redireciona_pra_conta(
 
 def test_login_callback_cria_usuario_no_banco(client, monkeypatch):
     _login(client, monkeypatch, steamid="123", nome="Fulano")
-    from skinvault.public_site import user_store
+    from galaseca.public_site import user_store
     assert user_store.get_user("123")["persona_name"] == "Fulano"
 
 
@@ -159,7 +159,7 @@ def test_conta_busca_usuario_uma_vez_so(client, monkeypatch):
     busca o MESMO usuário pra todo template com sessão ativa -- dobrava
     a leitura SQLite (duas conexões abertas/fechadas) sem mudar nenhum
     valor. Corrigido pra deixar só o context processor buscar."""
-    from skinvault.public_site import user_store
+    from galaseca.public_site import user_store
     _login(client, monkeypatch)
     chamadas = []
     original = user_store.get_user
@@ -327,7 +327,7 @@ def test_excluir_apaga_conta_e_desloga(client, monkeypatch):
     # sessao foi limpa -- /conta volta a exigir login
     assert client.get("/conta").status_code == 302
 
-    from skinvault.public_site import user_store
+    from galaseca.public_site import user_store
     assert user_store.get_user("76561198000000000") is None
 
 
@@ -344,7 +344,7 @@ def test_excluir_nao_afeta_outra_conta(client, monkeypatch):
     token2 = _csrf_token(client)
     client.post("/conta/excluir", data={"csrf_token": token2})
 
-    from skinvault.public_site import user_portfolio
+    from galaseca.public_site import user_portfolio
     assert [p["name"] for p in user_portfolio.load_positions("111")] == (
         ["ItemDoUm"])
 
@@ -386,7 +386,7 @@ def test_exportar_dados_com_login_devolve_json(client, monkeypatch):
 
 
 def test_excluir_apaga_avatar_em_cache(client, monkeypatch, tmp_path):
-    from skinvault.public_site import profile_fetcher
+    from galaseca.public_site import profile_fetcher
     monkeypatch.setattr(profile_fetcher, "_PROFILES_PATH", tmp_path / "perfis.json")
     monkeypatch.setattr(profile_fetcher, "_AVATARS_DIR", tmp_path / "avatars")
     steamid = "76561198000000002"

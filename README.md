@@ -26,7 +26,7 @@ well, open another terminal. It starts collection cycles and observes the
 configured request delays:
 
 ```powershell
-python -m skinvault.public_site.worker
+python -m galaseca.public_site.worker
 ```
 
 Run the test suite with:
@@ -49,9 +49,9 @@ proxy are configured separately in `docker-compose.oracle.yml` and
 
 ## Project layout
 
-- `skinvault/public_site/`: Flask application, routes, templates, CSS,
+- `galaseca/public_site/`: Flask application, routes, templates, CSS,
   JavaScript, persistence, and site worker.
-- `skinvault/`: domain logic used by the site and worker (public Steam data,
+- `galaseca/`: domain logic used by the site and worker (public Steam data,
   catalog, signals, and recommendations).
 - `tests/`: website tests and tests for the shared domain logic it uses.
 - `scripts/dev_public_site.py`: local preview with template auto-reload.
@@ -65,7 +65,7 @@ Do not delete them during code cleanup or add them to Git.
   keys. Visitor sign-in, when used, goes through Steam OpenID.
 - Price collection runs in the separate worker; page visits never start a scan.
 - Other network actions happen only when explicitly requested by a visitor.
-- Request delays and limits are centralized in `skinvault/steam_api.py`.
+- Request delays and limits are centralized in `galaseca/steam_api.py`.
 - Percentages use the 0–100 scale.
 - The site describes past data; it is not investment advice.
 

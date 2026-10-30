@@ -1,7 +1,7 @@
-"""Testes de "no ar desde" (skinvault/public_site/uptime.py)."""
+"""Testes de "no ar desde" (galaseca/public_site/uptime.py)."""
 from __future__ import annotations
 
-from skinvault.public_site import uptime
+from galaseca.public_site import uptime
 
 
 def test_primeira_chamada_grava_e_devolve_now(tmp_path):

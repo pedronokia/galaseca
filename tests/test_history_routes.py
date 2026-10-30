@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 from urllib.parse import parse_qs, urlsplit
 
-from skinvault.public_site import db
-from skinvault.public_site.server import create_app
+from galaseca.public_site import db
+from galaseca.public_site.server import create_app
 
 
 @pytest.fixture
@@ -23,10 +23,10 @@ def client(tmp_path, monkeypatch):
 
 def _login(client, monkeypatch, steamid="76561198000000000"):
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: steamid)
     monkeypatch.setattr(
-        "skinvault.public_site.account.fetch_public_profile",
+        "galaseca.public_site.account.fetch_public_profile",
         lambda sid: {"name": "Fulano", "avatar_url": None})
     login_resp = client.get("/login")
     openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)
@@ -65,7 +65,7 @@ def test_visitar_conta_duas_vezes_sem_mudar_nao_duplica(client, monkeypatch):
     client.get("/conta")
     client.get("/conta")
     client.get("/conta")
-    from skinvault.public_site import user_history
+    from galaseca.public_site import user_history
     pontos = user_history.load_history("76561198000000000")
     assert len(pontos) == 1
 
@@ -79,7 +79,7 @@ def test_grafico_aparece_apos_dois_pontos_distintos(client, monkeypatch):
         "name": "AK-47", "cost": "10", "quantity": "1", "csrf_token": token,
     })
     client.get("/conta")  # custo nao afeta market sem preco, mas garante 2a visita
-    from skinvault.public_site import user_history
+    from galaseca.public_site import user_history
     # Forca dois pontos distintos direto no banco pra testar so' a tela.
     user_history.record_if_changed(
         "76561198000000000", 50.0, now=1.0)

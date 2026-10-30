@@ -6,14 +6,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_desktop_and_local_web_ui_are_removed():
     removed_paths = [
-        ROOT / "skinvault" / "gui.py",
-        ROOT / "skinvault" / "__main__.py",
-        ROOT / "skinvault" / "ui",
-        ROOT / "skinvault" / "webapp",
+        ROOT / "galaseca" / "gui.py",
+        ROOT / "galaseca" / "__main__.py",
+        ROOT / "galaseca" / "ui",
+        ROOT / "galaseca" / "webapp",
         ROOT / "run.py",
         ROOT / "run_web.py",
         ROOT / "requirements.txt",
-        ROOT / "skinvault" / "assets" / "icon.ico",
+        ROOT / "galaseca" / "assets" / "icon.ico",
         ROOT / ".claude" / "launch.json",
         ROOT / "scripts" / "dev_web_server.py",
         ROOT / "scripts" / "criar_atalho.ps1",
@@ -28,7 +28,7 @@ def test_desktop_and_local_web_ui_are_removed():
         "sync", "trade_matcher", "tradeup", "watchlist",
     )
     removed_paths.extend(
-        ROOT / "skinvault" / f"{module}.py" for module in removed_modules
+        ROOT / "galaseca" / f"{module}.py" for module in removed_modules
     )
 
     assert all(not path.exists() for path in removed_paths)

@@ -4,7 +4,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from skinvault.public_site import steam_openid
+from galaseca.public_site import steam_openid
 
 
 def test_login_redirect_url_contem_params_esperados():

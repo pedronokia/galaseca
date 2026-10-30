@@ -10,8 +10,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from skinvault.public_site import db
-from skinvault.public_site.server import create_app
+from galaseca.public_site import db
+from galaseca.public_site.server import create_app
 
 
 @pytest.fixture
@@ -24,10 +24,10 @@ def client(tmp_path, monkeypatch):
 
 def _login(client, monkeypatch, steamid="76561198000000000"):
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: steamid)
     monkeypatch.setattr(
-        "skinvault.public_site.account.fetch_public_profile",
+        "galaseca.public_site.account.fetch_public_profile",
         lambda sid: {"name": "Fulano", "avatar_url": None})
     login_resp = client.get("/login")
     openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)

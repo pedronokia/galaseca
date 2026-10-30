@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from skinvault import signals
+from galaseca import signals
 
 
 def test_record_and_load(tmp_path):
@@ -113,7 +113,7 @@ def test_discontinued_case_partial_match():
 
 def test_flag_cobre_todas_as_descontinuadas_do_catalogo():
     """A regressao que motivou a troca: a cobertura tem que ser total."""
-    from skinvault import cases
+    from galaseca import cases
     reais = [n for n, m in cases._CASES.items()
              if m["status"] == "discontinued"]
     assert reais, "catalogo sem caixas descontinuadas?"
@@ -124,7 +124,7 @@ def test_flag_cobre_todas_as_descontinuadas_do_catalogo():
 
 def test_flag_nao_marca_caixa_ativa():
     for nome, meta in __import__(
-            "skinvault.cases", fromlist=["cases"])._CASES.items():
+            "galaseca.cases", fromlist=["cases"])._CASES.items():
         if meta["status"] == "active":
             assert signals.discontinued_flag(nome)["is_discontinued"] is False
 
@@ -985,24 +985,24 @@ def test_enhanced_score_nao_inclui_zscore():
 # ---------- cases.is_container ----------
 
 def test_is_container_caixa_conhecida():
-    from skinvault import cases
+    from galaseca import cases
     assert cases.is_container("Clutch Case") is True
     assert cases.is_container("Prisma Case") is True
 
 
 def test_is_container_skin_de_arma():
-    from skinvault import cases
+    from galaseca import cases
     assert cases.is_container("AK-47 | Redline (Field-Tested)") is False
     assert cases.is_container("AWP | Asiimov (Field-Tested)") is False
 
 
 def test_is_container_capsula():
-    from skinvault import cases
+    from galaseca import cases
     assert cases.is_container("Stockholm 2021 Legends Sticker Capsule") is True
 
 
 def test_is_container_vazio():
-    from skinvault import cases
+    from galaseca import cases
     assert cases.is_container("") is False
     assert cases.is_container(None) is False
 
@@ -1415,7 +1415,7 @@ def test_enhanced_score_pump_v3_low_sem_penalty():
 
 
 def test_enhanced_score_rotulos_legiveis_para_iniciante():
-    from skinvault.signals import enhanced_score
+    from galaseca.signals import enhanced_score
     verdict = {"diff_pct": -10, "verdict": "below_median"}
     _, bd_caixa = enhanced_score(
         verdict, volume=21148, case_status={"is_discontinued": True},

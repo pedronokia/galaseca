@@ -1,7 +1,7 @@
-"""Testes do envio de webhook Discord (skinvault/public_site/discord_notify.py)."""
+"""Testes do envio de webhook Discord (galaseca/public_site/discord_notify.py)."""
 from __future__ import annotations
 
-from skinvault.public_site import discord_notify
+from galaseca.public_site import discord_notify
 
 
 class _FakeResponse:

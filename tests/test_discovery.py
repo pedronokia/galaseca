@@ -1,7 +1,7 @@
 """Testes do discovery -- descoberta aditiva com fallback garantido."""
 from __future__ import annotations
 
-from skinvault import discovery
+from galaseca import discovery
 
 
 FALLBACK = ["AK-47 | Redline (Field-Tested)", "AWP | Asiimov (Field-Tested)"]
@@ -18,7 +18,7 @@ def _fake_search(monkeypatch, status, results, total=0):
         chamadas.append(kw)
         return status, results, total
 
-    monkeypatch.setattr("skinvault.steam_api.search_market_all", fake)
+    monkeypatch.setattr("galaseca.steam_api.search_market_all", fake)
     return chamadas
 
 
@@ -84,7 +84,7 @@ def test_descobre_e_filtra_por_preco(tmp_path, monkeypatch):
         _row("Barato 2", 0.99),
         _row("Outro Bom", 3.00),
     ])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     nomes, origem = discovery.discover_category(
         "Rifles", cache=_cache(tmp_path))
     assert nomes == ["Bom", "Outro Bom"]
@@ -94,7 +94,7 @@ def test_descobre_e_filtra_por_preco(tmp_path, monkeypatch):
 def test_respeita_max_items(tmp_path, monkeypatch):
     _fake_search(monkeypatch, "ok",
                  [_row(f"i{i}", 10.0) for i in range(50)])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     nomes, _ = discovery.discover_category(
         "Rifles", max_items=5, cache=_cache(tmp_path))
     assert len(nomes) == 5
@@ -102,7 +102,7 @@ def test_respeita_max_items(tmp_path, monkeypatch):
 
 def test_rate_limit_devolve_none(tmp_path, monkeypatch):
     _fake_search(monkeypatch, "rate_limited", [])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     nomes, origem = discovery.discover_category(
         "Rifles", cache=_cache(tmp_path))
     assert nomes is None
@@ -111,7 +111,7 @@ def test_rate_limit_devolve_none(tmp_path, monkeypatch):
 
 def test_tudo_abaixo_do_piso_devolve_none(tmp_path, monkeypatch):
     _fake_search(monkeypatch, "ok", [_row("a", 0.03), _row("b", 0.10)])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     nomes, origem = discovery.discover_category(
         "Rifles", cache=_cache(tmp_path))
     assert nomes is None
@@ -120,7 +120,7 @@ def test_tudo_abaixo_do_piso_devolve_none(tmp_path, monkeypatch):
 
 def test_segunda_chamada_usa_cache(tmp_path, monkeypatch):
     chamadas = _fake_search(monkeypatch, "ok", [_row("Bom", 10.0)])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     c = _cache(tmp_path)
     discovery.discover_category("Rifles", cache=c)
     nomes, origem = discovery.discover_category("Rifles", cache=c)
@@ -134,7 +134,7 @@ def test_segunda_chamada_usa_cache(tmp_path, monkeypatch):
 
 def test_resolve_usa_descoberta_quando_da_certo(tmp_path, monkeypatch):
     _fake_search(monkeypatch, "ok", [_row("Descoberto", 20.0)])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     items, origem = discovery.resolve_scan_items(
         "Rifles", FALLBACK, cache=_cache(tmp_path))
     assert items == ["Descoberto"]
@@ -143,7 +143,7 @@ def test_resolve_usa_descoberta_quando_da_certo(tmp_path, monkeypatch):
 
 def test_resolve_cai_no_fallback_em_rate_limit(tmp_path, monkeypatch):
     _fake_search(monkeypatch, "rate_limited", [])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     items, origem = discovery.resolve_scan_items(
         "Rifles", FALLBACK, cache=_cache(tmp_path))
     assert items == FALLBACK
@@ -155,7 +155,7 @@ def test_resolve_cai_no_fallback_se_a_busca_explodir(tmp_path, monkeypatch):
     def boom(**kw):
         raise RuntimeError("rede caiu")
 
-    monkeypatch.setattr("skinvault.steam_api.search_market_all", boom)
+    monkeypatch.setattr("galaseca.steam_api.search_market_all", boom)
     items, origem = discovery.resolve_scan_items(
         "Rifles", FALLBACK, cache=_cache(tmp_path))
     assert items == FALLBACK
@@ -174,7 +174,7 @@ def test_resolve_desligado_nao_toca_a_rede(tmp_path, monkeypatch):
 def test_resolve_nao_devolve_a_mesma_lista_do_fallback(tmp_path, monkeypatch):
     """Retorna copia: mutar o resultado nao pode corromper _SCAN_BY_CATEGORY."""
     _fake_search(monkeypatch, "rate_limited", [])
-    monkeypatch.setattr("skinvault.steam_api.SEARCH_OK", "ok")
+    monkeypatch.setattr("galaseca.steam_api.SEARCH_OK", "ok")
     items, _ = discovery.resolve_scan_items(
         "Rifles", FALLBACK, cache=_cache(tmp_path))
     items.append("sujeira")

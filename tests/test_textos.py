@@ -1,7 +1,7 @@
 """Traduções dos códigos internos exibidos pelo site."""
 from __future__ import annotations
 
-from skinvault import textos
+from galaseca import textos
 
 
 def test_codigos_do_veredito_viram_portugues():

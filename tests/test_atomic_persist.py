@@ -14,7 +14,7 @@ import os
 
 import pytest
 
-from skinvault import _paths
+from galaseca import _paths
 
 
 # ── atomic_write_text ──────────────────────────────────────────────
@@ -226,7 +226,7 @@ def test_sweep_em_diretorio_inexistente(tmp_path):
 def test_trades_corrompido_nao_e_apagado_pelo_proximo_save(tmp_path):
     """Antes: le' vazio -> grava vazio por cima -> os trades somem.
     Agora: le' vazio, mas a copia velha fica em disco."""
-    from skinvault import trades as trades_mod
+    from galaseca import trades as trades_mod
     p = tmp_path / "trades.json"
     p.write_text('[{"name": "AK", "pnl": 7', encoding="utf-8")
 
@@ -240,7 +240,7 @@ def test_trades_corrompido_nao_e_apagado_pelo_proximo_save(tmp_path):
 
 
 def test_portfolio_corrompido_e_preservado(tmp_path):
-    from skinvault import portfolio as portfolio_mod
+    from galaseca import portfolio as portfolio_mod
     p = tmp_path / "portfolio.json"
     p.write_text('[{"name": "Kilowatt Case",', encoding="utf-8")
     assert portfolio_mod.load_portfolio(p) == []

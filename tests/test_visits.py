@@ -1,7 +1,7 @@
-"""Testes do contador de visitas (skinvault/public_site/visits.py)."""
+"""Testes do contador de visitas (galaseca/public_site/visits.py)."""
 from __future__ import annotations
 
-from skinvault.public_site import visits
+from galaseca.public_site import visits
 
 
 def test_registrar_comeca_em_1(tmp_path):

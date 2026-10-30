@@ -1,7 +1,7 @@
 """Testes de user_watchlist.py (watchlist pessoal, site público)."""
 from __future__ import annotations
 
-from skinvault.public_site import user_watchlist
+from galaseca.public_site import user_watchlist
 
 
 def test_load_items_vazio(tmp_path):
@@ -39,7 +39,7 @@ def test_update_rules_reseta_triggered_rules(tmp_path):
     user_watchlist.add_item("1", "AK-47", path=p)
     items = user_watchlist.load_items("1", path=p)
     items[0]["triggered_rules"] = ["price_below"]
-    from skinvault.public_site import user_store
+    from galaseca.public_site import user_store
     user_store.save_user_json("1", "watchlist", items, path=p)
     out = user_watchlist.update_rules("1", "AK-47", {"price_below": 5.0}, path=p)
     assert out[0]["triggered_rules"] == []

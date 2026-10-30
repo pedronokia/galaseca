@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from skinvault import prices, steam_api
+from galaseca import prices, steam_api
 
 
 def test_cache_hit_within_ttl(tmp_path):

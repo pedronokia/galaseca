@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from skinvault.public_site import db_backup
+from galaseca.public_site import db_backup
 
 
 def _cria_db(path):

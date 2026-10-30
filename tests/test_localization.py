@@ -1,7 +1,7 @@
 """Testes da localizacao pt-BR de nomes de skins."""
 from __future__ import annotations
 
-from skinvault.localization import localize_name
+from galaseca.localization import localize_name
 
 
 # ── Wear conditions ──────────────────────────────────────────

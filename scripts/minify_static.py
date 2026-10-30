@@ -9,7 +9,7 @@ demais pra um ganho pequeno (os dois arquivos juntos têm poucos KB). CSS
 usa a mesma lógica conservadora, mesmo sendo mais seguro de comprimir.
 
 Uso: `python scripts/minify_static.py [pasta]` (default:
-skinvault/public_site/static).
+galaseca/public_site/static).
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import re
 import sys
 from pathlib import Path
 
-_PASTA_DEFAULT = Path("skinvault/public_site/static")
+_PASTA_DEFAULT = Path("galaseca/public_site/static")
 
 
 def minify_css(texto: str) -> str:

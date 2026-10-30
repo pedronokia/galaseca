@@ -1,4 +1,4 @@
-"""Registro de aposentadoria de caixas (skinvault/retirements.py)."""
+"""Registro de aposentadoria de caixas (galaseca/retirements.py)."""
 from __future__ import annotations
 
 import calendar
@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from skinvault import cases, retirements
+from galaseca import cases, retirements
 
 
 @pytest.fixture(autouse=True)
@@ -118,7 +118,7 @@ def test_skin_da_colecao_herda_a_aposentadoria():
 
 # ── gamedata chama o registro ────────────────────────────────
 def test_check_for_updates_grava_aposentadoria(tmp_path, monkeypatch):
-    from skinvault import gamedata
+    from galaseca import gamedata
     head = {"sha": "abcdef1234567", "date": "2026-09-04T17:02:11Z",
             "message": "x"}
     monkeypatch.setattr(gamedata, "fetch_recent_commits", lambda n=1: [head])

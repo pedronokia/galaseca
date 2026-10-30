@@ -12,8 +12,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from skinvault.public_site import db, watchlist_routes
-from skinvault.public_site.server import create_app
+from galaseca.public_site import db, watchlist_routes
+from galaseca.public_site.server import create_app
 
 
 @pytest.fixture
@@ -26,11 +26,11 @@ def client(tmp_path, monkeypatch):
 
     monkeypatch.setattr(watchlist_routes, "PriceCache", _FakeCache)
     monkeypatch.setattr(
-        "skinvault.signals.load_item_volume", lambda name: [])
+        "galaseca.signals.load_item_volume", lambda name: [])
     monkeypatch.setattr(
-        "skinvault.signals.load_item_supply", lambda name: [])
+        "galaseca.signals.load_item_supply", lambda name: [])
     monkeypatch.setattr(
-        "skinvault.scan_store.load_last_scan", lambda: None)
+        "galaseca.scan_store.load_last_scan", lambda: None)
 
     app = create_app()
     app.config["TESTING"] = True
@@ -39,10 +39,10 @@ def client(tmp_path, monkeypatch):
 
 def _login(client, monkeypatch, steamid="76561198000000000"):
     monkeypatch.setattr(
-        "skinvault.public_site.account.steam_openid.verify_callback",
+        "galaseca.public_site.account.steam_openid.verify_callback",
         lambda args: steamid)
     monkeypatch.setattr(
-        "skinvault.public_site.account.fetch_public_profile",
+        "galaseca.public_site.account.fetch_public_profile",
         lambda sid: {"name": "Fulano", "avatar_url": None})
     login_resp = client.get("/login")
     openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)
@@ -237,7 +237,7 @@ def test_webhook_isolado_entre_contas(client, monkeypatch):
 def test_item_disparado_envia_webhook(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "skinvault.public_site.watchlist_routes.discord_notify.enviar",
+        "galaseca.public_site.watchlist_routes.discord_notify.enviar",
         lambda url, texto: chamadas.append((url, texto)) or True)
     _login(client, monkeypatch)
     token = _csrf_token(client)
@@ -255,7 +255,7 @@ def test_item_disparado_envia_webhook(client, monkeypatch):
 def test_item_nao_disparado_nao_envia_webhook(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "skinvault.public_site.watchlist_routes.discord_notify.enviar",
+        "galaseca.public_site.watchlist_routes.discord_notify.enviar",
         lambda url, texto: chamadas.append((url, texto)) or True)
     _login(client, monkeypatch)
     token = _csrf_token(client)
@@ -273,7 +273,7 @@ def test_item_nao_disparado_nao_envia_webhook(client, monkeypatch):
 def test_sem_webhook_configurado_nao_tenta_enviar(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "skinvault.public_site.watchlist_routes.discord_notify.enviar",
+        "galaseca.public_site.watchlist_routes.discord_notify.enviar",
         lambda url, texto: chamadas.append((url, texto)) or True)
     _login(client, monkeypatch)
     token = _csrf_token(client)

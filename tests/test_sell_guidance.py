@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from skinvault import portfolio
+from galaseca import portfolio
 
 
 # ── o modelo de taxa ───────────────────────────────────────────────

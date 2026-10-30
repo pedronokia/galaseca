@@ -1,7 +1,7 @@
 """Testes de user_portfolio.py (mutação por usuário, site público)."""
 from __future__ import annotations
 
-from skinvault.public_site import user_portfolio
+from galaseca.public_site import user_portfolio
 
 
 def test_add_position(tmp_path):

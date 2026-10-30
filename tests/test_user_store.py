@@ -1,7 +1,7 @@
 """Testes de db.py/user_store.py (conta + dado pessoal por usuário)."""
 from __future__ import annotations
 
-from skinvault.public_site import db, user_store
+from galaseca.public_site import db, user_store
 
 
 def test_connect_cria_schema(tmp_path):

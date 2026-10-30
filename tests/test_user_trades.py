@@ -1,7 +1,7 @@
 """Testes de user_trades.py (trades pessoais, site público)."""
 from __future__ import annotations
 
-from skinvault.public_site import user_trades
+from galaseca.public_site import user_trades
 
 
 def test_load_trades_vazio(tmp_path):

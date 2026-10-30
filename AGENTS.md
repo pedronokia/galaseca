@@ -8,9 +8,9 @@ site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
 
 - Python 3.9+, Flask, SQLite e `httpx`; dependências em
   `requirements-public-site.txt`.
-- `skinvault/public_site/`: rotas, templates, CSS, JavaScript, autenticação,
+- `galaseca/public_site/`: rotas, templates, CSS, JavaScript, autenticação,
   persistência, testes operacionais e worker do site.
-- Alguns módulos de domínio em `skinvault/` são dependências diretas do site
+- Alguns módulos de domínio em `galaseca/` são dependências diretas do site
   ou do worker (Steam pública, catálogo, coleta, recomendações, sinais,
   aposentadorias e trades). Antes de remover um módulo, confira imports diretos
   e dinâmicos e rode os testes.
@@ -39,7 +39,7 @@ site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
 
 - `data/` é armazenamento local e pode conter banco de contas, chave de sessão,
   caches e logs. **Nunca o apague em uma limpeza de código**.
-- Use `skinvault._paths.atomic_write_text` / `atomic_write_bytes` para arquivos
+- Use `galaseca._paths.atomic_write_text` / `atomic_write_bytes` para arquivos
   persistentes, não `Path.write_text` diretamente.
 - Para registros JSON, use `load_json_record`; JSON malformado é colocado em
   quarentena em vez de ser tratado como registro vazio.

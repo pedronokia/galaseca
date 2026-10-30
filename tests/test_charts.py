@@ -1,7 +1,7 @@
 """Testes de charts.py (SVG de linha gerado no servidor)."""
 from __future__ import annotations
 
-from skinvault.public_site import charts
+from galaseca.public_site import charts
 
 
 def test_menos_de_2_pontos_devolve_vazio():

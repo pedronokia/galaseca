@@ -1,7 +1,7 @@
 """Testes de user_history.py (histórico de valor por usuário)."""
 from __future__ import annotations
 
-from skinvault.public_site import user_history
+from galaseca.public_site import user_history
 
 
 def test_load_history_vazio(tmp_path):
