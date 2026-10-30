@@ -9,6 +9,19 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-10-29",
+        "titulo": "Novo nome e endereço: GalaSeca",
+        "itens": [
+            "O site agora se chama GalaSeca e fica em galaseca.com",
+            "Facas e luvas entraram na coleta (o nome usado na Steam não "
+            "batia e esses itens voltavam vazios)",
+            "O Ranking passou a mostrar as 20 maiores notas do scan inteiro",
+            "No celular, cada item vira um cartão com os rótulos de cada dado",
+            "\"Só favoritos\" avisa quando o favorito está em outra página "
+            "da lista, com link pra ele",
+        ],
+    },
+    {
+        "data": "2026-10-29",
         "titulo": "Tabela mais clara e ações organizadas",
         "itens": [
             "Texto e espaçamento das linhas ficaram mais confortáveis de ler",

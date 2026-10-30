@@ -1,4 +1,4 @@
-# AlertaSkins — site público
+# GalaSeca — site público
 
 Site público com dados do Steam Market e áreas pessoais opcionais para
 portfólio, trades e watchlist. A autenticação usa Steam OpenID; o site nunca

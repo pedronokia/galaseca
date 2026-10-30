@@ -1,4 +1,4 @@
-# AlertaSkins
+# GalaSeca
 
 Site público para acompanhar dados observados no Steam Community Market.
 Mostra preços, histórico, notas explicáveis e sinais descritivos; não prevê

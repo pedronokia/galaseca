@@ -102,7 +102,7 @@ def _notificar_discord(steamid: str, items_avaliados: list[dict],
             continue
         if not user_webhook.deve_notificar(steamid, it["name"]):
             continue
-        texto = (f"AlertaSkins: {it['name_fmt']} disparou um alerta -- "
+        texto = (f"GalaSeca: {it['name_fmt']} disparou um alerta -- "
                 f"{'; '.join(a['label'] for a in it['alertas'])}")
         if discord_notify.enviar(url, texto):
             user_webhook.marcar_notificado(steamid, it["name"])

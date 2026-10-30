@@ -1,6 +1,6 @@
-# AlertaSkins — contexto para agentes
+# GalaSeca — contexto para agentes
 
-Este repositório mantém **um único produto: o site público AlertaSkins**.
+Este repositório mantém **um único produto: o site público GalaSeca**.
 Não recrie o app desktop nem a UI web paralela. O preview local do próprio
 site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
 

@@ -1,4 +1,4 @@
-# Imagem do site público AlertaSkins.
+# Imagem do site público GalaSeca.
 # A mesma imagem atende aos dois serviços (ver docker-compose.public-site.yml
 # e skinvault/public_site/README.md):
 #   web    -> gunicorn servindo o dashboard + /conta (Fases 1/2)
