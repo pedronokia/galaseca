@@ -1072,8 +1072,12 @@ footer.rodape .versao {
 }
 
 .resumo-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  /* Flex em vez de grid -- achado 2026-10-31: com grid, uma última
+     linha incompleta (5 cards em 3 colunas, por ex.) deixava um vão
+     vazio à direita. Com flex-wrap, os cards da última linha crescem
+     e preenchem o espaço sozinhos. */
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 20px;
 }
@@ -1082,6 +1086,7 @@ footer.rodape .versao {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 180px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -1760,8 +1765,8 @@ footer.rodape .versao {
     font-size: 1.35rem;
   }
 
-  .resumo-cards {
-    grid-template-columns: 1fr 1fr;
+  .card {
+    flex-basis: calc(50% - 6px);
   }
 
   /* Card com valor longo (ex. nome de caixa) fica apertado em 2
