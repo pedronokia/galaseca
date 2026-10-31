@@ -58,7 +58,7 @@
           <tr>
             <td>{{ it.position }}</td>
             <td>{{ it.name_fmt }}</td>
-            <td class="nota nota-{{ it.score|nota_classe }}">{{ it.score }}</td>
+            <td><span class="nota nota-{{ it.score|nota_classe }}">{{ it.score }}</span></td>
             <td>
               {% if it.label == "NOVO" %}
                 <span class="selo-novo">NOVO</span>
