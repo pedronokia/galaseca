@@ -13,9 +13,19 @@
   --text-muted: #8f98a0;
   --accent: #66c0f4;
   --accent-bright: #a4d8fb;
-  --positive: #a4d007;
-  --warn: #e4b03c;
-  --danger: #e0574a;
+  /* positive/warn/danger -- achado 2026-10-31: o verde-limão original
+     (#a4d007) e o âmbar (#e4b03c) tinham quase a mesma luminosidade e
+     só ΔE 1.7 de separação sob deuteranopia (escala 0-100+, alvo
+     >=15) -- praticamente indistinguíveis pra quem tem daltonismo, e
+     o selo de "Nota" e "Risco" dependem dessas duas cores pra separar
+     alta de média à primeira vista. Valores novos passam no validador
+     de paleta (skill de dataviz): banda de luminosidade OKLCH,
+     separação CVD >=15 em visão normal, e o vermelho ganha contraste
+     de texto 4.43:1 sobre --bg-elevated (era 4.00:1, abaixo do mínimo
+     de acessibilidade 4.5:1). */
+  --positive: #2aa352;
+  --warn: #b8860f;
+  --danger: #f05570;
 
   /* Escala de raio e sombra (auditoria visual, 2026-10-26) -- antes
      cada componente tinha seu próprio número (3/4/6/10/14/20/24px de
@@ -941,6 +951,16 @@ table.tabela-candidatos tbody tr:hover .nota {
 .risco-low { color: var(--text-muted); }
 .risco-medium { color: var(--warn); }
 .risco-high { color: var(--danger); font-weight: 600; }
+
+/* achado 2026-10-31: no card "Risco" de item.html, .card-valor (uma
+   classe) e .risco-* (também uma classe) empatam em especificidade --
+   .card-valor vem depois no arquivo e ganha, então "Médio"/"Alto"
+   sempre saía branco, sem a cor do risco. Combo de 2 classes pra
+   ganhar de @.card-valor sem mudar risco-low/medium/high (usadas
+   sozinhas em index.html/comparar.html). */
+.card-valor.risco-low { color: var(--text-muted); }
+.card-valor.risco-medium { color: var(--warn); }
+.card-valor.risco-high { color: var(--danger); }
 
 footer.rodape {
   max-width: 960px;
@@ -1986,6 +2006,14 @@ footer.rodape .versao {
   background: var(--surface);
   border-color: var(--accent);
   color: var(--text-bright);
+}
+
+/* --text-muted sobre --surface só dá 3.32:1 (abaixo do mínimo de
+   acessibilidade 4.5:1) -- na aba ativa, a contagem usa --text em vez
+   de --text-muted (6.42:1) pra não ficar apagada ao lado do fundo
+   mais claro da seleção. */
+.aba-categoria[aria-current="page"] .aba-contagem {
+  color: var(--text);
 }
 
 .aba-contagem {
