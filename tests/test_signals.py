@@ -438,6 +438,23 @@ def test_enhanced_score_below_median_breakdown():
     assert "verdict" in factors
 
 
+def test_raw_score_nao_tem_teto():
+    """achado 2026-10-31: o mesmo combo de below_median_breakdown soma
+    133 bruto (50 base + 18+5+25+20+15), mas enhanced_score() corta em
+    100 -- raw_score() devolve o valor sem corte, usado só como
+    desempate de ordenação (ver recommendations.buy_candidates)."""
+    v = {"verdict": "below_median", "diff_pct": -15, "spread_verdict": "tight",
+         "book_verdict": "buyer_dominant", "trend_verdict": "rising"}
+    score, breakdown = signals.enhanced_score(v)
+    assert score == 100
+    assert signals.raw_score(breakdown) == 133
+
+
+def test_raw_score_sem_breakdown_eh_a_base():
+    assert signals.raw_score(None) == 50
+    assert signals.raw_score([]) == 50
+
+
 def test_enhanced_score_breakdown_sorted_by_abs_delta():
     v = {"verdict": "below_median", "diff_pct": -10, "spread_verdict": "tight",
          "trend_verdict": "rising"}

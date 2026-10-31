@@ -1307,6 +1307,21 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     return final, breakdown
 
 
+def raw_score(breakdown: "list[dict] | None") -> float:
+    """Nota de `enhanced_score` ANTES do clamp em [0, 100] -- soma dos
+    deltas do breakdown sobre a mesma base 50.
+
+    Usado só como desempate de ORDENAÇÃO quando a nota exibida (já
+    cortada) empata entre dois itens: sem isso, dois itens em 100
+    ficavam em ordem arbitrária (a ordem de chegada no scan), não por
+    mérito real -- achado 2026-10-31 investigando por que vários itens
+    apareciam em 100 num mesmo scan (nenhum teto antes do clamp: vários
+    fatores positivos somados passam de 100 com frequência pra itens
+    baratos/líquidos/populares). Não muda a nota exibida nem nenhum
+    peso calibrado, só a ordem entre notas empatadas."""
+    return 50 + sum(b.get("delta", 0) for b in (breakdown or []))
+
+
 def scan_score(verdict: dict, volume: int | None = None,
                supply: int | None = None,
                multi_trend: dict | None = None,

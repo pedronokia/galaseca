@@ -11,6 +11,8 @@ resto do projeto -- nunca prever futuro, só descrever dados (AGENTS.md).
 """
 from __future__ import annotations
 
+from galaseca import signals
+
 _RISK_ORDER = {"low": 0, "medium": 1, "high": 2}
 _EXIT_LEVEL_ORDER = {"baixo": 0, "meio": 1, "alto": 2, "topo": 3}
 
@@ -46,7 +48,10 @@ def buy_candidates(scan_results: list[dict],
         reasons = [b["label"] for b in (r.get("breakdown") or [])
                    if b.get("delta", 0) > 0][:3]
         out.append({**r, "reasons": reasons})
-    out.sort(key=lambda r: -(r.get("score") or 0))
+    # Desempate pela nota bruta (antes do clamp em 100) -- sem isso,
+    # itens empatados na nota exibida ficavam em ordem arbitrária.
+    out.sort(key=lambda r: (
+        -(r.get("score") or 0), -signals.raw_score(r.get("breakdown"))))
     return out[:limit]
 
 
