@@ -8,5 +8,5 @@
   <text x="80" y="400" font-family="Arial, sans-serif" font-size="34" fill="#8f98a0">Nota de 0 a 100 pra skins do CS2</text>
   <text x="80" y="448" font-family="Arial, sans-serif" font-size="34" fill="#8f98a0">com o motivo escrito, não um palpite</text>
   <circle cx="1020" cy="300" r="140" fill="#1b2838" stroke="#66c0f4" stroke-width="3"/>
-  <text x="1020" y="325" font-family="Arial, sans-serif" font-size="80" font-weight="700" fill="#2aa352" text-anchor="middle">72</text>
+  <text x="1020" y="325" font-family="Arial, sans-serif" font-size="80" font-weight="700" fill="#a4d007" text-anchor="middle">72</text>
 </svg>
