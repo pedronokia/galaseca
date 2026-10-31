@@ -165,9 +165,6 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
   .logo-compacta { display: block; }
 }
 
-.modo-apresentacao .logo-cheia,
-.modo-apresentacao .logo-compacta { height: 36px; width: auto; }
-
 header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
 header.topo > .badge-cooldown { padding-bottom: 20px; }
 
@@ -483,8 +480,7 @@ table.tabela-candidatos th {
 
 @media (min-width: 1024px) {
   .pagina-inicial .tabela-wrap,
-  .pagina-inicial table.tabela-candidatos,
-  .pagina-inicial .grupo-categoria {
+  .pagina-inicial table.tabela-candidatos {
     overflow: visible;
   }
 
@@ -769,41 +765,6 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .lista-breakdown .delta-positivo { color: var(--positive); }
 .lista-breakdown .delta-negativo { color: var(--danger); }
 
-.grupo-categoria {
-  margin-bottom: 16px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-
-.grupo-categoria summary {
-  cursor: pointer;
-  padding: 12px 16px;
-  font-weight: 600;
-  color: var(--text-bright);
-  background: var(--surface);
-}
-
-.grupo-categoria summary:hover { color: var(--accent-bright); }
-
-.grupo-categoria table .menu-acoes-item-toggle,
-.grupo-categoria table .detalhe-motivo > summary {
-  padding: 2px 6px;
-  background: transparent;
-  font-weight: 400;
-}
-
-.grupo-categoria table .detalhe-motivo > summary { color: var(--text); }
-
-.grupo-categoria .tabela-wrap { margin: 0; }
-.grupo-categoria table.tabela-candidatos {
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-}
-
 /* ── Tendência / ranking ──────────────────────────────── */
 .tendencia-alta { color: var(--positive); font-weight: 600; }
 .tendencia-baixa { color: var(--danger); font-weight: 600; }
@@ -866,26 +827,6 @@ table.tabela-candidatos td.celula-preco {
 .input-tag-local:focus {
   color: var(--text);
   border-color: var(--accent);
-}
-
-/* ── Modo apresentação ────────────────────────────────── */
-.modo-apresentacao .form-filtros,
-.modo-apresentacao .paginacao,
-.modo-apresentacao footer.rodape,
-.modo-apresentacao .barra-acoes,
-.modo-apresentacao .entrar-cta,
-.modo-apresentacao .barra-comparar,
-.modo-apresentacao .lista-buscas-salvas,
-.modo-apresentacao .botao-topo {
-  display: none;
-}
-
-.modo-apresentacao table.tabela-candidatos {
-  font-size: 1.1rem;
-}
-
-.modo-apresentacao header.topo h1 {
-  font-size: 2rem;
 }
 
 /* Herda tamanho/caixa do <th>: com valores próprios, "Preço" e "Nota"
@@ -1055,14 +996,13 @@ footer.rodape .versao {
 
 .form-filtros button:hover { filter: brightness(1.1); }
 
-/* #botao-favoritos e #botao-menu-opcoes são <button class="botao-link">
-   DENTRO de .form-filtros -- a regra acima (.form-filtros button) tem
-   mais especificidade que .botao-link sozinha e pintava os dois do
-   mesmo azul do "Filtrar" sem ninguém ter pedido isso (achado ao vivo
-   com print do usuário, 2026-10-27: só devia existir UM botão de
-   destaque por tela). Seletor por id pra garantir que ganha. */
-.form-filtros button#botao-favoritos,
-.form-filtros button#botao-menu-opcoes {
+/* #botao-favoritos é <button class="botao-link"> DENTRO de
+   .form-filtros -- a regra acima (.form-filtros button) tem mais
+   especificidade que .botao-link sozinha e pintava o botão do mesmo
+   azul do "Filtrar" sem ninguém ter pedido isso (achado ao vivo com
+   print do usuário, 2026-10-27: só devia existir UM botão de destaque
+   por tela). Seletor por id pra garantir que ganha. */
+.form-filtros button#botao-favoritos {
   background: var(--surface);
   border-color: var(--border);
   color: var(--text);
@@ -1079,8 +1019,7 @@ footer.rodape .versao {
   color: var(--warn);
 }
 
-.form-filtros button#botao-favoritos:hover,
-.form-filtros button#botao-menu-opcoes:hover {
+.form-filtros button#botao-favoritos:hover {
   background: var(--surface-hover);
   filter: none;
 }
@@ -1223,51 +1162,6 @@ footer.rodape .versao {
 
 .botao-remover { color: var(--danger); }
 .botao-remover:hover { background: var(--surface-hover); border-color: var(--danger); }
-
-/* Menu "⋯" de opções secundárias -- evita lotar o painel de filtros
-   com 8 botões do mesmo peso visual (achado 2026-10-27). Só "Filtrar"
-   e "Só favoritos" ficam soltos; o resto (modo de exibição, agrupar,
-   RSS, apresentação, exportar, salvar busca) entra aqui. */
-.menu-opcoes {
-  position: relative;
-}
-
-.lista-menu-opcoes[hidden] { display: none; }
-.lista-menu-opcoes {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 200px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 15;
-}
-
-.item-menu {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text);
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  font-size: 0.85rem;
-  cursor: pointer;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.item-menu:hover {
-  background: var(--surface);
-  text-decoration: none;
-}
 
 .form-inline {
   display: flex;
@@ -1466,28 +1360,6 @@ footer.rodape .versao {
   color: var(--text);
   line-height: 1.5;
   box-shadow: var(--shadow-sm);
-}
-
-/* ── Modo compacto ────────────────────────────────────── */
-.modo-compacto table.tabela-candidatos th,
-.modo-compacto table.tabela-candidatos td {
-  padding: 8px 12px;
-  font-size: 0.9rem;
-}
-
-.modo-compacto .icone-item {
-  width: 24px;
-  height: 24px;
-}
-
-.modo-compacto .icone-item-quadro {
-  flex-basis: 40px;
-  width: 40px;
-  height: 40px;
-}
-
-.modo-compacto .celula-item-principal {
-  gap: 6px;
 }
 
 /* ── Status ───────────────────────────────────────────── */

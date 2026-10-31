@@ -223,7 +223,7 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
     ])
     body = client.get(
         "/?categoria=Facas&nota_min=70&preco_max=20&q=AK-47"
-        "&ordenar=preco&compacto=1&agrupar=1&minimalista=1&pagina=2").data.decode()
+        "&ordenar=preco&pagina=2").data.decode()
     hrefs = {
         filtro: parse_qs(urlsplit(html.unescape(href)).query)
         for filtro, href in re.findall(
@@ -235,9 +235,6 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
     for filtro, query in hrefs.items():
         assert filtro not in query
         assert query["ordenar"] == ["preco"]
-        assert query["compacto"] == ["1"]
-        assert query["agrupar"] == ["1"]
-        assert query["minimalista"] == ["1"]
         assert "pagina" not in query
     assert hrefs["categoria"]["nota_min"] == ["70.0"]
     assert hrefs["categoria"]["preco_max"] == ["20.0"]
@@ -247,7 +244,7 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
         r'<a[^>]*id="limpar-filtros-ativos"[^>]*href="([^"]+)"', body)
     assert limpar
     query_limpa = parse_qs(urlsplit(html.unescape(limpar.group(1))).query)
-    assert set(query_limpa) == {"ordenar", "compacto", "agrupar", "minimalista"}
+    assert set(query_limpa) == {"ordenar"}
 
 
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
@@ -434,12 +431,6 @@ def test_index_aposentada_com_data_tambem_ganha_selo(client, monkeypatch,
     assert "selo-descontinuada" in body
 
 
-def test_index_modo_compacto_aplica_classe(client, monkeypatch, tmp_path):
-    _salva_scan(tmp_path, monkeypatch, [])
-    body = client.get("/?compacto=1").data.decode("utf-8")
-    assert "modo-compacto" in body
-
-
 def test_index_mostra_contagem_por_categoria(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "A", "score": 80, "price": 1.0, "case_label": "",
@@ -570,63 +561,6 @@ def test_index_dica_expandir_so_aparece_com_breakdown(client, monkeypatch,
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/").data.decode("utf-8")
     assert body.count("dica-expandir") == 1
-
-
-def test_index_agrupar_por_categoria(client, monkeypatch, tmp_path):
-    resultados = [
-        {"name": "Faca A", "score": 80, "price": 1.0, "case_label": "",
-         "pump_risk": {"level": "low"}, "breakdown": [], "category": "Facas"},
-        {"name": "Luva B", "score": 70, "price": 1.0, "case_label": "",
-         "pump_risk": {"level": "low"}, "breakdown": [], "category": "Luvas"},
-    ]
-    _salva_scan(tmp_path, monkeypatch, resultados)
-    body = client.get("/?agrupar=1").data.decode("utf-8")
-    assert "grupo-categoria" in body
-    assert "Facas (1)" in body
-    assert "Luvas (1)" in body
-    assert "Faca A" in body
-    assert "Luva B" in body
-
-
-def test_index_agrupar_respeita_limite_de_10_e_pagina(client, monkeypatch, tmp_path):
-    resultados = [
-        {"name": f"Item {i}", "score": 100 - i, "price": 1.0,
-         "case_label": "", "pump_risk": {"level": "low"},
-         "breakdown": [], "category": "Facas"}
-        for i in range(15)
-    ]
-    _salva_scan(tmp_path, monkeypatch, resultados)
-    pagina1 = client.get("/?agrupar=1").data.decode("utf-8")
-    pagina2 = client.get("/?agrupar=1&pagina=2").data.decode("utf-8")
-
-    assert "Item 9" in pagina1
-    assert "Item 10" not in pagina1
-    assert "Facas (10)" in pagina1
-    assert "Ver mais" in pagina1
-    assert "agrupar=1" in pagina1
-    assert "Item 10" in pagina2
-    assert "Item 14" in pagina2
-    assert "Item 9" not in pagina2
-
-
-def test_index_desativa_agrupamento_salvo_no_cookie(client, monkeypatch, tmp_path):
-    resultados = [
-        {"name": f"Faca {i}", "score": 100 - i, "price": 1.0,
-         "case_label": "", "pump_risk": {"level": "low"},
-         "breakdown": [], "category": "Facas"}
-        for i in range(2)
-    ]
-    _salva_scan(tmp_path, monkeypatch, resultados)
-    agrupada = client.get("/?agrupar=1").data.decode("utf-8")
-
-    assert "Ver lista" in agrupada
-    assert "agrupar=0" in agrupada
-
-    resposta_lista = client.get("/?agrupar=0")
-    lista = resposta_lista.data.decode("utf-8")
-    assert "grupo-categoria" not in lista
-    assert "Agrupar por categoria" in lista
-    assert "pref_agrupar=0" in resposta_lista.headers.get("Set-Cookie", "")
 
 
 def test_changelog_page(client):
@@ -786,13 +720,6 @@ def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     assert 'class="logo-marca-ponto"' in body
     assert 'aria-label="Sai daí, gala-seca — página inicial"' in body
     assert 'class="logo-compacta"' in body
-
-
-def test_index_apresentacao_aplica_classe_e_refresh(client, monkeypatch, tmp_path):
-    _salva_scan(tmp_path, monkeypatch, [])
-    body = client.get("/?apresentacao=1").data.decode("utf-8")
-    assert "modo-apresentacao" in body
-    assert "http-equiv=\"refresh\"" in body
 
 
 def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):
@@ -1146,16 +1073,6 @@ def test_admin_logout_encerra_sessao(client, monkeypatch):
     logout = client.post("/admin/logout", data={"csrf_token": token})
     assert logout.status_code == 302
     assert client.get("/admin").status_code == 302
-
-
-def test_cookie_preferencia_persiste(client, monkeypatch, tmp_path):
-    _salva_scan(tmp_path, monkeypatch, [])
-    resp = client.get("/?compacto=1")
-    assert resp.headers.get("Set-Cookie") and "pref_compacto=1" in resp.headers.get("Set-Cookie")
-    # Proxima visita sem query param -- cookie decide
-    client.set_cookie("pref_compacto", "1")
-    body = client.get("/").data.decode("utf-8")
-    assert "modo-compacto" in body
 
 
 def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
@@ -1986,13 +1903,6 @@ def test_fmt_brl_valor_negativo():
 
 def test_fmt_brl_valor_grande():
     assert fmt.brl(1234567.89) == "R$ 1.234.567,89"
-
-
-def test_agrupar_por_categoria_item_sem_categoria():
-    from galaseca.public_site.server import _agrupar_por_categoria
-    candidatos = [{"name": "X", "score": 10}]  # sem a chave "category" de vez
-    grupos = _agrupar_por_categoria(candidatos)
-    assert grupos == [("Sem categoria", candidatos)]
 
 
 def test_csp_report_corpo_vazio_ainda_responde_204(client):
