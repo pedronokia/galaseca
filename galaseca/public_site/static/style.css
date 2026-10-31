@@ -1328,7 +1328,10 @@ footer.rodape .versao {
 .grafico-card {
   padding: 16px;
   margin-bottom: 20px;
-  color: var(--positive);
+  /* Mesma cor neutra do sparkline da listagem (.mini-sparkline) --
+     --positive (verde) sugeria "preço bom" mesmo quando a linha caía
+     no período; o gráfico só descreve o preço observado. */
+  color: var(--accent);
 }
 
 .grafico-historico {
