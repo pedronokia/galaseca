@@ -32,6 +32,22 @@ def test_save_snapshot_sorts_by_score(tmp_path):
     assert names == ["High", "Mid", "Low"]
 
 
+def test_save_snapshot_desempata_notas_cortadas_pela_nota_bruta(tmp_path):
+    """Mesmo achado de recommendations.buy_candidates (2026-10-31):
+    dois itens empatados em 100 (nota cortada) desempatam pela soma
+    bruta do breakdown, não pela ordem de chegada."""
+    p = tmp_path / "r.json"
+    results = [
+        {"name": "Pouco acima do teto", "score": 100,
+         "breakdown": [{"factor": "x", "delta": 51}]},  # bruto 101
+        {"name": "Bem acima do teto", "score": 100,
+         "breakdown": [{"factor": "x", "delta": 65}]},  # bruto 115
+    ]
+    snap = ranking.save_snapshot(results, path=p)
+    names = [it["name"] for it in snap["items"]]
+    assert names == ["Bem acima do teto", "Pouco acima do teto"]
+
+
 def test_save_and_load_multiple(tmp_path):
     p = tmp_path / "r.json"
     ranking.save_snapshot([{"name": "A", "score": 50}], path=p)

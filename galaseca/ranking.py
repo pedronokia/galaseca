@@ -13,6 +13,7 @@ from pathlib import Path
 from galaseca._paths import (
     DATA_DIR, atomic_write_text, load_json_record,
 )
+from galaseca import signals
 
 _RANKINGS_PATH = DATA_DIR / "rankings.json"
 _SNAPSHOT_CAP = 50
@@ -25,7 +26,12 @@ def save_snapshot(results: list[dict],
     results: lista de {name, score, ...} ordenada por score desc.
     Retorna o snapshot gravado.
     """
-    sorted_r = sorted(results, key=lambda r: -r.get("score", 0))
+    # Desempate pela nota bruta (antes do clamp em 100) -- mesmo
+    # motivo de recommendations.buy_candidates: sem isso, itens
+    # empatados em 100 (comum: o modelo não tem teto antes do clamp)
+    # ficavam em ordem arbitrária no Top 20.
+    sorted_r = sorted(results, key=lambda r: (
+        -r.get("score", 0), -signals.raw_score(r.get("breakdown"))))
     items = [
         {
             "name": r["name"],

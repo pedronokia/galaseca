@@ -23,6 +23,22 @@ def test_buy_candidates_ordena_por_score():
     assert [r["name"] for r in out] == ["B", "C", "A"]
 
 
+def test_buy_candidates_desempata_notas_cortadas_pela_nota_bruta():
+    """achado 2026-10-31: enhanced_score() não tem teto antes do clamp
+    em 100 -- itens com méritos bem diferentes (ex. 101 bruto vs 115
+    bruto) empatavam na nota exibida (100) e ficavam em ordem
+    arbitrária (a de chegada em `scan_results`). A ordenação usa a
+    soma bruta do breakdown como desempate, sem mudar a nota exibida."""
+    rows = [
+        _scan_row("Pouco acima do teto", 100,
+                  breakdown=[{"factor": "x", "delta": 51, "label": "X (+51)"}]),  # bruto 101
+        _scan_row("Bem acima do teto", 100,
+                  breakdown=[{"factor": "x", "delta": 65, "label": "X (+65)"}]),  # bruto 115
+    ]
+    out = rec.buy_candidates(rows)
+    assert [r["name"] for r in out] == ["Bem acima do teto", "Pouco acima do teto"]
+
+
 def test_buy_candidates_exclui_owned():
     rows = [_scan_row("A", 90), _scan_row("B", 80)]
     out = rec.buy_candidates(rows, owned_names={"a"})

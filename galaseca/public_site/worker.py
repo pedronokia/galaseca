@@ -18,7 +18,7 @@ import re
 import sys
 import time
 
-from galaseca import ranking, scan_engine, scan_store, scan_targets
+from galaseca import ranking, scan_engine, scan_store, scan_targets, signals
 from galaseca.public_site import db_backup, scan_progress, worker_alert
 from galaseca._ambiente import ambiente
 
@@ -92,9 +92,14 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         scan_store.save_last_scan("Todas as categorias", resultados)
         # Ordena ANTES de cortar: `resultados` vem na ordem do scan
         # (categoria por categoria), então `[:20]` direto pegava os 20
-        # primeiros escaneados, não as 20 maiores notas.
+        # primeiros escaneados, não as 20 maiores notas. Desempate pela
+        # nota bruta (antes do clamp em 100) também aqui -- sem isso,
+        # o corte em 20 podia excluir por acaso um item com nota bruta
+        # maior que um dos 20 escolhidos, só por ordem de chegada.
         ranking.save_snapshot(sorted(
-            resultados, key=lambda r: -r.get("score", 0))[:_TOP_RANKING])
+            resultados, key=lambda r: (
+                -r.get("score", 0), -signals.raw_score(r.get("breakdown"))),
+        )[:_TOP_RANKING])
     # Termômetro da extração de miniatura (sem requisição extra): se o
     # número ficar igual ao total, o HTML da Steam mudou de formato.
     _logger.info("Itens sem miniatura: %d de %d",
