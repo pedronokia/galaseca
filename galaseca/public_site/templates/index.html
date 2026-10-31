@@ -91,14 +91,21 @@
       {% endif %}
     </td>
     <td data-label="Por quê">
+      {# O resumo (texto-motivo) já mostra c.reasons[0] -- repeti-lo
+         como primeiro item da lista abaixo criava uma linha idêntica
+         logo após o resumo. Clicar nela (achando que fecharia o
+         <details>, igual clicar no resumo) não fazia nada, porque só
+         <summary> alterna o `open`: parecia que não dava pra recolher
+         mais. `extras` tira só esse motivo repetido. #}
+      {% set extras = (c.breakdown|rejectattr('label', 'equalto', c.reasons[0])|list) if (c.breakdown and c.reasons) else (c.breakdown or []) %}
       <details class="detalhe-motivo">
         <summary>
           <span class="texto-motivo">{{ c.reasons[0]|motivo_fmt if c.reasons else "Nota neutra: nenhum fator se destacou" }}</span>
-          {% if c.breakdown %}<span class="dica-expandir" aria-hidden="true">ver mais ▾</span>{% endif %}
+          {% if extras %}<span class="dica-expandir" aria-hidden="true">ver mais ▾</span>{% endif %}
         </summary>
-        {% if c.breakdown %}
+        {% if extras %}
         <ul class="lista-breakdown">
-          {% for b in c.breakdown %}
+          {% for b in extras %}
           <li class="{{ 'delta-positivo' if b.delta and b.delta > 0 else ('delta-negativo' if b.delta and b.delta < 0 else '') }}">{{ b.label|motivo_fmt }}</li>
           {% endfor %}
         </ul>
