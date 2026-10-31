@@ -592,9 +592,9 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   position: relative;
   display: grid;
   place-items: center;
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
+  flex: 0 0 64px;
+  width: 64px;
+  height: 64px;
   overflow: hidden;
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
@@ -610,7 +610,7 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .icone-item-placeholder::before {
   content: "◇";
   color: var(--text-muted);
-  font-size: 1.4rem;
+  font-size: 1.9rem;
 }
 
 .icone-item {
