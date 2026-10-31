@@ -1895,13 +1895,26 @@ footer.rodape .versao {
   }
 }
 
-@media (min-width: 641px) and (max-width: 1023px) {
+/* 641-1023px: só a tabela principal (index) precisa da dica, porque
+   abaixo de 640px ela vira cards empilhados (ver .pagina-inicial
+   table.tabela-itens) -- a rolagem lateral some, a dica não se aplica
+   mais. As outras páginas com tabela (ranking, extrato, watchlist,
+   etc.) não têm esse modo cards: a tabela rola lateralmente em
+   QUALQUER largura estreita, celular incluso -- achado 2026-10-31
+   revendo a página de ranking num celular: sem a dica abaixo de
+   641px, Nota/Posição ficavam fora da tela sem nenhuma pista de que
+   dava pra arrastar a tabela pro lado. */
+@media (max-width: 1023px) {
   .dica-rolagem-tabela {
     display: block;
     margin: -8px 0 10px;
     color: var(--text-muted);
     font-size: 0.9rem;
   }
+}
+
+@media (max-width: 640px) {
+  .pagina-inicial .dica-rolagem-tabela { display: none; }
 }
 
 /* Telas bem estreitas (celular em pé, ~360-400px): o pill de conta
