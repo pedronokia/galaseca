@@ -530,6 +530,7 @@ def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
          "pump_risk": {"level": "low"},
          "breakdown": [
              {"factor": "mediana", "delta": 10, "label": "Preço baixo (+10)"},
+             {"factor": "liquidez", "delta": 5, "label": "Bônus de liquidez (+5)"},
              {"factor": "momentum", "delta": -5, "label": "Subiu rápido (-5)"},
          ]},
     ]
@@ -540,18 +541,31 @@ def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
     # Espaço fixo ( ) entre "·"/número/"pts" pra não quebrar linha
     # deixando "pts" sozinho -- ver _motivo_fmt.
     assert "Preço baixo · +10 pts" in body
+    assert "Bônus de liquidez · +5 pts" in body
     assert "Subiu rápido · -5 pts" in body
     assert "(+10)" not in body
     assert "delta-positivo" in body
     assert "delta-negativo" in body
+    # O motivo de maior peso (reasons[0]) já aparece no resumo -- repeti-lo
+    # como item da lista abaixo criava uma linha idêntica logo após o
+    # resumo; clicar nela não fechava o <details> (só <summary> alterna
+    # `open`), dando a impressão de que não dava mais pra recolher.
+    assert body.count("Preço baixo · +10 pts") == 1
 
 
 def test_index_dica_expandir_so_aparece_com_breakdown(client, monkeypatch,
                                                        tmp_path):
     """.dica-expandir ("ver mais") só faz sentido quando há algo a mais
-    pra revelar -- sem breakdown, o <details> não abre em nada novo."""
+    pra revelar -- sem breakdown, ou com um breakdown que é só o motivo
+    já mostrado no resumo, o <details> não abre em nada novo."""
     resultados = [
-        {"name": "Com breakdown", "score": 60, "price": 1.0, "case_label": "",
+        {"name": "Com motivo extra", "score": 60, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"},
+         "breakdown": [
+             {"factor": "mediana", "delta": 10, "label": "Preço baixo (+10)"},
+             {"factor": "momentum", "delta": -5, "label": "Subiu rápido (-5)"},
+         ]},
+        {"name": "Só o motivo do resumo", "score": 55, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "low"},
          "breakdown": [{"factor": "mediana", "delta": 10,
                         "label": "Preço baixo (+10)"}]},
