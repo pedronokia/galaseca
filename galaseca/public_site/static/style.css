@@ -13,18 +13,18 @@
   --text-muted: #8f98a0;
   --accent: #66c0f4;
   --accent-bright: #a4d8fb;
-  /* positive/warn/danger -- achado 2026-10-31: o verde-limão original
-     (#a4d007) e o âmbar (#e4b03c) tinham quase a mesma luminosidade e
-     só ΔE 1.7 de separação sob deuteranopia (escala 0-100+, alvo
-     >=15) -- praticamente indistinguíveis pra quem tem daltonismo, e
-     o selo de "Nota" e "Risco" dependem dessas duas cores pra separar
-     alta de média à primeira vista. Valores novos passam no validador
-     de paleta (skill de dataviz): banda de luminosidade OKLCH,
-     separação CVD >=15 em visão normal, e o vermelho ganha contraste
-     de texto 4.43:1 sobre --bg-elevated (era 4.00:1, abaixo do mínimo
-     de acessibilidade 4.5:1). */
-  --positive: #2aa352;
-  --warn: #b8860f;
+  /* positive/warn: verde-limão e âmbar originais, de volta por pedido
+     do usuário (2026-10-31) -- uma troca pro verde/amarelo validados
+     (#2aa352/#b8860f) rodou curto: o validador de paleta (skill de
+     dataviz) tinha achado só ΔE 1.7 de separação sob deuteranopia
+     entre os dois tons originais (quase indistinguíveis pra quem tem
+     daltonismo), mas o usuário preferiu esteticamente os tons de
+     antes, aceitando essa limitação.
+     --danger segue o valor validado (contraste de texto 4.43:1 sobre
+     --bg-elevated, era 4.00:1 no tom antigo) -- não foi pedido de
+     volta. */
+  --positive: #a4d007;
+  --warn: #e4b03c;
   --danger: #f05570;
 
   /* Escala de raio e sombra (auditoria visual, 2026-10-26) -- antes
