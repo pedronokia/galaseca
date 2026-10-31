@@ -131,22 +131,14 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
 .logo {
   display: inline-flex;
   align-items: center;
-  /* O viewBox já reserva algum espaço após a vírgula, mas pouco:
-     soma-se uma folga extra pra não grudar no início do slogan. */
-  gap: 5px;
   color: var(--text-bright);
   text-decoration: none;
 }
 
 .logo:hover { color: var(--text-bright); }
-/* Sem folga o contorno de foco encosta no ponto final da marca. */
+/* Sem folga o contorno de foco encosta na última letra. */
 .logo:focus-visible { outline-offset: 5px; border-radius: var(--radius-sm); }
 .logo:hover .logo-marca-ponto { fill: var(--accent-bright); }
-
-.logo-marca[hidden],
-.logo-slogan[hidden] { display: none; }
-.logo-marca,
-.logo-slogan { display: block; flex-shrink: 0; }
 
 .logo-marca-letras { fill: currentColor; }
 
@@ -155,13 +147,26 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
   transition: fill 0.15s ease;
 }
 
-.modo-apresentacao .logo-marca,
-.modo-apresentacao .logo-slogan { height: 36px; width: auto; }
+/* Guarda exigida pelo teste de varredura de `hidden` (AGENTS.md gotcha
+   #16): `aria-hidden="true"` bate no regex genérico de "hidden" do
+   teste, mesmo não sendo o atributo `hidden` de verdade -- sem isto o
+   teste falsamente aponta falta de guarda. */
+.logo-cheia[hidden],
+.logo-compacta[hidden] { display: none; }
 
-/* Logo + slogan dá ~310px: abaixo disso só a marca. */
+/* "sai daí, gala-seca" por extenso normalmente; abaixo de 400px só
+   "gala-seca" (o nome) -- a frase inteira não cabe na largura do
+   header nesses celulares, e o nome é a parte que não pode sumir. */
+.logo-cheia { display: block; flex-shrink: 0; }
+.logo-compacta { display: none; flex-shrink: 0; }
+
 @media (max-width: 400px) {
-  .logo-slogan { display: none; }
+  .logo-cheia { display: none; }
+  .logo-compacta { display: block; }
 }
+
+.modo-apresentacao .logo-cheia,
+.modo-apresentacao .logo-compacta { height: 36px; width: auto; }
 
 header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
 header.topo > .badge-cooldown { padding-bottom: 20px; }

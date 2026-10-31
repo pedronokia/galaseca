@@ -782,10 +782,10 @@ def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [])
     body = client.get("/").data.decode("utf-8")
     assert 'class="logo"' in body
-    assert 'class="logo-marca"' in body
+    assert 'class="logo-cheia"' in body
     assert 'class="logo-marca-ponto"' in body
-    assert 'aria-label="GalaSeca, pesquisa antes — página inicial"' in body
-    assert 'class="logo-slogan"' in body
+    assert 'aria-label="Sai daí, gala-seca — página inicial"' in body
+    assert 'class="logo-compacta"' in body
 
 
 def test_index_apresentacao_aplica_classe_e_refresh(client, monkeypatch, tmp_path):
