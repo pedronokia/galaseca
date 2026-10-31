@@ -234,25 +234,13 @@ def create_app() -> Flask:
         nota_min = _parse_float_arg("nota_min")
         preco_max = _parse_float_arg("preco_max")
         busca = (request.args.get("q") or "").strip() or None
-        # "ordenar" segue o mesmo padrão de cookie que compacto/agrupar/
-        # minimalista abaixo: query param manda quando presente, senão
-        # cai pro último escolhido (sem isso, re-ordenar por preço não
-        # sobrevivia a uma nova visita).
+        # "ordenar" usa cookie de preferência: query param manda quando
+        # presente, senão cai pro último escolhido (sem isso, re-ordenar
+        # por preço não sobrevivia a uma nova visita).
         ordenar = (request.args.get("ordenar") if "ordenar" in request.args
                   else request.cookies.get("pref_ordenar")) or "nota"
         if ordenar not in ("nota", "preco"):
             ordenar = "nota"
-        # Prefs (compacto/agrupar/minimalista): query param manda quando
-        # presente; na ausência, cai pro cookie salvo da última escolha
-        # -- sem isso o visitante tinha que clicar "Modo compacto" de
-        # novo em toda visita nova (pedido explícito, 2026-10-25).
-        compacto = (request.args.get("compacto") == "1" if "compacto" in request.args
-                   else request.cookies.get("pref_compacto") == "1")
-        agrupar = (request.args.get("agrupar") == "1" if "agrupar" in request.args
-                  else request.cookies.get("pref_agrupar") == "1")
-        minimalista = (request.args.get("minimalista") == "1" if "minimalista" in request.args
-                      else request.cookies.get("pref_minimalista") == "1")
-        apresentacao = request.args.get("apresentacao") == "1"
         pagina = _parse_int_arg("pagina", 1)
         if busca:
             buscas.registrar(busca)
@@ -282,7 +270,6 @@ def create_app() -> Flask:
         resp = make_response(render_template(
             "index.html",
             candidatos=candidatos_pagina,
-            grupos=_agrupar_por_categoria(candidatos_pagina) if agrupar else None,
             scan=scan,
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
             proximo_scan=(scan_store.proxima_txt(scan["ts"], intervalo_horas)
@@ -296,10 +283,6 @@ def create_app() -> Flask:
             preco_max_sel=preco_max,
             busca_sel=busca,
             ordenar_sel=ordenar,
-            compacto_sel=compacto,
-            agrupar_sel=agrupar,
-            minimalista_sel=minimalista,
-            apresentacao_sel=apresentacao,
             pagina=pagina,
             primeiro_item=inicio + 1,
             ultimo_item=inicio + len(candidatos_pagina),
@@ -308,11 +291,6 @@ def create_app() -> Flask:
             total_candidatos=len(todos),
         ))
         _UM_ANO_S = 365 * 24 * 3600
-        for nome_param, valor in (("compacto", compacto), ("agrupar", agrupar),
-                                  ("minimalista", minimalista)):
-            if nome_param in request.args:
-                resp.set_cookie(f"pref_{nome_param}", "1" if valor else "0",
-                                max_age=_UM_ANO_S, samesite="Lax")
         if "ordenar" in request.args:
             resp.set_cookie("pref_ordenar", ordenar,
                             max_age=_UM_ANO_S, samesite="Lax")
@@ -848,21 +826,6 @@ def _contagem_por_categoria(scan: "dict | None") -> dict:
         if cat:
             contagem[cat] = contagem.get(cat, 0) + 1
     return contagem
-
-
-def _agrupar_por_categoria(candidatos: list[dict]) -> list[tuple[str, list[dict]]]:
-    """Agrupa candidatos JÁ filtrados/ordenados em (categoria, itens),
-    preservando a ordem de chegada dentro de cada grupo (mesma ordenação
-    escolhida pelo visitante). "Sem categoria" entra por último."""
-    grupos: dict[str, list[dict]] = {}
-    for c in candidatos:
-        cat = c.get("category") or "Sem categoria"
-        grupos.setdefault(cat, []).append(c)
-    sem_categoria = grupos.pop("Sem categoria", None)
-    out = [(cat, grupos[cat]) for cat in sorted(grupos)]
-    if sem_categoria:
-        out.append(("Sem categoria", sem_categoria))
-    return out
 
 
 def _busca_bate(name_fmt: str, busca: "str | None") -> bool:

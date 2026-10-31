@@ -237,45 +237,6 @@ document.addEventListener("keydown", function (e) {
   });
 })();
 
-// Exportar CSV -- lê as linhas visíveis da(s) tabela(s) de candidatos e
-// gera um arquivo client-side (sem rota nova no servidor, sem reenviar
-// nada que já está na página).
-(function () {
-  function textoCelula(td) {
-    var clone = td.cloneNode(true);
-    clone.querySelectorAll("button, .botao-copiar, .botao-favorito, svg").forEach(
-      function (el) { el.remove(); });
-    return clone.textContent.replace(/\s+/g, " ").trim();
-  }
-  function paraCsv(valor) {
-    if (/[",\n;]/.test(valor)) return '"' + valor.replace(/"/g, '""') + '"';
-    return valor;
-  }
-  document.addEventListener("click", function (e) {
-    if (e.target.id !== "botao-exportar-csv") return;
-    var linhas = [];
-    var cabecalho = document.querySelector("table.tabela-candidatos thead tr");
-    if (cabecalho) {
-      linhas.push(Array.from(cabecalho.querySelectorAll("th")).map(
-        function (th) { return paraCsv(th.textContent.trim()); }).join(";"));
-    }
-    document.querySelectorAll("table.tabela-candidatos tbody tr").forEach(function (tr) {
-      if (tr.style.display === "none") return;
-      linhas.push(Array.from(tr.querySelectorAll("td")).map(
-        function (td) { return paraCsv(textoCelula(td)); }).join(";"));
-    });
-    var blob = new Blob(["﻿" + linhas.join("\n")], { type: "text/csv;charset=utf-8" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "galaseca.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-})();
-
 // Comparador -- marca até 3 itens (sessionStorage, por aba/sessão: não
 // faz sentido sobreviver semanas como os favoritos) e mostra uma barra
 // flutuante com link pra /comparar?nomes=A,B,C.
@@ -376,89 +337,11 @@ document.addEventListener("keydown", function (e) {
   window.location.href = link.href;
 });
 
-// Buscas salvas -- guarda a querystring atual com um nome escolhido
-// pelo visitante (só neste navegador), pra voltar rápido depois sem
-// reconfigurar os filtros.
-(function () {
-  var CHAVE = "galaseca_buscas_salvas";
-  function ler() {
-    try { return JSON.parse(localStorage.getItem(CHAVE) || "[]"); } catch (e) { return []; }
-  }
-  function salvar(lista) {
-    try { localStorage.setItem(CHAVE, JSON.stringify(lista)); } catch (e) {}
-  }
-  function renderizar() {
-    var ul = document.getElementById("lista-buscas-salvas");
-    if (!ul) return;
-    var lista = ler();
-    ul.innerHTML = "";
-    if (!lista.length) { ul.hidden = true; return; }
-    ul.hidden = false;
-    lista.forEach(function (item, i) {
-      var li = document.createElement("li");
-      // Busca salva só vira link pro próprio site (o valor vem do
-      // localStorage, editável por qualquer extensão ou pelo próprio visitante).
-      if (!item || typeof item.query !== "string" || item.query.charAt(0) !== "/" ||
-          item.query.charAt(1) === "/") return;
-      var a = document.createElement("a");
-      a.href = item.query;
-      a.textContent = item.nome;
-      li.appendChild(a);
-      var remover = document.createElement("button");
-      remover.type = "button";
-      remover.className = "botao-link botao-remover botao-remover-busca";
-      remover.textContent = "remover";
-      remover.setAttribute("data-indice", i);
-      li.appendChild(remover);
-      ul.appendChild(li);
-    });
-  }
-  try { renderizar(); } catch (e) {}
-
-  document.addEventListener("click", function (e) {
-    if (e.target.id === "botao-salvar-busca") {
-      var nome = window.prompt("Nome pra esta busca:");
-      if (!nome) return;
-      try {
-        var lista = ler();
-        lista.push({ nome: nome, query: window.location.pathname + window.location.search });
-        salvar(lista);
-        renderizar();
-        mostrarToast("Busca \"" + nome + "\" salva.");
-      } catch (err) {}
-      return;
-    }
-    if (e.target.classList && e.target.classList.contains("botao-remover-busca")) {
-      try {
-        var lista2 = ler();
-        lista2.splice(parseInt(e.target.getAttribute("data-indice"), 10), 1);
-        salvar(lista2);
-        renderizar();
-      } catch (err) {}
-    }
-  });
-})();
-
 // PWA: registra o service worker (ver /sw.js + manifest.json) -- só
 // pra instalabilidade ("Adicionar à tela inicial"); a lógica de cache
 // de verdade vive no próprio sw.js, não aqui.
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch(function () {});
-}
-
-// Toast -- confirmação visual curta (salvar busca, exportar CSV). Um
-// elemento só, reaproveitado -- não empilha vários se clicar rápido.
-function mostrarToast(mensagem) {
-  try {
-    var area = document.getElementById("area-toast");
-    if (!area) return;
-    area.textContent = mensagem;
-    area.classList.add("visivel");
-    clearTimeout(area._timeout);
-    area._timeout = setTimeout(function () {
-      area.classList.remove("visivel");
-    }, 2200);
-  } catch (e) {}
 }
 
 // Altura do header.topo em --altura-topo: o cabeçalho fixo da tabela
@@ -524,15 +407,6 @@ function mostrarToast(mensagem) {
   });
 })();
 
-// Conecta os toasts nas ações que já existiam (salvar busca / exportar
-// CSV) -- os handlers originais continuam noutro listener; este só
-// escuta o mesmo clique pra mostrar a confirmação visual.
-document.addEventListener("click", function (e) {
-  if (e.target.id === "botao-exportar-csv") {
-    mostrarToast("CSV baixado.");
-  }
-});
-
 // Prefetch da página de detalhes ao passar o mouse no link "Detalhes" --
 // quando o visitante de fato clica, a página já está no cache do
 // navegador. `rel="prefetch"` é uma dica (o navegador pode ignorar sob
@@ -548,44 +422,5 @@ document.addEventListener("click", function (e) {
     tag.rel = "prefetch";
     tag.href = link.href;
     document.head.appendChild(tag);
-  });
-})();
-
-// Menu "⋯ Mais opções" do painel de filtros -- junta modo de exibição/
-// agrupar/RSS/apresentação/exportar/salvar busca num só lugar, em vez
-// de 8 botões soltos com o mesmo peso visual (achado 2026-10-27).
-(function () {
-  var botao = document.getElementById("botao-menu-opcoes");
-  var lista = document.getElementById("lista-menu-opcoes");
-  if (!botao || !lista) return;
-
-  function fechar() {
-    lista.hidden = true;
-    botao.setAttribute("aria-expanded", "false");
-  }
-  function aberto() {
-    return !lista.hidden;
-  }
-
-  botao.addEventListener("click", function (e) {
-    e.stopPropagation();
-    if (aberto()) {
-      fechar();
-    } else {
-      lista.hidden = false;
-      botao.setAttribute("aria-expanded", "true");
-    }
-  });
-
-  // Clique fora fecha -- padrão de qualquer menu suspenso.
-  document.addEventListener("click", function (e) {
-    if (aberto() && !lista.contains(e.target) && e.target !== botao) fechar();
-  });
-
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && aberto()) {
-      fechar();
-      botao.focus();
-    }
   });
 })();

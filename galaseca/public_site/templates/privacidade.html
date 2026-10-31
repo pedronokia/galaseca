@@ -25,9 +25,9 @@
     <h2 class="secao-titulo">O painel público (sem login)</h2>
     <p>A página inicial e a tabela de notas não guardam nada seu no
     servidor. Não há cookie de rastreamento, não há conta. O único cookie
-    possível aqui é opcional, só se você clicar em "Modo compacto" ou
-    parecido (ver "Cookies" abaixo) — fora isso, é só uma leitura de preços
-    públicos da Steam Community Market.</p>
+    possível aqui é opcional, só se você mudar a ordenação da tabela (ver
+    "Cookies" abaixo) — fora isso, é só uma leitura de preços públicos da
+    Steam Community Market.</p>
 
     <h2 class="secao-titulo">Se você entra com "Entrar com Steam"</h2>
     <p>O login usa o <strong>Steam OpenID</strong>, o mecanismo público que
@@ -55,12 +55,9 @@
     <ul>
       <li><code>session</code> — só se você usar "Entrar com Steam": guarda
       que você está logado e o token contra CSRF dos formulários</li>
-      <li><code>pref_compacto</code>, <code>pref_agrupar</code>,
-      <code>pref_minimalista</code>, <code>pref_ordenar</code> — só se você
-      clicar em "Modo compacto", "Agrupar por categoria", "Modo
-      minimalista" ou mudar a ordenação na página inicial: lembra sua
-      preferência de exibição pra próxima visita. Nenhum tem relação com
-      identidade nem é compartilhado com ninguém.</li>
+      <li><code>pref_ordenar</code> — só se você mudar a ordenação na
+      página inicial: lembra sua preferência pra próxima visita. Não tem
+      relação com identidade nem é compartilhado com ninguém.</li>
     </ul>
 
     <h2 class="secao-titulo">Onde fica guardado</h2>

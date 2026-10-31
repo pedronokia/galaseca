@@ -20,7 +20,6 @@
   <link rel="alternate" type="application/rss+xml" title="GalaSeca — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="search" type="application/opensearchdescription+xml" title="GalaSeca" href="{{ url_for('opensearch') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
-  {% if apresentacao_sel %}<meta http-equiv="refresh" content="300">{% endif %}
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -31,7 +30,7 @@
   }
   </script>
 </head>
-<body class="{{ 'modo-compacto' if compacto_sel else '' }} {{ 'modo-apresentacao' if apresentacao_sel else '' }}">
+<body>
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   {% macro linha_candidato(c, destaque=false) %}
   <tr class="{{ "linha-destaque" if destaque else "" }}" data-nome="{{ c.name }}" data-nota="{{ c.score }}">
@@ -120,9 +119,9 @@
   {% macro cabecalho_tabela() %}
   <tr>
     <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
-    <th class="cabecalho-preco" title="Menor preço anunciado agora no Steam Market" aria-sort="{{ 'ascending' if ordenar_sel == 'preco' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
+    <th class="cabecalho-preco" title="Menor preço anunciado agora no Steam Market" aria-sort="{{ 'ascending' if ordenar_sel == 'preco' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar='preco') }}">Preço {{ "▲" if ordenar_sel == "preco" else "" }}</a></th>
     <th class="celula-sparkline" title="Preço nos últimos 20 scans registrados -- mesmo histórico da página de detalhe">Histórico <span class="cabecalho-sub">(20)</span></th>
-    <th class="cabecalho-nota" title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.). Um selo de risco aparece quando a alta recente pode ser artificial." aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), ordenar='nota') }}">Nota (0–100) {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
+    <th class="cabecalho-nota" title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.). Um selo de risco aparece quando a alta recente pode ser artificial." aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar='nota') }}">Nota (0–100) {{ "▼" if ordenar_sel == "nota" else "" }}</a></th>
     <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
     <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
   </tr>
@@ -157,11 +156,7 @@
           nota_min=(None if remover == 'nota_min' else nota_min_sel),
           preco_max=(None if remover == 'preco_max' else preco_max_sel),
           q=(None if remover == 'q' else busca_sel),
-          ordenar=ordenar_sel,
-          compacto=('1' if compacto_sel else None),
-          agrupar=('1' if agrupar_sel else None),
-          minimalista=('1' if minimalista_sel else None),
-          apresentacao=('1' if apresentacao_sel else None)) }}
+          ordenar=ordenar_sel) }}
     {%- endmacro %}
 
     <form class="form-filtros" method="get" action="{{ url_for('index') }}">
@@ -185,41 +180,10 @@
         </label>
       </div>
       <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
-      {% if compacto_sel %}<input type="hidden" name="compacto" value="1">{% endif %}
-      {% if agrupar_sel %}<input type="hidden" name="agrupar" value="1">{% endif %}
       <button type="submit" class="botao-filtrar-sem-js">Filtrar</button>
       <button type="button" id="botao-favoritos" class="botao-link" title="Mostrar só os itens que você favoritou (só neste navegador) -- atalho: f">
         <span id="texto-botao-favoritos">☆ Só favoritos</span> <span id="contagem-favoritos" class="contagem-favoritos" hidden>0</span>
       </button>
-
-      <div class="menu-opcoes">
-        <button type="button" id="botao-menu-opcoes" class="botao-link" aria-haspopup="true" aria-expanded="false" aria-controls="lista-menu-opcoes">
-          ⋯ Mais opções
-        </button>
-        <div id="lista-menu-opcoes" class="lista-menu-opcoes" hidden>
-          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, agrupar=('1' if agrupar_sel else None), compacto=(None if compacto_sel else '1')) }}">
-            {{ "Modo normal" if compacto_sel else "Modo compacto" }}
-          </a>
-          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('0' if agrupar_sel else '1')) }}">
-            {{ "Ver lista" if agrupar_sel else "Agrupar por categoria" }}
-          </a>
-          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), minimalista=(None if minimalista_sel else '1')) }}">
-            {{ "Mostrar selo ★" if minimalista_sel else "Modo minimalista" }}
-          </a>
-          <a class="item-menu" href="{{ url_for('feed', categoria=categoria_sel) }}" title="Feed RSS{{ ' só desta categoria' if categoria_sel else '' }}">
-            RSS{{ " — " ~ categoria_sel if categoria_sel else "" }}
-          </a>
-          <a class="item-menu" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, apresentacao='1') }}">
-            Modo apresentação
-          </a>
-          <button type="button" id="botao-exportar-csv" class="item-menu" title="Baixar a tabela visível como CSV">
-            Exportar CSV
-          </button>
-          <button type="button" id="botao-salvar-busca" class="item-menu" title="Salvar os filtros atuais com um nome, pra voltar rápido depois (só neste navegador)">
-            Salvar busca
-          </button>
-        </div>
-      </div>
     </form>
 
     {% if categoria_sel or nota_min_sel is not none or preco_max_sel is not none or busca_sel %}
@@ -245,7 +209,7 @@
         Preço máximo: R$ {{ "%.2f"|format(preco_max_sel)|replace(".", ",") }} <span aria-hidden="true">×</span>
       </a>
       {% endif %}
-      <a id="limpar-filtros-ativos" class="botao-link" href="{{ url_for('index', ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), minimalista=('1' if minimalista_sel else None), apresentacao=('1' if apresentacao_sel else None)) }}">Limpar todos</a>
+      <a id="limpar-filtros-ativos" class="botao-link" href="{{ url_for('index', ordenar=ordenar_sel) }}">Limpar todos</a>
     </nav>
     {% endif %}
 
@@ -259,7 +223,7 @@
 
     {% if scan %}
     {% macro url_categoria(cat) -%}
-      {{ url_for('index', categoria=cat, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None)) }}
+      {{ url_for('index', categoria=cat, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel) }}
     {%- endmacro %}
     <nav class="abas-categoria" aria-label="Categorias">
       <a class="aba-categoria" href="{{ url_categoria(None) }}"{% if not categoria_sel %} aria-current="page"{% endif %}>Todas <span class="aba-contagem">{{ total_geral }}</span></a>
@@ -269,28 +233,12 @@
     </nav>
     {% endif %}
 
-    <ul id="lista-buscas-salvas" class="lista-buscas-salvas" hidden></ul>
-
     <div id="msg-sem-favoritos" class="status status-vazio" hidden>
       <p id="texto-sem-favoritos">Nenhum item favoritado ainda — clique na ☆ ao lado de um item pra favoritar.</p>
       <ul id="lista-favoritos-fora" class="lista-favoritos-fora" hidden></ul>
     </div>
 
-    {% if agrupar_sel and grupos %}
-      {% for categoria_nome, itens in grupos %}
-      <details class="grupo-categoria" open>
-        <summary>{{ categoria_nome }} ({{ itens|length }})</summary>
-        <div class="tabela-wrap">
-        <table class="tabela-candidatos tabela-itens">{{ colgroup_itens() }}
-          <thead class="cabecalho-fixo">{{ cabecalho_tabela() }}</thead>
-          <tbody>
-            {% for c in itens %}{{ linha_candidato(c) }}{% endfor %}
-          </tbody>
-        </table>
-        </div>
-      </details>
-      {% endfor %}
-    {% elif candidatos %}
+    {% if candidatos %}
     <div class="tabela-wrap">
     <table class="tabela-candidatos tabela-itens">{{ colgroup_itens() }}
       <thead class="cabecalho-fixo">{{ cabecalho_tabela() }}</thead>
@@ -303,17 +251,17 @@
     {% if candidatos %}
     <nav class="paginacao">
       {% if tem_pagina_anterior %}
-        <a id="link-pagina-anterior" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), pagina=pagina-1) }}" title="Atalho: seta esquerda">← Página anterior</a>
+        <a id="link-pagina-anterior" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina-1) }}" title="Atalho: seta esquerda">← Página anterior</a>
       {% endif %}
       <span class="status-muted">Mostrando {{ primeiro_item }}–{{ ultimo_item }} de {{ total_candidatos }} itens · página {{ pagina }}</span>
       {% if tem_proxima_pagina %}
-        <a id="link-pagina-seguinte" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), pagina=pagina+1) }}" title="Atalho: seta direita">Ver mais →</a>
+        <a id="link-pagina-seguinte" class="botao-link" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina+1) }}" title="Atalho: seta direita">Ver mais →</a>
       {% endif %}
     </nav>
     {% elif scan and categoria_sel and not contagem_categorias.get(categoria_sel) %}
       <p class="status status-vazio">A categoria {{ categoria_sel }} ainda não tem itens coletados. A coleta atual cobre só as categorias com número ao lado do nome no filtro. <a href="{{ url_for('index') }}">Ver todas as categorias</a></p>
     {% elif scan %}
-      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel, compacto=('1' if compacto_sel else None), agrupar=('1' if agrupar_sel else None), minimalista=('1' if minimalista_sel else None), apresentacao=('1' if apresentacao_sel else None)) }}">Limpar filtros</a></p>
+      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel) }}">Limpar filtros</a></p>
     {% else %}
       <p class="status status-vazio">Nenhum candidato no momento.</p>
     {% endif %}
@@ -333,7 +281,6 @@
   </div>
 
   <button type="button" id="botao-topo" class="botao-topo" hidden title="Voltar ao topo" aria-label="Voltar ao topo">↑</button>
-  <div id="area-toast" class="area-toast" aria-live="polite"></div>
 
   <script src="{{ static_v('app.js') }}" defer></script>
 </body>
