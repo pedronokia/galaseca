@@ -743,7 +743,7 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 /* Guarda por convenção (gotcha #16) -- na prática o teste de varredura
    confunde `aria-hidden="true"` com o atributo `hidden`, mas a regra é
    inofensiva e deixa o CSS consistente com as demais classes. */
-.dica-expandir[hidden] { display: none; }
+.dica-expandir[hidden], .dica-expandir-menos[hidden] { display: none; }
 
 .dica-expandir {
   display: block;
@@ -753,7 +753,12 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   color: var(--accent-bright);
 }
 
-.detalhe-motivo[open] .dica-expandir { display: none; }
+/* "ver mais"/"recolher" trocam de lugar com o [open] -- sem isso, depois
+   de abrir não sobrava nenhuma dica visível de que dava pra fechar de
+   novo clicando no resumo (achado 2026-10-31, relatado ao vivo). */
+.dica-expandir-menos { display: none; }
+.detalhe-motivo[open] .dica-expandir-mais { display: none; }
+.detalhe-motivo[open] .dica-expandir-menos { display: block; }
 
 .lista-breakdown {
   margin: 6px 0 0;
