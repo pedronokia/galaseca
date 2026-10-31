@@ -275,10 +275,16 @@ header.topo h1 {
   text-decoration: none;
 }
 
+/* Preenchido (não outline) -- é a única ação clicável do header e o
+   convite pra todo o resto do produto (portfólio/trades/watchlist);
+   combina com o mesmo tratamento "botão de destaque" que
+   .form-filtros button já usa, sem repetir destaque em mais nenhum
+   lugar fixo da tela (ver comentário sobre "só devia existir UM
+   botão de destaque por tela", 2026-10-27). */
 .conta-link-entrar {
   display: inline-block;
-  color: var(--accent-bright);
-  background: transparent;
+  color: var(--bg);
+  background: var(--accent);
   border: 1px solid var(--accent);
   border-radius: 6px;
   padding: 9px 20px;
@@ -286,13 +292,11 @@ header.topo h1 {
   font-size: 0.88rem;
   white-space: nowrap;
   text-decoration: none;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: filter 0.15s ease;
 }
 
 .conta-link-entrar:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
+  filter: brightness(1.1);
   text-decoration: none;
 }
 
