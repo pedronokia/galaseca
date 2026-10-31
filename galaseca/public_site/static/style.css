@@ -556,9 +556,13 @@ table.tabela-itens th.cabecalho-preco { text-align: right; }
    scans" virou "(20)" porque o title= do <th> já explica o resto. */
 table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
-.celula-item {
-  display: block;
-}
+/* SEM `display: block` aqui -- achado 2026-10-31, relatado ao vivo: com
+   isso a célula perdia o comportamento normal de <td> (table-cell) e o
+   `vertical-align: middle` (default do navegador, que as outras
+   células da linha já usam) deixava de valer. Numa linha esticada pela
+   célula "Por quê" aberta, o conteúdo ficava colado no topo e sobrava
+   um espaço vazio enorme embaixo, em vez de centralizar como as
+   colunas vizinhas (Preço, Nota, Caixa/Cápsula). */
 
 .celula-item-principal {
   display: flex;
