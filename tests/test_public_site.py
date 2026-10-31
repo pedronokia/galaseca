@@ -1620,6 +1620,26 @@ def test_comparar_lista_itens_pedidos(client, monkeypatch, tmp_path):
     assert "Item B" in body
 
 
+def test_comparar_nota_fica_dentro_da_celula_certa(client, monkeypatch,
+                                                    tmp_path):
+    """achado 2026-10-31: a linha "Nota" aplicava class="nota ..." no
+    próprio <td> (não num <span> dentro dele, como em index.html/
+    item.html) -- .nota tem display:inline-block, que tira o <td> do
+    layout de tabela e todas as notas colapsavam visualmente na
+    primeira coluna. A nota precisa estar num <span> dentro do <td>."""
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 60, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
+    assert '<td class="nota' not in body
+    assert '<td><span class="nota nota-alta">80</span></td>' in body
+    assert '<td><span class="nota nota-media">60</span></td>' in body
+
+
 def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):
     resultados = [{"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
                   "pump_risk": {"level": "low"}, "breakdown": []}]
