@@ -101,7 +101,10 @@
       <details class="detalhe-motivo">
         <summary>
           <span class="texto-motivo">{{ c.reasons[0]|motivo_fmt if c.reasons else "Nota neutra: nenhum fator se destacou" }}</span>
-          {% if extras %}<span class="dica-expandir" aria-hidden="true">ver mais ▾</span>{% endif %}
+          {% if extras %}
+          <span class="dica-expandir dica-expandir-mais" aria-hidden="true">ver mais ▾</span>
+          <span class="dica-expandir dica-expandir-menos" aria-hidden="true">recolher ▴</span>
+          {% endif %}
         </summary>
         {% if extras %}
         <ul class="lista-breakdown">
