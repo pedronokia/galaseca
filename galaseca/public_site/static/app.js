@@ -75,6 +75,8 @@ document.addEventListener("keydown", function (e) {
 document.addEventListener("error", function (e) {
   if (e.target.matches && e.target.matches(".icone-item")) {
     e.target.classList.add("icone-item-indisponivel");
+    var quadro = e.target.closest(".icone-item-quadro");
+    if (quadro) quadro.classList.remove("icone-item-quadro-com-imagem");
   }
 }, true);
 

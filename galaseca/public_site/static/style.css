@@ -601,6 +601,15 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   background: var(--bg);
 }
 
+.icone-item-quadro-com-imagem {
+  border: 0;
+  background: transparent;
+}
+
+.icone-item-quadro-com-imagem .icone-item-placeholder {
+  display: none;
+}
+
 .icone-item-placeholder {
   position: absolute;
   inset: 0;
@@ -617,7 +626,7 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   width: 40px;
   height: 40px;
   object-fit: contain;
-  background: var(--bg);
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   flex-shrink: 0;

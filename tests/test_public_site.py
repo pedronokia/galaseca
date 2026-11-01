@@ -96,7 +96,7 @@ def test_index_exibe_miniatura_e_separa_acoes_do_nome(
         r'<div class="celula-item-acoes">(.*?)</div>',
         celula, re.DOTALL).group(1)
 
-    assert 'class="icone-item-quadro"' in principal
+    assert 'class="icone-item-quadro icone-item-quadro-com-imagem"' in principal
     assert 'src="/icone/skin-icon-hash.webp"' in principal
     assert 'class="icone-item"' in principal
     assert "link-item" in principal
