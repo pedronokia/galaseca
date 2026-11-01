@@ -2515,7 +2515,7 @@ def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):
     body = client.get("/").data.decode("utf-8")
 
     assert ">Caixa CS:GO Weapon (descontinuada, 2013)</span>" in body
-    assert "<title>Skins</title>" in body
+    assert "<title>sai daí, galaseca</title>" in body
 
 
 def test_feed_e_api_nao_leem_historico_de_todos_os_itens(
