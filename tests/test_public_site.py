@@ -574,10 +574,11 @@ def test_index_dica_expandir_so_aparece_com_breakdown(client, monkeypatch,
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/").data.decode("utf-8")
-    assert body.count("dica-expandir-mais") == 1
-    # "recolher" acompanha "ver mais" -- sem ela, depois de abrir não
-    # sobrava nenhuma dica visível de que dava pra fechar de novo.
-    assert body.count("dica-expandir-menos") == 1
+    assert body.count("dica-expandir") == 1
+    # "recolher" fica depois da lista (fora do <summary>) -- aparece
+    # junto com "ver mais", na mesma linha que tem algo a mais pra
+    # mostrar.
+    assert body.count("botao-recolher-motivo") == 1
 
 
 def test_changelog_page(client):

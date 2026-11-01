@@ -747,7 +747,7 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 /* Guarda por convenção (gotcha #16) -- na prática o teste de varredura
    confunde `aria-hidden="true"` com o atributo `hidden`, mas a regra é
    inofensiva e deixa o CSS consistente com as demais classes. */
-.dica-expandir[hidden], .dica-expandir-menos[hidden] { display: none; }
+.dica-expandir[hidden] { display: none; }
 
 .dica-expandir {
   display: block;
@@ -757,12 +757,31 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   color: var(--accent-bright);
 }
 
-/* "ver mais"/"recolher" trocam de lugar com o [open] -- sem isso, depois
-   de abrir não sobrava nenhuma dica visível de que dava pra fechar de
-   novo clicando no resumo (achado 2026-10-31, relatado ao vivo). */
-.dica-expandir-menos { display: none; }
-.detalhe-motivo[open] .dica-expandir-mais { display: none; }
-.detalhe-motivo[open] .dica-expandir-menos { display: block; }
+.detalhe-motivo[open] .dica-expandir { display: none; }
+
+/* "recolher" fica depois da lista (ver comentário no index.html) --
+   precisava de um botão clicável próprio, por isso o reset de botão
+   igual ao .botao-copiar. Achado 2026-11-01, relatado ao vivo: com a
+   dica só dentro do <summary>, "recolher" aparecia logo abaixo do
+   resumo, ANTES da lista -- posição diferente de onde "ver mais"
+   fica (sempre a última coisa visível, já que não tem lista embaixo
+   quando fechado). Fora do <summary>, só fecha via JS (ver app.js) --
+   sem JS fica escondido, e clicar no resumo (sempre funciona, nativo)
+   continua recolhendo normalmente. */
+.botao-recolher-motivo { display: none; }
+
+.js-ativo .botao-recolher-motivo {
+  display: block;
+  margin-top: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-bright);
+  cursor: pointer;
+}
 
 .lista-breakdown {
   margin: 6px 0 0;
