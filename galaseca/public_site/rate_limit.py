@@ -32,7 +32,7 @@ MUTATION_MAX_HITS, MUTATION_WINDOW_S = 30, 60.0
 API_MAX_HITS, API_WINDOW_S = 60, 60.0
 CSP_REPORT_MAX_HITS, CSP_REPORT_WINDOW_S = 20, 60.0
 
-# `/icone/<hash>.jpg` (icon_cache.py) é pública, sem login, e um cache
+# `/icone/<hash>.webp` (icon_cache.py) é pública, sem login, e um cache
 # miss dispara requisição de rede pro CDN da Steam + grava um arquivo
 # novo em disco -- sem limite nenhum, um hash diferente a cada chamada
 # vira disco cheio (sem eviction no cache de ícone) e tráfego de saída

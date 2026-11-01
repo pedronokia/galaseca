@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Status — GalaSeca</title>
+  <title>Status — galaseca</title>
   <meta name="description" content="Transparência: últimos ciclos de scan, no ar desde quando, visitas.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="GalaSeca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="galaseca — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "GalaSeca", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "galaseca", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "Status", "item": "{{ request.url }}"}
     ]
   }

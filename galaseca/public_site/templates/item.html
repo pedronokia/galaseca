@@ -3,25 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ item.name_fmt }} — GalaSeca</title>
+  <title>{{ item.name_fmt }} — galaseca</title>
   <meta name="description" content="Nota {{ item.score }}/100 pra {{ item.name_fmt }} — {{ item.price_fmt }}, dado público da Steam Community Market.">
-  <meta property="og:title" content="{{ item.name_fmt }} — GalaSeca">
+  <meta property="og:title" content="{{ item.name_fmt }} — galaseca">
   <meta property="og:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}{% if item.reasons %} · {{ item.reasons|join('; ') }}{% endif %}">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.svg')) }}">
+  <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.png')) }}">
   <meta property="og:url" content="{{ request.url }}">
   <meta property="og:locale" content="pt_BR">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="{{ item.name_fmt }} — GalaSeca">
+  <meta name="twitter:title" content="{{ item.name_fmt }} — galaseca">
   <meta name="twitter:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}">
-  <meta name="twitter:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.svg')) }}">
+  <meta name="twitter:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.png')) }}">
   <link rel="canonical" href="{{ request.url }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": "{{ item.name_fmt }}",
-    "image": "{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.svg')) }}",
+    "image": "{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.png')) }}",
     "description": {{ (item.reasons|join('; ') if item.reasons else 'Nota neutra: nenhum fator se destacou')|tojson }}
     {%- if item.price is not none %},
     "offers": {
@@ -39,13 +39,13 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "GalaSeca", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "galaseca", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "{{ item.name_fmt }}", "item": "{{ request.url }}"}
     ]
   }
   </script>
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="GalaSeca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="galaseca — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>
@@ -83,7 +83,7 @@
       <div class="card"><span class="card-label">Aposentada há</span><span class="card-valor">{{ tempo_aposentadoria }}</span></div>
       {% endif %}
       {% if itens_da_caixa %}
-      <div class="card" title="Quantas skins desta caixa já estão mapeadas no GalaSeca -- não é a contagem oficial do jogo">
+      <div class="card" title="Quantas skins desta caixa já estão mapeadas no galaseca -- não é a contagem oficial do jogo">
         <span class="card-label">Itens desta caixa</span><span class="card-valor">{{ itens_da_caixa }}</span>
       </div>
       {% endif %}
@@ -123,7 +123,7 @@
   </main>
 
   <footer class="rodape">
-    <p>Dados públicos da Steam Community Market. GalaSeca não é afiliado à Valve.
+    <p>Dados públicos da Steam Community Market. galaseca não é afiliado à Valve.
     Não é recomendação de investimento.</p>
     {% include "partials/_rodape_links.html" %}
   </footer>

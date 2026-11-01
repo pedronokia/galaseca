@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Como funciona a nota — GalaSeca</title>
+  <title>Como funciona a nota — galaseca</title>
   <meta name="description" content="O que a nota de 0 a 100 mede, de onde vêm os números, e o que ela não é.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="GalaSeca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="galaseca — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "GalaSeca", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "galaseca", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "Método", "item": "{{ request.url }}"}
     ]
   }
@@ -27,7 +27,7 @@
     "mainEntity": [
       {
         "@type": "Question",
-        "name": "O que a nota do GalaSeca mede?",
+        "name": "O que a nota do galaseca mede?",
         "acceptedAnswer": {"@type": "Answer", "text": "Um número de 0 a 100 que resume vários sinais factuais sobre um item agora: se o preço está abaixo do que costuma valer, se tem poucos vendedores, se a caixa de onde ele vem ainda está sendo sorteada no jogo, se o preço subiu rápido demais recentemente (tratado como risco, não como bônus)."}
       },
       {

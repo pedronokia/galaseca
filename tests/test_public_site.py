@@ -83,7 +83,7 @@ def test_index_exibe_miniatura_e_separa_acoes_do_nome(
         celula, re.DOTALL).group(1)
 
     assert 'class="icone-item-quadro"' in principal
-    assert 'src="/icone/skin-icon-hash.jpg"' in principal
+    assert 'src="/icone/skin-icon-hash.webp"' in principal
     assert 'class="icone-item"' in principal
     assert "link-item" in principal
     assert "menu-acoes-item" in acoes
@@ -280,8 +280,8 @@ def test_api_recommendations_com_scan(client, monkeypatch, tmp_path):
     # max_pump_risk="medium")
     assert nomes == ["Item X"]
     assert data["api_version"] == 1
-    assert data["candidatos"][0]["icon_url"] == "/icone/abc123.jpg"
-    assert data["candidatos"][0]["icon_url_2x"] == "/icone/abc123.jpg"
+    assert data["candidatos"][0]["icon_url"] == "/icone/abc123.webp"
+    assert data["candidatos"][0]["icon_url_2x"] == "/icone/abc123.webp"
 
 
 def test_api_recommendations_filtra_owned_vazio_sempre(client, monkeypatch,
@@ -829,6 +829,23 @@ def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
         lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert "selo-novo" in body
+
+
+def test_ranking_page_item_linka_pra_pagina_de_detalhe(client, monkeypatch):
+    """O nome do item no Ranking precisa ser link pro /item/<nome> --
+    sem isso, quem via o Top 20 e queria o histórico/motivo completo
+    tinha que voltar pra home e buscar manualmente."""
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    assert 'href="/item/AK-47%20%7C%20Redline%20(Field-Tested)"' in body
 
 
 def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
@@ -1728,6 +1745,18 @@ def test_requisicao_real_registra_latencia(client, monkeypatch, tmp_path):
 
 # ── icon_cache ────────────────────────────────────────────────
 
+def _jpeg_minimo() -> bytes:
+    """JPEG de verdade (2x2), não só bytes arbitrários -- a partir de
+    2026-11-01 `icon_cache.obter()` reencoda pra WebP (ver
+    `_reencodar_webp`), e `Image.open()` rejeita bytes que não são uma
+    imagem válida."""
+    from io import BytesIO as _BytesIO
+    from PIL import Image
+    buf = _BytesIO()
+    Image.new("RGB", (2, 2), (200, 50, 50)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 def test_icon_cache_sem_hash_devolve_none():
     assert icon_cache.obter("") is None
 
@@ -1735,14 +1764,16 @@ def test_icon_cache_sem_hash_devolve_none():
 def test_icon_cache_le_do_disco_sem_rede(monkeypatch, tmp_path):
     monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
     p = icon_cache._caminho("abc123")
-    p.write_bytes(b"fake-jpeg-bytes")
+    # Leitura de cache-hit não reencoda -- devolve o que já tá no disco,
+    # bytes arbitrários servem pra testar só esse caminho.
+    p.write_bytes(b"fake-webp-bytes")
 
     def _boom(*a, **kw):
         raise AssertionError("não deveria bater na rede com cache em disco")
 
     import httpx
     monkeypatch.setattr(httpx, "get", _boom)
-    assert icon_cache.obter("abc123") == b"fake-jpeg-bytes"
+    assert icon_cache.obter("abc123") == b"fake-webp-bytes"
 
 
 def test_icon_cache_falha_de_rede_devolve_none(monkeypatch, tmp_path):
@@ -1771,7 +1802,7 @@ def test_icon_cache_preserva_hash_real_na_url(monkeypatch, tmp_path):
 
     class _Resp:
         status_code = 200
-        content = b"jpeg"
+        content = _jpeg_minimo()
 
     def _get(url, **kw):
         pedidas.append((url, kw))
@@ -1779,7 +1810,9 @@ def test_icon_cache_preserva_hash_real_na_url(monkeypatch, tmp_path):
 
     import httpx
     monkeypatch.setattr(httpx, "get", _get)
-    assert icon_cache.obter(_HASH_REAL) == b"jpeg"
+    # Reencodado pra WebP (ver _reencodar_webp) -- não é mais o mesmo
+    # byte-a-byte que `content`, só confere a assinatura do formato.
+    assert icon_cache.obter(_HASH_REAL)[:4] == b"RIFF"
     url, kw = pedidas[0]
     assert f"/economy/image/{_HASH_REAL}/" in url
     assert kw.get("follow_redirects") is True
@@ -1790,10 +1823,41 @@ def test_icon_cache_sanitiza_hash_malicioso():
     assert icon_cache._sanitizar("../../etc/passwd") == "etcpasswd"
 
 
+def test_icon_cache_reencodar_webp_converte_jpeg_valido():
+    from PIL import Image
+    from io import BytesIO
+    saida = icon_cache._reencodar_webp(_jpeg_minimo())
+    assert saida[:4] == b"RIFF"
+    assert saida[8:12] == b"WEBP"
+    with Image.open(BytesIO(saida)) as im:
+        assert im.format == "WEBP"
+        assert im.size == (2, 2)
+
+
+def test_icon_cache_reencodar_webp_bytes_invalidos_devolve_none():
+    assert icon_cache._reencodar_webp(b"isso nao e uma imagem") is None
+
+
+def test_icon_cache_obter_cacheia_webp_em_disco(monkeypatch, tmp_path):
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+
+    class _Resp:
+        status_code = 200
+        content = _jpeg_minimo()
+
+    import httpx
+    monkeypatch.setattr(httpx, "get", lambda *a, **kw: _Resp())
+    resultado = icon_cache.obter("novohash")
+    assert resultado[:4] == b"RIFF"
+    caminho = icon_cache._caminho("novohash")
+    assert caminho.suffix == ".webp"
+    assert caminho.read_bytes() == resultado
+
+
 def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.icon_cache.obter", lambda h: None)
-    resp = client.get("/icone/abc123.jpg")
+    resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 302
     assert "steamstatic.com" in resp.headers["Location"]
 
@@ -1802,9 +1866,10 @@ def test_rota_icone_com_cache_serve_bytes(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.icon_cache.obter",
         lambda h: b"dados-da-imagem")
-    resp = client.get("/icone/abc123.jpg")
+    resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 200
     assert resp.data == b"dados-da-imagem"
+    assert resp.mimetype == "image/webp"
     assert "max-age" in resp.headers.get("Cache-Control", "")
 
 
@@ -1821,8 +1886,8 @@ def test_rota_icone_tem_rate_limit(monkeypatch):
     app.config["TESTING"] = True
     c = app.test_client()
     for _ in range(2):
-        assert c.get("/icone/abc123.jpg").status_code == 200
-    assert c.get("/icone/abc123.jpg").status_code == 429
+        assert c.get("/icone/abc123.webp").status_code == 200
+    assert c.get("/icone/abc123.webp").status_code == 429
 
 
 # ── rate limit nas rotas novas ───────────────────────────────
@@ -1936,7 +2001,7 @@ def test_icon_cache_caminho_sanitiza_hash_nao_alfanumerico():
 
 
 def test_icon_cache_requisicao_de_rede_usa_hash_sanitizado(monkeypatch, tmp_path):
-    """A rota `/icone/<hash>.jpg` repassa o `<hash>` da URL direto pra
+    """A rota `/icone/<hash>.webp` repassa o `<hash>` da URL direto pra
     `obter()`, sem validar -- qualquer visitante, sem login. Até
     2026-10-27 só `_caminho()` (o nome do arquivo em disco) sanitizava;
     a chamada de rede usava o hash cru. Trava que a URL batida de
@@ -1947,7 +2012,7 @@ def test_icon_cache_requisicao_de_rede_usa_hash_sanitizado(monkeypatch, tmp_path
 
     class _RespostaFalsa:
         status_code = 200
-        content = b"fake-jpeg-bytes"
+        content = _jpeg_minimo()
 
     def _get_falso(url, timeout=None, **kw):
         urls_chamadas.append(url)
@@ -1957,7 +2022,7 @@ def test_icon_cache_requisicao_de_rede_usa_hash_sanitizado(monkeypatch, tmp_path
     monkeypatch.setattr(httpx, "get", _get_falso)
 
     resultado = icon_cache.obter("abc/../123?x=1")
-    assert resultado == b"fake-jpeg-bytes"
+    assert resultado[:4] == b"RIFF"
     assert len(urls_chamadas) == 1
     assert "abc123" in urls_chamadas[0]
     assert ".." not in urls_chamadas[0]
@@ -2005,6 +2070,29 @@ def test_glossario_page(client):
 def test_sitemap_inclui_faq(client):
     body = client.get("/sitemap.xml").data.decode("utf-8")
     assert "/faq" in body
+
+
+def test_sitemap_inclui_paginas_de_item_mas_nao_as_de_risco_alto(
+        client, monkeypatch, tmp_path):
+    """Cada página de item já tem título/descrição/JSON-LD própria --
+    sem link no sitemap, um crawler só as acha via paginação da home.
+    Mas a lista precisa ser a MESMA que `item_detail` serve (mesmo
+    filtro de `_candidatos_filtrados`): um nome fora dela dá 404 na
+    página de item, então não pode aparecer aqui -- caso contrário o
+    próprio sitemap manda o crawler pra uma URL quebrada."""
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 70, "price": 50.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "AWP | Dragon Lore (Factory New)", "score": 80,
+         "price": 5000.0, "case_label": "",
+         "pump_risk": {"level": "high"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/sitemap.xml").data.decode("utf-8")
+    assert "/item/AK-47%20%7C%20Redline%20(Field-Tested)" in body
+    assert "Dragon%20Lore" not in body
+    assert client.get(
+        "/item/AK-47 | Redline (Field-Tested)").status_code == 200
 
 
 # ── Lote 8: admin -- disco, usuarios, webhook, log bruto ────
