@@ -97,7 +97,7 @@ def test_index_exibe_miniatura_e_separa_acoes_do_nome(
         celula, re.DOTALL).group(1)
 
     assert 'class="icone-item-quadro icone-item-quadro-com-imagem"' in principal
-    assert 'src="/icone/skin-icon-hash.webp"' in principal
+    assert 'src="/icone/skin-icon-hash.webp?v=2"' in principal
     assert 'class="icone-item"' in principal
     assert "link-item" in principal
     assert "menu-acoes-item" in acoes
@@ -294,8 +294,8 @@ def test_api_recommendations_com_scan(client, monkeypatch, tmp_path):
     # max_pump_risk="medium")
     assert nomes == ["Item X"]
     assert data["api_version"] == 1
-    assert data["candidatos"][0]["icon_url"] == "/icone/abc123.webp"
-    assert data["candidatos"][0]["icon_url_2x"] == "/icone/abc123.webp"
+    assert data["candidatos"][0]["icon_url"] == "/icone/abc123.webp?v=2"
+    assert data["candidatos"][0]["icon_url_2x"] == "/icone/abc123.webp?v=2"
 
 
 def test_api_recommendations_filtra_owned_vazio_sempre(client, monkeypatch,
@@ -1882,6 +1882,23 @@ def test_icon_cache_reencodar_webp_converte_jpeg_valido():
     with Image.open(BytesIO(saida)) as im:
         assert im.format == "WEBP"
         assert im.size == (2, 2)
+
+
+def test_icon_cache_reencodar_webp_preserva_transparencia():
+    from PIL import Image
+    from io import BytesIO
+
+    origem = BytesIO()
+    imagem = Image.new("RGBA", (2, 2), (220, 40, 30, 255))
+    imagem.putpixel((0, 0), (0, 0, 0, 0))
+    imagem.save(origem, format="PNG")
+
+    saida = icon_cache._reencodar_webp(origem.getvalue())
+
+    with Image.open(BytesIO(saida)) as resultado:
+        assert resultado.mode == "RGBA"
+        assert resultado.getpixel((0, 0))[3] == 0
+        assert resultado.getpixel((1, 1))[3] == 255
 
 
 def test_icon_cache_reencodar_webp_bytes_invalidos_devolve_none():

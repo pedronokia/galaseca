@@ -453,8 +453,8 @@ def create_app() -> Flask:
     def icone_cache(hash_icone: str):
         """Ícone servido do próprio domínio (ver `icon_cache.py`) --
         cache em disco, só busca do CDN da Steam na primeira vez que
-        aquele hash aparece (reencodando de JPEG pra WebP, bem mais leve
-        pro mesmo tamanho exibido). Nunca 500: cache miss + rede fora
+        aquele hash aparece (reencodando PNG/JPEG pra WebP, preservando
+        transparência). Nunca 500: cache miss + rede fora
         vira redirect pro CDN direto, nunca erro pro visitante.
 
         Rate limit (2026-10-27): sem login, cache miss grava arquivo
@@ -1145,7 +1145,8 @@ def _candidatos_filtrados(
         # dois tamanhos do srcset -- um cache só por item em vez de dois,
         # troca otimização de banda em tela pequena por simplicidade.
         c["icon_url"] = (
-            url_for("icone_cache", hash_icone=c["icon"]) if c.get("icon") else None)
+            url_for("icone_cache", hash_icone=c["icon"], v=2)
+            if c.get("icon") else None)
         c["icon_url_2x"] = c["icon_url"]
         c["market_url"] = _MARKET_LISTING_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))

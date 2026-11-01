@@ -44,22 +44,27 @@ def _sanitizar(hash_icone: str) -> str:
 
 
 def _caminho(hash_icone: str) -> Path:
-    return _CACHE_DIR / f"{_sanitizar(hash_icone)}.webp"
+    return _CACHE_DIR / f"{_sanitizar(hash_icone)}.v2.webp"
 
 
 _WEBP_QUALITY = 80
 
 
-def _reencodar_webp(jpeg_bytes: bytes) -> "bytes | None":
-    """JPEG (formato que o CDN da Steam devolve) -> WebP, mais leve pro
-    mesmo tamanho exibido (quadro de 64px na tabela principal -- achado
-    2026-11-01: os ícones sozinhos respondiam por ~439 KB dos ~444 KB
-    carregados na home). None se a imagem vier corrompida/formato
-    inesperado -- quem chama cai pro redirect direto pro CDN."""
+def _reencodar_webp(image_bytes: bytes) -> "bytes | None":
+    """Reencoda o PNG/JPEG do CDN da Steam para WebP, preservando alpha.
+
+    O CDN devolve PNG transparente para vários ícones. Converter tudo para
+    RGB tornava as áreas transparentes pretas. A versão v2 do cache evita
+    reutilizar os WebP opacos gerados anteriormente.
+    """
     from PIL import Image
     try:
-        with Image.open(BytesIO(jpeg_bytes)) as im:
-            im = im.convert("RGB")
+        with Image.open(BytesIO(image_bytes)) as source:
+            has_transparency = (
+                source.mode in ("RGBA", "LA")
+                or "transparency" in source.info
+            )
+            im = source.convert("RGBA" if has_transparency else "RGB")
             buf = BytesIO()
             im.save(buf, format="WEBP", quality=_WEBP_QUALITY)
             return buf.getvalue()
@@ -69,7 +74,7 @@ def _reencodar_webp(jpeg_bytes: bytes) -> "bytes | None":
 
 def obter(hash_icone: str) -> "bytes | None":
     """Bytes da imagem (WebP), do cache de disco ou buscando do CDN da
-    Steam (JPEG) e reencodando antes de cachear. None se o hash for
+    Steam e reencodando antes de cachear. None se o hash for
     inválido ou a busca/reencode falhar -- quem chama decide o
     fallback.
 

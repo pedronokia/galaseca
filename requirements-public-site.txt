@@ -3,8 +3,9 @@
 Flask==3.1.3
 httpx==0.28.1
 gunicorn==23.0.0
-# Re-encode ícones de item (JPEG recebido do CDN da Steam) pra WebP no
-# cache local (icon_cache.py) -- último 11.x que ainda suporta Python
-# 3.9 (ver Dockerfile.public-site), confirmado via metadado
+# Re-encode ícones de item (PNG/JPEG recebido do CDN da Steam) pra WebP
+# com transparência preservada no cache local (icon_cache.py) -- último
+# Pillow 11.x que ainda suporta Python 3.9 (ver Dockerfile.public-site),
+# confirmado via metadado
 # requires_python do PyPI antes de fixar a versão.
 Pillow==11.3.0
