@@ -811,6 +811,11 @@ def test_changelog_feed_xml(client):
     assert resp.status_code == 200
     assert resp.mimetype == "application/rss+xml"
     assert b"<rss" in resp.data
+    # Opcional pela spec RSS 2.0, mas sem isso o item não tinha pra
+    # onde clicar (achado 2026-11-01).
+    body = resp.data.decode("utf-8")
+    assert body.count("<link>") == body.count("<item>") + 1  # +1 do <channel>
+    assert "<link>http://localhost/changelog</link>" in body
 
 
 def test_metodo_page(client):
@@ -1189,7 +1194,11 @@ def test_feed_com_scan_lista_item(client, monkeypatch, tmp_path):
     body = resp.data.decode("utf-8")
     assert "<item>" in body
     assert "nota 85" in body
-    assert "steamcommunity.com/market/listings" in body
+    # Link da própria página do item, não da listagem da Steam --
+    # achado 2026-11-01: quem clicava a partir do feed pulava direto
+    # pra Steam, sem ver a nota/motivo que é o diferencial do feed.
+    assert "<link>http://localhost/item/AK-47%20%7C%20Redline%20(Field-Tested)</link>" in body
+    assert "steamcommunity.com/market/listings" not in body
 
 
 def test_feed_filtrado_por_categoria(client, monkeypatch, tmp_path):
@@ -1589,6 +1598,16 @@ def test_comparar_lista_itens_pedidos(client, monkeypatch, tmp_path):
     assert "Item B" in body
 
 
+def test_comparar_main_sem_pagina_texto(client):
+    """.pagina-texto trava <main> em 640px -- bom pra prosa, estreito
+    demais pra uma tabela de 2-3 itens: com nome comprido, o texto do
+    cabeçalho vazava visualmente pra fora da tabela (achado 2026-11-01).
+    /comparar precisa da largura cheia de <main> (960px)."""
+    body = client.get("/comparar").data.decode("utf-8")
+    assert '<main id="conteudo">' in body
+    assert 'class="pagina-texto"' not in body
+
+
 def test_comparar_nota_fica_dentro_da_celula_certa(client, monkeypatch,
                                                     tmp_path):
     """achado 2026-10-31: a linha "Nota" aplicava class="nota ..." no
@@ -1941,6 +1960,30 @@ def test_manifest_json_acessivel(client):
     data = resp.get_json()
     assert data["name"] == "sai daí, galaseca"
     assert data["start_url"] == "/"
+
+
+def test_manifest_json_tem_icones_png(client):
+    """iOS Safari historicamente não aceita SVG em apple-touch-icon, e o
+    manifest do Android quer pelo menos um PNG 192x192/512x512 pra não
+    cair num ícone genérico ao instalar -- antes só tinha o SVG (achado
+    2026-11-01)."""
+    data = client.get("/static/manifest.json").get_json()
+    tamanhos = {icone["sizes"] for icone in data["icons"]}
+    assert "192x192" in tamanhos
+    assert "512x512" in tamanhos
+    assert all(icone["type"] == "image/png" for icone in data["icons"]
+               if icone["sizes"] != "any")
+
+    for nome in ("icon-192.png", "icon-512.png"):
+        resp = client.get(f"/static/{nome}")
+        assert resp.status_code == 200
+        assert resp.mimetype == "image/png"
+
+
+def test_apple_touch_icon_usa_png_nao_svg(client, monkeypatch):
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    body = client.get("/").data.decode("utf-8")
+    assert 'rel="apple-touch-icon" href="/static/icon-192.png' in body
 
 
 def test_sw_js_na_raiz_com_scope_amplo(client):

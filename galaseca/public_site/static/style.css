@@ -1348,6 +1348,11 @@ footer.rodape .versao {
 }
 
 /* ── Páginas de texto (privacidade, etc.) ───────────────── */
+/* Só pra prosa (parágrafo/lista/definição) -- /comparar usa <main> sem
+   esta classe de propósito: 640px é estreito demais pra uma tabela de
+   2-3 itens, que precisava da largura cheia de <main> (960px). Usar
+   esta classe ali espremia o nome do item até vazar visualmente pra
+   fora da tabela (achado 2026-11-01). */
 .pagina-texto {
   max-width: 640px;
   /* Sem isso o texto ficava grudado na borda esquerda do <main> (que
@@ -1613,29 +1618,6 @@ footer.rodape .versao {
 
 .botao-topo:hover { background: var(--accent-bright); }
 
-/* ── Toast ────────────────────────────────────────────── */
-.area-toast {
-  position: fixed;
-  left: 50%;
-  bottom: 20px;
-  transform: translate(-50%, 20px);
-  background: var(--bg-elevated);
-  border: 1px solid var(--accent);
-  color: var(--text-bright);
-  padding: 10px 18px;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  z-index: 20;
-}
-
-.area-toast.visivel {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
 /* ── Contagem de favoritos ────────────────────────────── */
 .contagem-favoritos[hidden] { display: none; }
 
@@ -1658,28 +1640,6 @@ footer.rodape .versao {
   font-size: 0.72rem;
   font-weight: 700;
   margin-left: 2px;
-}
-
-/* ── Buscas salvas ────────────────────────────────────── */
-.lista-buscas-salvas[hidden] { display: none; }
-.lista-buscas-salvas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  list-style: none;
-  padding: 0;
-  margin: -8px 0 20px;
-}
-
-.lista-buscas-salvas li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
 }
 
 /* ── Responsivo (celular) ─────────────────────────────── */
