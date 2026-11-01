@@ -335,6 +335,23 @@ def test_index_ordenar_por_preco(client, monkeypatch, tmp_path):
     assert body.index("Barato") < body.index("Caro")
 
 
+def test_index_cookie_ordenar_segue_secure_cookie_config(client):
+    """achado 2026-11-01: `pref_ordenar` não tinha a flag `Secure`
+    nenhuma, diferente do cookie de sessão (que já segue
+    SESSION_COOKIE_SECURE, ligado em produção via
+    PUBLIC_SITE_SECURE_COOKIES=1). `secure=True` fixo quebraria o dev
+    local (http) -- por isso segue a MESMA config condicional, não um
+    valor fixo."""
+    resp = client.get("/?ordenar=preco")
+    cookie = resp.headers.get("Set-Cookie", "")
+    assert "pref_ordenar=preco" in cookie
+    assert "Secure" not in cookie  # SESSION_COOKIE_SECURE=False no teste
+
+    client.application.config["SESSION_COOKIE_SECURE"] = True
+    resp2 = client.get("/?ordenar=preco")
+    assert "Secure" in resp2.headers.get("Set-Cookie", "")
+
+
 def test_index_nota_min_filtra(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "Nota alta", "score": 80, "price": 1.0, "case_label": "",

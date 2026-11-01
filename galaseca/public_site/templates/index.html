@@ -45,7 +45,9 @@
         <a class="link-item" href="{{ c.market_url }}" target="_blank" rel="noopener">{{ c.name_fmt }}</a>
       </div>
       <div class="celula-item-acoes">
-        <input type="checkbox" class="checkbox-comparar" data-comparar="{{ c.name }}" title="Marcar pra comparar com outros itens (até 3)" aria-label="Marcar {{ c.name_fmt }} pra comparar">
+        <label class="checkbox-comparar-alvo">
+          <input type="checkbox" class="checkbox-comparar" data-comparar="{{ c.name }}" title="Marcar pra comparar com outros itens (até 3)" aria-label="Marcar {{ c.name_fmt }} pra comparar">
+        </label>
         <button type="button" class="botao-favorito" data-favorito="{{ c.name }}" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ c.name_fmt }}">☆</button>
         <details class="menu-acoes-item">
           <summary class="menu-acoes-item-toggle" aria-label="Mais ações para {{ c.name_fmt }}" title="Mais ações">
