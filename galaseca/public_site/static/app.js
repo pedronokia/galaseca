@@ -55,6 +55,23 @@ document.addEventListener("click", function (e) {
   if (detalhes) detalhes.open = false;
 });
 
+// Menu "⋯ Mais ações" (por item) -- <details> nativo não fecha
+// sozinho quando o clique acontece fora dele; sem isso ficava aberto
+// flutuando por cima do resto da tabela depois que o usuário
+// claramente saiu dali (achado 2026-11-01).
+document.addEventListener("click", function (e) {
+  document.querySelectorAll(".menu-acoes-item[open]").forEach(function (det) {
+    if (!det.contains(e.target)) det.open = false;
+  });
+});
+
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape") return;
+  document.querySelectorAll(".menu-acoes-item[open]").forEach(function (det) {
+    det.open = false;
+  });
+});
+
 document.addEventListener("error", function (e) {
   if (e.target.matches && e.target.matches(".icone-item")) {
     e.target.classList.add("icone-item-indisponivel");

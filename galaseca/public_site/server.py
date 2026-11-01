@@ -292,8 +292,13 @@ def create_app() -> Flask:
         ))
         _UM_ANO_S = 365 * 24 * 3600
         if "ordenar" in request.args:
-            resp.set_cookie("pref_ordenar", ordenar,
-                            max_age=_UM_ANO_S, samesite="Lax")
+            # `secure` segue a mesma config do cookie de sessão -- fixo
+            # em True quebraria o dev local (http); achado 2026-11-01:
+            # esse cookie não tinha a flag nenhuma, inconsistente com
+            # SESSION_COOKIE_SECURE.
+            resp.set_cookie("pref_ordenar", ordenar, max_age=_UM_ANO_S,
+                            samesite="Lax",
+                            secure=app.config["SESSION_COOKIE_SECURE"])
         return resp
 
     @app.route("/item/<name>")
