@@ -1857,7 +1857,7 @@ def test_manifest_json_acessivel(client):
     resp = client.get("/static/manifest.json")
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["name"] == "GalaSeca"
+    assert data["name"] == "sai daí, galaseca"
     assert data["start_url"] == "/"
 
 
