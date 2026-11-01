@@ -203,6 +203,21 @@ def create_app() -> Flask:
             "avatar_local": profile_fetcher.caminho_avatar(steamid) is not None,
         }
 
+    @app.context_processor
+    def _inject_visitas_no_rodape():
+        """Expõe totais de visitas pro rodapé e templates globais.
+
+        `visits.registrar()` já soma a visita na rota `/`, então o dado de
+        hoje e total está sempre disponível para todos os templates sem
+        que cada rota passe isso manualmente."""
+        serie = visits.serie_por_dia()
+        hoje = time.strftime("%Y-%m-%d", time.gmtime())
+        visitas_hoje = next((qtd for dia, qtd in serie if dia == hoje), 0)
+        return {
+            "visitas_total": visits.total(),
+            "visitas_hoje": visitas_hoje,
+        }
+
     # Filtros Jinja: nota_classe/risco_nivel/risco_label -- centraliza a
     # classificação de nota e o rótulo de risco, repetida em 4 templates
     # até 2026-10-26 (index/item/comparar/ranking). Um filtro só precisa

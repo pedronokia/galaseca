@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash
 from galaseca import ranking, scan_store, signals
 from galaseca.public_site import (
     charts, erro_stats, fmt, icon_cache, latencia, rate_limit, scan_progress,
-    user_store, worker, worker_alert,
+    user_store, visits, worker, worker_alert,
 )
 from galaseca.public_site.server import create_app
 
@@ -46,6 +46,20 @@ def test_index_sem_scan_mostra_vazio(client, monkeypatch):
     resp = client.get("/")
     assert resp.status_code == 200
     assert "Ainda não há nenhum scan".encode("utf-8") in resp.data
+
+
+def test_index_exibe_total_de_visitas_no_rodape(client, monkeypatch, tmp_path):
+    p = tmp_path / "visitas.json"
+    monkeypatch.setattr(visits, "_DEFAULT_PATH", p)
+    visits.registrar(p, now=time.time())
+    visits.registrar(p, now=time.time() + 5)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "Hoje:" in body
+    assert "acessos" in body
+    assert "Total:" in body
 
 
 def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
