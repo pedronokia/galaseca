@@ -736,7 +736,7 @@ def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     assert 'class="logo"' in body
     assert 'class="logo-cheia"' in body
     assert 'class="logo-marca-ponto"' in body
-    assert 'aria-label="Sai daí, gala-seca — página inicial"' in body
+    assert 'aria-label="sai daí, galaseca — página inicial"' in body
     assert 'class="logo-compacta"' in body
 
 
