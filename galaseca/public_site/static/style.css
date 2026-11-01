@@ -567,7 +567,7 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .celula-item-principal {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 16px;
   min-width: 0;
 }
 
