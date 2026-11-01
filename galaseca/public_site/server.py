@@ -563,9 +563,15 @@ def create_app() -> Flask:
     @app.route("/changelog.xml")
     def changelog_feed():
         base = request.url_root.rstrip("/")
+        link_changelog = f"{base}/changelog"
         itens_xml = "\n".join(
             "    <item>\n"
             f"      <title>{_xml_escape(e['data'])} — {_xml_escape(e['titulo'])}</title>\n"
+            # Opcional pela spec RSS 2.0, mas sem nenhum <link> o item não
+            # tinha pra onde clicar -- achado 2026-11-01. Sem âncora por
+            # entrada ainda (changelog.html não tem id por data), então
+            # aponta pra página toda.
+            f"      <link>{_xml_escape(link_changelog)}</link>\n"
             f"      <description>{_xml_escape('; '.join(e['itens']))}</description>\n"
             f"      <guid isPermaLink=\"false\">{_xml_escape(e['data'])}</guid>\n"
             "    </item>"
@@ -575,7 +581,7 @@ def create_app() -> Flask:
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<rss version="2.0"><channel>\n'
             "  <title>galaseca — Mudanças</title>\n"
-            f"  <link>{_xml_escape(base)}/changelog</link>\n"
+            f"  <link>{_xml_escape(link_changelog)}</link>\n"
             "  <description>O que mudou no site, por data.</description>\n"
             "  <language>pt-BR</language>\n"
             f"{itens_xml}\n"
@@ -802,7 +808,11 @@ def create_app() -> Flask:
         itens_xml = "\n".join(
             "    <item>\n"
             f"      <title>{_xml_escape(c['name_fmt'])} — nota {c['score']}</title>\n"
-            f"      <link>{_xml_escape(c['market_url'])}</link>\n"
+            # Pra página do item no próprio site, não pra listagem da
+            # Steam -- achado 2026-11-01: quem clicava a partir do feed
+            # pulava direto pra Steam, sem ver a nota/motivo que é o
+            # diferencial do feed.
+            f"      <link>{_xml_escape(base + url_for('item_detail', name=c['name']))}</link>\n"
             f"      <guid isPermaLink=\"false\">{_xml_escape(c['name'])}</guid>\n"
             "      <description>"
             f"{_xml_escape(c['price_fmt'])} — "

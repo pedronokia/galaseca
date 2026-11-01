@@ -1,4 +1,8 @@
   <link rel="icon" href="{{ static_v('favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  <link rel="apple-touch-icon" href="{{ static_v('favicon.svg') }}">
+  {# iOS Safari historicamente não aceita SVG em apple-touch-icon --
+     cai pra tirar um print da página como ícone, ou mostra um ícone
+     genérico (achado 2026-11-01). PNG 192x192 (gerado a partir do
+     favicon.svg) cobre isso. #}
+  <link rel="apple-touch-icon" href="{{ static_v('icon-192.png') }}">
   <meta name="theme-color" content="#171a21">
