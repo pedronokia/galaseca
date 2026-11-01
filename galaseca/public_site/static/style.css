@@ -154,8 +154,8 @@ header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
 .logo-cheia[hidden],
 .logo-compacta[hidden] { display: none; }
 
-/* "sai daí, gala-seca" por extenso normalmente; abaixo de 400px só
-   "gala-seca" (o nome) -- a frase inteira não cabe na largura do
+/* "sai daí, galaseca" por extenso normalmente; abaixo de 400px só
+   "galaseca" (o nome) -- a frase inteira não cabe na largura do
    header nesses celulares, e o nome é a parte que não pode sumir. */
 .logo-cheia { display: block; flex-shrink: 0; }
 .logo-compacta { display: none; flex-shrink: 0; }
