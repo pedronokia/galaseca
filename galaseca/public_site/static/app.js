@@ -45,6 +45,16 @@ document.addEventListener("click", function (e) {
   }).catch(function () {});
 });
 
+// "recolher" fica depois da lista de motivos, fora do <summary> --
+// só <summary> alterna o `open` nativamente, então esse botão precisa
+// fechar o <details> na mão.
+document.addEventListener("click", function (e) {
+  var btn = e.target.closest(".botao-recolher-motivo");
+  if (!btn) return;
+  var detalhes = btn.closest("details");
+  if (detalhes) detalhes.open = false;
+});
+
 document.addEventListener("error", function (e) {
   if (e.target.matches && e.target.matches(".icone-item")) {
     e.target.classList.add("icone-item-indisponivel");
