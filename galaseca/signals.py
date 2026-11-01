@@ -1081,12 +1081,17 @@ def enhanced_score(verdict: dict, volume: int | None = None,
     diff = verdict.get("diff_pct") or 0
     if diff < 0:
         bonus = min(abs(diff) * 1.2, 35)
+        # `diff` perto de 0 arredonda o `%` pra "0" e os pontos pra "+0"
+        # -- com 1 casa o rótulo some com a confusão de "0%... mas com
+        # bônus" (achado 2026-11-01). Não muda `bonus`, só o texto.
+        bonus_txt = f"{bonus:.0f}" if round(bonus) else f"{bonus:.1f}"
         _add("mediana", bonus,
-             f"Preço {abs(diff):.0f}% abaixo do típico (+{bonus:.0f})")
+             f"Preço {abs(diff):.0f}% abaixo do típico (+{bonus_txt})")
     elif diff > 0:
         penalty = min(diff * 0.8, 35)
+        penalty_txt = f"{penalty:.0f}" if round(penalty) else f"{penalty:.1f}"
         _add("mediana", -penalty,
-             f"Preço {diff:.0f}% acima do típico (-{penalty:.0f})")
+             f"Preço {diff:.0f}% acima do típico (-{penalty_txt})")
 
     v = verdict.get("verdict", "")
     if v == "below_median":

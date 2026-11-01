@@ -438,6 +438,26 @@ def test_enhanced_score_below_median_breakdown():
     assert "verdict" in factors
 
 
+def test_enhanced_score_diff_pct_pequeno_nao_rotula_pontos_como_zero():
+    """achado 2026-11-01: diff_pct pequeno (tipo 0.3) arredondava os
+    pontos do fator "mediana" pra inteiro e virava "(-0)"/"(+0)" no
+    rótulo -- lia como contradição (0 pontos, mas a linha pintada de
+    vermelho/verde porque o delta de verdade é != 0). O `delta`
+    numérico continua correto (nunca exatamente 0 quando diff_pct != 0);
+    só o texto exibido ganha uma casa decimal nesse caso."""
+    v_acima = {"verdict": "fair", "diff_pct": 0.3}
+    _, breakdown_acima = signals.enhanced_score(v_acima)
+    label_acima = next(b["label"] for b in breakdown_acima if b["factor"] == "mediana")
+    assert "(-0)" not in label_acima
+    assert "(-0.2)" in label_acima
+
+    v_abaixo = {"verdict": "fair", "diff_pct": -0.3}
+    _, breakdown_abaixo = signals.enhanced_score(v_abaixo)
+    label_abaixo = next(b["label"] for b in breakdown_abaixo if b["factor"] == "mediana")
+    assert "(+0)" not in label_abaixo
+    assert "(+0.4)" in label_abaixo
+
+
 def test_raw_score_nao_tem_teto():
     """achado 2026-10-31: o mesmo combo de below_median_breakdown soma
     133 bruto (50 base + 18+5+25+20+15), mas enhanced_score() corta em

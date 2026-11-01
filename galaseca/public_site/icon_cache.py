@@ -19,6 +19,7 @@ decide o fallback (redirecionar pro CDN direto).
 """
 from __future__ import annotations
 
+from io import BytesIO
 from pathlib import Path
 
 from galaseca._paths import DATA_DIR
@@ -43,15 +44,36 @@ def _sanitizar(hash_icone: str) -> str:
 
 
 def _caminho(hash_icone: str) -> Path:
-    return _CACHE_DIR / f"{_sanitizar(hash_icone)}.jpg"
+    return _CACHE_DIR / f"{_sanitizar(hash_icone)}.webp"
+
+
+_WEBP_QUALITY = 80
+
+
+def _reencodar_webp(jpeg_bytes: bytes) -> "bytes | None":
+    """JPEG (formato que o CDN da Steam devolve) -> WebP, mais leve pro
+    mesmo tamanho exibido (quadro de 64px na tabela principal -- achado
+    2026-11-01: os ícones sozinhos respondiam por ~439 KB dos ~444 KB
+    carregados na home). None se a imagem vier corrompida/formato
+    inesperado -- quem chama cai pro redirect direto pro CDN."""
+    from PIL import Image
+    try:
+        with Image.open(BytesIO(jpeg_bytes)) as im:
+            im = im.convert("RGB")
+            buf = BytesIO()
+            im.save(buf, format="WEBP", quality=_WEBP_QUALITY)
+            return buf.getvalue()
+    except Exception:
+        return None
 
 
 def obter(hash_icone: str) -> "bytes | None":
-    """Bytes da imagem, do cache de disco ou buscando (e cacheando) do
-    CDN da Steam. None se o hash for inválido ou a busca falhar -- quem
-    chama decide o fallback.
+    """Bytes da imagem (WebP), do cache de disco ou buscando do CDN da
+    Steam (JPEG) e reencodando antes de cachear. None se o hash for
+    inválido ou a busca/reencode falhar -- quem chama decide o
+    fallback.
 
-    A rota `/icone/<hash>.jpg` (server.py) passa o `<hash>` da URL direto
+    A rota `/icone/<hash>.webp` (server.py) passa o `<hash>` da URL direto
     pra cá, sem validar nada -- é QUALQUER visitante, sem login. Até
     2026-10-27 só `_caminho()` sanitizava (pro nome do arquivo em disco);
     a requisição de rede usava `hash_icone` cru, sem passar pelo mesmo
@@ -76,8 +98,11 @@ def obter(hash_icone: str) -> "bytes | None":
                          follow_redirects=True)
         if resp.status_code != 200 or not resp.content:
             return None
+        webp = _reencodar_webp(resp.content)
+        if webp is None:
+            return None
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(resp.content)
-        return resp.content
+        p.write_bytes(webp)
+        return webp
     except Exception:
         return None

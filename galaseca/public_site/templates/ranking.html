@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ranking — GalaSeca</title>
+  <title>Ranking — galaseca</title>
   <meta name="description" content="Top 20 do último scan, com a mudança de posição desde o scan anterior.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="GalaSeca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="galaseca — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "GalaSeca", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "galaseca", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "Ranking", "item": "{{ request.url }}"}
     ]
   }
@@ -57,7 +57,7 @@
           {% for it in itens %}
           <tr>
             <td>{{ it.position }}</td>
-            <td>{{ it.name_fmt }}</td>
+            <td><a class="link-item" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a></td>
             <td><span class="nota nota-{{ it.score|nota_classe }}">{{ it.score }}</span></td>
             <td>
               {% if it.label == "NOVO" %}

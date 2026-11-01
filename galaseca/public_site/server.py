@@ -45,7 +45,7 @@ from galaseca.public_site.auth import csrf_token
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # Ícone: CDN estático da Steam (steamstatic.com), não o market/inventory
 # rate-limited -- cacheado localmente via `icon_cache.py` (2a rodada,
-# 2026-10-25) pela rota `/icone/<hash>.jpg` abaixo. Esta constante
+# 2026-10-25) pela rota `/icone/<hash>.webp` abaixo. Esta constante
 # continua servindo de FALLBACK (redirect) quando o cache falha.
 _ICON_CDN_URL_2X = (
     "https://community.steamstatic.com/economy/image/"
@@ -428,13 +428,14 @@ def create_app() -> Flask:
             "visitas_total": visits.total(),
         })
 
-    @app.route("/icone/<hash_icone>.jpg")
+    @app.route("/icone/<hash_icone>.webp")
     @rate_limit.rate_limited(rate_limit.ICON_MAX_HITS, rate_limit.ICON_WINDOW_S)
     def icone_cache(hash_icone: str):
         """Ícone servido do próprio domínio (ver `icon_cache.py`) --
         cache em disco, só busca do CDN da Steam na primeira vez que
-        aquele hash aparece. Nunca 500: cache miss + rede fora vira
-        redirect pro CDN direto, nunca erro pro visitante.
+        aquele hash aparece (reencodando de JPEG pra WebP, bem mais leve
+        pro mesmo tamanho exibido). Nunca 500: cache miss + rede fora
+        vira redirect pro CDN direto, nunca erro pro visitante.
 
         Rate limit (2026-10-27): sem login, cache miss grava arquivo
         novo em disco pra QUALQUER hash -- sem isto, um script batendo
@@ -443,7 +444,7 @@ def create_app() -> Flask:
         dados = icon_cache.obter(hash_icone)
         if dados is None:
             return redirect(_ICON_CDN_URL_2X.format(hash=hash_icone))
-        resp = Response(dados, mimetype="image/jpeg")
+        resp = Response(dados, mimetype="image/webp")
         resp.headers["Cache-Control"] = "public, max-age=2592000, immutable"
         return resp
 
@@ -493,6 +494,19 @@ def create_app() -> Flask:
                   "/ranking", "/metodo", "/sobre", "/faq", "/glossario"]
         urls_xml = "\n".join(
             f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
+        # Páginas de item -- cada uma já tem título/descrição/JSON-LD
+        # própria, mas sem link aqui um crawler só as acha indiretamente
+        # via paginação da home (mais lento e menos confiável do que
+        # listar direto). Mesma lista que `item_detail` usa -- um nome
+        # fora dela dá 404, então o sitemap não pode divergir.
+        scan = scan_store.load_last_scan()
+        if scan:
+            candidatos = _candidatos_filtrados(scan, com_historico=False)
+            itens_xml = "\n".join(
+                f"  <url><loc>{_xml_escape(base + url_for('item_detail', name=c['name']))}</loc></url>"
+                for c in candidatos)
+            if itens_xml:
+                urls_xml = urls_xml + "\n" + itens_xml
         xml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
@@ -504,14 +518,14 @@ def create_app() -> Flask:
     @app.route("/opensearch.xml")
     def opensearch():
         """Descrição OpenSearch -- deixa o navegador oferecer "Adicionar
-        mecanismo de busca: GalaSeca" na barra de endereço, usando a
+        mecanismo de busca: galaseca" na barra de endereço, usando a
         própria busca por nome (`q=`) que a página inicial já tem."""
         base = request.url_root.rstrip("/")
         xml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">\n'
-            "  <ShortName>GalaSeca</ShortName>\n"
-            "  <Description>Buscar uma skin de CS2 por nome no GalaSeca"
+            "  <ShortName>galaseca</ShortName>\n"
+            "  <Description>Buscar uma skin de CS2 por nome no galaseca"
             "</Description>\n"
             f"  <Image width=\"32\" height=\"32\" type=\"image/svg+xml\">{_xml_escape(base)}/static/favicon.svg</Image>\n"
             f"  <Url type=\"text/html\" template=\"{_xml_escape(base)}/?q={{searchTerms}}\"/>\n"
@@ -555,7 +569,7 @@ def create_app() -> Flask:
         rss = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<rss version="2.0"><channel>\n'
-            "  <title>GalaSeca — Mudanças</title>\n"
+            "  <title>galaseca — Mudanças</title>\n"
             f"  <link>{_xml_escape(base)}/changelog</link>\n"
             "  <description>O que mudou no site, por data.</description>\n"
             "  <language>pt-BR</language>\n"
@@ -592,6 +606,7 @@ def create_app() -> Flask:
                 delta = ranking.position_delta(
                     it["name"], it["position"], anterior)
                 itens.append({
+                    "name": it["name"],
                     "name_fmt": localize_name(it["name"]),
                     "position": it["position"],
                     "score": it["score"],
@@ -791,8 +806,8 @@ def create_app() -> Flask:
             "    </item>"
             for c in candidatos
         )
-        titulo = (f"GalaSeca — Preços e notas de {_xml_escape(categoria)}"
-                  if categoria else "GalaSeca — Preços e notas de skins CS2")
+        titulo = (f"galaseca — Preços e notas de {_xml_escape(categoria)}"
+                  if categoria else "galaseca — Preços e notas de skins CS2")
         link_self = f"{base}/feed.xml" + (
             f"?categoria={urllib.parse.quote(categoria)}" if categoria else "")
         rss = (
@@ -863,7 +878,7 @@ def _variacao_pct_do_historico(hist: list) -> "float | None":
     return (atual - anterior) / anterior * 100
 
 
-_PONTOS_NO_FIM_RE = re.compile(r"\s*\(([+-]\d+)\)\s*$")
+_PONTOS_NO_FIM_RE = re.compile(r"\s*\(([+-]\d+(?:\.\d+)?)\)\s*$")
 
 
 def _motivo_fmt(texto: "str | None") -> str:
@@ -871,6 +886,11 @@ def _motivo_fmt(texto: "str | None") -> str:
     entre parênteses é a contribuição do fator pra nota, mas solto assim
     lia como outra porcentagem. Só reformata a exibição; o rótulo
     original continua vindo de `signals` (compartilhado com o app).
+
+    Casa decimal opcional no número -- `signals.enhanced_score` usa uma
+    casa (em vez de arredondar pra "0") quando a contribuição de um
+    fator é pequena o bastante pra virar "(+0)"/"(-0)" no inteiro, que
+    lia como contradição (0 pontos, mas pintado de verde/vermelho).
 
     Espaços fixos (\\u00a0) entre "·", o número e "pts" -- achado
     2026-10-30: com espaço normal, a quebra de linha na coluna "Por

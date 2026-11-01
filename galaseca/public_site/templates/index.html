@@ -5,26 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>sai daí, galaseca</title>
   <meta name="description" content="Notas e motivos factuais pra skins do CS2, a partir de dados públicos da Steam Community Market. Não é recomendação de investimento.">
-  <meta property="og:title" content="GalaSeca — Preços e notas de skins CS2">
+  <meta property="og:title" content="galaseca — Preços e notas de skins CS2">
   <meta property="og:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
+  <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.png') }}">
   <meta property="og:locale" content="pt_BR">
   <meta property="og:url" content="{{ request.url_root }}">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="GalaSeca — Preços e notas de skins CS2">
+  <meta name="twitter:title" content="galaseca — Preços e notas de skins CS2">
   <meta name="twitter:description" content="Nota de 0 a 100 pra skins do CS2, com o motivo escrito — não um palpite, uma leitura dos dados públicos de hoje.">
-  <meta name="twitter:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.svg') }}">
+  <meta name="twitter:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.png') }}">
   <link rel="canonical" href="{{ request.url_root }}">
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="GalaSeca — Preços e notas" href="{{ url_for('feed') }}">
-  <link rel="search" type="application/opensearchdescription+xml" title="GalaSeca" href="{{ url_for('opensearch') }}">
+  <link rel="alternate" type="application/rss+xml" title="galaseca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="search" type="application/opensearchdescription+xml" title="galaseca" href="{{ url_for('opensearch') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "GalaSeca",
+    "name": "galaseca",
     "url": "{{ request.url_root }}",
     "description": "Nota de 0 a 100 pra skins do CS2, com o motivo escrito, a partir de dados públicos da Steam Community Market."
   }
@@ -280,7 +280,7 @@
   </main>
 
   <footer class="rodape">
-    <p>Dados públicos da Steam Community Market. GalaSeca não é afiliado à Valve.
+    <p>Dados públicos da Steam Community Market. galaseca não é afiliado à Valve.
     Mostra o que já foi medido — não é recomendação de investimento, e desempenho
     passado não garante nada no futuro. A decisão é sempre sua.</p>
     {% include "partials/_rodape_links.html" %}

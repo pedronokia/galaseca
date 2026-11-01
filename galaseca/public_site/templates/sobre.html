@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sobre — GalaSeca</title>
-  <meta name="description" content="Por que o GalaSeca existe e pra quem ele foi feito.">
+  <title>Sobre — galaseca</title>
+  <meta name="description" content="Por que o galaseca existe e pra quem ele foi feito.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="GalaSeca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="galaseca — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "GalaSeca", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "galaseca", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "Sobre", "item": "{{ request.url }}"}
     ]
   }
@@ -33,7 +33,7 @@
 
   <main id="conteudo" class="pagina-texto">
     <h2 class="secao-titulo">O que é</h2>
-    <p>O GalaSeca nasceu como uma ferramenta pessoal pra organizar
+    <p>O galaseca nasceu como uma ferramenta pessoal pra organizar
     portfólio de skins de CS2 e, com o tempo, virou um motor de análise
     próprio -- sinais de preço, oferta, caixa descontinuada, risco de
     alta artificial. Esse site público é a parte dessa ferramenta que
