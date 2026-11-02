@@ -592,9 +592,12 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   position: relative;
   display: grid;
   place-items: center;
-  flex: 0 0 64px;
-  width: 64px;
-  height: 64px;
+  /* 88px: pedido pra dar mais peso visual ao ícone, tipo marketplace
+     (CSGOEmpire como referência, achado 2026-11-01). A imagem servida
+     (proxy local, 192x192) tem resolução de sobra. */
+  flex: 0 0 88px;
+  width: 88px;
+  height: 88px;
   overflow: hidden;
   border: 1px dashed var(--border);
   border-radius: var(--radius-md);
@@ -619,7 +622,7 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .icone-item-placeholder::before {
   content: "◇";
   color: var(--text-muted);
-  font-size: 1.9rem;
+  font-size: 2.6rem;
 }
 
 .icone-item {
@@ -842,6 +845,24 @@ table.tabela-candidatos td.celula-preco {
 .celula-preco .icone-tendencia {
   text-align: right;
 }
+
+/* Selo preenchido só aqui (sinal de MERCADO, ao lado do preço) --
+   achado 2026-11-01, pedido de deixar o layout mais rico tipo
+   CSGOEmpire. NÃO estende pra .tendencia-alta/.tendencia-baixa em si
+   (ranking, comparar) nem usa borda: .selo-mudou-nota (seu vizinho, "O
+   que mudou desde sua última visita") já é uma pílula com BORDA de
+   propósito, pra não parecer o mesmo selo com dois significados
+   diferentes (achado 2026-10-27, comentário acima). Preenchido sem
+   borda mantém os dois visualmente diferentes. */
+.celula-preco .icone-tendencia.tendencia-alta,
+.celula-preco .icone-tendencia.tendencia-baixa {
+  width: fit-content;
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 8px;
+}
+.celula-preco .icone-tendencia.tendencia-alta { background: rgba(164, 208, 7, 0.15); }
+.celula-preco .icone-tendencia.tendencia-baixa { background: rgba(240, 85, 112, 0.15); }
 
 /* ── Links secundários (SteamDB) ──────────────────────── */
 .link-secundario {
