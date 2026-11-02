@@ -48,6 +48,20 @@ def test_index_sem_scan_mostra_vazio(client, monkeypatch):
     assert "Ainda não há nenhum scan".encode("utf-8") in resp.data
 
 
+def test_index_tabela_wrap_focavel_por_teclado(client, monkeypatch, tmp_path):
+    """Achado 2026-11-02 (pesquisa de acessibilidade): `.tabela-wrap` tem
+    overflow-x: auto (rola a tabela em telas estreitas), mas sem
+    role="region"/tabindex/aria-label não dava pra focar e rolar só com
+    teclado -- só mouse/touch."""
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de itens recomendados, com rolagem lateral"' in body
+
+
 def test_index_exibe_total_de_visitas_no_rodape(client, monkeypatch, tmp_path):
     p = tmp_path / "visitas.json"
     monkeypatch.setattr(visits, "_DEFAULT_PATH", p)
