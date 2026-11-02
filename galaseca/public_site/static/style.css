@@ -886,12 +886,10 @@ table.tabela-candidatos td.celula-preco {
   font-variant-numeric: tabular-nums;
   /* "R$ 8.023,95" quebrava entre o símbolo e o número. */
   white-space: nowrap;
-  /* Preço com o mesmo peso da nota/ícone, não texto corrido igual às
-     colunas secundárias -- achado 2026-11-02: é o 2º número mais
-     escaneado da tabela (depois da nota) e tinha peso zero (mesma cor
-     e peso apagados de Caixa/Cápsula). */
+  /* Preço um pouco maior/mais claro que as colunas secundárias (Caixa/
+     Cápsula), mas sem negrito -- pedido do usuário em 2026-11-02 depois
+     de achar o negrito (achado 2026-11-02 anterior) pesado demais. */
   font-size: 1.05rem;
-  font-weight: 700;
   color: var(--text-bright);
 }
 
