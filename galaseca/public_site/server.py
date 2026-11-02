@@ -229,6 +229,7 @@ def create_app() -> Flask:
     app.jinja_env.filters["risco_label"] = _risco_label
     app.jinja_env.filters["rotulo_caixa"] = _rotulo_caixa
     app.jinja_env.filters["motivo_fmt"] = _motivo_fmt
+    app.jinja_env.filters["liquidez_label"] = _liquidez_label
 
     @app.before_request
     def _marcar_inicio_latencia():
@@ -249,6 +250,9 @@ def create_app() -> Flask:
         nota_min = _parse_float_arg("nota_min")
         preco_max = _parse_float_arg("preco_max")
         busca = (request.args.get("q") or "").strip() or None
+        liquidez_min = request.args.get("liquidez_min") or None
+        if liquidez_min not in (None, *_LIQUIDEZ_ORDEM):
+            liquidez_min = None
         # "ordenar" usa cookie de preferência: query param manda quando
         # presente, senão cai pro último escolhido (sem isso, re-ordenar
         # por preço não sobrevivia a uma nova visita).
@@ -262,14 +266,15 @@ def create_app() -> Flask:
 
         todos = _candidatos_filtrados(
             scan, categoria, nota_min, preco_max, busca, ordenar,
-            com_historico=False)
+            liquidez_min, com_historico=False)
         # Total real da aba "Todas" -- achado 2026-10-30: `scan["results"]`
         # inclui item com risco alto de pump, que `buy_candidates` descarta
         # antes de qualquer filtro do visitante. Sem isto a aba dizia um
         # número (ex. 183) e a lista abaixo mostrava outro (176) sem
         # explicação. Sem filtro nenhum ativo, `todos` já é esse total;
         # só recalcula quando algum filtro do visitante reduziu `todos`.
-        total_geral = (len(todos) if not (categoria or nota_min or preco_max or busca)
+        total_geral = (len(todos)
+                       if not (categoria or nota_min or preco_max or busca or liquidez_min)
                        else len(_candidatos_filtrados(scan, com_historico=False)))
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
@@ -296,6 +301,8 @@ def create_app() -> Flask:
             categoria_sel=categoria,
             nota_min_sel=nota_min,
             preco_max_sel=preco_max,
+            liquidez_min_sel=liquidez_min,
+            liquidez_opcoes=_LIQUIDEZ_ORDEM,
             busca_sel=busca,
             ordenar_sel=ordenar,
             pagina=pagina,
@@ -336,12 +343,25 @@ def create_app() -> Flask:
         if item is None:
             return render_template("404.html"), 404
         hist = signals.load_item_history(name)
+        periodo = request.args.get("periodo") or None
+        if periodo not in _PERIODOS_GRAFICO:
+            periodo = None
         grafico = charts.line_chart_svg(
-            [{"total": p["price"]} for p in hist[-60:] if p.get("price")])
+            [{"total": p["price"]}
+             for p in _filtra_historico_por_periodo(hist, periodo)
+             if p.get("price")])
+        # Período com poucos pontos: `grafico` pode ficar vazio mesmo
+        # havendo histórico (90d filtrado demais, por exemplo). O seletor
+        # continua aparecendo nesse caso -- só o gráfico some, pra deixar
+        # claro que é falta de dado NESSE recorte, não no item.
+        tem_historico = sum(1 for p in hist if p.get("price")) >= 2
         return render_template(
             "item.html",
             item=item,
             grafico=grafico,
+            tem_historico=tem_historico,
+            periodo_sel=periodo,
+            periodo_opcoes=list(_PERIODOS_GRAFICO),
             parecidos=_itens_parecidos(item, candidatos),
             tempo_aposentadoria=_tempo_desde_aposentadoria(item.get("case_retired_at")),
             itens_da_caixa=cases.skins_in_case(item.get("case")),
@@ -982,6 +1002,23 @@ def _contagem_usuarios() -> int:
 
 _RISCO_LABELS = {"low": "Baixo", "medium": "Médio", "high": "Alto"}
 
+# `signals.liquidity_depth()` já calcula isto em todo scan (dias de
+# listagens no ritmo atual) mas não aparecia em lugar nenhum da UI até
+# 2026-11-02 -- achado numa pesquisa de como outros sites de skin
+# expõem liquidez. Rótulo só pra exibição; a lógica/faixas já vêm
+# prontas de `signals.py`.
+_LIQUIDEZ_LABELS = {
+    "muito_liquido": "Muito líquida",
+    "liquido": "Líquida",
+    "moderado": "Moderada",
+    "fino": "Baixa liquidez",
+    "iliquido": "Ilíquida",
+}
+
+
+def _liquidez_label(band: "str | None") -> str:
+    return _LIQUIDEZ_LABELS.get(band or "", "")
+
 
 def _rotulo_caixa(case_label: "str | None",
                   item_name: "str | None" = None) -> str:
@@ -1084,10 +1121,36 @@ def _resumo_do_dia(atual: "dict | None") -> "dict | None":
     }
 
 
+_HISTORICO_CURTO_LIMIAR = 5
+
+
 def _sparkline_do_historico(hist: list) -> str:
     pontos = [{"total": p["price"]} for p in hist[-20:] if p.get("price")]
     return charts.line_chart_svg(
         pontos, width=120, height=28, padding=2, css_class="mini-sparkline")
+
+
+# Dias de cada opção do seletor de período do gráfico em `/item/<name>`
+# (achado 2026-11-02, pesquisa de sites de skin: um período fixo de 60
+# pontos não deixa claro se o visitante está vendo a tendência real ou só
+# ruído de curto prazo). "tudo" (sem entrada aqui) mantém o recorte
+# padrão de sempre, pra não mudar o comportamento de quem não escolhe nada.
+_PERIODOS_GRAFICO = {"7d": 7, "30d": 30, "90d": 90}
+
+
+def _filtra_historico_por_periodo(hist: list, periodo: "str | None") -> list:
+    """Recorta `hist` pelos últimos N dias de `_PERIODOS_GRAFICO`.
+
+    `ts` é sempre um timestamp Unix (float) gravado por
+    `signals.record_item_price` -- mesmo formato que `scan_store.idade_txt`
+    já espera. Período desconhecido ou "tudo" caem no recorte padrão de
+    sempre (os últimos 60 pontos), sem filtrar por data.
+    """
+    dias = _PERIODOS_GRAFICO.get(periodo or "")
+    if not dias:
+        return hist[-60:]
+    corte = time.time() - dias * 86400
+    return [p for p in hist if (p.get("ts") or 0) >= corte]
 
 
 def _enriquecer_com_historico(candidatos: list[dict]) -> None:
@@ -1102,6 +1165,16 @@ def _enriquecer_com_historico(candidatos: list[dict]) -> None:
         c["tendencia"] = _tendencia_do_historico(hist)
         c["variacao_pct"] = _variacao_pct_do_historico(hist)
         c["sparkline"] = _sparkline_do_historico(hist)
+        # Com poucos pontos a linha fica tão "confiante" quanto uma de
+        # 20 -- sem aviso, parece preço estável em vez de "ainda não
+        # temos dado suficiente" (achado 2026-11-02, pesquisa de
+        # padrões de sites de skin). Não esconde o gráfico, só avisa.
+        n_pontos = sum(1 for p in hist[-20:] if p.get("price"))
+        c["historico_curto"] = 0 < n_pontos < _HISTORICO_CURTO_LIMIAR
+        c["historico_pontos"] = n_pontos
+
+
+_LIQUIDEZ_ORDEM = ["iliquido", "fino", "moderado", "liquido", "muito_liquido"]
 
 
 def _candidatos_filtrados(
@@ -1110,6 +1183,7 @@ def _candidatos_filtrados(
         preco_max: "float | None" = None,
         busca: "str | None" = None,
         ordenar: str = "nota",
+        liquidez_min: "str | None" = None,
         com_historico: bool = True) -> list[dict]:
     """Candidatos públicos: sem dono (sem login ainda), já filtrados.
 
@@ -1123,6 +1197,13 @@ def _candidatos_filtrados(
     `_enriquecer_com_historico` só nessa fatia depois. Achado 2026-10-26:
     o `index()` lia o histórico de TODOS os candidatos em toda visita,
     mesmo mostrando só uma página por vez.
+
+    `liquidez_min` usa a mesma faixa nomeada de `signals.liquidity_depth`
+    (pedido numa pesquisa de como outros sites de skin expõem liquidez,
+    2026-11-02) -- item sem o dado (volume/histórico insuficiente) fica
+    de fora quando o filtro está ativo: não dá pra confirmar que atende
+    o mínimo pedido, mesmo critério "não promete o que não sabe" do
+    resto do site.
     """
     if not scan:
         return []
@@ -1136,6 +1217,12 @@ def _candidatos_filtrados(
             continue
         if preco_max is not None and (c.get("price") or 0) > preco_max:
             continue
+        if liquidez_min:
+            band = (c.get("liquidity_depth") or {}).get("band")
+            if band not in _LIQUIDEZ_ORDEM:
+                continue
+            if _LIQUIDEZ_ORDEM.index(band) < _LIQUIDEZ_ORDEM.index(liquidez_min):
+                continue
         name_fmt = localize_name(c.get("name") or "")
         if not _busca_bate(name_fmt, busca):
             continue
