@@ -39,6 +39,7 @@
         <tr><td>Nota</td>{% for it in itens %}<td><span class="nota nota-{{ it.score|nota_classe }}">{{ it.score }}</span></td>{% endfor %}</tr>
         <tr><td>Caixa/Cápsula</td>{% for it in itens %}<td>{{ it.case_label|rotulo_caixa(it.name) or "—" }}</td>{% endfor %}</tr>
         <tr><td>Risco</td>{% for it in itens %}<td class="risco risco-{{ it.pump_risk|risco_nivel }}">{{ it.pump_risk|risco_label }}</td>{% endfor %}</tr>
+        <tr><td>Liquidez</td>{% for it in itens %}<td>{% if it.liquidity_depth and it.liquidity_depth.band %}<span class="liquidez liquidez-{{ it.liquidity_depth.band|replace('_', '-') }}" title="{{ it.liquidity_depth.label }}">{{ it.liquidity_depth.band|liquidez_label }}</span>{% else %}<span class="status-muted">—</span>{% endif %}</td>{% endfor %}</tr>
         <tr><td>Tendência</td>{% for it in itens %}<td>{% if it.tendencia == "alta" %}<span class="tendencia-alta">▲ subiu</span>{% elif it.tendencia == "baixa" %}<span class="tendencia-baixa">▼ caiu</span>{% else %}<span class="status-muted">—</span>{% endif %}</td>{% endfor %}</tr>
       </tbody>
     </table>

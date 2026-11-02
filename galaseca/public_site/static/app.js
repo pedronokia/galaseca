@@ -55,6 +55,21 @@ document.addEventListener("click", function (e) {
   if (detalhes) detalhes.open = false;
 });
 
+// Confirmação antes de remover trade/item da watchlist/posição da
+// carteira -- essas ações eram só um POST direto sem nenhuma checagem
+// (achado 2026-11-02). `.botao-limpar-comparar` também usa
+// `.botao-remover` mas é `type="button"` fora de formulário (só limpa a
+// seleção local), então não dispara `submit` e não é afetado aqui.
+document.addEventListener("submit", function (e) {
+  var form = e.target;
+  if (!form.querySelector) return;
+  var btn = form.querySelector(".botao-remover[type=\"submit\"]");
+  if (!btn) return;
+  if (!window.confirm("Remover? Essa ação não pode ser desfeita.")) {
+    e.preventDefault();
+  }
+});
+
 // Menu "⋯ Mais ações" (por item) -- <details> nativo não fecha
 // sozinho quando o clique acontece fora dele; sem isso ficava aberto
 // flutuando por cima do resto da tabela depois que o usuário
