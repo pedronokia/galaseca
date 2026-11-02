@@ -25,6 +25,7 @@
       {"@type": "DefinedTerm", "name": "Preço típico", "description": "A mediana dos preços recentes do item -- o preço normal dele, usado como referência pra saber se o preço atual está caro ou barato."},
       {"@type": "DefinedTerm", "name": "Caixa descontinuada", "description": "Caixa que parou de ser sorteada no jogo (saiu do drop pool). Historicamente tende a valorizar mais que caixas ainda ativas."},
       {"@type": "DefinedTerm", "name": "Risco", "description": "No galaseca, mede só uma coisa: chance de o preço ter subido rápido e artificialmente recentemente."},
+      {"@type": "DefinedTerm", "name": "Liquidez", "description": "Quanto tempo o estoque à venda levaria pra esvaziar no ritmo de negociação recente (estoque dividido pelo volume médio diário). Quanto menos dias, mais fácil comprar ou vender rápido pelo preço de mercado."},
       {"@type": "DefinedTerm", "name": "Trade-up", "description": "Mecânica do próprio CS2: trocar 10 skins da mesma raridade por uma skin de raridade superior (aleatória, dentro de um conjunto possível)."},
       {"@type": "DefinedTerm", "name": "Covert", "description": "Uma das raridades de skin no CS2 (a mais alta entre as comuns, antes das facas/luvas). Aparece com borda vermelha no jogo."},
       {"@type": "DefinedTerm", "name": "Procura × Oferta", "description": "Quantos itens são vendidos por dia comparado a quantos estão à venda agora. Abaixo de 1 significa mais gente vendendo do que comprando -- um dos fatores que compõem a nota."}
@@ -89,6 +90,13 @@
       <dd>No galaseca, mede só uma coisa: a chance de o preço ter subido
       rápido e possivelmente artificialmente recentemente. Não cobre outros
       tipos de risco.</dd>
+
+      <dt><strong>Liquidez</strong></dt>
+      <dd>Quanto tempo o estoque à venda levaria pra esvaziar no ritmo de
+      negociação recente (estoque dividido pelo volume médio diário).
+      Quanto menos dias, mais fácil comprar ou vender rápido pelo preço de
+      mercado -- "Baixa liquidez"/"Ilíquida" não significa que o item não
+      vende, só que pode demorar mais.</dd>
 
       <dt><strong>Trade-up</strong></dt>
       <dd>Mecânica do próprio CS2: trocar 10 skins da mesma raridade por

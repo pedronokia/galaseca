@@ -1041,6 +1041,12 @@ table.tabela-candidatos tbody tr:hover .nota {
 .card-valor.liquidez-fino { color: var(--warn); }
 .card-valor.liquidez-iliquido { color: var(--danger); }
 
+/* Mesma banda de liquidez, mas em /comparar.html (sem .card-valor por
+   perto -- célula de tabela simples, igual .risco-low/medium/high já
+   usadas sozinhas ali). */
+.liquidez-fino { color: var(--warn); }
+.liquidez-iliquido { color: var(--danger); }
+
 footer.rodape {
   max-width: 960px;
   margin: 24px auto 0;
@@ -1163,11 +1169,6 @@ footer.rodape .versao {
 }
 
 /* ── Conta ────────────────────────────────────────────── */
-.link-sutil {
-  color: inherit;
-  text-decoration: none;
-}
-
 .resumo-cards {
   /* Flex em vez de grid -- achado 2026-10-31: com grid, uma última
      linha incompleta (5 cards em 3 colunas, por ex.) deixava um vão

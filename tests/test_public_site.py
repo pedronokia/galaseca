@@ -1756,6 +1756,27 @@ def test_comparar_lista_itens_pedidos(client, monkeypatch, tmp_path):
     assert "Item B" in body
 
 
+def test_comparar_mostra_liquidez(client, monkeypatch, tmp_path):
+    """Achado 2026-11-02 (varredura de código morto/consistência): a
+    tabela de /comparar tinha Preço/Nota/Caixa/Risco/Tendência mas não
+    Liquidez, mesmo o dado já vindo em cada item (mesmo campo usado no
+    index e no card de item.html)."""
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "liquidity_depth": {"days": 45.0, "avg_volume": 2.0, "supply": 90,
+                             "band": "fino",
+                             "label": "~45d de listagens no ritmo atual (2/dia)"}},
+        {"name": "Item B", "score": 60, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "medium"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
+    assert "<td>Liquidez</td>" in body
+    assert 'class="liquidez liquidez-fino"' in body
+    assert "~45d de listagens no ritmo atual (2/dia)" in body
+
+
 def test_comparar_main_sem_pagina_texto(client):
     """.pagina-texto trava <main> em 640px -- bom pra prosa, estreito
     demais pra uma tabela de 2-3 itens: com nome comprido, o texto do
@@ -2300,6 +2321,7 @@ def test_glossario_page(client):
     assert body.count('"@type": "DefinedTerm"') == body.count("<dt><strong>")
     assert "Steam Community Market" in body
     assert "Procura × Oferta" in body
+    assert "<dt><strong>Liquidez</strong></dt>" in body
 
 
 def test_sitemap_inclui_faq(client):
