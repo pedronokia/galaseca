@@ -79,6 +79,12 @@
       <div class="card"><span class="card-label">Nota</span><span class="card-valor nota nota-{{ item.score|nota_classe }}">{{ item.score }}</span></div>
       <div class="card"><span class="card-label">Caixa/Cápsula</span><span class="card-valor card-valor-texto">{{ item.case_label|rotulo_caixa(item.name) or "—" }}</span></div>
       <div class="card"><span class="card-label">Risco</span><span class="card-valor risco risco-{{ item.pump_risk|risco_nivel }}">{{ item.pump_risk|risco_label }}</span></div>
+      {% if item.liquidity_depth and item.liquidity_depth.band %}
+      <div class="card" title="{{ item.liquidity_depth.label }}">
+        <span class="card-label">Liquidez</span>
+        <span class="card-valor liquidez liquidez-{{ item.liquidity_depth.band|replace('_', '-') }}">{{ item.liquidity_depth.band|liquidez_label }}</span>
+      </div>
+      {% endif %}
       {% if tempo_aposentadoria %}
       <div class="card"><span class="card-label">Aposentada há</span><span class="card-valor">{{ tempo_aposentadoria }}</span></div>
       {% endif %}
@@ -92,9 +98,19 @@
     <p class="status">Preço deste item coletado {{ preco_coletado_txt }}.</p>
     {% endif %}
 
-    {% if grafico %}
+    {% if tem_historico %}
       <h2 class="secao-titulo">Histórico de preço</h2>
+      <div class="seletor-periodo" role="group" aria-label="Período do gráfico">
+        <a href="{{ url_for('item_detail', name=item.name) }}"{% if not periodo_sel %} aria-current="true"{% endif %}>Tudo</a>
+        {% for p in periodo_opcoes %}
+        <a href="{{ url_for('item_detail', name=item.name, periodo=p) }}"{% if periodo_sel == p %} aria-current="true"{% endif %}>{{ p }}</a>
+        {% endfor %}
+      </div>
+      {% if grafico %}
       <div class="card grafico-card">{{ grafico|safe }}</div>
+      {% else %}
+      <p class="texto-sem-dado">Sem preços registrados nesse período.</p>
+      {% endif %}
     {% endif %}
 
     <h2 class="secao-titulo">Por quê</h2>

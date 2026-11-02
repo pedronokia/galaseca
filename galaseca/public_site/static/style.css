@@ -422,6 +422,45 @@ main {
   font-weight: 700;
 }
 
+/* Seletor de período do gráfico em /item/<name> (achado 2026-11-02,
+   pesquisa de sites de troca de skins: um gráfico de janela fixa não
+   deixa claro se o visitante está vendo tendência real ou ruído de
+   curto prazo). Pílulas de link, min-height 44px pro alvo de toque --
+   mesmo critério já usado em .chip-filtro/.checkbox-comparar-alvo. */
+.seletor-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.seletor-periodo a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 4px 16px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.seletor-periodo a:hover {
+  color: var(--accent-bright);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.seletor-periodo a[aria-current="true"] {
+  color: var(--bg);
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  font-weight: 600;
+}
+
 .ajuda-nota {
   margin: 0 0 10px;
   color: var(--text);
@@ -993,6 +1032,14 @@ table.tabela-candidatos tbody tr:hover .nota {
 .card-valor.risco-low { color: var(--text-muted); }
 .card-valor.risco-medium { color: var(--warn); }
 .card-valor.risco-high { color: var(--danger); }
+
+/* Liquidez: só destaca o lado ruim (fino/ilíquida) -- muito líquida/
+   líquida/moderada são o caso comum/esperado, ficam na cor padrão
+   (mesmo critério já usado em risco-low). Mesmo combo de 2 classes
+   pelo motivo acima (.card-valor ganharia de uma classe .liquidez-*
+   sozinha). */
+.card-valor.liquidez-fino { color: var(--warn); }
+.card-valor.liquidez-iliquido { color: var(--danger); }
 
 footer.rodape {
   max-width: 960px;
@@ -1905,6 +1952,18 @@ footer.rodape .versao {
   color: var(--text-muted);
   font-size: 0.78rem;
   opacity: 0.8;
+}
+
+/* Com poucos pontos a linha do histórico fica tão "confiante" quanto
+   uma de 20 -- sem aviso, parece preço estável em vez de "ainda não
+   temos dado suficiente" (achado 2026-11-02). --warn (mesma cor de
+   risco médio) sinaliza "atenção", não erro. */
+.selo-historico-curto {
+  display: block;
+  margin-top: 2px;
+  color: var(--warn);
+  font-size: 0.7rem;
+  cursor: help;
 }
 
 .cabecalho-sub {

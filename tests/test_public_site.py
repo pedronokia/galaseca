@@ -394,6 +394,42 @@ def test_index_preco_max_filtra(client, monkeypatch, tmp_path):
     assert "Caro" not in body
 
 
+def test_index_liquidez_min_filtra(client, monkeypatch, tmp_path):
+    """Pedido numa pesquisa de como outros sites de skin expõem
+    liquidez (2026-11-02) -- "pelo menos X" usa a ordem de
+    `_LIQUIDEZ_ORDEM` (pior pro melhor), não igualdade exata."""
+    resultados = [
+        {"name": "Item muito líquido", "score": 50, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": [],
+         "liquidity_depth": {"band": "muito_liquido"}},
+        {"name": "Item liquidez moderada", "score": 50, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": [],
+         "liquidity_depth": {"band": "moderado"}},
+        {"name": "Item iliquido demais", "score": 50, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": [],
+         "liquidity_depth": {"band": "iliquido"}},
+        {"name": "Item sem dado nenhum", "score": 50, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/?liquidez_min=moderado").data.decode("utf-8")
+    assert "Item muito líquido" in body
+    assert "Item liquidez moderada" in body
+    assert "Item iliquido demais" not in body
+    # Sem o dado, não dá pra confirmar que atende o mínimo pedido.
+    assert "Item sem dado nenhum" not in body
+
+
+def test_index_sem_liquidez_min_mostra_tudo(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Sem dado de liquidez", "score": 50, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert "Sem dado de liquidez" in body
+
+
 @pytest.mark.parametrize(("parametro", "valor"), [
     ("nota_min", "nan"),
     ("nota_min", "inf"),
@@ -1398,6 +1434,114 @@ def test_item_detail_mostra_nota_e_preco(client, monkeypatch, tmp_path):
     body = resp.data.decode("utf-8")
     assert "85" in body
     assert "R$" in body
+
+
+def test_item_detail_mostra_card_de_liquidez(client, monkeypatch, tmp_path):
+    """`signals.liquidity_depth()` já calcula isto em todo scan, mas até
+    2026-11-02 não aparecia em lugar nenhum da UI -- achado numa
+    pesquisa de como outros sites de skin expõem liquidez."""
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85, "price": 50.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "category": "Rifles",
+         "breakdown": [],
+         "liquidity_depth": {"days": 45.0, "avg_volume": 2.0, "supply": 90,
+                             "band": "fino",
+                             "label": "~45d de listagens no ritmo atual (2/dia)"}},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/item/AK-47 | Redline (Field-Tested)").data.decode("utf-8")
+    assert "Liquidez" in body
+    assert "Baixa liquidez" in body
+    assert 'class="card-valor liquidez liquidez-fino"' in body
+    assert "~45d de listagens no ritmo atual (2/dia)" in body
+
+
+def test_item_detail_sem_liquidity_depth_nao_mostra_card(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert "Liquidez" not in body
+
+
+def test_item_detail_mostra_seletor_de_periodo(client, monkeypatch, tmp_path):
+    """Achado 2026-11-02 (pesquisa de sites de skin): o gráfico de
+    histórico não tinha seletor de período -- sempre os últimos 60
+    pontos, sem jeito de ver só os últimos 7/30/90 dias."""
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 100 * 86400, "price": 10.0},
+        {"ts": agora - 2 * 86400, "price": 12.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert "seletor-periodo" in body
+    assert "grafico-historico" in body
+    assert 'aria-current="true">Tudo</a>' in body
+
+
+def test_item_detail_periodo_filtra_o_grafico(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 100 * 86400, "price": 10.0},
+        {"ts": agora - 2 * 86400, "price": 12.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/item/Item X?periodo=7d").data.decode("utf-8")
+    assert 'aria-current="true">7d</a>' in body
+    # só o ponto de 2 dias atrás cai dentro de 7d -- 1 ponto não dá pra
+    # traçar linha (charts.line_chart_svg exige pelo menos 2).
+    assert "Sem preços registrados nesse período." in body
+    assert "grafico-historico" not in body
+
+
+def test_item_detail_periodo_invalido_cai_no_padrao(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 100 * 86400, "price": 10.0},
+        {"ts": agora - 2 * 86400, "price": 12.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/item/Item X?periodo=1ano").data.decode("utf-8")
+    assert 'aria-current="true">Tudo</a>' in body
+    assert "grafico-historico" in body
+
+
+def test_item_detail_sem_historico_nao_mostra_seletor(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: [])
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert "seletor-periodo" not in body
+    assert "Histórico de preço" not in body
 
 
 def test_item_detail_itens_parecidos_exclui_o_proprio(client, monkeypatch, tmp_path):
@@ -2581,6 +2725,51 @@ def test_enriquecer_com_historico_preenche_campos(monkeypatch):
     _enriquecer_com_historico(candidatos)
     assert candidatos[0]["tendencia"] == "alta"
     assert "mini-sparkline" in candidatos[0]["sparkline"]
+    # 2 pontos é pouco -- a linha ficava tão "confiante" quanto uma de
+    # 20 sem nenhum aviso (achado 2026-11-02).
+    assert candidatos[0]["historico_curto"] is True
+    assert candidatos[0]["historico_pontos"] == 2
+
+
+def test_index_mostra_selo_de_historico_curto(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    monkeypatch.setattr(signals, "load_item_history", lambda name: [
+        {"ts": "2026-10-28T12:00:00", "price": 48.0},
+        {"ts": "2026-10-29T12:00:00", "price": 50.0},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "selo-historico-curto" in body
+    assert "histórico curto".encode("utf-8") in body.encode("utf-8")
+
+
+def test_index_nao_mostra_selo_com_historico_suficiente(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    monkeypatch.setattr(
+        signals, "load_item_history",
+        lambda name: [{"ts": str(i), "price": 50.0 + i} for i in range(10)])
+    body = client.get("/").data.decode("utf-8")
+    assert "selo-historico-curto" not in body
+
+
+def test_enriquecer_com_historico_nao_marca_curto_com_pontos_suficientes(
+        monkeypatch):
+    from galaseca.public_site.server import _enriquecer_com_historico
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: [{"ts": i, "price": 10.0 + i} for i in range(5)])
+    candidatos = [{"name": "Item A"}]
+    _enriquecer_com_historico(candidatos)
+    assert candidatos[0]["historico_curto"] is False
+    assert candidatos[0]["historico_pontos"] == 5
 
 
 def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
