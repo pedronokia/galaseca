@@ -463,7 +463,7 @@ table.tabela-itens {
 
 table.tabela-candidatos th,
 table.tabela-candidatos td {
-  padding: 12px 14px;
+  padding: 16px;
   text-align: left;
   border-bottom: 1px solid var(--border);
   font-size: 0.95rem;
@@ -504,11 +504,16 @@ table.tabela-candidatos tbody tr:last-child td {
 }
 
 table.tabela-candidatos tbody tr {
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 table.tabela-candidatos tbody tr:hover {
   background: var(--surface);
+  /* Mesma técnica de .linha-destaque (inset, não desloca layout) --
+     achado 2026-11-02: hover só com cor de fundo ficava chapado,
+     sem a sensação de "profundidade" que referências de marketplace
+     (CSGOEmpire) têm. */
+  box-shadow: inset 2px 0 0 var(--accent-bright);
 }
 
 /* Larguras travadas (table-layout: fixed) só na tabela principal de
@@ -576,6 +581,8 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   line-height: 1.35;
   min-width: 0;
   overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .celula-item-acoes {
@@ -840,6 +847,13 @@ table.tabela-candidatos td.celula-preco {
   font-variant-numeric: tabular-nums;
   /* "R$ 8.023,95" quebrava entre o símbolo e o número. */
   white-space: nowrap;
+  /* Preço com o mesmo peso da nota/ícone, não texto corrido igual às
+     colunas secundárias -- achado 2026-11-02: é o 2º número mais
+     escaneado da tabela (depois da nota) e tinha peso zero (mesma cor
+     e peso apagados de Caixa/Cápsula). */
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-bright);
 }
 
 .celula-preco .icone-tendencia {
