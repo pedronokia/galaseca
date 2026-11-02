@@ -1,3 +1,4 @@
+{% from "partials/_icons.html" import icone %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -39,7 +40,7 @@
         Comparado com o ranking de {{ resumo_do_dia.quando }}:
         {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }} no Top 20{% if resumo_do_dia.maior_alta %}; maior alta de nota foi
         <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
-        ({{ resumo_do_dia.maior_alta.de }} → {{ resumo_do_dia.maior_alta.para }}){% endif %}.
+        ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% endif %}.
       </p>
       {% endif %}
       <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
@@ -63,9 +64,9 @@
               {% if it.label == "NOVO" %}
                 <span class="selo-novo">NOVO</span>
               {% elif it.delta > 0 %}
-                <span class="tendencia-alta">▲ {{ it.label }}</span>
+                <span class="tendencia-alta">{{ icone("seta-cima") }} {{ it.label }}</span>
               {% elif it.delta < 0 %}
-                <span class="tendencia-baixa">▼ {{ it.label }}</span>
+                <span class="tendencia-baixa">{{ icone("seta-baixo") }} {{ it.label }}</span>
               {% elif it.label == "=" %}
                 <span class="status-muted">=</span>
               {% else %}

@@ -45,7 +45,55 @@ def test_index_sem_scan_mostra_vazio(client, monkeypatch):
     monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
     resp = client.get("/")
     assert resp.status_code == 200
-    assert "Ainda não há nenhum scan".encode("utf-8") in resp.data
+    body = resp.data.decode("utf-8")
+    assert "Ainda não há dados de coleta publicados" in body
+    assert 'href="/status">Acompanhar status da coleta</a>' in body
+
+
+def test_navegacao_principal_indica_pagina_atual(client):
+    body = client.get("/metodo").data.decode("utf-8")
+    nav = body.split('class="nav-principal"', 1)[1].split("</nav>", 1)[0]
+    assert 'href="/metodo" aria-current="page">Método</a>' in nav
+    assert 'href="/faq"' in nav
+
+
+def test_rodape_agrupa_links_em_alvos_de_toque(client):
+    body = client.get("/").data.decode("utf-8")
+    nav = body.split('class="rodape-nav"', 1)[1].split("</nav>", 1)[0]
+    assert 'aria-label="Navegação do site"' in body
+    assert "Explorar" in nav
+    assert "Entenda" in nav
+    assert "Mais" in nav
+    assert 'href="/privacidade"' in nav
+
+
+def test_movimento_reduzido_respeitado_no_css_e_no_botao_de_topo(client):
+    css = client.get("/static/style.css").data.decode("utf-8")
+    js = client.get("/static/app.js").data.decode("utf-8")
+    assert "@media (prefers-reduced-motion: reduce)" in css
+    assert '(prefers-reduced-motion: reduce)' in js
+    assert 'behavior: reduzirMovimento ? "auto" : "smooth"' in js
+
+
+def test_contraste_muted_e_alvos_do_cabecalho(client):
+    css = client.get("/static/style.css").data.decode("utf-8")
+    root = re.search(r":root\s*\{([^}]*)\}", css)
+    assert root
+    tokens = dict(re.findall(r"--([\w-]+)\s*:\s*(#[0-9a-fA-F]{6})", root.group(1)))
+
+    def luminancia(cor):
+        canais = [int(cor[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        canais = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+                  for v in canais]
+        return 0.2126 * canais[0] + 0.7152 * canais[1] + 0.0722 * canais[2]
+
+    frente = luminancia(tokens["text-muted"])
+    fundo = luminancia(tokens["surface-hover"])
+    contraste = (max(frente, fundo) + 0.05) / (min(frente, fundo) + 0.05)
+
+    assert contraste >= 4.5
+    assert re.search(r"\.conta-link-entrar\s*\{[^}]*min-height:\s*44px", css)
+    assert ".topo-linha > .nav-principal { grid-column: 1 / -1; grid-row: 2; }" in css
 
 
 def test_index_tabela_wrap_focavel_por_teclado(client, monkeypatch, tmp_path):
@@ -2332,10 +2380,13 @@ def test_glossario_page(client):
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     assert "DefinedTermSet" in body
-    assert body.count('"@type": "DefinedTerm"') == body.count("<dt><strong>")
+    assert body.count('"@type": "DefinedTerm"') == body.count("<dt ")
     assert "Steam Community Market" in body
     assert "Procura × Oferta" in body
-    assert "<dt><strong>Liquidez</strong></dt>" in body
+    assert 'id="termo-liquidez" tabindex="-1"><strong>Liquidez</strong></dt>' in body
+    assert 'aria-label="Índice do glossário"' in body
+    assert 'href="#termo-procura-oferta"' in body
+    assert 'id="termo-procura-oferta" tabindex="-1"' in body
 
 
 def test_sitemap_inclui_faq(client):

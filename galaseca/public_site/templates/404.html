@@ -1,3 +1,4 @@
+{% from "partials/_icons.html" import icone %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -26,7 +27,7 @@
       </label>
       <button type="submit">Buscar</button>
     </form>
-    <p><a href="{{ url_for('index') }}">← Voltar pro dashboard</a></p>
+    <p><a class="link-com-seta" href="{{ url_for('index') }}">{{ icone("seta-esquerda") }} Voltar pro dashboard</a></p>
   </main>
 
   <footer class="rodape">

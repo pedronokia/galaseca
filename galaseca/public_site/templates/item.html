@@ -1,3 +1,4 @@
+{% from "partials/_icons.html" import icone %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -55,7 +56,7 @@
       <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
       {% include "partials/_conta_link.html" %}
     </div>
-    <p class="subtitulo"><a href="{{ url_for('index') }}">← Voltar pra lista</a></p>
+    <p class="subtitulo"><a class="link-com-seta" href="{{ url_for('index') }}">{{ icone("seta-esquerda") }} Voltar pra lista</a></p>
   </header>
 
   <main id="conteudo" class="pagina-texto pagina-item">
@@ -68,8 +69,8 @@
         <p class="status">
           <a class="link-item" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
           · <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
-          · <button type="button" class="botao-copiar" data-copiar="{{ item.name }}" title="Copiar nome do item" aria-label="Copiar nome">📋 Copiar nome</button>
-          · <button type="button" class="botao-favorito" data-favorito="{{ item.name }}" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar">☆ Favoritar</button>
+          · <button type="button" class="botao-copiar" data-copiar="{{ item.name }}" title="Copiar nome do item" aria-label="Copiar nome">{{ icone("copiar") }}{{ icone("check") }}<span class="texto-copiar">Copiar nome</span></button>
+          · <button type="button" class="botao-favorito" data-favorito="{{ item.name }}" data-favorito-label="{{ item.name_fmt }}" aria-pressed="false" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ item.name_fmt }}">{{ icone("favorito") }}<span>Favoritar</span></button>
         </p>
       </div>
     </div>
@@ -134,7 +135,7 @@
     </ul>
     {% endif %}
     {% if item.category %}
-    <p class="status"><a href="{{ url_for('index', categoria=item.category) }}">Ver todos os itens de "{{ item.category }}" →</a></p>
+    <p class="status"><a class="link-com-seta" href="{{ url_for('index', categoria=item.category) }}">Ver todos os itens de "{{ item.category }}" {{ icone("seta-direita") }}</a></p>
     {% endif %}
   </main>
 

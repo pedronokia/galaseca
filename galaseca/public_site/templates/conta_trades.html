@@ -44,9 +44,9 @@
 
     <h2 class="secao-titulo">Histórico</h2>
     {% if trades %}
-    <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
-    <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de trades encerrados, com rolagem lateral">
-    <table class="tabela-candidatos">
+    <p class="dica-rolagem-tabela dica-rolagem-tabela-conta">Deslize a tabela para o lado para ver as demais colunas.</p>
+    <div class="tabela-wrap tabela-wrap-cards" role="region" tabindex="0" aria-label="Tabela de trades encerrados, com rolagem lateral">
+    <table class="tabela-candidatos tabela-cards-mobile">
       <thead>
         <tr>
           <th>Item</th>
@@ -55,19 +55,19 @@
           <th>Vendeu</th>
           <th>Lucro (líquido)</th>
           <th>Notas</th>
-          <th></th>
+          <th>Ações</th>
         </tr>
       </thead>
       <tbody>
         {% for t in trades %}
         <tr>
-          <td>{{ t.name_fmt }}</td>
-          <td>{{ t.quantity }}</td>
-          <td>{{ t.buy_cost_fmt }}</td>
-          <td>{{ t.sell_price_fmt }}</td>
-          <td class="{{ 'valor-positivo' if t.pnl > 0 else ('valor-negativo' if t.pnl < 0 else '') }}">{{ t.pnl_fmt }}</td>
-          <td>{{ t.notes or "—" }}</td>
-          <td>
+          <td data-label="Item">{{ t.name_fmt }}</td>
+          <td data-label="Qtd">{{ t.quantity }}</td>
+          <td data-label="Comprou">{{ t.buy_cost_fmt }}</td>
+          <td data-label="Vendeu">{{ t.sell_price_fmt }}</td>
+          <td data-label="Lucro (líquido)" class="{{ 'valor-positivo' if t.pnl > 0 else ('valor-negativo' if t.pnl < 0 else '') }}">{{ t.pnl_fmt }}</td>
+          <td data-label="Notas">{{ t.notes or "—" }}</td>
+          <td data-label="Ações">
             <form method="post" action="{{ url_for('trades.remover', index=t.index) }}" class="form-inline">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="botao-link botao-remover">remover</button>

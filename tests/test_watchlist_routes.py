@@ -83,6 +83,9 @@ def test_adicionar_item(client, monkeypatch):
     assert resp.status_code == 302
     pagina = client.get("/conta/watchlist").data.decode("utf-8")
     assert "AK-47" in pagina
+    assert 'class="tabela-candidatos tabela-cards-mobile"' in pagina
+    assert 'class="linha-watchlist"' in pagina
+    assert 'data-label="Regras"' in pagina
 
 
 def test_adicionar_sem_csrf_falha(client, monkeypatch):

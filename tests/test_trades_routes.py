@@ -71,6 +71,9 @@ def test_adicionar_trade(client, monkeypatch):
     pagina = client.get("/conta/trades").data.decode("utf-8")
     assert "Testada em Campo" in pagina
     assert "teste" in pagina
+    assert 'class="tabela-candidatos tabela-cards-mobile"' in pagina
+    assert 'data-label="Comprou"' in pagina
+    assert 'data-label="Ações"' in pagina
 
 
 def test_adicionar_trade_sem_csrf_falha(client, monkeypatch):

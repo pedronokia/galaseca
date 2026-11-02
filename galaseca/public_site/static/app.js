@@ -39,9 +39,19 @@ document.addEventListener("click", function (e) {
   var texto = btn.getAttribute("data-copiar") || btn.getAttribute("data-copiar-link");
   if (!texto || !navigator.clipboard) return;
   navigator.clipboard.writeText(texto).then(function () {
-    var original = btn.textContent;
-    btn.textContent = "✓";
-    setTimeout(function () { btn.textContent = original; }, 1200);
+    var label = btn.querySelector(".texto-copiar");
+    if (!label) return;
+    var original = label.textContent;
+    var originalAria = btn.getAttribute("aria-label");
+    label.textContent = "Copiado";
+    btn.classList.add("copiado");
+    btn.setAttribute("aria-label", "Copiado");
+    setTimeout(function () {
+      label.textContent = original;
+      btn.classList.remove("copiado");
+      if (originalAria) btn.setAttribute("aria-label", originalAria);
+      else btn.removeAttribute("aria-label");
+    }, 1200);
   }).catch(function () {});
 });
 
@@ -197,14 +207,19 @@ document.addEventListener("keydown", function (e) {
     try { localStorage.setItem(CHAVE, JSON.stringify(todos)); } catch (e) {}
   }
   function pintarBotao(btn, favoritado) {
-    btn.textContent = btn.textContent.replace(/^[☆★]/, favoritado ? "★" : "☆");
     btn.classList.toggle("favoritado", favoritado);
+    btn.setAttribute("aria-pressed", String(favoritado));
+    var nome = btn.getAttribute("data-favorito-label") || btn.getAttribute("data-favorito");
+    btn.setAttribute(
+      "aria-label",
+      (favoritado ? "Remover " : "Favoritar ") + nome + (favoritado ? " dos favoritos" : "")
+    );
   }
   function aplicarEstadoInicial() {
     var favoritos = lerTudo();
     document.querySelectorAll(".botao-favorito").forEach(function (btn) {
       var item = btn.getAttribute("data-favorito");
-      if (favoritos[item]) pintarBotao(btn, true);
+      pintarBotao(btn, !!favoritos[item]);
     });
   }
   try { aplicarEstadoInicial(); } catch (e) {}
@@ -219,7 +234,7 @@ document.addEventListener("keydown", function (e) {
     if (!texto || !lista) return;
     lista.textContent = "";
     if (!nomes.length) {
-      texto.textContent = "Nenhum item favoritado ainda — clique na ☆ ao lado de um item pra favoritar.";
+      texto.textContent = "Nenhum item favoritado ainda — use o botão Favoritar ao lado de um item.";
       lista.hidden = true;
       return;
     }
@@ -266,7 +281,8 @@ document.addEventListener("keydown", function (e) {
         if (!escondida) algumVisivel = true;
       });
       var textoBotao = document.getElementById("texto-botao-favoritos");
-      if (textoBotao) textoBotao.textContent = ativo ? "★ Todos os itens" : "☆ Só favoritos";
+      if (textoBotao) textoBotao.textContent = ativo ? "Todos os itens" : "Só favoritos";
+      botao.setAttribute("aria-pressed", String(ativo));
       var semNenhum = ativo && !algumVisivel;
       // Sem linha visível, o cabeçalho da tabela sozinho só ocupava espaço.
       document.querySelectorAll("table.tabela-candidatos").forEach(function (t) {
@@ -358,7 +374,17 @@ document.addEventListener("keydown", function (e) {
       var selo = document.createElement("span");
       selo.className = "selo-mudou-nota " + (subiu ? "tendencia-alta" : "tendencia-baixa");
       selo.title = "Nota " + (subiu ? "subiu" : "caiu") + " de " + antes + " pra " + nota + " desde sua última visita";
-      selo.textContent = (subiu ? " ▲" : " ▼") + Math.abs(nota - antes);
+      selo.setAttribute("aria-label", "Nota " + (subiu ? "subiu" : "caiu") + " " + Math.abs(nota - antes) + " pontos desde sua última visita");
+      var seta = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      seta.setAttribute("class", "icone-ui icone-ui-seta-" + (subiu ? "cima" : "baixo"));
+      seta.setAttribute("viewBox", "0 0 24 24");
+      seta.setAttribute("aria-hidden", "true");
+      seta.setAttribute("focusable", "false");
+      var tracado = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      tracado.setAttribute("d", subiu ? "m18 15-6-6-6 6M12 9v12" : "m18 9-6 6-6-6m6 6V3");
+      seta.appendChild(tracado);
+      selo.appendChild(seta);
+      selo.appendChild(document.createTextNode(" " + Math.abs(nota - antes)));
       celulaNota.appendChild(selo);
     });
     if (Object.keys(atual).length) localStorage.setItem(CHAVE, JSON.stringify(atual));
@@ -414,7 +440,9 @@ if ("serviceWorker" in navigator) {
   }
   document.addEventListener("scroll", atualizar, { passive: true });
   botao.addEventListener("click", function () {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    var reduzirMovimento = window.matchMedia
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduzirMovimento ? "auto" : "smooth" });
   });
   try { atualizar(); } catch (e) {}
 })();

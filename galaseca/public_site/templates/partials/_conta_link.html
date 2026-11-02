@@ -1,3 +1,11 @@
+{% from "partials/_icons.html" import icone %}
+<nav class="nav-principal" aria-label="Navegação principal">
+  <a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} aria-current="page"{% endif %}>Início</a>
+  <a href="{{ url_for('ranking_page') }}"{% if request.endpoint == 'ranking_page' %} aria-current="page"{% endif %}>Ranking</a>
+  <a href="{{ url_for('metodo') }}"{% if request.endpoint == 'metodo' %} aria-current="page"{% endif %}>Método</a>
+  <a href="{{ url_for('faq') }}"{% if request.endpoint == 'faq' %} aria-current="page"{% endif %}>FAQ</a>
+  <a href="{{ url_for('status') }}"{% if request.endpoint == 'status' %} aria-current="page"{% endif %}>Status</a>
+</nav>
 {% if session.steamid %}
   <span class="barra-acoes">
     <nav class="conta-nav">
@@ -11,7 +19,7 @@
       {% endif %}
       <span class="conta-nome">{{ usuario.persona_name if usuario and usuario.persona_name else "Minha conta" }}</span>
     </a>
-    <a class="conta-sair" href="{{ url_for('account.logout') }}" title="Sair" aria-label="Sair">⏻</a>
+    <a class="conta-sair" href="{{ url_for('account.logout') }}" title="Sair" aria-label="Sair">{{ icone("sair") }}</a>
   </span>
 {% else %}
   <span class="entrar-cta">

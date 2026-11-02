@@ -42,32 +42,32 @@
 
     <h2 class="secao-titulo">Itens acompanhados</h2>
     {% if items %}
-    <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
-    <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de itens acompanhados, com rolagem lateral">
-    <table class="tabela-candidatos">
+    <p class="dica-rolagem-tabela dica-rolagem-tabela-conta">Deslize a tabela para o lado para ver as demais colunas.</p>
+    <div class="tabela-wrap tabela-wrap-cards" role="region" tabindex="0" aria-label="Tabela de itens acompanhados, com rolagem lateral">
+    <table class="tabela-candidatos tabela-cards-mobile">
       <thead>
         <tr>
           <th>Item</th>
           <th>Preço</th>
           <th>Regras</th>
           <th>Status</th>
-          <th></th>
+          <th>Ações</th>
         </tr>
       </thead>
       <tbody>
         {% for it in items %}
-        <tr>
-          <td>{{ it.name_fmt }}</td>
-          <td>{{ it.price_fmt }}</td>
-          <td>{{ it.rules_resumo }}</td>
-          <td>
+        <tr class="linha-watchlist">
+          <td data-label="Item">{{ it.name_fmt }}</td>
+          <td data-label="Preço">{{ it.price_fmt }}</td>
+          <td data-label="Regras">{{ it.rules_resumo }}</td>
+          <td data-label="Status">
             {% if it.disparado %}
               <span class="badge-disparado" title="{{ it.alertas|map(attribute='label')|join('; ') }}">dispararia agora</span>
             {% else %}
               <span class="status-muted">sem gatilho agora</span>
             {% endif %}
           </td>
-          <td>
+          <td data-label="Ações">
             <form method="post" action="{{ url_for('watchlist.remover', name=it.name) }}" class="form-inline">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="botao-link botao-remover">remover</button>

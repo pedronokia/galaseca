@@ -10,7 +10,7 @@
   --border: #3d5a73;
   --text: #c6d4df;
   --text-bright: #ffffff;
-  --text-muted: #8f98a0;
+  --text-muted: #c1ccd6;
   --accent: #66c0f4;
   --accent-bright: #a4d8fb;
   /* positive/warn: verde-limão e âmbar originais, de volta por pedido
@@ -54,6 +54,37 @@ body {
   font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   line-height: 1.5;
 }
+
+/* Ícones locais mantêm o mesmo traço e alinhamento em todos os sistemas. */
+.icone-ui {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.18em;
+}
+
+.icone-ui-favorito {
+  fill: none;
+  transition: fill 0.15s ease;
+}
+
+.icone-ui[hidden] { display: none; }
+.botao-favorito.favoritado .icone-ui-favorito { fill: currentColor; }
+.icone-ui-aviso { margin-right: 5px; }
+.link-com-seta {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 5px;
+}
+.icone-tendencia .icone-ui,
+.link-com-seta .icone-ui { width: 0.95em; height: 0.95em; }
 
 a { color: var(--accent); transition: color 0.15s ease; }
 a:hover { color: var(--accent-bright); }
@@ -188,10 +219,47 @@ header.topo h1 {
 
 .topo-linha {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   min-height: 36px;
+}
+
+.nav-principal {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav-principal a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 8px 9px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav-principal a:hover,
+.nav-principal a[aria-current="page"] {
+  color: var(--text-bright);
+  background: var(--surface);
+}
+
+.nav-principal a[aria-current="page"] {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.nav-principal a:focus-visible,
+.rodape-nav-grupo a:focus-visible {
+  outline-offset: -2px;
 }
 
 .barra-acoes {
@@ -208,6 +276,9 @@ header.topo h1 {
 }
 
 .conta-nav a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 600;
@@ -233,6 +304,7 @@ header.topo h1 {
 }
 
 .conta-pill {
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -263,12 +335,11 @@ header.topo h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 0.95rem;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
@@ -285,7 +356,9 @@ header.topo h1 {
    lugar fixo da tela (ver comentário sobre "só devia existir UM
    botão de destaque por tela", 2026-10-27). */
 .conta-link-entrar {
-  display: inline-block;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
   color: var(--bg);
   background: var(--accent);
   border: 1px solid var(--accent);
@@ -363,6 +436,11 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
+}
+
+table.tabela-cards-mobile tbody tr.linha-watchlist {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 .status-erro {
@@ -478,6 +556,8 @@ main {
   font-weight: 600;
   white-space: nowrap;
 }
+
+.menu-acoes-item-toggle .icone-ui { width: 20px; height: 20px; }
 
 .tabela-wrap {
   overflow-x: auto;
@@ -708,6 +788,9 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 }
 
 .botao-copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   background: none;
   border: none;
   color: var(--text-muted);
@@ -717,6 +800,12 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   border-radius: var(--radius-md);
   flex-shrink: 0;
 }
+
+.botao-copiar .icone-ui { width: 16px; height: 16px; }
+.botao-copiar .icone-ui-check { display: none; }
+.botao-copiar.copiado .icone-ui-copiar { display: none; }
+.botao-copiar.copiado .icone-ui-check { display: inline-block; }
+.botao-copiar.copiado { color: var(--positive); }
 
 .lista-acoes-item .botao-copiar {
   font: inherit;
@@ -1057,8 +1146,56 @@ footer.rodape {
 
 footer.rodape .versao {
   margin-top: 8px;
-  opacity: 0.6;
   text-align: center;
+}
+
+.rodape-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 20px 0 16px;
+}
+
+.rodape-nav-grupo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.rodape-nav-grupo h2 {
+  margin: 0 8px 4px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rodape-nav-grupo a {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.rodape-nav-grupo a:hover,
+.rodape-nav-grupo a[aria-current="page"] {
+  color: var(--text-bright);
+  background: var(--bg-elevated);
+}
+
+.rodape-nav-grupo a[aria-current="page"] {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.status-vazio .botao-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin-top: 6px;
 }
 
 /* ── Filtros e paginação ─────────────────────────────── */
@@ -1476,6 +1613,63 @@ footer.rodape .versao {
   margin: 4px 0 0;
 }
 
+.indice-glossario {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+
+.indice-glossario a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 6px 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  text-decoration: none;
+}
+
+.indice-glossario a:hover {
+  color: var(--text-bright);
+  background: var(--surface-hover);
+}
+
+.indice-glossario a:focus-visible {
+  outline-offset: 2px;
+}
+
+.pagina-glossario dl { margin: 0; }
+
+.pagina-glossario dt {
+  margin: 12px 0 0;
+  padding: 14px 16px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  scroll-margin-top: 16px;
+}
+
+.pagina-glossario dt:first-child { margin-top: 0; }
+
+.pagina-glossario dt:target {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pagina-glossario dd {
+  margin: 0;
+  padding: 4px 16px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
 .pagina-texto .secao-titulo {
   color: var(--text);
   font-size: 1.3rem;
@@ -1530,6 +1724,9 @@ footer.rodape .versao {
 
 /* ── Favoritos ────────────────────────────────────────── */
 .botao-favorito {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-muted);
@@ -1545,13 +1742,20 @@ footer.rodape .versao {
   flex-shrink: 0;
 }
 
+.botao-favorito .icone-ui { width: 18px; height: 18px; }
+
 .botao-favorito:hover { background: var(--surface-hover); color: var(--warn); }
 .botao-favorito.favoritado { color: var(--warn); }
 #botao-favoritos.ativo { border-color: var(--warn); color: var(--warn); }
+#botao-favoritos .icone-ui { width: 17px; height: 17px; }
+#botao-favoritos.ativo .icone-ui-favorito { fill: currentColor; }
 
 /* No detalhe o botão tem texto ("☆ Favoritar"); os 28px fixos da tabela,
    pensados só pra estrela, jogavam a ☆ numa linha acima do texto. */
 .pagina-item .botao-favorito {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   width: auto;
   height: auto;
   padding: 0 4px;
@@ -1708,6 +1912,7 @@ footer.rodape .versao {
 }
 
 .botao-topo:hover { background: var(--accent-bright); }
+.botao-topo .icone-ui { width: 20px; height: 20px; }
 
 /* ── Contagem de favoritos ────────────────────────────── */
 .contagem-favoritos[hidden] { display: none; }
@@ -1755,9 +1960,27 @@ footer.rodape .versao {
     gap: 8px;
   }
 
+  .nav-principal {
+    width: 100%;
+  }
+
+  .nav-principal a {
+    min-height: 44px;
+    padding: 8px;
+    font-size: 0.8rem;
+  }
+
   .barra-acoes {
     flex-wrap: wrap;
     row-gap: 6px;
+  }
+
+  .conta-nome {
+    display: inline-block;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .conta-nav a {
@@ -1904,17 +2127,149 @@ footer.rodape .versao {
     flex-direction: column;
     gap: 8px;
   }
+
+  .tabela-wrap-cards { overflow: visible; }
+
+  table.tabela-cards-mobile {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  table.tabela-cards-mobile thead { display: none; }
+
+  table.tabela-cards-mobile tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  table.tabela-cards-mobile tbody tr:not(.linha-regras) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 8px;
+    padding: 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+  }
+
+  table.tabela-cards-mobile tbody td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 8px;
+    border: 0;
+  }
+
+  table.tabela-cards-mobile tbody td::before {
+    content: attr(data-label);
+    margin-bottom: 4px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  table.tabela-cards-mobile tbody td[data-label="Item"],
+  table.tabela-cards-mobile tbody td[data-label="Ações"] {
+    grid-column: 1 / -1;
+  }
+
+  table.tabela-cards-mobile .form-inline {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  table.tabela-cards-mobile .input-compacto { flex: 1 1 90px; }
+
+  table.tabela-cards-mobile .botao-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  table.tabela-cards-mobile tbody tr.linha-regras {
+    display: block;
+    margin-top: -12px;
+    padding: 0 8px 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-top: 0;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  }
+
+  table.tabela-cards-mobile tbody tr.linha-regras td {
+    display: block;
+    padding: 0 8px 8px;
+  }
+
+  table.tabela-cards-mobile tbody tr.linha-regras td::before { content: none; }
+
+  table.tabela-cards-mobile .linha-regras summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
 }
 
-/* 641-1023px: só a tabela principal (index) precisa da dica, porque
-   abaixo de 640px ela vira cards empilhados (ver .pagina-inicial
-   table.tabela-itens) -- a rolagem lateral some, a dica não se aplica
-   mais. As outras páginas com tabela (ranking, extrato, watchlist,
-   etc.) não têm esse modo cards: a tabela rola lateralmente em
-   QUALQUER largura estreita, celular incluso -- achado 2026-10-31
-   revendo a página de ranking num celular: sem a dica abaixo de
-   641px, Nota/Posição ficavam fora da tela sem nenhuma pista de que
-   dava pra arrastar a tabela pro lado. */
+@media (min-width: 641px) and (max-width: 960px) {
+  .topo-linha {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 12px;
+  }
+
+  .topo-linha > .titulo-logo { grid-column: 1; grid-row: 1; }
+  .topo-linha > .nav-principal { grid-column: 1 / -1; grid-row: 2; }
+
+  .topo-linha > .barra-acoes,
+  .topo-linha > .entrar-cta {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 760px) {
+  header.topo { position: static; }
+
+  .topo-linha > .barra-acoes,
+  .topo-linha > .entrar-cta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .topo-linha > .barra-acoes {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .conta-nav { flex-wrap: wrap; }
+  .conta-pill { min-width: 0; }
+  .conta-nome {
+    display: inline-block;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topo-linha > .nav-principal { grid-row: 3; }
+}
+
+/* Tabelas que ainda rolam horizontalmente mostram uma dica em telas
+   estreitas; as tabelas da conta usam cartões no celular. */
 @media (max-width: 1023px) {
   .dica-rolagem-tabela {
     display: block;
@@ -1926,6 +2281,7 @@ footer.rodape .versao {
 
 @media (max-width: 640px) {
   .pagina-inicial .dica-rolagem-tabela { display: none; }
+  .dica-rolagem-tabela-conta { display: none; }
 }
 
 /* Telas bem estreitas (celular em pé, ~360-400px): o pill de conta
@@ -1942,6 +2298,17 @@ footer.rodape .versao {
     text-overflow: ellipsis;
     white-space: nowrap;
     vertical-align: middle;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
 

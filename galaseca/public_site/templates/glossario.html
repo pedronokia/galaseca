@@ -43,71 +43,87 @@
     <p class="subtitulo">O que cada termo significa.</p>
   </header>
 
-  <main id="conteudo" class="pagina-texto">
+  <main id="conteudo" class="pagina-texto pagina-glossario">
+    <h2 class="secao-titulo">Ir direto a um termo</h2>
+    <nav class="indice-glossario" aria-label="Índice do glossário">
+      <a href="#termo-steam-market">Steam Community Market</a>
+      <a href="#termo-desgaste">Desgaste</a>
+      <a href="#termo-stattrak">StatTrak™</a>
+      <a href="#termo-souvenir">Souvenir</a>
+      <a href="#termo-float">Float</a>
+      <a href="#termo-nota">Nota</a>
+      <a href="#termo-preco-tipico">Preço típico</a>
+      <a href="#termo-caixa-descontinuada">Caixa/Cápsula descontinuada</a>
+      <a href="#termo-risco">Risco</a>
+      <a href="#termo-liquidez">Liquidez</a>
+      <a href="#termo-trade-up">Trade-up</a>
+      <a href="#termo-covert">Covert</a>
+      <a href="#termo-procura-oferta">Procura × Oferta</a>
+    </nav>
     <dl>
-      <dt><strong>Steam Community Market</strong></dt>
+      <dt id="termo-steam-market" tabindex="-1"><strong>Steam Community Market</strong></dt>
       <dd>O mercado oficial da própria Steam pra comprar e vender itens do
       jogo, incluindo skins de CS2. O galaseca só lê os preços públicos de
       lá -- não vende nada, não cobra taxa, não é afiliado à Valve.</dd>
 
-      <dt><strong>Desgaste</strong></dt>
+      <dt id="termo-desgaste" tabindex="-1"><strong>Desgaste</strong></dt>
       <dd>O estado visual de uma skin: Nova de Fábrica, Pouco Usada, Testada
       em Campo, Bem Desgastada ou Veterana de Guerra -- nessa ordem, da
       menos pra mais desgastada. Afeta o preço (geralmente quanto menos
       desgastada, mais cara).</dd>
 
-      <dt><strong>StatTrak™</strong></dt>
+      <dt id="termo-stattrak" tabindex="-1"><strong>StatTrak™</strong></dt>
       <dd>Variante de uma skin que conta abates/rounds feitos com ela.
       Costuma custar mais que a versão normal do mesmo item.</dd>
 
-      <dt><strong>Souvenir</strong></dt>
+      <dt id="termo-souvenir" tabindex="-1"><strong>Souvenir</strong></dt>
       <dd>Variante de arma que só sai de cápsulas de torneio (compradas
       durante partidas assistidas em campeonatos oficiais), sem StatTrak.
       Geralmente mais rara e mais cara que a versão normal.</dd>
 
-      <dt><strong>Float</strong></dt>
+      <dt id="termo-float" tabindex="-1"><strong>Float</strong></dt>
       <dd>Número entre 0 e 1 que define o desgaste exato de um item
       específico dentro da faixa do seu "Desgaste" (acima). O galaseca não
       mostra float individual -- só o preço agregado por faixa de
       desgaste.</dd>
 
-      <dt><strong>Nota</strong></dt>
+      <dt id="termo-nota" tabindex="-1"><strong>Nota</strong></dt>
       <dd>Número de 0 a 100 que o galaseca calcula pra cada item,
       resumindo sinais factuais do mercado de agora -- não é previsão. Ver
       <a href="{{ url_for('metodo') }}">como a nota funciona</a>.</dd>
 
-      <dt><strong>Preço típico</strong></dt>
+      <dt id="termo-preco-tipico" tabindex="-1"><strong>Preço típico</strong></dt>
       <dd>A mediana dos preços recentes do item -- o "preço normal" dele,
       usado como referência pra saber se o preço atual está caro ou
       barato.</dd>
 
-      <dt><strong>Caixa/Cápsula descontinuada</strong></dt>
+      <dt id="termo-caixa-descontinuada" tabindex="-1"><strong>Caixa/Cápsula descontinuada</strong></dt>
       <dd>Caixa ou cápsula que parou de ser sorteada no jogo (saiu do
       "drop pool"). Historicamente, itens de caixas descontinuadas tendem a
       valorizar mais que os de caixas ainda ativas.</dd>
 
-      <dt><strong>Risco</strong></dt>
+      <dt id="termo-risco" tabindex="-1"><strong>Risco</strong></dt>
       <dd>No galaseca, mede só uma coisa: a chance de o preço ter subido
       rápido e possivelmente artificialmente recentemente. Não cobre outros
       tipos de risco.</dd>
 
-      <dt><strong>Liquidez</strong></dt>
+      <dt id="termo-liquidez" tabindex="-1"><strong>Liquidez</strong></dt>
       <dd>Quanto tempo o estoque à venda levaria pra esvaziar no ritmo de
       negociação recente (estoque dividido pelo volume médio diário).
       Quanto menos dias, mais fácil comprar ou vender rápido pelo preço de
       mercado -- "Baixa liquidez"/"Ilíquida" não significa que o item não
       vende, só que pode demorar mais.</dd>
 
-      <dt><strong>Trade-up</strong></dt>
+      <dt id="termo-trade-up" tabindex="-1"><strong>Trade-up</strong></dt>
       <dd>Mecânica do próprio CS2: trocar 10 skins da mesma raridade por
       uma skin de raridade superior (aleatória, dentro de um conjunto
       possível).</dd>
 
-      <dt><strong>Covert</strong></dt>
+      <dt id="termo-covert" tabindex="-1"><strong>Covert</strong></dt>
       <dd>Uma das raridades de skin no CS2 (a mais alta entre as "comuns",
       antes das facas/luvas). Aparece com borda vermelha no jogo.</dd>
 
-      <dt><strong>Procura × Oferta</strong></dt>
+      <dt id="termo-procura-oferta" tabindex="-1"><strong>Procura × Oferta</strong></dt>
       <dd>Quantos itens são vendidos por dia comparado a quantos estão à
       venda agora. Abaixo de 1 significa mais gente vendendo do que
       comprando -- um dos fatores que compõem a nota.</dd>

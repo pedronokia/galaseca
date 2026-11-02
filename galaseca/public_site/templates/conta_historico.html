@@ -27,9 +27,9 @@
 
     <h2 class="secao-titulo">Pontos registrados</h2>
     {% if pontos %}
-    <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
-    <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de pontos registrados do histórico, com rolagem lateral">
-    <table class="tabela-candidatos">
+    <p class="dica-rolagem-tabela dica-rolagem-tabela-conta">Deslize a tabela para o lado para ver as demais colunas.</p>
+    <div class="tabela-wrap tabela-wrap-cards" role="region" tabindex="0" aria-label="Tabela de pontos registrados do histórico, com rolagem lateral">
+    <table class="tabela-candidatos tabela-cards-mobile">
       <thead>
         <tr>
           <th>Data</th>
@@ -39,8 +39,8 @@
       <tbody>
         {% for p in pontos %}
         <tr>
-          <td>{{ p.data }}</td>
-          <td>{{ p.total_fmt }}</td>
+          <td data-label="Data">{{ p.data }}</td>
+          <td data-label="Valor de mercado">{{ p.total_fmt }}</td>
         </tr>
         {% endfor %}
       </tbody>

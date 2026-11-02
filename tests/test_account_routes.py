@@ -200,6 +200,9 @@ def test_adicionar_posicao(client, monkeypatch):
     assert resp.status_code == 302
     pagina = client.get("/conta").data.decode("utf-8")
     assert "Testada em Campo" in pagina  # localize_name
+    assert 'class="tabela-candidatos tabela-cards-mobile"' in pagina
+    assert 'data-label="Custo"' in pagina
+    assert 'data-label="Lucro (sem taxa)"' in pagina
 
 
 def test_adicionar_posicao_sem_csrf_falha(client, monkeypatch):

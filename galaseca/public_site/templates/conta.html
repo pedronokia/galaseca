@@ -48,9 +48,9 @@
 
     <h2 class="secao-titulo">Suas posições</h2>
     {% if avaliacao.rows %}
-    <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
-    <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de suas posições, com rolagem lateral">
-    <table class="tabela-candidatos">
+    <p class="dica-rolagem-tabela dica-rolagem-tabela-conta">Deslize a tabela para o lado para ver as demais colunas.</p>
+    <div class="tabela-wrap tabela-wrap-cards" role="region" tabindex="0" aria-label="Tabela de suas posições, com rolagem lateral">
+    <table class="tabela-candidatos tabela-cards-mobile">
       <thead>
         <tr>
           <th>Item</th>
@@ -58,26 +58,26 @@
           <th>Custo</th>
           <th>Preço</th>
           <th>Lucro (sem taxa)</th>
-          <th></th>
+          <th>Ações</th>
         </tr>
       </thead>
       <tbody>
         {% for row in avaliacao.rows %}
         <tr>
-          <td>{{ row.name_fmt }}</td>
-          <td>{{ row.quantity }}</td>
-          <td>
+          <td data-label="Item">{{ row.name_fmt }}</td>
+          <td data-label="Qtd">{{ row.quantity }}</td>
+          <td data-label="Custo">
             <form method="post" action="{{ url_for('account.editar_custo', name=row.name) }}" class="form-inline">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <input type="number" name="cost" step="0.01" min="0" value="{{ row.cost if row.cost else '' }}" class="input-compacto" aria-label="Novo custo de {{ row.name_fmt }}, em reais">
               <button type="submit" class="botao-link">salvar</button>
             </form>
           </td>
-          <td>{{ row.price_fmt }}</td>
-          <td class="{{ 'valor-positivo' if row.has_cost and row.pnl and row.pnl > 0 else ('valor-negativo' if row.has_cost and row.pnl and row.pnl < 0 else '') }}">
+          <td data-label="Preço">{{ row.price_fmt }}</td>
+          <td data-label="Lucro (sem taxa)" class="{{ 'valor-positivo' if row.has_cost and row.pnl and row.pnl > 0 else ('valor-negativo' if row.has_cost and row.pnl and row.pnl < 0 else '') }}">
             {{ row.pnl_fmt if row.has_cost and row.pnl is not none else "—" }}
           </td>
-          <td>
+          <td data-label="Ações">
             <form method="post" action="{{ url_for('account.remover_posicao', name=row.name) }}" class="form-inline">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="botao-link botao-remover">remover</button>
