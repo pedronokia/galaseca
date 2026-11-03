@@ -9,7 +9,11 @@
   --surface-hover: #32587a;
   --border: #3d5a73;
   --text: #c6d4df;
-  --text-bright: #ffffff;
+  /* Branco puro sobre navy "vibra" (contraste alto demais) -- achado
+     2026-11-03, revisão de direção visual. Off-white com leve matiz
+     azulado, na mesma família de --text/--accent-bright em vez de
+     neutro puro; contraste contra --bg continua bem acima de AAA. */
+  --text-bright: #eef3f8;
   --text-muted: #c1ccd6;
   --accent: #66c0f4;
   --accent-bright: #a4d8fb;
@@ -43,6 +47,26 @@
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+
+  /* Poppins já é a fonte da marca (logo em _logo.html, convertido em
+     contorno) -- até 2026-11-03 só existia ali: todo título da página
+     usava a mesma stack do corpo, sem nenhuma personalidade própria
+     (achado da revisão de direção visual). Usar Poppins nos títulos
+     também fecha o par logo+título em vez de introduzir uma terceira
+     fonte nova. Auto-hospedada (ver fonts/), nunca Google Fonts: o CSP
+     do site é `style-src 'self'`/sem font-src externo de propósito. */
+  --font-heading: "Poppins", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* Só o peso 600 -- único usado hoje (.secao-titulo). Pesos extras sem
+   uso real custariam licença/HTTP de graça; acrescenta outro @font-face
+   se um elemento futuro precisar de outro peso. */
+@font-face {
+  font-family: "Poppins";
+  src: url("fonts/Poppins-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
 }
 
 * { box-sizing: border-box; }
@@ -1321,7 +1345,12 @@ footer.rodape .versao {
   flex-direction: column;
   gap: 4px;
   flex: 1 1 180px;
-  background: var(--bg-elevated);
+  /* --bg-elevated é usado em ~14 lugares no site (caixa de filtro,
+     cabeçalho de tabela, etc.) -- com ele aqui também, o card não se
+     diferenciava de nada ao redor, achava "plano" (achado 2026-11-03,
+     revisão de direção visual). --surface é a próxima camada real de
+     elevação já prevista na paleta, só não estava sendo usada aqui. */
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 14px 16px;
@@ -1368,6 +1397,8 @@ footer.rodape .versao {
 .valor-negativo { color: var(--danger); }
 
 .secao-titulo {
+  font-family: var(--font-heading);
+  font-weight: 600;
   font-size: 1.1rem;
   margin: 28px 0 10px;
   color: var(--text-bright);
@@ -1867,6 +1898,19 @@ footer.rodape .versao {
 
 .celula-comparar-cabecalho {
   text-align: center;
+}
+
+/* table.tabela-candidatos th (rótulo de coluna genérico, uppercase) e
+   .celula-comparar-cabecalho empatavam em especificidade -- o primeiro
+   vinha depois no arquivo e ganhava, deixando o NOME do item ("AK-47 |
+   Redline") gritado em maiúsculas como se fosse um rótulo de coluna
+   (achado 2026-11-03, revisão de direção visual). Mesmo truque de
+   combinar o seletor do th de origem já usado nos gotchas de
+   .card-valor/.risco-* e .card-valor/.liquidez-* desta folha. */
+table.tabela-candidatos th.celula-comparar-cabecalho {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.95rem;
 }
 
 .celula-comparar-cabecalho .icone-item {

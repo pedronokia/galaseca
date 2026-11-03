@@ -46,3 +46,25 @@ def test_serie_constante_nao_quebra():
     serie = [{"ts": i, "total": 50.0} for i in range(3)]
     svg = charts.line_chart_svg(serie)
     assert svg.startswith("<svg")
+
+
+def test_sem_area_fill_nao_tem_polygon_nem_gradiente():
+    svg = charts.line_chart_svg([{"total": 1}, {"total": 2}])
+    assert "<polygon" not in svg
+    assert "<defs" not in svg
+
+
+def test_area_fill_acrescenta_polygon_com_gradiente(tmp_path=None):
+    svg = charts.line_chart_svg(
+        [{"total": 1}, {"total": 2}], area_fill=True)
+    assert "<polygon" in svg
+    assert "<linearGradient" in svg
+    assert 'stop-color="currentColor"' in svg
+    # a linha (polyline) continua por cima do preenchimento, não some.
+    assert "<polyline" in svg
+
+
+def test_area_fill_com_menos_de_2_pontos_continua_vazio():
+    assert charts.line_chart_svg([], area_fill=True) == ""
+    assert charts.line_chart_svg(
+        [{"ts": 1, "total": 10.0}], area_fill=True) == ""

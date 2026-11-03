@@ -349,7 +349,8 @@ def create_app() -> Flask:
         grafico = charts.line_chart_svg(
             [{"total": p["price"]}
              for p in _filtra_historico_por_periodo(hist, periodo)
-             if p.get("price")])
+             if p.get("price")],
+            area_fill=True)
         # Período com poucos pontos: `grafico` pode ficar vazio mesmo
         # havendo histórico (90d filtrado demais, por exemplo). O seletor
         # continua aparecendo nesse caso -- só o gráfico some, pra deixar
