@@ -1592,6 +1592,48 @@ def test_item_detail_periodo_invalido_cai_no_padrao(client, monkeypatch, tmp_pat
     assert "grafico-historico" in body
 
 
+def test_item_detail_grafico_tem_preenchimento_em_gradiente(client, monkeypatch, tmp_path):
+    """Achado 2026-11-03 (revisão de direção visual): uma linha nua sem
+    nenhum preenchimento "parece wireframe" -- só no gráfico grande da
+    página do item (não no sparkline pequeno da tabela, que continua
+    sem fill de propósito)."""
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 2 * 86400, "price": 10.0},
+        {"ts": agora - 1 * 86400, "price": 12.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert "<linearGradient" in body
+    assert "<polygon" in body
+
+
+def test_index_sparkline_nao_tem_preenchimento_em_gradiente(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 2 * 86400, "price": 10.0},
+        {"ts": agora - 1 * 86400, "price": 12.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/").data.decode("utf-8")
+    assert "<linearGradient" not in body
+    assert "<polygon" not in body
+
+
 def test_item_detail_sem_historico_nao_mostra_seletor(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
