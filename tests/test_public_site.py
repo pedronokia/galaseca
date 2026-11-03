@@ -57,14 +57,19 @@ def test_navegacao_principal_indica_pagina_atual(client):
     assert 'href="/faq"' in nav
 
 
-def test_rodape_agrupa_links_em_alvos_de_toque(client):
+def test_rodape_mostra_links_simples(client):
+    """Achado 2026-11-03 (pedido do usuário): a versão em grid de 3
+    colunas ("Explorar"/"Entenda"/"Mais") tinha uma caixa de destaque
+    estranha em volta do link da página atual e ficava desproporcional
+    no celular (2 colunas desalinhadas, rolagem longa só pra navegação)
+    -- voltou a ser uma lista simples em linha, como era antes dessa
+    rodada."""
     body = client.get("/").data.decode("utf-8")
-    nav = body.split('class="rodape-nav"', 1)[1].split("</nav>", 1)[0]
-    assert 'aria-label="Navegação do site"' in body
-    assert "Explorar" in nav
-    assert "Entenda" in nav
-    assert "Mais" in nav
-    assert 'href="/privacidade"' in nav
+    rodape = body.split("<footer", 1)[1]
+    assert 'href="/privacidade"' in rodape
+    assert 'href="/ranking"' in rodape
+    assert "Sugerir melhoria" in rodape
+    assert "rodape-nav" not in body
 
 
 def test_movimento_reduzido_respeitado_no_css_e_no_botao_de_topo(client):

@@ -1,26 +1,4 @@
 <p class="versao">galaseca v{{ versao }}</p>
 <p class="versao">Hoje: {{ visitas_hoje }} acessos · Total: {{ visitas_total }} acessos</p>
-<nav class="rodape-nav" aria-label="Navegação do site">
-  <div class="rodape-nav-grupo">
-    <h2>Explorar</h2>
-    <a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} aria-current="page"{% endif %}>Início</a>
-    <a href="{{ url_for('ranking_page') }}"{% if request.endpoint == 'ranking_page' %} aria-current="page"{% endif %}>Ranking</a>
-    <a href="{{ url_for('status') }}"{% if request.endpoint == 'status' %} aria-current="page"{% endif %}>Status</a>
-  </div>
-  <div class="rodape-nav-grupo">
-    <h2>Entenda</h2>
-    <a href="{{ url_for('sobre') }}"{% if request.endpoint == 'sobre' %} aria-current="page"{% endif %}>Sobre</a>
-    <a href="{{ url_for('metodo') }}"{% if request.endpoint == 'metodo' %} aria-current="page"{% endif %}>Método</a>
-    <a href="{{ url_for('faq') }}"{% if request.endpoint == 'faq' %} aria-current="page"{% endif %}>FAQ</a>
-    <a href="{{ url_for('glossario') }}"{% if request.endpoint == 'glossario' %} aria-current="page"{% endif %}>Glossário</a>
-  </div>
-  <div class="rodape-nav-grupo">
-    <h2>Mais</h2>
-    <a href="{{ url_for('privacidade') }}"{% if request.endpoint == 'privacidade' %} aria-current="page"{% endif %}>Privacidade</a>
-    <a href="{{ url_for('changelog_page') }}"{% if request.endpoint == 'changelog_page' %} aria-current="page"{% endif %}>Mudanças</a>
-    <a href="{{ url_for('api_docs') }}"{% if request.endpoint == 'api_docs' %} aria-current="page"{% endif %}>API</a>
-    <a href="{{ url_for('feed') }}">RSS</a>
-    <a href="https://github.com/pedronokia/galaseca/issues/new" target="_blank" rel="noopener">Sugerir melhoria</a>
-  </div>
-</nav>
+<p class="versao"><a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} aria-current="page"{% endif %}>Início</a> · <a href="{{ url_for('ranking_page') }}"{% if request.endpoint == 'ranking_page' %} aria-current="page"{% endif %}>Ranking</a> · <a href="{{ url_for('sobre') }}"{% if request.endpoint == 'sobre' %} aria-current="page"{% endif %}>Sobre</a> · <a href="{{ url_for('metodo') }}"{% if request.endpoint == 'metodo' %} aria-current="page"{% endif %}>Método</a> · <a href="{{ url_for('faq') }}"{% if request.endpoint == 'faq' %} aria-current="page"{% endif %}>FAQ</a> · <a href="{{ url_for('glossario') }}"{% if request.endpoint == 'glossario' %} aria-current="page"{% endif %}>Glossário</a> · <a href="{{ url_for('privacidade') }}"{% if request.endpoint == 'privacidade' %} aria-current="page"{% endif %}>Privacidade</a> · <a href="{{ url_for('status') }}"{% if request.endpoint == 'status' %} aria-current="page"{% endif %}>Status</a> · <a href="{{ url_for('changelog_page') }}"{% if request.endpoint == 'changelog_page' %} aria-current="page"{% endif %}>Mudanças</a> · <a href="{{ url_for('api_docs') }}"{% if request.endpoint == 'api_docs' %} aria-current="page"{% endif %}>API</a> · <a href="{{ url_for('feed') }}">RSS</a> · <a href="https://github.com/pedronokia/galaseca/issues/new" target="_blank" rel="noopener">Sugerir melhoria</a></p>
 <p class="versao">Criado por <a href="https://steamcommunity.com/profiles/76561199685192075" target="_blank" rel="noopener">nokia</a></p>
