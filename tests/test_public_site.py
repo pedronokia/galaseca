@@ -255,6 +255,50 @@ def test_index_nota_sem_corte_nao_mostra_margem(client, monkeypatch, tmp_path):
     assert "nota-margem" not in celula
 
 
+def test_index_confianca_baixa_vira_selo_ao_lado_da_nota(client, monkeypatch, tmp_path):
+    # achado 2026-11-04: signals.data_quality() era calculado a cada
+    # scan e nunca exibido -- um item com pouco histórico calculava a
+    # MESMA nota que um com dado rico, sem nenhum aviso.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "data_quality": {"confidence": 0.1, "n": 3, "age_days": 60.0,
+                          "level": "low", "label": "Confiança low"}},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
+    assert 'class="selo-confianca-baixa"' in celula
+    assert ">Dado limitado</span>" in celula
+    assert "só 3 pontos de histórico" in celula
+    assert "60 dias atrás" in celula
+
+
+def test_index_confianca_alta_nao_mostra_selo(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "data_quality": {"confidence": 0.9, "n": 180, "age_days": 1.0,
+                          "level": "high", "label": "Confiança high"}},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
+    assert "confianca-baixa" not in celula
+
+
+def test_index_sem_historico_nenhum_mostra_selo_com_texto_proprio(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "data_quality": {"confidence": 0.0, "n": 0, "age_days": None,
+                          "level": "none", "label": "sem dados"}},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
+    assert 'class="selo-confianca-baixa"' in celula
+    assert "sem histórico de preço da Steam" in celula
+
+
 def test_index_risco_medio_vira_selo_ao_lado_da_nota(client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "X", "score": 70, "price": 1.0, "case_label": "",
