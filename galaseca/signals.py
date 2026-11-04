@@ -1093,11 +1093,21 @@ def enhanced_score(verdict: dict, volume: int | None = None,
         _add("mediana", -penalty,
              f"Preço {diff:.0f}% acima do típico (-{penalty_txt})")
 
-    v = verdict.get("verdict", "")
-    if v == "below_median":
-        _add("verdict", 5, "Bônus por estar 5% ou mais abaixo do típico (+5)")
-    elif v == "overpriced":
-        _add("verdict", -5, "Bem acima do preço típico (-5)")
+    # Fator "verdict" (+5 abaixo do típico / -5 acima) REMOVIDO em
+    # 2026-11-04 -- achado de investigação pedida pelo usuário sobre por
+    # que tantos itens batiam 100. `verdict` vem do MESMO `diff_pct` que
+    # já alimenta "mediana" acima (`steam_api.fair_value_verdict`:
+    # below_median é diff_pct <= -5, overpriced é diff_pct > 20) -- todo
+    # item que já ganhava bônus contínuo de mediana por estar abaixo do
+    # típico também ganhava +5 fixo extra só por cruzar o mesmo limiar,
+    # um degrau sem motivo em cima da curva contínua. Diferente de todo
+    # outro fator deste arquivo, este nunca teve comentário de validação
+    # por backtest -- rastreado no git até o commit que criou o arquivo,
+    # nasceu junto com a fórmula contínua de "mediana", não é sobra de
+    # versão antiga. Removido SEM o mesmo rigor de backtest que calibrou
+    # o resto do modelo (nenhum script de backtest sobrou neste
+    # checkout) -- pedido explícito do usuário, ciente disso. Se algum
+    # dia houver como remedir, vale conferir se o degrau fazia falta.
 
     sv = verdict.get("spread_verdict", "")
     if sv == "tight":
