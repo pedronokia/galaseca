@@ -22,6 +22,7 @@ Zero dependência nova: Spearman/Pearson implementados em Python puro
 """
 from __future__ import annotations
 
+import random
 import statistics
 import time
 from typing import Callable
@@ -147,6 +148,39 @@ def spearman(xs: list[float], ys: list[float]) -> "float | None":
     return pearson(_rank(xs), _rank(ys))
 
 
+def bootstrap_ci(xs: list[float], ys: list[float], metodo: Callable = spearman,
+                 n_resamples: int = 1000, confianca: float = 0.95,
+                 seed: "int | None" = None) -> "dict | None":
+    """Intervalo de confiança por bootstrap (resample pareado com
+    reposição) -- mesma técnica de Monte Carlo sugerida por
+    backtesting-frameworks (skill instalada em 2026-11-04) pra responder
+    "essa correlação é real ou cabe dentro do ruído da amostra?", algo
+    que os relatórios ON/OFF desta sessão não tinham: só o ponto
+    estimado, sem faixa de incerteza.
+
+    None se `xs`/`ys` tiverem menos de 2 pontos. Pode devolver um
+    intervalo largo com poucas dezenas de pontos -- isso é o esperado,
+    não um bug: bootstrap não inventa confiança que a amostra não tem.
+    """
+    n = len(xs)
+    if n < 2 or n != len(ys):
+        return None
+    rng = random.Random(seed)
+    valores = []
+    for _ in range(n_resamples):
+        idx = [rng.randrange(n) for _ in range(n)]
+        r = metodo([xs[i] for i in idx], [ys[i] for i in idx])
+        if r is not None:
+            valores.append(r)
+    if not valores:
+        return None
+    valores.sort()
+    cauda = (1 - confianca) / 2
+    lo = valores[max(0, round(cauda * (len(valores) - 1)))]
+    hi = valores[min(len(valores) - 1, round((1 - cauda) * (len(valores) - 1)))]
+    return {"lower": lo, "upper": hi, "n_resamples": len(valores)}
+
+
 def amostras(name: str, price_history: list[dict], is_container: bool,
             horizon_days: float, intervalo_dias: float = 30.0,
             agora: "float | None" = None) -> list[dict]:
@@ -188,7 +222,9 @@ def amostras(name: str, price_history: list[dict], is_container: bool,
 def avaliar(itens: "list[dict]", horizon_days: float,
            intervalo_dias: float = 30.0,
            usar_raw_score: bool = True,
-           agora: "float | None" = None) -> dict:
+           agora: "float | None" = None,
+           bootstrap: int = 0,
+           seed: "int | None" = None) -> dict:
     """Roda `amostras()` em vários itens e agrega num relatório Sp/Pe.
 
     `itens`: [{"name", "price_history", "is_container"}, ...] -- formato
@@ -201,9 +237,21 @@ def avaliar(itens: "list[dict]", horizon_days: float,
     2026-11-04). `False` usa a nota exibida de verdade, pra quem quiser
     medir o efeito do próprio corte.
 
-    Retorna {n, spearman, pearson, horizon_days}. n pequeno (poucas
-    dezenas) não é amostra suficiente pra decisão nenhuma -- é só o que
-    a ferramenta mede, a leitura é de quem chama.
+    `bootstrap`: se > 0, roda `bootstrap_ci()` sobre os pares (score,
+    retorno) com esse número de resamples e inclui `spearman_ci`/
+    `pearson_ci` no retorno. Default 0 (desligado) porque é caro -- cada
+    resample recalcula a correlação do zero, e n aqui costuma ser
+    grande (ver ressalva abaixo). CAVEAT: os pares NÃO são independentes
+    -- várias linhas vêm da mesma série (amostrada a cada `intervalo_
+    dias`) e de variantes-irmãs que se movem juntas no mercado, então
+    esse bootstrap pareado tende a SUBESTIMAR a incerteza real (menos
+    graus de liberdade do que `n` sugere). Útil pra comparar duas
+    rodadas entre si; não é um p-valor rigoroso.
+
+    Retorna {n, spearman, pearson, horizon_days} (+ spearman_ci/
+    pearson_ci se `bootstrap>0`). n pequeno (poucas dezenas) não é
+    amostra suficiente pra decisão nenhuma -- é só o que a ferramenta
+    mede, a leitura é de quem chama.
     """
     linhas = []
     for item in itens:
@@ -215,12 +263,18 @@ def avaliar(itens: "list[dict]", horizon_days: float,
     chave = "raw_score" if usar_raw_score else "score"
     scores = [r[chave] for r in linhas]
     retornos = [r["retorno_pct"] for r in linhas]
-    return {
+    resultado = {
         "n": len(linhas),
         "spearman": spearman(scores, retornos),
         "pearson": pearson(scores, retornos),
         "horizon_days": horizon_days,
     }
+    if bootstrap > 0:
+        resultado["spearman_ci"] = bootstrap_ci(
+            scores, retornos, metodo=spearman, n_resamples=bootstrap, seed=seed)
+        resultado["pearson_ci"] = bootstrap_ci(
+            scores, retornos, metodo=pearson, n_resamples=bootstrap, seed=seed)
+    return resultado
 
 
 def comparar_on_off(itens: "list[dict]", horizon_days: float,

@@ -114,6 +114,41 @@ def test_spearman_lida_com_empates():
     assert backtest.spearman(xs, ys) == pytest.approx(1.0)
 
 
+# ── bootstrap_ci ──────────────────────────────────────────────────
+
+def test_bootstrap_ci_none_amostra_pequena():
+    assert backtest.bootstrap_ci([1], [1]) is None
+
+
+def test_bootstrap_ci_correlacao_perfeita_fica_estreito_em_1():
+    xs = list(range(1, 21))
+    ys = list(range(1, 21))
+    ci = backtest.bootstrap_ci(xs, ys, n_resamples=200, seed=42)
+    assert ci is not None
+    assert ci["lower"] == pytest.approx(1.0, abs=0.01)
+    assert ci["upper"] == pytest.approx(1.0, abs=0.01)
+    assert ci["n_resamples"] == 200
+
+
+def test_bootstrap_ci_amostra_pequena_sem_correlacao_fica_largo():
+    """Com poucos pontos e nenhuma relação real, o IC tem que ser
+    largo -- bootstrap não pode fabricar confiança que a amostra não
+    tem."""
+    rng_xs = [1, 5, 2, 8, 3, 9, 4, 7, 6, 10]
+    rng_ys = [7, 2, 9, 1, 8, 3, 6, 4, 10, 5]  # embaralhado, sem relação
+    ci = backtest.bootstrap_ci(rng_xs, rng_ys, n_resamples=300, seed=1)
+    assert ci is not None
+    assert ci["upper"] - ci["lower"] > 0.5
+
+
+def test_bootstrap_ci_e_deterministico_com_seed():
+    xs = [1, 3, 2, 5, 4, 7, 6, 9, 8, 10]
+    ys = [2, 1, 4, 3, 6, 5, 8, 7, 10, 9]
+    a = backtest.bootstrap_ci(xs, ys, n_resamples=100, seed=7)
+    b = backtest.bootstrap_ci(xs, ys, n_resamples=100, seed=7)
+    assert a == b
+
+
 # ── amostras / avaliar: integração fim-a-fim sintética ───────────
 
 def test_avaliar_detecta_correlacao_sintetica_conhecida():
@@ -145,6 +180,28 @@ def test_avaliar_detecta_correlacao_sintetica_conhecida():
     # signals.py seria sobre PREÇO; aqui é sobre NOTA, que já embute o
     # sinal invertido (nota alta = barato), então o esperado é positivo.
     assert relatorio["spearman"] > 0
+
+
+def test_avaliar_com_bootstrap_inclui_ci():
+    preco_base = 100.0
+
+    def preco_em(i):
+        fase = i % 20
+        if fase == 10:
+            return preco_base * 0.7
+        return preco_base
+
+    serie = _serie_diaria(300, preco_em)
+    itens = [{"name": "AK-47 | Redline (Field-Tested)",
+             "price_history": serie, "is_container": False}]
+    sem_ci = backtest.avaliar(itens, horizon_days=5, intervalo_dias=1.0,
+                              agora=serie[-1]["time"])
+    com_ci = backtest.avaliar(itens, horizon_days=5, intervalo_dias=1.0,
+                              agora=serie[-1]["time"], bootstrap=50, seed=1)
+    assert "spearman_ci" not in sem_ci
+    assert com_ci["spearman_ci"] is not None
+    assert com_ci["spearman_ci"]["lower"] <= com_ci["spearman"] <= com_ci["spearman_ci"]["upper"]
+    assert com_ci["pearson_ci"] is not None
 
 
 def test_avaliar_vazio_sem_itens():
