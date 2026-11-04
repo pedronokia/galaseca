@@ -25,15 +25,28 @@ def csrf_token() -> str:
     return session["csrf_token"]
 
 
+def csrf_valid(token: "str | None") -> bool:
+    """`token` precisa existir: sem isto, uma sessao que NUNCA visitou
+    uma pagina com formulario (entao nunca gerou token) e um form
+    forjado que tambem omite o campo comparariam None == None e
+    passariam -- o cenario exato que o CSRF tenta impedir.
+
+    `secrets.compare_digest` (tempo constante) em vez de `==`/`!=` --
+    achado de auditoria, 2026-11-04: comparar o token assim caractere a
+    caractere deixa vazar, pelo tempo de resposta, em qual posição a
+    tentativa divergiu do valor certo. Risco baixo na prática (ruído de
+    rede atrapalha a medição), mas é a defesa padrão recomendada pra
+    comparação de segredo, e não muda nenhum comportamento."""
+    stored = session.get("csrf_token")
+    if not stored or not token:
+        return False
+    return secrets.compare_digest(token, stored)
+
+
 def csrf_protect(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        token = session.get("csrf_token")
-        # `token` precisa existir: sem isto, uma sessao que NUNCA visitou
-        # uma pagina com formulario (entao nunca gerou token) e um form
-        # forjado que tambem omite o campo comparariam None == None e
-        # passariam -- o cenario exato que o CSRF tenta impedir.
-        if not token or request.form.get("csrf_token") != token:
+        if not csrf_valid(request.form.get("csrf_token")):
             abort(403)
         return view(*args, **kwargs)
     return wrapped
