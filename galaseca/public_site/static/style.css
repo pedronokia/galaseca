@@ -1171,6 +1171,20 @@ table.tabela-candidatos tbody tr:hover .nota {
 .nota-media { color: #2b1d04; background: var(--warn); }
 .nota-baixa { color: var(--text); background: var(--surface); }
 
+/* Margem além do teto 0-100 (investigação de pontuação, 2026-11-04) --
+   vários itens muito bons somam mais de 100 por dentro, o corte da
+   escala deixava todos exibindo "100" igual, sem diferença visível.
+   Mudo tom sozinho: vem logo depois do selo de nota, que já carrega a
+   cor (verde/âmbar/cinza); texto pequeno e discreto de propósito --
+   é contexto extra, não compete com a nota em si. */
+.nota-margem {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+
 .link-historico {
   display: inline-flex;
   min-width: 44px;

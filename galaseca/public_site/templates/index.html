@@ -85,6 +85,7 @@
     </td>
     <td class="celula-nota" data-label="Nota">
       <span class="nota nota-{{ c.score|nota_classe }}">{{ c.score }}</span>
+      {% if c.nota_margem %}<span class="nota-margem" title="A soma dos fatores passou do limite da escala (0 a 100): sem o corte, a nota seria {{ c.score + c.nota_margem }}. A ordem entre notas iguais já considera isso.">{{ "%+d"|format(c.nota_margem) }}</span>{% endif %}
       {% if c.pump_risk|risco_nivel != "low" %}
       <span class="selo-risco risco-{{ c.pump_risk|risco_nivel }}" aria-label="Risco {{ c.pump_risk|risco_label|lower }}" title="Risco {{ c.pump_risk|risco_label|lower }}: possibilidade de uma alta rápida e artificial do preço.">Risco {{ c.pump_risk|risco_label|lower }}</span>
       {% endif %}
