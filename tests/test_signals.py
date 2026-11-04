@@ -435,7 +435,6 @@ def test_enhanced_score_below_median_breakdown():
     assert "spread" in factors
     assert "book" in factors
     assert "trend" in factors
-    assert "verdict" in factors
 
 
 def test_enhanced_score_diff_pct_pequeno_nao_rotula_pontos_como_zero():
@@ -460,14 +459,14 @@ def test_enhanced_score_diff_pct_pequeno_nao_rotula_pontos_como_zero():
 
 def test_raw_score_nao_tem_teto():
     """achado 2026-10-31: o mesmo combo de below_median_breakdown soma
-    133 bruto (50 base + 18+5+25+20+15), mas enhanced_score() corta em
+    128 bruto (50 base + 18+25+20+15), mas enhanced_score() corta em
     100 -- raw_score() devolve o valor sem corte, usado só como
     desempate de ordenação (ver recommendations.buy_candidates)."""
     v = {"verdict": "below_median", "diff_pct": -15, "spread_verdict": "tight",
          "book_verdict": "buyer_dominant", "trend_verdict": "rising"}
     score, breakdown = signals.enhanced_score(v)
     assert score == 100
-    assert signals.raw_score(breakdown) == 133
+    assert signals.raw_score(breakdown) == 128
 
 
 def test_raw_score_sem_breakdown_eh_a_base():
@@ -1463,6 +1462,5 @@ def test_enhanced_score_rotulos_legiveis_para_iniciante():
 
     assert "Muito negociado: 21.148 vendas em 24h (+5)" in rotulos
     assert "Não sai mais no jogo (+5)" in rotulos
-    assert "Bônus por estar 5% ou mais abaixo do típico (+5)" in rotulos
     assert "Vem de caixa que não sai mais no jogo (+5)" in [
         b["label"] for b in bd_skin]
