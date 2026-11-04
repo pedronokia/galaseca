@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import re
 import time
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -1806,6 +1807,86 @@ def test_worker_alert_dedup_nao_manda_de_novo(monkeypatch, tmp_path):
     assert worker_alert.verificar_e_alertar(ciclos, path=p) is True
     assert worker_alert.verificar_e_alertar(ciclos, path=p) is False
     assert len(chamadas) == 1
+
+
+# ── worker_alert: disco cheio ─────────────────────────────────
+# `verificar_disco_e_alertar` não tinha NENHUM teste (achado de
+# auditoria de cobertura, 2026-11-04) -- justo o alerta pensado pra
+# avisar antes do disco da VM encher sem ninguém notar (ver docstring
+# do módulo).
+
+def _uso_disco(total=100.0, livre=50.0):
+    return SimpleNamespace(total=total, used=total - livre, free=livre)
+
+
+def test_worker_alert_disco_sem_webhook_nao_alerta(monkeypatch, tmp_path):
+    monkeypatch.delenv("GALASECA_ADMIN_DISCORD_WEBHOOK", raising=False)
+    monkeypatch.setattr(
+        worker_alert.shutil, "disk_usage",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError(
+            "não devia nem checar o disco sem webhook configurado")))
+    assert worker_alert.verificar_disco_e_alertar(
+        path=tmp_path / "estado.json") is False
+
+
+def test_worker_alert_disco_acima_do_limite_nao_alerta(monkeypatch, tmp_path):
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setattr(
+        worker_alert.shutil, "disk_usage",
+        lambda *a, **k: _uso_disco(total=100.0, livre=50.0))
+    assert worker_alert.verificar_disco_e_alertar(
+        path=tmp_path / "estado.json") is False
+
+
+def test_worker_alert_disco_abaixo_do_limite_manda(monkeypatch, tmp_path):
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setattr(
+        worker_alert.shutil, "disk_usage",
+        lambda *a, **k: _uso_disco(total=100.0, livre=5.0))
+    chamadas = []
+    monkeypatch.setattr(
+        worker_alert.discord_notify, "enviar",
+        lambda url, msg: chamadas.append(msg) or True)
+    assert worker_alert.verificar_disco_e_alertar(
+        path=tmp_path / "estado.json") is True
+    assert "5.0%" in chamadas[0]
+
+
+def test_worker_alert_disco_dedup_nao_manda_de_novo(monkeypatch, tmp_path):
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setattr(
+        worker_alert.shutil, "disk_usage",
+        lambda *a, **k: _uso_disco(total=100.0, livre=5.0))
+    chamadas = []
+    monkeypatch.setattr(
+        worker_alert.discord_notify, "enviar",
+        lambda url, msg: chamadas.append(1) or True)
+    p = tmp_path / "estado.json"
+    assert worker_alert.verificar_disco_e_alertar(path=p) is True
+    assert worker_alert.verificar_disco_e_alertar(path=p) is False
+    assert len(chamadas) == 1
+
+
+def test_worker_alert_disco_erro_ao_checar_nao_alerta(monkeypatch, tmp_path):
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+
+    def _falha(*a, **k):
+        raise OSError("disco inacessível")
+
+    monkeypatch.setattr(worker_alert.shutil, "disk_usage", _falha)
+    assert worker_alert.verificar_disco_e_alertar(
+        path=tmp_path / "estado.json") is False
+
+
+def test_worker_alert_disco_total_zero_nao_alerta(monkeypatch, tmp_path):
+    # Guarda contra divisão por zero (partição relatando total=0) --
+    # sem o `if not uso.total` no código, isto levantaria ZeroDivisionError.
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setattr(
+        worker_alert.shutil, "disk_usage",
+        lambda *a, **k: _uso_disco(total=0.0, livre=0.0))
+    assert worker_alert.verificar_disco_e_alertar(
+        path=tmp_path / "estado.json") is False
 
 
 # ── worker: ordenação por nota anterior + progresso ─────────
