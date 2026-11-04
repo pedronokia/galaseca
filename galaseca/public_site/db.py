@@ -48,5 +48,10 @@ def connect(path: "Path | str | None" = None) -> sqlite3.Connection:
     p.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(p))
     conn.execute("PRAGMA journal_mode=WAL")
+    # synchronous=NORMAL e' o par padrao de WAL (skill sqlite-database-
+    # expert, 2026-11-04): com WAL o SO ja' garante consistencia apos
+    # crash do processo; FULL so' importa pra sobreviver crash do SO/
+    # queda de energia, que este site nao promete.
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript(_SCHEMA)
     return conn
