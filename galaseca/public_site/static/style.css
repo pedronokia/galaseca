@@ -1630,10 +1630,26 @@ footer.rodape .versao {
   outline-offset: 2px;
 }
 
-.pagina-glossario dl { margin: 0; }
+/* Grid em vez da pilha vertical única do <dl> puro -- achado de auditoria
+   2026-11-04: em telas largas (>= 900px) o glossário inteiro rodava numa
+   coluna de 640px (herdada de .pagina-texto), com o resto da tela vazio
+   e muita rolagem pra 13 termos. Cada par dt/dd vive num <div> (ver
+   glossario.html) pra virar UM item de grid -- sem o wrapper, dt/dd soltos
+   não dá pra posicionar como par numa grade de 2 colunas. */
+.lista-glossario {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  main.pagina-glossario { max-width: 880px; }
+  .lista-glossario { grid-template-columns: 1fr 1fr; }
+}
 
 .pagina-glossario dt {
-  margin: 12px 0 0;
+  margin: 0;
   padding: 14px 16px 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -1641,8 +1657,6 @@ footer.rodape .versao {
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   scroll-margin-top: 16px;
 }
-
-.pagina-glossario dt:first-child { margin-top: 0; }
 
 .pagina-glossario dt:target {
   outline: 2px solid var(--accent);

@@ -40,6 +40,7 @@
     {% if grafico_visitas %}
       <h2 class="secao-titulo">Visitas por dia</h2>
       <div class="card grafico-card">{{ grafico_visitas|safe }}</div>
+      {% if grafico_visitas_legenda %}<p class="status-muted">{{ grafico_visitas_legenda }}</p>{% endif %}
     {% endif %}
 
     {% if mais_buscados %}
