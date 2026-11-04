@@ -40,7 +40,7 @@ from galaseca.public_site import (
     icon_cache, latencia, profile_fetcher, rate_limit, scan_progress,
     user_store, uptime, visits,
 )
-from galaseca.public_site.auth import csrf_token
+from galaseca.public_site.auth import csrf_token, csrf_valid
 
 _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # Ícone: CDN estático da Steam (steamstatic.com), não o market/inventory
@@ -701,8 +701,7 @@ def create_app() -> Flask:
     def admin_logout():
         if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
             return render_template("404.html"), 404
-        token = session.get("csrf_token")
-        if not token or request.form.get("csrf_token") != token:
+        if not csrf_valid(request.form.get("csrf_token")):
             return "", 403
         session.pop("admin", None)
         return redirect(url_for("index"))
@@ -772,8 +771,7 @@ def create_app() -> Flask:
         # o decorator rodaria ANTES deste check de sessão admin, e uma
         # visita anônima sem csrf_token nenhum na sessão levaria 403 em
         # vez de 404 -- vazando que a rota existe pra quem não é admin.
-        token = session.get("csrf_token")
-        if not token or request.form.get("csrf_token") != token:
+        if not csrf_valid(request.form.get("csrf_token")):
             return "", 403
         webhook = ambiente("ADMIN_DISCORD_WEBHOOK", "")
         enviado = discord_notify.enviar(
