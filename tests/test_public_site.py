@@ -211,6 +211,50 @@ def test_index_explicita_escala_da_nota_e_rotulo_textual_de_risco(
     assert 'class="selo-risco' not in body
 
 
+def test_index_nota_no_teto_mostra_margem_alem_de_100(client, monkeypatch, tmp_path):
+    # Soma dos deltas = 84 sobre a base 50 -> nota crua 134, cortada em
+    # 100. Achado de auditoria da nota, 2026-11-04: sem a margem, esse
+    # item e outro bem menos bom que também bateu 100 ficavam idênticos
+    # na tela.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 100, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 84,
+                       "label": "Preço muito abaixo do típico (+84)"}]},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
+    assert '<span class="nota-margem"' in celula
+    assert ">+34</span>" in celula
+
+
+def test_index_nota_no_piso_mostra_margem_abaixo_de_0(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 0, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": -84,
+                       "label": "Preço muito acima do típico (-84)"}]},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
+    assert '<span class="nota-margem"' in celula
+    assert ">-34</span>" in celula
+
+
+def test_index_nota_sem_corte_nao_mostra_margem(client, monkeypatch, tmp_path):
+    # score=70 bate exatamente com a soma do breakdown (50+20) -- não
+    # houve corte nenhum, então não aparece margem nenhuma.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 20,
+                       "label": "Preço abaixo do típico (+20)"}]},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
+    assert "nota-margem" not in celula
+
+
 def test_index_risco_medio_vira_selo_ao_lado_da_nota(client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "X", "score": 70, "price": 1.0, "case_label": "",

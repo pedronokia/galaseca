@@ -1241,6 +1241,20 @@ def _candidatos_filtrados(
             continue
         c["price_fmt"] = fmt.brl(c.get("price"))
         c["name_fmt"] = name_fmt
+        # Nota crua (signals.raw_score) sem o corte em [0, 100] -- achado
+        # 2026-11-04: a soma dos fatores passa de 100 (ou de 0) com
+        # frequência pra item muito bom (ou muito ruim), e o corte faz
+        # vários itens diferentes mostrarem o mesmo "100"/"0" na tela,
+        # mesmo a ORDEM deles já sendo correta por dentro (buy_candidates
+        # já desempata por isto). margem != 0 só quando o corte realmente
+        # aconteceu -- pra nota normal (1-99) a nota crua bate exatamente
+        # com a exibida, margem sempre 0, não aparece nada. Exige
+        # `breakdown` não-vazio: sem ele não dá pra confiar que bate com
+        # `score` (ex.: dado sintético de teste que só define `score`).
+        c["nota_margem"] = None
+        if c.get("breakdown"):
+            margem = round(signals.raw_score(c["breakdown"])) - (c.get("score") or 0)
+            c["nota_margem"] = margem if margem != 0 else None
         # Mesma URL (proxy local, servindo sempre a versão 192x192) pros
         # dois tamanhos do srcset -- um cache só por item em vez de dois,
         # troca otimização de banda em tela pequena por simplicidade.
