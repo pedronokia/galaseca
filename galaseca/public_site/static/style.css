@@ -30,6 +30,17 @@
   --positive: #a4d007;
   --warn: #e4b03c;
   --danger: #f05570;
+  /* --danger-bright: achado de auditoria Lighthouse, 2026-11-04 -- o
+     texto do selo preenchido de queda de preço (.celula-preco
+     .icone-tendencia.tendencia-baixa) usa --danger sobre o PRÓPRIO
+     fundo tingido (rgba(240,85,112,.15) sobre --bg-elevated), não sobre
+     --bg-elevated puro como o resto do site já tinha auditado --
+     contraste medido de só 3.74:1 (abaixo do mínimo de 4.5:1 pra texto
+     normal nesse tamanho). --danger segue intocado (usado em botão,
+     borda, texto de erro, que não têm esse fundo tingido por baixo) --
+     só esse selo específico troca pra este tom mais claro, que mede
+     5.04:1 contra o mesmo fundo. */
+  --danger-bright: #f58095;
 
   /* Escala de raio e sombra (auditoria visual, 2026-10-26) -- antes
      cada componente tinha seu próprio número (3/4/6/10/14/20/24px de
@@ -1061,7 +1072,10 @@ table.tabela-candidatos td.celula-preco {
   border-radius: 8px;
 }
 .celula-preco .icone-tendencia.tendencia-alta { background: rgba(164, 208, 7, 0.15); }
-.celula-preco .icone-tendencia.tendencia-baixa { background: rgba(240, 85, 112, 0.15); }
+.celula-preco .icone-tendencia.tendencia-baixa {
+  background: rgba(240, 85, 112, 0.15);
+  color: var(--danger-bright);
+}
 
 /* ── Links secundários (SteamDB) ──────────────────────── */
 .link-secundario {
