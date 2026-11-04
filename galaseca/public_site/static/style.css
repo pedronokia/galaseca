@@ -626,6 +626,24 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   white-space: nowrap;
 }
 
+/* Confiança do dado (signals.data_quality, 2026-11-04) -- mesmo formato
+   de pílula do .selo-risco, mas em --text-muted: não é alerta de perigo
+   como risco, é só "o dado por trás é fino, leia com reserva". Cor
+   neutra de propósito, pra não competir visualmente com o selo de
+   risco (vermelho/âmbar) quando os dois aparecem juntos. */
+.selo-confianca-baixa {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: help;
+}
+
 .menu-acoes-item-toggle .icone-ui { width: 20px; height: 20px; }
 
 .tabela-wrap {

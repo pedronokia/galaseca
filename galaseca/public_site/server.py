@@ -1255,6 +1255,33 @@ def _candidatos_filtrados(
         if c.get("breakdown"):
             margem = round(signals.raw_score(c["breakdown"])) - (c.get("score") or 0)
             c["nota_margem"] = margem if margem != 0 else None
+        # Confiança do dado por trás da nota (signals.data_quality) --
+        # achado 2026-11-04: calculada a cada scan, nunca exibida em
+        # lugar nenhum (a própria função já dizia "Util para... UI
+        # badge: mostrar ao usuário quando confiar no score"). Um item
+        # com poucos pontos de histórico (ou histórico velho) calcula a
+        # MESMA nota que um com dado rico -- vários fatores (momentum,
+        # drawdown, rel_ath, pump_risk) são gateados por tamanho mínimo
+        # de amostra, mas isso não aparece pro visitante hoje. Mostra só
+        # quando a confiança é baixa -- caso raro é o esperado (como
+        # risco baixo não vira coluna), então sem selo nenhum na maioria
+        # das linhas.
+        dq = c.get("data_quality") or {}
+        c["confianca_baixa"] = dq.get("level") in ("low", "very_low", "none")
+        if c["confianca_baixa"]:
+            n = dq.get("n") or 0
+            age = dq.get("age_days")
+            if age is not None:
+                c["confianca_baixa_titulo"] = (
+                    f"Nota calculada com só {n} ponto{'s' if n != 1 else ''} de "
+                    f"histórico da Steam, o mais recente de {age:.0f} dia"
+                    f"{'s' if round(age) != 1 else ''} atrás -- alguns fatores "
+                    "podem não ter tido dado suficiente pra entrar no cálculo.")
+            else:
+                c["confianca_baixa_titulo"] = (
+                    "Nota calculada sem histórico de preço da Steam pra esse "
+                    "item -- a maioria dos fatores não tinha dado suficiente "
+                    "pra entrar no cálculo.")
         # Mesma URL (proxy local, servindo sempre a versão 192x192) pros
         # dois tamanhos do srcset -- um cache só por item em vez de dois,
         # troca otimização de banda em tela pequena por simplicidade.
