@@ -346,11 +346,19 @@ def create_app() -> Flask:
         periodo = request.args.get("periodo") or None
         if periodo not in _PERIODOS_GRAFICO:
             periodo = None
+        precos_periodo = [
+            p["price"] for p in _filtra_historico_por_periodo(hist, periodo)
+            if p.get("price")]
         grafico = charts.line_chart_svg(
-            [{"total": p["price"]}
-             for p in _filtra_historico_por_periodo(hist, periodo)
-             if p.get("price")],
-            area_fill=True)
+            [{"total": v} for v in precos_periodo], area_fill=True)
+        # A linha sozinha é normalizada entre o mínimo e o máximo do
+        # próprio recorte -- sem essa legenda, uma subida de R$0,10 e uma
+        # de R$100 desenham a MESMA inclinação na tela, e quem usa leitor
+        # de tela não tem nenhum texto associado ao SVG (achado de
+        # auditoria de acessibilidade, 2026-11-04).
+        grafico_legenda = (
+            f"{fmt.brl(min(precos_periodo))} – {fmt.brl(max(precos_periodo))} no período"
+            if len(precos_periodo) >= 2 else None)
         # Período com poucos pontos: `grafico` pode ficar vazio mesmo
         # havendo histórico (90d filtrado demais, por exemplo). O seletor
         # continua aparecendo nesse caso -- só o gráfico some, pra deixar
@@ -360,6 +368,7 @@ def create_app() -> Flask:
             "item.html",
             item=item,
             grafico=grafico,
+            grafico_legenda=grafico_legenda,
             tem_historico=tem_historico,
             periodo_sel=periodo,
             periodo_opcoes=list(_PERIODOS_GRAFICO),
@@ -818,14 +827,19 @@ def create_app() -> Flask:
             c["quando"] = scan_store.idade_txt(c["ts"])
         desde = uptime.no_ar_desde()
         serie = visits.serie_por_dia()
+        valores_visitas = [qtd for _dia, qtd in serie]
         grafico_visitas = charts.line_chart_svg(
-            [{"total": qtd} for _dia, qtd in serie])
+            [{"total": v} for v in valores_visitas])
+        grafico_visitas_legenda = (
+            f"{min(valores_visitas)} – {max(valores_visitas)} visitas por dia no período"
+            if len(valores_visitas) >= 2 else None)
         return render_template(
             "status.html",
             no_ar_desde_txt=scan_store.idade_txt(desde),
             visitas=visits.total(),
             ciclos=ciclos,
             grafico_visitas=grafico_visitas,
+            grafico_visitas_legenda=grafico_visitas_legenda,
             mais_buscados=buscas.mais_buscados(limite=10),
         )
 
