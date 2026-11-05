@@ -25,13 +25,14 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
     <p class="subtitulo">Status do site, com transparência — inclusive quando o scan falha.</p>
   </header>
 
   <main id="conteudo" class="pagina-texto">
+    <h1 class="titulo-pagina">Status</h1>
     <section class="resumo-cards">
       <div class="card"><span class="card-label">No ar</span><span class="card-valor">{{ no_ar_desde_txt }}</span></div>
       <div class="card"><span class="card-label">Visitas ao dashboard</span><span class="card-valor">{{ visitas }}</span></div>

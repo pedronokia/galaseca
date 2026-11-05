@@ -53,7 +53,7 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
     <p class="subtitulo"><a class="link-com-seta" href="{{ url_for('index') }}">{{ icone("seta-esquerda") }} Voltar pra lista</a></p>
@@ -65,7 +65,7 @@
       <img class="icone-item icone-item-grande" src="{{ item.icon_url }}" srcset="{{ item.icon_url }} 1x, {{ item.icon_url_2x }} 2x" alt="" width="80" height="80">
       {% endif %}
       <div>
-        <h2 class="titulo-item">{{ item.name_fmt }}</h2>
+        <h1 class="titulo-item">{{ item.name_fmt }}</h1>
         <p class="status">
           <a class="link-item" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
           · <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
