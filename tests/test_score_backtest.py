@@ -222,3 +222,66 @@ def test_comparar_on_off_chama_ligar_e_desligar_na_ordem_certa():
         intervalo_dias=5.0, agora=serie[-1]["time"])
     assert chamadas == ["off", "on", "off"]
     assert "on" in resultado and "off" in resultado
+
+
+# ── split_itens: holdout item-level, estratificado ──────────────
+
+def _itens_sinteticos(n_skins: int, n_containers: int) -> list:
+    serie = _serie_diaria(10, lambda i: 100.0)
+    out = [{"name": f"skin-{i}", "price_history": serie, "is_container": False}
+           for i in range(n_skins)]
+    out += [{"name": f"caixa-{i}", "price_history": serie, "is_container": True}
+            for i in range(n_containers)]
+    return out
+
+
+def test_split_itens_nao_perde_nem_duplica_item():
+    itens = _itens_sinteticos(14, 6)
+    cal, conf = backtest.split_itens(itens, seed=1)
+    nomes_cal = {it["name"] for it in cal}
+    nomes_conf = {it["name"] for it in conf}
+    assert not (nomes_cal & nomes_conf)
+    assert nomes_cal | nomes_conf == {it["name"] for it in itens}
+    assert len(cal) + len(conf) == len(itens)
+
+
+def test_split_itens_estratifica_containers_e_skins():
+    itens = _itens_sinteticos(20, 10)
+    cal, conf = backtest.split_itens(itens, fracao_confirmacao=0.3, seed=1)
+    cal_containers = sum(1 for it in cal if it["is_container"])
+    conf_containers = sum(1 for it in conf if it["is_container"])
+    # 30% de 10 caixas = 3 em confirmação, 7 em calibração -- nenhuma
+    # categoria pode ficar ausente ou concentrada de um lado só.
+    assert conf_containers == 3
+    assert cal_containers == 7
+    cal_skins = sum(1 for it in cal if not it["is_container"])
+    conf_skins = sum(1 for it in conf if not it["is_container"])
+    assert conf_skins == 6
+    assert cal_skins == 14
+
+
+def test_split_itens_reproduzivel_com_mesma_seed():
+    itens = _itens_sinteticos(14, 6)
+    cal1, conf1 = backtest.split_itens(itens, seed=42)
+    cal2, conf2 = backtest.split_itens(itens, seed=42)
+    assert [it["name"] for it in cal1] == [it["name"] for it in cal2]
+    assert [it["name"] for it in conf1] == [it["name"] for it in conf2]
+
+
+def test_split_itens_seeds_diferentes_dao_splits_diferentes():
+    itens = _itens_sinteticos(20, 20)
+    _, conf1 = backtest.split_itens(itens, seed=1)
+    _, conf2 = backtest.split_itens(itens, seed=2)
+    assert {it["name"] for it in conf1} != {it["name"] for it in conf2}
+
+
+def test_split_itens_grupo_vazio_nao_quebra():
+    itens = _itens_sinteticos(10, 0)  # sem nenhuma caixa
+    cal, conf = backtest.split_itens(itens, seed=1)
+    assert all(not it["is_container"] for it in cal + conf)
+    assert len(cal) + len(conf) == 10
+
+
+def test_split_itens_sem_itens():
+    cal, conf = backtest.split_itens([], seed=1)
+    assert cal == [] and conf == []
