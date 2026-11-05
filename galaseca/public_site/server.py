@@ -19,6 +19,7 @@ import sqlite3
 import time
 import urllib.parse
 from datetime import date
+from functools import wraps
 from pathlib import Path
 from xml.sax.saxutils import escape as _xml_escape
 
@@ -130,6 +131,26 @@ def _load_or_create_secret_key() -> bytes:
     key = secrets.token_bytes(32)
     atomic_write_bytes(_SECRET_KEY_PATH, key)
     return key
+
+
+def _admin_required(view):
+    """Nega como 404 (não 403/redirect) sem hash configurado ou sem
+    sessão `admin` -- mesmo padrão de `auth.login_required`, mas sem
+    redirecionar pro login: estas rotas não devem nem revelar que
+    existem pra quem não é o dono (achado de auditoria da skill
+    flask-python, 2026-11-05: o mesmo bloco de 2 linhas estava
+    duplicado em `admin_logout`, `admin_testar_webhook`,
+    `admin_backup_download` e `admin_log_bruto`).
+
+    NÃO usar em `admin()`: ali, sem sessão (mas COM hash configurado)
+    redireciona pro login em vez de 404 -- comportamento diferente de
+    propósito, pra guiar o dono de volta ao login em vez de escondê-lo."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
+            return render_template("404.html"), 404
+        return view(*args, **kwargs)
+    return wrapped
 
 
 def create_app() -> Flask:
@@ -711,9 +732,8 @@ def create_app() -> Flask:
         return render_template("admin_login.html", erro=erro)
 
     @app.route("/admin/logout", methods=["POST"])
+    @_admin_required
     def admin_logout():
-        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
-            return render_template("404.html"), 404
         if not csrf_valid(request.form.get("csrf_token")):
             return "", 403
         session.pop("admin", None)
@@ -777,13 +797,17 @@ def create_app() -> Flask:
 
     @app.route("/admin/testar-webhook", methods=["POST"])
     @rate_limit.rate_limited(rate_limit.LOGIN_MAX_HITS, rate_limit.LOGIN_WINDOW_S)
+    @_admin_required
     def admin_testar_webhook():
-        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
-            return render_template("404.html"), 404
         # CSRF checado aqui dentro (não via @csrf_protect) de propósito:
-        # o decorator rodaria ANTES deste check de sessão admin, e uma
-        # visita anônima sem csrf_token nenhum na sessão levaria 403 em
-        # vez de 404 -- vazando que a rota existe pra quem não é admin.
+        # @_admin_required já roda antes do corpo da view (mais perto
+        # de `def`, executa por último entre os decorators, logo antes
+        # da função); um @csrf_protect precisaria ficar ENTRE
+        # @_admin_required e `def` pra manter essa ordem, e inline é
+        # mais simples que empilhar mais um decorator só pra isso. Sem
+        # essa ordem, uma visita anônima sem csrf_token nenhum na sessão
+        # levaria 403 em vez de 404 -- vazando que a rota existe pra
+        # quem não é admin.
         if not csrf_valid(request.form.get("csrf_token")):
             return "", 403
         webhook = ambiente("ADMIN_DISCORD_WEBHOOK", "")
@@ -794,14 +818,13 @@ def create_app() -> Flask:
         return redirect(url_for("admin", teste_webhook=flash_msg))
 
     @app.route("/admin/backup/<nome>")
+    @_admin_required
     def admin_backup_download(nome: str):
         """Download de um backup do SQLite -- o painel já lista os nomes
         (`backups=`, acima) desde a rodada anterior, mas sem link nenhum
         pra baixar nenhum deles. Valida `nome` contra o formato EXATO que
         `db_backup.fazer_backup_se_necessario` gera (whitelist por regex,
         não só confiar no `send_from_directory` resolver o path)."""
-        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
-            return render_template("404.html"), 404
         if not re.fullmatch(r"public_site-\d{8}-\d{6}\.db", nome):
             return render_template("404.html"), 404
         caminho = db_backup._BACKUP_DIR / nome
@@ -812,13 +835,12 @@ def create_app() -> Flask:
             as_attachment=True, mimetype="application/octet-stream")
 
     @app.route("/admin/log-bruto")
+    @_admin_required
     def admin_log_bruto():
         """Download do errors.log completo -- as 30 últimas linhas no
         painel bastam pro dia a dia, mas investigar um padrão (quantas
         vezes um erro específico apareceu ao longo de dias) pede o
         arquivo inteiro."""
-        if not _ADMIN_PASSWORD_HASH or not session.get("admin"):
-            return render_template("404.html"), 404
         if not _ERROR_LOG_PATH.exists():
             return render_template("404.html"), 404
         return send_from_directory(
