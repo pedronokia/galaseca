@@ -88,6 +88,14 @@ site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
 - O contexto de topo deve evitar pontos horários isolados: uma compra atípica
   pode distorcer o máximo. Sinais descrevem essas medições passadas; não
   constituem previsão ou promessa de retorno.
+- Os experimentos acima (e os de `signals.py`: vintage bonus V1-V6, pump
+  risk V1-V3B etc.) foram calibrados e validados na MESMA amostra --
+  achado de auditoria (backtesting-frameworks, 2026-11-05): risco de
+  overfitting por tentativa repetida. Ao calibrar um fator NOVO, use
+  `score_backtest.split_itens()` pra separar calibração de confirmação
+  por item antes de decidir -- ver o docstring da função pra disciplina
+  de uso (resultado de confirmação é o que se reporta, não se ajusta
+  o fator depois de ver esse número).
 
 ## Interface pública
 

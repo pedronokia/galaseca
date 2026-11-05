@@ -38,6 +38,13 @@ backtesting-frameworks (2026-11-05), que nenhum fix de código resolve
   correlação com movimento de preço, não lucro realizável líquido --
   consistente com o produto nunca prometer retorno (AGENTS.md), mas
   vale lembrar antes de usar o número pra decidir se vale a pena agir.
+
+Um terceiro risco, esse SIM com ferramenta pra mitigar: os experimentos
+documentados em signals.py (vintage bonus V1-V6, pump risk V1-V3B etc.)
+foram todos calibrados E validados na MESMA amostra histórica --
+overfitting clássico por tentativa repetida. `split_itens()` (abaixo)
+separa calibração de confirmação por item, pra próxima vez que um fator
+for calibrado: ver seu docstring pra disciplina de uso.
 """
 from __future__ import annotations
 
@@ -315,3 +322,51 @@ def comparar_on_off(itens: "list[dict]", horizon_days: float,
     on = avaliar(itens, horizon_days, **kwargs)
     desligar()
     return {"on": on, "off": off}
+
+
+def split_itens(itens: "list[dict]", fracao_confirmacao: float = 0.3,
+                seed: "int | None" = None) -> "tuple[list[dict], list[dict]]":
+    """Divide `itens` em (calibração, confirmação), por ITEM -- nunca por
+    ponto no tempo dentro do mesmo item. Estratificado por
+    `is_container`: caixas/cápsulas e skins têm comportamento histórico
+    diferente (AGENTS.md), então um split que jogasse todas as caixas
+    pro mesmo lado enviesaria os dois conjuntos.
+
+    Por que por item e não por ponto no tempo: o preço de um item é
+    autocorrelacionado -- uma amostra de `amostras()` em calibração e
+    outra 30 dias depois do MESMO item em confirmação não são
+    observações independentes (mesmo problema que o docstring de
+    `bootstrap_ci` já documenta pros pares de uma `avaliar()` só).
+    Dividir por item é a unidade que realmente é independente aqui.
+
+    DISCIPLINA DE USO (nenhum código força isto, é processo):
+    1. Calibre/ajuste um fator rodando `avaliar()` quantas vezes quiser
+       sobre `calibracao` -- é aqui que cabe tentar variantes (V1, V2,
+       V3...), igual aos experimentos já documentados em signals.py.
+    2. Só rode `avaliar()` sobre `confirmacao` UMA VEZ, depois de já ter
+       decidido o fator. Esse número (não o de calibração) é o que vale
+       reportar como resultado.
+    3. Se `confirmacao` reprovar, o fator não passou -- não ajuste e
+       rode `confirmacao` de novo. Isso reintroduz exatamente o
+       overfitting por tentativa repetida que este split existe pra
+       evitar (achado da auditoria da skill backtesting-frameworks,
+       2026-11-05: os experimentos V1-V6 do vintage bonus e V1-V3B do
+       pump risk foram todos calibrados E validados na mesma amostra).
+
+    `seed`: None usa aleatoriedade real (split diferente a cada
+    chamada); um int dá o mesmo split sempre, útil pra reproduzir uma
+    calibração específica depois.
+    """
+    containers = [it for it in itens if it.get("is_container")]
+    skins = [it for it in itens if not it.get("is_container")]
+    rng = random.Random(seed)
+
+    def _dividir(grupo: list[dict]) -> "tuple[list[dict], list[dict]]":
+        embaralhado = grupo[:]
+        rng.shuffle(embaralhado)
+        n_confirmacao = round(len(embaralhado) * fracao_confirmacao)
+        return embaralhado[n_confirmacao:], embaralhado[:n_confirmacao]
+
+    cal_containers, conf_containers = _dividir(containers)
+    cal_skins, conf_skins = _dividir(skins)
+    return cal_containers + cal_skins, conf_containers + conf_skins
