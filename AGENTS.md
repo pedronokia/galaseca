@@ -6,8 +6,10 @@ site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
 
 ## Stack e estrutura
 
-- Python 3.9+, Flask, SQLite e `httpx`; dependências em
-  `requirements-public-site.txt`.
+- Python 3.12 (piso subiu de 3.9 em 2026-11-05 -- Pillow 11.3.0, última
+  da série 11.x, tinha 73 CVEs sem patch retroativo; o fix exige
+  Python >=3.10, e 3.12 já era testado na CI), Flask, SQLite e `httpx`;
+  dependências em `requirements-public-site.txt`.
 - `galaseca/public_site/`: rotas, templates, CSS, JavaScript, autenticação,
   persistência, testes operacionais e worker do site.
 - Alguns módulos de domínio em `galaseca/` são dependências diretas do site

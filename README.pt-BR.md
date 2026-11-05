@@ -10,7 +10,7 @@ e salva os resultados que o site exibe.
 
 ## Executar localmente
 
-Requer Python 3.9 ou superior.
+Requer Python 3.12 ou superior.
 
 ```powershell
 python -m venv .venv
