@@ -49,7 +49,7 @@ _STATE_PATH = DATA_DIR / "gamedata_state.json"
 _EVENTS_LOG_PATH = DATA_DIR / "gamedata_events.json"
 _LOG_CAP = 500
 
-_UA = "SkinVault/1.0 (game data watcher)"
+_UA = "GalaSeca/1.0 (game data watcher)"
 
 # Sufixos de tier das loot lists -- strip pra chegar no nome base da colecao
 _TIER_SUFFIXES = (
