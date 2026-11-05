@@ -586,15 +586,28 @@ def create_app() -> Flask:
 
     @app.errorhandler(404)
     def pagina_nao_encontrada(_erro):
+        if request.path.startswith("/api/"):
+            return jsonify({"api_version": 1, "erro": "nao_encontrado",
+                            "mensagem": "Rota não existe."}), 404
         return render_template("404.html"), 404
 
     @app.errorhandler(500)
     def erro_interno(erro):
         app.logger.error("500 em %s: %r", request.path, erro, exc_info=erro)
+        if request.path.startswith("/api/"):
+            return jsonify({"api_version": 1, "erro": "erro_interno",
+                            "mensagem": "Erro interno do servidor."}), 500
         return render_template("500.html"), 500
 
     @app.errorhandler(429)
     def limite_excedido(_erro):
+        # Achado da skill api-and-interface-design (2026-11-05): os três
+        # handlers devolviam HTML mesmo pra /api/* -- quem consome a API
+        # programaticamente (ver /api) recebia uma página inteira em vez
+        # de JSON num erro, quebrando qualquer client que só espera JSON.
+        if request.path.startswith("/api/"):
+            return jsonify({"api_version": 1, "erro": "limite_excedido",
+                            "mensagem": "Muitas tentativas. Tente de novo mais tarde."}), 429
         return render_template("429.html"), 429
 
     @app.route("/privacidade")
