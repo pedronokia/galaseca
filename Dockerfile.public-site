@@ -48,6 +48,18 @@ COPY --from=builder /app/galaseca galaseca/
 # em vez de um número fixo que nunca muda entre deploys.
 RUN date -u +%Y%m%d-%H%M%S > BUILD_ID
 
+# Usuário sem privilégio (achado de auditoria, skill docker-security-
+# guide, 2026-11-05: a imagem inteira rodava como root -- nenhum USER
+# definido em lugar nenhum). UID/GID fixos (1000) pra ficarem estáveis
+# entre rebuilds; `--no-create-home`/`--shell nologin` porque este
+# usuário nunca faz login interativo, só roda o processo do container.
+# O ajuste de posse de /data (volume de produção com dado real,
+# possivelmente root:root de antes desta mudança) fica no
+# entrypoint.sh, não aqui -- em build-time o volume ainda nem existe.
+RUN groupadd --gid 1000 galaseca && \
+    useradd --uid 1000 --gid galaseca --no-create-home \
+            --shell /usr/sbin/nologin galaseca
+
 # DATA_DIR de verdade vem de um volume montado aqui (SQLite + os JSON
 # globais do dashboard tem que sobreviver a redeploy -- ver _paths.py).
 ENV GALASECA_DATA_DIR=/data
@@ -55,7 +67,13 @@ VOLUME ["/data"]
 
 EXPOSE 8000
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+
 # Shell form (nao exec form) de proposito: $PORT e' quem muitos provedores
 # (Render/Railway/Fly.io) usam pra dizer em que porta escutar -- shell form
-# expande a variavel; exec form nao.
+# expande a variavel; exec form nao. O ENTRYPOINT acima recebe isto (ou o
+# `command:` do serviço "worker" no compose, que troca o CMD mas nunca o
+# ENTRYPOINT) como argumentos e cede pro usuário sem privilégio.
 CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 galaseca.public_site.wsgi:app
