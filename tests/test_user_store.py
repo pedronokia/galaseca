@@ -127,3 +127,37 @@ def test_delete_user_nao_afeta_outros_usuarios(tmp_path):
 def test_delete_user_inexistente_nao_quebra(tmp_path):
     p = tmp_path / "x.db"
     user_store.delete_user("999", path=p)  # nao deve levantar excecao
+
+
+# ── injeção de SQL ───────────────────────────────────────────
+# Todas as queries de user_store.py usam `?` (ver auditoria da skill
+# sqlite-database-expert, 2026-11-05) -- este teste é a trava de
+# regressão: se algum dia uma query virar f-string/concatenação, ele
+# quebra em vez de só uma tabela sumir em produção.
+
+_PAYLOAD = "x'; DROP TABLE users; --"
+
+
+def test_steamid_malicioso_nao_quebra_schema(tmp_path):
+    p = tmp_path / "x.db"
+    user_store.upsert_user(_PAYLOAD, persona_name="Fulano", path=p)
+    assert user_store.get_user(_PAYLOAD, path=p)["persona_name"] == "Fulano"
+    conn = db.connect(p)
+    tabelas = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'")}
+    conn.close()
+    assert {"users", "user_data"} <= tabelas  # tabela sobrevive intacta
+
+
+def test_persona_name_malicioso_e_guardado_literal(tmp_path):
+    p = tmp_path / "x.db"
+    user_store.upsert_user("1", persona_name=_PAYLOAD, path=p)
+    assert user_store.get_user("1", path=p)["persona_name"] == _PAYLOAD
+
+
+def test_kind_malicioso_isolado_normalmente(tmp_path):
+    p = tmp_path / "x.db"
+    user_store.save_user_json("1", _PAYLOAD, [{"a": 1}], path=p)
+    user_store.save_user_json("1", "portfolio", [{"a": 2}], path=p)
+    assert user_store.load_user_json("1", _PAYLOAD, [], path=p) == [{"a": 1}]
+    assert user_store.load_user_json("1", "portfolio", [], path=p) == [{"a": 2}]

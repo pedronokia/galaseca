@@ -1449,6 +1449,19 @@ footer.rodape .versao {
   color: var(--text-bright);
 }
 
+/* Título real da página (achado de SEO 2026-11-05): antes disto, o
+   único <h1> de cada página era a logo, idêntica em todo o site --
+   nenhuma página tinha um heading principal que descrevesse o próprio
+   conteúdo. Mesmo peso visual de `header.topo h1`, mas vive dentro de
+   `<main>`, antes do primeiro `.secao-titulo`. */
+.titulo-pagina {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: var(--fs-display);
+  color: var(--text-bright);
+  margin: 0 0 18px;
+}
+
 .form-adicionar {
   display: flex;
   flex-wrap: wrap;

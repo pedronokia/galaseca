@@ -26,13 +26,14 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
     <p class="subtitulo">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
   </header>
 
   <main id="conteudo">
+    <h1 class="titulo-pagina">Ranking</h1>
     {% if itens %}
       <p class="status">Atualizado {{ quando }}.{% if not tem_anterior %} Ainda não há um scan anterior pra comparar posição.{% endif %}</p>
       {% if resumo_do_dia %}
