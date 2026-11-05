@@ -1289,6 +1289,48 @@ def test_429_customizado(client, monkeypatch):
     assert "Muitas tentativas".encode("utf-8") in resp.data
 
 
+# ── server: erros em /api/* devolvem JSON, não HTML ──────────
+# Achado da skill api-and-interface-design (2026-11-05): os handlers de
+# 404/500/429 devolviam a mesma página HTML pra qualquer rota, inclusive
+# pra quem consome /api/* programaticamente.
+
+def test_api_404_devolve_json(client):
+    resp = client.get("/api/isso-nao-existe")
+    assert resp.status_code == 404
+    assert resp.content_type.startswith("application/json")
+    assert resp.get_json()["erro"] == "nao_encontrado"
+
+
+def test_api_500_devolve_json(client):
+    @client.application.route("/api/__boom")
+    def _api_boom():
+        raise RuntimeError("erro de teste")
+    client.application.config["TESTING"] = False
+    client.application.config["PROPAGATE_EXCEPTIONS"] = False
+    resp = client.get("/api/__boom")
+    assert resp.status_code == 500
+    assert resp.content_type.startswith("application/json")
+    assert resp.get_json()["erro"] == "erro_interno"
+
+
+def test_api_429_devolve_json(client):
+    import flask
+    @client.application.route("/api/__limite")
+    def _api_limite():
+        flask.abort(429)
+    resp = client.get("/api/__limite")
+    assert resp.status_code == 429
+    assert resp.content_type.startswith("application/json")
+    assert resp.get_json()["erro"] == "limite_excedido"
+
+
+def test_pagina_normal_continua_em_html_nos_erros(client):
+    """Garantia de que o JSON é só pra /api/*: uma rota fora dali
+    continua devolvendo a página de erro de sempre."""
+    resp = client.get("/isso-nao-existe")
+    assert resp.content_type.startswith("text/html")
+
+
 def test_admin_sem_hash_configurado_e_404(client, monkeypatch):
     monkeypatch.setattr("galaseca.public_site.server._ADMIN_PASSWORD_HASH", "")
     assert client.get("/admin").status_code == 404
