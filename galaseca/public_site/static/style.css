@@ -1129,8 +1129,15 @@ table.tabela-candidatos td.celula-preco {
 }
 
 /* Herda tamanho/caixa do <th>: com valores próprios, "Preço" e "Nota"
-   ficavam menores que os cabeçalhos sem link. */
+   ficavam menores que os cabeçalhos sem link. Padding + margem negativa
+   alarga a área clicável sem mudar o texto visível nem o layout da
+   linha -- sem isso a altura real era só a do texto (~14px), abaixo do
+   mínimo de 24px que o WCAG 2.2 (2.5.8) pede pra alvo clicável (achado
+   da skill accessibility, 2026-11-05). */
 .link-ordenar {
+  display: inline-block;
+  padding: 7px 2px;
+  margin: -7px -2px;
   color: var(--text-muted);
   text-decoration: none;
   text-transform: inherit;
