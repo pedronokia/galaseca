@@ -8,7 +8,15 @@ services:
       context: .
       dockerfile: Dockerfile.public-site
     ports:
-      - "8000:8000"
+      # 127.0.0.1, não 0.0.0.0 (achado de auditoria, skill docker-
+      # security-guide, 2026-11-05): em produção (docker-compose.oracle.
+      # yml) o Caddy já alcança este serviço pela rede interna do Docker
+      # (`reverse_proxy web:8000` no Caddyfile, por nome de serviço, não
+      # por porta publicada) -- publicar em 0.0.0.0 deixava qualquer um
+      # na internet acessar o Flask cru na porta 8000, pulando TLS/HSTS/
+      # CSP do Caddy inteiros. Continua acessível em localhost pra rodar
+      # local sem Caddy (`http://127.0.0.1:8000`), só não mais de fora.
+      - "127.0.0.1:8000:8000"
     volumes:
       - skinvault_data:/data
     restart: unless-stopped
