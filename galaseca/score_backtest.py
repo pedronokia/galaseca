@@ -19,6 +19,25 @@ existentes em signals.py, que nunca citam spread/book.
 
 Zero dependência nova: Spearman/Pearson implementados em Python puro
 (mesmo espírito hand-rolled do resto do projeto -- rate_limit.py, db.py).
+
+Dois limites de interpretação, achados em auditoria da skill
+backtesting-frameworks (2026-11-05), que nenhum fix de código resolve
+(são sobre como LER o número, não sobre como calculá-lo):
+
+- Viés de seleção da amostra: `scripts/build_score_backtest_dataset.py`
+  puxa nomes de `scan_targets.SCAN_BY_CATEGORY` -- uma lista fixa,
+  escrita a mão, de itens POPULARES/conhecidos (Redline, Asiimov,
+  Howl, karambits...), não uma amostra aleatória ou abrangente do
+  mercado. Não é viés de sobrevivência clássico (itens não são
+  removidos da lista por terem caído de preço -- a lista é por fama,
+  não por desempenho), mas o IC/Spearman medido não necessariamente
+  generaliza pra itens obscuros/pouco líquidos fora dela.
+- Retorno medido é BRUTO: `forward_return()` não desconta a taxa de
+  15% que a Steam cobra na venda (a mesma que `format_exit_context`
+  em signals.py já avisa o usuário). Um IC positivo aqui mede
+  correlação com movimento de preço, não lucro realizável líquido --
+  consistente com o produto nunca prometer retorno (AGENTS.md), mas
+  vale lembrar antes de usar o número pra decidir se vale a pena agir.
 """
 from __future__ import annotations
 
