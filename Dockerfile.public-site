@@ -14,8 +14,15 @@
 # imagem final.
 #
 # Build:  docker build -f Dockerfile.public-site -t galaseca-public-site .
+#
+# Python 3.12 (2026-11-05, era 3.9): o Pillow 11.3.0 -- última versão da
+# série 11.x -- tinha 73 CVEs sem patch retroativo, só corrigidas a
+# partir do Pillow 12.1.1+, que exige Python >=3.10. 3.12 já era testado
+# na CI (tests.yml), por isso o piso novo é esse, não 3.10/3.11 sem uso
+# nenhum no projeto. Python 3.9 também já estava fora de suporte da
+# própria PSF desde 2025-10 -- a troca resolve os dois problemas juntos.
 
-FROM python:3.9-slim AS builder
+FROM python:3.12-slim AS builder
 WORKDIR /app
 
 # Dependências runtime do site e do worker.
@@ -29,7 +36,7 @@ COPY galaseca/ galaseca/
 COPY scripts/minify_static.py scripts/minify_static.py
 RUN python scripts/minify_static.py galaseca/public_site/static
 
-FROM python:3.9-slim
+FROM python:3.12-slim
 WORKDIR /app
 
 COPY --from=builder /install /usr/local

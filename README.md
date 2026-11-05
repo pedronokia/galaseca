@@ -12,7 +12,7 @@ by the website.
 
 ## Run locally
 
-Python 3.9 or newer is required.
+Python 3.12 or newer is required.
 
 ```powershell
 python -m venv .venv
