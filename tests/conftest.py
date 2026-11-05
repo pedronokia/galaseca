@@ -44,6 +44,18 @@ def _sem_rede(monkeypatch):
         raise httpx.ConnectError("rede bloqueada na suite de testes")
 
     monkeypatch.setattr(httpx, "get", _httpx_bloqueado)
+    monkeypatch.setattr(httpx, "post", _httpx_bloqueado)
+    monkeypatch.setattr(httpx, "request", _httpx_bloqueado)
+
+    class _ClienteBloqueado:
+        """`httpx.Client()` (usado por discord_notify.py) não passa por
+        `httpx.get`/`post` -- sem isto, um teste que esquecesse o próprio
+        mock local faria uma chamada real ao instanciar o client."""
+
+        def __init__(self, *_args, **_kwargs):
+            raise httpx.ConnectError("rede bloqueada na suite de testes")
+
+    monkeypatch.setattr(httpx, "Client", _ClienteBloqueado)
 
 
 @pytest.fixture(autouse=True)
