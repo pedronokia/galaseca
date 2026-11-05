@@ -221,6 +221,16 @@ direto.
   respondem com o status esperado, contra o site de verdade depois de
   um deploy. Pega erro de config/infra que só aparece em produção
   (`python scripts/smoke_test.py https://seudominio.com`).
+- `scripts/check_broken_links.py <url> [--limite N]` -- varre o site
+  implantado a partir de `/`, seguindo só links do mesmo domínio, e
+  reporta qualquer link que devolva 4xx/5xx. Mesmo espírito do
+  `smoke_test.py`, mas acha link morto que a lista fixa de rotas dele
+  não cobre (ex. um `/item/<nome>` que sumiu do scan mais recente).
+- `scripts/load_test.py <url> [--rota /x -n N -c C]` -- teste de carga
+  leve contra uma rota só-leitura do site já implantado; mede latência
+  (min/mediana/p95/max) e taxa de erro. Não serve pra achar o limite de
+  ruptura do servidor -- só confirma que a rota aguenta alguns usuários
+  simultâneos sem degradar.
 
 ## Rollback de um deploy ruim
 

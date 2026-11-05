@@ -29,7 +29,7 @@ _PROFILES_PATH = DATA_DIR / "steam_profiles.json"
 _LOCK_PATH = DATA_DIR / "steam_profiles.json.lock"
 _AVATARS_DIR = DATA_DIR / "avatars"
 _TTL_SECONDS = 24 * 3600
-_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
+_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GalaSeca/0.0.1"
 
 # Protege o ciclo leitura-modificacao-escrita do cache (um JSON so',
 # com entrada por steamid) contra DOIS niveis de concorrencia:

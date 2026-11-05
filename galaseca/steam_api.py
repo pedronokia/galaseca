@@ -41,7 +41,7 @@ _EXECUTOR = concurrent.futures.ThreadPoolExecutor(
 
 _APP_CS2 = 730
 _CONTEXT = 2
-_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) SkinVault/0.0.1"
+_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GalaSeca/0.0.1"
 # Barra opcionalmente escapada: dentro do JSON do SSR a URL costuma vir como
 # `\/economy\/image\/<hash>\/...` ou com `/` -- o regex só com "/" não
 # casava nesse formato (scan de 2026-10-29: 0 de 173 itens com miniatura).
