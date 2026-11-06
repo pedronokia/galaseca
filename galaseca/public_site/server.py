@@ -246,6 +246,7 @@ def create_app() -> Flask:
     # ao contrário de uma macro Jinja (que exige `{% import %}` em cada
     # arquivo).
     app.jinja_env.filters["nota_classe"] = _nota_classe
+    app.jinja_env.filters["nota_anel"] = _nota_anel
     app.jinja_env.filters["risco_nivel"] = _risco_nivel
     app.jinja_env.filters["risco_label"] = _risco_label
     app.jinja_env.filters["rotulo_caixa"] = _rotulo_caixa
@@ -1099,6 +1100,63 @@ def _nota_classe(score: "int | float | None") -> str:
     return "baixa"
 
 
+# Cor de raridade da skin (linguagem visual nativa do CS2) -- achado
+# 2026-11-06: a Steam já entrega `name_color` (hex exato, que cobre facas/
+# luvas/contraband em dourado) e `rarity_id` (enum estável). O CSP do site
+# (`style-src 'self'`, sem inline) impede usar a cor direto no HTML, então
+# mapeia pra classes fixas em style.css. Prioriza o hex do `name_color`
+# (acerta faca/luva dourada); `rarity_id` é o fallback.
+_RARIDADE_POR_COR = {
+    "b0c3d9": "consumer",
+    "5e98d9": "industrial",
+    "4b69ff": "milspec",
+    "8847ff": "restricted",
+    "d32ce6": "classified",
+    "eb4b4b": "covert",
+    "e4ae39": "dourado",  # facas
+    "caad74": "dourado",  # luvas + contraband (Howl)
+}
+_RARIDADE_POR_ID = {
+    "Rarity_Common_Weapon": "consumer",
+    "Rarity_Uncommon_Weapon": "industrial",
+    "Rarity_Rare_Weapon": "milspec",
+    "Rarity_Mythical_Weapon": "restricted",
+    "Rarity_Legendary_Weapon": "classified",
+    "Rarity_Ancient_Weapon": "covert",
+    "Rarity_Contraband": "dourado",
+}
+
+
+def _raridade_classe(item: dict) -> str:
+    nome_cor = (item.get("name_color") or "").strip().lower()
+    if nome_cor in _RARIDADE_POR_COR:
+        return "raridade-" + _RARIDADE_POR_COR[nome_cor]
+    rid = item.get("rarity_id")
+    if rid in _RARIDADE_POR_ID:
+        return "raridade-" + _RARIDADE_POR_ID[rid]
+    return ""
+
+
+# Anel de progresso da nota (0-100) em SVG, gerado no servidor (mesmo
+# padrão do sparkline) -- `stroke-dasharray` é atributo de apresentação do
+# SVG, não `style=""`, então passa no CSP `style-src 'self'` sem problema.
+_NOTA_ANEL_RAIO = 16
+
+
+def _nota_anel(score) -> str:
+    s = max(0, min(100, round(score or 0)))
+    circ = 2 * math.pi * _NOTA_ANEL_RAIO
+    dash = circ * s / 100
+    return (
+        f'<svg class="nota-anel" viewBox="0 0 40 40" aria-hidden="true" '
+        f'focusable="false">'
+        f'<circle class="nota-anel-fundo" cx="20" cy="20" r="{_NOTA_ANEL_RAIO}">'
+        f'</circle>'
+        f'<circle class="nota-anel-progresso" cx="20" cy="20" r="{_NOTA_ANEL_RAIO}" '
+        f'stroke-dasharray="{dash:.2f} {circ:.2f}"></circle></svg>'
+    )
+
+
 def _risco_nivel(pump_risk: "dict | None") -> str:
     return (pump_risk or {}).get("level", "low")
 
@@ -1276,6 +1334,7 @@ def _candidatos_filtrados(
             continue
         c["price_fmt"] = fmt.brl(c.get("price"))
         c["name_fmt"] = name_fmt
+        c["raridade_classe"] = _raridade_classe(c)
         # Nota crua (signals.raw_score) sem o corte em [0, 100] -- achado
         # 2026-11-04: a soma dos fatores passa de 100 (ou de 0) com
         # frequência pra item muito bom (ou muito ruim), e o corte faz

@@ -130,6 +130,11 @@ def scan_item(name: str, category: str | None = None,
         "case_retired_at": cs.get("retired_at"),
         "case": cs.get("case"),
         "icon": meta.get("icon_url"),
+        # Raridade da skin -- name_color (hex da Steam) e rarity_id (enum
+        # estável) alimentam a cor de raridade do item na tabela. Vêm de
+        # graça na mesma listing page, sem requisição extra.
+        "rarity_id": meta.get("rarity_id"),
+        "name_color": meta.get("name_color"),
         "category": category,
         "pump_risk": pr,
         "order_book_approx": ob_approx,

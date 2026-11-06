@@ -37,7 +37,7 @@
   <tr class="{{ "linha-destaque" if destaque else "" }}" data-nome="{{ c.name }}" data-nota="{{ c.score }}">
     <td class="celula-item" data-label="Item">
       <div class="celula-item-principal">
-        <span class="icone-item-quadro{{ ' icone-item-quadro-com-imagem' if c.icon_url else '' }}" aria-hidden="true">
+        <span class="icone-item-quadro{{ ' icone-item-quadro-com-imagem' if c.icon_url else '' }}{{ ' ' ~ c.raridade_classe if c.raridade_classe else '' }}" aria-hidden="true">
           <span class="icone-item-placeholder"></span>
         {% if c.icon_url %}
           <img class="icone-item" src="{{ c.icon_url }}" srcset="{{ c.icon_url }} 1x, {{ c.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="88" height="88">
@@ -75,7 +75,7 @@
     </td>
     <td class="celula-sparkline" data-label="Histórico">
       {% if c.sparkline %}
-      <a class="link-historico" href="{{ url_for('item_detail', name=c.name) }}" aria-label="Ver histórico completo de {{ c.name_fmt }}" title="Abrir datas e preços do histórico completo">{{ c.sparkline|safe }}</a>
+      <a class="link-historico{{ ' sparkline-' ~ c.tendencia if c.tendencia else '' }}" href="{{ url_for('item_detail', name=c.name) }}" aria-label="Ver histórico completo de {{ c.name_fmt }}" title="Abrir datas e preços do histórico completo">{{ c.sparkline|safe }}</a>
       {% if c.historico_curto %}
       <span class="selo-historico-curto" title="Só {{ c.historico_pontos }} {{ 'scan' if c.historico_pontos == 1 else 'scans' }} registrados até agora -- a linha pode não refletir bem a tendência ainda">histórico curto</span>
       {% endif %}
@@ -84,7 +84,7 @@
       {% endif %}
     </td>
     <td class="celula-nota" data-label="Nota">
-      <span class="nota nota-{{ c.score|nota_classe }}">{{ c.score }}</span>
+      <span class="nota nota-{{ c.score|nota_classe }}">{{ c.score|nota_anel|safe }}<span class="nota-numero">{{ c.score }}</span></span>
       {% if c.nota_margem %}<span class="nota-margem" title="A soma dos fatores passou do limite da escala (0 a 100): sem o corte, a nota seria {{ c.score + c.nota_margem }}. A ordem entre notas iguais já considera isso.">{{ "%+d"|format(c.nota_margem) }}</span>{% endif %}
       {% if c.pump_risk|risco_nivel != "low" %}
       <span class="selo-risco risco-{{ c.pump_risk|risco_nivel }}" aria-label="Risco {{ c.pump_risk|risco_label|lower }}" title="Risco {{ c.pump_risk|risco_label|lower }}: possibilidade de uma alta rápida e artificial do preço.">Risco {{ c.pump_risk|risco_label|lower }}</span>
@@ -293,11 +293,12 @@
       {% endif %}
     </nav>
     {% elif scan and categoria_sel and not contagem_categorias.get(categoria_sel) %}
-      <p class="status status-vazio">A categoria {{ categoria_sel }} ainda não tem itens coletados. A coleta atual cobre só as categorias com número ao lado do nome no filtro. <a href="{{ url_for('index') }}">Ver todas as categorias</a></p>
+      <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>A categoria {{ categoria_sel }} ainda não tem itens coletados. A coleta atual cobre só as categorias com número ao lado do nome no filtro. <a href="{{ url_for('index') }}">Ver todas as categorias</a></p>
     {% elif scan %}
-      <p class="status status-vazio">Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel) }}">Limpar filtros</a></p>
+      <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel) }}">Limpar filtros</a></p>
     {% else %}
       <section class="status status-vazio">
+        <span class="status-vazio-icone" aria-hidden="true">{{ icone("grafico") }}</span>
         <p>Ainda não há dados de coleta publicados. A lista aparece quando o próximo ciclo automático terminar.</p>
         <a class="botao-link" href="{{ url_for('status') }}">Acompanhar status da coleta</a>
       </section>

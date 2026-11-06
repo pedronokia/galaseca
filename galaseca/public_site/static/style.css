@@ -210,6 +210,17 @@ header.topo {
   z-index: 30;
 }
 
+/* Linha de acento sutil no pé do header -- um fio de profundidade sem
+   fugir da paleta navy/Steam. ::after não é alvo de `header.topo > *`,
+   então atravessa a largura toda de propósito. */
+header.topo::after {
+  content: "";
+  display: block;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.45;
+}
+
 header.topo > * {
   max-width: 960px;
   margin-left: auto;
@@ -507,6 +518,30 @@ main {
   box-shadow: var(--shadow-sm);
 }
 
+/* Ícone ilustrativo dos estados vazios (nenhum candidato, sem dados) --
+   mesmo traço do set local de _icons.html, em cinza apagado. */
+.status-vazio-icone {
+  display: block;
+  margin: 0 auto 12px;
+  width: 40px;
+  height: 40px;
+  color: var(--text-muted);
+}
+
+.status-vazio-icone .icone-ui {
+  width: 100%;
+  height: 100%;
+}
+
+/* Guarda gotcha #16: a varredura de `hidden` casa o `aria-hidden` (do
+   ícone) e também a substring `.status-vazio` dentro de `.status-vazio-
+   icone` -- as duas classes definem display, então precisam da guarda
+   explícita `.classe[hidden] { display: none; }`. */
+.status-vazio[hidden],
+.status-vazio-icone[hidden] {
+  display: none;
+}
+
 table.tabela-cards-mobile tbody tr.linha-watchlist {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
@@ -723,6 +758,28 @@ table.tabela-candidatos tbody tr:hover {
   box-shadow: inset 2px 0 0 var(--accent-bright);
 }
 
+/* Entrada escalonada das linhas da tabela (fade + deslize em cascata),
+   respeitando prefers-reduced-motion -- o rule global já zera a duração.
+   `backwards` (não `both`) de propósito: se a animação não rodar, a linha
+   nunca fica presa em opacity:0. */
+@keyframes linha-entra {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+table.tabela-itens tbody tr {
+  animation: linha-entra 0.35s ease backwards;
+}
+table.tabela-itens tbody tr:nth-child(1) { animation-delay: 0.02s; }
+table.tabela-itens tbody tr:nth-child(2) { animation-delay: 0.05s; }
+table.tabela-itens tbody tr:nth-child(3) { animation-delay: 0.08s; }
+table.tabela-itens tbody tr:nth-child(4) { animation-delay: 0.11s; }
+table.tabela-itens tbody tr:nth-child(5) { animation-delay: 0.14s; }
+table.tabela-itens tbody tr:nth-child(6) { animation-delay: 0.17s; }
+table.tabela-itens tbody tr:nth-child(7) { animation-delay: 0.2s; }
+table.tabela-itens tbody tr:nth-child(8) { animation-delay: 0.23s; }
+table.tabela-itens tbody tr:nth-child(9) { animation-delay: 0.26s; }
+table.tabela-itens tbody tr:nth-child(10) { animation-delay: 0.29s; }
+
 /* Larguras travadas (table-layout: fixed) só na tabela principal de
    itens -- achado 2026-10-26: sem isso, o navegador redistribui as
    colunas de forma instável sempre que a largura disponível aperta
@@ -827,6 +884,18 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   display: none;
 }
 
+/* Cor de raridade da skin (linguagem nativa do CS2) -- borda colorida no
+   quadro do ícone, mapeada a partir de `name_color`/`rarity_id` (ver
+   _raridade_classe em server.py). A imagem usa inset:0, então fica dentro
+   da borda; o quadro continua com o mesmo tamanho de sempre. */
+.icone-item-quadro.raridade-consumer { border: 2px solid #b0c3d9; }
+.icone-item-quadro.raridade-industrial { border: 2px solid #5e98d9; }
+.icone-item-quadro.raridade-milspec { border: 2px solid #4b69ff; }
+.icone-item-quadro.raridade-restricted { border: 2px solid #8847ff; }
+.icone-item-quadro.raridade-classified { border: 2px solid #d32ce6; }
+.icone-item-quadro.raridade-covert { border: 2px solid #eb4b4b; }
+.icone-item-quadro.raridade-dourado { border: 2px solid #e4ae39; }
+
 .icone-item-placeholder {
   position: absolute;
   inset: 0;
@@ -856,6 +925,13 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   height: 100%;
   border: 0;
   border-radius: 0;
+  transition: transform 0.2s ease;
+}
+
+/* Zoom sutil no hover do ícone do item -- a imagem (192px de origem,
+   servida em 88px) tem resolução de sobra pro close-up. */
+.icone-item-quadro:hover .icone-item {
+  transform: scale(1.06);
 }
 
 .icone-item[hidden],
@@ -1180,21 +1256,64 @@ table.tabela-candidatos td.celula-preco {
   overflow: hidden;
 }
 
+/* Nota virou um anel de progresso (0-100), não mais o selo preenchido --
+   o SVG (nota-anel) é gerado no servidor com stroke-dasharray proporcional
+   à nota; a cor continua vindo de nota-alta/media/baixa (currentColor). */
 .nota {
-  font-weight: 700;
-  display: inline-block;
-  padding: 2px 9px;
-  border-radius: 10px;
-  font-size: var(--fs-base);
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  line-height: 1;
   transition: transform 0.15s ease;
+}
+
+.nota-anel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.nota-anel-fundo {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 3.5;
+}
+
+.nota-anel-progresso {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.nota-numero {
+  position: relative;
+  font-weight: 700;
+  font-size: var(--fs-md);
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
 }
 
 table.tabela-candidatos tbody tr:hover .nota {
   transform: scale(1.08);
 }
-.nota-alta { color: #0f1a06; background: var(--positive); }
-.nota-media { color: #2b1d04; background: var(--warn); }
-.nota-baixa { color: var(--text); background: var(--surface); }
+.nota-alta { color: var(--positive); }
+.nota-media { color: var(--warn); }
+.nota-baixa { color: var(--text-muted); }
+
+/* No item.html o .nota divide o elemento com .card-valor (que chega
+   depois no arquivo e pinta o `color` de --text-bright) -- mesmo combo
+   de 2 classes já usado em .card-valor.risco-* pra a cor do anel não
+   ser sobrescrita pelo .card-valor. */
+.card-valor.nota-alta { color: var(--positive); }
+.card-valor.nota-media { color: var(--warn); }
+.card-valor.nota-baixa { color: var(--text-muted); }
 
 /* Margem além do teto 0-100 (investigação de pontuação, 2026-11-04) --
    vários itens muito bons somam mais de 100 por dentro, o corte da
@@ -1425,8 +1544,7 @@ footer.rodape .versao {
    mesmo selo em qualquer outro lugar do site (tabela, ranking), sem
    decisão de design por trás disso. Volta pro tamanho padrão do selo. */
 .card-valor.nota {
-  font-size: var(--fs-base);
-  /* O .card é coluna flex: sem isto o selo esticava na largura do card. */
+  /* O .card é coluna flex: sem isto o anel esticava na largura do card. */
   align-self: flex-start;
 }
 
@@ -1838,6 +1956,13 @@ footer.rodape .versao {
   height: 32px;
   color: var(--accent);
 }
+
+/* Sparkline colorido pela direção do preço (mesmo critério de
+   .tendencia-alta/.tendencia-baixa): verde subindo, vermelho caindo,
+   neutro quando estável. A classe vem de `_tendencia_do_historico`
+   (alta/baixa) colada em .link-historico no index.html. */
+.link-historico.sparkline-alta .mini-sparkline { color: var(--positive); }
+.link-historico.sparkline-baixa .mini-sparkline { color: var(--danger); }
 
 /* ── Favoritos ────────────────────────────────────────── */
 .botao-favorito {

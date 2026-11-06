@@ -2111,7 +2111,7 @@ def test_comparar_nota_fica_dentro_da_celula_certa(client, monkeypatch,
                                                     tmp_path):
     """achado 2026-10-31: a linha "Nota" aplicava class="nota ..." no
     próprio <td> (não num <span> dentro dele, como em index.html/
-    item.html) -- .nota tem display:inline-block, que tira o <td> do
+    item.html) -- .nota tem display:inline-grid (anel), que tira o <td> do
     layout de tabela e todas as notas colapsavam visualmente na
     primeira coluna. A nota precisa estar num <span> dentro do <td>."""
     resultados = [
@@ -2123,8 +2123,10 @@ def test_comparar_nota_fica_dentro_da_celula_certa(client, monkeypatch,
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
     assert '<td class="nota' not in body
-    assert '<td><span class="nota nota-alta">80</span></td>' in body
-    assert '<td><span class="nota nota-media">60</span></td>' in body
+    assert '<td><span class="nota nota-alta">' in body
+    assert '<td><span class="nota nota-media">' in body
+    assert '<span class="nota-numero">80</span>' in body
+    assert '<span class="nota-numero">60</span>' in body
 
 
 def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):
