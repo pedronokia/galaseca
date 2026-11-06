@@ -1686,11 +1686,16 @@ footer.rodape .versao {
   margin: 0 0 14px;
 }
 
-.pagina-texto p {
+.pagina-texto p,
+.pagina-texto li {
   /* Justificado (pedido do usuário, 2026-11-06) -- hyphens: auto junto
      porque texto justificado sem hifenização abre vão feio entre
      palavras numa coluna estreita (640px). html lang="pt-BR" já
-     existe em todo template, então o navegador hifeniza certo. */
+     existe em todo template, então o navegador hifeniza certo.
+     Também cobre <li> (achado 2026-11-06): os itens de lista do
+     Método/FAQ são longos e quebram em várias linhas, igual um
+     parágrafo -- deixar só o <p> justificado ficava inconsistente
+     na mesma página. */
   text-align: justify;
   hyphens: auto;
 }
