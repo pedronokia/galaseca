@@ -1275,18 +1275,8 @@ footer.rodape .versao {
   gap: var(--sp-3);
   margin-bottom: 20px;
   padding: 14px 16px;
-  /* Teste de "vidro fosco" (pedido do usuário, 2026-11-06) -- só nesta
-     barra, pra avaliar antes de decidir se espalha pro resto do site.
-     --bg-elevated com transparência + desfoque do que está atrás, em
-     vez do fundo sólido de sempre. Os campos (select/input) dentro
-     continuam com fundo opaco próprio (--surface, abaixo), então o
-     texto deles não perde contraste -- só a área da barra em si fica
-     translúcida. Fallback: sem suporte a backdrop-filter (Firefox
-     antigo), cai pra sólido com leve transparência, ainda legível. */
-  background: rgba(27, 40, 56, 0.72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
 }
