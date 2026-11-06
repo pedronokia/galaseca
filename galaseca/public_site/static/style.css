@@ -1686,6 +1686,15 @@ footer.rodape .versao {
   margin: 0 0 14px;
 }
 
+.pagina-texto p {
+  /* Justificado (pedido do usuário, 2026-11-06) -- hyphens: auto junto
+     porque texto justificado sem hifenização abre vão feio entre
+     palavras numa coluna estreita (640px). html lang="pt-BR" já
+     existe em todo template, então o navegador hifeniza certo. */
+  text-align: justify;
+  hyphens: auto;
+}
+
 .pagina-texto ul {
   padding-left: 20px;
 }
