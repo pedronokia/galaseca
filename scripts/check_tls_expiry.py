@@ -40,10 +40,17 @@ def main(argv: list[str]) -> int:
     if len(argv) < 2:
         print("Uso: python scripts/check_tls_expiry.py <dominio> [dias_limite]")
         return 2
-    dominio = argv[1]
+    dominio = (argv[1] or "").strip()
+    if not dominio:
+        print("FALHA: domínio vazio (confira o secret SITE_DOMAIN)")
+        return 2
     limite = float(argv[2]) if len(argv) > 2 else _DIAS_LIMITE_DEFAULT
     try:
         dias = dias_restantes(dominio)
+    except socket.gaierror as e:
+        print(f"DNS falhou ao resolver '{dominio}': {e} -- confira o secret "
+              "SITE_DOMAIN (sem espaço ou quebra de linha extra)")
+        return 1
     except (socket.error, ssl.SSLError, ValueError) as e:
         print(f"FALHA verificando {dominio}: {e}")
         return 1
