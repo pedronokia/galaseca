@@ -1115,6 +1115,54 @@ def test_ranking_page_item_linka_pra_pagina_de_detalhe(client, monkeypatch):
     assert 'href="/item/AK-47%20%7C%20Redline%20(Field-Tested)"' in body
 
 
+def test_ranking_page_mostra_icone_e_raridade_do_scan_atual(
+        client, monkeypatch, tmp_path):
+    """achado 2026-11-07: o snapshot de ranking.py grava só
+    name/score/position (formato estável pro histórico) -- ícone e
+    raridade vêm de cruzar o nome com o scan atual (_icone_raridade),
+    mesma fonte que já alimenta a home."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80,
+         "price": 50.0, "icon": "skin-icon-hash", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "name_color": "EB4B4B"},
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "icone-item-quadro-compacto" in body
+    assert "icone-item-quadro-com-imagem" in body
+    assert "raridade-covert" in body
+    assert 'title="Raridade: Covert (vermelho)"' in body
+
+
+def test_ranking_page_item_fora_do_scan_atual_sem_icone(client, monkeypatch):
+    """Item do snapshot que não está mais no scan atual (saiu do top, ou
+    nenhum scan rodou ainda) cai pro placeholder sem ícone/raridade, em
+    vez de quebrar a página -- sem scan salvo neste teste de propósito."""
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "Item sumido do scan", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    resp = client.get("/ranking")
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "raridade-" not in body
+    assert "icone-item-quadro-com-imagem" not in body
+
+
 def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.ranking.load_snapshots",
@@ -2113,6 +2161,23 @@ def test_comparar_lista_itens_pedidos(client, monkeypatch, tmp_path):
     body = resp.data.decode("utf-8")
     assert "Item A" in body
     assert "Item B" in body
+
+
+def test_comparar_mostra_icone_com_raridade(client, monkeypatch, tmp_path):
+    """achado 2026-11-07: o cabeçalho de /comparar mostrava a imagem
+    solta (sem o quadro nem a borda de raridade que a home já tinha) --
+    _candidatos_filtrados já calculava icon_url/raridade_classe pra
+    esses itens, só o template não usava."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "icon": "hash-a", "name_color": "EB4B4B"},
+    ])
+    body = client.get("/comparar?nomes=Item A").data.decode("utf-8")
+    assert "icone-item-quadro-compacto" in body
+    assert "icone-item-quadro-com-imagem" in body
+    assert "raridade-covert" in body
+    assert 'title="Raridade: Covert (vermelho)"' in body
 
 
 def test_comparar_mostra_liquidez(client, monkeypatch, tmp_path):

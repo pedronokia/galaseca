@@ -849,6 +849,16 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   font-weight: 600;
 }
 
+/* Mesma ideia de .celula-item-principal, com o quadro de ícone
+   compacto (40px) -- a linha do Ranking (Top 20 inteiro) não tem
+   espaço vertical de sobra pro quadro de 88px da home. */
+.celula-item-ranking {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
 .celula-item-acoes {
   display: flex;
   align-items: center;
@@ -896,6 +906,21 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .icone-item-quadro.raridade-covert { border: 2px solid #eb4b4b; }
 .icone-item-quadro.raridade-dourado { border: 2px solid #e4ae39; }
 
+/* Variante compacta (40px) do mesmo quadro -- Ranking e Comparar são
+   tabelas mais densas que a home (Top 20 inteiro / até 3 colunas lado a
+   lado), 88px ali deixaria a linha/coluna alta demais. Reusa a mesma
+   classe-base (raridade, fundo, hover) só reduzindo o tamanho. */
+.icone-item-quadro-compacto {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+.icone-item-quadro-compacto .icone-item-placeholder::before {
+  font-size: 1.3rem;
+}
+
 .icone-item-placeholder {
   position: absolute;
   inset: 0;
@@ -918,7 +943,9 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   flex-shrink: 0;
 }
 
-.celula-item .icone-item {
+.celula-item .icone-item,
+.celula-item-ranking .icone-item,
+.celula-comparar-cabecalho .icone-item {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -2124,8 +2151,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   font-size: var(--fs-md);
 }
 
-.celula-comparar-cabecalho .icone-item {
-  display: block;
+.celula-comparar-cabecalho .icone-item-quadro {
   margin: 0 auto 4px;
 }
 

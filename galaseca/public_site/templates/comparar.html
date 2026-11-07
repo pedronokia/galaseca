@@ -29,7 +29,12 @@
           <th>Item</th>
           {% for it in itens %}
           <th class="celula-comparar-cabecalho">
-            {% if it.icon_url %}<img class="icone-item" src="{{ it.icon_url }}" alt="" width="32" height="32">{% endif %}
+            <span class="icone-item-quadro icone-item-quadro-compacto{{ ' icone-item-quadro-com-imagem' if it.icon_url else '' }}{{ ' ' ~ it.raridade_classe if it.raridade_classe else '' }}" aria-hidden="true"{% if it.raridade_titulo %} title="{{ it.raridade_titulo }}"{% endif %}>
+              <span class="icone-item-placeholder"></span>
+            {% if it.icon_url %}
+              <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
+            {% endif %}
+            </span>
             <a href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
           </th>
           {% endfor %}
