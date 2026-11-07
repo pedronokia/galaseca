@@ -1107,11 +1107,21 @@ def _nota_classe(score: "int | float | None") -> str:
 
 
 # Cor de raridade da skin (linguagem visual nativa do CS2) -- achado
-# 2026-11-06: a Steam já entrega `name_color` (hex exato, que cobre facas/
-# luvas/contraband em dourado) e `rarity_id` (enum estável). O CSP do site
-# (`style-src 'self'`, sem inline) impede usar a cor direto no HTML, então
-# mapeia pra classes fixas em style.css. Prioriza o hex do `name_color`
-# (acerta faca/luva dourada); `rarity_id` é o fallback.
+# 2026-11-06: a Steam já entrega `name_color` (hex) e `rarity_id` (enum
+# estável). O CSP do site (`style-src 'self'`, sem inline) impede usar a
+# cor direto no HTML, então mapeia pra classes fixas em style.css.
+#
+# CORREÇÃO 2026-11-07: a suposição original de que `name_color` dava
+# dourado em facas/luvas/contraband era errada -- checado com uma
+# requisição real (galaseca.steam_api.get_market_page_data) numa Karambit
+# e numas Sport Gloves de verdade: as duas vêm com name_color "eb4b4b" e
+# rarity_id "Rarity_Ancient_Weapon"/"Rarity_Ancient" -- EXATAMENTE os
+# mesmos valores de uma skin Covert comum. O dourado real do jogo vem da
+# `quality_id` ("unusual", o prefixo ★), um campo separado que não tinha
+# chegado até aqui -- sem a correção abaixo, toda faca/luva do site saía
+# com borda vermelha (Covert) em vez de dourada. Contraband (ex. Howl)
+# continua mapeado por via das dúvidas, mas não foi possível confirmar
+# com um item real (a listing testada não trazia esse sinal).
 _RARIDADE_POR_COR = {
     "b0c3d9": "consumer",
     "5e98d9": "industrial",
@@ -1119,8 +1129,8 @@ _RARIDADE_POR_COR = {
     "8847ff": "restricted",
     "d32ce6": "classified",
     "eb4b4b": "covert",
-    "e4ae39": "dourado",  # facas
-    "caad74": "dourado",  # luvas + contraband (Howl)
+    "e4ae39": "dourado",
+    "caad74": "dourado",
 }
 _RARIDADE_POR_ID = {
     "Rarity_Common_Weapon": "consumer",
@@ -1150,6 +1160,11 @@ _RARIDADE_LABELS = {
 
 
 def _raridade_suffix(item: dict) -> str:
+    # Checa ANTES do mapa de cor/raridade comum -- facas e luvas têm
+    # name_color/rarity_id iguais aos de uma skin Covert, só a
+    # quality_id ("unusual") distingue (ver comentário acima do mapa).
+    if item.get("quality_id") == "unusual":
+        return "dourado"
     nome_cor = (item.get("name_color") or "").strip().lower()
     if nome_cor in _RARIDADE_POR_COR:
         return _RARIDADE_POR_COR[nome_cor]
