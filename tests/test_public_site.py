@@ -1863,6 +1863,62 @@ def test_item_detail_grafico_tem_preenchimento_em_gradiente(client, monkeypatch,
     assert "<polygon" in body
 
 
+def test_item_detail_grafico_colorido_pela_tendencia_do_periodo(
+        client, monkeypatch, tmp_path):
+    """achado 2026-11-07: decisão revista -- o gráfico grande ficava
+    sempre neutro de propósito (cor podia parecer um "veredito" sobre o
+    preço), mas o mini-sparkline da listagem já ficou colorido por
+    tendência desde 2026-11-06, deixando o site inconsistente (pedido
+    do usuário pra uniformizar). A cor segue o PERÍODO EXIBIDO (primeiro
+    vs. último ponto do recorte), não só os 2 últimos pontos crus do
+    histórico -- trocar de período muda a cor se mudar a direção."""
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 2 * 86400, "price": 10.0},
+        {"ts": agora - 1 * 86400, "price": 12.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert 'class="card grafico-card grafico-tendencia-alta"' in body
+
+    hist_baixa = [
+        {"ts": agora - 2 * 86400, "price": 12.0},
+        {"ts": agora - 1 * 86400, "price": 10.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist_baixa)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert 'class="card grafico-card grafico-tendencia-baixa"' in body
+
+
+def test_item_detail_grafico_estavel_fica_na_cor_neutra(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 2 * 86400, "price": 10.0},
+        {"ts": agora - 1 * 86400, "price": 10.0},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    assert 'class="card grafico-card">' in body
+    assert "grafico-tendencia-" not in body
+
+
 def test_index_sparkline_nao_tem_preenchimento_em_gradiente(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
