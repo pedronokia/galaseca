@@ -13,6 +13,7 @@ data/*
 !data/.gitkeep
 .env
 .vscode/
+.claude/settings.local.json
 *.log
 *.tmp
 _diag*.py
