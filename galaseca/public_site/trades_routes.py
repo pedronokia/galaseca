@@ -11,9 +11,9 @@ from flask import (
     Blueprint, flash, redirect, render_template, request, session, url_for,
 )
 
-from galaseca import trades as trades_mod
+from galaseca import scan_store, trades as trades_mod
 from galaseca.localization import localize_name
-from galaseca.public_site import fmt, user_trades
+from galaseca.public_site import fmt, raridade, user_trades
 from galaseca.public_site.auth import csrf_protect, csrf_token, login_required
 from galaseca.public_site.rate_limit import (
     MUTATION_MAX_HITS, MUTATION_WINDOW_S, rate_limited,
@@ -22,9 +22,23 @@ from galaseca.public_site.rate_limit import (
 bp = Blueprint("trades", __name__)
 
 
+def _scan_lookup() -> dict:
+    """{name: resultado bruto} do último scan público -- só pro
+    ícone/raridade (achado 2026-11-07: trades não mostrava ícone
+    nenhum). Sem nota aqui de propósito: um trade já fechado é
+    histórico, "nota atual" do item soaria como sugestão de operar de
+    novo -- fora do escopo desta tela (ver AGENTS.md: o site descreve
+    dado observado, não promete retorno)."""
+    scan = scan_store.load_last_scan()
+    if not scan:
+        return {}
+    return {r["name"]: r for r in scan["results"]}
+
+
 def _formatar(registros: list[dict]) -> list[dict]:
     """Acrescenta `index` (posição original, pra remover certo) e
     campos *_fmt -- mesmo padrão de `account.py:_formatar_linhas`."""
+    por_nome_scan = _scan_lookup()
     out = []
     for i, t in enumerate(registros):
         out.append({
@@ -34,6 +48,7 @@ def _formatar(registros: list[dict]) -> list[dict]:
             "buy_cost_fmt": fmt.brl(t.get("buy_cost")),
             "sell_price_fmt": fmt.brl(t.get("sell_price")),
             "pnl_fmt": fmt.brl(t.get("pnl")),
+            **raridade.icone_raridade(por_nome_scan.get(t["name"])),
         })
     return out
 
