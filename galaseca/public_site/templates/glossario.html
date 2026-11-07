@@ -28,6 +28,7 @@
       {"@type": "DefinedTerm", "name": "Liquidez", "description": "Quanto tempo o estoque à venda levaria pra esvaziar no ritmo de negociação recente (estoque dividido pelo volume médio diário). Quanto menos dias, mais fácil comprar ou vender rápido pelo preço de mercado."},
       {"@type": "DefinedTerm", "name": "Trade-up", "description": "Mecânica do próprio CS2: trocar 10 skins da mesma raridade por uma skin de raridade superior (aleatória, dentro de um conjunto possível)."},
       {"@type": "DefinedTerm", "name": "Covert", "description": "Uma das raridades de skin no CS2 (a mais alta entre as comuns, antes das facas/luvas). Aparece com borda vermelha no jogo."},
+      {"@type": "DefinedTerm", "name": "Raridade", "description": "Categoria fixa de cada skin no CS2, mostrada pela cor da borda no ícone (galaseca) e no próprio jogo: cinza (Consumer Grade), azul claro (Industrial Grade), azul (Mil-Spec), roxo (Restricted), rosa (Classified), vermelho (Covert) e dourado (facas, luvas e itens contrabandeados). Não muda com o tempo nem com o desgaste."},
       {"@type": "DefinedTerm", "name": "Procura × Oferta", "description": "Quantos itens são vendidos por dia comparado a quantos estão à venda agora. Abaixo de 1 significa mais gente vendendo do que comprando -- um dos fatores que compõem a nota."}
     ]
   }
@@ -59,6 +60,7 @@
       <a href="#termo-liquidez">Liquidez</a>
       <a href="#termo-trade-up">Trade-up</a>
       <a href="#termo-covert">Covert</a>
+      <a href="#termo-raridade">Raridade</a>
       <a href="#termo-procura-oferta">Procura × Oferta</a>
     </nav>
     {# Cada par dt/dd fica num <div> (agrupamento válido em HTML5 dentro de
@@ -152,6 +154,17 @@
       <dt id="termo-covert" tabindex="-1"><strong>Covert</strong></dt>
       <dd>Uma das raridades de skin no CS2 (a mais alta entre as "comuns",
       antes das facas/luvas). Aparece com borda vermelha no jogo.</dd>
+      </div>
+
+      <div class="termo-glossario">
+      <dt id="termo-raridade" tabindex="-1"><strong>Raridade</strong></dt>
+      <dd>Categoria fixa de cada skin, a mesma usada no próprio jogo --
+      não muda com o tempo nem com o desgaste. No galaseca aparece como a
+      cor da borda no ícone do item: cinza (Consumer Grade), azul claro
+      (Industrial Grade), azul (Mil-Spec), roxo (Restricted), rosa
+      (Classified), vermelho (Covert, ver acima) e dourado (facas, luvas
+      e itens contrabandeados). Passar o mouse sobre o ícone mostra o
+      nome da raridade.</dd>
       </div>
 
       <div class="termo-glossario">

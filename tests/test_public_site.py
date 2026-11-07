@@ -177,6 +177,45 @@ def test_index_exibe_miniatura_e_separa_acoes_do_nome(
     assert "botao-favorito" in acoes
 
 
+def test_index_borda_de_raridade_tem_explicacao_no_title(
+        client, monkeypatch, tmp_path):
+    """achado 2026-11-07: a borda colorida de raridade (cor oficial do
+    CS2) não tinha nenhuma explicação na tela -- quem não manja das
+    cores via só uma borda sem significado. O `title` (hover) cobre
+    quem usa mouse; a explicação completa fica no glossário."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "icon": "skin-icon-hash", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "name_color": "EB4B4B"},
+    ])
+
+    body = client.get("/").data.decode("utf-8")
+    principal = re.search(
+        r'<div class="celula-item-principal">(.*?)</div>',
+        body, re.DOTALL).group(1)
+
+    assert "raridade-covert" in principal
+    assert 'title="Raridade: Covert (vermelho)"' in principal
+
+
+def test_index_sem_raridade_nao_tem_classe_nem_title(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "icon": "skin-icon-hash", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+
+    body = client.get("/").data.decode("utf-8")
+    principal = re.search(
+        r'<div class="celula-item-principal">(.*?)</div>',
+        body, re.DOTALL).group(1)
+
+    assert "raridade-" not in principal
+    assert "Raridade:" not in principal
+
+
 def test_index_reserva_espaco_da_miniatura_sem_hash(
         client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [
@@ -2647,6 +2686,8 @@ def test_glossario_page(client):
     assert 'aria-label="Índice do glossário"' in body
     assert 'href="#termo-procura-oferta"' in body
     assert 'id="termo-procura-oferta" tabindex="-1"' in body
+    assert 'href="#termo-raridade"' in body
+    assert 'id="termo-raridade" tabindex="-1"><strong>Raridade</strong></dt>' in body
 
 
 def test_sitemap_inclui_faq(client):

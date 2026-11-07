@@ -1126,15 +1126,41 @@ _RARIDADE_POR_ID = {
     "Rarity_Contraband": "dourado",
 }
 
+# Rótulo da borda de raridade pro atributo `title` (achado 2026-11-07: a
+# borda colorida não tinha nenhuma explicação na tela -- quem não manja
+# das cores oficiais do CS2 via só uma borda sem significado. O termo em
+# inglês é o mesmo usado no jogo e no glossário do site (ver #termo-
+# raridade em glossario.html); a cor em português do lado ajuda sem
+# precisar decorar o nome em inglês.
+_RARIDADE_LABELS = {
+    "consumer": "Consumer Grade (cinza)",
+    "industrial": "Industrial Grade (azul claro)",
+    "milspec": "Mil-Spec (azul)",
+    "restricted": "Restricted (roxo)",
+    "classified": "Classified (rosa)",
+    "covert": "Covert (vermelho)",
+    "dourado": "Item especial -- faca, luva ou contrabando (dourado)",
+}
 
-def _raridade_classe(item: dict) -> str:
+
+def _raridade_suffix(item: dict) -> str:
     nome_cor = (item.get("name_color") or "").strip().lower()
     if nome_cor in _RARIDADE_POR_COR:
-        return "raridade-" + _RARIDADE_POR_COR[nome_cor]
+        return _RARIDADE_POR_COR[nome_cor]
     rid = item.get("rarity_id")
     if rid in _RARIDADE_POR_ID:
-        return "raridade-" + _RARIDADE_POR_ID[rid]
+        return _RARIDADE_POR_ID[rid]
     return ""
+
+
+def _raridade_classe(item: dict) -> str:
+    suf = _raridade_suffix(item)
+    return "raridade-" + suf if suf else ""
+
+
+def _raridade_titulo(item: dict) -> str:
+    suf = _raridade_suffix(item)
+    return "Raridade: " + _RARIDADE_LABELS[suf] if suf else ""
 
 
 # Anel de progresso da nota (0-100) em SVG, gerado no servidor (mesmo
@@ -1335,6 +1361,7 @@ def _candidatos_filtrados(
         c["price_fmt"] = fmt.brl(c.get("price"))
         c["name_fmt"] = name_fmt
         c["raridade_classe"] = _raridade_classe(c)
+        c["raridade_titulo"] = _raridade_titulo(c)
         # Nota crua (signals.raw_score) sem o corte em [0, 100] -- achado
         # 2026-11-04: a soma dos fatores passa de 100 (ou de 0) com
         # frequência pra item muito bom (ou muito ruim), e o corte faz
