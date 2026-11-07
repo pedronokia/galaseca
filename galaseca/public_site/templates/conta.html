@@ -64,7 +64,20 @@
       <tbody>
         {% for row in avaliacao.rows %}
         <tr>
-          <td data-label="Item">{{ row.name_fmt }}</td>
+          <td data-label="Item">
+            <div class="celula-item-ranking">
+            <span class="icone-item-quadro icone-item-quadro-compacto{{ ' icone-item-quadro-com-imagem' if row.icon_url else '' }}{{ ' ' ~ row.raridade_classe if row.raridade_classe else '' }}" aria-hidden="true"{% if row.raridade_titulo %} title="{{ row.raridade_titulo }}"{% endif %}>
+              <span class="icone-item-placeholder"></span>
+            {% if row.icon_url %}
+              <img class="icone-item" src="{{ row.icon_url }}" srcset="{{ row.icon_url }} 1x, {{ row.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
+            {% endif %}
+            </span>
+            <a class="link-item" href="{{ url_for('item_detail', name=row.name) }}">{{ row.name_fmt }}</a>
+          {% if row.score is not none %}
+            <span class="nota nota-{{ row.score|nota_classe }}">{{ row.score|nota_anel|safe }}<span class="nota-numero">{{ row.score }}</span></span>
+          {% endif %}
+            </div>
+          </td>
           <td data-label="Qtd">{{ row.quantity }}</td>
           <td data-label="Custo">
             <form method="post" action="{{ url_for('account.editar_custo', name=row.name) }}" class="form-inline">
