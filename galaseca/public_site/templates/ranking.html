@@ -59,7 +59,15 @@
           {% for it in itens %}
           <tr>
             <td>{{ it.position }}</td>
-            <td><a class="link-item" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a></td>
+            <td class="celula-item-ranking">
+              <span class="icone-item-quadro icone-item-quadro-compacto{{ ' icone-item-quadro-com-imagem' if it.icon_url else '' }}{{ ' ' ~ it.raridade_classe if it.raridade_classe else '' }}" aria-hidden="true"{% if it.raridade_titulo %} title="{{ it.raridade_titulo }}"{% endif %}>
+                <span class="icone-item-placeholder"></span>
+              {% if it.icon_url %}
+                <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
+              {% endif %}
+              </span>
+              <a class="link-item" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+            </td>
             <td><span class="nota nota-{{ it.score|nota_classe }}">{{ it.score|nota_anel|safe }}<span class="nota-numero">{{ it.score }}</span></span></td>
             <td>
               {% if it.label == "NOVO" %}

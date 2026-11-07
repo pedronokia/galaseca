@@ -691,6 +691,11 @@ def create_app() -> Flask:
         snaps = ranking.load_snapshots()
         atual = snaps[-1] if snaps else None
         anterior = ranking.previous_snapshot()
+        # Ícone + raridade não vêm do snapshot (ranking.py grava só
+        # name/score/position, ver _icone_raridade) -- cruza pelo nome
+        # com o scan atual, que já tem icon/name_color/rarity_id.
+        scan = scan_store.load_last_scan()
+        por_nome_scan = {r["name"]: r for r in (scan or {}).get("results") or []}
         itens = []
         if atual:
             for it in atual["items"]:
@@ -702,6 +707,7 @@ def create_app() -> Flask:
                     "position": it["position"],
                     "score": it["score"],
                     **delta,
+                    **_icone_raridade(por_nome_scan.get(it["name"])),
                 })
         return render_template(
             "ranking.html",
@@ -1161,6 +1167,30 @@ def _raridade_classe(item: dict) -> str:
 def _raridade_titulo(item: dict) -> str:
     suf = _raridade_suffix(item)
     return "Raridade: " + _RARIDADE_LABELS[suf] if suf else ""
+
+
+def _icone_raridade(raw: "dict | None") -> dict:
+    """icon_url (2x incluso) + classe/título de raridade a partir de um
+    candidato bruto do scan (campos `icon`/`name_color`/`rarity_id`).
+
+    Fatorado 2026-11-07 pra uso fora de `_candidatos_filtrados`: o
+    snapshot de ranking.py grava só name/score/position (formato
+    estável pro histórico, de propósito -- ver ranking.py), então
+    `ranking_page()` cruza pelo nome com o scan atual pra pegar
+    ícone/raridade. `raw=None` (item saiu do scan atual, ou ainda não
+    há scan) cai no mesmo "sem imagem"/sem borda que index.html já
+    trata.
+    """
+    raw = raw or {}
+    icon_url = (
+        url_for("icone_cache", hash_icone=raw["icon"], v=2)
+        if raw.get("icon") else None)
+    return {
+        "icon_url": icon_url,
+        "icon_url_2x": icon_url,
+        "raridade_classe": _raridade_classe(raw),
+        "raridade_titulo": _raridade_titulo(raw),
+    }
 
 
 # Anel de progresso da nota (0-100) em SVG, gerado no servidor (mesmo
