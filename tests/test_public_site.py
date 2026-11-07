@@ -216,6 +216,31 @@ def test_index_sem_raridade_nao_tem_classe_nem_title(
     assert "Raridade:" not in principal
 
 
+def test_raridade_faca_luva_usa_quality_id_nao_cor_covert(
+        client, monkeypatch, tmp_path):
+    """achado 2026-11-07, bug real visto em produção (Ranking, "Sport
+    Gloves | Big Game" com borda vermelha em vez de dourada): facas e
+    luvas (quality_id="unusual", prefixo ★) chegam da Steam com
+    name_color/rarity_id IDÊNTICOS aos de uma skin Covert comum --
+    valores reais checados numa Karambit e numas Sport Gloves de
+    verdade (galaseca.steam_api.get_market_page_data, request único).
+    Sem checar quality_id ANTES do mapa de cor/raridade, toda faca/luva
+    do site saía com borda vermelha."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "★ Karambit | Doppler (Factory New)", "score": 90,
+         "price": 2000.0, "icon": "hash", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "name_color": "eb4b4b", "rarity_id": "Rarity_Ancient_Weapon",
+         "quality_id": "unusual"},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    principal = re.search(
+        r'<div class="celula-item-principal">(.*?)</div>',
+        body, re.DOTALL).group(1)
+    assert "raridade-dourado" in principal
+    assert "raridade-covert" not in principal
+
+
 def test_index_reserva_espaco_da_miniatura_sem_hash(
         client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [

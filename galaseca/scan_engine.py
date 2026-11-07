@@ -135,6 +135,11 @@ def scan_item(name: str, category: str | None = None,
         # graça na mesma listing page, sem requisição extra.
         "rarity_id": meta.get("rarity_id"),
         "name_color": meta.get("name_color"),
+        # quality_id (achado 2026-11-07, request real numa Karambit e
+        # numas Sport Gloves): faca/luva tem name_color/rarity_id IGUAIS
+        # aos de uma skin Covert comum -- só quality_id="unusual" (o
+        # prefixo ★) distingue. Ver _raridade_suffix em server.py.
+        "quality_id": meta.get("quality_id"),
         "category": category,
         "pump_risk": pr,
         "order_book_approx": ob_approx,
