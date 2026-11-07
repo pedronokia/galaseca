@@ -131,7 +131,17 @@
     <h2 class="secao-titulo">Itens parecidos</h2>
     <ul class="lista-parecidos">
       {% for p in parecidos %}
-      <li><a href="{{ url_for('item_detail', name=p.name) }}">{{ p.name_fmt }}</a> — nota {{ p.score }}, {{ p.price_fmt }}</li>
+      <li class="item-parecido">
+        <span class="icone-item-quadro icone-item-quadro-compacto{{ ' icone-item-quadro-com-imagem' if p.icon_url else '' }}{{ ' ' ~ p.raridade_classe if p.raridade_classe else '' }}" aria-hidden="true"{% if p.raridade_titulo %} title="{{ p.raridade_titulo }}"{% endif %}>
+          <span class="icone-item-placeholder"></span>
+        {% if p.icon_url %}
+          <img class="icone-item" src="{{ p.icon_url }}" srcset="{{ p.icon_url }} 1x, {{ p.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
+        {% endif %}
+        </span>
+        <a class="item-parecido-link" href="{{ url_for('item_detail', name=p.name) }}">{{ p.name_fmt }}</a>
+        <span class="nota nota-{{ p.score|nota_classe }}">{{ p.score|nota_anel|safe }}<span class="nota-numero">{{ p.score }}</span></span>
+        <span class="item-parecido-preco">{{ p.price_fmt }}</span>
+      </li>
       {% endfor %}
     </ul>
     {% endif %}

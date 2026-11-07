@@ -1968,6 +1968,30 @@ def test_item_detail_itens_parecidos_exclui_o_proprio(client, monkeypatch, tmp_p
     assert "Item C" not in body  # categoria diferente
 
 
+def test_item_detail_itens_parecidos_mostra_icone_e_anel(
+        client, monkeypatch, tmp_path):
+    """achado 2026-11-07: "Itens parecidos" era texto puro (nome + "nota
+    X, R$ Y") -- _itens_parecidos já reaproveita os candidatos de
+    _candidatos_filtrados, que já tinham icon_url/raridade_classe, só o
+    template não usava. Pedido do usuário pra deixar consistente com o
+    resto do site (ícone compacto + anel de nota, mesmo do Ranking)."""
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+        {"name": "Item B", "score": 78, "price": 12.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": [],
+         "icon": "hash-b", "name_color": "EB4B4B"},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/item/Item A").data.decode("utf-8")
+    lista = re.search(
+        r'<ul class="lista-parecidos">(.*?)</ul>', body, re.DOTALL).group(1)
+    assert "icone-item-quadro-compacto" in lista
+    assert "icone-item-quadro-com-imagem" in lista
+    assert "raridade-covert" in lista
+    assert '<span class="nota-numero">78</span>' in lista
+
+
 # ── server: robots.txt / csp-report ─────────────────────────
 
 def test_robots_txt_bloqueia_admin(client):
