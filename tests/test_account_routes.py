@@ -205,6 +205,30 @@ def test_adicionar_posicao(client, monkeypatch):
     assert 'data-label="Lucro (sem taxa)"' in pagina
 
 
+def test_posicao_mostra_icone_raridade_e_nota_do_scan_atual(
+        client, monkeypatch):
+    """achado 2026-11-07: o portfólio não mostrava ícone nem nota nenhum,
+    só o nome em texto puro -- mesmo gap já corrigido na watchlist/
+    trades (ver raridade.py e account._scan_lookup)."""
+    monkeypatch.setattr(
+        "galaseca.scan_store.load_last_scan", lambda: {
+            "ts": 0.0, "category": "Facas", "results": [
+                {"name": "AK-47 | Redline (Field-Tested)", "score": 77,
+                 "icon": "hash-ak", "name_color": "EB4B4B"},
+            ]})
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/posicoes", data={
+        "name": "AK-47 | Redline (Field-Tested)", "cost": "50.00",
+        "quantity": "1", "csrf_token": token,
+    })
+    pagina = client.get("/conta").data.decode("utf-8")
+    assert "icone-item-quadro-compacto" in pagina
+    assert "icone-item-quadro-com-imagem" in pagina
+    assert "raridade-covert" in pagina
+    assert '<span class="nota-numero">77</span>' in pagina
+
+
 def test_adicionar_posicao_sem_csrf_falha(client, monkeypatch):
     _login(client, monkeypatch)
     resp = client.post("/conta/posicoes", data={

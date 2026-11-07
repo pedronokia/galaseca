@@ -16,12 +16,12 @@ from flask import (
     send_file, session, url_for,
 )
 
-from galaseca import portfolio
+from galaseca import portfolio, scan_store
 from galaseca.localization import localize_name
 from galaseca.prices import PriceCache
 from galaseca.public_site import (
-    fmt, steam_openid, user_history, user_portfolio, user_store, user_trades,
-    user_watchlist,
+    fmt, raridade, steam_openid, user_history, user_portfolio, user_store,
+    user_trades, user_watchlist,
 )
 from galaseca.public_site.auth import csrf_protect, csrf_token, login_required
 from galaseca.public_site.rate_limit import (
@@ -53,14 +53,29 @@ def _openid_return_to_matches(expected: "str | None") -> bool:
     )
 
 
+def _scan_lookup() -> dict:
+    """{name: resultado bruto} do último scan público -- só pro ícone/
+    raridade/nota (achado 2026-11-07: o portfólio não mostrava ícone
+    nenhum, igual watchlist/trades antes do mesmo fix -- ver
+    raridade.py)."""
+    scan = scan_store.load_last_scan()
+    if not scan:
+        return {}
+    return {r["name"]: r for r in scan["results"]}
+
+
 def _formatar_linhas(avaliacao: dict) -> dict:
     """Acrescenta campos *_fmt pro template -- mesmo padrão de
     `server.py:_candidatos` (formata em Python, template fica simples)."""
+    por_nome_scan = _scan_lookup()
     for row in avaliacao["rows"]:
+        raw = por_nome_scan.get(row["name"])
         row["name_fmt"] = localize_name(row["name"])
         row["price_fmt"] = fmt.brl(row.get("price"))
         row["cost_fmt"] = fmt.brl(row.get("cost"))
         row["pnl_fmt"] = fmt.brl(row.get("pnl"))
+        row["score"] = raw.get("score") if raw else None
+        row.update(raridade.icone_raridade(raw))
     t = avaliacao["totals"]
     t["cost_fmt"] = fmt.brl(t.get("cost"))
     t["cost_known_fmt"] = fmt.brl(t.get("cost_known"))
