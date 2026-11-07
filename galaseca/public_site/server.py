@@ -38,8 +38,8 @@ from galaseca._paths import DATA_DIR, atomic_write_bytes
 from galaseca.localization import localize_name
 from galaseca.public_site import (
     buscas, changelog, charts, db_backup, discord_notify, erro_stats, fmt,
-    icon_cache, latencia, profile_fetcher, rate_limit, scan_progress,
-    user_store, uptime, visits,
+    icon_cache, latencia, profile_fetcher, raridade, rate_limit,
+    scan_progress, user_store, uptime, visits,
 )
 from galaseca.public_site.auth import csrf_token, csrf_valid
 
@@ -1121,106 +1121,13 @@ def _nota_classe(score: "int | float | None") -> str:
     return "baixa"
 
 
-# Cor de raridade da skin (linguagem visual nativa do CS2) -- achado
-# 2026-11-06: a Steam já entrega `name_color` (hex) e `rarity_id` (enum
-# estável). O CSP do site (`style-src 'self'`, sem inline) impede usar a
-# cor direto no HTML, então mapeia pra classes fixas em style.css.
-#
-# CORREÇÃO 2026-11-07: a suposição original de que `name_color` dava
-# dourado em facas/luvas/contraband era errada -- checado com uma
-# requisição real (galaseca.steam_api.get_market_page_data) numa Karambit
-# e numas Sport Gloves de verdade: as duas vêm com name_color "eb4b4b" e
-# rarity_id "Rarity_Ancient_Weapon"/"Rarity_Ancient" -- EXATAMENTE os
-# mesmos valores de uma skin Covert comum. O dourado real do jogo vem da
-# `quality_id` ("unusual", o prefixo ★), um campo separado que não tinha
-# chegado até aqui -- sem a correção abaixo, toda faca/luva do site saía
-# com borda vermelha (Covert) em vez de dourada. Contraband (ex. Howl)
-# continua mapeado por via das dúvidas, mas não foi possível confirmar
-# com um item real (a listing testada não trazia esse sinal).
-_RARIDADE_POR_COR = {
-    "b0c3d9": "consumer",
-    "5e98d9": "industrial",
-    "4b69ff": "milspec",
-    "8847ff": "restricted",
-    "d32ce6": "classified",
-    "eb4b4b": "covert",
-    "e4ae39": "dourado",
-    "caad74": "dourado",
-}
-_RARIDADE_POR_ID = {
-    "Rarity_Common_Weapon": "consumer",
-    "Rarity_Uncommon_Weapon": "industrial",
-    "Rarity_Rare_Weapon": "milspec",
-    "Rarity_Mythical_Weapon": "restricted",
-    "Rarity_Legendary_Weapon": "classified",
-    "Rarity_Ancient_Weapon": "covert",
-    "Rarity_Contraband": "dourado",
-}
-
-# Rótulo da borda de raridade pro atributo `title` (achado 2026-11-07: a
-# borda colorida não tinha nenhuma explicação na tela -- quem não manja
-# das cores oficiais do CS2 via só uma borda sem significado. O termo em
-# inglês é o mesmo usado no jogo e no glossário do site (ver #termo-
-# raridade em glossario.html); a cor em português do lado ajuda sem
-# precisar decorar o nome em inglês.
-_RARIDADE_LABELS = {
-    "consumer": "Consumer Grade (cinza)",
-    "industrial": "Industrial Grade (azul claro)",
-    "milspec": "Mil-Spec (azul)",
-    "restricted": "Restricted (roxo)",
-    "classified": "Classified (rosa)",
-    "covert": "Covert (vermelho)",
-    "dourado": "Item especial -- faca, luva ou contrabando (dourado)",
-}
-
-
-def _raridade_suffix(item: dict) -> str:
-    # Checa ANTES do mapa de cor/raridade comum -- facas e luvas têm
-    # name_color/rarity_id iguais aos de uma skin Covert, só a
-    # quality_id ("unusual") distingue (ver comentário acima do mapa).
-    if item.get("quality_id") == "unusual":
-        return "dourado"
-    nome_cor = (item.get("name_color") or "").strip().lower()
-    if nome_cor in _RARIDADE_POR_COR:
-        return _RARIDADE_POR_COR[nome_cor]
-    rid = item.get("rarity_id")
-    if rid in _RARIDADE_POR_ID:
-        return _RARIDADE_POR_ID[rid]
-    return ""
-
-
-def _raridade_classe(item: dict) -> str:
-    suf = _raridade_suffix(item)
-    return "raridade-" + suf if suf else ""
-
-
-def _raridade_titulo(item: dict) -> str:
-    suf = _raridade_suffix(item)
-    return "Raridade: " + _RARIDADE_LABELS[suf] if suf else ""
-
-
-def _icone_raridade(raw: "dict | None") -> dict:
-    """icon_url (2x incluso) + classe/título de raridade a partir de um
-    candidato bruto do scan (campos `icon`/`name_color`/`rarity_id`).
-
-    Fatorado 2026-11-07 pra uso fora de `_candidatos_filtrados`: o
-    snapshot de ranking.py grava só name/score/position (formato
-    estável pro histórico, de propósito -- ver ranking.py), então
-    `ranking_page()` cruza pelo nome com o scan atual pra pegar
-    ícone/raridade. `raw=None` (item saiu do scan atual, ou ainda não
-    há scan) cai no mesmo "sem imagem"/sem borda que index.html já
-    trata.
-    """
-    raw = raw or {}
-    icon_url = (
-        url_for("icone_cache", hash_icone=raw["icon"], v=2)
-        if raw.get("icon") else None)
-    return {
-        "icon_url": icon_url,
-        "icon_url_2x": icon_url,
-        "raridade_classe": _raridade_classe(raw),
-        "raridade_titulo": _raridade_titulo(raw),
-    }
+# Raridade (cor da borda no ícone) fatorada em raridade.py 2026-11-07,
+# pra watchlist/trades reusarem sem importar o módulo inteiro de rotas
+# -- watchlist_routes.py e trades_routes.py cruzam pelo nome com o scan
+# atual do mesmo jeito que ranking_page() já fazia.
+_raridade_classe = raridade.raridade_classe
+_raridade_titulo = raridade.raridade_titulo
+_icone_raridade = raridade.icone_raridade
 
 
 # Anel de progresso da nota (0-100) em SVG, gerado no servidor (mesmo

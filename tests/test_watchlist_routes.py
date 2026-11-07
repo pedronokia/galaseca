@@ -88,6 +88,47 @@ def test_adicionar_item(client, monkeypatch):
     assert 'data-label="Regras"' in pagina
 
 
+def test_item_mostra_icone_raridade_e_nota_do_scan_atual(
+        client, monkeypatch):
+    """achado 2026-11-07: a watchlist não mostrava ícone nem nota nenhum,
+    só o nome em texto puro -- a conta não passava pelo enriquecimento
+    de _candidatos_filtrados (home/ranking/comparar/item), então ficou
+    "pra trás" nas melhorias visuais. Cruza pelo nome com o scan atual
+    (mesmo padrão de ranking_page -- ver raridade.icone_raridade)."""
+    monkeypatch.setattr(
+        "galaseca.scan_store.load_last_scan", lambda: {
+            "ts": 0.0, "category": "Facas", "results": [
+                {"name": "AK-47", "score": 77, "icon": "hash-ak",
+                 "name_color": "EB4B4B"},
+            ]})
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/watchlist", data={
+        "name": "AK-47", "target": "15.00", "csrf_token": token,
+    })
+    body = client.get("/conta/watchlist").data.decode("utf-8")
+    assert "icone-item-quadro-compacto" in body
+    assert "icone-item-quadro-com-imagem" in body
+    assert "raridade-covert" in body
+    assert '<span class="nota-numero">77</span>' in body
+
+
+def test_item_sem_scan_atual_nao_mostra_icone_nem_quebra(
+        client, monkeypatch):
+    """Item fora do scan atual (fixture já faz load_last_scan -> None por
+    padrão) cai pro mesmo placeholder sem borda/nota que a home já
+    trata -- não quebra a página."""
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/watchlist", data={
+        "name": "AK-47", "target": "15.00", "csrf_token": token,
+    })
+    body = client.get("/conta/watchlist").data.decode("utf-8")
+    assert "AK-47" in body
+    assert "raridade-" not in body
+    assert "nota-numero" not in body
+
+
 def test_adicionar_sem_csrf_falha(client, monkeypatch):
     _login(client, monkeypatch)
     resp = client.post("/conta/watchlist", data={"name": "AK-47"})

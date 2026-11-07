@@ -17,7 +17,9 @@ from flask import (
 from galaseca import alerts, scan_store, signals
 from galaseca.localization import localize_name
 from galaseca.prices import PriceCache
-from galaseca.public_site import discord_notify, fmt, user_watchlist, user_webhook
+from galaseca.public_site import (
+    discord_notify, fmt, raridade, user_watchlist, user_webhook,
+)
 from galaseca.public_site.auth import csrf_protect, csrf_token, login_required
 from galaseca.public_site.rate_limit import (
     MUTATION_MAX_HITS, MUTATION_WINDOW_S, rate_limited,
@@ -31,35 +33,44 @@ _RULE_FIELDS = (
 )
 
 
-def _score_lookup() -> dict:
-    """{name: score} do último scan público -- leitura, sem rede."""
+def _scan_lookup() -> dict:
+    """{name: resultado bruto} do último scan público -- leitura, sem
+    rede. Serve tanto pra nota (_avaliar já usava) quanto pra ícone/
+    raridade (achado 2026-11-07: a watchlist não mostrava ícone nenhum,
+    só nome em texto -- os outros itens persistidos por usuário, mesmo
+    sendo watchlist/trades e não candidato do scan, cruzam pelo nome do
+    mesmo jeito que ranking_page() já faz)."""
     scan = scan_store.load_last_scan()
     if not scan:
         return {}
-    return {r["name"]: r.get("score") for r in scan["results"]}
+    return {r["name"]: r for r in scan["results"]}
 
 
 def _avaliar(items: list[dict]) -> list[dict]:
     cache = PriceCache()
-    scores = _score_lookup()
+    por_nome_scan = _scan_lookup()
     out = []
     for it in items:
         name = it["name"]
         price = cache.get(name)
+        raw = por_nome_scan.get(name)
+        score = raw.get("score") if raw else None
         alertas = alerts.evaluate_item(
             it, price,
             volume_history=signals.load_item_volume(name),
             supply_history=signals.load_item_supply(name),
-            current_score=scores.get(name),
+            current_score=score,
         )
         out.append({
             **it,
             "name_fmt": localize_name(name),
             "price_fmt": fmt.brl(price),
+            "score": score,
             "rules_resumo": alerts.format_rules_summary(it.get("rules"))
                             or "Sem regra configurada",
             "alertas": alertas,
             "disparado": bool(alertas),
+            **raridade.icone_raridade(raw),
         })
     return out
 

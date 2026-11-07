@@ -76,6 +76,32 @@ def test_adicionar_trade(client, monkeypatch):
     assert 'data-label="Ações"' in pagina
 
 
+def test_item_mostra_icone_e_raridade_do_scan_atual(client, monkeypatch):
+    """achado 2026-11-07: trades não mostrava ícone nenhum, só o nome em
+    texto puro -- a conta não passava pelo enriquecimento de
+    _candidatos_filtrados (home/ranking/comparar/item/watchlist). Sem
+    nota aqui de propósito: trade já fechado é histórico (ver
+    raridade.py e trades_routes._scan_lookup)."""
+    monkeypatch.setattr(
+        "galaseca.scan_store.load_last_scan", lambda: {
+            "ts": 0.0, "category": "Facas", "results": [
+                {"name": "AK-47 | Redline (Field-Tested)", "score": 77,
+                 "icon": "hash-ak", "name_color": "EB4B4B"},
+            ]})
+    _login(client, monkeypatch)
+    token = _csrf_token(client)
+    client.post("/conta/trades", data={
+        "name": "AK-47 | Redline (Field-Tested)", "buy_cost": "50.00",
+        "sell_price": "80.00", "quantity": "1", "notes": "teste",
+        "csrf_token": token,
+    })
+    pagina = client.get("/conta/trades").data.decode("utf-8")
+    assert "icone-item-quadro-compacto" in pagina
+    assert "icone-item-quadro-com-imagem" in pagina
+    assert "raridade-covert" in pagina
+    assert "nota-numero" not in pagina  # de propósito, trade já fechado
+
+
 def test_adicionar_trade_sem_csrf_falha(client, monkeypatch):
     _login(client, monkeypatch)
     resp = client.post("/conta/trades", data={
