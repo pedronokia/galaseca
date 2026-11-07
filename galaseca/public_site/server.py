@@ -373,6 +373,20 @@ def create_app() -> Flask:
             if p.get("price")]
         grafico = charts.line_chart_svg(
             [{"total": v} for v in precos_periodo], area_fill=True)
+        # Cor do gráfico pela direção do PERÍODO EXIBIDO (primeiro vs.
+        # último ponto do recorte atual) -- mesmo critério visual do
+        # mini-sparkline da listagem (achado 2026-11-06), não os 2 últimos
+        # pontos crus do histórico (_tendencia_do_historico): o período
+        # selecionado pelo visitante (7d/30d/90d/tudo) muda o que está na
+        # tela, então a cor tem que acompanhar o que ele está vendo, não
+        # um resumo de fora do recorte. None (preço estável, ou só 1
+        # ponto no recorte) fica na cor neutra de sempre.
+        grafico_tendencia = None
+        if len(precos_periodo) >= 2:
+            if precos_periodo[-1] > precos_periodo[0]:
+                grafico_tendencia = "alta"
+            elif precos_periodo[-1] < precos_periodo[0]:
+                grafico_tendencia = "baixa"
         # A linha sozinha é normalizada entre o mínimo e o máximo do
         # próprio recorte -- sem essa legenda, uma subida de R$0,10 e uma
         # de R$100 desenham a MESMA inclinação na tela, e quem usa leitor
@@ -390,6 +404,7 @@ def create_app() -> Flask:
             "item.html",
             item=item,
             grafico=grafico,
+            grafico_tendencia=grafico_tendencia,
             grafico_legenda=grafico_legenda,
             tem_historico=tem_historico,
             periodo_sel=periodo,

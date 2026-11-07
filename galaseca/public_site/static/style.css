@@ -1751,11 +1751,19 @@ footer.rodape .versao {
 .grafico-card {
   padding: 16px;
   margin-bottom: 20px;
-  /* Mesma cor neutra do sparkline da listagem (.mini-sparkline) --
-     --positive (verde) sugeria "preço bom" mesmo quando a linha caía
-     no período; o gráfico só descreve o preço observado. */
+  /* Cor neutra por padrão (preço estável, ou só 1 ponto no recorte). */
   color: var(--accent);
 }
+
+/* Verde/vermelho pela direção do PERÍODO EXIBIDO (primeiro vs. último
+   ponto do recorte atual) -- decisão revista 2026-11-07: a versão
+   anterior mantinha isto neutro de propósito (cor podia parecer um
+   "veredito" sobre o preço, já que subir ou cair pode ser bom ou ruim
+   dependendo de quem olha). Revertida pra consistência com o mini-
+   sparkline da listagem, que já ficou colorido assim desde 2026-11-06 --
+   um gráfico "opinava" com cor e o outro não. */
+.grafico-card.grafico-tendencia-alta { color: var(--positive); }
+.grafico-card.grafico-tendencia-baixa { color: var(--danger); }
 
 .grafico-historico {
   display: block;
