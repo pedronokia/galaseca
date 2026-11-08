@@ -23,14 +23,18 @@
 
   <main id="conteudo" class="pagina-texto">
     <h1 class="titulo-pagina">Mudanças</h1>
-    {% for entrada in entradas %}
-    <h2 class="secao-titulo">{{ entrada.data }} — {{ entrada.titulo }}</h2>
-    <ul>
-      {% for item in entrada.itens %}
-      <li>{{ item }}</li>
+    <div class="changelog-timeline">
+      {% for entrada in entradas %}
+      <section class="changelog-entrada">
+        <h2 class="secao-titulo">{{ entrada.data }} — {{ entrada.titulo }}</h2>
+        <ul>
+          {% for item in entrada.itens %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </section>
       {% endfor %}
-    </ul>
-    {% endfor %}
+    </div>
   </main>
 
   <footer class="rodape">

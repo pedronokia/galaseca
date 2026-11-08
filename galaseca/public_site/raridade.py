@@ -89,6 +89,15 @@ def raridade_titulo(item: dict) -> str:
     return "Raridade: " + _RARIDADE_LABELS[suf] if suf else ""
 
 
+def legenda_raridade() -> list:
+    """As 7 raridades, na ordem (cinza -> dourado), pro popover de legenda
+    perto da tabela -- lê de `_RARIDADE_LABELS` em vez de duplicar a
+    lista à mão num template, pra nunca dessincronizar do mapeamento
+    real usado nos ícones."""
+    return [{"classe": "raridade-" + suf, "titulo": label}
+            for suf, label in _RARIDADE_LABELS.items()]
+
+
 def icone_raridade(raw: "dict | None") -> dict:
     """icon_url (2x incluso) + classe/título de raridade a partir de um
     candidato bruto do scan (campos `icon`/`name_color`/`rarity_id`).

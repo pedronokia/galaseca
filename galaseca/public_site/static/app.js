@@ -80,19 +80,22 @@ document.addEventListener("submit", function (e) {
   }
 });
 
-// Menu "⋯ Mais ações" (por item) -- <details> nativo não fecha
-// sozinho quando o clique acontece fora dele; sem isso ficava aberto
-// flutuando por cima do resto da tabela depois que o usuário
-// claramente saiu dali (achado 2026-11-01).
+// Menu "⋯ Mais ações" (por item) e popover "Cores da borda" -- <details>
+// nativo não fecha sozinho quando o clique acontece fora dele; sem
+// isso ficava aberto flutuando por cima do resto da tabela depois que
+// o usuário claramente saiu dali (achado 2026-11-01, mesmo princípio
+// reaproveitado pro popover de legenda de raridade).
+var _SELETOR_DETAILS_AUTO_FECHA = ".menu-acoes-item[open], .popover-legenda[open]";
+
 document.addEventListener("click", function (e) {
-  document.querySelectorAll(".menu-acoes-item[open]").forEach(function (det) {
+  document.querySelectorAll(_SELETOR_DETAILS_AUTO_FECHA).forEach(function (det) {
     if (!det.contains(e.target)) det.open = false;
   });
 });
 
 document.addEventListener("keydown", function (e) {
   if (e.key !== "Escape") return;
-  document.querySelectorAll(".menu-acoes-item[open]").forEach(function (det) {
+  document.querySelectorAll(_SELETOR_DETAILS_AUTO_FECHA).forEach(function (det) {
     det.open = false;
   });
 });

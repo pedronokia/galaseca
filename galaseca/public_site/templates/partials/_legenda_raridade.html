@@ -1,0 +1,22 @@
+{#- Popover "O que são essas cores?" perto da tabela -- a borda de
+   raridade no ícone de cada item só tinha explicação no `title`
+   (hover), que não funciona bem no celular. Reusa a mesma classe
+   `.icone-item-quadro` dos ícones de verdade (sem imagem dentro), pra
+   a legenda mostrar exatamente a borda/brilho que aparece na tabela,
+   não uma cor inventada à parte. `<details>` nativo: sem JS pra
+   abrir/fechar, só o fechar-ao-clicar-fora/Esc já genérico em
+   app.js (mesmo padrão do menu "⋯ Mais ações"). -#}
+<details class="popover-legenda">
+  <summary class="popover-legenda-toggle">{{ icone("ajuda") }} Cores da borda</summary>
+  <div class="popover-legenda-conteudo">
+    <p class="popover-legenda-titulo">Raridade da skin (cor da borda no ícone)</p>
+    <ul class="popover-legenda-lista">
+      {% for r in legenda_raridade %}
+      <li>
+        <span class="icone-item-quadro icone-item-quadro-compacto {{ r.classe }}" aria-hidden="true"><span class="icone-item-placeholder"></span></span>
+        {{ r.titulo }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</details>
