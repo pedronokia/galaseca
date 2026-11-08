@@ -943,11 +943,15 @@ def create_app() -> Flask:
         grafico_visitas_legenda = (
             f"{min(valores_visitas)} – {max(valores_visitas)} visitas por dia no período"
             if len(valores_visitas) >= 2 else None)
+        ciclos_ok = sum(1 for c in ciclos if c.get("sucesso"))
         return render_template(
             "status.html",
             no_ar_desde_txt=scan_store.idade_txt(desde),
             visitas=visits.total(),
             ciclos=ciclos,
+            ciclos_sucesso_txt=(
+                f"{ciclos_ok} de {len(ciclos)} ciclos com sucesso"
+                if ciclos else None),
             grafico_visitas=grafico_visitas,
             grafico_visitas_legenda=grafico_visitas_legenda,
             mais_buscados=buscas.mais_buscados(limite=10),

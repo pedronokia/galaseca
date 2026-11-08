@@ -1638,6 +1638,7 @@ def test_status_sem_historico(client, monkeypatch, tmp_path):
     resp = client.get("/status")
     assert resp.status_code == 200
     assert "Ainda não há histórico".encode("utf-8") in resp.data
+    assert "saude-ciclos" not in resp.data.decode("utf-8")
 
 
 def test_status_mostra_ciclos_com_falha(client, monkeypatch, tmp_path):
@@ -1652,6 +1653,12 @@ def test_status_mostra_ciclos_com_falha(client, monkeypatch, tmp_path):
     body = resp.data.decode("utf-8")
     assert "Sem sucesso (bloqueado)" in body
     assert "Sucesso" in body
+    # Tira de saúde (item #9 da lista de melhorias) -- 1 de 2 ciclos
+    # com sucesso, 1 "ok" e 1 "falha".
+    faixa = body.split('class="saude-ciclos"', 1)[1].split("</div>", 1)[0]
+    assert faixa.count("saude-ciclo-ok") == 1
+    assert faixa.count("saude-ciclo-falha") == 1
+    assert "1 de 2 ciclos com sucesso" in body
 
 
 # ── server: /feed.xml ────────────────────────────────────────
