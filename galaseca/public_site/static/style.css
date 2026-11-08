@@ -1783,6 +1783,16 @@ footer.rodape .versao {
   color: var(--text-bright);
 }
 
+/* Ícone ao lado do título da 404 (item #15 da lista de melhorias) --
+   único título de página no site sem nenhum ícone ou ilustração. */
+.titulo-404 .icone-ui {
+  width: 1em;
+  height: 1em;
+  margin-right: 4px;
+  color: var(--text-muted);
+  vertical-align: -0.15em;
+}
+
 /* Linha do tempo do /changelog -- cada entrada é uma data, não um
    texto corrido qualquer, então um trilho vertical + ponto por entrada
    deixa mais fácil escanear "quando" sem ler a data por extenso em
