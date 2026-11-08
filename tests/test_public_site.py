@@ -332,6 +332,7 @@ def test_index_confianca_baixa_vira_selo_ao_lado_da_nota(client, monkeypatch, tm
     body = client.get("/").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert 'class="selo-confianca-baixa"' in celula
+    assert "icone-ui-dado-limitado" in celula
     assert ">Dado limitado</span>" in celula
     assert "só 3 pontos de histórico" in celula
     assert "60 dias atrás" in celula
