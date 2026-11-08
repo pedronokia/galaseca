@@ -2089,6 +2089,21 @@ footer.rodape .versao {
 
 .botao-favorito:hover { background: var(--surface-hover); color: var(--warn); }
 .botao-favorito.favoritado { color: var(--warn); }
+
+/* Pop breve ao marcar favorito -- feedback de resposta imediata (classe
+   "favoritando" é adicionada/removida pelo app.js só no clique que
+   favorita, nunca no carregamento da página nem ao desfavoritar). */
+@keyframes favoritar-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.botao-favorito.favoritando .icone-ui-favorito {
+  animation: favoritar-pop 0.28s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .botao-favorito.favoritando .icone-ui-favorito { animation: none; }
+}
 #botao-favoritos.ativo { border-color: var(--warn); color: var(--warn); }
 #botao-favoritos .icone-ui { width: 17px; height: 17px; }
 #botao-favoritos.ativo .icone-ui-favorito { fill: currentColor; }
