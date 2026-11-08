@@ -20,7 +20,8 @@
 
   <main id="conteudo">
     {% if grafico %}
-      <div class="card grafico-card">{{ grafico|safe }}</div>
+      <div class="card grafico-card{{ ' grafico-tendencia-' ~ grafico_tendencia if grafico_tendencia else '' }}">{{ grafico|safe }}</div>
+      {% if grafico_legenda %}<p class="status-muted">{{ grafico_legenda }}</p>{% endif %}
     {% else %}
       <p class="status status-vazio">Ainda não há pontos suficientes pra um gráfico — visite "Minha conta" de novo depois que o valor mudar.</p>
     {% endif %}

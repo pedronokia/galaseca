@@ -24,8 +24,29 @@ def listar():
         for p in series
     ]
     pontos.reverse()
+
+    valores = [p["total"] for p in series]
+    # Mesmo padrão do gráfico de preço em /item/<name>: tooltip por ponto
+    # (data + valor exato) e legenda com o range real, já que a linha
+    # sozinha é normalizada entre o mínimo e o máximo da série -- sem
+    # isso, uma variação de R$1 e uma de R$1000 desenham a mesma
+    # inclinação, e leitor de tela não tem texto associado ao SVG.
+    rotulos = [f"{fmt.data_hora_br(p['ts'])} — {fmt.brl(p['total'])}"
+               for p in series]
+    grafico_tendencia = None
+    if len(valores) >= 2:
+        if valores[-1] > valores[0]:
+            grafico_tendencia = "alta"
+        elif valores[-1] < valores[0]:
+            grafico_tendencia = "baixa"
+    grafico_legenda = (
+        f"{fmt.brl(min(valores))} – {fmt.brl(max(valores))} no período"
+        if len(valores) >= 2 else None)
+
     return render_template(
         "conta_historico.html",
-        grafico=charts.line_chart_svg(series),
+        grafico=charts.line_chart_svg(series, area_fill=True, rotulos=rotulos),
+        grafico_tendencia=grafico_tendencia,
+        grafico_legenda=grafico_legenda,
         pontos=pontos,
     )
