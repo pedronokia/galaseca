@@ -2838,7 +2838,10 @@ def test_comparar_mostra_icone_com_raridade(client, monkeypatch, tmp_path):
          "icon": "hash-a", "name_color": "EB4B4B"},
     ])
     body = client.get("/comparar?nomes=Item A").data.decode("utf-8")
-    assert "icone-item-quadro-compacto" in body
+    # Tamanho cheio (88px) desde 2026-11-08 -- até 3 itens lado a lado
+    # cabe o mesmo tratamento do destaque da vitrine, não a moldura
+    # compacta de 40px (essa continua só em Ranking/listas densas).
+    assert "icone-item-quadro-compacto" not in body
     assert "icone-item-quadro-com-imagem" in body
     assert "raridade-covert" in body
     assert 'title="Raridade: Covert (vermelho)"' in body
