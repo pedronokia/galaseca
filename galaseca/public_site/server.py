@@ -430,11 +430,18 @@ def create_app() -> Flask:
         periodo = request.args.get("periodo") or None
         if periodo not in _PERIODOS_GRAFICO:
             periodo = None
-        precos_periodo = [
-            p["price"] for p in _filtra_historico_por_periodo(hist, periodo)
+        pontos_periodo = [
+            p for p in _filtra_historico_por_periodo(hist, periodo)
             if p.get("price")]
+        precos_periodo = [p["price"] for p in pontos_periodo]
+        # item #8 da lista de melhorias -- tooltip por ponto (data + preço
+        # exato), via <title> nativo do SVG (ver charts.line_chart_svg).
+        rotulos_periodo = [
+            f"{fmt.data_hora_br(p['ts'])} — {fmt.brl(p['price'])}"
+            for p in pontos_periodo]
         grafico = charts.line_chart_svg(
-            [{"total": v} for v in precos_periodo], area_fill=True)
+            [{"total": v} for v in precos_periodo], area_fill=True,
+            rotulos=rotulos_periodo)
         # Cor do gráfico pela direção do PERÍODO EXIBIDO (primeiro vs.
         # último ponto do recorte atual) -- mesmo critério visual do
         # mini-sparkline da listagem (achado 2026-11-06), não os 2 últimos
