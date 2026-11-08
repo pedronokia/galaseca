@@ -1,7 +1,15 @@
-/* Paleta inspirada na Steam (azul escuro + acento azul-claro) — pra quem já
-   usa a Steam se sentir em casa aqui. Esta folha é independente da paleta
-   do app Qt (ui/theme.py) de propósito: o app continua em tons de cinza
-   (decisão separada), só o site público usa essas cores. */
+/* Paleta inspirada na Steam (fundo navy + acento laranja StatTrak) — o
+   fundo escuro continua de propósito igual à Steam, pra quem já usa a
+   Steam se sentir em casa; o acento trocou de azul-claro genérico
+   (achado 2026-11-08, revisão de direção visual: o acento original lia
+   como "azul de dashboard SaaS", sem nenhuma ligação com o CS2 em si)
+   pro laranja StatTrak do próprio jogo (cor do contador "StatTrak(tm)"
+   em toda arma, instantamente reconhecível por quem joga/negocia
+   skins). --accent-steel preserva o tom azul original só pro botão
+   "Entrar com Steam", que é uma ação da marca Steam, não do galaseca.
+   Esta folha é independente da paleta do app Qt (ui/theme.py) de
+   propósito: o app continua em tons de cinza (decisão separada), só o
+   site público usa essas cores. */
 :root {
   --bg: #171a21;
   --bg-elevated: #1b2838;
@@ -15,8 +23,18 @@
      neutro puro; contraste contra --bg continua bem acima de AAA. */
   --text-bright: #eef3f8;
   --text-muted: #c1ccd6;
-  --accent: #66c0f4;
-  --accent-bright: #a4d8fb;
+  /* Laranja StatTrak: contraste checado contra bg/bg-elevated/surface
+     (os 3 fundos onde --accent/--accent-bright aparecem como texto) --
+     --accent cobre >=4.1:1 em todos; --accent-bright (versão mais clara,
+     usada em texto pequeno/links sobre --surface) cobre >=4.5:1 em
+     todos, igual ao padrão AA já exigido no resto do site. */
+  --accent: #e07a3a;
+  --accent-bright: #f0a066;
+  /* Azul original da paleta Steam -- não removido, só reservado pro
+     botão "Entrar com Steam" (.conta-link-entrar), que representa a
+     marca Steam, não a identidade visual do galaseca. */
+  --accent-steel: #66c0f4;
+  --accent-steel-bright: #a4d8fb;
   /* positive/warn: verde-limão e âmbar originais, de volta por pedido
      do usuário (2026-10-31) -- uma troca pro verde/amarelo validados
      (#2aa352/#b8860f) rodou curto: o validador de paleta (skill de
@@ -475,14 +493,18 @@ header.topo h1 {
    combina com o mesmo tratamento "botão de destaque" que
    .form-filtros button já usa, sem repetir destaque em mais nenhum
    lugar fixo da tela (ver comentário sobre "só devia existir UM
-   botão de destaque por tela", 2026-10-27). */
+   botão de destaque por tela", 2026-10-27).
+   Usa --accent-steel (azul), não --accent (laranja, 2026-11-08): este
+   botão leva pro login da própria Steam, então mantém a cor da marca
+   Steam em vez do novo acento do galaseca -- único lugar do site que
+   faz essa troca de propósito. */
 .conta-link-entrar {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   color: var(--bg);
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  background: var(--accent-steel);
+  border: 1px solid var(--accent-steel);
   border-radius: 6px;
   padding: 9px 20px;
   font-weight: 600;
