@@ -2203,6 +2203,34 @@ footer.rodape .versao {
 .tabela-status td.ok { color: var(--positive); }
 .tabela-status td.falha { color: var(--danger); }
 
+/* Tira de saúde dos últimos ciclos (item #9 da lista de melhorias) --
+   visão rápida de "o scan andou bem?" antes de ler a tabela linha por
+   linha. `aria-hidden` porque o parágrafo logo abaixo já diz a mesma
+   informação em texto ("N de M ciclos com sucesso"); a cor sozinha
+   (--positive/--danger, mesma já usada na coluna "Resultado" da
+   tabela) não seria acessível sem esse resumo em texto junto. */
+.saude-ciclos {
+  display: flex;
+  gap: 3px;
+  margin: 0 0 4px;
+}
+
+/* Guarda por convenção (gotcha #16) -- a varredura de testes confunde
+   aria-hidden="true" com o atributo hidden, mas a regra é inofensiva:
+   este elemento nunca recebe hidden de verdade. */
+.saude-ciclos[hidden] { display: none; }
+
+.saude-ciclo {
+  flex: 1 1 0;
+  min-width: 4px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.saude-ciclo-ok { background: var(--positive); }
+.saude-ciclo-falha { background: var(--danger); }
+
 /* ── Banner de aviso (scan desatualizado) ────────────────── */
 .banner-aviso {
   margin: 10px 0 0;

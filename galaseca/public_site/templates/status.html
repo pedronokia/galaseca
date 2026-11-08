@@ -61,6 +61,13 @@
     escondido.</p>
 
     {% if ciclos %}
+    <div class="saude-ciclos" aria-hidden="true">
+      {% for c in ciclos|reverse %}
+      <span class="saude-ciclo saude-ciclo-{{ 'ok' if c.sucesso else 'falha' }}"></span>
+      {% endfor %}
+    </div>
+    <p class="status-muted">{{ ciclos_sucesso_txt }} (mais antigo à esquerda, mais recente à direita)</p>
+
     <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
     <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de últimos ciclos do scan, com rolagem lateral">
     <table class="tabela-candidatos tabela-status">
