@@ -1744,6 +1744,11 @@ def test_item_detail_mostra_nota_e_preco(client, monkeypatch, tmp_path):
     body = resp.data.decode("utf-8")
     assert "85" in body
     assert "R$" in body
+    # achado 2026-11-08 (referência visual: FACEIT): nota grande só no
+    # card de destaque da página do item (um item em foco), diferente
+    # do anel compacto de listas/tabelas (home/ranking/comparar/
+    # parecidos/watchlist/trades/portfólio).
+    assert 'class="card-valor nota nota-grande nota-alta"' in body
 
 
 def test_item_detail_mostra_card_de_liquidez(client, monkeypatch, tmp_path):

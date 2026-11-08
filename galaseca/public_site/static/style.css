@@ -897,14 +897,42 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 /* Cor de raridade da skin (linguagem nativa do CS2) -- borda colorida no
    quadro do ícone, mapeada a partir de `name_color`/`rarity_id` (ver
    _raridade_classe em server.py). A imagem usa inset:0, então fica dentro
-   da borda; o quadro continua com o mesmo tamanho de sempre. */
-.icone-item-quadro.raridade-consumer { border: 2px solid #b0c3d9; }
-.icone-item-quadro.raridade-industrial { border: 2px solid #5e98d9; }
-.icone-item-quadro.raridade-milspec { border: 2px solid #4b69ff; }
-.icone-item-quadro.raridade-restricted { border: 2px solid #8847ff; }
-.icone-item-quadro.raridade-classified { border: 2px solid #d32ce6; }
-.icone-item-quadro.raridade-covert { border: 2px solid #eb4b4b; }
-.icone-item-quadro.raridade-dourado { border: 2px solid #e4ae39; }
+   da borda; o quadro continua com o mesmo tamanho de sempre.
+   Brilho de fundo (gradiente radial, cor por trás da imagem) acrescentado
+   2026-11-08 -- referência: os cards de jogador da FACEIT (fundo colorido
+   vivo atrás do avatar, não só um contorno). A maioria dos ícones de
+   skin da Steam tem fundo transparente, então o brilho aparece ao redor
+   do desenho em vez de cobri-lo. Especificidade (.icone-item-quadro
+   .raridade-X, 2 classes) já vence .icone-item-quadro-com-imagem (1
+   classe, zera pra transparent) nas duas ordens possíveis no HTML. */
+.icone-item-quadro.raridade-consumer {
+  border: 2px solid #b0c3d9;
+  background: radial-gradient(circle, rgba(176, 195, 217, 0.3), transparent 70%);
+}
+.icone-item-quadro.raridade-industrial {
+  border: 2px solid #5e98d9;
+  background: radial-gradient(circle, rgba(94, 152, 217, 0.3), transparent 70%);
+}
+.icone-item-quadro.raridade-milspec {
+  border: 2px solid #4b69ff;
+  background: radial-gradient(circle, rgba(75, 105, 255, 0.3), transparent 70%);
+}
+.icone-item-quadro.raridade-restricted {
+  border: 2px solid #8847ff;
+  background: radial-gradient(circle, rgba(136, 71, 255, 0.3), transparent 70%);
+}
+.icone-item-quadro.raridade-classified {
+  border: 2px solid #d32ce6;
+  background: radial-gradient(circle, rgba(211, 44, 230, 0.3), transparent 70%);
+}
+.icone-item-quadro.raridade-covert {
+  border: 2px solid #eb4b4b;
+  background: radial-gradient(circle, rgba(235, 75, 75, 0.3), transparent 70%);
+}
+.icone-item-quadro.raridade-dourado {
+  border: 2px solid #e4ae39;
+  background: radial-gradient(circle, rgba(228, 174, 57, 0.35), transparent 70%);
+}
 
 /* Variante compacta (40px) do mesmo quadro -- Ranking e Comparar são
    tabelas mais densas que a home (Top 20 inteiro / até 3 colunas lado a
@@ -1317,6 +1345,26 @@ table.tabela-candidatos td.celula-preco {
   stroke: currentColor;
   stroke-width: 3.5;
   stroke-linecap: round;
+}
+
+/* Variante grande (72px) só pro card de destaque da página do item --
+   referência: o número de ELO gigante da FACEIT na tela de partida, bem
+   maior que o mesmo número numa lista. Aqui só faz sentido com UM item
+   em foco (a página do item); nas tabelas (home/ranking/comparar) e nos
+   cartões compactos (parecidos/watchlist/trades/portfólio), dezenas de
+   notas juntas continuam no tamanho padrão de sempre. */
+.nota-grande {
+  width: 72px;
+  height: 72px;
+}
+
+.nota-grande .nota-anel-fundo,
+.nota-grande .nota-anel-progresso {
+  stroke-width: 3;
+}
+
+.nota-grande .nota-numero {
+  font-size: var(--fs-display);
 }
 
 .nota-numero {
