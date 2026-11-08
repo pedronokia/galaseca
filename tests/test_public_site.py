@@ -2011,6 +2011,9 @@ def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
     body = client.get("/status").data.decode("utf-8")
     assert "grafico-historico" in body
     assert "ak-47" in body
+    # mesmo padrão de tooltip por ponto do gráfico de /item e /conta/historico
+    assert "<title>24/10/2026 — 3 visitas</title>" in body
+    assert "<title>25/10/2026 — 5 visitas</title>" in body
 
 
 # ── server: /status ──────────────────────────────────────────
