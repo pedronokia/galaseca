@@ -3665,6 +3665,26 @@ def test_admin_log_bruto_com_sessao_baixa_arquivo(client, monkeypatch, tmp_path)
     assert b"linha de erro" in resp.data
 
 
+def test_admin_grafico_erros_tem_tooltip_por_ponto(client, monkeypatch, tmp_path):
+    # mesma ronda de /status e /conta/historico: o gráfico de erros do
+    # admin também chamava charts.line_chart_svg sem rotulos.
+    log = tmp_path / "errors.log"
+    log.write_text(
+        "2026-11-07 10:00:00,000 ERROR algo\n"
+        "2026-11-08 09:00:00,000 ERROR outro\n"
+        "2026-11-08 11:00:00,000 ERROR outro2\n",
+        encoding="utf-8")
+    monkeypatch.setattr(
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr("galaseca.public_site.server._ERROR_LOG_PATH", log)
+    client.post("/admin/login", data={"senha": "segredo"})
+    body = client.get("/admin").data.decode("utf-8")
+    assert "grafico-erros" in body
+    assert "<title>07/11/2026 — 1 erro</title>" in body
+    assert "<title>08/11/2026 — 2 erros</title>" in body
+
+
 def test_admin_backup_download_sem_sessao_e_404(client):
     resp = client.get("/admin/backup/public_site-20261026-120000.db")
     assert resp.status_code == 404

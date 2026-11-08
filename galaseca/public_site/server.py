@@ -907,9 +907,15 @@ def create_app() -> Flask:
             # a tendência importa mais que as últimas 30 exatas aqui.
             linhas_agregacao = linhas[-500:]
             erros_agregados = erro_stats.agregar_por_tipo(linhas_agregacao)
+            serie_erros = erro_stats.serie_por_dia(linhas_agregacao)
+            # Mesmo padrão de tooltip por ponto (<title> nativo do SVG) já
+            # usado em /item, /conta/historico e /status.
             grafico_erros = charts.line_chart_svg(
-                [{"total": qtd} for _dia, qtd
-                 in erro_stats.serie_por_dia(linhas_agregacao)])
+                [{"total": qtd} for _dia, qtd in serie_erros],
+                rotulos=[
+                    f"{date.fromisoformat(dia).strftime('%d/%m/%Y')} — {qtd} "
+                    f"{'erro' if qtd == 1 else 'erros'}"
+                    for dia, qtd in serie_erros])
         backups = sorted(db_backup._BACKUP_DIR.glob("public_site-*.db")) \
             if db_backup._BACKUP_DIR.exists() else []
         progresso = scan_progress.carregar()
