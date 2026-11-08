@@ -90,7 +90,7 @@
       <span class="selo-risco risco-{{ c.pump_risk|risco_nivel }}" aria-label="Risco {{ c.pump_risk|risco_label|lower }}" title="Risco {{ c.pump_risk|risco_label|lower }}: possibilidade de uma alta rápida e artificial do preço.">Risco {{ c.pump_risk|risco_label|lower }}</span>
       {% endif %}
       {% if c.confianca_baixa %}
-      <span class="selo-confianca-baixa" title="{{ c.confianca_baixa_titulo }}">Dado limitado</span>
+      <span class="selo-confianca-baixa" title="{{ c.confianca_baixa_titulo }}">{{ icone("dado-limitado") }}Dado limitado</span>
       {% endif %}
     </td>
     <td data-label="Caixa/Cápsula">

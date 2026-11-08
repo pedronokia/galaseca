@@ -678,7 +678,9 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
    neutra de propósito, pra não competir visualmente com o selo de
    risco (vermelho/âmbar) quando os dois aparecem juntos. */
 .selo-confianca-baixa {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 6px;
   padding: 2px 7px;
   border: 1px solid var(--border);
@@ -688,6 +690,11 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   font-weight: 600;
   white-space: nowrap;
   cursor: help;
+}
+
+.selo-confianca-baixa .icone-ui {
+  width: 0.9em;
+  height: 0.9em;
 }
 
 .menu-acoes-item-toggle .icone-ui { width: 20px; height: 20px; }
