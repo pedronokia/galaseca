@@ -91,6 +91,23 @@ def test_grafico_aparece_apos_dois_pontos_distintos(client, monkeypatch):
     assert "<svg" in pagina
 
 
+def test_historico_mostra_hora_de_brasilia_nao_utc(client, monkeypatch):
+    # achado 2026-11-08: a data usava time.localtime() -- no servidor
+    # (container roda em UTC, sem TZ configurado) isso mostrava a hora
+    # UTC como se fosse a do visitante, 3h adiantada em relação a
+    # Brasília.
+    _login(client, monkeypatch)
+    from galaseca.public_site import user_history
+    import datetime
+    ts_utc = datetime.datetime(
+        2024, 1, 2, 2, 30, tzinfo=datetime.timezone.utc).timestamp()
+    user_history.record_if_changed(
+        "76561198000000000", 50.0, now=ts_utc)
+    pagina = client.get("/conta/historico").data.decode("utf-8")
+    assert "01/01/2024 23:30" in pagina
+    assert "02/01/2024 02:30" not in pagina
+
+
 def test_historico_isolado_entre_contas(client, monkeypatch):
     _login(client, monkeypatch, steamid="111")
     client.get("/conta")

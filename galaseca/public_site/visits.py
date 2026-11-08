@@ -6,14 +6,27 @@ Não é analytics de verdade, é um termômetro.
 """
 from __future__ import annotations
 
+import datetime
 import json
 import time
 from pathlib import Path
 
 from galaseca._paths import DATA_DIR, atomic_write_text, load_json_record
+from galaseca.public_site.fmt import FUSO_BR
 
 _DEFAULT_PATH = DATA_DIR / "visitas.json"
 _DIAS_MANTIDOS = 60
+
+
+def dia_local(ts: "float | None" = None) -> str:
+    """Chave YYYY-MM-DD do dia no horário de Brasília.
+
+    achado 2026-11-08: a série usava gmtime() (UTC) -- o "dia" virava
+    às 21h de Brasília, quase 3h antes da meia-noite real do
+    visitante, fazendo o contador "hoje" zerar cedo demais."""
+    momento = time.time() if ts is None else ts
+    return datetime.datetime.fromtimestamp(
+        momento, tz=FUSO_BR).strftime("%Y-%m-%d")
 
 
 def registrar(path: "Path | str | None" = None,
@@ -27,8 +40,7 @@ def registrar(path: "Path | str | None" = None,
     data = load_json_record(p, {"total": 0, "por_dia": {}})
     total = int(data.get("total") or 0) + 1
     por_dia = data.get("por_dia") or {}
-    hoje = time.strftime("%Y-%m-%d", time.gmtime(
-        time.time() if now is None else now))
+    hoje = dia_local(now)
     por_dia[hoje] = int(por_dia.get(hoje, 0)) + 1
     # Mantém só os últimos N dias -- série de visitas não precisa crescer
     # sem limite (diferente do histórico de ciclos, que já tem cap próprio).

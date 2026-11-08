@@ -1,7 +1,18 @@
 """Testes do contador de visitas (galaseca/public_site/visits.py)."""
 from __future__ import annotations
 
+import datetime
+
 from galaseca.public_site import visits
+
+
+def test_dia_local_usa_horario_de_brasilia_nao_utc():
+    # achado 2026-11-08: com gmtime() (UTC) o "dia" virava às 21h de
+    # Brasília -- 02:30 UTC de 2 de janeiro já são 23:30 de 1º de
+    # janeiro no Brasil (UTC-3 fixo, sem horário de verão desde 2019).
+    ts = datetime.datetime(
+        2024, 1, 2, 2, 30, tzinfo=datetime.timezone.utc).timestamp()
+    assert visits.dia_local(ts) == "2024-01-01"
 
 
 def test_registrar_comeca_em_1(tmp_path):

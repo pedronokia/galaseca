@@ -232,7 +232,7 @@ def create_app() -> Flask:
         hoje e total está sempre disponível para todos os templates sem
         que cada rota passe isso manualmente."""
         serie = visits.serie_por_dia()
-        hoje = time.strftime("%Y-%m-%d", time.gmtime())
+        hoje = visits.dia_local()
         visitas_hoje = next((qtd for dia, qtd in serie if dia == hoje), 0)
         return {
             "visitas_total": visits.total(),
