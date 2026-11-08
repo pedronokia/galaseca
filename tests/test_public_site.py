@@ -125,7 +125,7 @@ def test_index_tabela_wrap_focavel_por_teclado(client, monkeypatch, tmp_path):
          "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert 'class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de itens recomendados, com rolagem lateral"' in body
 
 
@@ -342,6 +342,107 @@ def test_index_hero_destaque_some_sem_candidato(client, monkeypatch, tmp_path):
     assert "hero-destaque" not in body
 
 
+def test_index_hero_destaque_tem_nota_grande_sobre_100(client, monkeypatch, tmp_path):
+    """Rodada 2 do visual: o anel compacto deu lugar ao número grande +
+    "/100" -- é o momento tipográfico da home."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item Alto", "score": 95, "price": 2.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    hero = body.split('class="hero-destaque"', 1)[1].split("</section>", 1)[0]
+    assert 'class="hero-destaque-nota-num"' in hero
+    assert 'class="hero-destaque-nota-de"' in hero
+    assert "/100" in hero
+    assert 'class="hero-destaque-halo' in hero
+
+
+def test_index_vitrine_de_cards_e_o_modo_padrao(client, monkeypatch, tmp_path):
+    """Rodada 2: a home abre na Vitrine (grade de cards com imagem
+    grande); a tabela continua inteira em ?ver=lista."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "icon": "skin-icon-hash", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert '<ul class="grade-cards"' in body
+    assert 'class="cartao-item' in body
+    assert 'class="cartao-item-nome"' in body
+    assert 'class="cartao-item-imagem-link"' in body
+    assert 'class="cartao-item-nota nota-alta"' in body
+    assert '<table class="tabela-candidatos tabela-itens"' not in body
+    assert "Deslize a tabela para o lado" not in body
+
+
+def test_index_modo_lista_mostra_a_tabela_e_nao_a_vitrine(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    body = client.get("/?ver=lista").data.decode("utf-8")
+    assert '<table class="tabela-candidatos tabela-itens">' in body
+    assert "Deslize a tabela para o lado" in body
+    assert '<ul class="grade-cards"' not in body
+    assert 'class="cartao-item' not in body
+
+
+def test_index_seletor_de_visao_preserva_os_filtros(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "category": "Rifles",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get(
+        "/?categoria=Rifles&nota_min=70").data.decode("utf-8")
+    barra = body.split('class="barra-visao"', 1)[1].split("</nav>", 1)[0]
+    hrefs = [html.unescape(h) for h in re.findall(r'href="([^"]+)"', barra)]
+    # Os dois primeiros são o seletor de modo (ordem fixa no template).
+    assert [
+        parse_qs(urlsplit(h).query)["ver"][0] for h in hrefs[:2]
+    ] == ["vitrine", "lista"]
+
+    for href in hrefs:
+        query = parse_qs(urlsplit(href).query)
+        assert query["categoria"] == ["Rifles"]
+        assert query["nota_min"] == ["70.0"]
+        assert query["ver"] in (["vitrine"], ["lista"])
+    # A ordenação na Vitrine aparece como links próprios, também com ver.
+    assert "Ordenar por:" in barra
+    assert 'aria-current="page"' in barra
+
+
+def test_index_guarda_modo_de_visao_em_cookie(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    resp = client.get("/?ver=lista")
+    cookie = resp.headers.get("Set-Cookie", "")
+    assert "pref_ver=lista" in cookie
+    assert "Max-Age=31536000" in cookie
+    assert "SameSite=Lax" in cookie
+
+    # Sem ?ver na URL, o cookie decide -- a próxima visita continua Lista.
+    body = client.get("/").data.decode("utf-8")
+    assert '<table class="tabela-candidatos tabela-itens">' in body
+
+
+def test_index_ver_invalido_cai_na_vitrine(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+         "price": 50.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    body = client.get("/?ver=tabela").data.decode("utf-8")
+    assert '<ul class="grade-cards"' in body
+    assert '<table class="tabela-candidatos tabela-itens"' not in body
+
+
 def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
@@ -366,7 +467,7 @@ def test_index_exibe_miniatura_e_separa_acoes_do_nome(
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
 
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = re.search(
         r'<td class="celula-item"[^>]*>(.*?)</td>', body, re.DOTALL).group(1)
     principal = re.search(
@@ -402,7 +503,7 @@ def test_index_borda_de_raridade_tem_explicacao_no_title(
          "name_color": "EB4B4B"},
     ])
 
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     principal = re.search(
         r'<div class="celula-item-principal">(.*?)</div>',
         body, re.DOTALL).group(1)
@@ -419,7 +520,7 @@ def test_index_sem_raridade_nao_tem_classe_nem_title(
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
 
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     principal = re.search(
         r'<div class="celula-item-principal">(.*?)</div>',
         body, re.DOTALL).group(1)
@@ -445,7 +546,7 @@ def test_raridade_faca_luva_usa_quality_id_nao_cor_covert(
          "name_color": "eb4b4b", "rarity_id": "Rarity_Ancient_Weapon",
          "quality_id": "unusual"},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     principal = re.search(
         r'<div class="celula-item-principal">(.*?)</div>',
         body, re.DOTALL).group(1)
@@ -460,7 +561,7 @@ def test_index_reserva_espaco_da_miniatura_sem_hash(
          "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
     ])
 
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = re.search(
         r'<td class="celula-item"[^>]*>(.*?)</td>', body, re.DOTALL).group(1)
 
@@ -498,7 +599,7 @@ def test_index_nota_no_teto_mostra_margem_alem_de_100(client, monkeypatch, tmp_p
          "breakdown": [{"factor": "mediana", "delta": 84,
                        "label": "Preço muito abaixo do típico (+84)"}]},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert '<span class="nota-margem"' in celula
     assert ">+34</span>" in celula
@@ -511,7 +612,7 @@ def test_index_nota_no_piso_mostra_margem_abaixo_de_0(client, monkeypatch, tmp_p
          "breakdown": [{"factor": "mediana", "delta": -84,
                        "label": "Preço muito acima do típico (-84)"}]},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert '<span class="nota-margem"' in celula
     assert ">-34</span>" in celula
@@ -526,7 +627,7 @@ def test_index_nota_sem_corte_nao_mostra_margem(client, monkeypatch, tmp_path):
          "breakdown": [{"factor": "mediana", "delta": 20,
                        "label": "Preço abaixo do típico (+20)"}]},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert "nota-margem" not in celula
 
@@ -541,7 +642,7 @@ def test_index_confianca_baixa_vira_selo_ao_lado_da_nota(client, monkeypatch, tm
          "data_quality": {"confidence": 0.1, "n": 3, "age_days": 60.0,
                           "level": "low", "label": "Confiança low"}},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert 'class="selo-confianca-baixa"' in celula
     assert "icone-ui-dado-limitado" in celula
@@ -557,7 +658,7 @@ def test_index_confianca_alta_nao_mostra_selo(client, monkeypatch, tmp_path):
          "data_quality": {"confidence": 0.9, "n": 180, "age_days": 1.0,
                           "level": "high", "label": "Confiança high"}},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert "confianca-baixa" not in celula
 
@@ -570,7 +671,7 @@ def test_index_sem_historico_nenhum_mostra_selo_com_texto_proprio(
          "data_quality": {"confidence": 0.0, "n": 0, "age_days": None,
                           "level": "none", "label": "sem dados"}},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert 'class="selo-confianca-baixa"' in celula
     assert "sem histórico de preço da Steam" in celula
@@ -581,7 +682,7 @@ def test_index_risco_medio_vira_selo_ao_lado_da_nota(client, monkeypatch, tmp_pa
         {"name": "X", "score": 70, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "medium"}, "breakdown": []},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     celula = body.split('class="celula-nota"', 1)[1].split("</td>", 1)[0]
     assert 'class="selo-risco risco-medium" aria-label="Risco médio"' in celula
     assert ">Risco médio</span>" in celula
@@ -614,7 +715,7 @@ def test_index_organiza_filtros_no_celular_e_avisa_rolagem_da_tabela(
          "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
 
     assert '<div class="filtros-numericos">' in body
     assert "Deslize a tabela para o lado" in body
@@ -633,7 +734,7 @@ def test_index_exibe_cartoes_mobile_com_rotulos_e_historico_acessivel(
         {"ts": "2026-10-28T12:00:00", "price": 48.0},
         {"ts": "2026-10-29T12:00:00", "price": 50.0},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     css = (client.application.root_path
            + "/static/style.css")
     from pathlib import Path
@@ -656,7 +757,7 @@ def test_index_marca_cabecalho_para_fixacao_no_desktop(
          "breakdown": [{"factor": "mediana", "delta": 20,
                        "label": "Preço baixo (+20)"}]},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
 
     assert '<thead class="cabecalho-fixo">' in body
 
@@ -670,7 +771,7 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
     ])
     body = client.get(
         "/?categoria=Facas&nota_min=70&preco_max=20&q=AK-47"
-        "&ordenar=preco&pagina=2").data.decode()
+        "&ordenar=preco&ver=lista&pagina=2").data.decode()
     hrefs = {
         filtro: parse_qs(urlsplit(html.unescape(href)).query)
         for filtro, href in re.findall(
@@ -682,6 +783,7 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
     for filtro, query in hrefs.items():
         assert filtro not in query
         assert query["ordenar"] == ["preco"]
+        assert query["ver"] == ["lista"]
         assert "pagina" not in query
     assert hrefs["categoria"]["nota_min"] == ["70.0"]
     assert hrefs["categoria"]["preco_max"] == ["20.0"]
@@ -691,7 +793,7 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
         r'<a[^>]*id="limpar-filtros-ativos"[^>]*href="([^"]+)"', body)
     assert limpar
     query_limpa = parse_qs(urlsplit(html.unescape(limpar.group(1))).query)
-    assert set(query_limpa) == {"ordenar"}
+    assert set(query_limpa) == {"ordenar", "ver"}
 
 
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
@@ -952,7 +1054,7 @@ def test_index_descontinuada_ganha_selo(client, monkeypatch, tmp_path):
          "pump_risk": {"level": "low"}, "breakdown": []},
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "selo-descontinuada" in body
 
 
@@ -968,7 +1070,7 @@ def test_index_aposentada_com_data_tambem_ganha_selo(client, monkeypatch,
          "pump_risk": {"level": "low"}, "breakdown": []},
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "selo-descontinuada" in body
 
 
@@ -1044,7 +1146,7 @@ def test_index_tem_botao_copiar_e_atalho_js(client, monkeypatch, tmp_path):
         {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 1.0,
          "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "botao-copiar" in body
     assert 'data-copiar="AK-47 | Redline (Field-Tested)"' in body
     assert "campo-busca" in body
@@ -1185,7 +1287,7 @@ def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
         {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "tendencia-alta" in body
     assert "> Subiu</span>" in body
     assert "class=\"celula-preco\"" in body
@@ -1238,7 +1340,7 @@ def test_index_tem_steamdb_link_e_json_ld(client, monkeypatch, tmp_path):
         {"name": "X", "score": 80, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "steamdb.info/search" in body
     assert "application/ld+json" in body
 
@@ -1322,7 +1424,7 @@ def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):
         {"name": "X", "score": 80, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "input-tag-local" in body
     assert "static/app.js" in body  # localStorage mora no JS externo (CSP)
 
@@ -1335,7 +1437,7 @@ def test_index_campo_nota_pessoal_nasce_escondido_atras_de_botao(
         {"name": "X", "score": 80, "price": 1.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "botao-nota-toggle" in body
     assert 'class="input-tag-local" data-item="X"' in body
     assert body.count("input-tag-local") >= 1
@@ -2066,6 +2168,47 @@ def test_item_detail_mostra_nota_e_preco(client, monkeypatch, tmp_path):
     # do anel compacto de listas/tabelas (home/ranking/comparar/
     # parecidos/watchlist/trades/portfólio).
     assert 'class="card-valor nota nota-grande nota-alta"' in body
+
+
+def test_item_detail_tem_hero_cinematografico(client, monkeypatch, tmp_path):
+    """Rodada 2: cabeçalho virou hero com listras, brilho da raridade e
+    a imagem grande inclinada -- sem perder o h1 nem os links."""
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85, "price": 50.0,
+         "icon": "skin-icon-hash", "case_label": "", "category": "Rifles",
+         "name_color": "EB4B4B", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/item/AK-47 | Redline (Field-Tested)").data.decode("utf-8")
+
+    assert 'class="hero-item raridade-covert"' in body
+    assert 'class="hero-item-glow"' in body
+    assert 'class="hero-item-imagem"' in body
+    assert 'class="icone-item-quadro hero-item-quadro' in body
+    assert 'class="titulo-item"' in body
+    assert "Ver no Steam Market" in body
+
+
+def test_item_detail_fileira_de_stats_com_nota_em_destaque(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 85, "price": 50.0,
+         "case_label": "", "category": "Rifles",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "liquidity_depth": {"days": 45.0, "avg_volume": 2.0, "supply": 90,
+                             "band": "fino",
+                             "label": "~45d de listagens no ritmo atual (2/dia)"}},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/item/AK-47 | Redline (Field-Tested)").data.decode("utf-8")
+
+    assert 'class="resumo-cards resumo-cards-item"' in body
+    assert 'class="card card-nota-destaque"' in body
+    assert 'class="card-valor liquidez liquidez-fino"' in body
+    # A fileira é escopada à página do item -- as páginas internas
+    # continuam com os cards normais.
+    assert "resumo-cards-item" in body
 
 
 def test_item_detail_mostra_card_de_liquidez(client, monkeypatch, tmp_path):
@@ -3727,7 +3870,7 @@ def test_index_mostra_selo_de_historico_curto(client, monkeypatch, tmp_path):
         {"ts": "2026-10-28T12:00:00", "price": 48.0},
         {"ts": "2026-10-29T12:00:00", "price": 50.0},
     ])
-    body = client.get("/").data.decode("utf-8")
+    body = client.get("/?ver=lista").data.decode("utf-8")
     assert "selo-historico-curto" in body
     assert "histórico curto".encode("utf-8") in body.encode("utf-8")
 

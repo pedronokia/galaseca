@@ -156,7 +156,12 @@ body {
   line-height: 1.5;
 }
 
-/* Ícones locais mantêm o mesmo traço e alinhamento em todos os sistemas. */
+/* Ícones locais mantêm o mesmo traço e alinhamento em todos os sistemas.
+   Rodada 2 da direção visual (2026-11-08): traço de 1.8 → 2.0 e pontas/
+   vértices retos (square/bevel) -- o traço fino com ponta arredondada
+   lia como "ícone de biblioteca" em vez de sinal tático. As curvas não
+   mudam (linejoin só afeta quinas); só ganham um micro-corte no vértice,
+   eco discreto do corte de canto já usado em botão/moldura de ícone. */
 .icone-ui {
   display: inline-block;
   width: 1.15em;
@@ -164,9 +169,9 @@ body {
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke-width: 2;
+  stroke-linecap: square;
+  stroke-linejoin: bevel;
   vertical-align: -0.18em;
 }
 
@@ -712,21 +717,71 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   .movimentos-do-dia { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Hero "nota mais alta hoje" (revisão de direção visual 2026-11-08) --
-   única seção da home com boldness de verdade (ícone 88px + anel
-   .nota-grande, os 2 maiores elementos já existentes no site, em vez
-   de inventar um componente novo); de propósito SEM fundo/borda de
-   card -- acabamos de tirar esse mesmo tratamento de .status-scan e
-   .resumo-do-dia logo acima, reintroduzir aqui desfaria o trabalho.
-   .hero-destaque-rotulo usa texto factual ("Nota mais alta hoje"), não
-   elogio -- é leitura de dado, não recomendação (ver AGENTS.md). */
+/* Glow/borda por raridade, reutilizáveis fora do quadro de ícone (hero da
+   home, hero do item, cards da vitrine). Declarado uma vez aqui em vez
+   de repetir hex em cada componente -- o quadro de ícone continua com as
+   regras próprias dele (especificidade maior, ver .icone-item-quadro). */
+.raridade-consumer { --rar-cor: #b0c3d9; --rar-glow: rgba(176, 195, 217, 0.30); }
+.raridade-industrial { --rar-cor: #5e98d9; --rar-glow: rgba(94, 152, 217, 0.30); }
+.raridade-milspec { --rar-cor: #4b69ff; --rar-glow: rgba(75, 105, 255, 0.30); }
+.raridade-restricted { --rar-cor: #8847ff; --rar-glow: rgba(136, 71, 255, 0.30); }
+.raridade-classified { --rar-cor: #d32ce6; --rar-glow: rgba(211, 44, 230, 0.30); }
+.raridade-covert { --rar-cor: #eb4b4b; --rar-glow: rgba(235, 75, 75, 0.30); }
+.raridade-dourado { --rar-cor: #e4ae39; --rar-glow: rgba(228, 174, 57, 0.35); }
+
+/* Hero "nota mais alta hoje" (revisão de direção visual 2026-11-08,
+   rodada 2) -- única seção da home com boldness de verdade. Agora tem
+   fundo próprio (textura listrada sutil + halo na cor da raridade) e a
+   nota virou número grande com "/100", em vez de anel: é o momento
+   "orquestrado" da página, o único lugar do site que faz isso. */
 .hero-destaque {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  padding: 4px 0 20px;
-  margin: 0 0 16px;
+  padding: 26px 24px;
+  margin: 0 0 18px;
+  background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+}
+
+/* Textura de fundo -- listras diagonais bem sutis, eco do hazard stripe
+   das caixas do jogo. Opacidade baixa de propósito: é textura, não um
+   padrão que compete com o conteúdo. */
+.hero-destaque::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg, rgba(224, 122, 58, 0.06) 0 2px, transparent 2px 14px);
+  z-index: -2;
+  pointer-events: none;
+}
+
+.hero-destaque-halo {
+  position: absolute;
+  inset: -45% -6% auto auto;
+  width: 55%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, var(--rar-glow, rgba(224, 122, 58, 0.18)), transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.hero-destaque .icone-item-quadro {
+  flex: 0 0 108px;
+  width: 108px;
+  height: 108px;
+  --corte-icone: 16px;
+}
+
+.hero-destaque .icone-item-quadro-com-imagem {
+  /* Sem moldura, o halo da seção já dá o fundo colorido atrás da skin;
+     o quadro só precisa da sombra pra descolar do fundo. */
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
 }
 
 .hero-destaque-corpo {
@@ -735,43 +790,79 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
 }
 
 .hero-destaque-rotulo {
-  margin: 0 0 2px;
+  margin: 0 0 4px;
   font-size: var(--fs-xs);
-  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
 }
 
 .hero-destaque-nome {
   display: block;
   font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: var(--fs-xl);
+  font-weight: 700;
+  font-size: clamp(1.15rem, 3.4vw, var(--fs-2xl));
   color: var(--text-bright);
   text-decoration: none;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .hero-destaque-nome:hover { color: var(--accent-bright); text-decoration: underline; }
 
 .hero-destaque-motivo {
-  margin: 4px 0 0;
+  margin: 5px 0 0;
   font-size: var(--fs-sm);
   color: var(--text-muted);
 }
 
-.hero-destaque-nota { flex: 0 0 auto; }
+.hero-destaque-nota {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  flex: 0 0 auto;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  line-height: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-destaque-nota-num {
+  font-size: clamp(2.6rem, 7vw, 3.8rem);
+  letter-spacing: -0.02em;
+}
+
+/* O "/100" não herda a cor da nota (verde/amarelo/cinza) -- é legenda
+   da escala, não parte do número. */
+.hero-destaque-nota-de {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text-muted);
+}
 
 @media (max-width: 640px) {
   .hero-destaque {
     flex-wrap: wrap;
+    padding: 22px 18px;
+    gap: var(--sp-3);
+    align-items: flex-end;
+  }
+
+  .hero-destaque .icone-item-quadro {
+    flex: 0 0 76px;
+    width: 76px;
+    height: 76px;
+    --corte-icone: 12px;
   }
 
   .hero-destaque-nota {
-    order: 1;
+    margin-left: auto;
   }
 
   .hero-destaque-corpo {
-    order: 2;
     flex-basis: 100%;
+    order: 3;
   }
 }
 
@@ -1063,6 +1154,17 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   overflow-wrap: anywhere;
   font-size: var(--fs-md);
   font-weight: 600;
+}
+
+/* Rodada 2: a Lista é o modo denso (a Vitrine já mostra a imagem em
+   tamanho grande). 88px → 56px deixa mais linhas visíveis por tela e
+   devolve largura pras colunas de dado. Vale só dentro da tabela de
+   itens -- ranking/comparar já usam a variante compacta de 40px. */
+.tabela-itens .icone-item-quadro {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 56px;
+  --corte-icone: var(--corte-icone-sm);
 }
 
 /* Mesma ideia de .celula-item-principal, com o quadro de ícone
@@ -1764,9 +1866,13 @@ footer.rodape .versao {
   align-items: flex-end;
   gap: var(--sp-3);
   margin-bottom: 20px;
-  padding: 14px 16px;
+  padding: 12px;
+  /* Rodada 2 da direção visual (2026-11-08): a barra de filtro passa a
+     ser uma superfície PREENCHIDA (sem contorno), com os campos dentro
+     rebaixados -- antes eram 3 contornos empilhados (barra + campo +
+     foco) que davam o aspecto de formulário de sistema. */
   background: var(--bg-elevated);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
 }
@@ -1781,14 +1887,20 @@ footer.rodape .versao {
 
 .form-filtros select,
 .form-filtros input {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--bg);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
-  padding: 7px 8px;
+  padding: 7px 10px;
   color: var(--text);
   font-size: var(--fs-base);
   text-overflow: ellipsis;
   height: 34px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.form-filtros select:hover,
+.form-filtros input:hover {
+  border-color: var(--border);
 }
 
 .form-filtros input[type="number"] { width: 130px; }
@@ -2001,8 +2113,368 @@ footer.rodape .versao {
   line-height: 1.4;
 }
 
+/* ── Vitrine: grade de cards da home (rodada 2 do visual) ─────
+   A Lista (tabela densa) continua existindo em ?ver=lista; aqui a
+   imagem é o produto, como nos marketplaces de skin (CSFloat,
+   Skinport): imagem grande com glow da raridade, preço e nota por
+   cima. Mesmos dados da tabela, organizados pra escanear visualmente. */
+.grade-cards {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  gap: var(--sp-3);
+  perspective: 1000px;
+}
+
+.cartao-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  isolation: isolate;
+  /* --rx/--ry/--s/--mx/--my vêm do tilt em app.js (só ponteiro fino,
+     sem reduced motion); sem JS ficam nos defaults e o card é estático. */
+  transform: perspective(700px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg)) scale(var(--s, 1));
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.25s ease, border-color 0.15s ease;
+}
+
+.cartao-item:hover,
+.cartao-item:focus-within {
+  border-color: var(--rar-cor, var(--accent));
+  box-shadow: 0 18px 36px -12px rgba(0, 0, 0, 0.65),
+              0 0 0 1px var(--rar-cor, var(--accent));
+}
+
+/* Brilho que segue o mouse (posição via --mx/--my no app.js). */
+.cartao-item-brilho {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    rgba(255, 255, 255, 0.16), transparent 45%);
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.cartao-item:hover .cartao-item-brilho,
+.cartao-item:focus-within .cartao-item-brilho { opacity: 1; }
+
+.cartao-item-imagem {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.cartao-item-imagem::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle, var(--rar-glow, rgba(176, 195, 217, 0.28)), transparent 72%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.cartao-item-imagem-link {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.cartao-item-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
+  transition: transform 0.25s ease;
+}
+
+.cartao-item:hover .cartao-item-icon { transform: translateY(-2px) scale(1.03); }
+
+.cartao-item-imagem .icone-item-placeholder {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+
+.cartao-item-nota-area {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.cartao-item-nota {
+  display: grid;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 7px;
+  /* Fundo escuro fixo: o chip fica em cima da imagem, onde o glow da
+     raridade pode ser claro demais pra um texto colorido sem lastro. */
+  background: rgba(10, 12, 17, 0.82);
+  border: 2px solid currentColor;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: var(--fs-lg);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  clip-path: polygon(
+    0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.cartao-item-margem {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(10, 12, 17, 0.82);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Checkbox de comparar sobre a imagem -- mesmo alvo de 44px da tabela,
+   só que flutuando no canto. Escondido até hover/foco no desktop; em
+   tela de toque aparece sempre. */
+.cartao-item-comparar-alvo {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  border-radius: var(--radius-sm);
+  background: rgba(10, 12, 17, 0.55);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.cartao-item:hover .cartao-item-comparar-alvo,
+.cartao-item:focus-within .cartao-item-comparar-alvo,
+.cartao-item-comparar-alvo:focus-within { opacity: 1; }
+
+@media (hover: none) {
+  .cartao-item-comparar-alvo { opacity: 1; }
+}
+
+.cartao-item-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 14px;
+  /* Fio na cor da raridade separa imagem e dados, como o cabeçalho dos
+     cards de marketplace. */
+  border-top: 1px solid var(--rar-cor, var(--border));
+}
+
+.cartao-item-nome {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.7em;
+  color: var(--text-bright);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  line-height: 1.35;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.cartao-item-nome:hover { color: var(--accent-bright); text-decoration: underline; }
+
+.detalhe-motivo-cartao { font-size: var(--fs-2xs); }
+
+.detalhe-motivo-cartao .texto-motivo { color: var(--text-muted); }
+
+.detalhe-motivo-cartao[open] .texto-motivo { -webkit-line-clamp: unset; }
+
+.cartao-item-rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-top: auto;
+}
+
+.cartao-item-preco {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  min-width: 0;
+  color: var(--text-bright);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cartao-item-preco .icone-tendencia { margin-top: 0; }
+
+.cartao-item-selos {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: var(--fs-2xs);
+}
+
+.cartao-item-caixa {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.cartao-item-steam {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: var(--fs-2xs);
+}
+
+.cartao-item-steam .icone-ui { width: 0.9em; height: 0.9em; }
+
+.cartao-item-nota-area .selo-mudou-nota {
+  margin-left: 0;
+  background: rgba(10, 12, 17, 0.82);
+}
+
+@media (max-width: 640px) {
+  .grade-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-2);
+  }
+
+  .cartao-item-imagem { padding: 10px; }
+  .cartao-item-corpo { padding: 10px 11px 12px; }
+
+  .cartao-item-nome {
+    font-size: var(--fs-sm);
+    min-height: 2.8em;
+  }
+
+  .cartao-item-preco { font-size: var(--fs-base); }
+
+  .cartao-item-comparar-alvo { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cartao-item { transform: none !important; transition: none; }
+  .cartao-item:hover .cartao-item-icon { transform: none; }
+  .cartao-item-brilho { display: none; }
+}
+
 .valor-positivo { color: var(--positive); }
 .valor-negativo { color: var(--danger); }
+
+/* Fileira de stats da página do item (rodada 2 do visual) -- os mesmos
+   .card, mas apresentados como colunas de uma ficha técnica: fios
+   separando, sem caixa própria em volta de cada dado. A Nota continua
+   sendo o único bloco com superfície e acento. Escopo
+   .resumo-cards-item de propósito: .resumo-cards/.card também são
+   usados em admin/conta/trades, que devem continuar com o card padrão. */
+.resumo-cards-item {
+  gap: 0;
+  align-items: stretch;
+  padding: 10px 4px;
+  margin-bottom: 22px;
+  background: var(--bg-elevated);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+.resumo-cards-item .card {
+  flex: 1 1 120px;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 18px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.resumo-cards-item .card:last-child { border-right: 0; }
+
+.resumo-cards-item .card:hover {
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
+}
+
+.resumo-cards-item .card-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.resumo-cards-item .card-valor { font-size: var(--fs-xl); }
+
+/* Bloco da Nota: um degrau de superfície acima do resto e um pouco mais
+   alto que a fileira (margem negativa), eco do "nota" destacado do
+   artifact. Mantém o anel grande de 72px como elemento principal. */
+.resumo-cards-item .card-nota-destaque {
+  flex: 0 0 auto;
+  margin: -10px 0;
+  padding: 12px 26px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  clip-path: polygon(
+    0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+}
+
+@media (max-width: 640px) {
+  .resumo-cards-item {
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+  }
+
+  .resumo-cards-item .card {
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: 10px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .resumo-cards-item .card:last-child { border-bottom: 0; }
+
+  .resumo-cards-item .card-valor.nota { align-self: center; }
+
+  .resumo-cards-item .card-nota-destaque {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 0;
+    clip-path: none;
+  }
+}
 
 .secao-titulo {
   font-family: var(--font-heading);
@@ -2585,11 +3057,123 @@ footer.rodape .versao {
 }
 
 /* ── Página de detalhe do item ────────────────────────── */
-.cabecalho-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-4);
-  margin-bottom: 20px;
+/* A página do item era 640px (largura de texto corrido). O hero
+   cinematográfico e a fileira de stats pedem mais largura -- 940px
+   ainda deixa a prosa ("Por quê") confortável, porque ela continua
+   dentro de .pagina-texto com a mesma tipografia. */
+.pagina-item { max-width: 940px; }
+
+.hero-item {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: 22px;
+  padding: 34px 32px;
+  background: linear-gradient(160deg, var(--bg-elevated), var(--bg));
+  border-left: 3px solid var(--rar-cor, var(--accent));
+  border-radius: var(--radius-md);
+}
+
+.hero-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg, rgba(224, 122, 58, 0.05) 0 2px, transparent 2px 14px);
+  z-index: -2;
+  pointer-events: none;
+}
+
+.hero-item-glow {
+  position: absolute;
+  inset: -20% -12% auto auto;
+  width: 60%;
+  aspect-ratio: 1;
+  background: radial-gradient(
+    circle, var(--rar-glow, rgba(224, 122, 58, 0.22)), transparent 68%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.hero-item-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.hero-item-corpo { min-width: 0; }
+
+.hero-item-tag {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 3px 10px;
+  border: 1px solid var(--rar-cor, var(--accent));
+  border-radius: 2px;
+  background: rgba(10, 12, 17, 0.6);
+  color: var(--text-bright);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  clip-path: polygon(
+    0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.hero-item .titulo-item {
+  margin: 0 0 12px;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(1.7rem, 4.6vw, 2.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.hero-item .status { margin: 0; }
+
+.hero-item-imagem {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.hero-item-quadro {
+  flex: 0 0 auto;
+  width: 190px;
+  height: 190px;
+  border: 0;
+  background: transparent;
+  clip-path: none;
+  transform: rotate(-6deg);
+  filter: drop-shadow(0 22px 40px rgba(0, 0, 0, 0.65));
+}
+
+.hero-item-quadro .icone-item {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.hero-item-quadro .icone-item-placeholder::before { font-size: 5rem; }
+
+@media (max-width: 640px) {
+  .hero-item { padding: 24px 18px; }
+
+  .hero-item-grade {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .hero-item-imagem { order: -1; }
+
+  .hero-item-quadro {
+    width: 150px;
+    height: 150px;
+  }
+
+  .hero-item .titulo-item { font-size: clamp(1.5rem, 7vw, 2rem); }
 }
 
 .titulo-item {
@@ -3224,6 +3808,75 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 /* Com JS os filtros aplicam sozinhos (ver app.js). */
 .js-ativo .form-filtros .botao-filtrar-sem-js { display: none; }
 
+/* Seletor Vitrine/Lista (rodada 2 do visual). Os dois modos mostram os
+   mesmos itens; aqui só a moldura do seletor -- o estado vem de
+   aria-current, como nas abas de categoria. */
+.barra-visao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0 0 12px;
+}
+
+.seletor-visao {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-sm);
+}
+
+.seletor-visao a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 34px;
+  padding: 5px 14px;
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.seletor-visao a:hover {
+  background: var(--surface);
+  color: var(--text-bright);
+}
+
+.seletor-visao a[aria-current="page"] {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.ordenar-vitrine {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+
+.ordenar-vitrine-rotulo { color: var(--text-muted); }
+
+.ordenar-vitrine a {
+  padding: 3px 10px;
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.ordenar-vitrine a:hover { background: var(--surface); color: var(--text-bright); }
+
+.ordenar-vitrine a[aria-current="page"] {
+  background: var(--surface);
+  color: var(--accent-bright);
+  font-weight: 600;
+}
+
 /* Abas de categoria: troca rápida sem abrir o dropdown. */
 .abas-categoria {
   display: flex;
@@ -3236,14 +3889,18 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  padding: 6px 13px;
+  /* Rodada 2: pill PREENCHIDA em vez de contorno -- a barra de filtro
+     logo acima também virou superfície cheia, então a página inteira
+     parou de ser "tudo desenhado com linha". */
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
+  border-radius: 4px;
   color: var(--text);
   font-size: var(--fs-sm);
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .aba-categoria:hover {
@@ -3251,18 +3908,20 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   color: var(--text-bright);
 }
 
+/* Ativa: preenchida com o acento, texto escuro (mesmo padrão do botão
+   de login da Steam) -- contraste bem acima de AA. */
 .aba-categoria[aria-current="page"] {
-  background: var(--surface);
+  background: var(--accent);
   border-color: var(--accent);
-  color: var(--text-bright);
+  color: var(--bg);
+  font-weight: 600;
 }
 
 /* --text-muted sobre --surface só dá 3.32:1 (abaixo do mínimo de
-   acessibilidade 4.5:1) -- na aba ativa, a contagem usa --text em vez
-   de --text-muted (6.42:1) pra não ficar apagada ao lado do fundo
-   mais claro da seleção. */
+   acessibilidade 4.5:1) -- na aba ativa, a contagem usa a mesma cor do
+   texto principal (escuro sobre o acento), pra não ficar apagada. */
 .aba-categoria[aria-current="page"] .aba-contagem {
-  color: var(--text);
+  color: var(--bg);
 }
 
 .aba-contagem {

@@ -130,6 +130,74 @@
   </tr>
   {% endmacro %}
 
+  {# Card da "vitrine" (revisão de direção visual 2026-11-08, rodada 2):
+     imagem grande, preço e nota por cima -- mesma leitura de marketplace
+     da referência, em vez da linha de planilha. Os mesmos dados da
+     tabela continuam disponíveis no modo Lista; aqui o card mostra o
+     essencial e esconde o resto atrás de "ver mais". #}
+  {% macro cartao_candidato(c) %}
+  {% set extras = (c.breakdown|rejectattr('label', 'equalto', c.reasons[0])|list) if (c.breakdown and c.reasons) else (c.breakdown or []) %}
+  <li class="cartao-item{{ ' ' ~ c.raridade_classe if c.raridade_classe else '' }}" data-nome="{{ c.name }}" data-nota="{{ c.score }}">
+    <span class="cartao-item-brilho"></span>
+    <div class="cartao-item-imagem">
+      <a class="cartao-item-imagem-link" href="{{ url_for('item_detail', name=c.name) }}" aria-label="Abrir detalhes e histórico de {{ c.name_fmt }}">
+        {% if c.icon_url %}
+        <img class="cartao-item-icon" src="{{ c.icon_url }}" srcset="{{ c.icon_url }} 1x, {{ c.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="192" height="192">
+        {% else %}
+        <span class="icone-item-placeholder" aria-hidden="true"></span>
+        {% endif %}
+      </a>
+      <div class="cartao-item-nota-area">
+        <span class="cartao-item-nota nota-{{ c.score|nota_classe }}" title="Nota {{ c.score }} de 100" aria-label="Nota {{ c.score }} de 100">{{ c.score }}</span>
+        {% if c.nota_margem %}<span class="cartao-item-margem" title="A soma dos fatores passou do limite da escala (0 a 100): sem o corte, a nota seria {{ c.score + c.nota_margem }}.">{{ "%+d"|format(c.nota_margem) }}</span>{% endif %}
+      </div>
+      <label class="cartao-item-comparar-alvo" title="Marcar pra comparar com outros itens (até 3)">
+        <input type="checkbox" class="checkbox-comparar" data-comparar="{{ c.name }}" aria-label="Marcar {{ c.name_fmt }} pra comparar">
+      </label>
+    </div>
+    <div class="cartao-item-corpo">
+      <a class="cartao-item-nome" href="{{ url_for('item_detail', name=c.name) }}">{{ c.name_fmt }}</a>
+      <details class="detalhe-motivo detalhe-motivo-cartao">
+        <summary>
+          <span class="texto-motivo">{{ c.reasons[0]|motivo_fmt if c.reasons else "Nota neutra: nenhum fator se destacou" }}</span>
+          {% if extras %}<span class="dica-expandir" aria-hidden="true">ver mais {{ icone("chevron-baixo") }}</span>{% endif %}
+        </summary>
+        {% if extras %}
+        <ul class="lista-breakdown">
+          {% for b in extras %}
+          <li class="{{ 'delta-positivo' if b.delta and b.delta > 0 else ('delta-negativo' if b.delta and b.delta < 0 else '') }}">{{ b.label|motivo_fmt }}</li>
+          {% endfor %}
+        </ul>
+        <button type="button" class="botao-recolher-motivo">recolher {{ icone("chevron-cima") }}</button>
+        {% endif %}
+      </details>
+      <div class="cartao-item-rodape">
+        <span class="cartao-item-preco">
+          {{ c.price_fmt }}
+          {% if c.tendencia in ("alta", "baixa") %}
+          {% set pct_txt = ("%.1f"|format(c.variacao_pct|abs))|replace(".", ",") ~ "%" if c.variacao_pct is number else "" %}
+          {% set verbo = "subiu" if c.tendencia == "alta" else "caiu" %}
+          <span class="icone-tendencia tendencia-{{ c.tendencia }}" title="Preço {{ verbo }} {{ pct_txt }} desde o scan anterior" aria-label="Preço {{ verbo }} {{ pct_txt }} desde o scan anterior">{{ icone("seta-cima" if c.tendencia == "alta" else "seta-baixo") }} {{ pct_txt or verbo|capitalize }}</span>
+          {% endif %}
+        </span>
+        <button type="button" class="botao-favorito" data-favorito="{{ c.name }}" data-favorito-label="{{ c.name_fmt }}" aria-pressed="false" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ c.name_fmt }}">{{ icone("favorito") }}</button>
+      </div>
+      <div class="cartao-item-selos">
+        {% if c.pump_risk|risco_nivel != "low" %}
+        <span class="selo-risco risco-{{ c.pump_risk|risco_nivel }}" aria-label="Risco {{ c.pump_risk|risco_label|lower }}" title="Risco {{ c.pump_risk|risco_label|lower }}: possibilidade de uma alta rápida e artificial do preço.">Risco {{ c.pump_risk|risco_label|lower }}</span>
+        {% endif %}
+        {% if c.confianca_baixa %}
+        <span class="selo-confianca-baixa" title="{{ c.confianca_baixa_titulo }}">{{ icone("dado-limitado") }}Dado limitado</span>
+        {% endif %}
+        {% if c.case_label %}
+        <span class="cartao-item-caixa" title="{{ c.case_label|rotulo_caixa(c.name) }}">{{ c.case_label|rotulo_caixa(c.name) }}</span>
+        {% endif %}
+        <a class="cartao-item-steam" href="{{ c.market_url }}" target="_blank" rel="noopener">Steam Market {{ icone("seta-direita") }}</a>
+      </div>
+    </div>
+  </li>
+  {% endmacro %}
+
   {% macro colgroup_itens() %}
   <colgroup>
     <col class="col-item"><col class="col-preco"><col class="col-historico">
@@ -141,9 +209,9 @@
   {% macro cabecalho_tabela() %}
   <tr>
     <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
-    <th class="cabecalho-preco" title="Menor preço anunciado agora no Steam Market" aria-sort="{{ 'ascending' if ordenar_sel == 'preco' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='preco') }}">Preço{% if ordenar_sel == "preco" %} {{ icone("seta-cima") }}{% endif %}</a></th>
+    <th class="cabecalho-preco" title="Menor preço anunciado agora no Steam Market" aria-sort="{{ 'ascending' if ordenar_sel == 'preco' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='preco', ver='lista') }}">Preço{% if ordenar_sel == "preco" %} {{ icone("seta-cima") }}{% endif %}</a></th>
     <th class="celula-sparkline" title="Preço nos últimos 20 scans registrados -- mesmo histórico da página de detalhe">Histórico <span class="cabecalho-sub">(20)</span></th>
-    <th class="cabecalho-nota" title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.). Um selo de risco aparece quando a alta recente pode ser artificial." aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='nota') }}">Nota (0–100){% if ordenar_sel == "nota" %} {{ icone("seta-baixo") }}{% endif %}</a></th>
+    <th class="cabecalho-nota" title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.). Um selo de risco aparece quando a alta recente pode ser artificial." aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='nota', ver='lista') }}">Nota (0–100){% if ordenar_sel == "nota" %} {{ icone("seta-baixo") }}{% endif %}</a></th>
     <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
     <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
   </tr>
@@ -159,6 +227,7 @@
   <main id="conteudo" class="pagina-inicial">
     {% if destaque_hero %}
     <section class="hero-destaque" aria-label="Item com a nota mais alta hoje">
+      <span class="hero-destaque-halo{{ ' ' ~ destaque_hero.raridade_classe if destaque_hero.raridade_classe else '' }}" aria-hidden="true"></span>
       <span class="icone-item-quadro{{ ' icone-item-quadro-com-imagem' if destaque_hero.icon_url else '' }}{{ ' ' ~ destaque_hero.raridade_classe if destaque_hero.raridade_classe else '' }}" aria-hidden="true">
         <span class="icone-item-placeholder"></span>
         {% if destaque_hero.icon_url %}
@@ -170,7 +239,7 @@
         <a class="hero-destaque-nome" href="{{ url_for('item_detail', name=destaque_hero.name) }}">{{ destaque_hero.name_fmt }}</a>
         <p class="hero-destaque-motivo">{{ destaque_hero.reasons[0]|motivo_fmt if destaque_hero.reasons else "Nota neutra: nenhum fator se destacou" }}</p>
       </div>
-      <span class="nota nota-grande hero-destaque-nota nota-{{ destaque_hero.score|nota_classe }}">{{ destaque_hero.score|nota_anel|safe }}<span class="nota-numero">{{ destaque_hero.score }}</span></span>
+      <span class="hero-destaque-nota nota-{{ destaque_hero.score|nota_classe }}" aria-label="Nota {{ destaque_hero.score }} de 100"><span class="hero-destaque-nota-num">{{ destaque_hero.score }}</span><span class="hero-destaque-nota-de">/100</span></span>
     </section>
     {% endif %}
 
@@ -194,7 +263,7 @@
           preco_max=(None if remover == 'preco_max' else preco_max_sel),
           liquidez_min=(None if remover == 'liquidez_min' else liquidez_min_sel),
           q=(None if remover == 'q' else busca_sel),
-          ordenar=ordenar_sel) }}
+          ordenar=ordenar_sel, ver=ver_sel) }}
     {%- endmacro %}
 
     <form class="form-filtros" method="get" action="{{ url_for('index') }}">
@@ -226,6 +295,7 @@
         </select>
       </label>
       <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
+      <input type="hidden" name="ver" value="{{ ver_sel }}">
       <button type="submit" class="botao-filtrar-sem-js">Filtrar</button>
       <button type="button" id="botao-favoritos" class="botao-link" aria-pressed="false" title="Mostrar só os itens que você favoritou (só neste navegador) -- atalho: f">
         {{ icone("favorito") }}<span id="texto-botao-favoritos">Só favoritos</span> <span id="contagem-favoritos" class="contagem-favoritos" hidden>0</span>
@@ -260,7 +330,7 @@
         Liquidez: {{ liquidez_min_sel|liquidez_label }} ou melhor <span aria-hidden="true">×</span>
       </a>
       {% endif %}
-      <a id="limpar-filtros-ativos" class="botao-link" href="{{ url_for('index', ordenar=ordenar_sel) }}">Limpar todos</a>
+      <a id="limpar-filtros-ativos" class="botao-link" href="{{ url_for('index', ordenar=ordenar_sel, ver=ver_sel) }}">Limpar todos</a>
     </nav>
     {% endif %}
 
@@ -296,13 +366,15 @@
     {% endif %}
 
     {% if candidatos %}
+    {% if ver_sel == 'lista' %}
     <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
+    {% endif %}
     {% include "partials/_legenda_raridade.html" %}
     {% endif %}
 
     {% if scan %}
     {% macro url_categoria(cat) -%}
-      {{ url_for('index', categoria=cat, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel) }}
+      {{ url_for('index', categoria=cat, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver=ver_sel) }}
     {%- endmacro %}
     {# Ícone por categoria nas abas -- achado 2026-11-08 (referência
        visual: FACEIT): texto puro não dava reconhecimento rápido.
@@ -324,12 +396,32 @@
     </nav>
     {% endif %}
 
+    {% if candidatos %}
+    {# Seletor Vitrine/Lista (revisão de direção visual 2026-11-08,
+       rodada 2). Os dois modos mostram os mesmos itens e filtros; a
+       escolha fica num cookie (pref_ver) e o link abaixo a redefine. #}
+    <nav class="barra-visao" aria-label="Como mostrar os itens">
+      <div class="seletor-visao" role="group" aria-label="Modo de exibição">
+        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver='vitrine') }}"{% if ver_sel == 'vitrine' %} aria-current="page"{% endif %}>{{ icone("vitrine") }} Vitrine</a>
+        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver='lista') }}"{% if ver_sel == 'lista' %} aria-current="page"{% endif %}>{{ icone("lista") }} Lista</a>
+      </div>
+      {% if ver_sel == 'vitrine' %}
+      <div class="ordenar-vitrine" role="group" aria-label="Ordenar itens">
+        <span class="ordenar-vitrine-rotulo">Ordenar por:</span>
+        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='nota', ver='vitrine') }}"{% if ordenar_sel == 'nota' %} aria-current="page"{% endif %}>Nota (0–100)</a>
+        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='preco', ver='vitrine') }}"{% if ordenar_sel == 'preco' %} aria-current="page"{% endif %}>Preço</a>
+      </div>
+      {% endif %}
+    </nav>
+    {% endif %}
+
     <div id="msg-sem-favoritos" class="status status-vazio" hidden>
       <p id="texto-sem-favoritos">Nenhum item favoritado ainda — use o botão Favoritar ao lado de um item.</p>
       <ul id="lista-favoritos-fora" class="lista-favoritos-fora" hidden></ul>
     </div>
 
     {% if candidatos %}
+    {% if ver_sel == 'lista' %}
     <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de itens recomendados, com rolagem lateral">
     <table class="tabela-candidatos tabela-itens">{{ colgroup_itens() }}
       <thead class="cabecalho-fixo">{{ cabecalho_tabela() }}</thead>
@@ -338,16 +430,21 @@
       </tbody>
     </table>
     </div>
+    {% else %}
+    <ul class="grade-cards" aria-label="Vitrine de itens">
+      {% for c in candidatos %}{{ cartao_candidato(c) }}{% endfor %}
+    </ul>
+    {% endif %}
     {% endif %}
     {% if candidatos %}
     <nav class="paginacao">
       <div class="paginacao-principal">
       {% if tem_pagina_anterior %}
-        <a id="link-pagina-anterior" class="botao-link link-com-seta" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina-1) }}" title="Atalho: seta esquerda">{{ icone("seta-esquerda") }} Página anterior</a>
+        <a id="link-pagina-anterior" class="botao-link link-com-seta" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver=ver_sel, pagina=pagina-1) }}" title="Atalho: seta esquerda">{{ icone("seta-esquerda") }} Página anterior</a>
       {% endif %}
       <span class="status-muted">Mostrando {{ primeiro_item }}–{{ ultimo_item }} de {{ total_candidatos }} itens · página {{ pagina }}</span>
       {% if tem_proxima_pagina %}
-        <a id="link-pagina-seguinte" class="botao-link link-com-seta" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, pagina=pagina+1) }}">Ver mais {{ icone("seta-direita") }}</a>
+        <a id="link-pagina-seguinte" class="botao-link link-com-seta" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver=ver_sel, pagina=pagina+1) }}">Ver mais {{ icone("seta-direita") }}</a>
       {% endif %}
       </div>
       {% if total_paginas > 1 %}
@@ -356,7 +453,7 @@
           {% if p is none %}
             <span class="paginacao-reticencias" aria-hidden="true">…</span>
           {% else %}
-            <a class="paginacao-numero" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, pagina=p) }}"{% if p == pagina %} aria-current="page"{% endif %}>{{ p }}</a>
+            <a class="paginacao-numero" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver=ver_sel, pagina=p) }}"{% if p == pagina %} aria-current="page"{% endif %}>{{ p }}</a>
           {% endif %}
         {% endfor %}
       </div>
@@ -365,7 +462,7 @@
     {% elif scan and categoria_sel and not contagem_categorias.get(categoria_sel) %}
       <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>A categoria {{ categoria_sel }} ainda não tem itens coletados. A coleta atual cobre só as categorias com número ao lado do nome no filtro. <a href="{{ url_for('index') }}">Ver todas as categorias</a></p>
     {% elif scan %}
-      <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel) }}">Limpar filtros</a></p>
+      <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel, ver=ver_sel) }}">Limpar filtros</a></p>
     {% else %}
       <section class="status status-vazio">
         <span class="status-vazio-icone" aria-hidden="true">{{ icone("grafico") }}</span>

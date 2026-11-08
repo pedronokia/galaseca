@@ -78,6 +78,14 @@
   {% elif nome == "metodo" %}
   <path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V4Z"/>
   <path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7V4Z"/>
+  {% elif nome == "vitrine" %}
+  <rect x="3" y="3" width="7" height="7" rx="1"/>
+  <rect x="14" y="3" width="7" height="7" rx="1"/>
+  <rect x="3" y="14" width="7" height="7" rx="1"/>
+  <rect x="14" y="14" width="7" height="7" rx="1"/>
+  {% elif nome == "lista" %}
+  <path d="M8 6h13M8 12h13M8 18h13"/>
+  <path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>
   {% endif %}
 </svg>
 {%- endmacro %}

@@ -283,7 +283,7 @@ document.addEventListener("keydown", function (e) {
       var favoritos = lerTudo();
       var ativo = botao.classList.toggle("ativo");
       var algumVisivel = false;
-      document.querySelectorAll("table.tabela-candidatos tbody tr").forEach(function (linha) {
+      document.querySelectorAll("table.tabela-candidatos tbody tr[data-nome], .grade-cards .cartao-item[data-nome]").forEach(function (linha) {
         var botaoLinha = linha.querySelector(".botao-favorito");
         if (!botaoLinha) return;
         var item = botaoLinha.getAttribute("data-favorito");
@@ -295,8 +295,10 @@ document.addEventListener("keydown", function (e) {
       if (textoBotao) textoBotao.textContent = ativo ? "Todos os itens" : "Só favoritos";
       botao.setAttribute("aria-pressed", String(ativo));
       var semNenhum = ativo && !algumVisivel;
-      // Sem linha visível, o cabeçalho da tabela sozinho só ocupava espaço.
-      document.querySelectorAll("table.tabela-candidatos").forEach(function (t) {
+      // Sem linha/card visível, o cabeçalho da tabela ou a grade vazia
+      // só ocupava espaço (a grade também é escondida -- rodada 2 do
+      // visual adicionou o modo Vitrine, com <li> em vez de <tr>).
+      document.querySelectorAll("table.tabela-candidatos, .grade-cards").forEach(function (t) {
         t.style.display = semNenhum ? "none" : "";
       });
       var msgVazio = document.getElementById("msg-sem-favoritos");
@@ -372,14 +374,14 @@ document.addEventListener("keydown", function (e) {
   try {
     var anterior = lerAnterior();
     var atual = {};
-    document.querySelectorAll("table.tabela-candidatos tbody tr[data-nome]").forEach(function (tr) {
+    document.querySelectorAll("table.tabela-candidatos tbody tr[data-nome], .grade-cards .cartao-item[data-nome]").forEach(function (tr) {
       var nome = tr.getAttribute("data-nome");
       var nota = parseInt(tr.getAttribute("data-nota"), 10);
       if (!nome || isNaN(nota)) return;
       atual[nome] = nota;
       var antes = anterior[nome];
       if (antes === undefined || antes === nota) return;
-      var celulaNota = tr.querySelector(".celula-nota");
+      var celulaNota = tr.querySelector(".celula-nota, .cartao-item-nota-area");
       if (!celulaNota) return;
       var subiu = nota > antes;
       var selo = document.createElement("span");
@@ -400,6 +402,35 @@ document.addEventListener("keydown", function (e) {
     });
     if (Object.keys(atual).length) localStorage.setItem(CHAVE, JSON.stringify(atual));
   } catch (e) {}
+})();
+
+// Tilt 3D + brilho seguindo o mouse nos cards da vitrine (rodada 2 do
+// visual). É puro enfeite: só roda com ponteiro fino (mouse/trackpad,
+// não toque) e sem prefers-reduced-motion. Setar via CSSOM
+// (style.setProperty) é permitido pelo CSP -- só style="" inline no HTML
+// é que não.
+(function () {
+  var reduzir = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var ponteiroFino = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (reduzir || !ponteiroFino) return;
+  document.querySelectorAll(".grade-cards .cartao-item").forEach(function (card) {
+    card.addEventListener("pointermove", function (e) {
+      var r = card.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      var px = (e.clientX - r.left) / r.width;
+      var py = (e.clientY - r.top) / r.height;
+      card.style.setProperty("--rx", ((px - 0.5) * 7).toFixed(2) + "deg");
+      card.style.setProperty("--ry", ((0.5 - py) * 6).toFixed(2) + "deg");
+      card.style.setProperty("--s", "1.02");
+      card.style.setProperty("--mx", (px * 100).toFixed(1) + "%");
+      card.style.setProperty("--my", (py * 100).toFixed(1) + "%");
+    });
+    card.addEventListener("pointerleave", function () {
+      card.style.setProperty("--rx", "0deg");
+      card.style.setProperty("--ry", "0deg");
+      card.style.setProperty("--s", "1");
+    });
+  });
 })();
 
 // Atalhos de teclado pra paginação (seta esquerda/direita) -- só quando
