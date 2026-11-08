@@ -357,10 +357,22 @@ def create_app() -> Flask:
         # é anormal; dois seguidos geralmente é bloqueio da Steam).
         scan_desatualizado = bool(
             scan and (time.time() - scan["ts"]) > intervalo_horas * 3600 * 2)
+        # Resumo "o que mudou hoje" (item #19 da lista de melhorias) -- só
+        # na visão principal (página 1, sem filtro algum): com filtro ou
+        # paginação ativos, o item citado podia nem aparecer na lista
+        # abaixo, confuso. Reaproveita o MESMO snapshot do Top 20 que o
+        # Ranking já usa (_resumo_do_dia) -- sem inventar uma segunda
+        # fonte de comparação histórica.
+        sem_filtro_ativo = not (categoria or nota_min or preco_max or busca or liquidez_min)
+        resumo_do_dia = None
+        if pagina == 1 and sem_filtro_ativo:
+            snaps = ranking.load_snapshots()
+            resumo_do_dia = _resumo_do_dia(snaps[-1] if snaps else None)
         resp = make_response(render_template(
             "index.html",
             candidatos=candidatos_pagina,
             scan=scan,
+            resumo_do_dia=resumo_do_dia,
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
             proximo_scan=(scan_store.proxima_txt(scan["ts"], intervalo_horas)
                          if scan else None),
@@ -1260,6 +1272,7 @@ def _resumo_do_dia(atual: "dict | None") -> "dict | None":
     itens_antigos = {it["name"]: it for it in antigo.get("items", [])}
     novos = [it for it in atual["items"] if it["name"] not in itens_antigos]
     maior_alta = None
+    maior_queda = None
     for it in atual["items"]:
         velho = itens_antigos.get(it["name"])
         if not velho:
@@ -1272,9 +1285,17 @@ def _resumo_do_dia(atual: "dict | None") -> "dict | None":
                 "de": velho.get("score"),
                 "para": it.get("score"),
             }
+        if diff < 0 and (maior_queda is None or diff < maior_queda["diff"]):
+            maior_queda = {
+                "name_fmt": localize_name(it["name"]),
+                "diff": diff,
+                "de": velho.get("score"),
+                "para": it.get("score"),
+            }
     return {
         "novos_no_top": len(novos),
         "maior_alta": maior_alta,
+        "maior_queda": maior_queda,
         "quando": scan_store.idade_txt(antigo["ts"]),
     }
 

@@ -247,6 +247,17 @@
     </nav>
     {% endif %}
 
+    {% if resumo_do_dia and (resumo_do_dia.maior_alta or resumo_do_dia.maior_queda) %}
+    <p class="resumo-do-dia">
+      Comparado com o Top 20 de {{ resumo_do_dia.quando }}:
+      {% if resumo_do_dia.maior_alta %}maior alta de nota foi
+      <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
+      ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% if resumo_do_dia.maior_queda %}; {% endif %}{% endif %}{% if resumo_do_dia.maior_queda %}maior queda foi
+      <strong>{{ resumo_do_dia.maior_queda.name_fmt }}</strong>
+      ({{ resumo_do_dia.maior_queda.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_queda.para }}){% endif %}.
+    </p>
+    {% endif %}
+
     {% if candidatos %}
     <p class="ajuda-nota">A nota resume fatores observados, não é promessa nem previsão de lucro. O selo de risco, quando aparece, indica a possibilidade de uma alta rápida e artificial no preço.</p>
     {% endif %}
