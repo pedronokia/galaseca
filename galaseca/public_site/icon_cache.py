@@ -29,8 +29,18 @@ _CACHE_DIR = DATA_DIR / "icon_cache"
 # host (medido em 2026-10-30) -- e o httpx não segue redirect por padrão,
 # então todo cache miss virava None em silêncio.
 _CDN_URL_TPL = (
-    "https://community.steamstatic.com/economy/image/{hash}/192fx192f")
+    "https://community.steamstatic.com/economy/image/{hash}/{tamanho}fx{tamanho}f")
 _TIMEOUT = 5.0
+# 192 é o tamanho original (único até 2026-11-08); 384 (exatamente 2x)
+# alimenta o `srcset` "2x" que todo template já declara -- até aqui
+# `icon_url_2x` era uma cópia do `icon_url` de 192px (achado da revisão
+# de direção visual: o hero/vitrine mostra esse ícone bem maior que o
+# nativo, perda de nitidez visível). Lista fechada e pública (sem "_")
+# de propósito -- server.py valida a query string `tam` da rota contra
+# ESTA MESMA lista antes de chamar `obter()`, uma fonte só pros 2
+# lugares não dessincronizar.
+TAMANHOS_PERMITIDOS = (192, 384)
+TAMANHO_PADRAO = 192
 # Hash de ícone da Steam é base64 url-safe: letras, dígitos, "-" e "_",
 # ~200 caracteres. Um filtro só `isalnum()` (até 2026-10-30) arrancava os
 # "-"/"_" e cortava em 128 -- a URL montada dava 404 pra TODO item.
@@ -43,8 +53,8 @@ def _sanitizar(hash_icone: str) -> str:
     return "".join(c for c in (hash_icone or "") if c in _CHARS_HASH)[:_MAX_HASH]
 
 
-def _caminho(hash_icone: str) -> Path:
-    return _CACHE_DIR / f"{_sanitizar(hash_icone)}.v2.webp"
+def _caminho(hash_icone: str, tamanho: int) -> Path:
+    return _CACHE_DIR / f"{_sanitizar(hash_icone)}.v3.{tamanho}.webp"
 
 
 _WEBP_QUALITY = 80
@@ -72,11 +82,15 @@ def _reencodar_webp(image_bytes: bytes) -> "bytes | None":
         return None
 
 
-def obter(hash_icone: str) -> "bytes | None":
+def obter(hash_icone: str, tamanho: int = TAMANHO_PADRAO) -> "bytes | None":
     """Bytes da imagem (WebP), do cache de disco ou buscando do CDN da
     Steam e reencodando antes de cachear. None se o hash for
     inválido ou a busca/reencode falhar -- quem chama decide o
     fallback.
+
+    `tamanho` fora de `TAMANHOS_PERMITIDOS` cai no padrão (192) em vez
+    de erro -- mesma postura defensiva do resto do arquivo, nunca 500
+    pro visitante por um parâmetro inesperado.
 
     A rota `/icone/<hash>.webp` (server.py) passa o `<hash>` da URL direto
     pra cá, sem validar nada -- é QUALQUER visitante, sem login. Até
@@ -88,10 +102,12 @@ def obter(hash_icone: str) -> "bytes | None":
     (e cachear em disco) qualquer path dentro de steamstatic.com por
     conta de qualquer um -- sanitiza ANTES de usar nos dois lugares,
     não só no caminho do arquivo."""
+    if tamanho not in TAMANHOS_PERMITIDOS:
+        tamanho = TAMANHO_PADRAO
     hash_seguro = _sanitizar(hash_icone)
     if not hash_seguro:
         return None
-    p = _caminho(hash_seguro)
+    p = _caminho(hash_seguro, tamanho)
     if p.exists():
         try:
             return p.read_bytes()
@@ -99,8 +115,9 @@ def obter(hash_icone: str) -> "bytes | None":
             pass
     try:
         import httpx
-        resp = httpx.get(_CDN_URL_TPL.format(hash=hash_seguro), timeout=_TIMEOUT,
-                         follow_redirects=True)
+        resp = httpx.get(
+            _CDN_URL_TPL.format(hash=hash_seguro, tamanho=tamanho),
+            timeout=_TIMEOUT, follow_redirects=True)
         if resp.status_code != 200 or not resp.content:
             return None
         webp = _reencodar_webp(resp.content)

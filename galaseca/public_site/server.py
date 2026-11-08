@@ -50,7 +50,7 @@ _MARKET_LISTING_URL = "https://steamcommunity.com/market/listings/730/{name}"
 # continua servindo de FALLBACK (redirect) quando o cache falha.
 _ICON_CDN_URL_2X = (
     "https://community.steamstatic.com/economy/image/"
-    "{hash}/192fx192f"
+    "{hash}/{tamanho}fx{tamanho}f"
 )
 _STEAMDB_SEARCH_URL = "https://steamdb.info/search/?q={name}"
 from galaseca.public_site.account import bp as account_bp
@@ -625,13 +625,22 @@ def create_app() -> Flask:
         transparência). Nunca 500: cache miss + rede fora
         vira redirect pro CDN direto, nunca erro pro visitante.
 
+        `?tam=` (2026-11-08) escolhe entre os tamanhos de
+        `icon_cache.TAMANHOS_PERMITIDOS` -- valor fora da lista (ou
+        ausente) cai no padrão de 192px, nunca erro. Alimenta o
+        `srcset` 2x que os templates já declaram (ver `icon_url_2x`).
+
         Rate limit (2026-10-27): sem login, cache miss grava arquivo
         novo em disco pra QUALQUER hash -- sem isto, um script batendo
         com hash diferente a cada chamada enche o disco sem fim (ver
         rate_limit.ICON_MAX_HITS)."""
-        dados = icon_cache.obter(hash_icone)
+        tamanho = _parse_int_arg("tam", icon_cache.TAMANHO_PADRAO)
+        if tamanho not in icon_cache.TAMANHOS_PERMITIDOS:
+            tamanho = icon_cache.TAMANHO_PADRAO
+        dados = icon_cache.obter(hash_icone, tamanho)
         if dados is None:
-            return redirect(_ICON_CDN_URL_2X.format(hash=hash_icone))
+            return redirect(
+                _ICON_CDN_URL_2X.format(hash=hash_icone, tamanho=tamanho))
         resp = Response(dados, mimetype="image/webp")
         resp.headers["Cache-Control"] = "public, max-age=2592000, immutable"
         return resp
@@ -1521,13 +1530,18 @@ def _candidatos_filtrados(
                     "Nota calculada sem histórico de preço da Steam pra esse "
                     "item -- a maioria dos fatores não tinha dado suficiente "
                     "pra entrar no cálculo.")
-        # Mesma URL (proxy local, servindo sempre a versão 192x192) pros
-        # dois tamanhos do srcset -- um cache só por item em vez de dois,
-        # troca otimização de banda em tela pequena por simplicidade.
+        # icon_url_2x pede 384px (2x de 192) -- até 2026-11-08 era cópia
+        # do icon_url de 192px (achado da revisão de direção visual: o
+        # hero/vitrine mostra esse ícone bem maior que o nativo, perda
+        # de nitidez visível). Mesmo hash, cache separado por tamanho
+        # (ver icon_cache.py) -- o navegador já escolhe sozinho qual
+        # usar pelo density do visitante, sem mudar nenhum template.
         c["icon_url"] = (
             url_for("icone_cache", hash_icone=c["icon"], v=2)
             if c.get("icon") else None)
-        c["icon_url_2x"] = c["icon_url"]
+        c["icon_url_2x"] = (
+            url_for("icone_cache", hash_icone=c["icon"], v=2, tam=384)
+            if c.get("icon") else None)
         c["market_url"] = _MARKET_LISTING_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["steamdb_url"] = _STEAMDB_SEARCH_URL.format(

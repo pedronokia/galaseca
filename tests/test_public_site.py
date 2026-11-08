@@ -830,7 +830,10 @@ def test_api_recommendations_com_scan(client, monkeypatch, tmp_path):
     assert nomes == ["Item X"]
     assert data["api_version"] == 1
     assert data["candidatos"][0]["icon_url"] == "/icone/abc123.webp?v=2"
-    assert data["candidatos"][0]["icon_url_2x"] == "/icone/abc123.webp?v=2"
+    # icon_url_2x pede 384px (2x de 192) desde 2026-11-08 -- antes era
+    # cópia do icon_url de 192px (perda de nitidez no hero/vitrine).
+    assert (data["candidatos"][0]["icon_url_2x"]
+            == "/icone/abc123.webp?v=2&tam=384")
 
 
 def test_api_recommendations_filtra_owned_vazio_sempre(client, monkeypatch,
@@ -3142,7 +3145,7 @@ def test_icon_cache_sem_hash_devolve_none():
 
 def test_icon_cache_le_do_disco_sem_rede(monkeypatch, tmp_path):
     monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
-    p = icon_cache._caminho("abc123")
+    p = icon_cache._caminho("abc123", icon_cache.TAMANHO_PADRAO)
     # Leitura de cache-hit não reencoda -- devolve o que já tá no disco,
     # bytes arbitrários servem pra testar só esse caminho.
     p.write_bytes(b"fake-webp-bytes")
@@ -3195,7 +3198,7 @@ def test_icon_cache_preserva_hash_real_na_url(monkeypatch, tmp_path):
     url, kw = pedidas[0]
     assert f"/economy/image/{_HASH_REAL}/" in url
     assert kw.get("follow_redirects") is True
-    assert icon_cache._caminho(_HASH_REAL).exists()
+    assert icon_cache._caminho(_HASH_REAL, icon_cache.TAMANHO_PADRAO).exists()
 
 
 def test_icon_cache_sanitiza_hash_malicioso():
@@ -3245,14 +3248,14 @@ def test_icon_cache_obter_cacheia_webp_em_disco(monkeypatch, tmp_path):
     monkeypatch.setattr(httpx, "get", lambda *a, **kw: _Resp())
     resultado = icon_cache.obter("novohash")
     assert resultado[:4] == b"RIFF"
-    caminho = icon_cache._caminho("novohash")
+    caminho = icon_cache._caminho("novohash", icon_cache.TAMANHO_PADRAO)
     assert caminho.suffix == ".webp"
     assert caminho.read_bytes() == resultado
 
 
 def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", lambda h: None)
+        "galaseca.public_site.server.icon_cache.obter", lambda h, t: None)
     resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 302
     assert "steamstatic.com" in resp.headers["Location"]
@@ -3261,12 +3264,53 @@ def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
 def test_rota_icone_com_cache_serve_bytes(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.icon_cache.obter",
-        lambda h: b"dados-da-imagem")
+        lambda h, t: b"dados-da-imagem")
     resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 200
     assert resp.data == b"dados-da-imagem"
     assert resp.mimetype == "image/webp"
     assert "max-age" in resp.headers.get("Cache-Control", "")
+
+
+def test_rota_icone_tam_384_passa_pro_icon_cache(client, monkeypatch):
+    # srcset 2x pede ?tam=384 (2026-11-08) -- confere que a rota repassa
+    # o tamanho pro icon_cache.obter() em vez de ignorar a query string.
+    chamadas = []
+
+    def _obter(hash_icone, tamanho):
+        chamadas.append(tamanho)
+        return b"dados-384"
+
+    monkeypatch.setattr(
+        "galaseca.public_site.server.icon_cache.obter", _obter)
+    resp = client.get("/icone/abc123.webp?tam=384")
+    assert resp.status_code == 200
+    assert resp.data == b"dados-384"
+    assert chamadas == [384]
+
+
+def test_rota_icone_tam_invalido_cai_no_padrao(client, monkeypatch):
+    chamadas = []
+
+    def _obter(hash_icone, tamanho):
+        chamadas.append(tamanho)
+        return b"x"
+
+    monkeypatch.setattr(
+        "galaseca.public_site.server.icon_cache.obter", _obter)
+    resp = client.get("/icone/abc123.webp?tam=9999")
+    assert resp.status_code == 200
+    assert chamadas == [icon_cache.TAMANHO_PADRAO]
+
+
+def test_icon_cache_obter_tamanho_fora_da_lista_cai_no_padrao(
+        monkeypatch, tmp_path):
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+    p = tmp_path / "abc123.v3.192.webp"
+    p.write_bytes(b"ja-em-cache-192")
+    # tamanho=999 não existe em TAMANHOS_PERMITIDOS -- cai pro padrão
+    # (192) e lê o mesmo arquivo que um `obter("abc123")` sem tamanho leria.
+    assert icon_cache.obter("abc123", 999) == b"ja-em-cache-192"
 
 
 def test_rota_icone_tem_rate_limit(monkeypatch):
@@ -3276,7 +3320,7 @@ def test_rota_icone_tem_rate_limit(monkeypatch):
     gotcha de `rate_limited` avaliado na decoração: patcha ANTES de
     `create_app()`."""
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", lambda h: b"x")
+        "galaseca.public_site.server.icon_cache.obter", lambda h, t: b"x")
     monkeypatch.setattr(rate_limit, "ICON_MAX_HITS", 2)
     app = create_app()
     app.config["TESTING"] = True
@@ -3414,7 +3458,7 @@ def test_csp_report_corpo_vazio_ainda_responde_204(client):
 
 
 def test_icon_cache_caminho_sanitiza_hash_nao_alfanumerico():
-    p = icon_cache._caminho("../../etc/passwd")
+    p = icon_cache._caminho("../../etc/passwd", icon_cache.TAMANHO_PADRAO)
     assert ".." not in p.name
     assert "/" not in p.name
     assert p.parent == icon_cache._CACHE_DIR
