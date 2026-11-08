@@ -157,6 +157,23 @@
   </header>
 
   <main id="conteudo" class="pagina-inicial">
+    {% if destaque_hero %}
+    <section class="hero-destaque" aria-label="Item com a nota mais alta hoje">
+      <span class="icone-item-quadro{{ ' icone-item-quadro-com-imagem' if destaque_hero.icon_url else '' }}{{ ' ' ~ destaque_hero.raridade_classe if destaque_hero.raridade_classe else '' }}" aria-hidden="true">
+        <span class="icone-item-placeholder"></span>
+        {% if destaque_hero.icon_url %}
+        <img class="icone-item" src="{{ destaque_hero.icon_url }}" srcset="{{ destaque_hero.icon_url }} 1x, {{ destaque_hero.icon_url_2x }} 2x" alt="" aria-hidden="true" width="88" height="88">
+        {% endif %}
+      </span>
+      <div class="hero-destaque-corpo">
+        <p class="hero-destaque-rotulo">Nota mais alta hoje</p>
+        <a class="hero-destaque-nome" href="{{ url_for('item_detail', name=destaque_hero.name) }}">{{ destaque_hero.name_fmt }}</a>
+        <p class="hero-destaque-motivo">{{ destaque_hero.reasons[0]|motivo_fmt if destaque_hero.reasons else "Nota neutra: nenhum fator se destacou" }}</p>
+      </div>
+      <span class="nota nota-grande hero-destaque-nota nota-{{ destaque_hero.score|nota_classe }}">{{ destaque_hero.score|nota_anel|safe }}<span class="nota-numero">{{ destaque_hero.score }}</span></span>
+    </section>
+    {% endif %}
+
     {% if scan %}
       <p class="status status-scan {{ 'status-scan-desatualizado' if scan_desatualizado else 'status-scan-recente' }}">
         <strong>Dados coletados:</strong> {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).

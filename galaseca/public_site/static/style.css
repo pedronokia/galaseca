@@ -656,6 +656,69 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   margin: 0 0 16px;
 }
 
+/* Hero "nota mais alta hoje" (revisão de direção visual 2026-11-08) --
+   única seção da home com boldness de verdade (ícone 88px + anel
+   .nota-grande, os 2 maiores elementos já existentes no site, em vez
+   de inventar um componente novo); de propósito SEM fundo/borda de
+   card -- acabamos de tirar esse mesmo tratamento de .status-scan e
+   .resumo-do-dia logo acima, reintroduzir aqui desfaria o trabalho.
+   .hero-destaque-rotulo usa texto factual ("Nota mais alta hoje"), não
+   elogio -- é leitura de dado, não recomendação (ver AGENTS.md). */
+.hero-destaque {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 4px 0 20px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hero-destaque-corpo {
+  flex: 1;
+  min-width: 0;
+}
+
+.hero-destaque-rotulo {
+  margin: 0 0 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.hero-destaque-nome {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: var(--fs-xl);
+  color: var(--text-bright);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.hero-destaque-nome:hover { color: var(--accent-bright); text-decoration: underline; }
+
+.hero-destaque-motivo {
+  margin: 4px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.hero-destaque-nota { flex: 0 0 auto; }
+
+@media (max-width: 640px) {
+  .hero-destaque {
+    flex-wrap: wrap;
+  }
+
+  .hero-destaque-nota {
+    order: 1;
+  }
+
+  .hero-destaque-corpo {
+    order: 2;
+    flex-basis: 100%;
+  }
+}
+
 .filtros-ativos {
   display: flex;
   flex-wrap: wrap;

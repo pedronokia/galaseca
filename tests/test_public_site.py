@@ -226,6 +226,62 @@ def test_index_resumo_do_dia_some_na_pagina_2(client, monkeypatch, tmp_path):
     assert "resumo-do-dia" not in body
 
 
+def test_index_mostra_hero_destaque_com_maior_nota(client, monkeypatch, tmp_path):
+    # Hero "nota mais alta hoje" (revisão de direção visual 2026-11-08).
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item Baixo", "score": 40, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item Alto", "score": 95, "price": 2.0, "case_label": "",
+         "pump_risk": {"level": "low"},
+         "breakdown": [{"factor": "mediana", "delta": 10,
+                        "label": "Preço baixo (+10)"}]},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="hero-destaque"' in body
+    hero = body.split('class="hero-destaque"', 1)[1].split("</section>", 1)[0]
+    assert "Nota mais alta hoje" in hero
+    assert "Item Alto" in hero
+    assert "Item Baixo" not in hero
+    assert ">95<" in hero
+    assert 'href="/item/Item%20Alto"' in hero
+
+
+def test_index_hero_destaque_some_com_filtro_ativo(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item A", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/?nota_min=50").data.decode("utf-8")
+    assert "hero-destaque" not in body
+
+
+def test_index_hero_destaque_some_na_pagina_2(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": f"Item {i}", "score": 100 - i, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(15)
+    ])
+    body = client.get("/?pagina=2").data.decode("utf-8")
+    assert "hero-destaque" not in body
+
+
+def test_index_hero_destaque_some_ordenado_por_preco(client, monkeypatch, tmp_path):
+    # candidatos_pagina[0] só é "o maior nota" quando a ordenação é por
+    # nota -- ordenado por preço, o primeiro item pode ter qualquer nota.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item A", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/?ordenar=preco").data.decode("utf-8")
+    assert "hero-destaque" not in body
+
+
+def test_index_hero_destaque_some_sem_candidato(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [])
+    body = client.get("/").data.decode("utf-8")
+    assert "hero-destaque" not in body
+
+
 def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
@@ -975,8 +1031,13 @@ def test_index_detalhe_motivo_mostra_breakdown_completo(client, monkeypatch,
     # O motivo de maior peso (reasons[0]) já aparece no resumo -- repeti-lo
     # como item da lista abaixo criava uma linha idêntica logo após o
     # resumo; clicar nela não fechava o <details> (só <summary> alterna
-    # `open`), dando a impressão de que não dava mais pra recolher.
-    assert body.count("Preço baixo · +10 pts") == 1
+    # `open`), dando a impressão de que não dava mais pra recolher. Cada
+    # ocorrência DENTRO DA LINHA continua única (o que esta asserção
+    # protege); o total é 2 porque o item "X" aqui é o único candidato,
+    # então também vira destaque_hero (hero "nota mais alta hoje",
+    # 2026-11-08) -- a 2a ocorrência é o resumo do hero, uma seção
+    # diferente da linha da tabela, não a mesma duplicação de novo.
+    assert body.count("Preço baixo · +10 pts") == 2
 
 
 def test_index_dica_expandir_so_aparece_com_breakdown(client, monkeypatch,

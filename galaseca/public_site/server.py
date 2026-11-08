@@ -368,9 +368,22 @@ def create_app() -> Flask:
         if pagina == 1 and sem_filtro_ativo:
             snaps = ranking.load_snapshots()
             resumo_do_dia = _resumo_do_dia(snaps[-1] if snaps else None)
+        # Hero "nota mais alta hoje" (revisão de direção visual
+        # 2026-11-08) -- a home abria direto no formulário de filtro, sem
+        # nenhum "rosto". Mesma condição de resumo_do_dia (só na visão
+        # principal, sem filtro/busca, senão o item destacado podia nem
+        # estar na lista abaixo) + ordenar == "nota": candidatos_pagina[0]
+        # só é de fato "o maior nota" quando a ordenação é por nota.
+        # Tom deliberadamente factual ("nota mais alta", não "melhor" ou
+        # "destaque") -- é uma leitura do dado, não uma recomendação (ver
+        # AGENTS.md, "não promete retorno").
+        destaque_hero = None
+        if pagina == 1 and sem_filtro_ativo and ordenar == "nota" and candidatos_pagina:
+            destaque_hero = candidatos_pagina[0]
         resp = make_response(render_template(
             "index.html",
             candidatos=candidatos_pagina,
+            destaque_hero=destaque_hero,
             scan=scan,
             resumo_do_dia=resumo_do_dia,
             idade=scan_store.idade_txt(scan["ts"]) if scan else None,
