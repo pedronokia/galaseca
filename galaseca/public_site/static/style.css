@@ -2604,6 +2604,15 @@ footer.rodape .versao {
   font-size: var(--fs-base);
   font-weight: 600;
   transition: filter 0.15s ease, transform 0.1s ease;
+  /* Corte de canto (revisão de direção visual 2026-11-08) -- mesma
+     assinatura geométrica do botão/moldura do site público, só que
+     aqui em --positive (verde "adicionar"), não --accent: cor
+     semântica de ação, igual já era antes, não parte da identidade
+     laranja. Fundo e borda são a mesma cor, então o corte não deixa
+     artefato (ver --corte-botao no :root). */
+  clip-path: polygon(
+    0 0, calc(100% - var(--corte-botao)) 0, 100% var(--corte-botao),
+    100% 100%, var(--corte-botao) 100%, 0 calc(100% - var(--corte-botao)));
 }
 
 .form-adicionar button:hover { filter: brightness(1.1); transform: translateY(-1px); }
