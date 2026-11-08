@@ -108,6 +108,29 @@ def test_historico_mostra_hora_de_brasilia_nao_utc(client, monkeypatch):
     assert "02/01/2024 02:30" not in pagina
 
 
+def test_grafico_tem_tooltip_e_legenda_de_range(client, monkeypatch):
+    # item #4 do planejamento de melhorias maiores (2026-11-08): mesmo
+    # padrão de tooltip por ponto + legenda de range já usado no gráfico
+    # de preço de /item/<name> (charts.line_chart_svg(rotulos=...)).
+    _login(client, monkeypatch)
+    from galaseca.public_site import user_history
+    user_history.record_if_changed("76561198000000000", 50.0, now=1.0)
+    user_history.record_if_changed("76561198000000000", 80.0, now=2.0)
+    pagina = client.get("/conta/historico").data.decode("utf-8")
+    assert 'class="card grafico-card grafico-tendencia-alta"' in pagina
+    assert "<title>" in pagina
+    assert "R$ 50,00 – R$ 80,00 no período" in pagina
+
+
+def test_grafico_tendencia_baixa_quando_valor_cai(client, monkeypatch):
+    _login(client, monkeypatch)
+    from galaseca.public_site import user_history
+    user_history.record_if_changed("76561198000000000", 80.0, now=1.0)
+    user_history.record_if_changed("76561198000000000", 50.0, now=2.0)
+    pagina = client.get("/conta/historico").data.decode("utf-8")
+    assert 'class="card grafico-card grafico-tendencia-baixa"' in pagina
+
+
 def test_historico_isolado_entre_contas(client, monkeypatch):
     _login(client, monkeypatch, steamid="111")
     client.get("/conta")
