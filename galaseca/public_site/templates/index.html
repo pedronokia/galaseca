@@ -259,10 +259,22 @@
     {% macro url_categoria(cat) -%}
       {{ url_for('index', categoria=cat, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel) }}
     {%- endmacro %}
+    {# Ícone por categoria nas abas -- achado 2026-11-08 (referência
+       visual: FACEIT): texto puro não dava reconhecimento rápido.
+       "Todas" fica sem ícone de propósito (não existe um pictograma
+       único razoável pra "tudo junto"). #}
+    {% set categoria_icones = {
+      "Rifles": "rifle", "Pistolas": "pistola", "SMGs": "smg",
+      "Facas": "faca", "Luvas": "luva", "Caixas": "caixa",
+      "Cápsulas": "capsula", "Cápsulas de autógrafo": "capsula",
+      "Adesivos da comunidade": "etiqueta",
+      "Adesivos de autógrafo": "etiqueta",
+      "Adesivos de evento": "etiqueta", "Adesivos de torneio": "etiqueta",
+    } %}
     <nav class="abas-categoria" aria-label="Categorias">
       <a class="aba-categoria" href="{{ url_categoria(None) }}"{% if not categoria_sel %} aria-current="page"{% endif %}>Todas <span class="aba-contagem">{{ total_geral }}</span></a>
       {% for cat in categorias if contagem_categorias.get(cat) %}
-      <a class="aba-categoria" href="{{ url_categoria(cat) }}"{% if cat == categoria_sel %} aria-current="page"{% endif %}>{{ cat }} <span class="aba-contagem">{{ contagem_categorias.get(cat) }}</span></a>
+      <a class="aba-categoria" href="{{ url_categoria(cat) }}"{% if cat == categoria_sel %} aria-current="page"{% endif %}>{% if categoria_icones.get(cat) %}{{ icone(categoria_icones[cat]) }}{% endif %}{{ cat }} <span class="aba-contagem">{{ contagem_categorias.get(cat) }}</span></a>
       {% endfor %}
     </nav>
     {% endif %}
