@@ -656,6 +656,62 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   margin: 0 0 16px;
 }
 
+/* Mini-cards "maiores mudanças de nota" (item #19 da lista de
+   melhorias) -- 3 cards logo abaixo da frase do resumo, mesma fonte de
+   dado (snapshot do Top 20 vs. ~1 dia atrás). Só números observados:
+   nenhum texto do tipo "melhor item" ou "vai subir". */
+.movimentos-do-dia {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin: -4px 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.movimento-do-dia {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.movimento-nome {
+  overflow: hidden;
+  color: var(--text-bright);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.movimento-variacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.movimento-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+
+.movimento-alta { color: var(--positive); }
+.movimento-baixa { color: var(--danger); }
+
+@media (max-width: 640px) {
+  .movimentos-do-dia { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Hero "nota mais alta hoje" (revisão de direção visual 2026-11-08) --
    única seção da home com boldness de verdade (ícone 88px + anel
    .nota-grande, os 2 maiores elementos já existentes no site, em vez
@@ -3231,4 +3287,62 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   .tabela-itens .menu-acoes-item[open] {
     opacity: 1;
   }
+}
+
+/* ── Navegação inferior no celular (item #20) ─────────────────────── */
+/* Abaixo de 640px o menu do topo (.nav-principal) dá lugar a uma barra
+   fixa na base da tela, ao alcance do polegar. No desktop a barra fica
+   `display:none` e nada muda. O body ganha padding pra última linha do
+   conteúdo não ficar atrás dela, e os dois botões fixos que já existiam
+   (.botao-topo e .barra-comparar) sobem pra não encavalar. */
+.nav-inferior { display: none; }
+
+@media (max-width: 640px) {
+  .nav-principal { display: none; }
+
+  .nav-inferior {
+    display: flex;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 35;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.35);
+  }
+
+  .nav-inferior a {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 44px;
+    padding: 4px 2px;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .nav-inferior a .icone-ui {
+    width: 20px;
+    height: 20px;
+  }
+
+  .nav-inferior a[aria-current="page"] { color: var(--accent-bright); }
+
+  .nav-inferior a:focus-visible { outline-offset: -2px; }
+
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+  .botao-topo { bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+  .barra-comparar { bottom: calc(86px + env(safe-area-inset-bottom)); }
 }

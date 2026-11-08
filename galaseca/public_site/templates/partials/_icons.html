@@ -70,6 +70,14 @@
   <circle cx="12" cy="12" r="9"/>
   <path d="M12 11v6"/>
   <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none"/>
+  {% elif nome == "inicio" %}
+  <path d="m4 11 8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-9Z"/>
+  {% elif nome == "ranking" %}
+  <path d="M7 4h10v4a5 5 0 0 1-10 0V4Z"/>
+  <path d="M7 5H4v2a3 3 0 0 0 3 3M17 5h3v2a3 3 0 0 1-3 3M12 13v4m-2 4h4"/>
+  {% elif nome == "metodo" %}
+  <path d="M4 4h7a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4V4Z"/>
+  <path d="M20 4h-7a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h7V4Z"/>
   {% endif %}
 </svg>
 {%- endmacro %}

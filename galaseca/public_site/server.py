@@ -1280,6 +1280,10 @@ def _itens_parecidos(item: dict, candidatos: list[dict], limite: int = 5) -> lis
     return mesma_cat[:limite]
 
 
+# Quantos itens aparecem nos cards de "maiores mudanças de nota" (home).
+_MOVIMENTOS_DESTAQUE = 3
+
+
 def _resumo_do_dia(atual: "dict | None") -> "dict | None":
     """Resumo factual do Top 20 comparado com o snapshot de ~1 dia atrás
     (nunca previsão). None sem
@@ -1293,11 +1297,24 @@ def _resumo_do_dia(atual: "dict | None") -> "dict | None":
     novos = [it for it in atual["items"] if it["name"] not in itens_antigos]
     maior_alta = None
     maior_queda = None
+    # `movimentos` alimenta os mini-cards da home (item #19 da lista de
+    # melhorias): os maiores vaivens de nota, pra alta E pra baixa, sem
+    # escolher "vencedor". Fica só com o que realmente mudou -- item que
+    # repetiu a mesma nota não é notícia e só gastaria card.
+    movimentos = []
     for it in atual["items"]:
         velho = itens_antigos.get(it["name"])
         if not velho:
             continue
         diff = it.get("score", 0) - velho.get("score", 0)
+        if diff:
+            movimentos.append({
+                "name": it["name"],
+                "name_fmt": localize_name(it["name"]),
+                "diff": diff,
+                "de": velho.get("score"),
+                "para": it.get("score"),
+            })
         if diff > 0 and (maior_alta is None or diff > maior_alta["diff"]):
             maior_alta = {
                 "name_fmt": localize_name(it["name"]),
@@ -1312,10 +1329,14 @@ def _resumo_do_dia(atual: "dict | None") -> "dict | None":
                 "de": velho.get("score"),
                 "para": it.get("score"),
             }
+    # Maior mudança primeiro (em módulo); empate resolvido pelo nome só
+    # pra ordem ser estável entre renders com os mesmos dados.
+    movimentos.sort(key=lambda m: (-abs(m["diff"]), m["name"]))
     return {
         "novos_no_top": len(novos),
         "maior_alta": maior_alta,
         "maior_queda": maior_queda,
+        "movimentos": movimentos[:_MOVIMENTOS_DESTAQUE],
         "quando": scan_store.idade_txt(antigo["ts"]),
     }
 

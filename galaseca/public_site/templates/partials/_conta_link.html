@@ -27,3 +27,15 @@
     <span class="entrar-cta-legenda">Acompanhe portfólio, trades e watchlist</span>
   </span>
 {% endif %}
+{# Navegação inferior fixa no celular (item #20 da lista de melhorias):
+   o `.nav-principal` do topo some abaixo de 640px e dá lugar a esta
+   barra, ao alcance do polegar. No desktop fica `display:none`. Só
+   páginas que já incluem este partial ganham a barra (as páginas
+   internas de admin não incluem, de propósito). #}
+<nav class="nav-inferior" aria-label="Navegação principal no celular">
+  <a href="{{ url_for('index') }}"{% if request.endpoint == 'index' %} aria-current="page"{% endif %}>{{ icone("inicio") }}<span>Início</span></a>
+  <a href="{{ url_for('ranking_page') }}"{% if request.endpoint == 'ranking_page' %} aria-current="page"{% endif %}>{{ icone("ranking") }}<span>Ranking</span></a>
+  <a href="{{ url_for('metodo') }}"{% if request.endpoint == 'metodo' %} aria-current="page"{% endif %}>{{ icone("metodo") }}<span>Método</span></a>
+  <a href="{{ url_for('faq') }}"{% if request.endpoint == 'faq' %} aria-current="page"{% endif %}>{{ icone("ajuda") }}<span>FAQ</span></a>
+  <a href="{{ url_for('status') }}"{% if request.endpoint == 'status' %} aria-current="page"{% endif %}>{{ icone("grafico") }}<span>Status</span></a>
+</nav>

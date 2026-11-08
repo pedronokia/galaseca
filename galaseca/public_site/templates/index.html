@@ -273,6 +273,22 @@
       <strong>{{ resumo_do_dia.maior_queda.name_fmt }}</strong>
       ({{ resumo_do_dia.maior_queda.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_queda.para }}){% endif %}.
     </p>
+    {% if resumo_do_dia.movimentos %}
+    {# Item #19 da lista de melhorias: os 3 maiores vaivens de nota, pra
+       alta E pra baixa. Só descreve o que já foi medido -- nada de
+       "melhor item" nem seta de "vai subir" (ver AGENTS.md). #}
+    <ul class="movimentos-do-dia" aria-label="Maiores mudanças de nota desde o scan de {{ resumo_do_dia.quando }}">
+      {% for m in resumo_do_dia.movimentos %}
+      <li class="movimento-do-dia">
+        <a class="movimento-nome" href="{{ url_for('item_detail', name=m.name) }}">{{ m.name_fmt }}</a>
+        <span class="movimento-variacao" title="Nota no scan anterior e nota agora">{{ m.de }} {{ icone("seta-direita") }} <strong>{{ m.para }}</strong></span>
+        <span class="movimento-delta {{ 'movimento-alta' if m.diff > 0 else 'movimento-baixa' }}">
+          {{ icone("seta-cima" if m.diff > 0 else "seta-baixo") }}{{ "%+d"|format(m.diff) }} na nota
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% endif %}
 
     {% if candidatos %}
