@@ -262,6 +262,14 @@ document.addEventListener("keydown", function (e) {
       if (novoEstado) { favoritos[item] = true; } else { delete favoritos[item]; }
       salvar(favoritos);
       pintarBotao(btn, novoEstado);
+      // Pop breve só ao MARCAR (não ao desmarcar nem no carregamento
+      // da página) -- feedback de resposta imediata ao clique.
+      // `animation` já respeita prefers-reduced-motion via CSS.
+      if (novoEstado) {
+        btn.classList.remove("favoritando");
+        void btn.offsetWidth; // força reflow pra reiniciar a animação em cliques seguidos
+        btn.classList.add("favoritando");
+      }
     } catch (e) {}
   });
 
