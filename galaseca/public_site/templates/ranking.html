@@ -32,6 +32,48 @@
     <p class="subtitulo">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
   </header>
 
+  {% macro posicao_candidato(it) %}
+    {% if it.label == "NOVO" %}
+      <span class="selo-novo">NOVO</span>
+    {% elif it.delta > 0 %}
+      <span class="tendencia-alta">{{ icone("seta-cima") }} {{ it.label }}</span>
+    {% elif it.delta < 0 %}
+      <span class="tendencia-baixa">{{ icone("seta-baixo") }} {{ it.label }}</span>
+    {% elif it.label == "=" %}
+      <span class="status-muted">=</span>
+    {% else %}
+      <span class="status-muted">—</span>
+    {% endif %}
+  {% endmacro %}
+
+  {# Card do Top 20 (revisão de direção visual 2026-11-08, rodada 3) --
+     mesma linguagem visual da vitrine da home (.cartao-item, brilho,
+     corte de canto), mas mais enxuto: o snapshot do ranking só guarda
+     name/score/position (ver ranking.py), sem preço nem motivo, então
+     não dá (nem faz sentido) reusar cartao_candidato da home aqui. #}
+  {% macro cartao_candidato_ranking(it) %}
+  <li class="cartao-item cartao-item-ranking{{ ' ' ~ it.raridade_classe if it.raridade_classe else '' }}" data-nome="{{ it.name }}" data-nota="{{ it.score }}">
+    <span class="cartao-item-brilho"></span>
+    <span class="cartao-item-posicao" aria-hidden="true">#{{ it.position }}</span>
+    <div class="cartao-item-imagem">
+      <a class="cartao-item-imagem-link" href="{{ url_for('item_detail', name=it.name) }}" aria-label="Abrir detalhes e histórico de {{ it.name_fmt }}">
+        {% if it.icon_url %}
+        <img class="cartao-item-icon" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="192" height="192">
+        {% else %}
+        <span class="icone-item-placeholder" aria-hidden="true"></span>
+        {% endif %}
+      </a>
+      <div class="cartao-item-nota-area">
+        <span class="cartao-item-nota nota-{{ it.score|nota_classe }}" title="Nota {{ it.score }} de 100" aria-label="Nota {{ it.score }} de 100">{{ it.score }}</span>
+      </div>
+    </div>
+    <div class="cartao-item-corpo">
+      <a class="cartao-item-nome" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+      <div class="cartao-item-rodape">{{ posicao_candidato(it) }}</div>
+    </div>
+  </li>
+  {% endmacro %}
+
   <main id="conteudo">
     <h1 class="titulo-pagina">Ranking</h1>
     {% if itens %}
@@ -44,8 +86,16 @@
         ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% endif %}.
       </p>
       {% endif %}
-      <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
       {% include "partials/_legenda_raridade.html" %}
+      {# Mesmo seletor Vitrine/Lista da home, mesmo cookie pref_ver. #}
+      <nav class="barra-visao" aria-label="Como mostrar os itens">
+        <div class="seletor-visao" role="group" aria-label="Modo de exibição">
+          <a href="{{ url_for('ranking_page', ver='vitrine') }}"{% if ver_sel == 'vitrine' %} aria-current="page"{% endif %}>{{ icone("vitrine") }} Vitrine</a>
+          <a href="{{ url_for('ranking_page', ver='lista') }}"{% if ver_sel == 'lista' %} aria-current="page"{% endif %}>{{ icone("lista") }} Lista</a>
+        </div>
+      </nav>
+      {% if ver_sel == 'lista' %}
+      <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
       <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de ranking, com rolagem lateral">
       <table class="tabela-candidatos">
         <thead>
@@ -70,24 +120,17 @@
               <a class="link-item" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
             </td>
             <td><span class="nota nota-{{ it.score|nota_classe }}">{{ it.score|nota_anel|safe }}<span class="nota-numero">{{ it.score }}</span></span></td>
-            <td>
-              {% if it.label == "NOVO" %}
-                <span class="selo-novo">NOVO</span>
-              {% elif it.delta > 0 %}
-                <span class="tendencia-alta">{{ icone("seta-cima") }} {{ it.label }}</span>
-              {% elif it.delta < 0 %}
-                <span class="tendencia-baixa">{{ icone("seta-baixo") }} {{ it.label }}</span>
-              {% elif it.label == "=" %}
-                <span class="status-muted">=</span>
-              {% else %}
-                <span class="status-muted">—</span>
-              {% endif %}
-            </td>
+            <td>{{ posicao_candidato(it) }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       </div>
+      {% else %}
+      <ul class="grade-cards" aria-label="Vitrine do Top 20">
+        {% for it in itens %}{{ cartao_candidato_ranking(it) }}{% endfor %}
+      </ul>
+      {% endif %}
     {% else %}
       <p class="status status-vazio">Ainda não há ranking salvo. Volte em breve.</p>
     {% endif %}

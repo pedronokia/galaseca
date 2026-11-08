@@ -1568,7 +1568,7 @@ def test_ranking_page_mostra_icone_e_raridade_do_scan_atual(
         "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
         "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
-    body = client.get("/ranking").data.decode("utf-8")
+    body = client.get("/ranking?ver=lista").data.decode("utf-8")
     assert "icone-item-quadro-compacto" in body
     assert "icone-item-quadro-com-imagem" in body
     assert "raridade-covert" in body
@@ -1588,7 +1588,7 @@ def test_ranking_page_item_fora_do_scan_atual_sem_icone(client, monkeypatch):
         "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
         "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
-    resp = client.get("/ranking")
+    resp = client.get("/ranking?ver=lista")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     # "raridade-" aparece em algum lugar da página por causa do popover
@@ -1678,6 +1678,68 @@ def test_ranking_page_resumo_do_dia_sem_alta_nenhuma(client, monkeypatch):
     assert "resumo-do-dia" in body
     assert "0 itens novos no Top 20" in body.replace("\n", " ")
     assert "maior alta" not in body
+
+
+def test_ranking_page_vitrine_mostra_cards_com_posicao_e_nota(
+        client, monkeypatch):
+    # Vitrine (rodada 3) é o padrão, igual a home -- o snapshot do
+    # ranking só tem name/score/position, então o card aqui é mais
+    # enxuto que o da home (sem preço/motivo).
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+             "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    assert '<ul class="grade-cards"' in body
+    assert 'class="cartao-item cartao-item-ranking' in body
+    assert "#1" in body
+    assert 'href="/item/AK-47%20%7C%20Redline%20(Field-Tested)"' in body
+    assert '<table class="tabela-candidatos">' not in body
+
+
+def test_ranking_page_cookie_pref_ver_lista_mantem_tabela(
+        client, monkeypatch):
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    resp = client.get("/ranking?ver=lista")
+    cookie = resp.headers.get("Set-Cookie", "")
+    assert "pref_ver=lista" in cookie
+    # Sem ?ver na URL, o cookie decide -- mesmo cookie da home, então
+    # quem escolheu Lista lá não volta pra Vitrine aqui sem pedir.
+    body = client.get("/ranking").data.decode("utf-8")
+    assert '<table class="tabela-candidatos">' in body
+    assert '<ul class="grade-cards"' not in body
+
+
+def test_ranking_page_ver_invalido_cai_na_vitrine(client, monkeypatch):
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking?ver=tabela").data.decode("utf-8")
+    assert '<ul class="grade-cards"' in body
+    assert '<table class="tabela-candidatos">' not in body
 
 
 def test_usuario_logado_aparece_fora_de_conta(client, monkeypatch, tmp_path):

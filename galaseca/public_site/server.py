@@ -825,13 +825,29 @@ def create_app() -> Flask:
                     **delta,
                     **_icone_raridade(por_nome_scan.get(it["name"])),
                 })
-        return render_template(
+        # Mesmo seletor Vitrine/Lista da home (revisão de direção visual
+        # 2026-11-08) -- mesmo cookie `pref_ver`, pra uma escolha só valer
+        # pro site inteiro: quem prefere Lista na home não quer vitrine de
+        # novo aqui. O Top 20 não tem preço/motivo no snapshot (só name/
+        # score/position), então o card da vitrine aqui é mais enxuto que
+        # o da home -- ver cartao_candidato_ranking em ranking.html.
+        ver = (request.args.get("ver") if "ver" in request.args
+               else request.cookies.get("pref_ver")) or "vitrine"
+        if ver not in ("vitrine", "lista"):
+            ver = "vitrine"
+        resp = make_response(render_template(
             "ranking.html",
             itens=itens,
             quando=scan_store.idade_txt(atual["ts"]) if atual else None,
             tem_anterior=anterior is not None,
             resumo_do_dia=_resumo_do_dia(atual),
-        )
+            ver_sel=ver,
+        ))
+        if "ver" in request.args:
+            resp.set_cookie("pref_ver", ver, max_age=365 * 24 * 3600,
+                            samesite="Lax",
+                            secure=app.config["SESSION_COOKIE_SECURE"])
+        return resp
 
     @app.route("/admin/login", methods=["GET", "POST"])
     @rate_limit.rate_limited(rate_limit.LOGIN_MAX_HITS, rate_limit.LOGIN_WINDOW_S)
