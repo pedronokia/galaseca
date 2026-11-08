@@ -1713,6 +1713,51 @@ footer.rodape .versao {
   color: var(--text-bright);
 }
 
+/* Linha do tempo do /changelog -- cada entrada é uma data, não um
+   texto corrido qualquer, então um trilho vertical + ponto por entrada
+   deixa mais fácil escanear "quando" sem ler a data por extenso em
+   cada título. `padding-top: 1px` no wrapper evita o margin-top de
+   .secao-titulo "vazar" por colapso de margem pra fora da timeline
+   (sem isso o primeiro ponto ficava desalinhado do título). */
+.changelog-timeline {
+  position: relative;
+  padding: 1px 0 1px 22px;
+}
+
+.changelog-timeline::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--border);
+}
+
+.changelog-entrada {
+  position: relative;
+}
+
+.changelog-entrada::before {
+  content: "";
+  position: absolute;
+  left: -22px;
+  top: 38px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+
+.changelog-timeline .changelog-entrada:first-child .secao-titulo {
+  margin-top: 0;
+}
+
+.changelog-timeline .changelog-entrada:first-child::before {
+  top: 10px;
+}
+
 /* Título real da página (achado de SEO 2026-11-05): antes disto, o
    único <h1> de cada página era a logo, idêntica em todo o site --
    nenhuma página tinha um heading principal que descrevesse o próprio

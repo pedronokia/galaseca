@@ -16,8 +16,8 @@ from werkzeug.security import generate_password_hash
 
 from galaseca import ranking, scan_store, signals
 from galaseca.public_site import (
-    charts, erro_stats, fmt, icon_cache, latencia, rate_limit, scan_progress,
-    user_store, visits, worker, worker_alert,
+    changelog, charts, erro_stats, fmt, icon_cache, latencia, rate_limit,
+    scan_progress, user_store, visits, worker, worker_alert,
 )
 from galaseca.public_site.server import create_app
 
@@ -920,6 +920,10 @@ def test_changelog_page(client):
     assert "Formulários e documentação mais claros" in body
     assert "retorno pertence à sessão" in body
     assert "Tabela mais larga em telas grandes" in body
+    # Linha do tempo (item #16 da lista de melhorias) -- cada entrada
+    # vira uma <section> dentro do wrapper com o trilho via CSS.
+    assert 'class="changelog-timeline"' in body
+    assert body.count('class="changelog-entrada"') == len(changelog.ENTRADAS)
 
 
 def test_api_docs_page(client):
