@@ -2517,6 +2517,30 @@ def test_comparar_sem_destaque_com_1_item_so(client, monkeypatch, tmp_path):
     assert "valor-destaque-linha" not in body
 
 
+def test_comparar_com_1_item_mostra_aviso_pra_adicionar_mais(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A").data.decode("utf-8")
+    assert "Só 1 item selecionado" in body
+    assert "comparação fica mais útil com 2 ou 3" in body
+
+
+def test_comparar_com_2_itens_nao_mostra_aviso(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 60, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
+    assert "Só 1 item selecionado" not in body
+
+
 def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):
     resultados = [{"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
                   "pump_risk": {"level": "low"}, "breakdown": []}]
