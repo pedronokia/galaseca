@@ -190,6 +190,36 @@ summary:focus-visible,
   outline-offset: 2px;
 }
 
+/* ── Barra de carregamento (navegação) ───────────────────── */
+/* item #7 da lista de melhorias -- site é MPA (sem fetch() em lugar
+   nenhum), clique em filtro/paginação/ordenar recarrega a página de
+   verdade; sem isto, numa conexão lenta parecia que o clique não deu
+   em nada. `width` anima até ~70% ao ativar (JS em app.js) e some
+   sozinha quando a navegação de fato troca de página -- não precisa
+   de lógica pra "esconder depois", a troca de documento já faz isso. */
+.barra-carregamento {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 3px;
+  background: var(--accent-bright);
+  opacity: 0;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.barra-carregamento.ativa {
+  width: 70%;
+  opacity: 1;
+  transition: width 1.2s cubic-bezier(0.1, 0.6, 0.4, 1), opacity 0.2s ease;
+}
+
+.barra-carregamento.ativa.sem-animacao {
+  width: 100%;
+  transition: none;
+}
+
 /* ── Acessibilidade: pular pro conteúdo ──────────────────── */
 .link-pular-conteudo {
   position: absolute;
