@@ -2276,6 +2276,27 @@ footer.rodape .versao {
   .cartao-item-comparar-alvo { opacity: 1; }
 }
 
+/* Posição no card do Ranking (rodada 3) -- mesmo canto que
+   .cartao-item-comparar-alvo ocuparia na vitrine da home, mas o
+   Ranking não tem comparar, então não disputam espaço. aria-hidden:
+   a posição numérica (#1, #2...) já é redundante com a ordem visual
+   do grid pra quem usa leitor de tela; `posicao_candidato()` embaixo
+   do nome (subiu/caiu/NOVO) é o dado que importa de verdade. */
+.cartao-item-posicao {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 2px 7px;
+  background: rgba(10, 12, 17, 0.82);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
+}
+
 .cartao-item-corpo {
   display: flex;
   flex-direction: column;
