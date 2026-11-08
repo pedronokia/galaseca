@@ -159,6 +159,73 @@ def test_index_sem_scan_nao_mostra_popover_legenda(client, monkeypatch):
     assert "popover-legenda" not in body
 
 
+def test_index_mostra_resumo_do_dia_com_alta_e_queda(client, monkeypatch, tmp_path):
+    # item #19 da lista de melhorias -- mesma fonte (snapshot do Top 20)
+    # já usada no Ranking, agora também na home.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item A", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+            {"name": "Y", "score": 20, "position": 2},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before",
+        lambda ts: {"ts": 900.0, "items": [
+            {"name": "X", "score": 60, "position": 1},
+            {"name": "Y", "score": 50, "position": 2},
+        ]})
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="resumo-do-dia"' in body
+    resumo = body.split('class="resumo-do-dia"', 1)[1].split("</p>", 1)[0]
+    assert "maior alta de nota foi" in resumo
+    assert "X" in resumo
+    assert "maior queda foi" in resumo
+    assert "Y" in resumo
+
+
+def test_index_resumo_do_dia_some_com_filtro_ativo(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item A", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before",
+        lambda ts: {"ts": 900.0, "items": [
+            {"name": "X", "score": 60, "position": 1},
+        ]})
+    body = client.get("/?nota_min=50").data.decode("utf-8")
+    assert "resumo-do-dia" not in body
+
+
+def test_index_resumo_do_dia_some_na_pagina_2(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": f"Item {i}", "score": 100 - i, "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(15)
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before",
+        lambda ts: {"ts": 900.0, "items": [
+            {"name": "X", "score": 60, "position": 1},
+        ]})
+    body = client.get("/?pagina=2").data.decode("utf-8")
+    assert "resumo-do-dia" not in body
+
+
 def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
