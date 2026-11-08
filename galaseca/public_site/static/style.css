@@ -2340,6 +2340,27 @@ footer.rodape .versao {
 @media (prefers-reduced-motion: reduce) {
   .botao-favorito.favoritando .icone-ui-favorito { animation: none; }
 }
+
+/* ── Transição suave entre páginas (item #6 da lista) ────── */
+/* View Transitions API pra navegação entre documentos (MPA) -- site
+   não tem framework de SPA, troca de página é sempre um reload de
+   verdade, e esse @view-transition é CSS puro: em navegador sem
+   suporte, a regra é só ignorada e a navegação continua normal, sem
+   nenhum JS pra degradar. O cross-fade padrão do navegador já cobre
+   o pedido original; não precisou de document.startViewTransition
+   nem customização por página. */
+@view-transition {
+  navigation: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 #botao-favoritos.ativo { border-color: var(--warn); color: var(--warn); }
 #botao-favoritos .icone-ui { width: 17px; height: 17px; }
 #botao-favoritos.ativo .icone-ui-favorito { fill: currentColor; }
