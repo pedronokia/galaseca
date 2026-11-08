@@ -207,6 +207,35 @@ def test_index_mostra_resumo_do_dia_com_alta_e_queda(client, monkeypatch, tmp_pa
     assert "movimento-baixa" in cards
     assert "+30 na nota" in cards
     assert "-30 na nota" in cards
+    assert "0 itens novos" in resumo
+
+
+def test_index_resumo_do_dia_mostra_mesmo_sem_mudanca_de_nota(client, monkeypatch, tmp_path):
+    # item #C do planejamento de melhorias maiores (2026-11-08):
+    # novos_no_top já era calculado em _resumo_do_dia mas só aparecia no
+    # Ranking -- a home descartava o dado. Mostra mesmo quando nenhuma
+    # nota mudou, desde que haja um snapshot antigo pra comparar.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item A", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+            {"name": "Y", "score": 50, "position": 2},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before",
+        lambda ts: {"ts": 900.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+        ]})
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="resumo-do-dia"' in body
+    resumo = body.split('class="resumo-do-dia"', 1)[1].split("</p>", 1)[0]
+    assert "1 item novo" in resumo
+    assert "maior alta de nota foi" not in resumo
+    assert "movimentos-do-dia" not in body
 
 
 def test_index_movimentos_do_dia_limita_a_tres_e_ordena_por_tamanho(
