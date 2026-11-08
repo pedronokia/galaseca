@@ -415,7 +415,7 @@ document.addEventListener("keydown", function (e) {
   var link = document.getElementById(id);
   if (!link) return;
   e.preventDefault();
-  window.location.href = link.href;
+  link.click();
 });
 
 // PWA: registra o service worker (ver /sw.js + manifest.json) -- só
@@ -505,5 +505,50 @@ if ("serviceWorker" in navigator) {
     tag.rel = "prefetch";
     tag.href = link.href;
     document.head.appendChild(tag);
+  });
+})();
+
+// Barra de carregamento no topo ao navegar (filtro, paginação, ordenar
+// coluna, trocar de página...) -- site é MPA tradicional, sem fetch()
+// em lugar nenhum (confirmado), então todo clique em link interno ou
+// submit de formulário recarrega a página de verdade. Sem feedback
+// nenhum, um clique num filtro numa conexão lenta parecia que não deu
+// em nada até a próxima página aparecer.
+(function () {
+  var barra = document.createElement("div");
+  barra.className = "barra-carregamento";
+  barra.setAttribute("aria-hidden", "true");
+  document.body.prepend(barra);
+
+  function iniciarCarregamento() {
+    var reduzirMovimento = window.matchMedia
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    barra.classList.toggle("sem-animacao", !!reduzirMovimento);
+    // Força reflow antes de ativar -- sem isso, uma 2a navegação muito
+    // rápida (ex. clique duplo) não reiniciava a transição.
+    void barra.offsetWidth;
+    barra.classList.add("ativa");
+  }
+
+  document.addEventListener("click", function (e) {
+    if (e.defaultPrevented || e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var link = e.target.closest("a[href]");
+    if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+    var href = link.getAttribute("href");
+    if (!href || href.charAt(0) === "#"
+        || href.indexOf("mailto:") === 0 || href.indexOf("tel:") === 0
+        || href.indexOf("javascript:") === 0) return;
+    iniciarCarregamento();
+  });
+
+  // Roda DEPOIS dos outros listeners de "submit" registrados acima
+  // neste arquivo (ordem de registro) -- o de "Remover" chama
+  // `e.preventDefault()` de forma síncrona (dentro do próprio
+  // window.confirm) quando a pessoa cancela, então `e.defaultPrevented`
+  // já reflete a decisão por aqui.
+  document.addEventListener("submit", function (e) {
+    if (e.defaultPrevented || e.target.target === "_blank") return;
+    iniciarCarregamento();
   });
 })();
