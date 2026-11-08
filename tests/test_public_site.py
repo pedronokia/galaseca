@@ -690,6 +690,47 @@ def test_index_pagina_2(client, monkeypatch, tmp_path):
     assert "Mostrando 1–10 de 25 itens" in pagina1
     assert "Mostrando 11–20 de 25 itens" in pagina2
     assert "Mostrando 21–25 de 25 itens" in pagina3
+    # 25 itens / 10 por página = 3 páginas -- cabem todas na janela, sem
+    # reticências.
+    for pagina_corpo in (pagina1, pagina2, pagina3):
+        numeros = pagina_corpo.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
+        assert "paginacao-reticencias" not in numeros
+        for n in (1, 2, 3):
+            assert f">{n}</a>" in numeros
+    atual = pagina2.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
+    assert 'aria-current="page">2</a>' in atual
+
+
+def test_index_paginacao_numerada_com_muitas_paginas_usa_reticencias(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": f"Item {i}", "score": 100 - (i % 100), "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(173)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/?pagina=9").data.decode("utf-8")
+    numeros = body.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
+    # 173 itens / 10 por página = 18 páginas. Na página 9, janela de 2:
+    # 1 … 7 8 9 10 11 … 18 -- primeira e última sempre visíveis, sem
+    # listar as 18 todas.
+    assert "paginacao-reticencias" in numeros
+    assert 'aria-current="page">9</a>' in numeros
+    for n in (1, 7, 8, 9, 10, 11, 18):
+        assert f">{n}</a>" in numeros
+    assert ">3</a>" not in numeros
+    assert ">15</a>" not in numeros
+
+
+def test_index_paginacao_numerada_some_com_1_pagina_so(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item único", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert "paginacao-numeros" not in body
 
 
 def test_index_descontinuada_ganha_selo(client, monkeypatch, tmp_path):

@@ -1578,11 +1578,64 @@ footer.rodape .versao {
 
 .paginacao {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: 16px;
+}
+
+.paginacao-principal {
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--sp-4);
-  margin-top: 16px;
   flex-wrap: wrap;
+}
+
+/* Números de página -- mesmo padrão visual de .seletor-periodo (pílulas
+   de link, página atual em destaque via [aria-current="page"]), numa
+   janela em volta da atual + extremos (ver server.py:_paginas_visiveis)
+   pra não virar uma fileira de 18 botões numa lista de 173+ itens. */
+.paginacao-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+}
+
+.paginacao-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 2px 8px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.paginacao-numero:hover {
+  color: var(--accent-bright);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.paginacao-numero[aria-current="page"] {
+  color: var(--bg);
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  font-weight: 600;
+}
+
+.paginacao-reticencias {
+  color: var(--text-muted);
+  padding: 0 2px;
 }
 
 /* ── Conta ────────────────────────────────────────────── */
@@ -2522,7 +2575,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     max-width: 100%;
   }
 
-  .paginacao {
+  .paginacao-principal {
     flex-direction: column;
     gap: var(--sp-2);
   }
