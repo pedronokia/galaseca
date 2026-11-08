@@ -61,9 +61,12 @@
 
   <main id="conteudo" class="pagina-texto pagina-item">
     <div class="cabecalho-item">
-      {% if item.icon_url %}
-      <img class="icone-item icone-item-grande" src="{{ item.icon_url }}" srcset="{{ item.icon_url }} 1x, {{ item.icon_url_2x }} 2x" alt="" width="80" height="80">
-      {% endif %}
+      <span class="icone-item-quadro{{ ' icone-item-quadro-com-imagem' if item.icon_url else '' }}{{ ' ' ~ item.raridade_classe if item.raridade_classe else '' }}" aria-hidden="true"{% if item.raridade_titulo %} title="{{ item.raridade_titulo }}"{% endif %}>
+        <span class="icone-item-placeholder"></span>
+        {% if item.icon_url %}
+        <img class="icone-item" src="{{ item.icon_url }}" srcset="{{ item.icon_url }} 1x, {{ item.icon_url_2x }} 2x" alt="" aria-hidden="true" width="88" height="88">
+        {% endif %}
+      </span>
       <div>
         <h1 class="titulo-item">{{ item.name_fmt }}</h1>
         <p class="status">
