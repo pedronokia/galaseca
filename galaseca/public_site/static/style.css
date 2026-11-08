@@ -1109,6 +1109,76 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
 .lista-acoes-item a:hover { background: var(--surface-hover); color: var(--text-bright); }
 
+/* Popover "Cores da borda" perto da tabela (item #4 da lista de
+   melhorias) -- a borda de raridade só tinha explicação no `title`
+   (hover, não funciona no celular). Mesmo padrão de <details> do menu
+   "⋯ Mais ações" acima: sem JS pra abrir/fechar, só o fechar-fora/Esc
+   genérico (ver app.js). */
+.popover-legenda {
+  position: relative;
+  margin: 0 0 10px;
+}
+
+.popover-legenda-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: 44px;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  list-style: none;
+}
+
+.popover-legenda-toggle::-webkit-details-marker { display: none; }
+.popover-legenda-toggle:hover { background: var(--surface-hover); color: var(--text-bright); }
+.popover-legenda[open] .popover-legenda-toggle { color: var(--accent-bright); border-color: var(--accent); }
+
+.popover-legenda-conteudo {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 25;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.popover-legenda-titulo {
+  margin: 0 0 8px;
+  color: var(--text-bright);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.popover-legenda-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.popover-legenda-lista li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.popover-legenda-lista .icone-item-quadro {
+  flex-shrink: 0;
+}
+
 .botao-nota-toggle.tem-nota { color: var(--accent-bright); }
 
 .detalhe-motivo summary {

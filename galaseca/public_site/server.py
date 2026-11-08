@@ -278,6 +278,14 @@ def create_app() -> Flask:
             "visitas_hoje": visitas_hoje,
         }
 
+    @app.context_processor
+    def _inject_legenda_raridade():
+        """Lista fixa (7 raridades) disponível em todo template -- só a
+        home e o Ranking usam hoje (popover perto da tabela), mas é
+        global pra não precisar repassar manualmente se outra tela
+        quiser o mesmo popover no futuro."""
+        return {"legenda_raridade": raridade.legenda_raridade()}
+
     # Filtros Jinja: nota_classe/risco_nivel/risco_label -- centraliza a
     # classificação de nota e o rótulo de risco, repetida em 4 templates
     # até 2026-10-26 (index/item/comparar/ranking). Um filtro só precisa

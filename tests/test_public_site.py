@@ -130,6 +130,35 @@ def test_index_exibe_total_de_visitas_no_rodape(client, monkeypatch, tmp_path):
     assert "Total:" in body
 
 
+def test_index_tem_popover_legenda_raridade(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="popover-legenda"' in body
+    popover = body.split('class="popover-legenda"', 1)[1].split("</details>", 1)[0]
+    assert "Cores da borda" in popover
+    for classe, rotulo in [
+        ("raridade-consumer", "Consumer Grade"),
+        ("raridade-industrial", "Industrial Grade"),
+        ("raridade-milspec", "Mil-Spec"),
+        ("raridade-restricted", "Restricted"),
+        ("raridade-classified", "Classified"),
+        ("raridade-covert", "Covert"),
+        ("raridade-dourado", "faca, luva ou contrabando"),
+    ]:
+        assert classe in popover
+        assert rotulo in popover
+
+
+def test_index_sem_scan_nao_mostra_popover_legenda(client, monkeypatch):
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    body = client.get("/").data.decode("utf-8")
+    assert "popover-legenda" not in body
+
+
 def test_index_com_scan_lista_candidato(client, monkeypatch, tmp_path):
     resultados = [
         {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
@@ -1195,6 +1224,21 @@ def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
     assert "selo-novo" in body
 
 
+def test_ranking_page_tem_popover_legenda_raridade(client, monkeypatch):
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    assert 'class="popover-legenda"' in body
+    assert "Cores da borda" in body
+
+
 def test_ranking_page_item_linka_pra_pagina_de_detalhe(client, monkeypatch):
     """O nome do item no Ranking precisa ser link pro /item/<nome> --
     sem isso, quem via o Top 20 e queria o histórico/motivo completo
@@ -1256,8 +1300,13 @@ def test_ranking_page_item_fora_do_scan_atual_sem_icone(client, monkeypatch):
     resp = client.get("/ranking")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
-    assert "raridade-" not in body
-    assert "icone-item-quadro-com-imagem" not in body
+    # "raridade-" aparece em algum lugar da página por causa do popover
+    # de legenda (item #4 da lista de melhorias, sempre presente perto
+    # da tabela) -- o que este teste garante é que a CÉLULA do item vem
+    # sem raridade/imagem, não a página inteira.
+    celula = body.split('class="celula-item-ranking"', 1)[1].split("</td>", 1)[0]
+    assert "raridade-" not in celula
+    assert "icone-item-quadro-com-imagem" not in celula
 
 
 def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
