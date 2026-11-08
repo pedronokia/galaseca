@@ -2405,10 +2405,63 @@ def test_comparar_nota_fica_dentro_da_celula_certa(client, monkeypatch,
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
     assert '<td class="nota' not in body
-    assert '<td><span class="nota nota-alta">' in body
+    # Item A (80, a maior nota da linha) ganha o destaque descritivo --
+    # ver test_comparar_destaca_menor_preco_e_maior_nota_na_linha.
+    assert '<td class="valor-destaque-linha"><span class="nota nota-alta">' in body
     assert '<td><span class="nota nota-media">' in body
     assert '<span class="nota-numero">80</span>' in body
     assert '<span class="nota-numero">60</span>' in body
+
+
+def test_comparar_destaca_menor_preco_e_maior_nota_na_linha(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 60, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item C", "score": 70, "price": 20.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A,Item B,Item C").data.decode("utf-8")
+    linha_preco = body.split(">Preço<", 1)[1].split("</tr>", 1)[0]
+    linha_nota = body.split(">Nota<", 1)[1].split("</tr>", 1)[0]
+    # Item B tem o menor preço (5.0) e Item A a maior nota (80) -- só
+    # esses dois ganham o destaque, nunca um "melhor" geral.
+    celulas_preco = linha_preco.split("<td")[1:]
+    assert "valor-destaque-linha" in celulas_preco[1]  # Item B
+    assert "valor-destaque-linha" not in celulas_preco[0]
+    assert "valor-destaque-linha" not in celulas_preco[2]
+    assert "menor preço nesta linha" in celulas_preco[1]
+    celulas_nota = linha_nota.split("<td")[1:]
+    assert "valor-destaque-linha" in celulas_nota[0]  # Item A
+    assert "valor-destaque-linha" not in celulas_nota[1]
+    assert "valor-destaque-linha" not in celulas_nota[2]
+    assert "maior nota nesta linha" in celulas_nota[0]
+
+
+def test_comparar_sem_destaque_quando_valores_empatam(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
+    assert "valor-destaque-linha" not in body
+
+
+def test_comparar_sem_destaque_com_1_item_so(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A").data.decode("utf-8")
+    assert "valor-destaque-linha" not in body
 
 
 def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):

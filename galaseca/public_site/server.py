@@ -138,6 +138,24 @@ def _paginas_visiveis(pagina: int, total_paginas: int, janela: int = 2) -> list:
     return visiveis
 
 
+def _destaques_comparar(itens: list, campo: str) -> "tuple[set, set]":
+    """Nomes com o menor e o maior valor de `campo` entre os itens do
+    /comparar -- conjuntos vazios com menos de 2 itens ou se todos
+    empatarem (marcar um entre valores iguais seria arbitrário, não
+    informativo). Puramente descritivo ("maior/menor valor desta
+    linha"), nunca "melhor escolha" -- ver AGENTS.md."""
+    valores = [(it.get("name"), it.get(campo)) for it in itens
+               if it.get(campo) is not None]
+    if len(valores) < 2:
+        return set(), set()
+    nums = [v for _, v in valores]
+    if min(nums) == max(nums):
+        return set(), set()
+    minimo, maximo = min(nums), max(nums)
+    return ({n for n, v in valores if v == minimo},
+            {n for n, v in valores if v == maximo})
+
+
 def _load_or_create_secret_key() -> bytes:
     """Chave de assinatura da sessão do Flask, gerada uma vez e persistida.
 
@@ -461,6 +479,11 @@ def create_app() -> Flask:
         por_nome = {c["name"]: c for c in candidatos}
         itens = [por_nome[n] for n in nomes if n in por_nome]
         _enriquecer_com_historico(itens)
+        menor_preco, _ = _destaques_comparar(itens, "price")
+        _, maior_nota = _destaques_comparar(itens, "score")
+        for it in itens:
+            it["preco_destaque"] = it.get("name") in menor_preco
+            it["nota_destaque"] = it.get("name") in maior_nota
         return render_template("comparar.html", itens=itens)
 
     @app.route("/api/recommendations")
