@@ -32,10 +32,15 @@
           <th>Item</th>
           {% for it in itens %}
           <th class="celula-comparar-cabecalho">
-            <span class="icone-item-quadro icone-item-quadro-compacto{{ ' icone-item-quadro-com-imagem' if it.icon_url else '' }}{{ ' ' ~ it.raridade_classe if it.raridade_classe else '' }}" aria-hidden="true"{% if it.raridade_titulo %} title="{{ it.raridade_titulo }}"{% endif %}>
+            {# Ícone no tamanho cheio (88px, revisão 2026-11-08) -- era o
+               único lugar do site ainda com a moldura compacta de 40px
+               fora de uma lista densa (Ranking/Comparar linha a linha);
+               aqui são só até 3 itens lado a lado, cabe o mesmo
+               tratamento do item em destaque na vitrine. #}
+            <span class="icone-item-quadro{{ ' icone-item-quadro-com-imagem' if it.icon_url else '' }}{{ ' ' ~ it.raridade_classe if it.raridade_classe else '' }}" aria-hidden="true"{% if it.raridade_titulo %} title="{{ it.raridade_titulo }}"{% endif %}>
               <span class="icone-item-placeholder"></span>
             {% if it.icon_url %}
-              <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
+              <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="88" height="88">
             {% endif %}
             </span>
             <a href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
