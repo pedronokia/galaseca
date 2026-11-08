@@ -1009,8 +1009,16 @@ def create_app() -> Flask:
         desde = uptime.no_ar_desde()
         serie = visits.serie_por_dia()
         valores_visitas = [qtd for _dia, qtd in serie]
+        # Mesmo padrão de tooltip por ponto (<title> nativo do SVG) já
+        # usado no gráfico de preço de /item/<name> e no de /conta/historico
+        # -- sem área/tendência aqui (visita subir ou cair não é "bom" nem
+        # "ruim" como preço, então fica sem a cor verde/vermelha).
+        rotulos_visitas = [
+            f"{date.fromisoformat(dia).strftime('%d/%m/%Y')} — {qtd} "
+            f"{'visita' if qtd == 1 else 'visitas'}"
+            for dia, qtd in serie]
         grafico_visitas = charts.line_chart_svg(
-            [{"total": v} for v in valores_visitas])
+            [{"total": v} for v in valores_visitas], rotulos=rotulos_visitas)
         grafico_visitas_legenda = (
             f"{min(valores_visitas)} – {max(valores_visitas)} visitas por dia no período"
             if len(valores_visitas) >= 2 else None)
