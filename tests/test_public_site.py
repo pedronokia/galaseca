@@ -996,8 +996,34 @@ def test_index_abas_de_categoria_so_com_dados(client, monkeypatch, tmp_path):
     body = client.get("/?categoria=Rifles").data.decode("utf-8")
     abas = body.split('class="abas-categoria"', 1)[1].split("</nav>", 1)[0]
     assert ">Todas <span" in abas
-    assert 'aria-current="page">Rifles <span class="aba-contagem">1</span>' in abas
+    # achado 2026-11-08: ganhou ícone de categoria (svg) antes do nome --
+    # o nome continua logo depois do </svg>, só não cola mais direto no
+    # aria-current="page">.
+    assert 'aria-current="page">' in abas
+    assert '</svg>Rifles <span class="aba-contagem">1</span>' in abas
     assert ">Facas <span" not in abas
+    assert "</svg>Facas <span" not in abas
+
+
+def test_index_abas_de_categoria_mostram_icone_por_categoria(
+        client, monkeypatch, tmp_path):
+    """achado 2026-11-08 (referência visual: FACEIT): as abas de
+    categoria eram só texto -- um ícone pequeno por categoria (arma,
+    faca, luva, caixa, cápsula, etiqueta) ajuda reconhecimento rápido.
+    "Todas" fica sem ícone de propósito (não há um pictograma razoável
+    pra "tudo junto")."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "X", "score": 80, "price": 1.0, "case_label": "",
+         "category": "Rifles", "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Y", "score": 70, "price": 1.0, "case_label": "",
+         "category": "Luvas", "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    abas = body.split('class="abas-categoria"', 1)[1].split("</nav>", 1)[0]
+    assert 'icone-ui-rifle' in abas
+    assert 'icone-ui-luva' in abas
+    aba_todas = abas.split("</a>", 1)[0]  # "Todas" é sempre a 1a aba
+    assert "<svg" not in aba_todas
 
 
 def test_index_aba_todas_bate_com_total_mostrado(client, monkeypatch, tmp_path):

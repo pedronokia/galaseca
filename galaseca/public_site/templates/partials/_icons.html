@@ -36,6 +36,32 @@
   {% elif nome == "grafico" %}
   <path d="M3 3v15h18"/>
   <path d="m7 14 4-4 3 2 5-6"/>
+  {% elif nome == "rifle" %}
+  <rect x="1" y="10" width="19" height="2.5" rx="0.6"/>
+  <rect x="17" y="12.3" width="2.5" height="4" rx="0.8"/>
+  <rect x="9" y="12.3" width="2.3" height="5.5" rx="0.8"/>
+  <rect x="4" y="7.8" width="1.8" height="2.2" rx="0.4"/>
+  {% elif nome == "pistola" %}
+  <rect x="2" y="9" width="15" height="3" rx="0.6"/>
+  <rect x="11.5" y="12" width="3" height="7" rx="1"/>
+  <rect x="7.3" y="13.2" width="4" height="2.2" rx="1"/>
+  {% elif nome == "smg" %}
+  <rect x="3" y="10" width="13" height="2.5" rx="0.6"/>
+  <rect x="14" y="12.3" width="2.5" height="3" rx="0.8"/>
+  <rect x="6.5" y="12.3" width="3.3" height="6.5" rx="0.9"/>
+  <rect x="16.5" y="8.3" width="1.8" height="1.8" rx="0.4"/>
+  {% elif nome == "faca" %}
+  <path d="M4 20 18 6l2 2L6 22Zm10-10 4-4"/>
+  {% elif nome == "luva" %}
+  <path d="M7 11V5a2 2 0 0 1 4 0v5M11 10V4a2 2 0 0 1 4 0v6M15 10V6a2 2 0 0 1 4 0v8a6 6 0 0 1-6 6H9a5 5 0 0 1-5-5v-4a2 2 0 0 1 4 0v1"/>
+  {% elif nome == "caixa" %}
+  <path d="M3 8 12 4l9 4-9 4-9-4Zm0 0v9l9 4 9-4V8M12 12v9"/>
+  {% elif nome == "capsula" %}
+  <rect x="7" y="3" width="10" height="18" rx="5"/>
+  <path d="M7 12h10"/>
+  {% elif nome == "etiqueta" %}
+  <path d="M3 12 12 3h6a3 3 0 0 1 3 3v6l-9 9a2 2 0 0 1-3 0l-6-6a2 2 0 0 1 0-3Z"/>
+  <circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/>
   {% endif %}
 </svg>
 {%- endmacro %}

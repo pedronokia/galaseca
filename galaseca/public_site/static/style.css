@@ -139,6 +139,17 @@ body {
   vertical-align: -0.18em;
 }
 
+/* Ícones de categoria de arma (abas de filtro da home) -- silhueta
+   sólida, não contorno: diferente dos outros ícones de UI (seta, lupa
+   etc.), uma arma pequena em traço fino de 1.8px quase não lê a essa
+   escala (~15px); preenchida fica reconhecível. */
+.icone-ui-rifle,
+.icone-ui-pistola,
+.icone-ui-smg {
+  fill: currentColor;
+  stroke: none;
+}
+
 .icone-ui-favorito {
   fill: none;
   transition: fill 0.15s ease;
