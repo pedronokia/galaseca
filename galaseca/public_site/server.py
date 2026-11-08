@@ -329,6 +329,15 @@ def create_app() -> Flask:
                   else request.cookies.get("pref_ordenar")) or "nota"
         if ordenar not in ("nota", "preco"):
             ordenar = "nota"
+        # Como mostrar a lista (revisão de direção visual 2026-11-08,
+        # rodada 2): "vitrine" é a grade de cards com imagem grande;
+        # "lista" é a tabela densa de sempre. Cookie guarda a escolha
+        # (igual `pref_ordenar`) pra sobreviver a filtros e paginação --
+        # sem isso, todo link interno voltaria pro modo padrão.
+        ver = (request.args.get("ver") if "ver" in request.args
+               else request.cookies.get("pref_ver")) or "vitrine"
+        if ver not in ("vitrine", "lista"):
+            ver = "vitrine"
         pagina = _parse_int_arg("pagina", 1)
         if busca:
             buscas.registrar(busca)
@@ -400,6 +409,7 @@ def create_app() -> Flask:
             liquidez_opcoes=_LIQUIDEZ_ORDEM,
             busca_sel=busca,
             ordenar_sel=ordenar,
+            ver_sel=ver,
             pagina=pagina,
             primeiro_item=inicio + 1,
             ultimo_item=inicio + len(candidatos_pagina),
@@ -416,6 +426,10 @@ def create_app() -> Flask:
             # esse cookie não tinha a flag nenhuma, inconsistente com
             # SESSION_COOKIE_SECURE.
             resp.set_cookie("pref_ordenar", ordenar, max_age=_UM_ANO_S,
+                            samesite="Lax",
+                            secure=app.config["SESSION_COOKIE_SECURE"])
+        if "ver" in request.args:
+            resp.set_cookie("pref_ver", ver, max_age=_UM_ANO_S,
                             samesite="Lax",
                             secure=app.config["SESSION_COOKIE_SECURE"])
         return resp

@@ -60,25 +60,38 @@
   </header>
 
   <main id="conteudo" class="pagina-texto pagina-item">
-    <div class="cabecalho-item">
-      <span class="icone-item-quadro{{ ' icone-item-quadro-com-imagem' if item.icon_url else '' }}{{ ' ' ~ item.raridade_classe if item.raridade_classe else '' }}" aria-hidden="true"{% if item.raridade_titulo %} title="{{ item.raridade_titulo }}"{% endif %}>
-        <span class="icone-item-placeholder"></span>
-        {% if item.icon_url %}
-        <img class="icone-item" src="{{ item.icon_url }}" srcset="{{ item.icon_url }} 1x, {{ item.icon_url_2x }} 2x" alt="" aria-hidden="true" width="88" height="88">
-        {% endif %}
-      </span>
-      <div>
-        <h1 class="titulo-item">{{ item.name_fmt }}</h1>
-        <p class="status">
-          <a class="link-item" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
-          · <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
-          · <button type="button" class="botao-copiar" data-copiar="{{ item.name }}" title="Copiar nome do item" aria-label="Copiar nome">{{ icone("copiar") }}{{ icone("check") }}<span class="texto-copiar">Copiar nome</span></button>
-          · <button type="button" class="botao-favorito" data-favorito="{{ item.name }}" data-favorito-label="{{ item.name_fmt }}" aria-pressed="false" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ item.name_fmt }}">{{ icone("favorito") }}<span>Favoritar</span></button>
-        </p>
+    {# Hero cinematográfico (revisão de direção visual 2026-11-08, rodada
+       2): a página do item é o "momento orquestrado" do site -- listras
+       diagonais discretas (eco do hazard stripe das caixas), brilho na
+       cor da raridade e a imagem grande e inclinada. Texto e links
+       continuam os mesmos; só o enquadramento mudou. #}
+    <div class="hero-item{{ ' ' ~ item.raridade_classe if item.raridade_classe else '' }}">
+      <span class="hero-item-glow" aria-hidden="true"></span>
+      <div class="hero-item-grade">
+        <div class="hero-item-corpo">
+          {% if item.raridade_titulo %}
+          <p class="hero-item-tag">{{ item.raridade_titulo }}</p>
+          {% endif %}
+          <h1 class="titulo-item">{{ item.name_fmt }}</h1>
+          <p class="status">
+            <a class="link-item" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
+            · <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
+            · <button type="button" class="botao-copiar" data-copiar="{{ item.name }}" title="Copiar nome do item" aria-label="Copiar nome">{{ icone("copiar") }}{{ icone("check") }}<span class="texto-copiar">Copiar nome</span></button>
+            · <button type="button" class="botao-favorito" data-favorito="{{ item.name }}" data-favorito-label="{{ item.name_fmt }}" aria-pressed="false" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ item.name_fmt }}">{{ icone("favorito") }}<span>Favoritar</span></button>
+          </p>
+        </div>
+        <div class="hero-item-imagem">
+          <span class="icone-item-quadro hero-item-quadro{{ ' icone-item-quadro-com-imagem' if item.icon_url else '' }}{{ ' ' ~ item.raridade_classe if item.raridade_classe else '' }}" aria-hidden="true"{% if item.raridade_titulo %} title="{{ item.raridade_titulo }}"{% endif %}>
+            <span class="icone-item-placeholder"></span>
+            {% if item.icon_url %}
+            <img class="icone-item" src="{{ item.icon_url }}" srcset="{{ item.icon_url }} 1x, {{ item.icon_url_2x }} 2x" alt="" aria-hidden="true" width="192" height="192">
+            {% endif %}
+          </span>
+        </div>
       </div>
     </div>
 
-    <section class="resumo-cards">
+    <section class="resumo-cards resumo-cards-item" aria-label="Resumo do item">
       <div class="card"><span class="card-label">Preço</span><span class="card-valor">{{ item.price_fmt }}</span></div>
       <div class="card card-nota-destaque"><span class="card-label">Nota</span><span class="card-valor nota nota-grande nota-{{ item.score|nota_classe }}">{{ item.score|nota_anel|safe }}<span class="nota-numero">{{ item.score }}</span></span>{% if item.nota_margem %}<span class="nota-margem" title="A soma dos fatores passou do limite da escala (0 a 100): sem o corte, a nota seria {{ item.score + item.nota_margem }}.">{{ "%+d"|format(item.nota_margem) }}</span>{% endif %}{% if item.confianca_baixa %}<span class="selo-confianca-baixa" title="{{ item.confianca_baixa_titulo }}">{{ icone("dado-limitado") }}Dado limitado</span>{% endif %}</div>
       <div class="card"><span class="card-label">Caixa/Cápsula</span><span class="card-valor card-valor-texto">{{ item.case_label|rotulo_caixa(item.name) or "—" }}</span></div>
