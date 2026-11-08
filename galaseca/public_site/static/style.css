@@ -1899,6 +1899,24 @@ footer.rodape .versao {
   transform: translateY(-2px);
 }
 
+/* Único card com destaque na fileira (revisão de direção visual
+   2026-11-08) -- .resumo-cards tinha N cards com a MESMA receita
+   visual (mesmo problema de .status-scan/.resumo-do-dia/.form-filtros
+   já resolvido em #85), sem diferenciar Nota (o dado central do site)
+   de Preço/Risco/Caixa/Liquidez. Reusa border-color: var(--accent) --
+   já é o que .card:hover faz pra dizer "isto importa", só que fixo em
+   vez de só no hover -- e o mesmo corte de canto do botão/moldura de
+   ícone (--corte-botao, não um valor novo). Escopo só a esta classe
+   (não a .card inteira): .resumo-cards também aparece em admin/conta/
+   conta_trades, páginas internas que não devem herdar a identidade
+   visual do produto público. */
+.card-nota-destaque {
+  border-color: var(--accent);
+  clip-path: polygon(
+    0 0, calc(100% - var(--corte-botao)) 0, 100% var(--corte-botao),
+    100% 100%, var(--corte-botao) 100%, 0 calc(100% - var(--corte-botao)));
+}
+
 .card-label {
   color: var(--text-muted);
   font-size: var(--fs-xs);
