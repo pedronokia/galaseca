@@ -68,3 +68,41 @@ def test_area_fill_com_menos_de_2_pontos_continua_vazio():
     assert charts.line_chart_svg([], area_fill=True) == ""
     assert charts.line_chart_svg(
         [{"ts": 1, "total": 10.0}], area_fill=True) == ""
+
+
+def test_sem_rotulos_nao_tem_circulo_nenhum():
+    svg = charts.line_chart_svg([{"total": 1}, {"total": 2}])
+    assert "<circle" not in svg
+    assert "<title>" not in svg
+
+
+def test_rotulos_geram_um_circulo_com_title_por_ponto():
+    svg = charts.line_chart_svg(
+        [{"total": 1}, {"total": 2}, {"total": 3}],
+        rotulos=["01/01/2026 10:00 — R$ 1,00",
+                 "02/01/2026 10:00 — R$ 2,00",
+                 "03/01/2026 10:00 — R$ 3,00"])
+    assert svg.count("<circle") == 3
+    assert svg.count("<title>") == 3
+    assert "01/01/2026 10:00 — R$ 1,00</title>" in svg
+    assert "03/01/2026 10:00 — R$ 3,00</title>" in svg
+    # fill="transparent", NUNCA "none" -- "none" não captura hover/toque.
+    assert 'fill="transparent"' in svg
+    assert 'fill="none"' not in svg.split("<circle", 1)[1]
+
+
+def test_rotulos_com_tamanho_errado_e_ignorado():
+    """Guarda defensiva: rotulos.length != series.length não deveria
+    acontecer (bug de quem chama), mas aqui cai pro SVG sem círculos em
+    vez de IndexError/zip truncado silencioso com dado errado."""
+    svg = charts.line_chart_svg(
+        [{"total": 1}, {"total": 2}], rotulos=["só um rótulo"])
+    assert "<circle" not in svg
+
+
+def test_rotulo_escapa_caracteres_especiais_de_xml():
+    svg = charts.line_chart_svg(
+        [{"total": 1}, {"total": 2}],
+        rotulos=["R$ 1,00 & cia <teste>", "R$ 2,00"])
+    assert "R$ 1,00 &amp; cia &lt;teste&gt;</title>" in svg
+    assert "<teste>" not in svg

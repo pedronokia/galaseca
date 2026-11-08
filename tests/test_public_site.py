@@ -2064,6 +2064,35 @@ def test_item_detail_grafico_tem_preenchimento_em_gradiente(client, monkeypatch,
     assert "<polygon" in body
 
 
+def test_item_detail_grafico_tem_tooltip_por_ponto(client, monkeypatch, tmp_path):
+    """Item #8 da lista de melhorias -- cada ponto do gráfico grande vira
+    um <circle> com <title> (data + preço), tooltip nativo do navegador
+    sem precisar de JS (o CSP do site bloqueia estilo inline até via JS,
+    então um tooltip flutuante posicionado por JS não daria)."""
+    resultados = [
+        {"name": "Item X", "score": 50, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "category": "Facas", "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    agora = time.time()
+    hist = [
+        {"ts": agora - 2 * 86400, "price": 10.0},
+        {"ts": agora - 1 * 86400, "price": 12.5},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.signals.load_item_history",
+        lambda name: hist)
+    body = client.get("/item/Item X").data.decode("utf-8")
+    # Escopo na SVG do gráfico grande, não na página inteira -- o anel
+    # de nota também usa <circle> (fundo + progresso), sem relação com
+    # os pontos do gráfico.
+    grafico = body.split("grafico-card", 1)[1].split("</svg>", 1)[0]
+    assert grafico.count("<circle") == 2
+    assert "R$ 10,00</title>" in grafico
+    assert "R$ 12,50</title>" in grafico
+    assert 'fill="transparent"' in grafico
+
+
 def test_item_detail_grafico_colorido_pela_tendencia_do_periodo(
         client, monkeypatch, tmp_path):
     """achado 2026-11-07: decisão revista -- o gráfico grande ficava

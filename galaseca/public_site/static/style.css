@@ -2045,6 +2045,14 @@ footer.rodape .versao {
   height: 160px;
 }
 
+/* Alvo invisível de cada ponto do gráfico (item #8 da lista de
+   melhorias) -- o tooltip em si é o <title> nativo do SVG (ver
+   charts.line_chart_svg), não precisa de CSS pra aparecer; só o
+   cursor avisa que o ponto é "hoverável". */
+.grafico-ponto-interativo {
+  cursor: help;
+}
+
 .grafico-erros { color: var(--danger); }
 
 /* ── Excluir conta ────────────────────────────────────── */
