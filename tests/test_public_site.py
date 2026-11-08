@@ -690,6 +690,47 @@ def test_index_pagina_2(client, monkeypatch, tmp_path):
     assert "Mostrando 1–10 de 25 itens" in pagina1
     assert "Mostrando 11–20 de 25 itens" in pagina2
     assert "Mostrando 21–25 de 25 itens" in pagina3
+    # 25 itens / 10 por página = 3 páginas -- cabem todas na janela, sem
+    # reticências.
+    for pagina_corpo in (pagina1, pagina2, pagina3):
+        numeros = pagina_corpo.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
+        assert "paginacao-reticencias" not in numeros
+        for n in (1, 2, 3):
+            assert f">{n}</a>" in numeros
+    atual = pagina2.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
+    assert 'aria-current="page">2</a>' in atual
+
+
+def test_index_paginacao_numerada_com_muitas_paginas_usa_reticencias(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": f"Item {i}", "score": 100 - (i % 100), "price": 1.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(173)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/?pagina=9").data.decode("utf-8")
+    numeros = body.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
+    # 173 itens / 10 por página = 18 páginas. Na página 9, janela de 2:
+    # 1 … 7 8 9 10 11 … 18 -- primeira e última sempre visíveis, sem
+    # listar as 18 todas.
+    assert "paginacao-reticencias" in numeros
+    assert 'aria-current="page">9</a>' in numeros
+    for n in (1, 7, 8, 9, 10, 11, 18):
+        assert f">{n}</a>" in numeros
+    assert ">3</a>" not in numeros
+    assert ">15</a>" not in numeros
+
+
+def test_index_paginacao_numerada_some_com_1_pagina_so(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item único", "score": 80, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/").data.decode("utf-8")
+    assert "paginacao-numeros" not in body
 
 
 def test_index_descontinuada_ganha_selo(client, monkeypatch, tmp_path):
@@ -2364,10 +2405,63 @@ def test_comparar_nota_fica_dentro_da_celula_certa(client, monkeypatch,
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
     assert '<td class="nota' not in body
-    assert '<td><span class="nota nota-alta">' in body
+    # Item A (80, a maior nota da linha) ganha o destaque descritivo --
+    # ver test_comparar_destaca_menor_preco_e_maior_nota_na_linha.
+    assert '<td class="valor-destaque-linha"><span class="nota nota-alta">' in body
     assert '<td><span class="nota nota-media">' in body
     assert '<span class="nota-numero">80</span>' in body
     assert '<span class="nota-numero">60</span>' in body
+
+
+def test_comparar_destaca_menor_preco_e_maior_nota_na_linha(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 60, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item C", "score": 70, "price": 20.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A,Item B,Item C").data.decode("utf-8")
+    linha_preco = body.split(">Preço<", 1)[1].split("</tr>", 1)[0]
+    linha_nota = body.split(">Nota<", 1)[1].split("</tr>", 1)[0]
+    # Item B tem o menor preço (5.0) e Item A a maior nota (80) -- só
+    # esses dois ganham o destaque, nunca um "melhor" geral.
+    celulas_preco = linha_preco.split("<td")[1:]
+    assert "valor-destaque-linha" in celulas_preco[1]  # Item B
+    assert "valor-destaque-linha" not in celulas_preco[0]
+    assert "valor-destaque-linha" not in celulas_preco[2]
+    assert "menor preço nesta linha" in celulas_preco[1]
+    celulas_nota = linha_nota.split("<td")[1:]
+    assert "valor-destaque-linha" in celulas_nota[0]  # Item A
+    assert "valor-destaque-linha" not in celulas_nota[1]
+    assert "valor-destaque-linha" not in celulas_nota[2]
+    assert "maior nota nesta linha" in celulas_nota[0]
+
+
+def test_comparar_sem_destaque_quando_valores_empatam(
+        client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+        {"name": "Item B", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A,Item B").data.decode("utf-8")
+    assert "valor-destaque-linha" not in body
+
+
+def test_comparar_sem_destaque_com_1_item_so(client, monkeypatch, tmp_path):
+    resultados = [
+        {"name": "Item A", "score": 70, "price": 10.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    body = client.get("/comparar?nomes=Item A").data.decode("utf-8")
+    assert "valor-destaque-linha" not in body
 
 
 def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):

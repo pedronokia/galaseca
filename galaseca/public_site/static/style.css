@@ -1578,11 +1578,64 @@ footer.rodape .versao {
 
 .paginacao {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: 16px;
+}
+
+.paginacao-principal {
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--sp-4);
-  margin-top: 16px;
   flex-wrap: wrap;
+}
+
+/* Números de página -- mesmo padrão visual de .seletor-periodo (pílulas
+   de link, página atual em destaque via [aria-current="page"]), numa
+   janela em volta da atual + extremos (ver server.py:_paginas_visiveis)
+   pra não virar uma fileira de 18 botões numa lista de 173+ itens. */
+.paginacao-numeros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+}
+
+.paginacao-numero {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 2px 8px;
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.paginacao-numero:hover {
+  color: var(--accent-bright);
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.paginacao-numero[aria-current="page"] {
+  color: var(--bg);
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  font-weight: 600;
+}
+
+.paginacao-reticencias {
+  color: var(--text-muted);
+  padding: 0 2px;
 }
 
 /* ── Conta ────────────────────────────────────────────── */
@@ -2273,6 +2326,27 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   margin: 0 auto 4px;
 }
 
+/* Destaque do menor preço / maior nota por linha no /comparar -- só
+   descritivo ("menor/maior valor NESTA LINHA"), nunca "melhor escolha"
+   (ver AGENTS.md: o site não promete retorno). Por isso a cor é
+   --accent, neutra, a MESMA usada em seleção/foco no resto do site --
+   nunca --positive/--danger, que implicariam um julgamento de
+   bom/ruim. O rótulo em texto garante que a info não dependa só da
+   cor (contraste/daltonismo) -- server.py:_destaques_comparar não
+   marca nada quando os valores da linha empatam, pra não destacar um
+   item arbitrariamente entre iguais. */
+.valor-destaque-linha {
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.rotulo-destaque-linha {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+}
+
 /* ── "O que mudou desde sua última visita" ───────────────── */
 /* Pílula com borda, não só texto colorido -- antes herdava .tendencia-
    alta/.tendencia-baixa igual ao ▲/▼ de preço (.icone-tendencia), o
@@ -2522,7 +2596,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     max-width: 100%;
   }
 
-  .paginacao {
+  .paginacao-principal {
     flex-direction: column;
     gap: var(--sp-2);
   }

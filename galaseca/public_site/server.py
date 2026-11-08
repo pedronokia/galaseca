@@ -117,6 +117,45 @@ def _parse_int_arg(nome: str, default: int) -> int:
         return default
 
 
+def _paginas_visiveis(pagina: int, total_paginas: int, janela: int = 2) -> list:
+    """Números de página a mostrar na paginação: a atual +/- `janela`,
+    sempre com a primeira e a última, e `None` marcando uma lacuna (vira
+    reticências no template). Ex.: pagina=9, total=20 -> [1, None, 7, 8,
+    9, 10, 11, None, 20]. Com poucas páginas, não cria lacuna nenhuma."""
+    if total_paginas <= 1:
+        return [1] if total_paginas == 1 else []
+    nums = sorted(set(
+        [1, total_paginas]
+        + list(range(max(1, pagina - janela), min(total_paginas, pagina + janela) + 1))
+    ))
+    visiveis: list = []
+    anterior = None
+    for n in nums:
+        if anterior is not None and n - anterior > 1:
+            visiveis.append(None)
+        visiveis.append(n)
+        anterior = n
+    return visiveis
+
+
+def _destaques_comparar(itens: list, campo: str) -> "tuple[set, set]":
+    """Nomes com o menor e o maior valor de `campo` entre os itens do
+    /comparar -- conjuntos vazios com menos de 2 itens ou se todos
+    empatarem (marcar um entre valores iguais seria arbitrário, não
+    informativo). Puramente descritivo ("maior/menor valor desta
+    linha"), nunca "melhor escolha" -- ver AGENTS.md."""
+    valores = [(it.get("name"), it.get(campo)) for it in itens
+               if it.get(campo) is not None]
+    if len(valores) < 2:
+        return set(), set()
+    nums = [v for _, v in valores]
+    if min(nums) == max(nums):
+        return set(), set()
+    minimo, maximo = min(nums), max(nums)
+    return ({n for n, v in valores if v == minimo},
+            {n for n, v in valores if v == maximo})
+
+
 def _load_or_create_secret_key() -> bytes:
     """Chave de assinatura da sessão do Flask, gerada uma vez e persistida.
 
@@ -300,6 +339,7 @@ def create_app() -> Flask:
                        else len(_candidatos_filtrados(scan, com_historico=False)))
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
+        total_paginas = max(1, -(-len(todos) // _PAGINA_TAMANHO))
         _enriquecer_com_historico(candidatos_pagina)
         intervalo_horas = float(ambiente("WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
         # Banner de "dado pode estar desatualizado" -- pedido depois do
@@ -333,6 +373,8 @@ def create_app() -> Flask:
             tem_proxima_pagina=len(todos) > inicio + _PAGINA_TAMANHO,
             tem_pagina_anterior=pagina > 1,
             total_candidatos=len(todos),
+            total_paginas=total_paginas,
+            paginas_visiveis=_paginas_visiveis(pagina, total_paginas),
         ))
         _UM_ANO_S = 365 * 24 * 3600
         if "ordenar" in request.args:
@@ -437,6 +479,11 @@ def create_app() -> Flask:
         por_nome = {c["name"]: c for c in candidatos}
         itens = [por_nome[n] for n in nomes if n in por_nome]
         _enriquecer_com_historico(itens)
+        menor_preco, _ = _destaques_comparar(itens, "price")
+        _, maior_nota = _destaques_comparar(itens, "score")
+        for it in itens:
+            it["preco_destaque"] = it.get("name") in menor_preco
+            it["nota_destaque"] = it.get("name") in maior_nota
         return render_template("comparar.html", itens=itens)
 
     @app.route("/api/recommendations")
