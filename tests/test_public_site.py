@@ -845,6 +845,7 @@ def test_pagina_404_customizada(client):
     resp = client.get("/isso-nao-existe")
     assert resp.status_code == 404
     assert "não existe".encode("utf-8") in resp.data
+    assert "icone-ui-lupa" in resp.data.decode("utf-8")
 
 
 def test_static_tem_cache_control(client):
