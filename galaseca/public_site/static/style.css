@@ -89,6 +89,9 @@
   --corte-icone: 10px;
   --corte-icone-sm: 6px;
   --corte-botao: 8px;
+  /* Corte próprio do CTA "Entrar com Steam" -- maior que --corte-botao
+     de propósito, ver comentário em .conta-link-entrar. */
+  --corte-entrar: 14px;
 
   /* Poppins já é a fonte da marca (logo em _logo.html, convertido em
      contorno) -- até 2026-11-03 só existia ali: todo título da página
@@ -575,10 +578,16 @@ header.topo h1 {
   text-decoration: none;
   transition: filter 0.15s ease;
   /* Corte de canto -- borda e fundo são a mesma cor aqui, então o corte
-     não deixa nenhum artefato visual (ver --corte-botao no :root). */
+     não deixa nenhum artefato visual. Valor PRÓPRIO (não --corte-botao,
+     os 8px padrão dos outros botões), maior de propósito: achado
+     2026-11-09 -- o CTA principal do site é um retângulo de fundo
+     sólido e cor plana, sem a textura/contraste interno que um ícone
+     de item tem perto da borda, então o corte de 8px lia como "canto
+     arredondado meio torto" em vez do motivo geométrico reconhecível
+     (visível de perto, mas não no uso normal). */
   clip-path: polygon(
-    0 0, calc(100% - var(--corte-botao)) 0, 100% var(--corte-botao),
-    100% 100%, var(--corte-botao) 100%, 0 calc(100% - var(--corte-botao)));
+    0 0, calc(100% - var(--corte-entrar)) 0, 100% var(--corte-entrar),
+    100% 100%, var(--corte-entrar) 100%, 0 calc(100% - var(--corte-entrar)));
 }
 
 .conta-link-entrar:hover {
