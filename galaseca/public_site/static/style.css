@@ -186,6 +186,18 @@ body {
   stroke: none;
 }
 
+/* Logotipo oficial da Steam (Simple Icons, CC0) -- silhueta sólida como
+   as armas acima, pelo mesmo motivo (glifo de marca, não ícone de UI
+   em traço). Usado só no botão "Entrar com Steam", pra dar o
+   reconhecimento visual da marca sem copiar o botão oficial da Valve
+   (achado: o visual exato do botão oficial é o que páginas de phishing
+   de Steam mais imitam -- mantemos nosso próprio botão, com o acento
+   --accent-steel já reservado pra isso, só com o glifo ao lado). */
+.icone-ui-steam {
+  fill: currentColor;
+  stroke: none;
+}
+
 .icone-ui-favorito {
   fill: none;
   transition: fill 0.15s ease;
@@ -285,6 +297,37 @@ header.topo {
   position: sticky;
   top: 0;
   z-index: 30;
+}
+
+/* Vidro fosco no topo fixo (pedido 2026-11-09, blueprint de UI) --
+   fundo translúcido + blur, em vez do sólido acima, só onde o
+   navegador suporta backdrop-filter. @supports em vez de troca direta:
+   sem suporte, o fundo sólido original continua -- nenhum navegador
+   fica com header transparente sem desfoque (ilegível por cima do
+   conteúdo rolando).
+
+   O blur vai num ::before, não direto em header.topo: um elemento com
+   backdrop-filter vira "containing block" dos próprios descendentes
+   position:fixed/absolute (regra da spec) -- e .nav-inferior (barra
+   fixa do celular) é descendente de header.topo via o include de
+   _conta_link.html. Botar backdrop-filter direto no header quebrava o
+   fixed dela, prendendo a barra embaixo do cabeçalho em vez da tela
+   (achado ao testar esta mudança). O ::before fica atrás do conteúdo
+   (z-index -1) só como camada de fundo; header.topo em si não ganha a
+   propriedade, então os descendentes continuam fixando na janela. */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  header.topo {
+    background: transparent;
+  }
+  header.topo::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: rgba(27, 40, 56, 0.72);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
 }
 
 /* Linha de acento sutil no pé do header -- um fio de profundidade sem
@@ -520,6 +563,7 @@ header.topo h1 {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
+  gap: 8px;
   color: var(--bg);
   background: var(--accent-steel);
   border: 1px solid var(--accent-steel);
@@ -2232,7 +2276,9 @@ footer.rodape .versao {
   height: 40px;
   padding: 0 7px;
   /* Fundo escuro fixo: o chip fica em cima da imagem, onde o glow da
-     raridade pode ser claro demais pra um texto colorido sem lastro. */
+     raridade pode ser claro demais pra um texto colorido sem lastro.
+     backdrop-filter (abaixo) só acrescenta textura de vidro -- a
+     opacidade de 0.82 não baixa, pra não arriscar esse contraste. */
   background: rgba(10, 12, 17, 0.82);
   border: 2px solid currentColor;
   border-radius: var(--radius-sm);
@@ -2243,6 +2289,13 @@ footer.rodape .versao {
   font-variant-numeric: tabular-nums;
   clip-path: polygon(
     0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .cartao-item-nota {
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
 }
 
 .cartao-item-margem {
@@ -2295,6 +2348,13 @@ footer.rodape .versao {
   font-size: var(--fs-xs);
   color: var(--text-bright);
   font-variant-numeric: tabular-nums;
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .cartao-item-posicao {
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
 }
 
 .cartao-item-corpo {
@@ -4002,6 +4062,15 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     background: var(--bg-elevated);
     border-top: 1px solid var(--border);
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.35);
+  }
+
+  /* Mesmo vidro fosco do header.topo -- ver comentário lá. */
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .nav-inferior {
+      background: rgba(27, 40, 56, 0.78);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+    }
   }
 
   .nav-inferior a {
