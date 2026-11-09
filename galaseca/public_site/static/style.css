@@ -2,7 +2,7 @@
    galaseca — folha de estilo única
    ------------------------------------------------------------
    Sistema visual: grafite neutro quase preto, superfícies
-   discretas e o laranja da marca como único acento. Uma só
+   discretas e o vermelho da marca como único acento. Uma só
    família tipográfica (stack de sistema, no espírito dos
    produtos das grandes empresas), hierarquia por tamanho e peso,
    formas sóbrias e movimento discreto.
@@ -37,7 +37,6 @@
   --accent: #dc2626;
   --accent-bright: #ef4444;
   --accent-soft: rgba(220, 38, 38, 0.12);
-  --accent-steel: #66c0f4;
   --positive: #4ade80;
   --warn: #fbbf24;
   --danger: #f87171;
@@ -512,10 +511,10 @@ header.topo h1 {
   min-height: 44px;
   align-items: center;
   padding: 9px 20px;
-  border: 1px solid var(--accent-steel);
+  border: 1px solid var(--accent);
   border-radius: var(--radius-xs);
-  background: var(--accent-steel);
-  color: #06121c;
+  background: var(--accent);
+  color: #ffffff;
   font-size: var(--fs-sm);
   font-weight: 700;
   white-space: nowrap;
@@ -765,10 +764,13 @@ footer.rodape a:hover { color: var(--accent-bright); }
 }
 
 /* Resumo do dia: nota de margem com fio de acento. */
+/* Fio neutro, não --accent: este bloco já tem vermelho/verde nos deltas
+   de nota logo abaixo (.movimentos-do-dia) -- um fio vermelho aqui do
+   lado competiria com o "caiu" de --danger, lendo como o mesmo sinal. */
 .resumo-do-dia {
   margin: 0 0 var(--sp-4);
   padding: var(--sp-1) 0 var(--sp-1) var(--sp-3);
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--border-strong);
   color: var(--text-muted);
   font-size: var(--fs-sm);
 }
