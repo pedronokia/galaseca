@@ -1,12 +1,3 @@
-  {# Poppins SemiBold é a única fonte custom do site e aparece em texto
-     bem visível já no primeiro parágrafo da tela (nota do item em
-     destaque, selos de nota) -- sem o preload, o navegador só descobre
-     o @font-face depois de parsear o CSS inteiro, atrasando a troca da
-     fonte de fallback pra Poppins. `crossorigin` é obrigatório mesmo
-     sendo mesma origem -- fontes sempre buscam em modo anônimo; sem o
-     atributo, o preload não combina com o fetch real do @font-face e
-     o navegador baixa o arquivo duas vezes. #}
-  <link rel="preload" href="{{ static_v('fonts/Poppins-SemiBold.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="icon" href="{{ static_v('favicon.svg') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   {# iOS Safari historicamente não aceita SVG em apple-touch-icon --

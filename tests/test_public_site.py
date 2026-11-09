@@ -3506,19 +3506,16 @@ def test_apple_touch_icon_usa_png_nao_svg(client, monkeypatch):
     assert 'rel="apple-touch-icon" href="/static/icon-192.png' in body
 
 
-def test_preload_da_fonte_poppins_com_crossorigin(client, monkeypatch):
-    # Poppins SemiBold aparece em texto visível já na primeira tela
-    # (nota em destaque, selos) -- preload evita esperar o CSS inteiro
-    # ser parseado pra só então descobrir o @font-face. crossorigin é
-    # obrigatório mesmo sendo mesma origem (fontes buscam em modo
-    # anônimo) ou o preload não combina com o fetch real.
+def test_sem_preload_de_fonte_custom(client, monkeypatch):
+    """Identidade 3.0 (2026-11-09): uma família só, do stack de sistema,
+    em todo o site -- Poppins SemiBold não é mais usada como @font-face
+    em texto nenhum (só a logo, como contorno SVG). O preload que
+    existia pra ela virou peso morto (baixava um arquivo que nenhum CSS
+    referenciava mais); removido junto com o arquivo."""
     monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
     body = client.get("/").data.decode("utf-8")
-    assert ('<link rel="preload" href="/static/fonts/Poppins-SemiBold.woff2'
-            in body)
-    assert 'as="font" type="font/woff2" crossorigin' in body
-    resp = client.get("/static/fonts/Poppins-SemiBold.woff2")
-    assert resp.status_code == 200
+    assert "Poppins" not in body
+    assert 'rel="preload"' not in body
 
 
 def test_sw_js_na_raiz_com_scope_amplo(client):
