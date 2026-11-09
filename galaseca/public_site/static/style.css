@@ -301,12 +301,10 @@ header.topo {
   }
 }
 
-header.topo::after {
-  content: "";
-  display: block;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.5), transparent);
-}
+/* Removido o fio vermelho no rodapé do header (pedido do usuário,
+   ref. apple.com): ele quebrava a leitura "cinza + vidro fosco" que o
+   cabeçalho da Apple tem -- lá a única decoração embaixo é o próprio
+   blur esmaecendo no conteúdo, sem acento de cor nenhum. */
 
 header.topo > * {
   max-width: var(--largura-conteudo);
@@ -644,7 +642,12 @@ footer.rodape p { margin: 0 0 var(--sp-2); }
 
 footer.rodape a { color: var(--text); }
 
-footer.rodape a:hover { color: var(--accent-bright); }
+/* Cinza sobe pra --text-bright no hover, não vermelho (pedido do
+   usuário, ref. apple.com: rodapé/cabeçalho são cromo neutro, cor é só
+   pra ação/dado) -- .rodape-nav-grupo a:hover já fazia isso, mas essa
+   regra geral tinha mais elementos no seletor e ganhava dela na
+   especificidade, vazando vermelho pros links do grid sem querer. */
+footer.rodape a:hover { color: var(--text-bright); }
 
 /* Achado 2026-11-03: a 1a tentativa desta grade tinha uma caixa de
    destaque no link da página atual (fundo + box-shadow só nele, parecia
