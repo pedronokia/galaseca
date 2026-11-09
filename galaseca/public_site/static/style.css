@@ -961,7 +961,8 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   margin: 0 0 10px;
 }
 
-.seletor-periodo a {
+.seletor-periodo a,
+.atalhos-filtro a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -975,13 +976,15 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   text-decoration: none;
 }
 
-.seletor-periodo a:hover {
+.seletor-periodo a:hover,
+.atalhos-filtro a:hover {
   color: var(--accent-bright);
   border-color: var(--accent);
   text-decoration: none;
 }
 
-.seletor-periodo a[aria-current="true"] {
+.seletor-periodo a[aria-current="true"],
+.atalhos-filtro a[aria-current="true"] {
   color: var(--bg);
   background: var(--accent-bright);
   border-color: var(--accent-bright);
@@ -1926,6 +1929,25 @@ footer.rodape .versao {
 }
 
 /* ── Filtros e paginação ─────────────────────────────── */
+
+/* Atalhos de filtro (pesquisa de referência financeira -- TradingView/
+   Finviz, 2026-11-09): mesma pílula de .seletor-periodo (item.html),
+   só com rótulo próprio -- um clique aplica uma combinação pronta de
+   nota/preço/liquidez, sem abrir o formulário manual. */
+.atalhos-filtro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 10px;
+}
+
+.atalhos-filtro-rotulo {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  margin-right: 2px;
+}
+
 .form-filtros {
   display: flex;
   flex-wrap: wrap;
