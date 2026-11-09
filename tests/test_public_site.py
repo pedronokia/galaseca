@@ -404,6 +404,29 @@ def test_index_vitrine_de_cards_e_o_modo_padrao(client, monkeypatch, tmp_path):
     assert "Deslize a tabela para o lado" not in body
 
 
+def test_index_vitrine_so_os_6_primeiros_cards_carregam_eager(
+        client, monkeypatch, tmp_path):
+    # item de performance 2026-11-09: a primeira fileira da Vitrine (até
+    # 6 cards, cobre qualquer largura) não pode ter loading="lazy" --
+    # medido ao vivo que o LCP era sempre um cartao-item-icon da
+    # primeira fileira, e lazy atrasava justamente essa imagem. Os
+    # demais, fora da tela inicial, continuam lazy.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": f"Item {i}", "score": 100 - i, "price": 1.0,
+         "icon": f"hash{i}", "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []}
+        for i in range(8)
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert body.count('class="cartao-item-icon"') == 8
+    assert body.count('class="cartao-item-icon" src="/icone/') > 0
+    partes = body.split('class="cartao-item-icon"')[1:]
+    for i, parte in enumerate(partes):
+        esperado = "eager" if i < 6 else "lazy"
+        assert f'loading="{esperado}"' in parte[:200], (
+            f"card {i}: esperava loading={esperado!r}")
+
+
 def test_index_modo_lista_mostra_a_tabela_e_nao_a_vitrine(
         client, monkeypatch, tmp_path):
     _salva_scan(tmp_path, monkeypatch, [
@@ -1734,6 +1757,36 @@ def test_ranking_page_vitrine_mostra_cards_com_posicao_e_nota(
     assert "#1" in body
     assert 'href="/item/AK-47%20%7C%20Redline%20(Field-Tested)"' in body
     assert '<table class="tabela-candidatos">' not in body
+
+
+def test_ranking_page_vitrine_so_os_6_primeiros_cards_carregam_eager(
+        client, monkeypatch, tmp_path):
+    # Mesmo achado de performance de index.html, aplicado ao Ranking
+    # (também abre na Vitrine por padrão).
+    nomes = [f"Item {i}" for i in range(8)]
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": nome, "score": 100 - i, "price": 1.0, "icon": f"hash{i}",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i, nome in enumerate(nomes)
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": nome, "score": 100 - i, "position": i + 1}
+            for i, nome in enumerate(nomes)
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    partes = body.split('class="cartao-item-icon"')[1:]
+    assert len(partes) == 8
+    for i, parte in enumerate(partes):
+        esperado = "eager" if i < 6 else "lazy"
+        assert f'loading="{esperado}"' in parte[:200], (
+            f"card {i}: esperava loading={esperado!r}")
 
 
 def test_ranking_page_cookie_pref_ver_lista_mantem_tabela(

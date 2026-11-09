@@ -51,14 +51,17 @@
      corte de canto), mas mais enxuto: o snapshot do ranking só guarda
      name/score/position (ver ranking.py), sem preço nem motivo, então
      não dá (nem faz sentido) reusar cartao_candidato da home aqui. #}
-  {% macro cartao_candidato_ranking(it) %}
+  {% macro cartao_candidato_ranking(it, indice=0) %}
   <li class="cartao-item cartao-item-ranking{{ ' ' ~ it.raridade_classe if it.raridade_classe else '' }}" data-nome="{{ it.name }}" data-nota="{{ it.score }}">
     <span class="cartao-item-brilho"></span>
     <span class="cartao-item-posicao" aria-hidden="true">#{{ it.position }}</span>
     <div class="cartao-item-imagem">
       <a class="cartao-item-imagem-link" href="{{ url_for('item_detail', name=it.name) }}" aria-label="Abrir detalhes e histórico de {{ it.name_fmt }}">
         {% if it.icon_url %}
-        <img class="cartao-item-icon" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="192" height="192">
+        {# mesmo achado de performance de index.html (2026-11-09): os 6
+           primeiros cobrem a primeira fileira em qualquer largura --
+           loading="lazy" neles atrasava o LCP. #}
+        <img class="cartao-item-icon" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="{{ 'eager' if indice < 6 else 'lazy' }}" width="192" height="192">
         {% else %}
         <span class="icone-item-placeholder" aria-hidden="true"></span>
         {% endif %}
@@ -128,7 +131,7 @@
       </div>
       {% else %}
       <ul class="grade-cards" aria-label="Vitrine do Top 20">
-        {% for it in itens %}{{ cartao_candidato_ranking(it) }}{% endfor %}
+        {% for it in itens %}{{ cartao_candidato_ranking(it, loop.index0) }}{% endfor %}
       </ul>
       {% endif %}
     {% else %}
