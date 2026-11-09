@@ -848,6 +848,52 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
     assert set(query_limpa) == {"ordenar", "ver"}
 
 
+def test_index_atalhos_de_filtro_presentes_com_scan(client, monkeypatch, tmp_path):
+    # pesquisa de referência financeira 2026-11-09 (TradingView/Finviz):
+    # pílulas de atalho (nota/liquidez/preço) acima do formulário manual.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80,
+         "price": 10.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="atalhos-filtro"' in body
+    atalhos = body.split('class="atalhos-filtro"', 1)[1].split("</nav>", 1)[0]
+    hrefs = {
+        texto: html.unescape(href)
+        for href, texto in re.findall(
+            r'<a href="([^"]+)"[^>]*>([^<]+)</a>', atalhos)
+    }
+    assert "Nota 90+" in hrefs
+    assert "Liquidez alta" in hrefs
+    assert "Até R$ 10" in hrefs
+    assert parse_qs(urlsplit(hrefs["Nota 90+"]).query)["nota_min"] == ["90"]
+    assert parse_qs(urlsplit(hrefs["Liquidez alta"]).query)["liquidez_min"] == ["liquido"]
+    assert parse_qs(urlsplit(hrefs["Até R$ 10"]).query)["preco_max"] == ["10"]
+
+
+def test_index_atalhos_de_filtro_some_sem_scan(client, monkeypatch):
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="atalhos-filtro"' not in body
+
+
+def test_index_atalho_marca_ativo_e_preserva_categoria(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 95,
+         "price": 10.0, "category": "Facas", "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/?categoria=Facas&nota_min=90").data.decode("utf-8")
+    atalhos = body.split('class="atalhos-filtro"', 1)[1].split("</nav>", 1)[0]
+    assert 'aria-current="true">Nota 90+' in atalhos
+    nota90_href = re.search(
+        r'<a href="([^"]+)"[^>]*>Nota 90\+', atalhos).group(1)
+    query = parse_qs(urlsplit(html.unescape(nota90_href)).query)
+    assert query["categoria"] == ["Facas"]
+
+
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
     """Garantia estrutural: nenhuma rota de server.py importa steam_api."""
     import galaseca.public_site.server as srv

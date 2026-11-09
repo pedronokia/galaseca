@@ -273,6 +273,20 @@
           ordenar=ordenar_sel, ver=ver_sel) }}
     {%- endmacro %}
 
+    {% if scan %}
+    {# Atalhos de filtro (pesquisa de referência financeira -- TradingView/
+       Finviz, 2026-11-09): um clique aplica uma combinação pronta, em vez
+       do formulário manual inteiro. Preserva categoria/busca/ordenar/ver
+       (o atalho só decide nota/preço/liquidez); cada um zera os outros
+       dois desse trio, pra não empilhar combinações confusas entre eles. #}
+    <nav class="atalhos-filtro" aria-label="Atalhos de filtro">
+      <span class="atalhos-filtro-rotulo">Atalhos:</span>
+      <a href="{{ url_for('index', categoria=categoria_sel, nota_min=90, q=busca_sel, ordenar=ordenar_sel, ver=ver_sel) }}"{% if nota_min_sel == 90 %} aria-current="true"{% endif %}>Nota 90+</a>
+      <a href="{{ url_for('index', categoria=categoria_sel, liquidez_min='liquido', q=busca_sel, ordenar=ordenar_sel, ver=ver_sel) }}"{% if liquidez_min_sel == 'liquido' %} aria-current="true"{% endif %}>Liquidez alta</a>
+      <a href="{{ url_for('index', categoria=categoria_sel, preco_max=10, q=busca_sel, ordenar=ordenar_sel, ver=ver_sel) }}"{% if preco_max_sel == 10 %} aria-current="true"{% endif %}>Até R$ 10</a>
+    </nav>
+    {% endif %}
+
     <form class="form-filtros" method="get" action="{{ url_for('index') }}">
       <label>Buscar
         <input type="text" name="q" id="campo-busca" placeholder="Ex.: AK-47 | Redline (atalho: /)" value="{{ busca_sel or '' }}">
