@@ -1452,6 +1452,16 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   box-shadow: var(--shadow-md);
 }
 
+/* Mesmo vidro fosco do .popover-legenda-conteudo -- mesma categoria
+   (menu flutuante sobre a tabela), sem descendente fixed/absolute. */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .lista-acoes-item {
+    background: rgba(27, 40, 56, 0.9);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+}
+
 .lista-acoes-item a {
   display: block;
   padding: 7px 10px;
@@ -1503,6 +1513,18 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   border-radius: var(--radius-md);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-md);
+}
+
+/* Mesmo vidro fosco do header.topo (ver comentário lá) -- aqui sem o
+   cuidado do ::before, porque este popover não tem nenhum descendente
+   position:fixed/absolute que dependa do viewport como containing
+   block (só a lista de legenda). */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .popover-legenda-conteudo {
+    background: rgba(27, 40, 56, 0.85);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
 }
 
 .popover-legenda-titulo {
