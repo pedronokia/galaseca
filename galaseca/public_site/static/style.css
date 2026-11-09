@@ -384,12 +384,16 @@ header.topo h1 {
 
 /* Navegação principal */
 
+/* Estilo "barra utilitária" (ref. apple.com/#globalnav secundário):
+   texto pequeno, peso normal, sem pílula de fundo no hover -- só a cor
+   clareia, igual lá. O botão/pílula fica pros CTAs (.conta-link-entrar
+   etc.); aqui é navegação de passagem, não ação. */
 .nav-principal {
   display: flex;
   flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: 2px;
+  gap: var(--sp-1);
 }
 
 .nav-principal a {
@@ -397,26 +401,20 @@ header.topo h1 {
   display: inline-flex;
   min-height: 40px;
   align-items: center;
-  padding: 6px 11px;
-  border-radius: var(--radius-xs);
+  padding: 6px 7px;
   color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-xs);
+  font-weight: 400;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color 0.15s ease;
 }
 
-.nav-principal a:hover {
-  color: var(--text-bright);
-  background: var(--surface);
-}
+.nav-principal a:hover { color: var(--text-bright); }
 
 .nav-principal a[aria-current="page"] {
   color: var(--text-bright);
-  background: transparent;
-  box-shadow: inset 0 -2px 0 var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
 }
 
 .nav-principal a:focus-visible { outline-offset: -2px; }
