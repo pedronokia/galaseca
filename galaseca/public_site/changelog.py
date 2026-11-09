@@ -8,6 +8,25 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
+        "data": "2026-11-09",
+        "titulo": "Nova identidade visual: grafite neutro e um único acento",
+        "itens": [
+            "A paleta de cores foi refeita: fundo grafite neutro e "
+            "laranja da marca como único acento, no lugar da mistura de "
+            "azul, verde-limão e várias cores de raridade competindo "
+            "entre si",
+            "Cantos recortados, brilho ao redor da raridade, listra "
+            "diagonal e a inclinação 3D dos cards ao passar o mouse "
+            "saíram -- a hierarquia agora vem do tamanho, peso e espaço, "
+            "não de efeitos",
+            "Home, item, ranking, comparar, status e as páginas de "
+            "leitura (método, FAQ, glossário) passaram a falar a mesma "
+            "língua visual",
+            "O vidro fosco do cabeçalho, dos menus flutuantes e da "
+            "barra do celular continua, com as cores novas",
+        ],
+    },
+    {
         "data": "2026-11-08",
         "titulo": "Gráficos com tooltip e portfólio com mais destaque",
         "itens": [

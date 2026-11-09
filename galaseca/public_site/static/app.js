@@ -404,35 +404,6 @@ document.addEventListener("keydown", function (e) {
   } catch (e) {}
 })();
 
-// Tilt 3D + brilho seguindo o mouse nos cards da vitrine (rodada 2 do
-// visual). É puro enfeite: só roda com ponteiro fino (mouse/trackpad,
-// não toque) e sem prefers-reduced-motion. Setar via CSSOM
-// (style.setProperty) é permitido pelo CSP -- só style="" inline no HTML
-// é que não.
-(function () {
-  var reduzir = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var ponteiroFino = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  if (reduzir || !ponteiroFino) return;
-  document.querySelectorAll(".grade-cards .cartao-item").forEach(function (card) {
-    card.addEventListener("pointermove", function (e) {
-      var r = card.getBoundingClientRect();
-      if (!r.width || !r.height) return;
-      var px = (e.clientX - r.left) / r.width;
-      var py = (e.clientY - r.top) / r.height;
-      card.style.setProperty("--rx", ((px - 0.5) * 7).toFixed(2) + "deg");
-      card.style.setProperty("--ry", ((0.5 - py) * 6).toFixed(2) + "deg");
-      card.style.setProperty("--s", "1.02");
-      card.style.setProperty("--mx", (px * 100).toFixed(1) + "%");
-      card.style.setProperty("--my", (py * 100).toFixed(1) + "%");
-    });
-    card.addEventListener("pointerleave", function () {
-      card.style.setProperty("--rx", "0deg");
-      card.style.setProperty("--ry", "0deg");
-      card.style.setProperty("--s", "1");
-    });
-  });
-})();
-
 // Atalhos de teclado pra paginação (seta esquerda/direita) -- só quando
 // nenhum campo de formulário está focado, pra não roubar a seta de
 // dentro de um <input>.
