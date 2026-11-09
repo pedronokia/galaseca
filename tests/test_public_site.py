@@ -71,19 +71,33 @@ def test_navegacao_inferior_do_celular(client):
     assert "icone-ui-ranking" in nav
 
 
-def test_rodape_mostra_links_simples(client):
-    """Achado 2026-11-03 (pedido do usuário): a versão em grid de 3
-    colunas ("Explorar"/"Entenda"/"Mais") tinha uma caixa de destaque
-    estranha em volta do link da página atual e ficava desproporcional
-    no celular (2 colunas desalinhadas, rolagem longa só pra navegação)
-    -- voltou a ser uma lista simples em linha, como era antes dessa
-    rodada."""
+def test_rodape_mostra_grade_por_categoria(client):
+    """Achado 2026-11-03: a 1a versão em grid de 3 colunas ("Explorar"/
+    "Entenda"/"Mais") tinha uma caixa de destaque estranha no link da
+    página atual e virava 2 colunas desalinhadas no celular -- revertida
+    pra lista simples. Rodada 3 (pedido novo, referência apple.com) traz
+    a grade de volta com os dois problemas corrigidos: aria-current é só
+    semântico aqui (sem classe/estilo específico ligado a ele -- ver
+    teste abaixo) e o CSS força 1 coluna no celular."""
     body = client.get("/").data.decode("utf-8")
     rodape = body.split("<footer", 1)[1]
     assert 'href="/privacidade"' in rodape
     assert 'href="/ranking"' in rodape
     assert "Sugerir melhoria" in rodape
-    assert "rodape-nav" not in body
+    assert 'class="rodape-nav"' in rodape
+    assert rodape.count('class="rodape-nav-grupo"') == 3
+
+
+def test_rodape_link_da_pagina_atual_nao_tem_classe_propria(client):
+    """Acompanha o achado 2026-11-03 (ver teste acima): aria-current no
+    rodapé não pode carregar nenhuma classe/estilo próprio -- foi o
+    "fundo + box-shadow só nele" que lia como bug da vez passada. Fica
+    puramente semântico pra leitor de tela."""
+    body = client.get("/").data.decode("utf-8")
+    rodape = body.split("<footer", 1)[1]
+    tag = re.search(r'<a\b[^>]*aria-current="page"[^>]*>', rodape)
+    assert tag, "esperava um link com aria-current no rodapé"
+    assert "class=" not in tag.group(0)
 
 
 def test_movimento_reduzido_respeitado_no_css_e_no_botao_de_topo(client):

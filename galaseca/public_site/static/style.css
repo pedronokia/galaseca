@@ -627,7 +627,8 @@ main {
   text-transform: none;
 }
 
-/* ── Rodapé ──────────────────────────────────────────── */
+/* ── Rodapé (ref. apple.com: grade de links por categoria +
+   barra legal fina embaixo) ─────────────────────────────── */
 
 footer.rodape {
   max-width: var(--largura-conteudo);
@@ -641,14 +642,69 @@ footer.rodape {
 
 footer.rodape p { margin: 0 0 var(--sp-2); }
 
-footer.rodape .versao {
-  margin-top: var(--sp-2);
-  text-align: center;
-}
-
 footer.rodape a { color: var(--text); }
 
 footer.rodape a:hover { color: var(--accent-bright); }
+
+/* Achado 2026-11-03: a 1a tentativa desta grade tinha uma caixa de
+   destaque no link da página atual (fundo + box-shadow só nele, parecia
+   bug) e virava 2 colunas desalinhadas no celular -- usuário pediu pra
+   reverter. De volta agora (pedido novo, referência apple.com), com os
+   dois problemas corrigidos: aria-current fica só semântico pra leitor
+   de tela (sem CSS ligado a ele), e o grid força 1 coluna abaixo de
+   640px em vez de deixar o auto-fit quebrar em 2 desalinhadas. */
+.rodape-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-4);
+  margin: 0 0 var(--sp-5);
+}
+
+.rodape-nav-grupo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.rodape-nav-grupo h2 {
+  margin: 0 0 var(--sp-2);
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rodape-nav-grupo a {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.rodape-nav-grupo a:hover {
+  color: var(--text-bright);
+  text-decoration: underline;
+}
+
+.rodape-nav-grupo a:focus-visible { outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .rodape-nav { grid-template-columns: 1fr; gap: var(--sp-5); }
+  .rodape-nav-grupo a { min-height: 44px; }
+}
+
+/* Barra legal fina, separada da grade por um fio -- só a versão, as
+   visitas e o autor; nada de links aqui (já estão na grade acima). */
+.rodape-base {
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+
+.rodape-base .versao { margin: 0 0 4px; }
+.rodape-base .versao:last-child { margin-bottom: 0; }
 
 /* ── Navegação inferior (celular) ────────────────────── */
 
