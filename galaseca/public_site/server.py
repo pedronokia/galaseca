@@ -344,7 +344,7 @@ def create_app() -> Flask:
 
         todos = _candidatos_filtrados(
             scan, categoria, nota_min, preco_max, busca, ordenar,
-            liquidez_min, com_historico=False)
+            liquidez_min, com_historico=False, com_icone=False)
         # Total real da aba "Todas" -- achado 2026-10-30: `scan["results"]`
         # inclui item com risco alto de pump, que `buy_candidates` descarta
         # antes de qualquer filtro do visitante. Sem isto a aba dizia um
@@ -353,11 +353,13 @@ def create_app() -> Flask:
         # só recalcula quando algum filtro do visitante reduziu `todos`.
         total_geral = (len(todos)
                        if not (categoria or nota_min or preco_max or busca or liquidez_min)
-                       else len(_candidatos_filtrados(scan, com_historico=False)))
+                       else len(_candidatos_filtrados(
+                           scan, com_historico=False, com_icone=False)))
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
         total_paginas = max(1, -(-len(todos) // _PAGINA_TAMANHO))
         _enriquecer_com_historico(candidatos_pagina)
+        _enriquecer_com_icone(candidatos_pagina)
         intervalo_horas = float(ambiente("WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
         # Banner de "dado pode estar desatualizado" -- pedido depois do
         # bloqueio real de 429 que durou horas (2026-10-25): sem isto, a
@@ -449,10 +451,16 @@ def create_app() -> Flask:
         corrigido em 2026-10-26 (ler histórico de TODOS os candidatos
         quando só um é exibido), que não tinha se propagado pra cá."""
         scan = scan_store.load_last_scan()
-        candidatos = _candidatos_filtrados(scan, com_historico=False)
+        candidatos = _candidatos_filtrados(
+            scan, com_historico=False, com_icone=False)
         item = next((c for c in candidatos if c["name"] == name), None)
         if item is None:
             return render_template("404.html"), 404
+        # Mesmo achado de performance do index() (2026-11-09): ícone só
+        # no item em destaque + nos parecidos exibidos, não nos ~150
+        # candidatos inteiros cruzados só pra achar este item.
+        parecidos = _itens_parecidos(item, candidatos)
+        _enriquecer_com_icone([item] + parecidos)
         hist = signals.load_item_history(name)
         periodo = request.args.get("periodo") or None
         if periodo not in _PERIODOS_GRAFICO:
@@ -505,7 +513,7 @@ def create_app() -> Flask:
             tem_historico=tem_historico,
             periodo_sel=periodo,
             periodo_opcoes=list(_PERIODOS_GRAFICO),
-            parecidos=_itens_parecidos(item, candidatos),
+            parecidos=parecidos,
             tempo_aposentadoria=_tempo_desde_aposentadoria(item.get("case_retired_at")),
             itens_da_caixa=cases.skins_in_case(item.get("case")),
             # Preço mais recente DESTE item específico -- cada item do
@@ -528,11 +536,13 @@ def create_app() -> Flask:
         ~150 candidatos inteiros pra mostrar no máximo 3 era o mesmo
         desperdício já corrigido no `index()` em 2026-10-26."""
         scan = scan_store.load_last_scan()
-        candidatos = _candidatos_filtrados(scan, com_historico=False)
+        candidatos = _candidatos_filtrados(
+            scan, com_historico=False, com_icone=False)
         nomes = [n for n in (request.args.get("nomes") or "").split(",") if n][:3]
         por_nome = {c["name"]: c for c in candidatos}
         itens = [por_nome[n] for n in nomes if n in por_nome]
         _enriquecer_com_historico(itens)
+        _enriquecer_com_icone(itens)
         menor_preco, _ = _destaques_comparar(itens, "price")
         _, maior_nota = _destaques_comparar(itens, "score")
         for it in itens:
@@ -545,8 +555,9 @@ def create_app() -> Flask:
     def api_recommendations():
         scan = scan_store.load_last_scan()
         candidatos = _candidatos_filtrados(
-            scan, com_historico=False)[:_LIMIT_CANDIDATOS]
+            scan, com_historico=False, com_icone=False)[:_LIMIT_CANDIDATOS]
         _enriquecer_com_historico(candidatos)
+        _enriquecer_com_icone(candidatos)
         resp = jsonify({
             "api_version": 1,
             "ultimo_scan": {
@@ -698,7 +709,8 @@ def create_app() -> Flask:
         # fora dela dá 404, então o sitemap não pode divergir.
         scan = scan_store.load_last_scan()
         if scan:
-            candidatos = _candidatos_filtrados(scan, com_historico=False)
+            candidatos = _candidatos_filtrados(
+                scan, com_historico=False, com_icone=False)
             itens_xml = "\n".join(
                 f"  <url><loc>{_xml_escape(base + url_for('item_detail', name=c['name']))}</loc></url>"
                 for c in candidatos)
@@ -1052,7 +1064,8 @@ def create_app() -> Flask:
         # O RSS não exibe tendência nem sparkline -- ler o histórico dos
         # ~150 candidatos custava ~3s por request (medido 2026-10-29).
         candidatos = _candidatos_filtrados(
-            scan, categoria, com_historico=False)[:_LIMIT_CANDIDATOS]
+            scan, categoria, com_historico=False,
+            com_icone=False)[:_LIMIT_CANDIDATOS]
         base = request.url_root.rstrip("/")
         itens_xml = "\n".join(
             "    <item>\n"
@@ -1426,6 +1439,26 @@ def _filtra_historico_por_periodo(hist: list, periodo: "str | None") -> list:
     return [p for p in hist if (p.get("ts") or 0) >= corte]
 
 
+def _enriquecer_com_icone(candidatos: list[dict]) -> None:
+    """Preenche `icon_url`/`icon_url_2x` -- feito à parte de
+    `_candidatos_filtrados` (mesma ideia de `_enriquecer_com_historico`,
+    acima) de propósito: cada `url_for` aqui builda uma URL via o
+    roteador do Flask, caro à toa pros ~150-180 candidatos quando só
+    uma fatia pequena é exibida de verdade. Profiling 2026-11-09: 42%
+    do tempo de `/` inteiro vinha dessas duas chamadas rodando pra
+    TODOS os candidatos, mesmo só 10 aparecendo na página -- mesmo
+    desperdício que `_enriquecer_com_historico` já corrigiu pro
+    histórico em 2026-10-26, nunca estendido ao ícone. Só chamar com a
+    fatia que vai renderizar de verdade."""
+    for c in candidatos:
+        c["icon_url"] = (
+            url_for("icone_cache", hash_icone=c["icon"], v=2)
+            if c.get("icon") else None)
+        c["icon_url_2x"] = (
+            url_for("icone_cache", hash_icone=c["icon"], v=2, tam=384)
+            if c.get("icon") else None)
+
+
 def _enriquecer_com_historico(candidatos: list[dict]) -> None:
     """Preenche `tendencia`/`sparkline` -- feito à parte de
     `_candidatos_filtrados` (acima) de propósito: ler o histórico de
@@ -1457,7 +1490,8 @@ def _candidatos_filtrados(
         busca: "str | None" = None,
         ordenar: str = "nota",
         liquidez_min: "str | None" = None,
-        com_historico: bool = True) -> list[dict]:
+        com_historico: bool = True,
+        com_icone: bool = True) -> list[dict]:
     """Candidatos públicos: sem dono (sem login ainda), já filtrados.
 
     Sem limite aqui de propósito -- a paginação é responsabilidade de quem
@@ -1470,6 +1504,12 @@ def _candidatos_filtrados(
     `_enriquecer_com_historico` só nessa fatia depois. Achado 2026-10-26:
     o `index()` lia o histórico de TODOS os candidatos em toda visita,
     mesmo mostrando só uma página por vez.
+
+    `com_icone=False` pula `icon_url`/`icon_url_2x` (2 `url_for` por
+    item, caro -- envolve o roteador do Flask) pelo mesmo motivo; usar
+    `_enriquecer_com_icone` só na fatia exibida depois. Achado
+    2026-11-09 (profiling ao vivo): essas duas chamadas pra TODOS os
+    candidatos eram 42% do tempo da home inteira.
 
     `liquidez_min` usa a mesma faixa nomeada de `signals.liquidity_depth`
     (pedido numa pesquisa de como outros sites de skin expõem liquidez,
@@ -1550,12 +1590,16 @@ def _candidatos_filtrados(
         # de nitidez visível). Mesmo hash, cache separado por tamanho
         # (ver icon_cache.py) -- o navegador já escolhe sozinho qual
         # usar pelo density do visitante, sem mudar nenhum template.
-        c["icon_url"] = (
-            url_for("icone_cache", hash_icone=c["icon"], v=2)
-            if c.get("icon") else None)
-        c["icon_url_2x"] = (
-            url_for("icone_cache", hash_icone=c["icon"], v=2, tam=384)
-            if c.get("icon") else None)
+        if com_icone:
+            c["icon_url"] = (
+                url_for("icone_cache", hash_icone=c["icon"], v=2)
+                if c.get("icon") else None)
+            c["icon_url_2x"] = (
+                url_for("icone_cache", hash_icone=c["icon"], v=2, tam=384)
+                if c.get("icon") else None)
+        else:
+            c["icon_url"] = None
+            c["icon_url_2x"] = None
         c["market_url"] = _MARKET_LISTING_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         c["steamdb_url"] = _STEAMDB_SEARCH_URL.format(

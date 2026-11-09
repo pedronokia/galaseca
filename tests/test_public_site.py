@@ -4130,6 +4130,49 @@ def test_enriquecer_com_historico_nao_marca_curto_com_pontos_suficientes(
     assert candidatos[0]["historico_pontos"] == 5
 
 
+# ── Rodada 4: performance -- icone so' pra fatia visivel ────────
+
+def test_candidatos_filtrados_sem_icone_nao_builda_url(client):
+    # mesmo achado de performance que com_historico=False: profiling
+    # 2026-11-09 mostrou url_for("icone_cache", ...) como 42% do tempo
+    # de / inteiro, rodando pros ~150-180 candidatos quando só 10
+    # aparecem na página.
+    from galaseca.public_site.server import _candidatos_filtrados
+    scan = {"ts": time.time(), "category": "x", "results": [
+        {"name": "Item A", "score": 80, "price": 10.0, "icon": "hash123",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]}
+    out = _candidatos_filtrados(scan, com_historico=False, com_icone=False)
+    assert out[0]["icon_url"] is None
+    assert out[0]["icon_url_2x"] is None
+
+
+def test_enriquecer_com_icone_preenche_campos(client):
+    from galaseca.public_site.server import _enriquecer_com_icone
+    candidatos = [{"name": "Item A", "icon": "hash123"},
+                 {"name": "Item B", "icon": None}]
+    with client.application.test_request_context():
+        _enriquecer_com_icone(candidatos)
+    assert candidatos[0]["icon_url"] == "/icone/hash123.webp?v=2"
+    assert candidatos[0]["icon_url_2x"] == "/icone/hash123.webp?v=2&tam=384"
+    assert candidatos[1]["icon_url"] is None
+    assert candidatos[1]["icon_url_2x"] is None
+
+
+def test_candidatos_filtrados_com_icone_default_continua_preenchendo(
+        client):
+    # default (sem passar com_icone) continua True -- nenhum caller que
+    # não foi atualizado explicitamente perde o ícone sem querer.
+    from galaseca.public_site.server import _candidatos_filtrados
+    scan = {"ts": time.time(), "category": "x", "results": [
+        {"name": "Item A", "score": 80, "price": 10.0, "icon": "hash123",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]}
+    with client.application.test_request_context():
+        out = _candidatos_filtrados(scan, com_historico=False)
+    assert out[0]["icon_url"] == "/icone/hash123.webp?v=2"
+
+
 def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
     """152 candidatos, só 10 por página -- load_item_history não pode
     ser chamado mais que o necessário pra essa página (acrescido de uma
@@ -4152,6 +4195,32 @@ def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
     resp = client.get("/")
     assert resp.status_code == 200
     assert len(chamadas) <= 15  # página de 10 + folga, nunca os 152
+
+
+def test_index_so_builda_icone_da_pagina_atual(client, monkeypatch, tmp_path):
+    """Mesma família -- url_for("icone_cache", ...) não pode rodar pros
+    152 candidatos inteiros quando só 10 aparecem na página (achado de
+    performance 2026-11-09, ver _enriquecer_com_icone)."""
+    resultados = [
+        {"name": f"Item {i:03d}", "score": 50, "price": 1.0, "icon": "h",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(152)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    from galaseca.public_site import server as server_mod
+    real_url_for = server_mod.url_for
+    chamadas = []
+
+    def _contado(endpoint, *a, **kw):
+        if endpoint == "icone_cache":
+            chamadas.append(endpoint)
+        return real_url_for(endpoint, *a, **kw)
+
+    monkeypatch.setattr(server_mod, "url_for", _contado)
+    resp = client.get("/")
+    assert resp.status_code == 200
+    # 10 da página x 2 (icon_url + icon_url_2x) + folga, nunca os 152
+    assert len(chamadas) <= 25
 
 
 def test_item_detail_nao_calcula_historico_dos_outros_candidatos(client, monkeypatch, tmp_path):
