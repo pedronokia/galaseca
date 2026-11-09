@@ -502,15 +502,19 @@ header.topo h1 {
 
 /* CTA de login: mantém o azul da Steam de propósito -- é a marca da
    Steam, não o acento do galaseca. */
+/* Branco sólido, texto escuro -- pedido do usuário, ref. botão
+   "Continuar" do apple.com. Único botão branco do site de propósito:
+   é o ponto de entrada da conta, o CTA mais importante da tela; todo
+   outro botão de ação usa --accent (vermelho) cheio. */
 .conta-link-entrar {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   padding: 9px 20px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--text-bright);
   border-radius: var(--radius-xs);
-  background: var(--accent);
-  color: #ffffff;
+  background: var(--text-bright);
+  color: var(--bg);
   font-size: var(--fs-sm);
   font-weight: 700;
   white-space: nowrap;
@@ -519,7 +523,7 @@ header.topo h1 {
 }
 
 .conta-link-entrar:hover {
-  filter: brightness(1.08);
+  filter: brightness(0.92);
   text-decoration: none;
 }
 
