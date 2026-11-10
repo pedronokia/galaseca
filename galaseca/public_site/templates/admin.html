@@ -12,16 +12,19 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       <form method="post" action="{{ url_for('admin_logout') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="botao-link">Sair</button>
       </form>
     </div>
-    <p class="subtitulo">Painel interno -- build {{ build or "dev" }}.</p>
   </header>
 
   <main id="conteudo" class="pagina-texto">
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Painel interno</h1>
+    </header>
+
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Visitas totais</span><span class="card-valor">{{ visitas }}</span></div>
       <div class="card"><span class="card-label">Backups guardados</span><span class="card-valor">{{ backups|length }}</span></div>

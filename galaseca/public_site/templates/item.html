@@ -56,10 +56,11 @@
       <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
-    <p class="subtitulo"><a class="link-com-seta" href="{{ url_for('index') }}">{{ icone("seta-esquerda") }} Voltar pra lista</a></p>
   </header>
 
   <main id="conteudo" class="pagina-texto pagina-item">
+    <p><a class="link-com-seta" href="{{ url_for('index') }}">{{ icone("seta-esquerda") }} Voltar pra lista</a></p>
+
     {# Hero cinematográfico (revisão de direção visual 2026-11-08, rodada
        2): a página do item é o "momento orquestrado" do site -- listras
        diagonais discretas (eco do hazard stripe das caixas), brilho na

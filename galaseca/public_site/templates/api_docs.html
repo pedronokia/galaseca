@@ -18,11 +18,13 @@
       <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
-    <p class="subtitulo">A mesma lista do dashboard, em JSON.</p>
   </header>
 
   <main id="conteudo" class="pagina-texto">
-    <h1 class="titulo-pagina">API</h1>
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">API</h1>
+      <p class="descricao-pagina">A mesma lista do dashboard, em JSON.</p>
+    </header>
     <h2 class="secao-titulo">GET /api/recommendations</h2>
     <p>Pública e sem autenticação. Cada processo do site aceita até 60
     consultas por minuto por IP nesta rota; acima disso, responde HTTP 429
