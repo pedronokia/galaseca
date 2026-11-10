@@ -62,7 +62,7 @@
   --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.12);
 
   /* Métricas */
-  --altura-topo: 48px;
+  --altura-topo: 44px;
   --largura-conteudo: 1024px;
   --largura-texto: 692px;
 
@@ -288,24 +288,12 @@ header.topo {
   backdrop-filter: saturate(180%) blur(20px);
 }
 
-header.topo::after {
-  content: "";
-  display: block;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.08);
-}
-
 header.topo > * {
   max-width: var(--largura-conteudo);
   margin-left: auto;
   margin-right: auto;
   padding-left: 22px;
   padding-right: 22px;
-}
-
-header.topo > .topo-linha {
-  padding-top: 9px;
-  padding-bottom: 9px;
 }
 
 /* A home acompanha a largura da tabela/vitrine. */
@@ -369,13 +357,15 @@ header.topo h1 {
   .logo-compacta { display: block; }
 }
 
-/* Navegação principal */
+/* Navegação principal -- espalhada pela largura da barra, como a
+   lista da barra de navegação da Apple. */
 
 .nav-principal {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: 2px;
 }
 
@@ -392,19 +382,14 @@ header.topo h1 {
   letter-spacing: -0.01em;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  transition: color 0.32s cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-.nav-principal a:hover {
-  color: #000000;
-  background: transparent;
-}
+.nav-principal a:hover { color: #000000; }
 
-.nav-principal a[aria-current="page"] {
-  color: #000000;
-  background: transparent;
-  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.7);
-}
+/* A página atual não ganha destaque visual na barra -- como na barra
+   da Apple, o link fica igual aos demais; o aria-current continua no
+   HTML só para leitor de tela (mesma decisão do rodapé). */
 
 .nav-principal a:focus-visible { outline-offset: -2px; }
 
@@ -3553,10 +3538,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     justify-content: space-between;
   }
 
-  .topo-linha:has(> .entrar-cta) > .nav-principal {
-    flex: 1 1 300px;
-    justify-content: center;
-  }
+  .topo-linha:has(> .entrar-cta) > .nav-principal { flex: 1 1 300px; }
 
   .entrar-cta-legenda { display: none; }
 

@@ -8,13 +8,26 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
-        "data": "2026-11-09",
-        "titulo": "Nova identidade visual: grafite neutro e um único acento",
+        "data": "2026-11-10",
+        "titulo": "Cabeçalho no ritmo da barra da Apple",
         "itens": [
-            "A paleta de cores foi refeita: fundo grafite neutro e "
-            "laranja da marca como único acento, no lugar da mistura de "
-            "azul, verde-limão e várias cores de raridade competindo "
-            "entre si",
+            "A barra do topo ficou mais fina: agora tem a altura da "
+            "barra de navegação do site da Apple e deixa o conteúdo "
+            "começar mais cedo",
+            "Os links do menu se espalham pela largura da barra, em vez "
+            "de ficarem apertados no centro",
+            "A página aberta não ganha mais um risco embaixo do nome no "
+            "menu -- quem usa leitor de tela continua sabendo em qual "
+            "página está",
+        ],
+    },
+    {
+        "data": "2026-11-10",
+        "titulo": "Nova identidade visual: tema claro e tranquilo",
+        "itens": [
+            "A paleta de cores foi refeita: fundo branco e cinza-claro, "
+            "com azul só em links e botões, no lugar da mistura de azul, "
+            "verde-limão e várias cores de raridade competindo entre si",
             "Cantos recortados, brilho ao redor da raridade, listra "
             "diagonal e a inclinação 3D dos cards ao passar o mouse "
             "saíram -- a hierarquia agora vem do tamanho, peso e espaço, "
@@ -22,8 +35,8 @@ ENTRADAS = [
             "Home, item, ranking, comparar, status e as páginas de "
             "leitura (método, FAQ, glossário) passaram a falar a mesma "
             "língua visual",
-            "O vidro fosco do cabeçalho, dos menus flutuantes e da "
-            "barra do celular continua, com as cores novas",
+            "O rodapé se organizou em três grupos de links e o botão de "
+            "entrar com a Steam ganhou o ícone da marca",
         ],
     },
     {
