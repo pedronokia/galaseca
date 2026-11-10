@@ -12,12 +12,15 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
     </div>
-    <p class="subtitulo">Painel interno — login.</p>
   </header>
 
   <main id="conteudo" class="pagina-texto">
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Painel interno</h1>
+    </header>
+
     <form class="form-adicionar" method="post" action="{{ url_for('admin_login') }}">
       <input type="password" name="senha" placeholder="Senha" aria-label="Senha" autofocus required>
       <button type="submit">Entrar</button>

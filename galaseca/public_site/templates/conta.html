@@ -12,14 +12,18 @@
   <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
   <header class="topo">
     <div class="topo-linha">
-      <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
-    <p class="subtitulo">Sua carteira, com o mesmo preço guardado que o dashboard público usa — sem chamada nova à Steam.</p>
   </header>
 
   <main id="conteudo">
     {% include "partials/_mensagens.html" %}
+
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Minha conta</h1>
+      <p class="descricao-pagina">Sua carteira, com o mesmo preço guardado que o dashboard público usa — sem chamada nova à Steam.</p>
+    </header>
 
     <section class="resumo-cards">
       <div class="card"><span class="card-label">Valor de mercado</span><span class="card-valor">{{ avaliacao.totals.market_fmt }}</span></div>

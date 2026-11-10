@@ -1,131 +1,89 @@
-/* Paleta inspirada na Steam (fundo navy + acento laranja StatTrak) — o
-   fundo escuro continua de propósito igual à Steam, pra quem já usa a
-   Steam se sentir em casa; o acento trocou de azul-claro genérico
-   (achado 2026-11-08, revisão de direção visual: o acento original lia
-   como "azul de dashboard SaaS", sem nenhuma ligação com o CS2 em si)
-   pro laranja StatTrak do próprio jogo (cor do contador "StatTrak(tm)"
-   em toda arma, instantamente reconhecível por quem joga/negocia
-   skins). --accent-steel preserva o tom azul original só pro botão
-   "Entrar com Steam", que é uma ação da marca Steam, não do galaseca.
-   Esta folha é independente da paleta do app Qt (ui/theme.py) de
-   propósito: o app continua em tons de cinza (decisão separada), só o
-   site público usa essas cores. */
+/* ============================================================
+   galaseca — folha de estilo única
+   ------------------------------------------------------------
+   Sistema visual: tema claro no espírito da Apple — branco e
+   cinza-claro, texto quase preto, azul de interação e bastante
+   espaço. Uma só família tipográfica (stack de sistema),
+   hierarquia por tamanho e peso, formas simples e movimento
+   discreto. O laranja da marca fica só no ponto do logo.
+
+   Regras que valem para toda a folha:
+   - nada de estilo inline nos templates (o CSP bloqueia);
+   - verde/vermelho só aparecem quando descrevem um dado;
+   - raridade do CS2 entra como fio fino na borda do ícone;
+   - todo token usado com var() precisa estar definido em :root.
+   ============================================================ */
+
 :root {
-  --bg: #171a21;
-  --bg-elevated: #1b2838;
-  --surface: #2a475e;
-  --surface-hover: #32587a;
-  --border: #3d5a73;
-  --text: #c6d4df;
-  /* Branco puro sobre navy "vibra" (contraste alto demais) -- achado
-     2026-11-03, revisão de direção visual. Off-white com leve matiz
-     azulado, na mesma família de --text/--accent-bright em vez de
-     neutro puro; contraste contra --bg continua bem acima de AAA. */
-  --text-bright: #eef3f8;
-  --text-muted: #c1ccd6;
-  /* Laranja StatTrak: contraste checado contra bg/bg-elevated/surface
-     (os 3 fundos onde --accent/--accent-bright aparecem como texto) --
-     --accent cobre >=4.1:1 em todos; --accent-bright (versão mais clara,
-     usada em texto pequeno/links sobre --surface) cobre >=4.5:1 em
-     todos, igual ao padrão AA já exigido no resto do site. */
-  --accent: #e07a3a;
-  --accent-bright: #f0a066;
-  /* Azul original da paleta Steam -- não removido, só reservado pro
-     botão "Entrar com Steam" (.conta-link-entrar), que representa a
-     marca Steam, não a identidade visual do galaseca. */
+  color-scheme: light;
+
+  /* Superfícies */
+  --bg: #ffffff;
+  --bg-elevated: #f5f5f7;
+  --surface: #ffffff;
+  --surface-hover: #f5f5f7;
+  --surface-strong: #e8e8ed;
+  --surface-sunken: #f5f5f7;
+
+  /* Traços */
+  --border: #d2d2d7;
+  --border-strong: #86868b;
+
+  /* Texto */
+  --text: #1d1d1f;
+  --text-bright: #1d1d1f;
+  --text-muted: #6e6e73;
+
+  /* Marca e estados */
+  --accent: #0071e3;
+  --accent-bright: #0066cc;
+  --accent-soft: rgba(0, 113, 227, 0.1);
   --accent-steel: #66c0f4;
-  --accent-steel-bright: #a4d8fb;
-  /* positive/warn: verde-limão e âmbar originais, de volta por pedido
-     do usuário (2026-10-31) -- uma troca pro verde/amarelo validados
-     (#2aa352/#b8860f) rodou curto: o validador de paleta (skill de
-     dataviz) tinha achado só ΔE 1.7 de separação sob deuteranopia
-     entre os dois tons originais (quase indistinguíveis pra quem tem
-     daltonismo), mas o usuário preferiu esteticamente os tons de
-     antes, aceitando essa limitação.
-     --danger segue o valor validado (contraste de texto 4.43:1 sobre
-     --bg-elevated, era 4.00:1 no tom antigo) -- não foi pedido de
-     volta. */
-  --positive: #a4d007;
-  --warn: #e4b03c;
-  --danger: #f05570;
-  /* --danger-bright: achado de auditoria Lighthouse, 2026-11-04 -- o
-     texto do selo preenchido de queda de preço (.celula-preco
-     .icone-tendencia.tendencia-baixa) usa --danger sobre o PRÓPRIO
-     fundo tingido (rgba(240,85,112,.15) sobre --bg-elevated), não sobre
-     --bg-elevated puro como o resto do site já tinha auditado --
-     contraste medido de só 3.74:1 (abaixo do mínimo de 4.5:1 pra texto
-     normal nesse tamanho). --danger segue intocado (usado em botão,
-     borda, texto de erro, que não têm esse fundo tingido por baixo) --
-     só esse selo específico troca pra este tom mais claro, que mede
-     5.04:1 contra o mesmo fundo. */
-  --danger-bright: #f58095;
+  --positive: #1a7f37;
+  --warn: #b25000;
+  --danger: #d70015;
+  --danger-bright: #b00012;
+  --focus: #0071e3;
+  --marca: #f97316;
 
-  /* Escala de raio e sombra (auditoria visual, 2026-10-26) -- antes
-     cada componente tinha seu próprio número (3/4/6/10/14/20/24px de
-     raio; pelo menos 7 combinações distintas de box-shadow), sem
-     nenhum reaproveitado de verdade entre componentes do mesmo
-     "nível". --radius-pill fica fora da lista de propósito: um pill de
-     verdade precisa de raio >= metade da própria altura, então cada
-     badge/pill continua calculando o seu (10/14/20/24px) em vez de
-     forçar um valor único que quebraria a forma em alturas diferentes.
-     --shadow-sm pros cards "no nível da página" (.card, tabela
-     principal); --shadow-md/--shadow-lg pra elementos fixos flutuando
-     por cima do conteúdo (toast, barra de comparar, botão de topo). */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5);
+  /* Raridade do CS2 (sobrescrita pelas classes .raridade-*) */
+  --rar-cor: #b0c3d9;
 
-  /* Corte de canto (clip-path), revisão de direção visual 2026-11-08 --
-     o único elemento geométrico "assinatura" do site, usado só em 2
-     lugares (moldura do ícone do item + botão de destaque) de propósito,
-     não em cada card (ver ".gastar a ousentia num lugar só" na revisão).
-     Referência: painel/HUD angular do próprio menu do CS2, em vez do
-     canto 100% arredondado -- quebra o visual "card de dashboard SaaS"
-     sem inventar uma forma estranha ao tema. Sempre no mesmo sentido
-     (corta topo-direita e base-esquerda) pra ler como um motivo
-     reconhecível, não um corte aleatório por elemento. */
-  --corte-icone: 10px;
-  --corte-icone-sm: 6px;
-  --corte-botao: 8px;
+  /* Raios */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
 
-  /* Poppins já é a fonte da marca (logo em _logo.html, convertido em
-     contorno) -- até 2026-11-03 só existia ali: todo título da página
-     usava a mesma stack do corpo, sem nenhuma personalidade própria
-     (achado da revisão de direção visual). Usar Poppins nos títulos
-     também fecha o par logo+título em vez de introduzir uma terceira
-     fonte nova. Auto-hospedada (ver fonts/), nunca Google Fonts: o CSP
-     do site é `style-src 'self'`/sem font-src externo de propósito. */
-  --font-heading: "Poppins", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  /* Sombras */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.12);
 
-  /* Escala tipográfica (auditoria de design, 2026-11-04) -- mesmo
-     problema que a escala de raio/sombra acima já resolveu em
-     2026-10-26, mas em tamanho de fonte: 18 valores de font-size
-     diferentes no arquivo (incrementos de até 0.02rem -- 0.78/0.80/0.82
-     -- sem nenhum motivo visual entre um e outro, só ajuste pontual
-     componente a componente). 9 passos cobrem o mesmo intervalo; cada
-     arredondamento fica a no máximo 0.1rem (≈1.6px) do valor original.
-     --fs-lg (1.05rem) fica só pro preço da tabela/card (celula-preco),
-     que pediu explicitamente ficar "um pouco maior que as colunas
-     secundárias, mas sem negrito" -- colapsar no mesmo passo de
-     --fs-md apagaria essa distinção pedida. */
+  /* Métricas */
+  --altura-topo: 48px;
+  --largura-conteudo: 1024px;
+  --largura-texto: 692px;
+
+  /* Tipografia */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas,
+    monospace;
+
+  /* Escala tipográfica */
   --fs-2xs: 0.72rem;
-  --fs-xs: 0.78rem;
-  --fs-sm: 0.82rem;
-  --fs-base: 0.9rem;
-  --fs-md: 1rem;
-  --fs-lg: 1.05rem;
-  --fs-xl: 1.2rem;
-  --fs-2xl: 1.35rem;
-  --fs-display: 1.5rem;
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.0625rem;
+  --fs-lg: 1.1875rem;
+  --fs-xl: 1.4375rem;
+  --fs-2xl: 1.875rem;
+  --fs-display: 2.75rem;
 
-  /* Escala de espaçamento -- mesma auditoria. Aplicada só a gap/padding
-     de LAYOUT genérico (cards, seções, listas); PADDING DE PILL/BADGE
-     fica de fora de propósito, pelo mesmo motivo já documentado acima
-     pra --radius-pill: a forma de um badge depende do padding bater
-     com a altura do texto, então cada um continua calculando o seu em
-     vez de herdar um valor único que mudaria a proporção. */
+  /* Escala de espaçamento */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -135,33 +93,91 @@
   --sp-7: 32px;
 }
 
-/* Só o peso 600 -- único usado hoje (.secao-titulo). Pesos extras sem
-   uso real custariam licença/HTTP de graça; acrescenta outro @font-face
-   se um elemento futuro precisar de outro peso. */
-@font-face {
-  font-family: "Poppins";
-  src: url("fonts/Poppins-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
+/* ── Base ─────────────────────────────────────────────── */
 
-* { box-sizing: border-box; }
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Ícones locais mantêm o mesmo traço e alinhamento em todos os sistemas.
-   Rodada 2 da direção visual (2026-11-08): traço de 1.8 → 2.0 e pontas/
-   vértices retos (square/bevel) -- o traço fino com ponta arredondada
-   lia como "ícone de biblioteca" em vez de sinal tático. As curvas não
-   mudam (linejoin só afeta quinas); só ganham um micro-corte no vértice,
-   eco discreto do corte de canto já usado em botão/moldura de ícone. */
+h1, h2, h3 {
+  color: var(--text-bright);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+p { margin: 0 0 1em; }
+
+img { max-width: 100%; }
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: var(--sp-5) 0;
+}
+
+::selection {
+  background: rgba(0, 113, 227, 0.18);
+  color: var(--text-bright);
+}
+
+a {
+  color: var(--accent-bright);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--accent-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input[type="checkbox"] { accent-color: var(--accent); }
+
+/* Foco visível de verdade -- cobre teclado em qualquer elemento
+   interativo sem depender do padrão do navegador, que some em
+   componentes com outline herdado. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+.tabela-wrap:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ── Ícones ───────────────────────────────────────────── */
+
 .icone-ui {
   display: inline-block;
   width: 1.15em;
@@ -169,16 +185,14 @@ body {
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: square;
-  stroke-linejoin: bevel;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   vertical-align: -0.18em;
 }
 
-/* Ícones de categoria de arma (abas de filtro da home) -- silhueta
-   sólida, não contorno: diferente dos outros ícones de UI (seta, lupa
-   etc.), uma arma pequena em traço fino de 1.8px quase não lê a essa
-   escala (~15px); preenchida fica reconhecível. */
+/* Silhuetas de categoria: preenchidas, porque em 15px um contorno
+   fino de arma não se lê. */
 .icone-ui-rifle,
 .icone-ui-pistola,
 .icone-ui-smg {
@@ -191,55 +205,36 @@ body {
   transition: fill 0.15s ease;
 }
 
-.icone-ui[hidden] { display: none; }
 .botao-favorito.favoritado .icone-ui-favorito { fill: currentColor; }
+
 .icone-ui-aviso { margin-right: 5px; }
+
+.icone-tendencia .icone-ui,
+.link-com-seta .icone-ui {
+  width: 0.95em;
+  height: 0.95em;
+}
+
 .link-com-seta {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   gap: var(--sp-1);
-}
-.icone-tendencia .icone-ui,
-.link-com-seta .icone-ui { width: 0.95em; height: 0.95em; }
-
-a { color: var(--accent); transition: color 0.15s ease; }
-a:hover { color: var(--accent-bright); }
-
-/* Checkbox nativo sem isto renderia o azul/branco padrão do sistema
-   operacional em cima de um tema escuro inteiro customizado -- destoa
-   visualmente de todo o resto. */
-input[type="checkbox"] { accent-color: var(--accent); }
-
-/* Foco visível pra navegação só por teclado (achado de auditoria,
-   2026-10-25) -- outline explícito em vez de confiar no padrão do
-   navegador, que às vezes some em elementos com outline:none herdado
-   de algum reset. Não usa :focus puro (dispararia em clique de mouse
-   também, ruído visual sem necessidade). */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-summary:focus-visible,
-.tabela-wrap:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 2px;
+  /* Link no meio do texto corrido: sublinhado para não depender só da
+     cor (contraste com a frase em volta no tema claro). */
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-/* ── Barra de carregamento (navegação) ───────────────────── */
-/* item #7 da lista de melhorias -- site é MPA (sem fetch() em lugar
-   nenhum), clique em filtro/paginação/ordenar recarrega a página de
-   verdade; sem isto, numa conexão lenta parecia que o clique não deu
-   em nada. `width` anima até ~70% ao ativar (JS em app.js) e some
-   sozinha quando a navegação de fato troca de página -- não precisa
-   de lógica pra "esconder depois", a troca de documento já faz isso. */
+/* ── Barra de carregamento (navegação) ───────────────── */
+
 .barra-carregamento {
   position: fixed;
   top: 0;
   left: 0;
   width: 0;
-  height: 3px;
-  background: var(--accent-bright);
+  height: 2px;
+  background: var(--accent);
   opacity: 0;
   z-index: 9999;
   pointer-events: none;
@@ -256,121 +251,70 @@ summary:focus-visible,
   transition: none;
 }
 
-/* ── Acessibilidade: pular pro conteúdo ──────────────────── */
+/* ── Pular pro conteúdo ──────────────────────────────── */
+
 .link-pular-conteudo {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 100;
+  padding: 10px 18px;
+  border-radius: 0 0 var(--radius-sm) 0;
   background: var(--accent);
-  color: var(--bg);
-  padding: 10px 16px;
-  border-radius: 0 0 4px 0;
+  color: #ffffff;
   font-weight: 600;
   text-decoration: none;
 }
 
-.link-pular-conteudo:focus {
-  left: 0;
-}
+.link-pular-conteudo:focus { left: 0; }
 
-/* Barra superior -- espaçamento/tamanho de botão inspirados num padrão
-   comum de dashboard de skins (altura fixa, CTA bem demarcada, pill de
-   conta à direita). NÃO copia saldo/depósito/saque: o GalaSeca não faz
-   transação nenhuma, só leitura de dados públicos. */
+/* ── Cabeçalho ───────────────────────────────────────── */
+
+/* Barra fina, translúcida e fixa: ela some no conteúdo em vez de
+   competir com ele. */
 header.topo {
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 40;
+  background: rgba(250, 250, 252, 0.8);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
 }
 
-/* Linha de acento sutil no pé do header -- um fio de profundidade sem
-   fugir da paleta navy/Steam. ::after não é alvo de `header.topo > *`,
-   então atravessa a largura toda de propósito. */
 header.topo::after {
   content: "";
   display: block;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  opacity: 0.45;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
 }
 
 header.topo > * {
-  max-width: 960px;
+  max-width: var(--largura-conteudo);
   margin-left: auto;
   margin-right: auto;
-  padding-left: 24px;
-  padding-right: 24px;
+  padding-left: 22px;
+  padding-right: 22px;
 }
 
-header.topo > .topo-linha { padding-top: 10px; padding-bottom: 10px; }
+header.topo > .topo-linha {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
 
-/* Home: o topo acompanha a largura da tabela (1440px) -- com os 960px
-   padrão, logo e "Entrar" ficavam soltos no meio, desalinhados das
-   bordas do conteúdo logo abaixo. */
+/* A home acompanha a largura da tabela/vitrine. */
 @media (min-width: 641px) {
-  header.topo.topo-larga > * { max-width: 1440px; }
+  header.topo.topo-larga > * { max-width: var(--largura-conteudo); }
 }
 
-/* ── Logo ─────────────────────────────────────────────── */
-.titulo-logo { margin: 0; line-height: 1; }
-
-.logo {
-  display: inline-flex;
-  align-items: center;
-  color: var(--text-bright);
-  text-decoration: none;
-}
-
-.logo:hover { color: var(--text-bright); }
-/* Sem folga o contorno de foco encosta na última letra. */
-.logo:focus-visible { outline-offset: 5px; border-radius: var(--radius-sm); }
-.logo:hover .logo-marca-ponto { fill: var(--accent-bright); }
-
-.logo-marca-letras { fill: currentColor; }
-
-.logo-marca-ponto {
-  fill: var(--accent);
-  transition: fill 0.15s ease;
-}
-
-/* Guarda exigida pelo teste de varredura de `hidden` (AGENTS.md gotcha
-   #16): `aria-hidden="true"` bate no regex genérico de "hidden" do
-   teste, mesmo não sendo o atributo `hidden` de verdade -- sem isto o
-   teste falsamente aponta falta de guarda. */
-.logo-cheia[hidden],
-.logo-compacta[hidden] { display: none; }
-
-/* "sai daí, galaseca" por extenso normalmente; abaixo de 400px só
-   "galaseca" (o nome) -- a frase inteira não cabe na largura do
-   header nesses celulares, e o nome é a parte que não pode sumir. */
-.logo-cheia { display: block; flex-shrink: 0; }
-.logo-compacta { display: none; flex-shrink: 0; }
-
-@media (max-width: 400px) {
-  .logo-cheia { display: none; }
-  .logo-compacta { display: block; }
-}
-
-header.topo > .subtitulo { padding-bottom: 8px; margin-bottom: 0; }
-header.topo > .badge-cooldown { padding-bottom: 20px; }
-
-.badge-cooldown {
-  display: inline-block;
-  margin-top: 10px;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  cursor: help;
+.titulo-logo {
+  margin: 0;
+  line-height: 1;
 }
 
 header.topo h1 {
   margin: 0;
-  font-size: var(--fs-display);
-  font-weight: 700;
-  letter-spacing: -0.3px;
+  font-size: var(--fs-md);
+  font-weight: 600;
   color: var(--text-bright);
   line-height: 1;
 }
@@ -380,44 +324,84 @@ header.topo h1 {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-4);
+  gap: var(--sp-3) var(--sp-4);
   min-height: 36px;
 }
+
+/* Logo */
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-bright);
+  text-decoration: none;
+}
+
+.logo:hover { color: var(--text-bright); }
+
+.logo:focus-visible {
+  outline-offset: 5px;
+  border-radius: var(--radius-xs);
+}
+
+.logo:hover .logo-marca-ponto { fill: var(--marca); }
+
+.logo-marca-letras { fill: currentColor; }
+
+.logo-marca-ponto {
+  fill: var(--marca);
+  transition: fill 0.15s ease;
+}
+
+/* "sai daí, galaseca" por extenso; abaixo de 400px só o nome. */
+.logo-cheia { display: block; flex-shrink: 0; }
+.logo-compacta { display: none; flex-shrink: 0; }
+
+@media (max-width: 400px) {
+  .logo-cheia { display: none; }
+  .logo-compacta { display: block; }
+}
+
+/* Navegação principal */
 
 .nav-principal {
   display: flex;
   flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--sp-1);
+  gap: 2px;
 }
 
 .nav-principal a {
+  position: relative;
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  padding: 8px 9px;
-  border-radius: var(--radius-md);
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: var(--radius-xs);
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   text-decoration: none;
   white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-.nav-principal a:hover,
+.nav-principal a:hover {
+  color: #000000;
+  background: transparent;
+}
+
 .nav-principal a[aria-current="page"] {
-  color: var(--text-bright);
-  background: var(--surface);
+  color: #000000;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.7);
 }
 
-.nav-principal a[aria-current="page"] {
-  box-shadow: inset 0 -2px 0 var(--accent);
-}
+.nav-principal a:focus-visible { outline-offset: -2px; }
 
-.nav-principal a:focus-visible {
-  outline-offset: -2px;
-}
+/* Conta */
 
 .barra-acoes {
   display: flex;
@@ -428,49 +412,41 @@ header.topo h1 {
 .conta-nav {
   display: flex;
   align-items: center;
-  gap: var(--sp-1);
-  margin-right: 4px;
+  gap: 2px;
+  margin-right: var(--sp-1);
 }
 
 .conta-nav a {
-  min-height: 44px;
   display: inline-flex;
+  min-height: 40px;
   align-items: center;
-  color: var(--text-muted);
-  font-size: var(--fs-base);
-  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 0.75rem;
+  font-weight: 400;
   text-decoration: none;
-  padding: 8px 12px;
-  border-radius: 6px;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.conta-nav a:hover {
-  color: var(--text-bright);
-  background: var(--surface);
+.conta-nav a:hover,
+.conta-nav a[aria-current="page"] {
+  color: #000000;
+  background: transparent;
   text-decoration: none;
 }
 
-.conta-nav a[aria-current="page"] {
-  color: var(--text-bright);
-  background: var(--surface);
-}
-
-.conta-pill[aria-current="page"] {
-  border-color: var(--accent);
-}
-
 .conta-pill {
-  min-height: 44px;
   display: flex;
+  min-height: 40px;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--text-bright);
-  background: var(--surface);
+  padding: 4px 14px 4px 5px;
   border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 5px 14px 5px 6px;
-  font-size: var(--fs-base);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-bright);
+  font-size: 0.75rem;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -479,21 +455,23 @@ header.topo h1 {
 
 .conta-pill:hover {
   background: var(--surface-hover);
-  border-color: var(--accent);
+  border-color: var(--border-strong);
   text-decoration: none;
 }
 
+.conta-pill[aria-current="page"] { border-color: var(--accent); }
+
 .conta-avatar {
-  border-radius: 50%;
   display: block;
+  border-radius: 50%;
 }
 
 .conta-sair {
   display: flex;
+  width: 40px;
+  height: 40px;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
   border-radius: 50%;
   color: var(--text-muted);
   text-decoration: none;
@@ -506,46 +484,29 @@ header.topo h1 {
   text-decoration: none;
 }
 
-/* Preenchido (não outline) -- é a única ação clicável do header e o
-   convite pra todo o resto do produto (portfólio/trades/watchlist);
-   combina com o mesmo tratamento "botão de destaque" que
-   .form-filtros button já usa, sem repetir destaque em mais nenhum
-   lugar fixo da tela (ver comentário sobre "só devia existir UM
-   botão de destaque por tela", 2026-10-27).
-   Usa --accent-steel (azul), não --accent (laranja, 2026-11-08): este
-   botão leva pro login da própria Steam, então mantém a cor da marca
-   Steam em vez do novo acento do galaseca -- único lugar do site que
-   faz essa troca de propósito. */
+/* CTA de login: mantém o azul da Steam de propósito -- é a marca da
+   Steam, não o acento do galaseca. */
 .conta-link-entrar {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: var(--bg);
-  background: var(--accent-steel);
-  border: 1px solid var(--accent-steel);
-  border-radius: 6px;
   padding: 9px 20px;
+  border: 1px solid var(--accent-steel);
+  border-radius: var(--radius-pill);
+  background: rgba(102, 192, 244, 0.16);
+  color: #0b5c86;
+  font-size: var(--fs-sm);
   font-weight: 600;
-  font-size: var(--fs-base);
   white-space: nowrap;
   text-decoration: none;
-  transition: filter 0.15s ease;
-  /* Corte de canto -- borda e fundo são a mesma cor aqui, então o corte
-     não deixa nenhum artefato visual (ver --corte-botao no :root). */
-  clip-path: polygon(
-    0 0, calc(100% - var(--corte-botao)) 0, 100% var(--corte-botao),
-    100% 100%, var(--corte-botao) 100%, 0 calc(100% - var(--corte-botao)));
+  transition: background-color 0.15s ease;
 }
 
 .conta-link-entrar:hover {
-  filter: brightness(1.1);
+  background: rgba(102, 192, 244, 0.28);
   text-decoration: none;
 }
 
-/* Legenda curta embaixo do CTA -- sem ela o botão ficava sozinho sem
-   dizer o porquê de logar (achado visual, 2026-10-27). */
-/* Legenda ao lado do botão (não embaixo): embaixo, as 2 linhas dela
-   faziam o topo inteiro ter quase o dobro da altura do botão. */
 .entrar-cta {
   display: flex;
   flex-direction: row-reverse;
@@ -554,70 +515,236 @@ header.topo h1 {
 }
 
 .entrar-cta-legenda {
-  font-size: var(--fs-2xs);
-  color: var(--text-muted);
   max-width: 220px;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
   text-align: right;
 }
 
-.subtitulo {
+/* Badge de cooldown (aparece no status do scan, dentro do header em
+   algumas telas antigas). */
+header.topo > .badge-cooldown { padding-bottom: var(--sp-5); }
+
+.badge-cooldown {
+  display: inline-block;
+  margin-top: var(--sp-2);
   color: var(--text-muted);
-  margin: 6px 0 0;
-  max-width: 640px;
+  font-size: var(--fs-xs);
+  cursor: help;
 }
 
-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 24px 24px 40px;
+/* Subtítulo do header -- as páginas novas usam .cabecalho-pagina;
+   esta regra fica para telas que ainda trazem a linha no topo. */
+.subtitulo {
+  margin: 6px 0 0;
+  max-width: 640px;
+  color: var(--text-muted);
 }
+
+header.topo > .subtitulo {
+  padding-bottom: var(--sp-2);
+  margin-bottom: 0;
+}
+
+/* ── Estrutura de página ─────────────────────────────── */
+
+main {
+  max-width: var(--largura-conteudo);
+  margin: 0 auto;
+  padding: var(--sp-7) var(--sp-7) var(--sp-7);
+}
+
+.pagina-texto {
+  max-width: var(--largura-texto);
+  margin: 0 auto;
+}
+
+/* Cabeçalho de página: rótulo pequeno, título grande, descrição
+   curta. Substitui o subtítulo solto que ficava no header. */
+.cabecalho-pagina {
+  margin: 0 0 var(--sp-7);
+}
+
+.rotulo-pagina {
+  margin: 0 0 var(--sp-2);
+  color: var(--accent-bright);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.titulo-pagina {
+  margin: 0 0 var(--sp-2);
+  color: var(--text-bright);
+  font-size: clamp(1.7rem, 3.6vw, var(--fs-display));
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+.descricao-pagina {
+  max-width: 640px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-md);
+  line-height: 1.55;
+}
+
+.secao-titulo {
+  margin: var(--sp-7) 0 var(--sp-3);
+  color: var(--text-bright);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.cabecalho-sub {
+  margin-left: 4px;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── Rodapé ──────────────────────────────────────────── */
+
+footer.rodape {
+  max-width: 960px;
+  margin: 24px auto 0;
+  padding: 16px 24px 32px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+footer.rodape p { margin: 0 0 var(--sp-2); }
+
+footer.rodape .versao {
+  margin-top: 8px;
+  text-align: center;
+}
+
+footer.rodape a { color: var(--text); }
+
+footer.rodape a:hover { color: var(--accent-bright); }
+
+/* ── Navegação inferior (celular) ────────────────────── */
+
+.nav-inferior { display: none; }
+
+/* ── Voltar ao topo ──────────────────────────────────── */
+
+.botao-topo {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-bright);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.botao-topo:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.botao-topo .icone-ui { width: 20px; height: 20px; }
+
+/* ── Status e avisos ─────────────────────────────────── */
 
 .status {
   color: var(--text-muted);
   font-size: var(--fs-base);
 }
 
-/* Virou tira de metadado, não card (revisão de direção visual
-   2026-11-08) -- junto com .form-filtros e .resumo-do-dia, as 3 tinham
-   exatamente o mesmo fundo/borda/raio, cada uma competindo pela mesma
-   atenção visual sem nenhuma hierarquia entre "é o painel de controle
-   da tela" (.form-filtros, continua card) e "é só metadado de quando
-   rodou o scan" (isto aqui). Barra à esquerda troca de cor no estado
-   desatualizado em vez da borda inteira, que deixou de existir. */
+.status-muted {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.status-erro {
+  padding: 10px 14px;
+  border: 1px solid rgba(215, 0, 21, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(215, 0, 21, 0.06);
+  color: var(--danger);
+}
+
+/* Metadado do scan: uma tira, não um card -- não compete com o
+   painel de filtros. */
 .status-scan {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--sp-1) var(--sp-2);
-  margin: 4px 0 16px;
-  padding: 4px 0 4px 12px;
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-1) 0 var(--sp-1) var(--sp-3);
+  border-left: 2px solid var(--border-strong);
   color: var(--text-muted);
   font-size: var(--fs-sm);
-  border-left: 2px solid var(--border);
 }
 
 .status-scan strong { color: var(--text); }
 .status-scan-desatualizado { border-left-color: var(--warn); }
 .status-scan .status-scan-alerta { color: var(--warn); }
-.status[hidden] { display: none; }
 
-.status-vazio {
-  padding: 32px;
-  text-align: center;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
+.banner-aviso {
+  margin: var(--sp-2) 0 var(--sp-4);
+  padding: 12px 14px;
+  border: 1px solid rgba(178, 80, 0, 0.28);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
+  background: rgba(178, 80, 0, 0.06);
+  color: var(--warn);
+  font-size: var(--fs-base);
 }
 
-/* Ícone ilustrativo dos estados vazios (nenhum candidato, sem dados) --
-   mesmo traço do set local de _icons.html, em cinza apagado. */
+.banner-aviso a { color: var(--accent-bright); }
+
+/* Estados vazios: um bloco central, sem ícone gigante. */
+.status-vazio {
+  padding: var(--sp-7) var(--sp-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.status-vazio p { margin-bottom: var(--sp-2); }
+
+/* Link de texto no bloco vazio ("veja a lista"): sublinhado também.
+   O bloco pode ser o próprio <p class="status-vazio">, então o seletor
+   cobre os dois formatos. */
+.status-vazio a:not([class]),
+.status-vazio p a:not([class]) {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.status-vazio .botao-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin-top: var(--sp-2);
+}
+
 .status-vazio-icone {
   display: block;
-  margin: 0 auto 12px;
-  width: 40px;
-  height: 40px;
-  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  margin: 0 auto var(--sp-3);
+  color: var(--border-strong);
 }
 
 .status-vazio-icone .icone-ui {
@@ -625,64 +752,33 @@ main {
   height: 100%;
 }
 
-/* Guarda gotcha #16: a varredura de `hidden` casa o `aria-hidden` (do
-   ícone) e também a substring `.status-vazio` dentro de `.status-vazio-
-   icone` -- as duas classes definem display, então precisam da guarda
-   explícita `.classe[hidden] { display: none; }`. */
-.status-vazio[hidden],
-.status-vazio-icone[hidden] {
-  display: none;
-}
-
-table.tabela-cards-mobile tbody tr.linha-watchlist {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.status-erro {
-  color: var(--danger);
-  background: rgba(224, 87, 74, 0.1);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-}
-
-/* Virou nota de margem, não card (mesma revisão de .status-scan acima)
-   -- é uma observação sobre o Top 20, não um painel de controle; a
-   barra lateral em --accent (cor neutra, sem ligar a "bom"/"ruim" --
-   ver regra "não promete retorno" do AGENTS.md) já chama atenção o
-   suficiente sem competir com .form-filtros pelo mesmo tratamento de
-   card. */
+/* Resumo do dia: nota de margem com fio de acento. */
 .resumo-do-dia {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-1) 0 var(--sp-1) var(--sp-3);
+  border-left: 2px solid var(--accent);
   color: var(--text-muted);
   font-size: var(--fs-sm);
-  border-left: 2px solid var(--accent);
-  padding: 4px 0 4px 12px;
-  margin: 0 0 16px;
 }
 
-/* Mini-cards "maiores mudanças de nota" (item #19 da lista de
-   melhorias) -- 3 cards logo abaixo da frase do resumo, mesma fonte de
-   dado (snapshot do Top 20 vs. ~1 dia atrás). Só números observados:
-   nenhum texto do tipo "melhor item" ou "vai subir". */
 .movimentos-do-dia {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-2);
-  margin: -4px 0 20px;
+  margin: calc(var(--sp-2) * -1) 0 var(--sp-5);
   padding: 0;
   list-style: none;
 }
 
 .movimento-do-dia {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
   padding: 10px 12px;
-  background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
 }
 
 .movimento-nome {
@@ -690,6 +786,7 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   color: var(--text-bright);
   font-size: var(--fs-sm);
   font-weight: 600;
+  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -707,7 +804,8 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   align-items: center;
   gap: 4px;
   font-size: var(--fs-xs);
-  font-weight: 700;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .movimento-alta { color: var(--positive); }
@@ -717,71 +815,43 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   .movimentos-do-dia { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Glow/borda por raridade, reutilizáveis fora do quadro de ícone (hero da
-   home, hero do item, cards da vitrine). Declarado uma vez aqui em vez
-   de repetir hex em cada componente -- o quadro de ícone continua com as
-   regras próprias dele (especificidade maior, ver .icone-item-quadro). */
-.raridade-consumer { --rar-cor: #b0c3d9; --rar-glow: rgba(176, 195, 217, 0.30); }
-.raridade-industrial { --rar-cor: #5e98d9; --rar-glow: rgba(94, 152, 217, 0.30); }
-.raridade-milspec { --rar-cor: #4b69ff; --rar-glow: rgba(75, 105, 255, 0.30); }
-.raridade-restricted { --rar-cor: #8847ff; --rar-glow: rgba(136, 71, 255, 0.30); }
-.raridade-classified { --rar-cor: #d32ce6; --rar-glow: rgba(211, 44, 230, 0.30); }
-.raridade-covert { --rar-cor: #eb4b4b; --rar-glow: rgba(235, 75, 75, 0.30); }
-.raridade-dourado { --rar-cor: #e4ae39; --rar-glow: rgba(228, 174, 57, 0.35); }
+/* ── Raridade ────────────────────────────────────────── */
 
-/* Hero "nota mais alta hoje" (revisão de direção visual 2026-11-08,
-   rodada 2) -- única seção da home com boldness de verdade. Agora tem
-   fundo próprio (textura listrada sutil + halo na cor da raridade) e a
-   nota virou número grande com "/100", em vez de anel: é o momento
-   "orquestrado" da página, o único lugar do site que faz isso. */
+.raridade-consumer { --rar-cor: #b0c3d9; }
+.raridade-industrial { --rar-cor: #5e98d9; }
+.raridade-milspec { --rar-cor: #4b69ff; }
+.raridade-restricted { --rar-cor: #8847ff; }
+.raridade-classified { --rar-cor: #d32ce6; }
+.raridade-covert { --rar-cor: #eb4b4b; }
+.raridade-dourado { --rar-cor: #e4ae39; }
+
+/* ── Destaque da home ────────────────────────────────── */
+
+/* O único bloco "grande" da home: um painel calmo, com a nota em
+   número. Sem textura, sem halo, sem inclinação. */
 .hero-destaque {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
-  padding: 26px 24px;
-  margin: 0 0 18px;
+  gap: var(--sp-5);
+  margin: 0 0 var(--sp-5);
+  padding: var(--sp-6);
+  border: 0;
+  border-radius: var(--radius-lg);
   background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  overflow: hidden;
 }
 
-/* Textura de fundo -- listras diagonais bem sutis, eco do hazard stripe
-   das caixas do jogo. Opacidade baixa de propósito: é textura, não um
-   padrão que compete com o conteúdo. */
-.hero-destaque::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    135deg, rgba(224, 122, 58, 0.06) 0 2px, transparent 2px 14px);
-  z-index: -2;
-  pointer-events: none;
-}
-
-.hero-destaque-halo {
-  position: absolute;
-  inset: -45% -6% auto auto;
-  width: 55%;
-  aspect-ratio: 1;
-  background: radial-gradient(circle, var(--rar-glow, rgba(224, 122, 58, 0.18)), transparent 70%);
-  z-index: -1;
-  pointer-events: none;
-}
+.hero-destaque-halo { display: none; }
 
 .hero-destaque .icone-item-quadro {
-  flex: 0 0 108px;
-  width: 108px;
-  height: 108px;
-  --corte-icone: 16px;
+  flex: 0 0 104px;
+  width: 104px;
+  height: 104px;
 }
 
 .hero-destaque .icone-item-quadro-com-imagem {
-  /* Sem moldura, o halo da seção já dá o fundo colorido atrás da skin;
-     o quadro só precisa da sombra pra descolar do fundo. */
-  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.16));
 }
 
 .hero-destaque-corpo {
@@ -790,75 +860,73 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
 }
 
 .hero-destaque-rotulo {
-  margin: 0 0 4px;
-  font-size: var(--fs-xs);
+  margin: 0 0 var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--accent-bright);
 }
 
 .hero-destaque-nome {
   display: block;
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: clamp(1.15rem, 3.4vw, var(--fs-2xl));
   color: var(--text-bright);
+  font-size: clamp(1.25rem, 3vw, var(--fs-2xl));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   text-decoration: none;
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
 
-.hero-destaque-nome:hover { color: var(--accent-bright); text-decoration: underline; }
+.hero-destaque-nome:hover {
+  color: var(--accent-bright);
+  text-decoration: none;
+}
 
 .hero-destaque-motivo {
-  margin: 5px 0 0;
-  font-size: var(--fs-sm);
+  margin: var(--sp-2) 0 0;
   color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .hero-destaque-nota {
   display: flex;
+  flex: 0 0 auto;
   align-items: baseline;
   gap: 2px;
-  flex: 0 0 auto;
-  font-family: var(--font-heading);
-  font-weight: 800;
-  line-height: 0.85;
   font-variant-numeric: tabular-nums;
+  line-height: 0.9;
 }
 
 .hero-destaque-nota-num {
-  font-size: clamp(2.6rem, 7vw, 3.8rem);
-  letter-spacing: -0.02em;
+  font-size: clamp(2.6rem, 6vw, 3.6rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
-/* O "/100" não herda a cor da nota (verde/amarelo/cinza) -- é legenda
-   da escala, não parte do número. */
 .hero-destaque-nota-de {
-  font-size: var(--fs-lg);
-  font-weight: 600;
   color: var(--text-muted);
+  font-size: var(--fs-md);
+  font-weight: 500;
 }
 
 @media (max-width: 640px) {
   .hero-destaque {
     flex-wrap: wrap;
-    padding: 22px 18px;
-    gap: var(--sp-3);
     align-items: flex-end;
+    gap: var(--sp-3);
+    padding: var(--sp-5);
   }
 
   .hero-destaque .icone-item-quadro {
-    flex: 0 0 76px;
-    width: 76px;
-    height: 76px;
-    --corte-icone: 12px;
+    flex: 0 0 72px;
+    width: 72px;
+    height: 72px;
   }
 
-  .hero-destaque-nota {
-    margin-left: auto;
-  }
+  .hero-destaque-nota { margin-left: auto; }
 
   .hero-destaque-corpo {
     flex-basis: 100%;
@@ -866,310 +934,402 @@ table.tabela-cards-mobile tbody tr.linha-watchlist {
   }
 }
 
+/* ── Filtros ─────────────────────────────────────────── */
+
+.form-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.form-filtros label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.form-filtros select,
+.form-filtros input {
+  height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-base);
+  text-overflow: ellipsis;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.form-filtros select:hover,
+.form-filtros input:hover { border-color: var(--border-strong); }
+
+.form-filtros select:focus,
+.form-filtros input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.form-filtros input[type="number"] { width: 128px; }
+
+.filtros-numericos {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-3);
+}
+
+/* O placeholder completo é longo -- o campo precisa de largura. */
+.form-filtros input[type="text"]#campo-busca { min-width: 230px; }
+
+.form-filtros button {
+  height: 38px;
+  padding: 8px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.form-filtros button:hover { background: var(--accent-bright); }
+
+/* Só deve existir um botão de destaque por tela -- "Só favoritos" é
+   uma alternância, não a ação principal. */
+.form-filtros button#botao-favoritos {
+  display: inline-flex;
+  height: auto;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.form-filtros button#botao-favoritos:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  filter: none;
+}
+
+.form-filtros button#botao-favoritos.ativo {
+  border-color: rgba(178, 80, 0, 0.4);
+  color: var(--warn);
+}
+
+#botao-favoritos .icone-ui { width: 17px; height: 17px; }
+#botao-favoritos.ativo .icone-ui-favorito { fill: currentColor; }
+
 .filtros-ativos {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
-  margin: 0 0 14px;
+  margin: 0 0 var(--sp-4);
 }
 
 .filtros-ativos-titulo {
   color: var(--text-muted);
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .chip-filtro {
   display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
   min-height: 32px;
+  align-items: center;
+  gap: 6px;
   padding: 4px 10px;
-  color: var(--text-bright);
-  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
   font-size: var(--fs-sm);
   text-decoration: none;
 }
 
 .chip-filtro:hover {
+  border-color: var(--border-strong);
   background: var(--surface-hover);
   text-decoration: none;
 }
 
 .chip-filtro span {
-  color: var(--accent-bright);
-  font-size: var(--fs-md);
-  font-weight: 700;
-}
-
-/* Seletor de período do gráfico em /item/<name> (achado 2026-11-02,
-   pesquisa de sites de troca de skins: um gráfico de janela fixa não
-   deixa claro se o visitante está vendo tendência real ou ruído de
-   curto prazo). Pílulas de link, min-height 44px pro alvo de toque --
-   mesmo critério já usado em .chip-filtro/.checkbox-comparar-alvo. */
-.seletor-periodo {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1);
-  margin: 0 0 10px;
-}
-
-.seletor-periodo a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 4px 16px;
   color: var(--text-muted);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: var(--fs-base);
-  text-decoration: none;
-}
-
-.seletor-periodo a:hover {
-  color: var(--accent-bright);
-  border-color: var(--accent);
-  text-decoration: none;
-}
-
-.seletor-periodo a[aria-current="true"] {
-  color: var(--bg);
-  background: var(--accent-bright);
-  border-color: var(--accent-bright);
-  font-weight: 600;
+  font-size: var(--fs-md);
+  line-height: 1;
 }
 
 .ajuda-nota {
-  margin: 0 0 10px;
-  color: var(--text);
-  font-size: var(--fs-base);
+  margin: 0 0 var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
 }
 
-.selo-risco {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 7px;
-  border: 1px solid currentColor;
-  border-radius: 12px;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  white-space: nowrap;
+/* Link dentro de frase explicativa: sublinhado, não só cor. */
+.ajuda-nota a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── Abas de categoria ───────────────────────────────── */
+
+.abas-categoria {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 var(--sp-3);
 }
 
-/* Confiança do dado (signals.data_quality, 2026-11-04) -- mesmo formato
-   de pílula do .selo-risco, mas em --text-muted: não é alerta de perigo
-   como risco, é só "o dado por trás é fino, leia com reserva". Cor
-   neutra de propósito, pra não competir visualmente com o selo de
-   risco (vermelho/âmbar) quando os dois aparecem juntos. */
-.selo-confianca-baixa {
+.aba-categoria {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 6px;
-  padding: 2px 7px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
   color: var(--text-muted);
-  font-size: var(--fs-xs);
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  text-decoration: none;
   white-space: nowrap;
-  cursor: help;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.selo-confianca-baixa .icone-ui {
-  width: 0.9em;
-  height: 0.9em;
+.aba-categoria .icone-ui { width: 15px; height: 15px; }
+
+.aba-categoria:hover {
+  background: var(--surface-strong);
+  color: var(--text-bright);
+  text-decoration: none;
 }
 
-.menu-acoes-item-toggle .icone-ui { width: 20px; height: 20px; }
-
-.tabela-wrap {
-  overflow-x: auto;
+.aba-categoria[aria-current="page"] {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-bright);
+  font-weight: 600;
 }
+
+.aba-contagem {
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.aba-categoria[aria-current="page"] .aba-contagem { color: var(--text); }
+
+/* ── Seletor Vitrine/Lista e ordenação ───────────────── */
+
+.barra-visao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0 0 var(--sp-3);
+}
+
+.seletor-visao {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.seletor-visao a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.seletor-visao a .icone-ui { width: 15px; height: 15px; }
+
+.seletor-visao a:hover {
+  background: var(--surface-strong);
+  color: var(--text-bright);
+  text-decoration: none;
+}
+
+.seletor-visao a[aria-current="page"] {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+.ordenar-vitrine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-sm);
+}
+
+.ordenar-vitrine-rotulo { color: var(--text-muted); }
+
+.ordenar-vitrine a {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.ordenar-vitrine a:hover {
+  background: var(--surface-hover);
+  color: var(--text-bright);
+  text-decoration: none;
+}
+
+.ordenar-vitrine a[aria-current="page"] {
+  background: var(--surface-hover);
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+/* ── Tabela principal ────────────────────────────────── */
+
+.tabela-wrap { overflow-x: auto; }
 
 table.tabela-candidatos {
   width: 100%;
   min-width: 640px;
-  border-collapse: collapse;
-  background: var(--bg-elevated);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
 }
 
-/* Abaixo disso a tabela rola dentro do .tabela-wrap (tablet). Com 860px
-   a coluna Nota (10%) ficava com 86px: "Nota (0–100) ▼" invadia a
-   coluna vizinha e o preço quebrava em "R$" / "715,89". */
-table.tabela-itens {
-  min-width: 1040px;
-}
+/* Abaixo disso a tabela rola dentro do .tabela-wrap. */
+table.tabela-itens { min-width: 1040px; }
 
 table.tabela-candidatos th,
 table.tabela-candidatos td {
-  padding: 16px;
-  text-align: left;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   font-size: var(--fs-md);
+  text-align: left;
 }
 
 table.tabela-candidatos th {
+  background: var(--surface-sunken);
   color: var(--text-muted);
-  font-weight: 600;
-  text-transform: uppercase;
   font-size: var(--fs-2xs);
-  letter-spacing: 0.05em;
-  background: var(--bg);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
+
+table.tabela-candidatos tbody tr:last-child td { border-bottom: 0; }
+
+table.tabela-candidatos tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+table.tabela-candidatos tbody tr:hover { background: var(--surface-hover); }
 
 @media (min-width: 1024px) {
   .pagina-inicial .tabela-wrap,
-  .pagina-inicial table.tabela-candidatos {
-    overflow: visible;
-  }
+  .pagina-inicial table.tabela-candidatos { overflow: visible; }
 
   table.tabela-itens thead.cabecalho-fixo th {
     position: sticky;
-    /* Cola logo abaixo do header.topo (também sticky). Era 108px fixo
-       com o header em ~62px: as linhas apareciam rolando na faixa entre
-       os dois e o cabeçalho parecia "andar" (2026-10-30). A altura real
-       vem do app.js; o fallback é a altura do header numa linha só. */
-    top: var(--altura-topo, 62px);
+    top: var(--altura-topo);
     z-index: 20;
     box-shadow: 0 1px 0 var(--border);
   }
-
-  table.tabela-itens thead th:first-child { border-top-left-radius: var(--radius-sm); }
-  table.tabela-itens thead th:last-child { border-top-right-radius: var(--radius-sm); }
 }
 
-table.tabela-candidatos tbody tr:last-child td {
-  border-bottom: none;
-}
-
-table.tabela-candidatos tbody tr {
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-table.tabela-candidatos tbody tr:hover {
-  background: var(--surface);
-  /* Mesma técnica de .linha-destaque (inset, não desloca layout) --
-     achado 2026-11-02: hover só com cor de fundo ficava chapado,
-     sem a sensação de "profundidade" que referências de marketplace
-     (CSGOEmpire) têm. */
-  box-shadow: inset 2px 0 0 var(--accent-bright);
-}
-
-/* Entrada escalonada das linhas da tabela (fade + deslize em cascata),
-   respeitando prefers-reduced-motion -- o rule global já zera a duração.
-   `backwards` (não `both`) de propósito: se a animação não rodar, a linha
-   nunca fica presa em opacity:0. */
+/* Entrada discreta das linhas. */
 @keyframes linha-entra {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: none; }
 }
+
 table.tabela-itens tbody tr {
-  animation: linha-entra 0.35s ease backwards;
+  animation: linha-entra 0.3s ease backwards;
 }
+
 table.tabela-itens tbody tr:nth-child(1) { animation-delay: 0.02s; }
-table.tabela-itens tbody tr:nth-child(2) { animation-delay: 0.05s; }
-table.tabela-itens tbody tr:nth-child(3) { animation-delay: 0.08s; }
-table.tabela-itens tbody tr:nth-child(4) { animation-delay: 0.11s; }
-table.tabela-itens tbody tr:nth-child(5) { animation-delay: 0.14s; }
-table.tabela-itens tbody tr:nth-child(6) { animation-delay: 0.17s; }
-table.tabela-itens tbody tr:nth-child(7) { animation-delay: 0.2s; }
-table.tabela-itens tbody tr:nth-child(8) { animation-delay: 0.23s; }
-table.tabela-itens tbody tr:nth-child(9) { animation-delay: 0.26s; }
-table.tabela-itens tbody tr:nth-child(10) { animation-delay: 0.29s; }
+table.tabela-itens tbody tr:nth-child(2) { animation-delay: 0.04s; }
+table.tabela-itens tbody tr:nth-child(3) { animation-delay: 0.06s; }
+table.tabela-itens tbody tr:nth-child(4) { animation-delay: 0.08s; }
+table.tabela-itens tbody tr:nth-child(5) { animation-delay: 0.1s; }
+table.tabela-itens tbody tr:nth-child(6) { animation-delay: 0.12s; }
+table.tabela-itens tbody tr:nth-child(7) { animation-delay: 0.14s; }
+table.tabela-itens tbody tr:nth-child(8) { animation-delay: 0.16s; }
+table.tabela-itens tbody tr:nth-child(9) { animation-delay: 0.18s; }
+table.tabela-itens tbody tr:nth-child(10) { animation-delay: 0.2s; }
 
-/* Larguras travadas (table-layout: fixed) só na tabela principal de
-   itens -- achado 2026-10-26: sem isso, o navegador redistribui as
-   colunas de forma instável sempre que a largura disponível aperta
-   (barra lateral de extensão, por exemplo), espremendo "Por quê" a
-   ponto de quebrar caractere por caractere. Não aplica em
-   .tabela-candidatos puro, que `status.html`/`ranking.html` reusam
-   com outro número de colunas. */
-table.tabela-itens {
-  table-layout: fixed;
-}
+/* Larguras travadas no <colgroup>, nunca em style="" inline. */
+table.tabela-itens { table-layout: fixed; }
 
-/* Largura por <colgroup> (ver colgroup_itens() em index.html), não
-   th:nth-child/td:nth-child -- achado 2026-10-26: as duas regras
-   davam resultado DIFERENTE pro cabeçalho e pro corpo da mesma coluna
-   (td ficava bem mais estreito que o th correspondente) quando a
-   célula do corpo tinha filhos flex com largura intrínseca -- o
-   <colgroup> é a única fonte de verdade, sem essa ambiguidade.
-
-   As larguras ficam em CLASSE, nunca em `style="width: ..."` no <col>
-   -- achado ao vivo em 2026-10-27: o CSP do site (`style-src 'self'`,
-   sem 'unsafe-inline') bloqueia TODO atributo style="" inline, incluindo
-   os do <col>. O navegador descartava a largura em silêncio (sem erro
-   visível pro usuário, só um aviso no console) e table-layout:fixed sem
-   nenhuma largura declarada caía pra distribuição ~igual entre colunas
-   -- o nome do item (coluna mais importante) ficava espremido a ponto
-   de truncar pra "P…" com qualquer nome um pouco mais longo. */
-.col-item { width: 28%; }
-.col-preco { width: 10%; }
-.col-historico { width: 12%; }
-/* 10%: com o cabeçalho no tamanho dos outros, "Nota (0–100) ▼" não
-   cabia em 8% e o ▼ da ordenação era cortado. */
+.col-item { width: 30%; }
+.col-preco { width: 11%; }
+.col-historico { width: 13%; }
 .col-nota { width: 10%; }
 .col-caixa { width: 15%; }
-.col-porque { width: 25%; }
+.col-porque { width: 21%; }
 
 table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
-/* "Preço" alinhava à esquerda no cabeçalho mas os valores (td.celula-preco)
-   são alinhados à direita -- cabeçalho e dado desencontrados na mesma
-   coluna. */
 table.tabela-itens th.cabecalho-preco { text-align: right; }
-/* "Histórico (20)" quebrava em duas linhas (coluna mais estreita que
-   as outras) enquanto os outros cabeçalhos ficam numa linha só; "20
-   scans" virou "(20)" porque o title= do <th> já explica o resto. */
 table.tabela-itens th.celula-sparkline { white-space: nowrap; }
-
-/* SEM `display: block` aqui -- achado 2026-10-31, relatado ao vivo: com
-   isso a célula perdia o comportamento normal de <td> (table-cell) e o
-   `vertical-align: middle` (default do navegador, que as outras
-   células da linha já usam) deixava de valer. Numa linha esticada pela
-   célula "Por quê" aberta, o conteúdo ficava colado no topo e sobrava
-   um espaço vazio enorme embaixo, em vez de centralizar como as
-   colunas vizinhas (Preço, Nota, Caixa/Cápsula). */
 
 .celula-item-principal {
   display: flex;
   align-items: flex-start;
-  gap: var(--sp-4);
+  gap: var(--sp-3);
   min-width: 0;
 }
 
 .celula-item-principal .link-item {
   display: block;
-  line-height: 1.35;
   min-width: 0;
-  overflow-wrap: anywhere;
+  color: var(--text-bright);
   font-size: var(--fs-md);
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-decoration: none;
 }
 
-/* Rodada 2: a Lista é o modo denso (a Vitrine já mostra a imagem em
-   tamanho grande). 88px → 56px deixa mais linhas visíveis por tela e
-   devolve largura pras colunas de dado. Vale só dentro da tabela de
-   itens -- ranking/comparar já usam a variante compacta de 40px. */
+.celula-item-principal .link-item:hover {
+  color: var(--accent-bright);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .tabela-itens .icone-item-quadro {
-  flex: 0 0 56px;
-  width: 56px;
-  height: 56px;
-  --corte-icone: var(--corte-icone-sm);
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
 }
 
-/* Mesma ideia de .celula-item-principal, com o quadro de ícone
-   compacto (40px) -- a linha do Ranking (Top 20 inteiro) não tem
-   espaço vertical de sobra pro quadro de 88px da home. */
 .celula-item-ranking {
   display: flex;
   align-items: center;
@@ -1179,124 +1339,74 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
 .celula-item-acoes {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
-  gap: var(--sp-1) var(--sp-1);
-  margin-top: 8px;
+  align-items: center;
+  gap: 2px;
+  margin-top: 6px;
 }
 
-.icone-item-quadro[hidden] { display: none; }
+/* ── Moldura do ícone do item ────────────────────────── */
 
 .icone-item-quadro {
   position: relative;
   display: grid;
   place-items: center;
-  /* 88px: pedido pra dar mais peso visual ao ícone, tipo marketplace
-     (CSGOEmpire como referência, achado 2026-11-01). A imagem servida
-     (proxy local, 192x192) tem resolução de sobra. */
-  flex: 0 0 88px;
-  width: 88px;
-  height: 88px;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
   overflow: hidden;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  background: var(--bg);
-  /* Corte de canto -- ver --corte-icone no :root. border-radius continua
-     declarado acima pro raro navegador sem suporte a clip-path (Safari
-     e Chrome/Firefox atuais suportam; degrada pra cantos arredondados,
-     não quadrados). */
-  clip-path: polygon(
-    0 0, calc(100% - var(--corte-icone)) 0, 100% var(--corte-icone),
-    100% 100%, var(--corte-icone) 100%, 0 calc(100% - var(--corte-icone)));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
 }
 
+/* A raridade vira fio fino na borda -- sem brilho por trás. */
+.icone-item-quadro.raridade-consumer { border-color: rgba(176, 195, 217, 0.6); }
+.icone-item-quadro.raridade-industrial { border-color: rgba(94, 152, 217, 0.6); }
+.icone-item-quadro.raridade-milspec { border-color: rgba(75, 105, 255, 0.65); }
+.icone-item-quadro.raridade-restricted { border-color: rgba(136, 71, 255, 0.65); }
+.icone-item-quadro.raridade-classified { border-color: rgba(211, 44, 230, 0.65); }
+.icone-item-quadro.raridade-covert { border-color: rgba(235, 75, 75, 0.65); }
+.icone-item-quadro.raridade-dourado { border-color: rgba(228, 174, 57, 0.7); }
+
 .icone-item-quadro-com-imagem {
-  border: 0;
+  border-color: var(--border);
   background: transparent;
 }
 
-.icone-item-quadro-com-imagem .icone-item-placeholder {
-  display: none;
-}
+.icone-item-quadro-com-imagem .icone-item-placeholder { display: none; }
 
-/* Cor de raridade da skin (linguagem nativa do CS2) -- borda colorida no
-   quadro do ícone, mapeada a partir de `name_color`/`rarity_id` (ver
-   _raridade_classe em server.py). A imagem usa inset:0, então fica dentro
-   da borda; o quadro continua com o mesmo tamanho de sempre.
-   Brilho de fundo (gradiente radial, cor por trás da imagem) acrescentado
-   2026-11-08 -- referência: os cards de jogador da FACEIT (fundo colorido
-   vivo atrás do avatar, não só um contorno). A maioria dos ícones de
-   skin da Steam tem fundo transparente, então o brilho aparece ao redor
-   do desenho em vez de cobri-lo. Especificidade (.icone-item-quadro
-   .raridade-X, 2 classes) já vence .icone-item-quadro-com-imagem (1
-   classe, zera pra transparent) nas duas ordens possíveis no HTML. */
-.icone-item-quadro.raridade-consumer {
-  border: 2px solid #b0c3d9;
-  background: radial-gradient(circle, rgba(176, 195, 217, 0.3), transparent 70%);
-}
-.icone-item-quadro.raridade-industrial {
-  border: 2px solid #5e98d9;
-  background: radial-gradient(circle, rgba(94, 152, 217, 0.3), transparent 70%);
-}
-.icone-item-quadro.raridade-milspec {
-  border: 2px solid #4b69ff;
-  background: radial-gradient(circle, rgba(75, 105, 255, 0.3), transparent 70%);
-}
-.icone-item-quadro.raridade-restricted {
-  border: 2px solid #8847ff;
-  background: radial-gradient(circle, rgba(136, 71, 255, 0.3), transparent 70%);
-}
-.icone-item-quadro.raridade-classified {
-  border: 2px solid #d32ce6;
-  background: radial-gradient(circle, rgba(211, 44, 230, 0.3), transparent 70%);
-}
-.icone-item-quadro.raridade-covert {
-  border: 2px solid #eb4b4b;
-  background: radial-gradient(circle, rgba(235, 75, 75, 0.3), transparent 70%);
-}
-.icone-item-quadro.raridade-dourado {
-  border: 2px solid #e4ae39;
-  background: radial-gradient(circle, rgba(228, 174, 57, 0.35), transparent 70%);
-}
-
-/* Variante compacta (40px) do mesmo quadro -- Ranking e Comparar são
-   tabelas mais densas que a home (Top 20 inteiro / até 3 colunas lado a
-   lado), 88px ali deixaria a linha/coluna alta demais. Reusa a mesma
-   classe-base (raridade, fundo, hover) só reduzindo o tamanho. */
 .icone-item-quadro-compacto {
   flex: 0 0 40px;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-sm);
-  /* Corte menor -- o valor de 88px (--corte-icone) cortaria 25% da
-     aresta num quadro de 40px, agressivo demais. */
-  --corte-icone: var(--corte-icone-sm);
+  border-radius: var(--radius-xs);
 }
 
-.icone-item-quadro-compacto .icone-item-placeholder::before {
-  font-size: 1.3rem;
-}
+.icone-item-quadro-compacto .icone-item-placeholder::before { font-size: 1.3rem; }
 
 .icone-item-placeholder {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, var(--bg-elevated), var(--bg));
+  display: grid;
+  place-items: center;
+  background: var(--surface-sunken);
 }
 
 .icone-item-placeholder::before {
   content: "◇";
-  color: var(--text-muted);
-  font-size: 2.6rem;
+  color: var(--border-strong);
+  font-size: 1.6rem;
 }
 
 .icone-item {
   width: 40px;
   height: 40px;
-  object-fit: contain;
-  background: transparent;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  background: transparent;
   flex-shrink: 0;
+  object-fit: contain;
 }
 
 .celula-item .icone-item,
@@ -1311,21 +1421,16 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   transition: transform 0.2s ease;
 }
 
-/* Zoom sutil no hover do ícone do item -- a imagem (192px de origem,
-   servida em 88px) tem resolução de sobra pro close-up. */
-.icone-item-quadro:hover .icone-item {
-  transform: scale(1.06);
-}
+.icone-item-quadro:hover .icone-item { transform: scale(1.05); }
 
-.icone-item[hidden],
-.icone-item-indisponivel {
-  display: none;
-}
+.icone-item-indisponivel { display: none; }
+
+/* ── Ações da linha ──────────────────────────────────── */
 
 .link-item {
   color: var(--text-bright);
-  text-decoration: none;
   font-weight: 500;
+  text-decoration: none;
 }
 
 .link-item:hover {
@@ -1335,16 +1440,16 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
 .botao-copiar {
   display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: var(--fs-base);
-  padding: 2px 4px;
-  border-radius: var(--radius-md);
   flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  cursor: pointer;
 }
 
 .botao-copiar .icone-ui { width: 16px; height: 16px; }
@@ -1354,35 +1459,29 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .botao-copiar.copiado { color: var(--positive); }
 
 .lista-acoes-item .botao-copiar {
-  font: inherit;
-  padding: 7px 10px;
-  text-align: left;
   width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  text-align: left;
 }
 
 .botao-copiar:hover {
   background: var(--surface-hover);
-  color: var(--accent-bright);
+  color: var(--text-bright);
 }
 
-.menu-acoes-item {
-  position: relative;
-}
-
+.menu-acoes-item { position: relative; }
 .menu-acoes-item[open] { z-index: 25; }
 
 .menu-acoes-item-toggle {
   display: flex;
+  min-width: 44px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: var(--sp-1);
-  /* 44px: alvo de toque mínimo recomendado (WCAG 2.5.5) -- 28px media
-     em produção ficava pequeno demais no celular (achado 2026-11-01).
-     O "⋯" em si não muda de tamanho, só a área clicável ao redor. */
-  min-width: 44px;
-  min-height: 44px;
   padding: 2px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
   cursor: pointer;
   font-size: var(--fs-xs);
@@ -1391,52 +1490,59 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 }
 
 .menu-acoes-item-toggle::-webkit-details-marker { display: none; }
-.menu-acoes-item-toggle:hover { background: var(--surface-hover); color: var(--text-bright); }
+
+.menu-acoes-item-toggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-bright);
+}
+
+.menu-acoes-item-toggle .icone-ui { width: 20px; height: 20px; }
 
 .lista-acoes-item {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   z-index: 25;
-  min-width: 190px;
+  min-width: 200px;
   margin: 0;
   padding: 5px;
-  list-style: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-md);
+  list-style: none;
 }
 
 .lista-acoes-item a {
   display: block;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
   color: var(--text-muted);
   font-size: var(--fs-base);
   text-decoration: none;
 }
 
-.lista-acoes-item a:hover { background: var(--surface-hover); color: var(--text-bright); }
+.lista-acoes-item a:hover {
+  background: var(--surface-hover);
+  color: var(--text-bright);
+  text-decoration: none;
+}
 
-/* Popover "Cores da borda" perto da tabela (item #4 da lista de
-   melhorias) -- a borda de raridade só tinha explicação no `title`
-   (hover, não funciona no celular). Mesmo padrão de <details> do menu
-   "⋯ Mais ações" acima: sem JS pra abrir/fechar, só o fechar-fora/Esc
-   genérico (ver app.js). */
+/* ── Popover de raridade ─────────────────────────────── */
+
 .popover-legenda {
   position: relative;
-  margin: 0 0 10px;
+  margin: 0 0 var(--sp-3);
 }
 
 .popover-legenda-toggle {
   display: inline-flex;
+  min-height: 40px;
   align-items: center;
-  gap: var(--sp-1);
-  min-height: 44px;
-  padding: 2px 10px;
+  gap: 6px;
+  padding: 4px 10px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
   cursor: pointer;
   font-size: var(--fs-sm);
@@ -1444,25 +1550,34 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 }
 
 .popover-legenda-toggle::-webkit-details-marker { display: none; }
-.popover-legenda-toggle:hover { background: var(--surface-hover); color: var(--text-bright); }
-.popover-legenda[open] .popover-legenda-toggle { color: var(--accent-bright); border-color: var(--accent); }
+
+.popover-legenda-toggle:hover {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text-bright);
+}
+
+.popover-legenda[open] .popover-legenda-toggle {
+  border-color: var(--border-strong);
+  color: var(--text-bright);
+}
 
 .popover-legenda-conteudo {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   z-index: 25;
-  width: 280px;
+  width: 290px;
   max-width: calc(100vw - 32px);
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-md);
 }
 
 .popover-legenda-titulo {
-  margin: 0 0 8px;
+  margin: 0 0 var(--sp-2);
   color: var(--text-bright);
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -1485,9 +1600,9 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   font-size: var(--fs-sm);
 }
 
-.popover-legenda-lista .icone-item-quadro {
-  flex-shrink: 0;
-}
+.popover-legenda-lista .icone-item-quadro { flex-shrink: 0; }
+
+/* ── "Por quê" na linha ──────────────────────────────── */
 
 .botao-nota-toggle.tem-nota { color: var(--accent-bright); }
 
@@ -1498,84 +1613,58 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
 .detalhe-motivo summary::-webkit-details-marker { display: none; }
 
-/* O resumo mostra um motivo e fica limitado a duas linhas; o link
-   "ver mais" sinaliza que a explicação completa pode ser aberta. */
-@media (min-width: 641px) {
-  main.pagina-inicial {
-    max-width: 1440px;
-  }
-}
-
 .detalhe-motivo:not([open]) .texto-motivo {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
-
-/* Guarda por convenção (gotcha #16) -- na prática o teste de varredura
-   confunde `aria-hidden="true"` com o atributo `hidden`, mas a regra é
-   inofensiva e deixa o CSS consistente com as demais classes. */
-.dica-expandir[hidden] { display: none; }
 
 .dica-expandir {
   display: block;
   margin-top: 2px;
+  color: var(--accent-bright);
   font-size: var(--fs-2xs);
   font-weight: 600;
-  color: var(--accent-bright);
 }
 
 .detalhe-motivo[open] .dica-expandir { display: none; }
 
-/* "recolher" fica depois da lista (ver comentário no index.html) --
-   precisava de um botão clicável próprio, por isso o reset de botão
-   igual ao .botao-copiar. Achado 2026-11-01, relatado ao vivo: com a
-   dica só dentro do <summary>, "recolher" aparecia logo abaixo do
-   resumo, ANTES da lista -- posição diferente de onde "ver mais"
-   fica (sempre a última coisa visível, já que não tem lista embaixo
-   quando fechado). Fora do <summary>, só fecha via JS (ver app.js) --
-   sem JS fica escondido, e clicar no resumo (sempre funciona, nativo)
-   continua recolhendo normalmente. */
 .botao-recolher-motivo { display: none; }
 
 .js-ativo .botao-recolher-motivo {
   display: block;
-  /* Padding (em vez de só margin) alarga a área clicável sem mudar o
-     tamanho do texto -- 55x17px medido em produção ficava abaixo do
-     alvo de toque mínimo recomendado, WCAG 2.5.5 (achado 2026-11-01).
-     Margin negativo compensa o padding horizontal, mantendo o texto
-     alinhado com a lista acima. */
   margin: 2px -4px -4px;
   padding: 10px 4px 4px;
+  border: 0;
   background: none;
-  border: none;
+  color: var(--accent-bright);
   font: inherit;
   font-size: var(--fs-2xs);
   font-weight: 600;
-  color: var(--accent-bright);
   cursor: pointer;
 }
 
 .lista-breakdown {
   margin: 6px 0 0;
   padding-left: 18px;
-  font-size: var(--fs-sm);
   color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
 .lista-breakdown .delta-positivo { color: var(--positive); }
 .lista-breakdown .delta-negativo { color: var(--danger); }
 
-/* ── Tendência / ranking ──────────────────────────────── */
+/* ── Tendência e selos ───────────────────────────────── */
+
 .tendencia-alta { color: var(--positive); font-weight: 600; }
 .tendencia-baixa { color: var(--danger); font-weight: 600; }
 
 .selo-novo {
-  color: var(--accent-bright);
-  border: 1px solid var(--accent);
-  border-radius: 10px;
   padding: 2px 9px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  color: var(--accent-bright);
   font-size: var(--fs-xs);
   font-weight: 600;
 }
@@ -1588,140 +1677,91 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 }
 
 table.tabela-candidatos td.celula-preco {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  /* "R$ 8.023,95" quebrava entre o símbolo e o número. */
-  white-space: nowrap;
-  /* Preço um pouco maior/mais claro que as colunas secundárias (Caixa/
-     Cápsula), mas sem negrito -- pedido do usuário em 2026-11-02 depois
-     de achar o negrito (achado 2026-11-02 anterior) pesado demais. */
-  font-size: var(--fs-lg);
   color: var(--text-bright);
-}
-
-.celula-preco .icone-tendencia {
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
   text-align: right;
+  white-space: nowrap;
 }
 
-/* Selo preenchido só aqui (sinal de MERCADO, ao lado do preço) --
-   achado 2026-11-01, pedido de deixar o layout mais rico tipo
-   CSGOEmpire. NÃO estende pra .tendencia-alta/.tendencia-baixa em si
-   (ranking, comparar) nem usa borda: .selo-mudou-nota (seu vizinho, "O
-   que mudou desde sua última visita") já é uma pílula com BORDA de
-   propósito, pra não parecer o mesmo selo com dois significados
-   diferentes (achado 2026-10-27, comentário acima). Preenchido sem
-   borda mantém os dois visualmente diferentes. */
+.celula-preco .icone-tendencia { text-align: right; }
+
+/* Selo de mercado ao lado do preço -- preenchido, sem borda, pra não
+   parecer o selo pessoal de "mudou desde sua última visita". */
 .celula-preco .icone-tendencia.tendencia-alta,
 .celula-preco .icone-tendencia.tendencia-baixa {
   width: fit-content;
   margin-left: auto;
   padding: 1px 7px;
-  border-radius: 8px;
+  border-radius: var(--radius-xs);
 }
-.celula-preco .icone-tendencia.tendencia-alta { background: rgba(164, 208, 7, 0.15); }
+
+.celula-preco .icone-tendencia.tendencia-alta { background: rgba(26, 127, 55, 0.1); }
 .celula-preco .icone-tendencia.tendencia-baixa {
-  background: rgba(240, 85, 112, 0.15);
-  color: var(--danger-bright);
+  background: rgba(215, 0, 21, 0.08);
+  color: var(--danger);
 }
 
-/* ── Links secundários (SteamDB) ──────────────────────── */
-.link-secundario {
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  text-decoration: none;
-  margin-left: 4px;
-}
-
-.link-secundario:hover { color: var(--accent-bright); }
-
-/* Escondido por padrão -- revelado só ao clicar em .botao-nota-toggle
-   ou quando já existe uma nota salva (app.js). Regra [hidden] precisa
-   vir antes da de display, senão a classe (mesma especificidade) vence
-   e o campo nasce visível mesmo com o atributo (gotcha #16). */
-.input-tag-local[hidden] { display: none; }
-
-.input-tag-local {
-  display: block;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 2px 6px;
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  width: 100%;
-  margin-top: 4px;
-}
-
-.input-tag-local:focus {
-  color: var(--text);
-  border-color: var(--accent);
-}
-
-/* Herda tamanho/caixa do <th>: com valores próprios, "Preço" e "Nota"
-   ficavam menores que os cabeçalhos sem link. Padding + margem negativa
-   alarga a área clicável sem mudar o texto visível nem o layout da
-   linha -- sem isso a altura real era só a do texto (~14px), abaixo do
-   mínimo de 24px que o WCAG 2.2 (2.5.8) pede pra alvo clicável (achado
-   da skill accessibility, 2026-11-05). */
-.link-ordenar {
+.selo-risco {
   display: inline-block;
-  padding: 7px 2px;
-  margin: -7px -2px;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.selo-confianca-baixa {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
   color: var(--text-muted);
-  text-decoration: none;
-  text-transform: inherit;
-  font-size: inherit;
-  letter-spacing: inherit;
-  font-weight: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: help;
 }
 
-.link-ordenar:hover { color: var(--accent-bright); }
-
-.linha-destaque {
-  background: linear-gradient(90deg, rgba(102, 192, 244, 0.1), transparent 60%);
-  box-shadow: inset 3px 0 0 var(--accent);
-}
+.selo-confianca-baixa .icone-ui { width: 0.9em; height: 0.9em; }
 
 .selo-descontinuada {
-  color: #bfd27d;
-  border: 1px solid rgba(164, 208, 7, 0.35);
-  border-radius: 10px;
-  padding: 2px 7px;
-  background: rgba(164, 208, 7, 0.08);
-  font-size: var(--fs-sm);
-  cursor: help;
-  /* Sem nowrap de propósito (2026-10-26): nome de caixa longo (ex.
-     "Operation Breakout Weapon Case") com nowrap numa coluna de
-     largura travada (table-layout: fixed) vazava visualmente por
-     cima da coluna seguinte. Clampado em 2 linhas (2026-10-27) em vez
-     de deixar crescer livre -- nome de 4+ palavras esticava a linha
-     inteira da tabela; nome completo continua no title= (tooltip). */
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  padding: 2px 8px;
+  border: 1px solid rgba(26, 127, 55, 0.28);
+  border-radius: var(--radius-pill);
+  background: rgba(26, 127, 55, 0.06);
+  color: var(--positive);
+  font-size: var(--fs-xs);
+  cursor: help;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .texto-caixa {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-/* Nota virou um anel de progresso (0-100), não mais o selo preenchido --
-   o SVG (nota-anel) é gerado no servidor com stroke-dasharray proporcional
-   à nota; a cor continua vindo de nota-alta/media/baixa (currentColor). */
+/* ── Nota (anel) ─────────────────────────────────────── */
+
 .nota {
   position: relative;
   display: inline-grid;
-  place-items: center;
-  vertical-align: middle;
   width: 40px;
   height: 40px;
+  place-items: center;
   border-radius: 50%;
   line-height: 1;
-  transition: transform 0.15s ease;
+  vertical-align: middle;
 }
 
 .nota-anel {
@@ -1735,65 +1775,44 @@ table.tabela-candidatos td.celula-preco {
 .nota-anel-fundo {
   fill: none;
   stroke: var(--border);
-  stroke-width: 3.5;
+  stroke-width: 3;
 }
 
 .nota-anel-progresso {
   fill: none;
   stroke: currentColor;
-  stroke-width: 3.5;
   stroke-linecap: round;
+  stroke-width: 3;
 }
 
-/* Variante grande (72px) só pro card de destaque da página do item --
-   referência: o número de ELO gigante da FACEIT na tela de partida, bem
-   maior que o mesmo número numa lista. Aqui só faz sentido com UM item
-   em foco (a página do item); nas tabelas (home/ranking/comparar) e nos
-   cartões compactos (parecidos/watchlist/trades/portfólio), dezenas de
-   notas juntas continuam no tamanho padrão de sempre. */
+.nota-numero {
+  position: relative;
+  color: var(--text-bright);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .nota-grande {
   width: 72px;
   height: 72px;
 }
 
 .nota-grande .nota-anel-fundo,
-.nota-grande .nota-anel-progresso {
-  stroke-width: 3;
-}
+.nota-grande .nota-anel-progresso { stroke-width: 3; }
 
-.nota-grande .nota-numero {
-  font-size: var(--fs-display);
-}
+.nota-grande .nota-numero { font-size: var(--fs-xl); }
 
-.nota-numero {
-  position: relative;
-  font-weight: 700;
-  font-size: var(--fs-md);
-  color: var(--text-bright);
-  font-variant-numeric: tabular-nums;
-}
-
-table.tabela-candidatos tbody tr:hover .nota {
-  transform: scale(1.08);
-}
 .nota-alta { color: var(--positive); }
 .nota-media { color: var(--warn); }
 .nota-baixa { color: var(--text-muted); }
 
-/* No item.html o .nota divide o elemento com .card-valor (que chega
-   depois no arquivo e pinta o `color` de --text-bright) -- mesmo combo
-   de 2 classes já usado em .card-valor.risco-* pra a cor do anel não
-   ser sobrescrita pelo .card-valor. */
+/* O .card-valor pinta o texto de branco -- estes combos preservam a
+   cor do anel dentro da ficha do item. */
 .card-valor.nota-alta { color: var(--positive); }
 .card-valor.nota-media { color: var(--warn); }
 .card-valor.nota-baixa { color: var(--text-muted); }
 
-/* Margem além do teto 0-100 (investigação de pontuação, 2026-11-04) --
-   vários itens muito bons somam mais de 100 por dentro, o corte da
-   escala deixava todos exibindo "100" igual, sem diferença visível.
-   Mudo tom sozinho: vem logo depois do selo de nota, que já carrega a
-   cor (verde/âmbar/cinza); texto pequeno e discreto de propósito --
-   é contexto extra, não compete com a nota em si. */
 .nota-margem {
   margin-left: 4px;
   color: var(--text-muted);
@@ -1807,188 +1826,121 @@ table.tabela-candidatos tbody tr:hover .nota {
   min-width: 44px;
   min-height: 36px;
   align-items: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
 }
 
 .risco-low { color: var(--text-muted); }
 .risco-medium { color: var(--warn); }
 .risco-high { color: var(--danger); font-weight: 600; }
 
-/* achado 2026-10-31: no card "Risco" de item.html, .card-valor (uma
-   classe) e .risco-* (também uma classe) empatam em especificidade --
-   .card-valor vem depois no arquivo e ganha, então "Médio"/"Alto"
-   sempre saía branco, sem a cor do risco. Combo de 2 classes pra
-   ganhar de @.card-valor sem mudar risco-low/medium/high (usadas
-   sozinhas em index.html/comparar.html). */
 .card-valor.risco-low { color: var(--text-muted); }
 .card-valor.risco-medium { color: var(--warn); }
 .card-valor.risco-high { color: var(--danger); }
 
-/* Liquidez: só destaca o lado ruim (fino/ilíquida) -- muito líquida/
-   líquida/moderada são o caso comum/esperado, ficam na cor padrão
-   (mesmo critério já usado em risco-low). Mesmo combo de 2 classes
-   pelo motivo acima (.card-valor ganharia de uma classe .liquidez-*
-   sozinha). */
 .card-valor.liquidez-fino { color: var(--warn); }
 .card-valor.liquidez-iliquido { color: var(--danger); }
 
-/* Mesma banda de liquidez, mas em /comparar.html (sem .card-valor por
-   perto -- célula de tabela simples, igual .risco-low/medium/high já
-   usadas sozinhas ali). */
 .liquidez-fino { color: var(--warn); }
 .liquidez-iliquido { color: var(--danger); }
 
-footer.rodape {
-  max-width: 960px;
-  margin: 24px auto 0;
-  padding: 16px 24px 32px;
+.link-secundario {
+  margin-left: 4px;
   color: var(--text-muted);
-  font-size: var(--fs-sm);
-  border-top: 1px solid var(--border);
-}
-
-footer.rodape .versao {
-  margin-top: 8px;
-  text-align: center;
-}
-
-.status-vazio .botao-link {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  margin-top: 6px;
-}
-
-/* ── Filtros e paginação ─────────────────────────────── */
-.form-filtros {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--sp-3);
-  margin-bottom: 20px;
-  padding: 12px;
-  /* Rodada 2 da direção visual (2026-11-08): a barra de filtro passa a
-     ser uma superfície PREENCHIDA (sem contorno), com os campos dentro
-     rebaixados -- antes eram 3 contornos empilhados (barra + campo +
-     foco) que davam o aspecto de formulário de sistema. */
-  background: var(--bg-elevated);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
-}
-
-.form-filtros label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
   font-size: var(--fs-xs);
-  color: var(--text-muted);
+  text-decoration: none;
 }
 
-.form-filtros select,
-.form-filtros input {
+.link-secundario:hover { color: var(--accent-bright); }
+
+/* Campo de nota pessoal: escondido por padrão, revelado pelo app.js. */
+.input-tag-local {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
   background: var(--bg);
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  padding: 7px 10px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.input-tag-local:focus {
+  border-color: var(--accent);
   color: var(--text);
-  font-size: var(--fs-base);
-  text-overflow: ellipsis;
-  height: 34px;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  outline: none;
 }
 
-.form-filtros select:hover,
-.form-filtros input:hover {
-  border-color: var(--border);
+/* Cabeçalho ordenável: herda a caixa do <th> e alarga o alvo de
+   toque sem mexer no layout. */
+.link-ordenar {
+  display: inline-block;
+  padding: 7px 2px;
+  margin: -7px -2px;
+  color: var(--text-muted);
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+  text-transform: inherit;
 }
 
-.form-filtros input[type="number"] { width: 130px; }
+.link-ordenar:hover { color: var(--accent-bright); }
 
-.filtros-numericos {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sp-3);
+.linha-destaque {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.dica-rolagem-tabela {
-  display: none;
+.valor-positivo { color: var(--positive); }
+.valor-negativo { color: var(--danger); }
+
+.texto-sem-dado {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  opacity: 0.75;
 }
 
-/* Campo de busca sem largura nenhuma usava o default do navegador
-   (~170px) -- raso demais pro placeholder inteiro ("Ex.: AK-47 |
-   Redline (atalho: /)", 33 caracteres), que cortava no meio da palavra
-   sem reticências (achado com print do usuário, 2026-10-27). */
-.form-filtros input[type="text"]#campo-busca {
-  min-width: 220px;
-}
-
-.form-filtros button {
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-md);
-  padding: 8px 16px;
-  color: var(--bg);
-  cursor: pointer;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  height: 34px;
-  transition: filter 0.15s ease;
-  clip-path: polygon(
-    0 0, calc(100% - var(--corte-botao)) 0, 100% var(--corte-botao),
-    100% 100%, var(--corte-botao) 100%, 0 calc(100% - var(--corte-botao)));
-}
-
-.form-filtros button:hover { filter: brightness(1.1); }
-
-/* #botao-favoritos é <button class="botao-link"> DENTRO de
-   .form-filtros -- a regra acima (.form-filtros button) tem mais
-   especificidade que .botao-link sozinha e pintava o botão do mesmo
-   azul do "Filtrar" sem ninguém ter pedido isso (achado ao vivo com
-   print do usuário, 2026-10-27: só devia existir UM botão de destaque
-   por tela). Seletor por id pra garantir que ganha. */
-.form-filtros button#botao-favoritos {
-  background: var(--surface);
-  border-color: var(--border);
-  color: var(--text);
-  font-weight: 400;
-  height: auto;
-}
-
-/* Precisa bater a especificidade de ".form-filtros button#..." acima
-   (id + classe + tipo) pra o estado "ativo" (filtro de favoritos
-   ligado) continuar aparecendo em var(--warn) -- ver #botao-favoritos
-   .ativo mais abaixo no arquivo, que sozinho perderia pra regra nova. */
-.form-filtros button#botao-favoritos.ativo {
-  border-color: var(--warn);
+.selo-historico-curto {
+  display: block;
+  margin-top: 2px;
   color: var(--warn);
+  font-size: var(--fs-2xs);
+  cursor: help;
 }
 
-.form-filtros button#botao-favoritos:hover {
-  background: var(--surface-hover);
-  filter: none;
+/* ── Sparkline ───────────────────────────────────────── */
+
+.celula-sparkline { width: 130px; }
+
+.mini-sparkline {
+  display: block;
+  width: 110px;
+  height: 32px;
+  color: var(--accent);
 }
+
+.link-historico.sparkline-alta .mini-sparkline { color: var(--positive); }
+.link-historico.sparkline-baixa .mini-sparkline { color: var(--danger); }
+
+/* ── Paginação ───────────────────────────────────────── */
 
 .paginacao {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3);
-  margin-top: 16px;
+  margin-top: var(--sp-5);
 }
 
 .paginacao-principal {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
+  gap: var(--sp-3);
 }
 
-/* Números de página -- mesmo padrão visual de .seletor-periodo (pílulas
-   de link, página atual em destaque via [aria-current="page"]), numa
-   janela em volta da atual + extremos (ver server.py:_paginas_visiveis)
-   pra não virar uma fileira de 18 botões numa lista de 173+ itens. */
 .paginacao-numeros {
   display: flex;
   flex-wrap: wrap;
@@ -1999,217 +1951,127 @@ footer.rodape .versao {
 
 .paginacao-numero {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-width: 36px;
   min-height: 36px;
+  align-items: center;
+  justify-content: center;
   padding: 2px 8px;
-  color: var(--text-muted);
-  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text-muted);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
 
 .paginacao-numero:hover {
-  color: var(--accent-bright);
-  border-color: var(--accent);
+  border-color: var(--border-strong);
+  color: var(--text-bright);
   text-decoration: none;
 }
 
 .paginacao-numero[aria-current="page"] {
-  color: var(--bg);
-  background: var(--accent-bright);
-  border-color: var(--accent-bright);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-bright);
   font-weight: 600;
 }
 
 .paginacao-reticencias {
-  color: var(--text-muted);
   padding: 0 2px;
-}
-
-/* ── Conta ────────────────────────────────────────────── */
-.resumo-cards {
-  /* Flex em vez de grid -- achado 2026-10-31: com grid, uma última
-     linha incompleta (5 cards em 3 colunas, por ex.) deixava um vão
-     vazio à direita. Com flex-wrap, os cards da última linha crescem
-     e preenchem o espaço sozinhos. */
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-3);
-  margin-bottom: 20px;
-}
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-  flex: 1 1 180px;
-  /* --bg-elevated é usado em ~14 lugares no site (caixa de filtro,
-     cabeçalho de tabela, etc.) -- com ele aqui também, o card não se
-     diferenciava de nada ao redor, achava "plano" (achado 2026-11-03,
-     revisão de direção visual). --surface é a próxima camada real de
-     elevação já prevista na paleta, só não estava sendo usada aqui. */
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px 16px;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
-}
-
-.card:hover {
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  border-color: var(--accent);
-  transform: translateY(-2px);
-}
-
-/* Único card com destaque na fileira (revisão de direção visual
-   2026-11-08) -- .resumo-cards tinha N cards com a MESMA receita
-   visual (mesmo problema de .status-scan/.resumo-do-dia/.form-filtros
-   já resolvido em #85), sem diferenciar Nota (o dado central do site)
-   de Preço/Risco/Caixa/Liquidez. Reusa border-color: var(--accent) --
-   já é o que .card:hover faz pra dizer "isto importa", só que fixo em
-   vez de só no hover -- e o mesmo corte de canto do botão/moldura de
-   ícone (--corte-botao, não um valor novo). Escopo só a esta classe
-   (não a .card inteira): .resumo-cards também aparece em admin/conta/
-   conta_trades, páginas internas que não devem herdar a identidade
-   visual do produto público. */
-.card-nota-destaque {
-  border-color: var(--accent);
-  clip-path: polygon(
-    0 0, calc(100% - var(--corte-botao)) 0, 100% var(--corte-botao),
-    100% 100%, var(--corte-botao) 100%, 0 calc(100% - var(--corte-botao)));
-}
-
-.card-label {
   color: var(--text-muted);
-  font-size: var(--fs-xs);
 }
 
-.card-valor {
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  color: var(--text-bright);
-}
+.dica-rolagem-tabela { display: none; }
 
-/* O selo de Nota (.nota) dentro de um .card (item.html) herdava o
-   1.3rem do .card-valor por ordem de declaração -- ficava maior que o
-   mesmo selo em qualquer outro lugar do site (tabela, ranking), sem
-   decisão de design por trás disso. Volta pro tamanho padrão do selo. */
-.card-valor.nota {
-  /* O .card é coluna flex: sem isto o anel esticava na largura do card. */
-  align-self: flex-start;
-}
+/* ── Barra de comparar ───────────────────────────────── */
 
-/* Nome de caixa é texto, não número: no 1.3rem do .card-valor quebrava em
-   4 linhas e ficava maior que o preço do lado. */
-.card-valor.card-valor-texto {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-/* ── Vitrine: grade de cards da home (rodada 2 do visual) ─────
-   A Lista (tabela densa) continua existindo em ?ver=lista; aqui a
-   imagem é o produto, como nos marketplaces de skin (CSFloat,
-   Skinport): imagem grande com glow da raridade, preço e nota por
-   cima. Mesmos dados da tabela, organizados pra escanear visualmente. */
-.grade-cards {
-  list-style: none;
-  margin: 0 0 20px;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+.barra-comparar {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
   gap: var(--sp-3);
-  perspective: 1000px;
+  padding: 8px 10px 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-lg);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-size: var(--fs-sm);
+  transform: translateX(-50%);
+}
+
+/* ── Vitrine (grade de cards) ────────────────────────── */
+
+.grade-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-5);
+  padding: 0;
+  list-style: none;
 }
 
 .cartao-item {
   position: relative;
   display: flex;
-  flex-direction: column;
   min-width: 0;
-  background: var(--bg-elevated);
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  background: var(--surface);
   overflow: hidden;
-  isolation: isolate;
-  /* --rx/--ry/--s/--mx/--my vêm do tilt em app.js (só ponteiro fino,
-     sem reduced motion); sem JS ficam nos defaults e o card é estático. */
-  transform: perspective(700px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg)) scale(var(--s, 1));
-  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 0.25s ease, border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .cartao-item:hover,
 .cartao-item:focus-within {
-  border-color: var(--rar-cor, var(--accent));
-  box-shadow: 0 18px 36px -12px rgba(0, 0, 0, 0.65),
-              0 0 0 1px var(--rar-cor, var(--accent));
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
-/* Brilho que segue o mouse (posição via --mx/--my no app.js). */
-.cartao-item-brilho {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  opacity: 0;
-  background: radial-gradient(
-    circle at var(--mx, 50%) var(--my, 50%),
-    rgba(255, 255, 255, 0.16), transparent 45%);
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-}
-
-.cartao-item:hover .cartao-item-brilho,
-.cartao-item:focus-within .cartao-item-brilho { opacity: 1; }
+.cartao-item-brilho { display: none; }
 
 .cartao-item-imagem {
   position: relative;
-  aspect-ratio: 1 / 1;
   display: grid;
+  aspect-ratio: 1 / 1;
   place-items: center;
-  padding: 16px;
-}
-
-.cartao-item-imagem::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    circle, var(--rar-glow, rgba(176, 195, 217, 0.28)), transparent 72%);
-  z-index: -1;
-  pointer-events: none;
+  padding: var(--sp-4);
+  background: var(--surface-sunken);
 }
 
 .cartao-item-imagem-link {
   display: grid;
-  place-items: center;
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-sm);
+  place-items: center;
+  border-radius: var(--radius-xs);
 }
 
 .cartao-item-icon {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.14));
   transition: transform 0.25s ease;
 }
 
-.cartao-item:hover .cartao-item-icon { transform: translateY(-2px) scale(1.03); }
+.cartao-item:hover .cartao-item-icon { transform: scale(1.04); }
 
 .cartao-item-imagem .icone-item-placeholder {
   position: relative;
   inset: auto;
+  display: grid;
   width: 100%;
   height: 100%;
-  display: grid;
   place-items: center;
   background: transparent;
 }
@@ -2227,43 +2089,37 @@ footer.rodape .versao {
 
 .cartao-item-nota {
   display: grid;
-  place-items: center;
   min-width: 40px;
   height: 40px;
-  padding: 0 7px;
-  /* Fundo escuro fixo: o chip fica em cima da imagem, onde o glow da
-     raridade pode ser claro demais pra um texto colorido sem lastro. */
-  background: rgba(10, 12, 17, 0.82);
-  border: 2px solid currentColor;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-heading);
-  font-weight: 800;
+  place-items: center;
+  padding: 0 8px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   font-size: var(--fs-lg);
-  line-height: 1;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  clip-path: polygon(
-    0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+  line-height: 1;
 }
 
 .cartao-item-margem {
   padding: 1px 6px;
-  border-radius: 8px;
-  background: rgba(10, 12, 17, 0.82);
-  font-size: var(--fs-2xs);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   color: var(--text-muted);
+  font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
 }
 
-/* Checkbox de comparar sobre a imagem -- mesmo alvo de 44px da tabela,
-   só que flutuando no canto. Escondido até hover/foco no desktop; em
-   tela de toque aparece sempre. */
 .cartao-item-comparar-alvo {
   position: absolute;
   top: 4px;
   left: 4px;
   z-index: 2;
-  border-radius: var(--radius-sm);
-  background: rgba(10, 12, 17, 0.55);
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.88);
   opacity: 0;
   transition: opacity 0.15s ease;
 }
@@ -2278,34 +2134,34 @@ footer.rodape .versao {
 
 .cartao-item-corpo {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px 14px;
-  /* Fio na cor da raridade separa imagem e dados, como o cabeçalho dos
-     cards de marketplace. */
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
   border-top: 1px solid var(--rar-cor, var(--border));
 }
 
 .cartao-item-nome {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 2.7em;
   color: var(--text-bright);
   font-size: var(--fs-base);
   font-weight: 600;
   line-height: 1.35;
-  text-decoration: none;
   overflow-wrap: anywhere;
+  text-decoration: none;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.cartao-item-nome:hover { color: var(--accent-bright); text-decoration: underline; }
+.cartao-item-nome:hover {
+  color: var(--accent-bright);
+  text-decoration: none;
+}
 
 .detalhe-motivo-cartao { font-size: var(--fs-2xs); }
-
 .detalhe-motivo-cartao .texto-motivo { color: var(--text-muted); }
-
 .detalhe-motivo-cartao[open] .texto-motivo { -webkit-line-clamp: unset; }
 
 .cartao-item-rodape {
@@ -2318,13 +2174,13 @@ footer.rodape .versao {
 
 .cartao-item-preco {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 2px 6px;
   min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
   color: var(--text-bright);
   font-size: var(--fs-md);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2332,8 +2188,8 @@ footer.rodape .versao {
 
 .cartao-item-selos {
   display: flex;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
   gap: 4px 6px;
   font-size: var(--fs-2xs);
 }
@@ -2341,22 +2197,23 @@ footer.rodape .versao {
 .cartao-item-caixa {
   max-width: 100%;
   overflow: hidden;
+  color: var(--text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-muted);
 }
 
 .cartao-item-steam {
   margin-left: auto;
-  white-space: nowrap;
+  color: var(--text-muted);
   font-size: var(--fs-2xs);
+  white-space: nowrap;
 }
 
 .cartao-item-steam .icone-ui { width: 0.9em; height: 0.9em; }
 
 .cartao-item-nota-area .selo-mudou-nota {
   margin-left: 0;
-  background: rgba(10, 12, 17, 0.82);
+  background: var(--surface);
 }
 
 @media (max-width: 640px) {
@@ -2378,762 +2235,60 @@ footer.rodape .versao {
   .cartao-item-comparar-alvo { opacity: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .cartao-item { transform: none !important; transition: none; }
-  .cartao-item:hover .cartao-item-icon { transform: none; }
-  .cartao-item-brilho { display: none; }
-}
+/* ── Página do item ──────────────────────────────────── */
 
-.valor-positivo { color: var(--positive); }
-.valor-negativo { color: var(--danger); }
-
-/* Fileira de stats da página do item (rodada 2 do visual) -- os mesmos
-   .card, mas apresentados como colunas de uma ficha técnica: fios
-   separando, sem caixa própria em volta de cada dado. A Nota continua
-   sendo o único bloco com superfície e acento. Escopo
-   .resumo-cards-item de propósito: .resumo-cards/.card também são
-   usados em admin/conta/trades, que devem continuar com o card padrão. */
-.resumo-cards-item {
-  gap: 0;
-  align-items: stretch;
-  padding: 10px 4px;
-  margin-bottom: 22px;
-  background: var(--bg-elevated);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-sm);
-}
-
-.resumo-cards-item .card {
-  flex: 1 1 120px;
-  justify-content: center;
-  gap: 2px;
-  padding: 6px 18px;
-  background: transparent;
-  border: 0;
-  border-right: 1px solid var(--border);
-  border-radius: 0;
-  box-shadow: none;
-  transform: none;
-}
-
-.resumo-cards-item .card:last-child { border-right: 0; }
-
-.resumo-cards-item .card:hover {
-  border-color: var(--border);
-  box-shadow: none;
-  transform: none;
-}
-
-.resumo-cards-item .card-label {
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.resumo-cards-item .card-valor { font-size: var(--fs-xl); }
-
-/* Bloco da Nota: um degrau de superfície acima do resto e um pouco mais
-   alto que a fileira (margem negativa), eco do "nota" destacado do
-   artifact. Mantém o anel grande de 72px como elemento principal. */
-.resumo-cards-item .card-nota-destaque {
-  flex: 0 0 auto;
-  margin: -10px 0;
-  padding: 12px 26px;
-  background: var(--surface);
-  border-radius: var(--radius-sm);
-  clip-path: polygon(
-    0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-}
-
-@media (max-width: 640px) {
-  .resumo-cards-item {
-    flex-direction: column;
-    padding: 0;
-    gap: 0;
-  }
-
-  .resumo-cards-item .card {
-    flex: 1 1 auto;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-3);
-    padding: 10px 14px;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .resumo-cards-item .card:last-child { border-bottom: 0; }
-
-  .resumo-cards-item .card-valor.nota { align-self: center; }
-
-  .resumo-cards-item .card-nota-destaque {
-    margin: 0;
-    padding: 10px 14px;
-    border-radius: 0;
-    clip-path: none;
-  }
-}
-
-.secao-titulo {
-  font-family: var(--font-heading);
-  font-weight: 600;
-  font-size: var(--fs-xl);
-  margin: 28px 0 10px;
-  color: var(--text-bright);
-}
-
-/* Ícone ao lado do título da 404 (item #15 da lista de melhorias) --
-   único título de página no site sem nenhum ícone ou ilustração. */
-.titulo-404 .icone-ui {
-  width: 1em;
-  height: 1em;
-  margin-right: 4px;
-  color: var(--text-muted);
-  vertical-align: -0.15em;
-}
-
-/* Linha do tempo do /changelog -- cada entrada é uma data, não um
-   texto corrido qualquer, então um trilho vertical + ponto por entrada
-   deixa mais fácil escanear "quando" sem ler a data por extenso em
-   cada título. `padding-top: 1px` no wrapper evita o margin-top de
-   .secao-titulo "vazar" por colapso de margem pra fora da timeline
-   (sem isso o primeiro ponto ficava desalinhado do título). */
-.changelog-timeline {
-  position: relative;
-  padding: 1px 0 1px 22px;
-}
-
-.changelog-timeline::before {
-  content: "";
-  position: absolute;
-  left: 4px;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  background: var(--border);
-}
-
-.changelog-entrada {
-  position: relative;
-}
-
-.changelog-entrada::before {
-  content: "";
-  position: absolute;
-  left: -22px;
-  top: 38px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--bg);
-}
-
-.changelog-timeline .changelog-entrada:first-child .secao-titulo {
-  margin-top: 0;
-}
-
-.changelog-timeline .changelog-entrada:first-child::before {
-  top: 10px;
-}
-
-/* Título real da página (achado de SEO 2026-11-05): antes disto, o
-   único <h1> de cada página era a logo, idêntica em todo o site --
-   nenhuma página tinha um heading principal que descrevesse o próprio
-   conteúdo. Mesmo peso visual de `header.topo h1`, mas vive dentro de
-   `<main>`, antes do primeiro `.secao-titulo`. */
-.titulo-pagina {
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: var(--fs-display);
-  color: var(--text-bright);
-  margin: 0 0 18px;
-}
-
-.form-adicionar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  margin-bottom: 16px;
-}
-
-.form-adicionar input {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  color: var(--text);
-  font-size: var(--fs-base);
-}
-
-.form-adicionar input[name="name"] { flex: 1; min-width: 220px; }
-.input-webhook { flex: 1; min-width: 280px; }
-.form-adicionar input[name="cost"] { width: 140px; }
-.form-adicionar input[name="quantity"] { width: 80px; }
-
-.form-adicionar button {
-  background: var(--positive);
-  border: 1px solid var(--positive);
-  border-radius: var(--radius-md);
-  padding: 8px 16px;
-  color: #0f1a06;
-  cursor: pointer;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  transition: filter 0.15s ease, transform 0.1s ease;
-}
-
-.form-adicionar button:hover { filter: brightness(1.1); transform: translateY(-1px); }
-
-.botao-link {
-  display: inline-block;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 8px 14px;
-  color: var(--text);
-  cursor: pointer;
-  font-size: var(--fs-base);
-  text-decoration: none;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.botao-link:hover {
-  background: var(--surface-hover);
-  text-decoration: none;
-}
-
-.botao-remover { color: var(--danger); }
-.botao-remover:hover { background: var(--surface-hover); border-color: var(--danger); }
-
-.form-inline {
-  display: flex;
-  gap: var(--sp-1);
-  align-items: center;
-}
-
-.input-compacto {
-  width: 90px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 4px 6px;
-  color: var(--text);
-  font-size: var(--fs-base);
-}
-
-/* ── Watchlist ────────────────────────────────────────── */
-.badge-disparado {
-  color: var(--warn);
-  border: 1px solid var(--warn);
-  border-radius: 10px;
-  padding: 2px 9px;
-  font-size: var(--fs-xs);
-  cursor: help;
-}
-
-.status-muted {
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-}
-
-.linha-regras td {
-  border-bottom: 1px solid var(--border);
-  padding: 0 14px 10px;
-  background: var(--bg-elevated);
-}
-
-.linha-regras summary {
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-  padding: 6px 0;
-}
-
-.linha-regras summary:hover { color: var(--accent-bright); }
-
-.form-regras {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-3);
-  padding: 8px 0 4px;
-}
-
-.form-regras label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.form-regras input {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 6px 8px;
-  color: var(--text);
-  width: 160px;
-}
-
-.form-regras button {
-  align-self: flex-end;
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-md);
-  padding: 8px 14px;
-  color: var(--bg);
-  cursor: pointer;
-  font-weight: 600;
-  height: 34px;
-}
-
-.form-regras button:hover { background: var(--accent-bright); border-color: var(--accent-bright); }
-
-/* ── Histórico ────────────────────────────────────────── */
-.grafico-card {
-  padding: 16px;
-  margin-bottom: 20px;
-  /* Cor neutra por padrão (preço estável, ou só 1 ponto no recorte). */
-  color: var(--accent);
-}
-
-/* Verde/vermelho pela direção do PERÍODO EXIBIDO (primeiro vs. último
-   ponto do recorte atual) -- decisão revista 2026-11-07: a versão
-   anterior mantinha isto neutro de propósito (cor podia parecer um
-   "veredito" sobre o preço, já que subir ou cair pode ser bom ou ruim
-   dependendo de quem olha). Revertida pra consistência com o mini-
-   sparkline da listagem, que já ficou colorido assim desde 2026-11-06 --
-   um gráfico "opinava" com cor e o outro não. */
-.grafico-card.grafico-tendencia-alta { color: var(--positive); }
-.grafico-card.grafico-tendencia-baixa { color: var(--danger); }
-
-.grafico-historico {
-  display: block;
-  width: 100%;
-  height: 160px;
-}
-
-/* Alvo invisível de cada ponto do gráfico (item #8 da lista de
-   melhorias) -- o tooltip em si é o <title> nativo do SVG (ver
-   charts.line_chart_svg), não precisa de CSS pra aparecer; só o
-   cursor avisa que o ponto é "hoverável". */
-.grafico-ponto-interativo {
-  cursor: help;
-}
-
-.grafico-erros { color: var(--danger); }
-
-/* ── Excluir conta ────────────────────────────────────── */
-.link-excluir-conta {
-  margin-top: 28px;
-  font-size: var(--fs-sm);
-}
-
-.link-excluir-conta a {
-  color: var(--text-muted);
-}
-
-.link-excluir-conta a:hover {
-  color: var(--danger);
-}
-
-.card-aviso {
-  border-color: var(--danger);
-  max-width: 560px;
-}
-
-.card-aviso ul {
-  margin: 8px 0 16px;
-  padding-left: 20px;
-  color: var(--text-muted);
-}
-
-.card-aviso form {
-  margin: 16px 0 8px;
-}
-
-.botao-perigo {
-  background: var(--danger);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 10px 18px;
-  cursor: pointer;
-  font-size: var(--fs-base);
-  font-weight: 600;
-}
-
-.botao-perigo:hover {
-  filter: brightness(1.1);
-}
-
-/* ── Páginas de texto (privacidade, etc.) ───────────────── */
-/* Só pra prosa (parágrafo/lista/definição) -- /comparar usa <main> sem
-   esta classe de propósito: 640px é estreito demais pra uma tabela de
-   2-3 itens, que precisava da largura cheia de <main> (960px). Usar
-   esta classe ali espremia o nome do item até vazar visualmente pra
-   fora da tabela (achado 2026-11-01). */
-.pagina-texto {
-  max-width: 640px;
-  /* Sem isso o texto ficava grudado na borda esquerda do <main> (que
-     já é centralizado, 960px), com um vão vazio grande à direita em
-     telas largas -- achado 2026-11-01, visível em Sobre/FAQ/Método/
-     Glossário/Privacidade/Changelog/Status/API. */
-  margin: 0 auto;
-}
-
-.pagina-texto p,
-.pagina-texto li {
-  color: var(--text-muted);
-  line-height: 1.6;
-  margin: 0 0 14px;
-}
-
-.pagina-texto p,
-.pagina-texto li {
-  /* Justificado (pedido do usuário, 2026-11-06) -- hyphens: auto junto
-     porque texto justificado sem hifenização abre vão feio entre
-     palavras numa coluna estreita (640px). html lang="pt-BR" já
-     existe em todo template, então o navegador hifeniza certo.
-     Também cobre <li> (achado 2026-11-06): os itens de lista do
-     Método/FAQ são longos e quebram em várias linhas, igual um
-     parágrafo -- deixar só o <p> justificado ficava inconsistente
-     na mesma página. */
-  text-align: justify;
-  hyphens: auto;
-}
-
-.pagina-texto ul {
-  padding-left: 20px;
-}
-
-.pagina-texto dt {
-  color: var(--text-bright);
-  font-size: var(--fs-md);
-  margin-top: 18px;
-}
-
-.pagina-texto dd {
-  color: var(--text-muted);
-  line-height: 1.6;
-  margin: 4px 0 0;
-}
-
-.indice-glossario {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
-  margin: 0 0 24px;
-}
-
-.indice-glossario a {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  padding: 6px 12px;
-  color: var(--text);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: var(--fs-base);
-  text-decoration: none;
-}
-
-.indice-glossario a:hover {
-  color: var(--text-bright);
-  background: var(--surface-hover);
-}
-
-.indice-glossario a:focus-visible {
-  outline-offset: 2px;
-}
-
-/* Grid em vez da pilha vertical única do <dl> puro -- achado de auditoria
-   2026-11-04: em telas largas (>= 900px) o glossário inteiro rodava numa
-   coluna de 640px (herdada de .pagina-texto), com o resto da tela vazio
-   e muita rolagem pra 13 termos. Cada par dt/dd vive num <div> (ver
-   glossario.html) pra virar UM item de grid -- sem o wrapper, dt/dd soltos
-   não dá pra posicionar como par numa grade de 2 colunas. */
-.lista-glossario {
-  margin: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--sp-3);
-}
-
-@media (min-width: 900px) {
-  main.pagina-glossario { max-width: 880px; }
-  .lista-glossario { grid-template-columns: 1fr 1fr; }
-}
-
-.pagina-glossario dt {
-  margin: 0;
-  padding: 14px 16px 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-bottom: 0;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-  scroll-margin-top: 16px;
-}
-
-.pagina-glossario dt:target {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.pagina-glossario dd {
-  margin: 0;
-  padding: 4px 16px 14px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-top: 0;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-}
-
-.pagina-texto .secao-titulo {
-  color: var(--text);
-  font-size: var(--fs-2xl);
-}
-
-.pagina-texto code {
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  padding: 2px 6px;
-  font-size: 0.85em;
-  color: var(--accent-bright);
-}
-
-.bloco-codigo {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px 16px;
-  overflow-x: auto;
-  font-size: var(--fs-sm);
-  color: var(--text);
-  line-height: 1.5;
-  box-shadow: var(--shadow-sm);
-}
-
-/* ── Status ───────────────────────────────────────────── */
-.tabela-status td.ok { color: var(--positive); }
-.tabela-status td.falha { color: var(--danger); }
-
-/* Tira de saúde dos últimos ciclos (item #9 da lista de melhorias) --
-   visão rápida de "o scan andou bem?" antes de ler a tabela linha por
-   linha. `aria-hidden` porque o parágrafo logo abaixo já diz a mesma
-   informação em texto ("N de M ciclos com sucesso"); a cor sozinha
-   (--positive/--danger, mesma já usada na coluna "Resultado" da
-   tabela) não seria acessível sem esse resumo em texto junto. */
-.saude-ciclos {
-  display: flex;
-  gap: 3px;
-  margin: 0 0 4px;
-}
-
-/* Guarda por convenção (gotcha #16) -- a varredura de testes confunde
-   aria-hidden="true" com o atributo hidden, mas a regra é inofensiva:
-   este elemento nunca recebe hidden de verdade. */
-.saude-ciclos[hidden] { display: none; }
-
-.saude-ciclo {
-  flex: 1 1 0;
-  min-width: 4px;
-  height: 22px;
-  border-radius: 2px;
-  background: var(--border);
-}
-
-.saude-ciclo-ok { background: var(--positive); }
-.saude-ciclo-falha { background: var(--danger); }
-
-/* ── Banner de aviso (scan desatualizado) ────────────────── */
-.banner-aviso {
-  margin: 10px 0 0;
-  padding: 10px 14px;
-  background: rgba(228, 176, 60, 0.12);
-  border: 1px solid var(--warn);
-  border-radius: var(--radius-sm);
-  color: var(--warn);
-  font-size: var(--fs-base);
-}
-
-.banner-aviso a { color: var(--accent-bright); }
-
-/* ── Sparkline inline (histórico de preço na tabela) ─────── */
-.celula-sparkline { width: 130px; }
-
-.mini-sparkline {
-  display: block;
-  width: 110px;
-  height: 32px;
-  color: var(--accent);
-}
-
-/* Sparkline colorido pela direção do preço (mesmo critério de
-   .tendencia-alta/.tendencia-baixa): verde subindo, vermelho caindo,
-   neutro quando estável. A classe vem de `_tendencia_do_historico`
-   (alta/baixa) colada em .link-historico no index.html. */
-.link-historico.sparkline-alta .mini-sparkline { color: var(--positive); }
-.link-historico.sparkline-baixa .mini-sparkline { color: var(--danger); }
-
-/* ── Favoritos ────────────────────────────────────────── */
-.botao-favorito {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: var(--fs-base);
-  /* 44px: alvo de toque mínimo recomendado (WCAG 2.5.5) -- 28px media
-     em produção ficava pequeno demais no celular (achado 2026-11-01).
-     A ☆ em si não muda de tamanho, só a área clicável ao redor. */
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-}
-
-.botao-favorito .icone-ui { width: 18px; height: 18px; }
-
-.botao-favorito:hover { background: var(--surface-hover); color: var(--warn); }
-.botao-favorito.favoritado { color: var(--warn); }
-
-/* Pop breve ao marcar favorito -- feedback de resposta imediata (classe
-   "favoritando" é adicionada/removida pelo app.js só no clique que
-   favorita, nunca no carregamento da página nem ao desfavoritar). */
-@keyframes favoritar-pop {
-  0% { transform: scale(1); }
-  45% { transform: scale(1.35); }
-  100% { transform: scale(1); }
-}
-.botao-favorito.favoritando .icone-ui-favorito {
-  animation: favoritar-pop 0.28s ease-out;
-}
-@media (prefers-reduced-motion: reduce) {
-  .botao-favorito.favoritando .icone-ui-favorito { animation: none; }
-}
-
-/* ── Transição suave entre páginas (item #6 da lista) ────── */
-/* View Transitions API pra navegação entre documentos (MPA) -- site
-   não tem framework de SPA, troca de página é sempre um reload de
-   verdade, e esse @view-transition é CSS puro: em navegador sem
-   suporte, a regra é só ignorada e a navegação continua normal, sem
-   nenhum JS pra degradar. O cross-fade padrão do navegador já cobre
-   o pedido original; não precisou de document.startViewTransition
-   nem customização por página. */
-@view-transition {
-  navigation: auto;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none !important;
-  }
-}
-
-#botao-favoritos.ativo { border-color: var(--warn); color: var(--warn); }
-#botao-favoritos .icone-ui { width: 17px; height: 17px; }
-#botao-favoritos.ativo .icone-ui-favorito { fill: currentColor; }
-
-/* No detalhe o botão tem texto ("☆ Favoritar"); os 28px fixos da tabela,
-   pensados só pra estrela, jogavam a ☆ numa linha acima do texto. */
-.pagina-item .botao-favorito {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  width: auto;
-  height: auto;
-  padding: 0 4px;
-  white-space: nowrap;
-}
-
-/* ── Página de detalhe do item ────────────────────────── */
-/* A página do item era 640px (largura de texto corrido). O hero
-   cinematográfico e a fileira de stats pedem mais largura -- 940px
-   ainda deixa a prosa ("Por quê") confortável, porque ela continua
-   dentro de .pagina-texto com a mesma tipografia. */
 .pagina-item { max-width: 940px; }
 
+/* O hero do item é um painel calmo: fio da raridade à esquerda, imagem
+   grande e centrada, nome e dados ao lado. Sem listras, sem inclinação,
+   sem brilho de fundo. */
 .hero-item {
   position: relative;
-  isolation: isolate;
+  margin: 0 0 var(--sp-5);
+  padding: var(--sp-6);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: inset 2px 0 0 var(--rar-cor, var(--accent));
   overflow: hidden;
-  margin-bottom: 22px;
-  padding: 34px 32px;
-  background: linear-gradient(160deg, var(--bg-elevated), var(--bg));
-  border-left: 3px solid var(--rar-cor, var(--accent));
-  border-radius: var(--radius-md);
 }
 
-.hero-item::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    135deg, rgba(224, 122, 58, 0.05) 0 2px, transparent 2px 14px);
-  z-index: -2;
-  pointer-events: none;
-}
-
-.hero-item-glow {
-  position: absolute;
-  inset: -20% -12% auto auto;
-  width: 60%;
-  aspect-ratio: 1;
-  background: radial-gradient(
-    circle, var(--rar-glow, rgba(224, 122, 58, 0.22)), transparent 68%);
-  z-index: -1;
-  pointer-events: none;
-}
+.hero-item-glow { display: none; }
 
 .hero-item-grade {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   align-items: center;
-  gap: 24px;
+  gap: var(--sp-6);
 }
 
 .hero-item-corpo { min-width: 0; }
 
 .hero-item-tag {
   display: inline-block;
-  margin: 0 0 14px;
+  margin: 0 0 var(--sp-3);
   padding: 3px 10px;
   border: 1px solid var(--rar-cor, var(--accent));
-  border-radius: 2px;
-  background: rgba(10, 12, 17, 0.6);
-  color: var(--text-bright);
+  border-radius: var(--radius-pill);
+  color: var(--text);
   font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  clip-path: polygon(
-    0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
 }
 
 .hero-item .titulo-item {
-  margin: 0 0 12px;
-  font-family: var(--font-heading);
-  font-weight: 800;
-  font-size: clamp(1.7rem, 4.6vw, 2.6rem);
-  line-height: 1.05;
-  letter-spacing: -0.01em;
+  margin: 0 0 var(--sp-2);
+  font-size: clamp(1.6rem, 4.2vw, 2.4rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
   text-wrap: balance;
 }
 
 .hero-item .status { margin: 0; }
 
 .hero-item-imagem {
-  position: relative;
   display: grid;
   place-items: center;
 }
@@ -3144,66 +2299,90 @@ footer.rodape .versao {
   height: 190px;
   border: 0;
   background: transparent;
-  clip-path: none;
-  transform: rotate(-6deg);
-  filter: drop-shadow(0 22px 40px rgba(0, 0, 0, 0.65));
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.14));
 }
 
-.hero-item-quadro .icone-item {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-}
+.hero-item-quadro .icone-item-placeholder::before { font-size: 4rem; }
 
-.hero-item-quadro .icone-item-placeholder::before { font-size: 5rem; }
+.titulo-item {
+  margin: 0 0 var(--sp-1);
+  color: var(--text-bright);
+}
 
 @media (max-width: 640px) {
-  .hero-item { padding: 24px 18px; }
+  .hero-item { padding: var(--sp-5) var(--sp-4); }
 
   .hero-item-grade {
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: var(--sp-4);
   }
 
   .hero-item-imagem { order: -1; }
 
   .hero-item-quadro {
-    width: 150px;
-    height: 150px;
+    width: 140px;
+    height: 140px;
   }
 
-  .hero-item .titulo-item { font-size: clamp(1.5rem, 7vw, 2rem); }
+  .hero-item .titulo-item { font-size: clamp(1.4rem, 7vw, 1.9rem); }
 }
 
-.titulo-item {
-  margin: 0 0 4px;
+/* Seletor de período do gráfico: o mesmo idioma dos demais seletores. */
+.seletor-periodo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 0 0 var(--sp-4);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.seletor-periodo a {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  padding: 5px 13px;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.seletor-periodo a:hover {
+  background: var(--surface-strong);
   color: var(--text-bright);
+  text-decoration: none;
 }
 
-/* Reescrito 2026-11-07: era uma lista de texto puro (nome + "nota X,
-   R$ Y") -- os candidatos já chegavam com icon_url/raridade_classe
-   (mesma _candidatos_filtrados da home), só o template não usava.
-   Mesmo ícone compacto + anel de nota do Ranking/Comparar, pra ficar
-   consistente com o resto do site. */
+.seletor-periodo a[aria-current="true"] {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+/* Itens parecidos: lista de linhas com ícone, nome, nota e preço. */
 .lista-parecidos {
-  list-style: none;
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  margin: 0 0 var(--sp-5);
+  padding: 0;
+  list-style: none;
 }
 
-/* `.lista-parecidos .item-parecido` (não só `.item-parecido`) pra
-   especificidade bater a de `.pagina-texto li` -- esta página é
-   `.pagina-texto` (texto corrido justificado, achado 2026-11-06), mas
-   aqui o <li> é um cartão (ícone + nome + nota + preço), não texto;
-   sem isto, o nome do item quebrava linha com espaços esticados feios,
-   como se fosse parágrafo justificado. */
 .lista-parecidos .item-parecido {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   text-align: left;
 }
 
@@ -3218,115 +2397,74 @@ footer.rodape .versao {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Comparador ───────────────────────────────────────── */
-/* <label> em volta do checkbox -- 44px de área clicável (alvo de toque
-   mínimo recomendado, WCAG 2.5.5; 20px sozinho ficava pequeno demais
-   no celular, achado 2026-11-01), sem precisar aumentar a caixa
-   desenhada à mão abaixo. Clicar no <label> já ativa o checkbox
-   nativamente, sem JS. */
+/* ── Comparador ──────────────────────────────────────── */
+
 .checkbox-comparar-alvo {
   display: inline-grid;
-  place-content: center;
   width: 44px;
   height: 44px;
   flex-shrink: 0;
+  place-content: center;
   cursor: pointer;
 }
 
-/* Desenhado à mão: o checkbox nativo desmarcado é um quadrado branco
-   (accent-color só pinta o estado marcado) e brigava com o tema escuro. */
 .checkbox-comparar {
   appearance: none;
   -webkit-appearance: none;
   display: inline-grid;
-  place-content: center;
   width: 20px;
   height: 20px;
   margin: 0;
-  cursor: pointer;
+  place-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .checkbox-comparar:hover { border-color: var(--text-muted); }
 
 .checkbox-comparar:checked {
-  background: var(--accent);
   border-color: var(--accent);
+  background: var(--accent);
 }
 
 .checkbox-comparar:checked::before {
   content: "✓";
-  color: var(--bg);
+  color: #ffffff;
   font-size: var(--fs-sm);
   font-weight: 700;
   line-height: 1;
 }
 
 .checkbox-comparar:focus-visible {
-  outline: 2px solid var(--accent-bright);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
-}
-
-.barra-comparar[hidden] { display: none; }
-.barra-comparar {
-  position: fixed;
-  left: 50%;
-  bottom: 20px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  background: var(--bg-elevated);
-  border: 1px solid var(--accent);
-  border-radius: 24px;
-  padding: 10px 18px;
-  box-shadow: var(--shadow-lg);
-  z-index: 10;
-  font-size: var(--fs-base);
 }
 
 .tabela-comparar td:first-child,
 .tabela-comparar th:first-child {
   color: var(--text-muted);
   font-size: var(--fs-xs);
-  text-transform: uppercase;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.celula-comparar-cabecalho {
-  text-align: center;
-}
+.celula-comparar-cabecalho { text-align: center; }
 
-/* table.tabela-candidatos th (rótulo de coluna genérico, uppercase) e
-   .celula-comparar-cabecalho empatavam em especificidade -- o primeiro
-   vinha depois no arquivo e ganhava, deixando o NOME do item ("AK-47 |
-   Redline") gritado em maiúsculas como se fosse um rótulo de coluna
-   (achado 2026-11-03, revisão de direção visual). Mesmo truque de
-   combinar o seletor do th de origem já usado nos gotchas de
-   .card-valor/.risco-* e .card-valor/.liquidez-* desta folha. */
 table.tabela-candidatos th.celula-comparar-cabecalho {
-  text-transform: none;
-  letter-spacing: normal;
+  color: var(--text-bright);
   font-size: var(--fs-md);
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
 }
 
-.celula-comparar-cabecalho .icone-item-quadro {
-  margin: 0 auto 4px;
-}
+.celula-comparar-cabecalho .icone-item-quadro { margin: 0 auto var(--sp-1); }
 
-/* Destaque do menor preço / maior nota por linha no /comparar -- só
-   descritivo ("menor/maior valor NESTA LINHA"), nunca "melhor escolha"
-   (ver AGENTS.md: o site não promete retorno). Por isso a cor é
-   --accent, neutra, a MESMA usada em seleção/foco no resto do site --
-   nunca --positive/--danger, que implicariam um julgamento de
-   bom/ruim. O rótulo em texto garante que a info não dependa só da
-   cor (contraste/daltonismo) -- server.py:_destaques_comparar não
-   marca nada quando os valores da linha empatam, pra não destacar um
-   item arbitrariamente entre iguais. */
 .valor-destaque-linha {
-  background: var(--surface);
+  background: var(--accent-soft);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
@@ -3337,100 +2475,675 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   font-size: var(--fs-2xs);
 }
 
-/* ── "O que mudou desde sua última visita" ───────────────── */
-/* Pílula com borda, não só texto colorido -- antes herdava .tendencia-
-   alta/.tendencia-baixa igual ao ▲/▼ de preço (.icone-tendencia), o
-   sinal de MERCADO ao lado do preço. Os dois setinhas iguais lado a
-   lado confundiam "subiu desde seu último scan" (preço, factual) com
-   "subiu desde sua ÚLTIMA VISITA" (só neste navegador, comparação
-   pessoal) -- achado visual, 2026-10-27. A cor ainda vem de
-   .tendencia-alta/.tendencia-baixa (herdada via currentColor), só a
-   forma de pílula que separa visualmente dos dois usos. */
+/* "Mudou desde sua última visita": pílula de contorno, separada das
+   setas de preço do mercado (que são preenchidas). */
 .selo-mudou-nota {
   display: inline-block;
   margin-left: 4px;
   padding: 0 5px;
   border: 1px solid currentColor;
-  border-radius: 8px;
+  border-radius: var(--radius-pill);
   font-size: var(--fs-2xs);
   font-weight: 700;
   cursor: help;
 }
 
-/* ── Voltar ao topo ───────────────────────────────────── */
-.botao-topo {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
-  font-size: var(--fs-xl);
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  z-index: 9;
+/* ── Cards genéricos (conta, admin, status) ──────────── */
+
+.resumo-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-5);
 }
 
-.botao-topo:hover { background: var(--accent-bright); }
-.botao-topo .icone-ui { width: 20px; height: 20px; }
+.card {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease;
+}
 
-/* ── Contagem de favoritos ────────────────────────────── */
-.contagem-favoritos[hidden] { display: none; }
+.card:hover { border-color: var(--border-strong); }
 
-.lista-favoritos-fora[hidden] { display: none; }
+.card-nota-destaque { border-color: var(--accent); }
+
+.card-label {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.card-valor {
+  color: var(--text-bright);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+/* O selo de Nota dentro do card mantém o tamanho do selo (não herda o
+   número grande do .card-valor). */
+.card-valor.nota { align-self: flex-start; }
+
+/* Nome de caixa é texto, não número. */
+.card-valor.card-valor-texto {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Ficha técnica da página do item: colunas separadas por fio, sem caixa
+   própria em volta de cada dado. Escopado de propósito -- .card também
+   aparece em conta/admin. */
+.resumo-cards-item {
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: var(--sp-5);
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.resumo-cards-item .card {
+  flex: 1 1 120px;
+  justify-content: center;
+  gap: 2px;
+  padding: 12px 18px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.resumo-cards-item .card:last-child { border-right: 0; }
+
+.resumo-cards-item .card:hover { border-color: var(--border); }
+
+.resumo-cards-item .card-label {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.resumo-cards-item .card-valor { font-size: var(--fs-xl); }
+
+.resumo-cards-item .card-nota-destaque {
+  flex: 0 0 auto;
+  padding: 10px 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+/* ── Formulários (conta, watchlist, trades) ──────────── */
+
+.form-adicionar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+}
+
+.form-adicionar input {
+  height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-base);
+  transition: border-color 0.15s ease;
+}
+
+.form-adicionar input:hover { border-color: var(--border-strong); }
+
+.form-adicionar input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.form-adicionar input[name="name"] {
+  flex: 1;
+  min-width: 220px;
+}
+
+.input-webhook {
+  flex: 1;
+  min-width: 280px;
+}
+
+.form-adicionar input[name="cost"] { width: 140px; }
+.form-adicionar input[name="quantity"] { width: 80px; }
+
+.form-adicionar button {
+  height: 40px;
+  padding: 8px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: var(--fs-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.form-adicionar button:hover { background: var(--accent-bright); }
+
+.botao-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-base);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.botao-link:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  text-decoration: none;
+}
+
+.botao-remover { color: var(--danger); }
+
+.botao-remover:hover {
+  border-color: rgba(215, 0, 21, 0.4);
+  background: rgba(215, 0, 21, 0.06);
+  color: var(--danger);
+}
+
+.form-inline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.input-compacto {
+  width: 90px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+
+.input-compacto:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.badge-disparado {
+  display: inline-block;
+  padding: 2px 9px;
+  border: 1px solid rgba(178, 80, 0, 0.4);
+  border-radius: var(--radius-pill);
+  color: var(--warn);
+  font-size: var(--fs-xs);
+  cursor: help;
+}
+
+/* Regras da watchlist: a linha extra fica presa visualmente ao item. */
+.linha-regras td {
+  padding: 0 14px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.linha-regras summary {
+  padding: 8px 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.linha-regras summary:hover { color: var(--accent-bright); }
+
+.form-regras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: 4px 0;
+}
+
+.form-regras label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.form-regras input {
+  width: 160px;
+  height: 36px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-base);
+}
+
+.form-regras input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.form-regras button {
+  height: 36px;
+  align-self: flex-end;
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.form-regras button:hover { background: var(--accent-bright); }
+
+/* ── Gráficos ────────────────────────────────────────── */
+
+.grafico-card {
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-4);
+  color: var(--accent);
+}
+
+.grafico-card.grafico-tendencia-alta { color: var(--positive); }
+.grafico-card.grafico-tendencia-baixa { color: var(--danger); }
+
+.grafico-historico {
+  display: block;
+  width: 100%;
+  height: 160px;
+}
+
+.grafico-ponto-interativo { cursor: help; }
+
+.grafico-erros { color: var(--danger); }
+
+/* ── Excluir conta ───────────────────────────────────── */
+
+.link-excluir-conta {
+  margin-top: var(--sp-7);
+  font-size: var(--fs-sm);
+}
+
+.link-excluir-conta a { color: var(--text-muted); }
+.link-excluir-conta a:hover { color: var(--danger); }
+
+.card-aviso {
+  max-width: 560px;
+  border-color: rgba(215, 0, 21, 0.35);
+}
+
+.card-aviso ul {
+  margin: var(--sp-2) 0 var(--sp-4);
+  padding-left: 20px;
+  color: var(--text-muted);
+}
+
+.card-aviso form { margin: var(--sp-4) 0 var(--sp-2); }
+
+.botao-perigo {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-xs);
+  background: var(--danger);
+  color: #ffffff;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.botao-perigo:hover { background: var(--danger-bright); }
+
+/* ── Páginas de texto (sobre, método, FAQ, privacidade) ─ */
+
+.pagina-texto p,
+.pagina-texto li {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  line-height: 1.65;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.pagina-texto ul { padding-left: 20px; }
+
+.pagina-texto dt {
+  margin-top: 18px;
+  color: var(--text-bright);
+  font-size: var(--fs-md);
+}
+
+.pagina-texto dd {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+
+.pagina-texto .secao-titulo { color: var(--text-bright); }
+
+.pagina-texto code {
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--accent-bright);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.bloco-codigo {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  overflow-x: auto;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Glossário ───────────────────────────────────────── */
+
+.indice-glossario {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-5);
+}
+
+.indice-glossario a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 6px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.indice-glossario a:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  color: var(--text-bright);
+  text-decoration: none;
+}
+
+.indice-glossario a:focus-visible { outline-offset: 2px; }
+
+.lista-glossario {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+  margin: 0;
+}
+
+@media (min-width: 900px) {
+  main.pagina-glossario { max-width: 880px; }
+  .lista-glossario { grid-template-columns: 1fr 1fr; }
+}
+
+.pagina-glossario dt {
+  margin: 0;
+  padding: 14px 16px 0;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--bg-elevated);
+  scroll-margin-top: calc(var(--altura-topo) + 16px);
+}
+
+.pagina-glossario dt:target {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pagina-glossario dd {
+  margin: 0;
+  padding: 4px 16px 14px;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+/* ── Changelog ───────────────────────────────────────── */
+
+.changelog-timeline {
+  position: relative;
+  padding: 1px 0 1px 22px;
+}
+
+.changelog-timeline::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 4px;
+  width: 2px;
+  background: var(--border);
+}
+
+.changelog-entrada { position: relative; }
+
+.changelog-entrada::before {
+  content: "";
+  position: absolute;
+  top: 38px;
+  left: -22px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+
+.changelog-timeline .changelog-entrada:first-child .secao-titulo {
+  margin-top: 0;
+}
+
+.changelog-timeline .changelog-entrada:first-child::before { top: 10px; }
+
+/* ── Status ──────────────────────────────────────────── */
+
+.tabela-status td.ok { color: var(--positive); }
+.tabela-status td.falha { color: var(--danger); }
+
+.saude-ciclos {
+  display: flex;
+  gap: 3px;
+  margin: 0 0 4px;
+}
+
+.saude-ciclo {
+  flex: 1 1 0;
+  min-width: 4px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.saude-ciclo-ok { background: var(--positive); }
+.saude-ciclo-falha { background: var(--danger); }
+
+/* ── Página 404 ──────────────────────────────────────── */
+
+.titulo-404 .icone-ui {
+  width: 1em;
+  height: 1em;
+  margin-right: 4px;
+  color: var(--text-muted);
+  vertical-align: -0.15em;
+}
+
+/* ── Favoritos ───────────────────────────────────────── */
+
+.botao-favorito {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.botao-favorito .icone-ui { width: 18px; height: 18px; }
+
+.botao-favorito:hover {
+  background: var(--surface-hover);
+  color: var(--warn);
+}
+
+.botao-favorito.favoritado { color: var(--warn); }
+
+@keyframes favoritar-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+.botao-favorito.favoritando .icone-ui-favorito {
+  animation: favoritar-pop 0.28s ease-out;
+}
+
+/* No detalhe o botão tem texto ao lado da estrela. */
+.pagina-item .botao-favorito {
+  width: auto;
+  height: auto;
+  gap: var(--sp-1);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.contagem-favoritos {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--warn);
+  color: #ffffff;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
 .lista-favoritos-fora {
   display: inline-flex;
   flex-direction: column;
   gap: var(--sp-1);
-  margin: 8px 0 0;
+  margin: var(--sp-2) 0 0;
   padding: 0;
   list-style: none;
   text-align: left;
 }
-.contagem-favoritos {
+
+/* ── Conta ───────────────────────────────────────────── */
+
+.conta-nome {
   display: inline-block;
-  background: var(--warn);
-  color: #2b1d04;
-  border-radius: 10px;
-  padding: 0 6px;
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  margin-left: 2px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
-/* ── Responsivo (celular) ─────────────────────────────── */
+/* ── Transição entre páginas ─────────────────────────── */
+
+@view-transition { navigation: auto; }
+
+/* ── Tabelas de cartão no celular ────────────────────── */
+
+.tabela-wrap-cards { overflow-x: auto; }
+
+/* ── Ajustes de comportamento ────────────────────────── */
+
+.js-ativo .form-filtros .botao-filtrar-sem-js { display: none; }
+
+/* Ações da linha só no hover/foco em telas com mouse; em toque ficam
+   sempre visíveis. Ficam visíveis também quando estão em uso. */
+@media (hover: hover) {
+  .tabela-itens .celula-item-acoes > * {
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+
+  .tabela-itens tr:hover .celula-item-acoes > *,
+  .tabela-itens tr:focus-within .celula-item-acoes > *,
+  .tabela-itens .checkbox-comparar:checked,
+  .tabela-itens .botao-favorito.favoritado,
+  .tabela-itens .menu-acoes-item[open] { opacity: 1; }
+}
+
+/* ── Responsivo ──────────────────────────────────────── */
+
 @media (max-width: 640px) {
   header.topo > * {
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: var(--sp-4);
+    padding-right: var(--sp-4);
   }
 
-  main {
-    padding: 16px 16px 32px;
-  }
+  /* Sticky ocuparia espaço demais quando a barra de ações quebra linha. */
+  header.topo { position: static; }
 
-  header.topo {
-    /* sticky ocuparia espaço demais quando .barra-acoes quebra linha */
-    position: static;
-  }
+  main { padding: var(--sp-4) var(--sp-4) var(--sp-7); }
 
+  /* Logo e ação na mesma linha (a nav vai pra barra inferior): cabeçalho
+     baixo, como o do site da Apple no celular. */
   .topo-linha {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--sp-2);
+    align-items: center;
+    gap: var(--sp-2) var(--sp-3);
   }
+
+  header.topo .logo-cheia { width: 172px; height: auto; }
 
   .nav-principal {
+    display: none;
     width: 100%;
   }
 
   .nav-principal a {
     min-height: 44px;
     padding: 8px;
-    font-size: var(--fs-sm);
   }
 
   .barra-acoes {
@@ -3438,13 +3151,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     row-gap: 6px;
   }
 
-  .conta-nome {
-    display: inline-block;
-    max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .conta-nome { max-width: 140px; }
 
   .conta-nav a {
     padding: 6px 8px;
@@ -3452,28 +3159,42 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   }
 
   .entrar-cta {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
     gap: var(--sp-1);
   }
 
-  .entrar-cta-legenda {
-    text-align: left;
+  .entrar-cta-legenda { display: none; }
+
+  header.topo h1 { font-size: var(--fs-2xl); }
+
+  .card { flex-basis: calc(50% - 6px); }
+  .card-valor { font-size: var(--fs-xl); }
+
+  .resumo-cards-item {
+    flex-direction: column;
+    padding: 0;
   }
 
-  header.topo h1 {
-    font-size: var(--fs-2xl);
+  .resumo-cards-item .card {
+    flex: 1 1 auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: 12px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
   }
 
-  .card {
-    flex-basis: calc(50% - 6px);
-  }
+  .resumo-cards-item .card:last-child { border-bottom: 0; }
 
-  /* Card com valor longo (ex. nome de caixa) fica apertado em 2
-     colunas numa tela pequena -- 1.1rem ainda lê bem e sobra mais
-     espaço de verdade pro conteúdo. */
-  .card-valor {
-    font-size: var(--fs-xl);
+  .resumo-cards-item .card-nota-destaque {
+    margin: 0;
+    padding: 12px 14px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
   }
 
   .form-adicionar,
@@ -3493,24 +3214,17 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   .form-adicionar input,
   .form-filtros input,
   .form-filtros select,
-  .form-regras input {
-    width: 100% !important;
-  }
+  .form-regras input { width: 100% !important; }
 
   .form-adicionar button,
-  .form-filtros button {
-    width: 100%;
-  }
+  .form-filtros button { width: 100%; }
 
   .form-filtros input,
   .form-filtros select,
-  .form-filtros button {
-    min-height: 44px;
-  }
+  .form-filtros button { min-height: 44px; }
 
-  .pagina-inicial .tabela-wrap {
-    overflow: visible;
-  }
+  /* A lista da home vira cartões no celular. */
+  .pagina-inicial .tabela-wrap { overflow: visible; }
 
   .pagina-inicial table.tabela-itens {
     display: block;
@@ -3523,9 +3237,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   }
 
   .pagina-inicial table.tabela-itens colgroup,
-  .pagina-inicial table.tabela-itens thead {
-    display: none;
-  }
+  .pagina-inicial table.tabela-itens thead { display: none; }
 
   .pagina-inicial table.tabela-itens tbody {
     display: grid;
@@ -3536,18 +3248,18 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 var(--sp-3);
-    padding: 8px;
-    background: var(--bg-elevated);
+    padding: var(--sp-2);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
     box-shadow: var(--shadow-sm);
   }
 
   .pagina-inicial table.tabela-itens tbody td {
     display: flex;
+    min-width: 0;
     flex-direction: column;
     align-items: flex-start;
-    min-width: 0;
     padding: 10px 8px;
     border: 0;
     font-size: var(--fs-md);
@@ -3557,7 +3269,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     content: attr(data-label);
     margin-bottom: 4px;
     color: var(--text-muted);
-    font-size: var(--fs-xs);
+    font-size: var(--fs-2xs);
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -3569,39 +3281,32 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     grid-column: 1 / -1;
   }
 
-  .pagina-inicial table.tabela-itens .celula-item-principal {
-    align-items: center;
-  }
+  .pagina-inicial table.tabela-itens td.celula-preco { text-align: left; }
 
-  .pagina-inicial table.tabela-itens .celula-item-acoes {
-    margin-top: 8px;
-  }
-
-  .pagina-inicial table.tabela-itens .celula-sparkline {
-    display: flex;
-  }
+  .pagina-inicial table.tabela-itens .celula-item-principal { align-items: center; }
+  .pagina-inicial table.tabela-itens .celula-item-acoes { margin-top: 8px; }
+  .pagina-inicial table.tabela-itens .celula-sparkline { display: flex; }
 
   .pagina-inicial table.tabela-itens .detalhe-motivo,
-  .pagina-inicial table.tabela-itens .texto-motivo {
-    max-width: 100%;
-  }
+  .pagina-inicial table.tabela-itens .texto-motivo { max-width: 100%; }
 
   .paginacao-principal {
     flex-direction: column;
     gap: var(--sp-2);
   }
 
+  /* Tabelas de conta/admin também viram cartões. */
   .tabela-wrap-cards { overflow: visible; }
 
   table.tabela-cards-mobile {
     display: block;
     width: 100%;
     min-width: 0;
-    overflow: visible;
     border: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
+    overflow: visible;
   }
 
   table.tabela-cards-mobile thead { display: none; }
@@ -3615,21 +3320,21 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 var(--sp-2);
-    padding: 8px;
-    background: var(--bg-elevated);
+    padding: var(--sp-2);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
     box-shadow: var(--shadow-sm);
   }
 
   table.tabela-cards-mobile tbody td {
     display: flex;
+    min-width: 0;
     flex-direction: column;
     align-items: flex-start;
-    min-width: 0;
-    overflow-wrap: anywhere;
     padding: 8px;
     border: 0;
+    overflow-wrap: anywhere;
   }
 
   table.tabela-cards-mobile tbody td::before {
@@ -3665,10 +3370,10 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     display: block;
     margin-top: -12px;
     padding: 0 8px 8px;
-    background: var(--bg-elevated);
     border: 1px solid var(--border);
     border-top: 0;
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    background: var(--bg-elevated);
   }
 
   table.tabela-cards-mobile tbody tr.linha-regras td {
@@ -3679,10 +3384,58 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   table.tabela-cards-mobile tbody tr.linha-regras td::before { content: none; }
 
   table.tabela-cards-mobile .linha-regras summary {
-    min-height: 44px;
     display: flex;
+    min-height: 44px;
     align-items: center;
   }
+
+  /* Barra inferior fixa, ao alcance do polegar. */
+  .nav-inferior {
+    display: flex;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 35;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(250, 250, 252, 0.94);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  .nav-inferior a {
+    display: flex;
+    flex: 1 1 0;
+    min-height: 44px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border-radius: var(--radius-xs);
+    color: var(--text-muted);
+    font-size: var(--fs-2xs);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .nav-inferior a .icone-ui {
+    width: 20px;
+    height: 20px;
+  }
+
+  .nav-inferior a[aria-current="page"] { color: var(--accent-bright); }
+  .nav-inferior a:focus-visible { outline-offset: -2px; }
+
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+  .botao-topo { bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+  .barra-comparar { bottom: calc(86px + env(safe-area-inset-bottom)); }
 }
 
 @media (min-width: 641px) and (max-width: 960px) {
@@ -3701,6 +3454,44 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     grid-column: 2;
     grid-row: 1;
   }
+
+  /* Sem sessão o cabeçalho cabe numa linha só, como a barra da Apple.
+     O grid de duas linhas continua valendo quando Trades/Watchlist/
+     Histórico e o pill da conta entram na conta da largura. */
+  .topo-linha:has(> .entrar-cta) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .topo-linha:has(> .entrar-cta) > .nav-principal {
+    flex: 1 1 300px;
+    justify-content: center;
+  }
+
+  .entrar-cta-legenda { display: none; }
+
+  header.topo .logo-cheia { width: 168px; height: auto; }
+
+  .nav-principal a { padding: 6px 8px; }
+
+  .conta-link-entrar { padding: 9px 16px; }
+}
+
+/* Faixa estreita (641–719px): com marca e ações um pouco menores o
+   cabeçalho sem sessão continua numa linha só, em vez de empurrar a
+   navegação para baixo. */
+@media (min-width: 641px) and (max-width: 719px) {
+  .topo-linha:has(> .entrar-cta) { gap: var(--sp-2); }
+
+  header.topo .logo-cheia { width: 148px; height: auto; }
+
+  .topo-linha:has(> .entrar-cta) > .nav-principal { flex-basis: 260px; }
+
+  .topo-linha:has(> .entrar-cta) .nav-principal a { padding: 6px; }
+
+  .topo-linha:has(> .entrar-cta) .conta-link-entrar { padding: 8px 12px; }
 }
 
 @media (min-width: 641px) and (max-width: 760px) {
@@ -3720,25 +3511,19 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
   .conta-nav { flex-wrap: wrap; }
   .conta-pill { min-width: 0; }
-  .conta-nome {
-    display: inline-block;
-    max-width: 140px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .conta-nome { max-width: 140px; }
 
   .topo-linha > .nav-principal { grid-row: 3; }
 }
 
-/* Tabelas que ainda rolam horizontalmente mostram uma dica em telas
-   estreitas; as tabelas da conta usam cartões no celular. */
+/* Tabelas que ainda rolam mostram a dica em telas estreitas; as tabelas
+   da conta já viram cartões no celular. */
 @media (max-width: 1023px) {
   .dica-rolagem-tabela {
     display: block;
     margin: -8px 0 10px;
     color: var(--text-muted);
-    font-size: var(--fs-base);
+    font-size: var(--fs-sm);
   }
 }
 
@@ -3747,12 +3532,8 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   .dica-rolagem-tabela-conta { display: none; }
 }
 
-/* Telas bem estreitas (celular em pé, ~360-400px): o pill de conta
-   (avatar + nome) ao lado do menu de navegação pode ficar apertado com
-   um nome de usuário Steam longo. Trunca com reticências em vez de
-   esconder o nome inteiro -- Steam sempre dá um avatar padrão a quem
-   nunca trocou, mas não custa nada não depender disso pra sobrar texto
-   visível no pill. */
+/* Telas bem estreitas: nome de usuário Steam longo trunca em vez de
+   empurrar o pill de conta para fora. */
 @media (max-width: 400px) {
   .conta-nome {
     display: inline-block;
@@ -3764,6 +3545,8 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   }
 }
 
+/* ── Movimento reduzido ──────────────────────────────── */
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -3773,235 +3556,44 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+
+  .cartao-item,
+  .cartao-item:hover,
+  .cartao-item:focus-within { transform: none; }
+
+  .cartao-item:hover .cartao-item-icon,
+  .icone-item-quadro:hover .icone-item { transform: none; }
+
+  .botao-favorito.favoritando .icone-ui-favorito { animation: none; }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
 }
 
-/* ── Rodada de UI 2026-10-29 ─────────────────────────────── */
+/* ── Guardas de [hidden] ─────────────────────────────── */
+/* Um elemento que nasce `hidden` continua visível se a classe dele
+   define `display` -- a guarda abaixo vence a classe. */
 
-/* Texto apagado pra "não tem dado" -- um "—" solto parecia erro. */
-.texto-sem-dado {
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  opacity: 0.8;
-}
-
-/* Com poucos pontos a linha do histórico fica tão "confiante" quanto
-   uma de 20 -- sem aviso, parece preço estável em vez de "ainda não
-   temos dado suficiente" (achado 2026-11-02). --warn (mesma cor de
-   risco médio) sinaliza "atenção", não erro. */
-.selo-historico-curto {
-  display: block;
-  margin-top: 2px;
-  color: var(--warn);
-  font-size: var(--fs-2xs);
-  cursor: help;
-}
-
-.cabecalho-sub {
-  margin-left: 4px;
-  color: var(--text-muted);
-  font-size: var(--fs-2xs);
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-/* Com JS os filtros aplicam sozinhos (ver app.js). */
-.js-ativo .form-filtros .botao-filtrar-sem-js { display: none; }
-
-/* Seletor Vitrine/Lista (rodada 2 do visual). Os dois modos mostram os
-   mesmos itens; aqui só a moldura do seletor -- o estado vem de
-   aria-current, como nas abas de categoria. */
-.barra-visao {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-2) var(--sp-3);
-  margin: 0 0 12px;
-}
-
-.seletor-visao {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-sm);
-}
-
-.seletor-visao a {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  min-height: 34px;
-  padding: 5px 14px;
-  border-radius: 3px;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.seletor-visao a:hover {
-  background: var(--surface);
-  color: var(--text-bright);
-}
-
-.seletor-visao a[aria-current="page"] {
-  background: var(--accent);
-  color: var(--bg);
-}
-
-.ordenar-vitrine {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--sp-1);
-  font-size: var(--fs-sm);
-}
-
-.ordenar-vitrine-rotulo { color: var(--text-muted); }
-
-.ordenar-vitrine a {
-  padding: 3px 10px;
-  border-radius: 12px;
-  color: var(--text);
-  text-decoration: none;
-}
-
-.ordenar-vitrine a:hover { background: var(--surface); color: var(--text-bright); }
-
-.ordenar-vitrine a[aria-current="page"] {
-  background: var(--surface);
-  color: var(--accent-bright);
-  font-weight: 600;
-}
-
-/* Abas de categoria: troca rápida sem abrir o dropdown. */
-.abas-categoria {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1);
-  margin: 0 0 12px;
-}
-
-.aba-categoria {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-1);
-  padding: 6px 13px;
-  /* Rodada 2: pill PREENCHIDA em vez de contorno -- a barra de filtro
-     logo acima também virou superfície cheia, então a página inteira
-     parou de ser "tudo desenhado com linha". */
-  background: var(--bg-elevated);
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--text);
-  font-size: var(--fs-sm);
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.aba-categoria:hover {
-  background: var(--surface);
-  color: var(--text-bright);
-}
-
-/* Ativa: preenchida com o acento, texto escuro (mesmo padrão do botão
-   de login da Steam) -- contraste bem acima de AA. */
-.aba-categoria[aria-current="page"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
-  font-weight: 600;
-}
-
-/* --text-muted sobre --surface só dá 3.32:1 (abaixo do mínimo de
-   acessibilidade 4.5:1) -- na aba ativa, a contagem usa a mesma cor do
-   texto principal (escuro sobre o acento), pra não ficar apagada. */
-.aba-categoria[aria-current="page"] .aba-contagem {
-  color: var(--bg);
-}
-
-.aba-contagem {
-  color: var(--text-muted);
-  font-size: var(--fs-2xs);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Ações da linha (comparar, favoritar, ⋯) só aparecem no hover/foco em
-   telas com mouse -- repetidas em toda linha, viravam ruído. Ficam
-   visíveis quando estão "em uso" (marcado/favoritado/menu aberto) e
-   sempre em tela de toque, onde não existe hover. */
-@media (hover: hover) {
-  .tabela-itens .celula-item-acoes > * {
-    opacity: 0;
-    transition: opacity 0.12s ease;
-  }
-  .tabela-itens tr:hover .celula-item-acoes > *,
-  .tabela-itens tr:focus-within .celula-item-acoes > *,
-  .tabela-itens .checkbox-comparar:checked,
-  .tabela-itens .botao-favorito.favoritado,
-  .tabela-itens .menu-acoes-item[open] {
-    opacity: 1;
-  }
-}
-
-/* ── Navegação inferior no celular (item #20) ─────────────────────── */
-/* Abaixo de 640px o menu do topo (.nav-principal) dá lugar a uma barra
-   fixa na base da tela, ao alcance do polegar. No desktop a barra fica
-   `display:none` e nada muda. O body ganha padding pra última linha do
-   conteúdo não ficar atrás dela, e os dois botões fixos que já existiam
-   (.botao-topo e .barra-comparar) sobem pra não encavalar. */
-.nav-inferior { display: none; }
-
-@media (max-width: 640px) {
-  .nav-principal { display: none; }
-
-  .nav-inferior {
-    display: flex;
-    position: fixed;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 35;
-    justify-content: space-around;
-    gap: 2px;
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-    background: var(--bg-elevated);
-    border-top: 1px solid var(--border);
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.35);
-  }
-
-  .nav-inferior a {
-    display: flex;
-    flex: 1 1 0;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    min-height: 44px;
-    padding: 4px 2px;
-    border-radius: var(--radius-md);
-    color: var(--text-muted);
-    font-size: var(--fs-2xs);
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .nav-inferior a .icone-ui {
-    width: 20px;
-    height: 20px;
-  }
-
-  .nav-inferior a[aria-current="page"] { color: var(--accent-bright); }
-
-  .nav-inferior a:focus-visible { outline-offset: -2px; }
-
-  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
-
-  .botao-topo { bottom: calc(76px + env(safe-area-inset-bottom)); }
-
-  .barra-comparar { bottom: calc(86px + env(safe-area-inset-bottom)); }
-}
+.icone-ui[hidden],
+.icone-item[hidden],
+.icone-item-quadro[hidden],
+.icone-item-placeholder[hidden],
+.icone-item-icon[hidden],
+.cartao-item-icon[hidden],
+.dica-expandir[hidden],
+.hero-destaque-halo[hidden],
+.hero-item-glow[hidden],
+.status[hidden],
+.status-vazio[hidden],
+.status-vazio-icone[hidden],
+.saude-ciclos[hidden],
+.logo-cheia[hidden],
+.logo-compacta[hidden],
+.input-tag-local[hidden],
+.lista-favoritos-fora[hidden],
+.contagem-favoritos[hidden],
+.barra-comparar[hidden],
+.botao-topo[hidden],
+.paginacao-reticencias[hidden],
+.nome[hidden] { display: none; }

@@ -29,11 +29,13 @@
       <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
-    <p class="subtitulo">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
   </header>
 
   <main id="conteudo">
-    <h1 class="titulo-pagina">Ranking</h1>
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Ranking</h1>
+      <p class="descricao-pagina">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
+    </header>
     {% if itens %}
       <p class="status">Atualizado {{ quando }}.{% if not tem_anterior %} Ainda não há um scan anterior pra comparar posição.{% endif %}</p>
       {% if resumo_do_dia %}
