@@ -71,19 +71,33 @@ def test_navegacao_inferior_do_celular(client):
     assert "icone-ui-ranking" in nav
 
 
-def test_rodape_mostra_links_simples(client):
-    """Achado 2026-11-03 (pedido do usuário): a versão em grid de 3
-    colunas ("Explorar"/"Entenda"/"Mais") tinha uma caixa de destaque
-    estranha em volta do link da página atual e ficava desproporcional
-    no celular (2 colunas desalinhadas, rolagem longa só pra navegação)
-    -- voltou a ser uma lista simples em linha, como era antes dessa
-    rodada."""
+def test_rodape_mostra_grade_por_categoria(client):
+    """Achado 2026-11-03: a 1a versão em grid de 3 colunas ("Explorar"/
+    "Entenda"/"Mais") tinha uma caixa de destaque estranha no link da
+    página atual e virava 2 colunas desalinhadas no celular -- revertida
+    pra lista simples. Rodada 3 (pedido novo, referência apple.com) traz
+    a grade de volta com os dois problemas corrigidos: aria-current é só
+    semântico aqui (sem classe/estilo específico ligado a ele -- ver
+    teste abaixo) e o CSS força 1 coluna no celular."""
     body = client.get("/").data.decode("utf-8")
     rodape = body.split("<footer", 1)[1]
     assert 'href="/privacidade"' in rodape
     assert 'href="/ranking"' in rodape
     assert "Sugerir melhoria" in rodape
-    assert "rodape-nav" not in body
+    assert 'class="rodape-nav"' in rodape
+    assert rodape.count('class="rodape-nav-grupo"') == 3
+
+
+def test_rodape_link_da_pagina_atual_nao_tem_classe_propria(client):
+    """Acompanha o achado 2026-11-03 (ver teste acima): aria-current no
+    rodapé não pode carregar nenhuma classe/estilo próprio -- foi o
+    "fundo + box-shadow só nele" que lia como bug da vez passada. Fica
+    puramente semântico pra leitor de tela."""
+    body = client.get("/").data.decode("utf-8")
+    rodape = body.split("<footer", 1)[1]
+    tag = re.search(r'<a\b[^>]*aria-current="page"[^>]*>', rodape)
+    assert tag, "esperava um link com aria-current no rodapé"
+    assert "class=" not in tag.group(0)
 
 
 def test_movimento_reduzido_respeitado_no_css_e_no_botao_de_topo(client):
@@ -207,6 +221,35 @@ def test_index_mostra_resumo_do_dia_com_alta_e_queda(client, monkeypatch, tmp_pa
     assert "movimento-baixa" in cards
     assert "+30 na nota" in cards
     assert "-30 na nota" in cards
+    assert "0 itens novos" in resumo
+
+
+def test_index_resumo_do_dia_mostra_mesmo_sem_mudanca_de_nota(client, monkeypatch, tmp_path):
+    # item #C do planejamento de melhorias maiores (2026-11-08):
+    # novos_no_top já era calculado em _resumo_do_dia mas só aparecia no
+    # Ranking -- a home descartava o dado. Mostra mesmo quando nenhuma
+    # nota mudou, desde que haja um snapshot antigo pra comparar.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Item A", "score": 70, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+            {"name": "Y", "score": 50, "position": 2},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before",
+        lambda ts: {"ts": 900.0, "items": [
+            {"name": "X", "score": 90, "position": 1},
+        ]})
+    body = client.get("/").data.decode("utf-8")
+    assert 'class="resumo-do-dia"' in body
+    resumo = body.split('class="resumo-do-dia"', 1)[1].split("</p>", 1)[0]
+    assert "1 item novo" in resumo
+    assert "maior alta de nota foi" not in resumo
+    assert "movimentos-do-dia" not in body
 
 
 def test_index_movimentos_do_dia_limita_a_tres_e_ordena_por_tamanho(
@@ -373,6 +416,29 @@ def test_index_vitrine_de_cards_e_o_modo_padrao(client, monkeypatch, tmp_path):
     assert 'class="cartao-item-nota nota-alta"' in body
     assert '<table class="tabela-candidatos tabela-itens"' not in body
     assert "Deslize a tabela para o lado" not in body
+
+
+def test_index_vitrine_so_os_6_primeiros_cards_carregam_eager(
+        client, monkeypatch, tmp_path):
+    # item de performance 2026-11-09: a primeira fileira da Vitrine (até
+    # 6 cards, cobre qualquer largura) não pode ter loading="lazy" --
+    # medido ao vivo que o LCP era sempre um cartao-item-icon da
+    # primeira fileira, e lazy atrasava justamente essa imagem. Os
+    # demais, fora da tela inicial, continuam lazy.
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": f"Item {i}", "score": 100 - i, "price": 1.0,
+         "icon": f"hash{i}", "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []}
+        for i in range(8)
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert body.count('class="cartao-item-icon"') == 8
+    assert body.count('class="cartao-item-icon" src="/icone/') > 0
+    partes = body.split('class="cartao-item-icon"')[1:]
+    for i, parte in enumerate(partes):
+        esperado = "eager" if i < 6 else "lazy"
+        assert f'loading="{esperado}"' in parte[:200], (
+            f"card {i}: esperava loading={esperado!r}")
 
 
 def test_index_modo_lista_mostra_a_tabela_e_nao_a_vitrine(
@@ -796,6 +862,20 @@ def test_index_filtros_ativos_removem_um_filtro_preservando_os_demais(
     assert set(query_limpa) == {"ordenar", "ver"}
 
 
+def test_index_sem_atalhos_de_filtro(client, monkeypatch, tmp_path):
+    """Pedido do usuário 2026-11-09: remove as pílulas de atalho
+    (nota/liquidez/preço) adicionadas na pesquisa de referência
+    financeira (TradingView/Finviz) -- fora do site, sem resquício."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80,
+         "price": 10.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": []},
+    ])
+    body = client.get("/").data.decode("utf-8")
+    assert "atalhos-filtro" not in body
+    assert "Liquidez alta" not in body
+
+
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
     """Garantia estrutural: nenhuma rota de server.py importa steam_api."""
     import galaseca.public_site.server as srv
@@ -830,7 +910,10 @@ def test_api_recommendations_com_scan(client, monkeypatch, tmp_path):
     assert nomes == ["Item X"]
     assert data["api_version"] == 1
     assert data["candidatos"][0]["icon_url"] == "/icone/abc123.webp?v=2"
-    assert data["candidatos"][0]["icon_url_2x"] == "/icone/abc123.webp?v=2"
+    # icon_url_2x pede 384px (2x de 192) desde 2026-11-08 -- antes era
+    # cópia do icon_url de 192px (perda de nitidez no hero/vitrine).
+    assert (data["candidatos"][0]["icon_url_2x"]
+            == "/icone/abc123.webp?v=2&tam=384")
 
 
 def test_api_recommendations_filtra_owned_vazio_sempre(client, monkeypatch,
@@ -1568,7 +1651,7 @@ def test_ranking_page_mostra_icone_e_raridade_do_scan_atual(
         "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
         "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
-    body = client.get("/ranking").data.decode("utf-8")
+    body = client.get("/ranking?ver=lista").data.decode("utf-8")
     assert "icone-item-quadro-compacto" in body
     assert "icone-item-quadro-com-imagem" in body
     assert "raridade-covert" in body
@@ -1588,7 +1671,7 @@ def test_ranking_page_item_fora_do_scan_atual_sem_icone(client, monkeypatch):
         "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
         "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
-    resp = client.get("/ranking")
+    resp = client.get("/ranking?ver=lista")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     # "raridade-" aparece em algum lugar da página por causa do popover
@@ -1678,6 +1761,98 @@ def test_ranking_page_resumo_do_dia_sem_alta_nenhuma(client, monkeypatch):
     assert "resumo-do-dia" in body
     assert "0 itens novos no Top 20" in body.replace("\n", " ")
     assert "maior alta" not in body
+
+
+def test_ranking_page_vitrine_mostra_cards_com_posicao_e_nota(
+        client, monkeypatch):
+    # Vitrine (rodada 3) é o padrão, igual a home -- o snapshot do
+    # ranking só tem name/score/position, então o card aqui é mais
+    # enxuto que o da home (sem preço/motivo).
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
+             "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    assert '<ul class="grade-cards"' in body
+    assert 'class="cartao-item cartao-item-ranking' in body
+    assert "#1" in body
+    assert 'href="/item/AK-47%20%7C%20Redline%20(Field-Tested)"' in body
+    assert '<table class="tabela-candidatos">' not in body
+
+
+def test_ranking_page_vitrine_so_os_6_primeiros_cards_carregam_eager(
+        client, monkeypatch, tmp_path):
+    # Mesmo achado de performance de index.html, aplicado ao Ranking
+    # (também abre na Vitrine por padrão).
+    nomes = [f"Item {i}" for i in range(8)]
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": nome, "score": 100 - i, "price": 1.0, "icon": f"hash{i}",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i, nome in enumerate(nomes)
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": nome, "score": 100 - i, "position": i + 1}
+            for i, nome in enumerate(nomes)
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking").data.decode("utf-8")
+    partes = body.split('class="cartao-item-icon"')[1:]
+    assert len(partes) == 8
+    for i, parte in enumerate(partes):
+        esperado = "eager" if i < 6 else "lazy"
+        assert f'loading="{esperado}"' in parte[:200], (
+            f"card {i}: esperava loading={esperado!r}")
+
+
+def test_ranking_page_cookie_pref_ver_lista_mantem_tabela(
+        client, monkeypatch):
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    resp = client.get("/ranking?ver=lista")
+    cookie = resp.headers.get("Set-Cookie", "")
+    assert "pref_ver=lista" in cookie
+    # Sem ?ver na URL, o cookie decide -- mesmo cookie da home, então
+    # quem escolheu Lista lá não volta pra Vitrine aqui sem pedir.
+    body = client.get("/ranking").data.decode("utf-8")
+    assert '<table class="tabela-candidatos">' in body
+    assert '<ul class="grade-cards"' not in body
+
+
+def test_ranking_page_ver_invalido_cai_na_vitrine(client, monkeypatch):
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [{"ts": 1000.0, "items": [
+            {"name": "X", "score": 80, "position": 1},
+        ]}])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: None)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+    body = client.get("/ranking?ver=tabela").data.decode("utf-8")
+    assert '<ul class="grade-cards"' in body
+    assert '<table class="tabela-candidatos">' not in body
 
 
 def test_usuario_logado_aparece_fora_de_conta(client, monkeypatch, tmp_path):
@@ -1917,6 +2092,9 @@ def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
     body = client.get("/status").data.decode("utf-8")
     assert "grafico-historico" in body
     assert "ak-47" in body
+    # mesmo padrão de tooltip por ponto do gráfico de /item e /conta/historico
+    assert "<title>24/10/2026 — 3 visitas</title>" in body
+    assert "<title>25/10/2026 — 5 visitas</title>" in body
 
 
 # ── server: /status ──────────────────────────────────────────
@@ -2773,7 +2951,10 @@ def test_comparar_mostra_icone_com_raridade(client, monkeypatch, tmp_path):
          "icon": "hash-a", "name_color": "EB4B4B"},
     ])
     body = client.get("/comparar?nomes=Item A").data.decode("utf-8")
-    assert "icone-item-quadro-compacto" in body
+    # Tamanho cheio (88px) desde 2026-11-08 -- até 3 itens lado a lado
+    # cabe o mesmo tratamento do destaque da vitrine, não a moldura
+    # compacta de 40px (essa continua só em Ranking/listas densas).
+    assert "icone-item-quadro-compacto" not in body
     assert "icone-item-quadro-com-imagem" in body
     assert "raridade-covert" in body
     assert 'title="Raridade: Covert (vermelho)"' in body
@@ -3080,7 +3261,7 @@ def test_icon_cache_sem_hash_devolve_none():
 
 def test_icon_cache_le_do_disco_sem_rede(monkeypatch, tmp_path):
     monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
-    p = icon_cache._caminho("abc123")
+    p = icon_cache._caminho("abc123", icon_cache.TAMANHO_PADRAO)
     # Leitura de cache-hit não reencoda -- devolve o que já tá no disco,
     # bytes arbitrários servem pra testar só esse caminho.
     p.write_bytes(b"fake-webp-bytes")
@@ -3133,7 +3314,7 @@ def test_icon_cache_preserva_hash_real_na_url(monkeypatch, tmp_path):
     url, kw = pedidas[0]
     assert f"/economy/image/{_HASH_REAL}/" in url
     assert kw.get("follow_redirects") is True
-    assert icon_cache._caminho(_HASH_REAL).exists()
+    assert icon_cache._caminho(_HASH_REAL, icon_cache.TAMANHO_PADRAO).exists()
 
 
 def test_icon_cache_sanitiza_hash_malicioso():
@@ -3183,14 +3364,14 @@ def test_icon_cache_obter_cacheia_webp_em_disco(monkeypatch, tmp_path):
     monkeypatch.setattr(httpx, "get", lambda *a, **kw: _Resp())
     resultado = icon_cache.obter("novohash")
     assert resultado[:4] == b"RIFF"
-    caminho = icon_cache._caminho("novohash")
+    caminho = icon_cache._caminho("novohash", icon_cache.TAMANHO_PADRAO)
     assert caminho.suffix == ".webp"
     assert caminho.read_bytes() == resultado
 
 
 def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", lambda h: None)
+        "galaseca.public_site.server.icon_cache.obter", lambda h, t: None)
     resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 302
     assert "steamstatic.com" in resp.headers["Location"]
@@ -3199,12 +3380,53 @@ def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
 def test_rota_icone_com_cache_serve_bytes(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.icon_cache.obter",
-        lambda h: b"dados-da-imagem")
+        lambda h, t: b"dados-da-imagem")
     resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 200
     assert resp.data == b"dados-da-imagem"
     assert resp.mimetype == "image/webp"
     assert "max-age" in resp.headers.get("Cache-Control", "")
+
+
+def test_rota_icone_tam_384_passa_pro_icon_cache(client, monkeypatch):
+    # srcset 2x pede ?tam=384 (2026-11-08) -- confere que a rota repassa
+    # o tamanho pro icon_cache.obter() em vez de ignorar a query string.
+    chamadas = []
+
+    def _obter(hash_icone, tamanho):
+        chamadas.append(tamanho)
+        return b"dados-384"
+
+    monkeypatch.setattr(
+        "galaseca.public_site.server.icon_cache.obter", _obter)
+    resp = client.get("/icone/abc123.webp?tam=384")
+    assert resp.status_code == 200
+    assert resp.data == b"dados-384"
+    assert chamadas == [384]
+
+
+def test_rota_icone_tam_invalido_cai_no_padrao(client, monkeypatch):
+    chamadas = []
+
+    def _obter(hash_icone, tamanho):
+        chamadas.append(tamanho)
+        return b"x"
+
+    monkeypatch.setattr(
+        "galaseca.public_site.server.icon_cache.obter", _obter)
+    resp = client.get("/icone/abc123.webp?tam=9999")
+    assert resp.status_code == 200
+    assert chamadas == [icon_cache.TAMANHO_PADRAO]
+
+
+def test_icon_cache_obter_tamanho_fora_da_lista_cai_no_padrao(
+        monkeypatch, tmp_path):
+    monkeypatch.setattr(icon_cache, "_CACHE_DIR", tmp_path)
+    p = tmp_path / "abc123.v3.192.webp"
+    p.write_bytes(b"ja-em-cache-192")
+    # tamanho=999 não existe em TAMANHOS_PERMITIDOS -- cai pro padrão
+    # (192) e lê o mesmo arquivo que um `obter("abc123")` sem tamanho leria.
+    assert icon_cache.obter("abc123", 999) == b"ja-em-cache-192"
 
 
 def test_rota_icone_tem_rate_limit(monkeypatch):
@@ -3214,7 +3436,7 @@ def test_rota_icone_tem_rate_limit(monkeypatch):
     gotcha de `rate_limited` avaliado na decoração: patcha ANTES de
     `create_app()`."""
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", lambda h: b"x")
+        "galaseca.public_site.server.icon_cache.obter", lambda h, t: b"x")
     monkeypatch.setattr(rate_limit, "ICON_MAX_HITS", 2)
     app = create_app()
     app.config["TESTING"] = True
@@ -3282,6 +3504,18 @@ def test_apple_touch_icon_usa_png_nao_svg(client, monkeypatch):
     monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
     body = client.get("/").data.decode("utf-8")
     assert 'rel="apple-touch-icon" href="/static/icon-192.png' in body
+
+
+def test_sem_preload_de_fonte_custom(client, monkeypatch):
+    """Identidade 3.0 (2026-11-09): uma família só, do stack de sistema,
+    em todo o site -- Poppins SemiBold não é mais usada como @font-face
+    em texto nenhum (só a logo, como contorno SVG). O preload que
+    existia pra ela virou peso morto (baixava um arquivo que nenhum CSS
+    referenciava mais); removido junto com o arquivo."""
+    monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
+    body = client.get("/").data.decode("utf-8")
+    assert "Poppins" not in body
+    assert 'rel="preload"' not in body
 
 
 def test_sw_js_na_raiz_com_scope_amplo(client):
@@ -3352,7 +3586,7 @@ def test_csp_report_corpo_vazio_ainda_responde_204(client):
 
 
 def test_icon_cache_caminho_sanitiza_hash_nao_alfanumerico():
-    p = icon_cache._caminho("../../etc/passwd")
+    p = icon_cache._caminho("../../etc/passwd", icon_cache.TAMANHO_PADRAO)
     assert ".." not in p.name
     assert "/" not in p.name
     assert p.parent == icon_cache._CACHE_DIR
@@ -3522,6 +3756,26 @@ def test_admin_log_bruto_com_sessao_baixa_arquivo(client, monkeypatch, tmp_path)
     resp = client.get("/admin/log-bruto")
     assert resp.status_code == 200
     assert b"linha de erro" in resp.data
+
+
+def test_admin_grafico_erros_tem_tooltip_por_ponto(client, monkeypatch, tmp_path):
+    # mesma ronda de /status e /conta/historico: o gráfico de erros do
+    # admin também chamava charts.line_chart_svg sem rotulos.
+    log = tmp_path / "errors.log"
+    log.write_text(
+        "2026-11-07 10:00:00,000 ERROR algo\n"
+        "2026-11-08 09:00:00,000 ERROR outro\n"
+        "2026-11-08 11:00:00,000 ERROR outro2\n",
+        encoding="utf-8")
+    monkeypatch.setattr(
+        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setattr("galaseca.public_site.server._ERROR_LOG_PATH", log)
+    client.post("/admin/login", data={"senha": "segredo"})
+    body = client.get("/admin").data.decode("utf-8")
+    assert "grafico-erros" in body
+    assert "<title>07/11/2026 — 1 erro</title>" in body
+    assert "<title>08/11/2026 — 2 erros</title>" in body
 
 
 def test_admin_backup_download_sem_sessao_e_404(client):
@@ -3901,6 +4155,49 @@ def test_enriquecer_com_historico_nao_marca_curto_com_pontos_suficientes(
     assert candidatos[0]["historico_pontos"] == 5
 
 
+# ── Rodada 4: performance -- icone so' pra fatia visivel ────────
+
+def test_candidatos_filtrados_sem_icone_nao_builda_url(client):
+    # mesmo achado de performance que com_historico=False: profiling
+    # 2026-11-09 mostrou url_for("icone_cache", ...) como 42% do tempo
+    # de / inteiro, rodando pros ~150-180 candidatos quando só 10
+    # aparecem na página.
+    from galaseca.public_site.server import _candidatos_filtrados
+    scan = {"ts": time.time(), "category": "x", "results": [
+        {"name": "Item A", "score": 80, "price": 10.0, "icon": "hash123",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]}
+    out = _candidatos_filtrados(scan, com_historico=False, com_icone=False)
+    assert out[0]["icon_url"] is None
+    assert out[0]["icon_url_2x"] is None
+
+
+def test_enriquecer_com_icone_preenche_campos(client):
+    from galaseca.public_site.server import _enriquecer_com_icone
+    candidatos = [{"name": "Item A", "icon": "hash123"},
+                 {"name": "Item B", "icon": None}]
+    with client.application.test_request_context():
+        _enriquecer_com_icone(candidatos)
+    assert candidatos[0]["icon_url"] == "/icone/hash123.webp?v=2"
+    assert candidatos[0]["icon_url_2x"] == "/icone/hash123.webp?v=2&tam=384"
+    assert candidatos[1]["icon_url"] is None
+    assert candidatos[1]["icon_url_2x"] is None
+
+
+def test_candidatos_filtrados_com_icone_default_continua_preenchendo(
+        client):
+    # default (sem passar com_icone) continua True -- nenhum caller que
+    # não foi atualizado explicitamente perde o ícone sem querer.
+    from galaseca.public_site.server import _candidatos_filtrados
+    scan = {"ts": time.time(), "category": "x", "results": [
+        {"name": "Item A", "score": 80, "price": 10.0, "icon": "hash123",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ]}
+    with client.application.test_request_context():
+        out = _candidatos_filtrados(scan, com_historico=False)
+    assert out[0]["icon_url"] == "/icone/hash123.webp?v=2"
+
+
 def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
     """152 candidatos, só 10 por página -- load_item_history não pode
     ser chamado mais que o necessário pra essa página (acrescido de uma
@@ -3923,6 +4220,32 @@ def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
     resp = client.get("/")
     assert resp.status_code == 200
     assert len(chamadas) <= 15  # página de 10 + folga, nunca os 152
+
+
+def test_index_so_builda_icone_da_pagina_atual(client, monkeypatch, tmp_path):
+    """Mesma família -- url_for("icone_cache", ...) não pode rodar pros
+    152 candidatos inteiros quando só 10 aparecem na página (achado de
+    performance 2026-11-09, ver _enriquecer_com_icone)."""
+    resultados = [
+        {"name": f"Item {i:03d}", "score": 50, "price": 1.0, "icon": "h",
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []}
+        for i in range(152)
+    ]
+    _salva_scan(tmp_path, monkeypatch, resultados)
+    from galaseca.public_site import server as server_mod
+    real_url_for = server_mod.url_for
+    chamadas = []
+
+    def _contado(endpoint, *a, **kw):
+        if endpoint == "icone_cache":
+            chamadas.append(endpoint)
+        return real_url_for(endpoint, *a, **kw)
+
+    monkeypatch.setattr(server_mod, "url_for", _contado)
+    resp = client.get("/")
+    assert resp.status_code == 200
+    # 10 da página x 2 (icon_url + icon_url_2x) + folga, nunca os 152
+    assert len(chamadas) <= 25
 
 
 def test_item_detail_nao_calcula_historico_dos_outros_candidatos(client, monkeypatch, tmp_path):

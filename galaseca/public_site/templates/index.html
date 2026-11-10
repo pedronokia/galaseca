@@ -135,14 +135,21 @@
      da referência, em vez da linha de planilha. Os mesmos dados da
      tabela continuam disponíveis no modo Lista; aqui o card mostra o
      essencial e esconde o resto atrás de "ver mais". #}
-  {% macro cartao_candidato(c) %}
+  {% macro cartao_candidato(c, indice=0) %}
   {% set extras = (c.breakdown|rejectattr('label', 'equalto', c.reasons[0])|list) if (c.breakdown and c.reasons) else (c.breakdown or []) %}
   <li class="cartao-item{{ ' ' ~ c.raridade_classe if c.raridade_classe else '' }}" data-nome="{{ c.name }}" data-nota="{{ c.score }}">
     <span class="cartao-item-brilho"></span>
     <div class="cartao-item-imagem">
       <a class="cartao-item-imagem-link" href="{{ url_for('item_detail', name=c.name) }}" aria-label="Abrir detalhes e histórico de {{ c.name_fmt }}">
         {% if c.icon_url %}
-        <img class="cartao-item-icon" src="{{ c.icon_url }}" srcset="{{ c.icon_url }} 1x, {{ c.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="192" height="192">
+        {# item de performance 2026-11-09: os 6 primeiros cobrem a
+           primeira fileira em qualquer largura (2 colunas no celular, até
+           ~6 no desktop largo) -- `loading="lazy"` neles atrasava
+           justamente a imagem que normalmente vira o LCP (medido ao
+           vivo: o maior elemento pintado era sempre um cartao-item-icon
+           da primeira fileira). Os demais, fora da tela inicial,
+           continuam lazy. #}
+        <img class="cartao-item-icon" src="{{ c.icon_url }}" srcset="{{ c.icon_url }} 1x, {{ c.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="{{ 'eager' if indice < 6 else 'lazy' }}" width="192" height="192">
         {% else %}
         <span class="icone-item-placeholder" aria-hidden="true"></span>
         {% endif %}
@@ -334,9 +341,10 @@
     </nav>
     {% endif %}
 
-    {% if resumo_do_dia and (resumo_do_dia.maior_alta or resumo_do_dia.maior_queda) %}
+    {% if resumo_do_dia %}
     <p class="resumo-do-dia">
       Comparado com o Top 20 de {{ resumo_do_dia.quando }}:
+      {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }}{% if resumo_do_dia.maior_alta or resumo_do_dia.maior_queda %}; {% endif %}
       {% if resumo_do_dia.maior_alta %}maior alta de nota foi
       <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
       ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% if resumo_do_dia.maior_queda %}; {% endif %}{% endif %}{% if resumo_do_dia.maior_queda %}maior queda foi
@@ -432,7 +440,7 @@
     </div>
     {% else %}
     <ul class="grade-cards" aria-label="Vitrine de itens">
-      {% for c in candidatos %}{{ cartao_candidato(c) }}{% endfor %}
+      {% for c in candidatos %}{{ cartao_candidato(c, loop.index0) }}{% endfor %}
     </ul>
     {% endif %}
     {% endif %}

@@ -29,7 +29,12 @@
       <div class="card"><span class="card-label">Valor de mercado</span><span class="card-valor">{{ avaliacao.totals.market_fmt }}</span></div>
       <div class="card"><span class="card-label">Líquido se vender hoje</span><span class="card-valor">{{ avaliacao.totals.net_if_sold_fmt }}</span></div>
       <div class="card"><span class="card-label">Investido (custo conhecido)</span><span class="card-valor">{{ avaliacao.totals.cost_known_fmt }}</span></div>
-      <div class="card">
+      {# card-nota-destaque (revisão de direção visual 2026-11-08) --
+         mesma classe já usada pra elevar a Nota na página do item: o
+         lucro é o número que quem abre o portfólio quer ver primeiro,
+         então ganha o mesmo destaque (borda + corte de canto) entre os
+         outros 3 cards desta fileira, que ficam no .card padrão. #}
+      <div class="card card-nota-destaque">
         <span class="card-label">Lucro (sem taxa)</span>
         <span class="card-valor {{ 'valor-positivo' if avaliacao.totals.pnl and avaliacao.totals.pnl > 0 else ('valor-negativo' if avaliacao.totals.pnl and avaliacao.totals.pnl < 0 else '') }}">
           {{ avaliacao.totals.pnl_fmt if avaliacao.totals.pnl is not none else "— (sem custo pra comparar)" }}

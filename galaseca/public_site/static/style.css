@@ -200,6 +200,13 @@ summary:focus-visible,
   stroke: none;
 }
 
+/* Glifo da marca Steam (Simple Icons, CC0) -- só no botão "Entrar com
+   Steam"; silhueta cheia, não ícone de UI em traço. */
+.icone-ui-steam {
+  fill: currentColor;
+  stroke: none;
+}
+
 .icone-ui-favorito {
   fill: none;
   transition: fill 0.15s ease;
@@ -490,6 +497,7 @@ header.topo h1 {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
+  gap: 8px;
   padding: 9px 20px;
   border: 1px solid var(--accent-steel);
   border-radius: var(--radius-pill);
@@ -501,6 +509,8 @@ header.topo h1 {
   text-decoration: none;
   transition: background-color 0.15s ease;
 }
+
+.conta-link-entrar .icone-ui { width: 18px; height: 18px; }
 
 .conta-link-entrar:hover {
   background: rgba(102, 192, 244, 0.28);
@@ -623,14 +633,73 @@ footer.rodape {
 
 footer.rodape p { margin: 0 0 var(--sp-2); }
 
-footer.rodape .versao {
-  margin-top: 8px;
+footer.rodape a { color: var(--text); }
+
+/* Rodapé é cromo neutro (ref. apple.com): o link escurece e sublinha
+   no hover, sem cor de ação -- o azul fica pros links de texto do
+   conteúdo. */
+footer.rodape a:hover { color: var(--text); text-decoration: underline; }
+
+/* Grade de links por categoria (veio da main, PR #110): aria-current
+   fica só semântico pra leitor de tela, sem caixa de destaque própria
+   (o box-shadow só nele lia como bug, achado 2026-11-03), e abaixo de
+   640px o grid força 1 coluna em vez de quebrar em 2 desalinhadas. */
+.rodape-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-4);
+  margin: 0 0 var(--sp-5);
+}
+
+.rodape-nav-grupo {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.rodape-nav-grupo h2 {
+  margin: 0 0 var(--sp-2);
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rodape-nav-grupo a {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.rodape-nav-grupo a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.rodape-nav-grupo a:focus-visible { outline-offset: 2px; }
+
+@media (max-width: 640px) {
+  .rodape-nav { grid-template-columns: 1fr; gap: var(--sp-5); }
+  .rodape-nav-grupo a { min-height: 44px; }
+}
+
+/* Barra fina de versão, visitas e autor, separada da grade por um fio
+   -- só texto aqui, os links já estão na grade acima. */
+.rodape-base {
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+
+.rodape-base .versao {
+  margin: 0 0 4px;
   text-align: center;
 }
 
-footer.rodape a { color: var(--text); }
-
-footer.rodape a:hover { color: var(--accent-bright); }
+.rodape-base .versao:last-child { margin-bottom: 0; }
 
 /* ── Navegação inferior (celular) ────────────────────── */
 
@@ -2130,6 +2199,25 @@ table.tabela-candidatos td.celula-preco {
 
 @media (hover: none) {
   .cartao-item-comparar-alvo { opacity: 1; }
+}
+
+/* Posição no card do Ranking (#1, #2...): canto que na Vitrine da home
+   pertence ao alvo de comparação -- o Ranking não tem comparar, então
+   não disputam espaço. aria-hidden no markup: a ordem do grid já
+   entrega a posição; o que sobe/cai embaixo do nome é o dado. */
+.cartao-item-posicao {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .cartao-item-corpo {
