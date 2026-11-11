@@ -9,6 +9,16 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-11-11",
+        "titulo": "Categorias só com nome e contagem",
+        "itens": [
+            "Os desenhos que ficavam na frente do nome de cada categoria "
+            "saíram: a barra de filtros ficou só com o nome e a quantidade "
+            "de itens, mais limpa e sem repetir a mesma figura em várias "
+            "abas",
+        ],
+    },
+    {
+        "data": "2026-11-11",
         "titulo": "Cabeçalho no ritmo da barra da Apple",
         "itens": [
             "A barra do topo ficou mais fina: agora tem a altura da "

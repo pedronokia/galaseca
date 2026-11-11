@@ -1445,22 +1445,16 @@ def test_index_abas_de_categoria_so_com_dados(client, monkeypatch, tmp_path):
     body = client.get("/?categoria=Rifles").data.decode("utf-8")
     abas = body.split('class="abas-categoria"', 1)[1].split("</nav>", 1)[0]
     assert ">Todas <span" in abas
-    # achado 2026-11-08: ganhou ícone de categoria (svg) antes do nome --
-    # o nome continua logo depois do </svg>, só não cola mais direto no
-    # aria-current="page">.
-    assert 'aria-current="page">' in abas
-    assert '</svg>Rifles <span class="aba-contagem">1</span>' in abas
+    # Decisão 2026-11-11: as abas voltaram a ser só nome + contagem, sem
+    # pictograma na frente da palavra.
+    assert 'aria-current="page">Rifles <span class="aba-contagem">1</span>' in abas
     assert ">Facas <span" not in abas
-    assert "</svg>Facas <span" not in abas
+    assert "<svg" not in abas
 
 
-def test_index_abas_de_categoria_mostram_icone_por_categoria(
-        client, monkeypatch, tmp_path):
-    """achado 2026-11-08 (referência visual: FACEIT): as abas de
-    categoria eram só texto -- um ícone pequeno por categoria (arma,
-    faca, luva, caixa, cápsula, etiqueta) ajuda reconhecimento rápido.
-    "Todas" fica sem ícone de propósito (não há um pictograma razoável
-    pra "tudo junto")."""
+def test_index_abas_de_categoria_sem_icone(client, monkeypatch, tmp_path):
+    """Decisão de 2026-11-11: os ícones que ficavam na frente do nome de
+    cada categoria saíram -- a barra fica só com nome e contagem."""
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "X", "score": 80, "price": 1.0, "case_label": "",
          "category": "Rifles", "pump_risk": {"level": "low"}, "breakdown": []},
@@ -1469,10 +1463,10 @@ def test_index_abas_de_categoria_mostram_icone_por_categoria(
     ])
     body = client.get("/").data.decode("utf-8")
     abas = body.split('class="abas-categoria"', 1)[1].split("</nav>", 1)[0]
-    assert 'icone-ui-rifle' in abas
-    assert 'icone-ui-luva' in abas
-    aba_todas = abas.split("</a>", 1)[0]  # "Todas" é sempre a 1a aba
-    assert "<svg" not in aba_todas
+    assert "icone-ui" not in abas
+    assert "<svg" not in abas
+    assert ">Rifles <span" in abas
+    assert ">Luvas <span" in abas
 
 
 def test_index_aba_todas_bate_com_total_mostrado(client, monkeypatch, tmp_path):

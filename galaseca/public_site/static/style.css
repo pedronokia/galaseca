@@ -1177,8 +1177,6 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.aba-categoria .icone-ui { width: 15px; height: 15px; }
-
 .aba-categoria:hover {
   background: var(--surface-strong);
   color: var(--text-bright);
