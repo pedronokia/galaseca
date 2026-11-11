@@ -46,6 +46,19 @@
   --focus: #0071e3;
   --marca: #f97316;
 
+  /* Barra de navegação -- chrome escuro, como a barra do site da Apple
+     no modo escuro: a barra fica preta e o conteúdo claro ganha o
+     palco. Tokens próprios para o cabeçalho e a barra do celular não
+     dependerem das cores de texto do conteúdo. */
+  --chrome-fundo: rgba(29, 29, 31, 0.92);
+  --chrome-fundo-forte: rgba(29, 29, 31, 0.94);
+  --chrome-texto: rgba(255, 255, 255, 0.82);
+  --chrome-texto-forte: #ffffff;
+  --chrome-linha: rgba(255, 255, 255, 0.14);
+  --chrome-foco: #4da3ff;
+  --chrome-logo: #f5f5f7;
+  --chrome-logo-aspas: #1d1d1f;
+
   /* Raridade do CS2 (sobrescrita pelas classes .raridade-*) */
   --rar-cor: #b0c3d9;
 
@@ -278,12 +291,16 @@ summary:focus-visible,
 /* ── Cabeçalho ───────────────────────────────────────── */
 
 /* Barra fina, translúcida e fixa: ela some no conteúdo em vez de
-   competir com ele. */
+   competir com ele. Fundo escuro como a barra da Apple no modo escuro
+   -- decisão de 2026-11-11. `--focus` local deixa o anel de foco
+   claro o bastante para aparecer sobre o preto. */
 header.topo {
+  --focus: var(--chrome-foco);
+
   position: sticky;
   top: 0;
   z-index: 40;
-  background: rgba(250, 250, 252, 0.8);
+  background: var(--chrome-fundo);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
 }
@@ -294,7 +311,7 @@ header.topo::after {
   content: "";
   display: block;
   height: 1px;
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--chrome-linha);
 }
 
 header.topo > * {
@@ -319,7 +336,7 @@ header.topo h1 {
   margin: 0;
   font-size: var(--fs-md);
   font-weight: 600;
-  color: var(--text-bright);
+  color: var(--chrome-texto-forte);
   line-height: 1;
 }
 
@@ -337,11 +354,11 @@ header.topo h1 {
 .logo {
   display: inline-flex;
   align-items: center;
-  color: var(--text-bright);
+  color: var(--chrome-logo);
   text-decoration: none;
 }
 
-.logo:hover { color: var(--text-bright); }
+.logo:hover { color: var(--chrome-texto-forte); }
 
 .logo:focus-visible {
   outline-offset: 3px;
@@ -358,7 +375,9 @@ header.topo h1 {
   flex-shrink: 0;
 }
 
-.logo-aspas { fill: var(--logo-aspas, #ffffff); }
+/* As aspas são vazadas: herdam a cor do fundo da barra para o disco
+   parecer recortado, como o ícone da Apple. */
+.logo-aspas { fill: var(--chrome-logo-aspas); }
 
 /* Navegação principal -- grupo compacto no centro da barra, com o
    mesmo respiro entre itens da barra da Apple (12px de texto, ~24px
@@ -381,7 +400,7 @@ header.topo h1 {
   align-items: center;
   padding: 6px 8px;
   border-radius: var(--radius-xs);
-  color: rgba(0, 0, 0, 0.8);
+  color: var(--chrome-texto);
   font-size: 0.75rem;
   font-weight: 400;
   letter-spacing: -0.01em;
@@ -390,7 +409,7 @@ header.topo h1 {
   transition: color 0.32s cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-.nav-principal a:hover { color: #000000; }
+.nav-principal a:hover { color: var(--chrome-texto-forte); }
 
 /* A página atual não ganha destaque visual na barra -- como na barra
    da Apple, o link fica igual aos demais; o aria-current continua no
@@ -419,7 +438,7 @@ header.topo h1 {
   align-items: center;
   padding: 6px 10px;
   border-radius: var(--radius-xs);
-  color: rgba(0, 0, 0, 0.8);
+  color: var(--chrome-texto);
   font-size: 0.75rem;
   font-weight: 400;
   text-decoration: none;
@@ -428,7 +447,7 @@ header.topo h1 {
 
 .conta-nav a:hover,
 .conta-nav a[aria-current="page"] {
-  color: #000000;
+  color: var(--chrome-texto-forte);
   background: transparent;
   text-decoration: none;
 }
@@ -439,10 +458,10 @@ header.topo h1 {
   align-items: center;
   gap: var(--sp-2);
   padding: 4px 14px 4px 5px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--chrome-linha);
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-bright);
+  color: var(--chrome-texto-forte);
   font-size: 0.75rem;
   font-weight: 600;
   text-decoration: none;
@@ -451,12 +470,12 @@ header.topo h1 {
 }
 
 .conta-pill:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.32);
   text-decoration: none;
 }
 
-.conta-pill[aria-current="page"] { border-color: var(--accent); }
+.conta-pill[aria-current="page"] { border-color: var(--chrome-foco); }
 
 .conta-avatar {
   display: block;
@@ -470,14 +489,14 @@ header.topo h1 {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: var(--text-muted);
+  color: var(--chrome-texto);
   text-decoration: none;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .conta-sair:hover {
-  color: var(--danger);
-  background: var(--surface);
+  color: #ff8a80;
+  background: rgba(255, 255, 255, 0.12);
   text-decoration: none;
 }
 
@@ -492,7 +511,7 @@ header.topo h1 {
   gap: 7px;
   padding: 6px 8px;
   border-radius: var(--radius-xs);
-  color: rgba(0, 0, 0, 0.8);
+  color: var(--chrome-texto);
   font-size: 0.75rem;
   font-weight: 400;
   white-space: nowrap;
@@ -503,7 +522,7 @@ header.topo h1 {
 .conta-link-entrar .icone-ui { width: 16px; height: 16px; }
 
 .conta-link-entrar:hover {
-  color: #000000;
+  color: var(--chrome-texto-forte);
   text-decoration: none;
 }
 
@@ -514,7 +533,7 @@ header.topo h1 {
 
 /* Badge de cooldown (aparece no status do scan, dentro do header em
    algumas telas antigas). */
-header.topo > .badge-cooldown { padding-bottom: var(--sp-5); }
+header.topo > .badge-cooldown { padding-bottom: var(--sp-5); color: var(--chrome-texto); }
 
 .badge-cooldown {
   display: inline-block;
@@ -535,6 +554,7 @@ header.topo > .badge-cooldown { padding-bottom: var(--sp-5); }
 header.topo > .subtitulo {
   padding-bottom: var(--sp-2);
   margin-bottom: 0;
+  color: var(--chrome-texto);
 }
 
 /* ── Estrutura de página ─────────────────────────────── */
@@ -3191,8 +3211,16 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     padding-right: var(--sp-4);
   }
 
-  /* Sticky ocuparia espaço demais quando a barra de ações quebra linha. */
-  header.topo { position: static; }
+  /* Sticky ocuparia espaço demais quando a barra de ações quebra linha.
+     Sem sticky nada rola por baixo da barra, então o blur sai também:
+     ele transformaria o cabeçalho em bloco de contenção e a barra
+     inferior (position: fixed) grudaria nele em vez de ficar no rodapé
+     da tela. */
+  header.topo {
+    position: static;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 
   main { padding: var(--sp-4) var(--sp-4) var(--sp-7); }
 
@@ -3448,7 +3476,8 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     align-items: center;
   }
 
-  /* Barra inferior fixa, ao alcance do polegar. */
+  /* Barra inferior fixa, ao alcance do polegar. Mesmo chrome escuro do
+     cabeçalho, para as duas barras parecerem o mesmo sistema. */
   .nav-inferior {
     display: flex;
     position: fixed;
@@ -3459,11 +3488,11 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     justify-content: space-around;
     gap: 2px;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
-    background: rgba(250, 250, 252, 0.94);
+    border-top: 1px solid var(--chrome-linha);
+    background: var(--chrome-fundo-forte);
     -webkit-backdrop-filter: blur(14px);
     backdrop-filter: blur(14px);
-    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.18);
   }
 
   .nav-inferior a {
@@ -3476,7 +3505,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     gap: 3px;
     padding: 4px 2px;
     border-radius: var(--radius-xs);
-    color: var(--text-muted);
+    color: var(--chrome-texto);
     font-size: var(--fs-2xs);
     font-weight: 600;
     text-decoration: none;
@@ -3487,7 +3516,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     height: 20px;
   }
 
-  .nav-inferior a[aria-current="page"] { color: var(--accent-bright); }
+  .nav-inferior a[aria-current="page"] { color: var(--chrome-foco); }
   .nav-inferior a:focus-visible { outline-offset: -2px; }
 
   body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }

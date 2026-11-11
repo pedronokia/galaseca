@@ -8,18 +8,23 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
-        "data": "2026-11-10",
+        "data": "2026-11-11",
         "titulo": "Cabeçalho no ritmo da barra da Apple",
         "itens": [
             "A barra do topo ficou mais fina: agora tem a altura da "
             "barra de navegação do site da Apple e deixa o conteúdo "
             "começar mais cedo",
+            "A barra ganhou fundo escuro, como a barra da Apple no modo "
+            "escuro: o menu fica em texto claro e o conteúdo branco "
+            "começa logo abaixo dela",
             "Os links do menu ficam juntos, com o mesmo respiro entre "
             "eles, em vez de se espalharem até as pontas da barra",
             "A marca virou um símbolo redondo com aspas, no lugar do "
             "nome escrito: a barra fica leve e sobra espaço para o menu",
             "O botão de entrar virou um item discreto da barra, sem a "
             "pílula azul; o símbolo da Steam continua ao lado do texto",
+            "No celular, a barra de baixo acompanha a do topo no mesmo "
+            "fundo escuro, para as duas parecerem o mesmo sistema",
             "A página aberta não ganha mais um risco embaixo do nome no "
             "menu -- quem usa leitor de tela continua sabendo em qual "
             "página está",
