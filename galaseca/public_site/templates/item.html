@@ -4,16 +4,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ item.name_fmt }} — galaseca</title>
+  <title>{{ item.name_fmt }} — Galaseca</title>
   <meta name="description" content="Nota {{ item.score }}/100 pra {{ item.name_fmt }} — {{ item.price_fmt }}, dado público da Steam Community Market.">
-  <meta property="og:title" content="{{ item.name_fmt }} — galaseca">
+  <meta property="og:title" content="{{ item.name_fmt }} — Galaseca">
   <meta property="og:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}{% if item.reasons %} · {{ item.reasons|join('; ') }}{% endif %}">
   <meta property="og:type" content="website">
   <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.png')) }}">
   <meta property="og:url" content="{{ request.url }}">
   <meta property="og:locale" content="pt_BR">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="{{ item.name_fmt }} — galaseca">
+  <meta name="twitter:title" content="{{ item.name_fmt }} — Galaseca">
   <meta name="twitter:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}">
   <meta name="twitter:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.png')) }}">
   <link rel="canonical" href="{{ request.url }}">
@@ -46,7 +46,7 @@
   }
   </script>
   {% include "partials/_head_pwa.html" %}
-  <link rel="alternate" type="application/rss+xml" title="galaseca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="alternate" type="application/rss+xml" title="Galaseca — Preços e notas" href="{{ url_for('feed') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
 </head>
 <body>

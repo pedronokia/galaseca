@@ -56,8 +56,6 @@
   --chrome-texto-forte: #ffffff;
   --chrome-linha: rgba(255, 255, 255, 0.14);
   --chrome-foco: #4da3ff;
-  --chrome-logo: #f5f5f7;
-  --chrome-logo-aspas: #1d1d1f;
 
   /* Raridade do CS2 (sobrescrita pelas classes .raridade-*) */
   --rar-cor: #b0c3d9;
@@ -353,21 +351,24 @@ header.topo h1 {
 
 .logo {
   display: inline-flex;
+  min-height: 44px;
   align-items: center;
-  color: var(--chrome-logo);
+  color: var(--chrome-texto);
   text-decoration: none;
+  transition: color 0.32s cubic-bezier(0.4, 0, 0.6, 1);
 }
 
 .logo:hover { color: var(--chrome-texto-forte); }
 
 .logo:focus-visible {
   outline-offset: 3px;
-  border-radius: 50%;
+  border-radius: var(--radius-xs);
 }
 
-/* Símbolo redondo (disco com aspas vazadas), do tamanho de um ícone
-   de barra de navegação -- a marca escrita ocupava 208px e empurrava
-   o menu para o meio da barra. */
+/* Marca só com as aspas soltas, sem disco atrás -- como o símbolo da
+   Apple na barra dela: o desenho é a própria marca e acende ao passar
+   o mouse (cinza-claro -> branco). A marca escrita ocupava 208px e
+   empurrava o menu para o meio da barra. */
 .logo-icone {
   display: block;
   width: 28px;
@@ -375,9 +376,9 @@ header.topo h1 {
   flex-shrink: 0;
 }
 
-/* As aspas são vazadas: herdam a cor do fundo da barra para o disco
-   parecer recortado, como o ícone da Apple. */
-.logo-aspas { fill: var(--chrome-logo-aspas); }
+/* As aspas herdam a cor do link: assim o mesmo token
+   (--chrome-texto -> --chrome-texto-forte) acende o desenho inteiro. */
+.logo-aspas { fill: currentColor; }
 
 /* Navegação principal -- grupo compacto no centro da barra, com o
    mesmo respiro entre itens da barra da Apple (12px de texto, ~24px

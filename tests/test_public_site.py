@@ -1488,8 +1488,9 @@ def test_index_aba_todas_bate_com_total_mostrado(client, monkeypatch, tmp_path):
 
 def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     """Decisão de 2026-11-11: a marca escrita (208px) deu lugar a um
-    símbolo redondo com aspas, do tamanho de um ícone de barra -- o nome
-    completo continua no aria-label do link."""
+    símbolo do tamanho de um ícone de barra e, depois, só às aspas
+    soltas (sem disco atrás) -- o nome completo continua no aria-label
+    do link."""
     _salva_scan(tmp_path, monkeypatch, [])
     body = client.get("/").data.decode("utf-8")
     assert 'class="logo"' in body
@@ -1497,6 +1498,18 @@ def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     assert 'class="logo-aspas"' in body
     assert 'aria-label="sai daí, galaseca — página inicial"' in body
     assert 'class="logo-cheia"' not in body
+    # A marca agora é só o desenho das aspas: nada de disco/círculo atrás.
+    logo = body.split('class="logo"', 1)[1].split("</a>", 1)[0]
+    assert "<circle" not in logo
+
+
+def test_titulos_das_paginas_usam_o_nome_galaseca(client):
+    """Decisão de 2026-11-11: nos títulos de página o nome é "Galaseca"
+    (G maiúsculo). O resto do texto do site continua "galaseca"."""
+    assert "<title>Galaseca</title>" in client.get("/").data.decode("utf-8")
+    ranking = client.get("/ranking").data.decode("utf-8")
+    assert "<title>Ranking — Galaseca</title>" in ranking
+    assert "— galaseca</title>" not in ranking
 
 
 def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):
@@ -3479,7 +3492,7 @@ def test_manifest_json_acessivel(client):
     resp = client.get("/static/manifest.json")
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["name"] == "sai daí, galaseca"
+    assert data["name"] == "Galaseca"
     assert data["start_url"] == "/"
 
 
@@ -4336,7 +4349,7 @@ def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):
     body = client.get("/").data.decode("utf-8")
 
     assert ">Caixa CS:GO Weapon (descontinuada, 2013)</span>" in body
-    assert "<title>sai daí, galaseca</title>" in body
+    assert "<title>Galaseca</title>" in body
 
 
 def test_feed_e_api_nao_leem_historico_de_todos_os_itens(

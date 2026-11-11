@@ -9,6 +9,18 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-11-11",
+        "titulo": "A marca virou aspas e o nome ganhou forma de nome",
+        "itens": [
+            "O cabeçalho agora mostra só as aspas, sem o disco atrás: é o "
+            "desenho que acende ao passar o mouse, como o símbolo da barra "
+            "da Apple",
+            "O nome do site nos títulos das páginas passou a ser "
+            "“Galaseca”, com G maiúsculo -- o resto do texto continua "
+            "“galaseca”",
+        ],
+    },
+    {
+        "data": "2026-11-11",
         "titulo": "Categorias só com nome e contagem",
         "itens": [
             "Os desenhos que ficavam na frente do nome de cada categoria "

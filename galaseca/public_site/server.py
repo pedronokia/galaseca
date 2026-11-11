@@ -797,7 +797,7 @@ def create_app() -> Flask:
         rss = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<rss version="2.0"><channel>\n'
-            "  <title>galaseca — Mudanças</title>\n"
+            "  <title>Galaseca — Mudanças</title>\n"
             f"  <link>{_xml_escape(link_changelog)}</link>\n"
             "  <description>O que mudou no site, por data.</description>\n"
             "  <language>pt-BR</language>\n"
@@ -1083,8 +1083,8 @@ def create_app() -> Flask:
             "    </item>"
             for c in candidatos
         )
-        titulo = (f"galaseca — Preços e notas de {_xml_escape(categoria)}"
-                  if categoria else "galaseca — Preços e notas de skins CS2")
+        titulo = (f"Galaseca — Preços e notas de {_xml_escape(categoria)}"
+                  if categoria else "Galaseca — Preços e notas de skins CS2")
         link_self = f"{base}/feed.xml" + (
             f"?categoria={urllib.parse.quote(categoria)}" if categoria else "")
         rss = (
