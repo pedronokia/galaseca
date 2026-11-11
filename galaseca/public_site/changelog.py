@@ -9,6 +9,26 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-11-11",
+        "titulo": "O site inteiro no estilo da Apple",
+        "itens": [
+            "O texto do site passou a usar os mesmos tamanhos, pesos e "
+            "espaçamentos do apple.com: corpo de 17px, títulos de 32px a "
+            "64px e o mesmo desenho de letra",
+            "Os botões viraram pílula azul (clicar e comprar, como na "
+            "loja da Apple) e os links de texto ficaram azuis sem caixa "
+            "em volta",
+            "Os cards e as caixas de destaque ganharam o raio de 18px, fio "
+            "de 1px e nenhuma sombra -- o bloco do topo da home virou um "
+            "painel quase preto com o número da nota em branco",
+            "O rodapé virou um bloco cinza de ponta a ponta, com texto de "
+            "12px, como o rodapé da Apple",
+            "As abas de categoria, o seletor Vitrine/Lista, os campos de "
+            "filtro e a barra do celular foram todos refeitos no mesmo "
+            "vocabulário visual",
+        ],
+    },
+    {
+        "data": "2026-11-11",
         "titulo": "A marca virou aspas e o nome ganhou forma de nome",
         "itens": [
             "O cabeçalho agora mostra só as aspas, sem o disco atrás: é o "

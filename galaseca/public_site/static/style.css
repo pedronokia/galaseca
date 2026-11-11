@@ -17,26 +17,33 @@
 :root {
   color-scheme: light;
 
-  /* Superfícies */
+  /* Superfícies -- os tons da Apple: branco, o cinza #f5f5f7 e o quase
+     preto #1d1d1f das caixas de destaque. */
   --bg: #ffffff;
   --bg-elevated: #f5f5f7;
   --surface: #ffffff;
   --surface-hover: #f5f5f7;
   --surface-strong: #e8e8ed;
   --surface-sunken: #f5f5f7;
+  --surface-escura: #1d1d1f;
+  --surface-escura-2: #333336;
 
-  /* Traços */
-  --border: #d2d2d7;
-  --border-strong: #86868b;
+  /* Traços -- fio de 1px como o da Apple: preto a 12% de opacidade. */
+  --border: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.28);
+  --border-solido: #d2d2d7;
 
-  /* Texto */
+  /* Texto -- #1d1d1f no corpo, #6e6e73 no secundário, igual à Apple. */
   --text: #1d1d1f;
   --text-bright: #1d1d1f;
   --text-muted: #6e6e73;
+  --text-fraco: rgba(0, 0, 0, 0.56);
 
-  /* Marca e estados */
+  /* Marca e estados -- azul da Apple (#0071e3); link em #0066cc e
+     #0077ed no hover. */
   --accent: #0071e3;
   --accent-bright: #0066cc;
+  --accent-hover: #0077ed;
   --accent-soft: rgba(0, 113, 227, 0.1);
   --accent-steel: #66c0f4;
   --positive: #1a7f37;
@@ -60,39 +67,45 @@
   /* Raridade do CS2 (sobrescrita pelas classes .raridade-*) */
   --rar-cor: #b0c3d9;
 
-  /* Raios */
+  /* Raios -- pílula (980px) nos botões e chips, 18px nos cards,
+     28px nas caixas grandes. */
   --radius-xs: 8px;
   --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 22px;
-  --radius-pill: 999px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+  --radius-pill: 980px;
 
-  /* Sombras */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.12);
+  /* Sombras -- a Apple quase não usa sombra: só o suficiente para o
+     elemento parecer solto do fundo. */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.12);
 
-  /* Métricas */
+  /* Métricas -- a grade da Apple tem 980px de conteúdo e 22px de
+     respiro nas bordas. */
   --altura-topo: 45px;
-  --largura-conteudo: 1024px;
+  --largura-conteudo: 980px;
   --largura-texto: 692px;
 
-  /* Tipografia */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Tipografia -- SF Pro quando o sistema tem (Mac), Helvetica Neue
+     como segundo degrau, como na pilha da Apple. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas,
     monospace;
 
-  /* Escala tipográfica */
-  --fs-2xs: 0.72rem;
-  --fs-xs: 0.8rem;
+  /* Escala tipográfica -- os tamanhos da Apple: 12, 13, 14, 17, 21,
+     24, 32, 48 e 64px. */
+  --fs-2xs: 0.75rem;
+  --fs-xs: 0.8125rem;
   --fs-sm: 0.875rem;
-  --fs-base: 1rem;
+  --fs-base: 1.0625rem;
+  --fs-copy: 1.3125rem;
   --fs-md: 1.0625rem;
   --fs-lg: 1.1875rem;
-  --fs-xl: 1.4375rem;
-  --fs-2xl: 1.875rem;
-  --fs-display: 2.75rem;
+  --fs-xl: 2rem;
+  --fs-2xl: 3rem;
+  --fs-display: 4rem;
 
   /* Escala de espaçamento */
   --sp-1: 4px;
@@ -121,14 +134,17 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: var(--fs-base);
-  line-height: 1.55;
+  line-height: 1.47;
+  /* tracking da Apple no corpo de 17px (-0.022em) */
+  letter-spacing: -0.022em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3 {
   color: var(--text-bright);
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: 1.15;
 }
 
@@ -153,10 +169,11 @@ a {
   transition: color 0.15s ease;
 }
 
+/* Link da Apple: #0066cc no corpo, #0077ed no hover. */
 a:hover {
-  color: var(--accent-bright);
+  color: var(--accent-hover);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
 }
 
 input,
@@ -191,15 +208,16 @@ summary:focus-visible,
 
 .icone-ui {
   display: inline-block;
-  width: 1.15em;
-  height: 1.15em;
+  width: 1em;
+  height: 1em;
   flex: 0 0 auto;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  /* traço fino com ponta arredondada, como os símbolos da Apple */
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  vertical-align: -0.18em;
+  vertical-align: -0.15em;
 }
 
 /* Silhuetas de categoria: preenchidas, porque em 15px um contorno
@@ -563,7 +581,9 @@ header.topo > .subtitulo {
 main {
   max-width: var(--largura-conteudo);
   margin: 0 auto;
-  padding: var(--sp-7) var(--sp-7) var(--sp-7);
+  /* respiro da Apple: 22px de gutter na grade, 48px em cima e 80px
+     embaixo. */
+  padding: 48px 22px 80px;
 }
 
 .pagina-texto {
@@ -574,25 +594,28 @@ main {
 /* Cabeçalho de página: rótulo pequeno, título grande, descrição
    curta. Substitui o subtítulo solto que ficava no header. */
 .cabecalho-pagina {
-  margin: 0 0 var(--sp-7);
+  margin: 0 0 40px;
 }
 
+/* Sobretítulo: o "eyebrow" da Apple -- azul, 12px, tracking aberto. */
 .rotulo-pagina {
   margin: 0 0 var(--sp-2);
-  color: var(--accent-bright);
+  color: var(--accent);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
+/* Título de página: 64px/600 no desktop (o tamanho do cabeçalho da
+   Apple), 32px no celular. */
 .titulo-pagina {
-  margin: 0 0 var(--sp-2);
+  margin: 0 0 var(--sp-3);
   color: var(--text-bright);
-  font-size: clamp(1.7rem, 3.6vw, var(--fs-display));
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  font-size: clamp(2rem, 5.4vw, var(--fs-display));
+  font-weight: 600;
+  letter-spacing: -0.009em;
+  line-height: 1.06;
   text-wrap: balance;
 }
 
@@ -600,16 +623,16 @@ main {
   max-width: 640px;
   margin: 0;
   color: var(--text-muted);
-  font-size: var(--fs-md);
-  line-height: 1.55;
+  font-size: var(--fs-copy);
+  line-height: 1.43;
 }
 
 .secao-titulo {
-  margin: var(--sp-7) 0 var(--sp-3);
+  margin: 56px 0 var(--sp-4);
   color: var(--text-bright);
   font-size: var(--fs-xl);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .cabecalho-sub {
@@ -623,19 +646,29 @@ main {
 
 /* ── Rodapé ──────────────────────────────────────────── */
 
+/* Rodapé no formato da Apple: bloco cinza (#f5f5f7) de ponta a ponta,
+   texto de 12px em #6e6e73 e títulos de 12px em negrito. O conteúdo
+   interno continua na mesma grade do resto do site. */
 footer.rodape {
-  max-width: 960px;
-  margin: 24px auto 0;
-  padding: 16px 24px 32px;
-  border-top: 1px solid var(--border);
+  max-width: none;
+  margin: 56px 0 0;
+  padding: 36px 22px 28px;
+  border-top: 0;
+  background: var(--bg-elevated);
   color: var(--text-muted);
-  font-size: var(--fs-sm);
-  line-height: 1.6;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+}
+
+footer.rodape > * {
+  max-width: var(--largura-conteudo);
+  margin-left: auto;
+  margin-right: auto;
 }
 
 footer.rodape p { margin: 0 0 var(--sp-2); }
 
-footer.rodape a { color: var(--text); }
+footer.rodape a { color: var(--text-muted); }
 
 /* Rodapé é cromo neutro (ref. apple.com): o link escurece e sublinha
    no hover, sem cor de ação -- o azul fica pros links de texto do
@@ -663,9 +696,9 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   margin: 0 0 var(--sp-2);
   color: var(--text);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
 }
 
 .rodape-nav-grupo a {
@@ -716,18 +749,19 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   z-index: 9;
   width: 44px;
   height: 44px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: 50%;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.8);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
   color: var(--text-bright);
   cursor: pointer;
-  box-shadow: var(--shadow-md);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  transition: background-color 0.15s ease;
 }
 
 .botao-topo:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .botao-topo .icone-ui { width: 20px; height: 20px; }
@@ -898,18 +932,19 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 /* ── Destaque da home ────────────────────────────────── */
 
-/* O único bloco "grande" da home: um painel calmo, com a nota em
-   número. Sem textura, sem halo, sem inclinação. */
+/* Caixa de destaque no formato da Apple: painel quase preto, texto
+   branco e o número da nota em destaque -- o bloco mais forte da
+   home, sem textura e sem brilho. */
 .hero-destaque {
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--sp-5);
-  margin: 0 0 var(--sp-5);
-  padding: var(--sp-6);
+  gap: var(--sp-6);
+  margin: 0 0 var(--sp-6);
+  padding: 40px;
   border: 0;
   border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
+  background: var(--surface-escura);
   overflow: hidden;
 }
 
@@ -919,6 +954,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   flex: 0 0 104px;
   width: 104px;
   height: 104px;
+  border-radius: var(--radius-md);
 }
 
 .hero-destaque .icone-item-quadro-com-imagem {
@@ -932,33 +968,34 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 .hero-destaque-rotulo {
   margin: 0 0 var(--sp-2);
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.56);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .hero-destaque-nome {
   display: block;
-  color: var(--text-bright);
-  font-size: clamp(1.25rem, 3vw, var(--fs-2xl));
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  color: #ffffff;
+  font-size: clamp(1.5rem, 3.4vw, var(--fs-2xl));
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.08;
   text-decoration: none;
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
 
 .hero-destaque-nome:hover {
-  color: var(--accent-bright);
-  text-decoration: none;
+  color: #ffffff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .hero-destaque-motivo {
   margin: var(--sp-2) 0 0;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.72);
   font-size: var(--fs-sm);
 }
 
@@ -972,15 +1009,16 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 }
 
 .hero-destaque-nota-num {
-  font-size: clamp(2.6rem, 6vw, 3.6rem);
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  color: #ffffff;
+  font-size: clamp(2.75rem, 6vw, 3.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .hero-destaque-nota-de {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.56);
   font-size: var(--fs-md);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 @media (max-width: 640px) {
@@ -1030,24 +1068,27 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 .form-filtros select,
 .form-filtros input {
-  height: 38px;
-  padding: 7px 10px;
+  height: 40px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   font-size: var(--fs-base);
   text-overflow: ellipsis;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .form-filtros select:hover,
 .form-filtros input:hover { border-color: var(--border-strong); }
 
+/* Foco com o anel azul da Apple: borda azul + halo suave. */
 .form-filtros select:focus,
 .form-filtros input:focus {
   border-color: var(--accent);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.28);
 }
 
 .form-filtros input[type="number"] { width: 128px; }
@@ -1061,20 +1102,21 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 /* O placeholder completo é longo -- o campo precisa de largura. */
 .form-filtros input[type="text"]#campo-busca { min-width: 230px; }
 
+/* Botão principal: pílula azul da Apple, 17px/400, sem borda. */
 .form-filtros button {
-  height: 38px;
-  padding: 8px 18px;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-xs);
+  height: 40px;
+  padding: 8px 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: #ffffff;
   font-size: var(--fs-base);
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
-.form-filtros button:hover { background: var(--accent-bright); }
+.form-filtros button:hover { background: var(--accent-hover); }
 
 /* Só deve existir um botão de destaque por tela -- "Só favoritos" é
    uma alternância, não a ação principal. */
@@ -1163,15 +1205,17 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   margin: 0 0 var(--sp-3);
 }
 
+/* Chips de categoria: pílula cinza-claro, como os filtros da loja da
+   Apple. A aba escolhida vira pílula escura. */
 .aba-categoria {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border: 1px solid transparent;
+  padding: 6px 14px;
+  border: 0;
   border-radius: var(--radius-pill);
   background: var(--surface-sunken);
-  color: var(--text-muted);
+  color: var(--text);
   font-size: var(--fs-sm);
   text-decoration: none;
   white-space: nowrap;
@@ -1185,10 +1229,8 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 }
 
 .aba-categoria[aria-current="page"] {
-  background: var(--surface);
-  border-color: var(--border);
-  box-shadow: var(--shadow-sm);
-  color: var(--text-bright);
+  background: var(--surface-escura);
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -1198,7 +1240,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   font-variant-numeric: tabular-nums;
 }
 
-.aba-categoria[aria-current="page"] .aba-contagem { color: var(--text); }
+.aba-categoria[aria-current="page"] .aba-contagem { color: rgba(255, 255, 255, 0.64); }
 
 /* ── Seletor Vitrine/Lista e ordenação ───────────────── */
 
@@ -1211,11 +1253,13 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   margin: 0 0 var(--sp-3);
 }
 
+/* Controle segmentado da Apple: trilho cinza, item escolhido em
+   branco com sombra suave. */
 .seletor-visao {
   display: inline-flex;
   gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--border);
+  padding: 2px;
+  border: 0;
   border-radius: var(--radius-sm);
   background: var(--surface-sunken);
 }
@@ -1225,24 +1269,24 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   min-height: 34px;
   align-items: center;
   gap: 6px;
-  padding: 5px 14px;
-  border-radius: var(--radius-xs);
+  padding: 5px 16px;
+  border-radius: 10px;
   color: var(--text-muted);
   font-size: var(--fs-sm);
-  font-weight: 500;
+  font-weight: 400;
   text-decoration: none;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .seletor-visao a:hover {
-  background: var(--surface-strong);
+  background: rgba(255, 255, 255, 0.6);
   color: var(--text-bright);
   text-decoration: none;
 }
 
 .seletor-visao a[aria-current="page"] {
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   color: var(--text-bright);
   font-weight: 600;
 }
@@ -1307,8 +1351,8 @@ table.tabela-candidatos th {
   color: var(--text-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  text-transform: none;
   white-space: nowrap;
 }
 
@@ -1727,11 +1771,13 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .tendencia-alta { color: var(--positive); font-weight: 600; }
 .tendencia-baixa { color: var(--danger); font-weight: 600; }
 
+/* Selo "novo": pílula azul clara, como os badges da Apple. */
 .selo-novo {
   padding: 2px 9px;
-  border: 1px solid var(--accent);
+  border: 0;
   border-radius: var(--radius-pill);
-  color: var(--accent-bright);
+  background: rgba(0, 113, 227, 0.1);
+  color: var(--accent);
   font-size: var(--fs-xs);
   font-weight: 600;
 }
@@ -2084,6 +2130,8 @@ table.tabela-candidatos td.celula-preco {
   list-style: none;
 }
 
+/* Card no formato da Apple: 18px de raio, fio de 1px e nenhuma
+   sombra -- o card não "levanta" no hover, só escurece o fio. */
 .cartao-item {
   position: relative;
   display: flex;
@@ -2093,15 +2141,12 @@ table.tabela-candidatos td.celula-preco {
   border-radius: var(--radius-md);
   background: var(--surface);
   overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.2s ease,
-    transform 0.2s ease;
+  transition: border-color 0.15s ease;
 }
 
 .cartao-item:hover,
 .cartao-item:focus-within {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
 }
 
 .cartao-item-brilho { display: none; }
@@ -2588,11 +2633,10 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   flex: 1 1 180px;
   flex-direction: column;
   gap: var(--sp-1);
-  padding: 14px 16px;
+  padding: 16px 18px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
   transition: border-color 0.15s ease;
 }
 
@@ -2608,9 +2652,9 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .card-valor {
   color: var(--text-bright);
   font-size: var(--fs-2xl);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 /* O selo de Nota dentro do card mantém o tamanho do selo (não herda o
@@ -2633,9 +2677,8 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   margin-bottom: var(--sp-5);
   padding: 4px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
   border-radius: var(--radius-md);
-  background: var(--bg-elevated);
+  background: var(--surface);
 }
 
 .resumo-cards-item .card {
@@ -2682,13 +2725,13 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .form-adicionar input {
   height: 40px;
-  padding: 8px 11px;
+  padding: 8px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text);
   font-size: var(--fs-base);
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .form-adicionar input:hover { border-color: var(--border-strong); }
@@ -2696,6 +2739,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .form-adicionar input:focus {
   border-color: var(--accent);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.28);
 }
 
 .form-adicionar input[name="name"] {
@@ -2713,47 +2757,50 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .form-adicionar button {
   height: 40px;
-  padding: 8px 18px;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-xs);
+  padding: 8px 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: #ffffff;
   font-size: var(--fs-base);
-  font-weight: 600;
+  font-weight: 400;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
-.form-adicionar button:hover { background: var(--accent-bright); }
+.form-adicionar button:hover { background: var(--accent-hover); }
 
+/* Botão de texto no estilo Apple: azul, sem caixa, sublinhado só no
+   hover. */
 .botao-link {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
+  padding: 8px 4px;
+  border: 0;
   border-radius: var(--radius-xs);
-  background: var(--surface);
-  color: var(--text);
+  background: transparent;
+  color: var(--accent);
   font-size: var(--fs-base);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease;
 }
 
 .botao-link:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-hover);
-  text-decoration: none;
+  color: var(--accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .botao-remover { color: var(--danger); }
 
 .botao-remover:hover {
-  border-color: rgba(215, 0, 21, 0.4);
-  background: rgba(215, 0, 21, 0.06);
-  color: var(--danger);
+  color: var(--danger-bright);
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .form-inline {
@@ -2895,13 +2942,13 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .botao-perigo {
   min-height: 44px;
-  padding: 10px 18px;
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-xs);
+  padding: 10px 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
   background: var(--danger);
   color: #ffffff;
   font-size: var(--fs-base);
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -3219,7 +3266,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     backdrop-filter: none;
   }
 
-  main { padding: var(--sp-4) var(--sp-4) var(--sp-7); }
+  main { padding: 24px 16px 40px; }
 
   /* Logo e ação na mesma linha (a nav vai pra barra inferior): cabeçalho
      baixo, como o do site da Apple no celular. */
@@ -3502,18 +3549,21 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     gap: 3px;
     padding: 4px 2px;
     border-radius: var(--radius-xs);
-    color: var(--chrome-texto);
-    font-size: var(--fs-2xs);
-    font-weight: 600;
+    color: rgba(255, 255, 255, 0.64);
+    font-size: 0.625rem;
+    font-weight: 400;
     text-decoration: none;
   }
 
   .nav-inferior a .icone-ui {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
-  .nav-inferior a[aria-current="page"] { color: var(--chrome-foco); }
+  .nav-inferior a[aria-current="page"] {
+    color: var(--chrome-foco);
+    font-weight: 500;
+  }
   .nav-inferior a:focus-visible { outline-offset: -2px; }
 
   body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
