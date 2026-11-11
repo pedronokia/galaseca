@@ -401,8 +401,8 @@
        escolha fica num cookie (pref_ver) e o link abaixo a redefine. #}
     <nav class="barra-visao" aria-label="Como mostrar os itens">
       <div class="seletor-visao" role="group" aria-label="Modo de exibição">
-        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver='vitrine') }}"{% if ver_sel == 'vitrine' %} aria-current="page"{% endif %}>{{ icone("vitrine") }} Vitrine</a>
-        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver='lista') }}"{% if ver_sel == 'lista' %} aria-current="page"{% endif %}>{{ icone("lista") }} Lista</a>
+        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver='vitrine') }}"{% if ver_sel == 'vitrine' %} aria-current="page"{% endif %}>Vitrine</a>
+        <a href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver='lista') }}"{% if ver_sel == 'lista' %} aria-current="page"{% endif %}>Lista</a>
       </div>
       {% if ver_sel == 'vitrine' %}
       <div class="ordenar-vitrine" role="group" aria-label="Ordenar itens">

@@ -15,6 +15,8 @@ ENTRADAS = [
             "saíram: a barra de filtros ficou só com o nome e a quantidade "
             "de itens, mais limpa e sem repetir a mesma figura em várias "
             "abas",
+            "O seletor Vitrine/Lista também ficou só com as palavras, sem "
+            "os desenhos de grade e de lista",
         ],
     },
     {

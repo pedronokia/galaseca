@@ -1233,8 +1233,6 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.seletor-visao a .icone-ui { width: 15px; height: 15px; }
-
 .seletor-visao a:hover {
   background: var(--surface-strong);
   color: var(--text-bright);
