@@ -62,7 +62,7 @@
   --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.12);
 
   /* Métricas */
-  --altura-topo: 44px;
+  --altura-topo: 45px;
   --largura-conteudo: 1024px;
   --largura-texto: 692px;
 
@@ -288,6 +288,15 @@ header.topo {
   backdrop-filter: saturate(180%) blur(20px);
 }
 
+/* Linha fina de fechamento, como a borda que separa a barra da
+   referência do conteúdo abaixo dela. */
+header.topo::after {
+  content: "";
+  display: block;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
 header.topo > * {
   max-width: var(--largura-conteudo);
   margin-left: auto;
@@ -504,16 +513,7 @@ header.topo h1 {
 
 .entrar-cta {
   display: flex;
-  flex-direction: row-reverse;
   align-items: center;
-  gap: var(--sp-3);
-}
-
-.entrar-cta-legenda {
-  max-width: 220px;
-  color: var(--text-muted);
-  font-size: var(--fs-2xs);
-  text-align: right;
 }
 
 /* Badge de cooldown (aparece no status do scan, dentro do header em
@@ -3231,14 +3231,6 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     font-size: var(--fs-sm);
   }
 
-  .entrar-cta {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--sp-1);
-  }
-
-  .entrar-cta-legenda { display: none; }
-
   header.topo h1 { font-size: var(--fs-2xl); }
 
   .card { flex-basis: calc(50% - 6px); }
@@ -3538,9 +3530,11 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     justify-content: space-between;
   }
 
-  .topo-linha:has(> .entrar-cta) > .nav-principal { flex: 1 1 300px; }
-
-  .entrar-cta-legenda { display: none; }
+  /* Base pequena de propósito: o navegador decide a quebra de linha pelo
+     tamanho-base dos itens, antes de encolhê-los. Com 300px a barra
+     quebrava em duas linhas entre ~706 e 744px mesmo sobrando espaço
+     (logo 168 + menu 300 + botão 171 + vãos passavam da largura). */
+  .topo-linha:has(> .entrar-cta) > .nav-principal { flex: 1 1 240px; }
 
   header.topo .logo-cheia { width: 168px; height: auto; }
 

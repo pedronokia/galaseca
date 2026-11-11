@@ -1917,14 +1917,17 @@ def test_usuario_nao_logado_mostra_entrar_com_steam(client):
     assert "conta-pill" not in body
 
 
-def test_cta_login_tem_legenda_de_proposito(client):
-    """O botão sozinho não dizia por que logar -- legenda curta embaixo."""
+def test_cta_login_sem_legenda_na_barra(client):
+    """Revisão da decisão anterior (2026-11-10, cabeçalho estilo Apple):
+    a barra agora é marca + menu de ponta a ponta + botão, sem texto de
+    apoio no meio -- a legenda saiu para o menu usar toda a largura. O
+    "por que logar" continua no FAQ ("Preciso fazer login pra usar?")."""
     body = client.get("/").data.decode("utf-8")
-    assert "entrar-cta-legenda" in body
-    assert "portfólio" in body.lower()
+    assert "entrar-cta-legenda" not in body
+    assert "Entrar com Steam" in body
 
 
-def test_usuario_logado_nao_mostra_legenda_do_cta(client, monkeypatch):
+def test_usuario_logado_nao_mostra_cta_de_login(client, monkeypatch):
     monkeypatch.setattr(
         user_store, "get_user",
         lambda steamid, path=None: {
@@ -1934,7 +1937,8 @@ def test_usuario_logado_nao_mostra_legenda_do_cta(client, monkeypatch):
     with client.session_transaction() as sess:
         sess["steamid"] = "123"
     body = client.get("/").data.decode("utf-8")
-    assert "entrar-cta-legenda" not in body
+    assert "entrar-cta" not in body
+    assert "conta-pill" in body
 
 
 def test_api_health(client, monkeypatch, tmp_path):

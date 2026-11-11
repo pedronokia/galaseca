@@ -14,11 +14,15 @@ ENTRADAS = [
             "A barra do topo ficou mais fina: agora tem a altura da "
             "barra de navegação do site da Apple e deixa o conteúdo "
             "começar mais cedo",
-            "Os links do menu se espalham pela largura da barra, em vez "
-            "de ficarem apertados no centro",
+            "Os links do menu se espalham de ponta a ponta entre a "
+            "marca e o botão, como na barra da Apple, em vez de "
+            "ficarem apertados no meio",
             "A página aberta não ganha mais um risco embaixo do nome no "
             "menu -- quem usa leitor de tela continua sabendo em qual "
             "página está",
+            "A frase de apoio ao lado do botão de entrar saiu da barra "
+            "para o menu usar toda a largura; o que o login desbloqueia "
+            "continua explicado no FAQ",
         ],
     },
     {
