@@ -14,15 +14,17 @@ ENTRADAS = [
             "A barra do topo ficou mais fina: agora tem a altura da "
             "barra de navegação do site da Apple e deixa o conteúdo "
             "começar mais cedo",
-            "Os links do menu se espalham de ponta a ponta entre a "
-            "marca e o botão, como na barra da Apple, em vez de "
-            "ficarem apertados no meio",
+            "Os links do menu ficam juntos, com o mesmo respiro entre "
+            "eles, em vez de se espalharem até as pontas da barra",
+            "A marca virou um símbolo redondo com aspas, no lugar do "
+            "nome escrito: a barra fica leve e sobra espaço para o menu",
+            "O botão de entrar virou um item discreto da barra, sem a "
+            "pílula azul; o símbolo da Steam continua ao lado do texto",
             "A página aberta não ganha mais um risco embaixo do nome no "
             "menu -- quem usa leitor de tela continua sabendo em qual "
             "página está",
-            "A frase de apoio ao lado do botão de entrar saiu da barra "
-            "para o menu usar toda a largura; o que o login desbloqueia "
-            "continua explicado no FAQ",
+            "A frase de apoio ao lado do botão de entrar saiu da barra; "
+            "o que o login desbloqueia continua explicado no FAQ",
         ],
     },
     {

@@ -1493,13 +1493,16 @@ def test_index_aba_todas_bate_com_total_mostrado(client, monkeypatch, tmp_path):
 
 
 def test_index_logo_no_topo(client, monkeypatch, tmp_path):
+    """Decisão de 2026-11-11: a marca escrita (208px) deu lugar a um
+    símbolo redondo com aspas, do tamanho de um ícone de barra -- o nome
+    completo continua no aria-label do link."""
     _salva_scan(tmp_path, monkeypatch, [])
     body = client.get("/").data.decode("utf-8")
     assert 'class="logo"' in body
-    assert 'class="logo-cheia"' in body
-    assert 'class="logo-marca-ponto"' in body
+    assert 'class="logo-icone"' in body
+    assert 'class="logo-aspas"' in body
     assert 'aria-label="sai daí, galaseca — página inicial"' in body
-    assert 'class="logo-compacta"' in body
+    assert 'class="logo-cheia"' not in body
 
 
 def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):

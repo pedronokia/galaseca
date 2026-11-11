@@ -344,38 +344,34 @@ header.topo h1 {
 .logo:hover { color: var(--text-bright); }
 
 .logo:focus-visible {
-  outline-offset: 5px;
-  border-radius: var(--radius-xs);
+  outline-offset: 3px;
+  border-radius: 50%;
 }
 
-.logo:hover .logo-marca-ponto { fill: var(--marca); }
-
-.logo-marca-letras { fill: currentColor; }
-
-.logo-marca-ponto {
-  fill: var(--marca);
-  transition: fill 0.15s ease;
+/* Símbolo redondo (disco com aspas vazadas), do tamanho de um ícone
+   de barra de navegação -- a marca escrita ocupava 208px e empurrava
+   o menu para o meio da barra. */
+.logo-icone {
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
-/* "sai daí, galaseca" por extenso; abaixo de 400px só o nome. */
-.logo-cheia { display: block; flex-shrink: 0; }
-.logo-compacta { display: none; flex-shrink: 0; }
+.logo-aspas { fill: var(--logo-aspas, #ffffff); }
 
-@media (max-width: 400px) {
-  .logo-cheia { display: none; }
-  .logo-compacta { display: block; }
-}
-
-/* Navegação principal -- espalhada pela largura da barra, como a
-   lista da barra de navegação da Apple. */
+/* Navegação principal -- grupo compacto no centro da barra, com o
+   mesmo respiro entre itens da barra da Apple (12px de texto, ~24px
+   de vão). Antes os itens se espalhavam até as pontas e, com só cinco
+   links, os vãos chegavam a 72px. */
 
 .nav-principal {
   display: flex;
   flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 2px;
+  justify-content: center;
+  gap: 24px;
 }
 
 .nav-principal a {
@@ -383,7 +379,7 @@ header.topo h1 {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  padding: 6px 11px;
+  padding: 6px 8px;
   border-radius: var(--radius-xs);
   color: rgba(0, 0, 0, 0.8);
   font-size: 0.75rem;
@@ -485,29 +481,29 @@ header.topo h1 {
   text-decoration: none;
 }
 
-/* CTA de login: mantém o azul da Steam de propósito -- é a marca da
-   Steam, não o acento do galaseca. */
+/* CTA de login: item discreto da barra, como os ícones da Apple -- sem
+   pílula, borda ou preenchimento. O texto segue o cinza dos links do
+   menu, e o símbolo da Steam herda a cor (traço monocromático); quem
+   reconhece a Steam identifica pelo desenho, não pelo azul. */
 .conta-link-entrar {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  gap: 8px;
-  padding: 9px 20px;
-  border: 1px solid var(--accent-steel);
-  border-radius: var(--radius-pill);
-  background: rgba(102, 192, 244, 0.16);
-  color: #0b5c86;
-  font-size: var(--fs-sm);
-  font-weight: 600;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 0.75rem;
+  font-weight: 400;
   white-space: nowrap;
   text-decoration: none;
-  transition: background-color 0.15s ease;
+  transition: color 0.32s cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-.conta-link-entrar .icone-ui { width: 18px; height: 18px; }
+.conta-link-entrar .icone-ui { width: 16px; height: 16px; }
 
 .conta-link-entrar:hover {
-  background: rgba(102, 192, 244, 0.28);
+  color: #000000;
   text-decoration: none;
 }
 
@@ -3207,8 +3203,6 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     gap: var(--sp-2) var(--sp-3);
   }
 
-  header.topo .logo-cheia { width: 172px; height: auto; }
-
   .nav-principal {
     display: none;
     width: 100%;
@@ -3531,31 +3525,10 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   }
 
   /* Base pequena de propósito: o navegador decide a quebra de linha pelo
-     tamanho-base dos itens, antes de encolhê-los. Com 300px a barra
-     quebrava em duas linhas entre ~706 e 744px mesmo sobrando espaço
-     (logo 168 + menu 300 + botão 171 + vãos passavam da largura). */
+     tamanho-base dos itens, antes de encolhê-los. */
   .topo-linha:has(> .entrar-cta) > .nav-principal { flex: 1 1 240px; }
 
-  header.topo .logo-cheia { width: 168px; height: auto; }
-
   .nav-principal a { padding: 6px 8px; }
-
-  .conta-link-entrar { padding: 9px 16px; }
-}
-
-/* Faixa estreita (641–719px): com marca e ações um pouco menores o
-   cabeçalho sem sessão continua numa linha só, em vez de empurrar a
-   navegação para baixo. */
-@media (min-width: 641px) and (max-width: 719px) {
-  .topo-linha:has(> .entrar-cta) { gap: var(--sp-2); }
-
-  header.topo .logo-cheia { width: 148px; height: auto; }
-
-  .topo-linha:has(> .entrar-cta) > .nav-principal { flex-basis: 260px; }
-
-  .topo-linha:has(> .entrar-cta) .nav-principal a { padding: 6px; }
-
-  .topo-linha:has(> .entrar-cta) .conta-link-entrar { padding: 8px 12px; }
 }
 
 @media (min-width: 641px) and (max-width: 760px) {
@@ -3652,8 +3625,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .status-vazio[hidden],
 .status-vazio-icone[hidden],
 .saude-ciclos[hidden],
-.logo-cheia[hidden],
-.logo-compacta[hidden],
+.logo-icone[hidden],
 .input-tag-local[hidden],
 .lista-favoritos-fora[hidden],
 .contagem-favoritos[hidden],
