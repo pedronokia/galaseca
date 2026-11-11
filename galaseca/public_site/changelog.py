@@ -17,6 +17,9 @@ ENTRADAS = [
             "O nome do site nos títulos das páginas passou a ser "
             "“Galaseca”, com G maiúsculo -- o resto do texto continua "
             "“galaseca”",
+            "O ícone da aba do navegador e o do celular (instalar na tela "
+            "de início) passaram a ser as mesmas aspas da barra, sem a "
+            "vela vermelha da marca antiga",
         ],
     },
     {

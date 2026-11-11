@@ -3514,6 +3514,29 @@ def test_manifest_json_tem_icones_png(client):
         assert resp.mimetype == "image/png"
 
 
+def test_icones_do_site_usam_a_marca_das_aspas(client):
+    """Decisão de 2026-11-11: o ícone da aba e o do celular passaram a ser
+    as mesmas aspas da barra -- a vela vermelha da marca antiga saiu."""
+    svg = client.get("/static/favicon.svg").data.decode("utf-8")
+    assert "#dc2626" not in svg                # vermelho da vela antiga
+    assert "#ffffff" in svg                    # aspas em branco
+    assert "M12 12a1 1 0 0 0 1-1" in svg       # desenho das aspas
+
+    from PIL import Image
+    import io
+    for nome, lado in (("icon-192.png", 192), ("icon-512.png", 512)):
+        dados = client.get(f"/static/{nome}").data
+        img = Image.open(io.BytesIO(dados)).convert("RGB")
+        assert img.size == (lado, lado)
+        px = img.load()
+        brancos = sum(1 for y in range(lado) for x in range(lado)
+                      if sum(px[x, y]) > 600)
+        escuros = sum(1 for y in range(lado) for x in range(lado)
+                      if sum(px[x, y]) < 200)
+        assert brancos > lado * lado * 0.05   # aspas
+        assert escuros > lado * lado * 0.70   # fundo escuro
+
+
 def test_apple_touch_icon_usa_png_nao_svg(client, monkeypatch):
     monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
     body = client.get("/").data.decode("utf-8")
