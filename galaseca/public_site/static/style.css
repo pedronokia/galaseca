@@ -36,29 +36,28 @@
 :root {
   color-scheme: dark;
 
-  /* Superfícies -- CINZA MÉDIO (site) + PRETO (cabeçalho).
-     O fundo da página sobe para um cinza neutro #2d2d2d; as tiles
-     ficam um degrau acima (#363636). O cabeçalho usa --chrome-fundo
-     preto opaco (#0a0a0a), bem separado do conteúdo. */
-  --bg: #2d2d2d;
-  --bg-elevated: #363636;
-  --surface: #363636;
-  --surface-hover: #3d3d3d;
-  --surface-strong: #1a1a1a;
-  --surface-sunken: #252525;
-  --surface-escura: #2d2d2d;
-  --surface-escura-2: #363636;
+  /* Superfícies -- PRETO PURO (#080808) no cabeçalho + CINZA ESCURO
+     (#161616) no conteúdo. As tiles ficam um degrau acima (#1e1e1e).
+     Contraste suave, sem salto brusco -- a borda #333 faz a separação. */
+  --bg: #161616;
+  --bg-elevated: #1e1e1e;
+  --surface: #1e1e1e;
+  --surface-hover: #252525;
+  --surface-strong: #0a0a0a;
+  --surface-sunken: #131313;
+  --surface-escura: #161616;
+  --surface-escura-2: #1e1e1e;
 
-  /* Traços -- fio cinza #444 sobre o cinza médio. */
-  --border: #444444;
-  --border-strong: #555555;
-  --border-solido: #444444;
+  /* Traços -- fio cinza #333 sobre o cinza escuro. */
+  --border: #333333;
+  --border-strong: #444444;
+  --border-solido: #333333;
 
-  /* Texto -- branco suave no cinza médio, cinza claro secundário.
-     --text-muted em #bababa garante 4.5:1 contra --surface-hover #3d3d3d. */
+  /* Texto -- branco suave no cinza escuro, cinza médio secundário.
+     --text-muted em #b3b3b3 garante 4.5:1 contra --surface-hover #252525. */
   --text: #e8e8e8;
   --text-bright: #ffffff;
-  --text-muted: #bababa;
+  --text-muted: #b3b3b3;
   --text-fraco: rgba(232, 232, 232, 0.56);
 
   /* Marca e estados -- o laranja da casa: botões em #c2410c com texto
@@ -77,10 +76,10 @@
   --focus: #c2410c;
   --marca: #f97316;
 
-  /* Barra de navegação -- PRETO CHAPADO (#0a0a0a), opaco, bem
-     separado do cinza médio do conteúdo. */
-  --chrome-fundo: #0a0a0a;
-  --chrome-fundo-forte: #0a0a0a;
+  /* Barra de navegação -- PRETO PURO #080808, opaco, bem
+     separado do cinza escuro #161616 do conteúdo. */
+  --chrome-fundo: #080808;
+  --chrome-fundo-forte: #080808;
   --chrome-texto: rgba(255, 255, 255, 0.82);
   --chrome-texto-forte: #ffffff;
   --chrome-linha: rgba(255, 255, 255, 0.14);

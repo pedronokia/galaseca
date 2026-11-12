@@ -34,18 +34,18 @@ def _bloco(css: str, seletor: str) -> str:
 
 def test_tokens_de_superficie_opencode():
     css = _css()
-    # CINZA MÉDIO (site) + PRETO (cabeçalho): fundo #2d2d2d, tiles #363636,
-    # texto #e8e8e8, texto secundário #bababa (contraste 4.5:1 no hover),
-    # bordas #444444.
-    assert "--bg: #2d2d2d" in css
-    assert "--bg-elevated: #363636" in css
-    assert "--surface: #363636" in css
-    assert "--surface-strong: #1a1a1a" in css
-    assert "--surface-sunken: #252525" in css
-    assert "--surface-escura: #2d2d2d" in css
+    # PRETO #080808 (cabeçalho) + CINZA ESCURO #161616 (site): fundo #161616,
+    # tiles #1e1e1e, texto #e8e8e8, texto secundário #b3b3b3 (contraste
+    # 4.5:1 no hover #252525), bordas #333333.
+    assert "--bg: #161616" in css
+    assert "--bg-elevated: #1e1e1e" in css
+    assert "--surface: #1e1e1e" in css
+    assert "--surface-strong: #0a0a0a" in css
+    assert "--surface-sunken: #131313" in css
+    assert "--surface-escura: #161616" in css
     assert "--text: #e8e8e8" in css
-    assert "--text-muted: #bababa" in css
-    assert "--border: #444444" in css
+    assert "--text-muted: #b3b3b3" in css
+    assert "--border: #333333" in css
 
 
 def test_laranja_da_casa():
