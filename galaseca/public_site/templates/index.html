@@ -250,17 +250,34 @@
     </section>
     {% endif %}
 
-    {% if scan %}
-      <p class="status status-scan {{ 'status-scan-desatualizado' if scan_desatualizado else 'status-scan-recente' }}">
+    {% if scan or resumo_do_dia %}
+    {# Faixa de informação (polimento 2026-11-12): coleta + comparação
+       do dia numa única tile, cada linha com o acento da casa. #}
+    <div class="painel-info" role="group" aria-label="Estado da coleta e comparação com o dia anterior">
+      {% if scan %}
+      <p class="status-scan {{ 'status-scan-desatualizado' if scan_desatualizado else 'status-scan-recente' }}">
         <strong>Dados coletados:</strong> {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).
         {% if scan_desatualizado %}<strong class="status-scan-alerta">Atualização atrasada</strong>{% endif %}
         {% if proximo_scan %}<span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">Próxima atualização: {{ proximo_scan }}.</span>{% endif %}
       </p>
-      {% if scan_desatualizado %}
-      <p class="banner-aviso">{{ icone("aviso") }} O scan está mais velho que o normal -- provavelmente a Steam bloqueou
-      o acesso temporariamente (ver <a href="{{ url_for('status') }}">status</a>). Os dados abaixo são
-      os últimos que conseguimos coletar, não refletem o preço de agora.</p>
       {% endif %}
+      {% if resumo_do_dia %}
+      <p class="resumo-do-dia">
+        Comparado com o Top 20 de {{ resumo_do_dia.quando }}:
+        {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }}{% if resumo_do_dia.maior_alta or resumo_do_dia.maior_queda %}; {% endif %}
+        {% if resumo_do_dia.maior_alta %}maior alta de nota foi
+        <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
+        ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% if resumo_do_dia.maior_queda %}; {% endif %}{% endif %}{% if resumo_do_dia.maior_queda %}maior queda foi
+        <strong>{{ resumo_do_dia.maior_queda.name_fmt }}</strong>
+        ({{ resumo_do_dia.maior_queda.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_queda.para }}){% endif %}.
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if scan and scan_desatualizado %}
+    <p class="banner-aviso">{{ icone("aviso") }} O scan está mais velho que o normal -- provavelmente a Steam bloqueou
+    o acesso temporariamente (ver <a href="{{ url_for('status') }}">status</a>). Os dados abaixo são
+    os últimos que conseguimos coletar, não refletem o preço de agora.</p>
     {% endif %}
 
     {% macro url_sem_filtro(remover) -%}
@@ -341,16 +358,6 @@
     </nav>
     {% endif %}
 
-    {% if resumo_do_dia %}
-    <p class="resumo-do-dia">
-      Comparado com o Top 20 de {{ resumo_do_dia.quando }}:
-      {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }}{% if resumo_do_dia.maior_alta or resumo_do_dia.maior_queda %}; {% endif %}
-      {% if resumo_do_dia.maior_alta %}maior alta de nota foi
-      <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
-      ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% if resumo_do_dia.maior_queda %}; {% endif %}{% endif %}{% if resumo_do_dia.maior_queda %}maior queda foi
-      <strong>{{ resumo_do_dia.maior_queda.name_fmt }}</strong>
-      ({{ resumo_do_dia.maior_queda.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_queda.para }}){% endif %}.
-    </p>
     {% if resumo_do_dia.movimentos %}
     {# Item #19 da lista de melhorias: os 3 maiores vaivens de nota, pra
        alta E pra baixa. Só descreve o que já foi medido -- nada de
@@ -366,7 +373,6 @@
       </li>
       {% endfor %}
     </ul>
-    {% endif %}
     {% endif %}
 
     {% if candidatos %}

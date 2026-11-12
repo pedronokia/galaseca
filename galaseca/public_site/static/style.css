@@ -59,18 +59,20 @@
   --text-muted: #6e6e73;
   --text-fraco: rgba(0, 0, 0, 0.56);
 
-  /* Marca e estados -- azul da Apple (#0071e3); link em #0066cc e
-     #0077ed no hover. */
-  --accent: #0071e3;
-  --accent-bright: #0066cc;
-  --accent-hover: #0077ed;
-  --accent-soft: rgba(0, 113, 227, 0.1);
+  /* Marca e estados -- o laranja da casa: botões em #c2410c com texto
+     branco (contraste 5.2:1), links em #9a3412 e hover #7c2d0b (7:1 no
+     branco). O #f97316 fica para os marcadores da marca; o #66c0f4 é o
+     azul da Steam, guardado para pontos que identificam a Steam. */
+  --accent: #c2410c;
+  --accent-bright: #9a3412;
+  --accent-hover: #7c2d0b;
+  --accent-soft: rgba(194, 65, 12, 0.1);
   --accent-steel: #66c0f4;
   --positive: #1a7f37;
   --warn: #b25000;
   --danger: #d70015;
   --danger-bright: #b00012;
-  --focus: #0071e3;
+  --focus: #c2410c;
   --marca: #f97316;
 
   /* Barra de navegação -- chrome escuro, como a barra do site da Apple
@@ -82,7 +84,7 @@
   --chrome-texto: rgba(255, 255, 255, 0.82);
   --chrome-texto-forte: #ffffff;
   --chrome-linha: rgba(255, 255, 255, 0.14);
-  --chrome-foco: #4da3ff;
+  --chrome-foco: #fb923c;
 
   /* Raridade do CS2 (sobrescrita pelas classes .raridade-*) */
   --rar-cor: #b0c3d9;
@@ -189,7 +191,7 @@ hr {
 }
 
 ::selection {
-  background: rgba(0, 113, 227, 0.18);
+  background: rgba(194, 65, 12, 0.18);
   color: var(--text-bright);
 }
 
@@ -199,7 +201,7 @@ a {
   transition: color 0.15s ease;
 }
 
-/* Link da Apple: #0066cc no corpo, #0077ed no hover. */
+/* Link da casa: #9a3412 no corpo, escurece no hover. */
 a:hover {
   color: var(--accent-hover);
   text-decoration: underline;
@@ -698,7 +700,7 @@ footer.rodape > * {
   margin-right: auto;
 }
 
-footer.rodape p { margin: 0 0 var(--sp-2); }
+footer.rodape p { margin: 0 auto var(--sp-2); }
 
 footer.rodape a { color: var(--text-muted); }
 
@@ -896,6 +898,27 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   border-left: 2px solid var(--accent);
   color: var(--text-muted);
   font-size: var(--fs-sm);
+}
+
+/* Faixa de informação da home: dados da coleta e a comparação com o
+   dia anterior numa única tile -- cada linha com o acento da casa à
+   esquerda. */
+.painel-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-4);
+  padding: 14px 18px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.painel-info .status-scan,
+.painel-info .resumo-do-dia {
+  margin: 0;
+  padding: 0 0 0 var(--sp-3);
+  border-left: 2px solid var(--accent);
 }
 
 .movimentos-do-dia {
@@ -1115,12 +1138,12 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 .form-filtros select:hover,
 .form-filtros input:hover { border-color: var(--border-strong); }
 
-/* Foco com o anel azul da Apple: borda azul + halo suave. */
+/* Foco com o anel da casa: borda laranja + halo suave. */
 .form-filtros select:focus,
 .form-filtros input:focus {
   border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.28);
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.28);
 }
 
 .form-filtros input[type="number"] { width: 128px; }
@@ -1237,31 +1260,32 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   margin: 0 0 var(--sp-3);
 }
 
-/* Chips de categoria: pílula cinza-claro, como os filtros da loja da
-   Apple. A aba escolhida vira pílula escura. */
+/* Chips de categoria: pílula fantasma (fundo transparente + fio), como
+   os filtros da loja da Apple. A aba escolhida vira pílula laranja. */
 .aba-categoria {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
-  border: 0;
+  padding: 5px 13px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  background: var(--surface-sunken);
+  background: transparent;
   color: var(--text);
   font-size: var(--fs-sm);
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .aba-categoria:hover {
-  background: var(--surface-strong);
+  background: rgba(0, 0, 0, 0.06);
   color: var(--text-bright);
   text-decoration: none;
 }
 
 .aba-categoria[aria-current="page"] {
-  background: var(--surface-escura);
+  border-color: var(--accent);
+  background: var(--accent);
   color: #ffffff;
   font-weight: 600;
 }
@@ -1317,9 +1341,8 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 }
 
 .seletor-visao a[aria-current="page"] {
-  background: var(--surface);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-  color: var(--text-bright);
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -1803,12 +1826,12 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .tendencia-alta { color: var(--positive); font-weight: 600; }
 .tendencia-baixa { color: var(--danger); font-weight: 600; }
 
-/* Selo "novo": pílula azul clara, como os badges da Apple. */
+/* Selo "novo": pílula laranja clara, como os badges da Apple. */
 .selo-novo {
   padding: 2px 9px;
   border: 0;
   border-radius: var(--radius-pill);
-  background: rgba(0, 113, 227, 0.1);
+  background: rgba(194, 65, 12, 0.1);
   color: var(--accent);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -2562,9 +2585,8 @@ table.tabela-candidatos td.celula-preco {
 }
 
 .seletor-periodo a[aria-current="true"] {
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  color: var(--text-bright);
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -2766,7 +2788,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   box-shadow: none;
 }
 
-.resumo-cards-item .card:last-child { border-right: 0; }
+.resumo-cards-item .card:last-of-type { border-right: 0; }
 
 .resumo-cards-item .card:hover { border-color: var(--border); }
 
@@ -2785,6 +2807,17 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   border: 0;
   border-radius: var(--radius-sm);
   background: var(--surface-strong);
+}
+
+/* Linha de coleta fechando a ficha -- a régua de baixo da tile, no
+   lugar da frase solta que ficava entre os painéis. */
+.resumo-cards-item .card-coleta {
+  width: 100%;
+  margin: 0;
+  padding: 8px 18px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
 }
 
 /* ── Formulários (conta, watchlist, trades) ──────────── */
@@ -2812,7 +2845,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .form-adicionar input:focus {
   border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.28);
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.28);
 }
 
 .form-adicionar input[name="name"] {
@@ -3262,6 +3295,36 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   white-space: nowrap;
 }
 
+/* Ações do item: um CTA laranja da casa + links discretos ao lado. */
+.hero-item-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+}
+
+.botao-acao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #ffffff;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.botao-acao:hover {
+  background: var(--accent-hover);
+  color: #ffffff;
+  text-decoration: none;
+}
+
 .contagem-favoritos {
   display: inline-block;
   margin-left: 2px;
@@ -3398,7 +3461,12 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     border-bottom: 1px solid var(--border);
   }
 
-  .resumo-cards-item .card:last-child { border-bottom: 0; }
+  .resumo-cards-item .card:last-of-type { border-bottom: 0; }
+
+  .resumo-cards-item .card-coleta {
+    border-top: 0;
+    padding: 0 14px 12px;
+  }
 
   .resumo-cards-item .card-nota-destaque {
     margin: 0;

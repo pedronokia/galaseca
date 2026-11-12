@@ -74,11 +74,11 @@
           <p class="hero-item-tag">{{ item.raridade_titulo }}</p>
           {% endif %}
           <h1 class="titulo-item">{{ item.name_fmt }}</h1>
-          <p class="status">
-            <a class="link-item" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
-            · <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
-            · <button type="button" class="botao-copiar" data-copiar="{{ item.name }}" title="Copiar nome do item" aria-label="Copiar nome">{{ icone("copiar") }}{{ icone("check") }}<span class="texto-copiar">Copiar nome</span></button>
-            · <button type="button" class="botao-favorito" data-favorito="{{ item.name }}" data-favorito-label="{{ item.name_fmt }}" aria-pressed="false" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ item.name_fmt }}">{{ icone("favorito") }}<span>Favoritar</span></button>
+          <p class="hero-item-acoes">
+            <a class="botao-acao" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
+            <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
+            <button type="button" class="botao-copiar" data-copiar="{{ item.name }}" title="Copiar nome do item" aria-label="Copiar nome">{{ icone("copiar") }}{{ icone("check") }}<span class="texto-copiar">Copiar nome</span></button>
+            <button type="button" class="botao-favorito" data-favorito="{{ item.name }}" data-favorito-label="{{ item.name_fmt }}" aria-pressed="false" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ item.name_fmt }}">{{ icone("favorito") }}<span>Favoritar</span></button>
           </p>
         </div>
         <div class="hero-item-imagem">
@@ -111,10 +111,10 @@
         <span class="card-label">Itens desta caixa</span><span class="card-valor">{{ itens_da_caixa }}</span>
       </div>
       {% endif %}
+      {% if preco_coletado_txt %}
+      <p class="card-coleta">Preço deste item coletado {{ preco_coletado_txt }}.</p>
+      {% endif %}
     </section>
-    {% if preco_coletado_txt %}
-    <p class="status">Preço deste item coletado {{ preco_coletado_txt }}.</p>
-    {% endif %}
 
     {% if tem_historico %}
       <div class="faixa faixa-grafico">

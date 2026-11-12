@@ -47,12 +47,22 @@ def test_tokens_de_superficie_apple():
     assert "--border: rgba(0, 0, 0, 0.12)" in css
 
 
-def test_azul_de_acao_da_apple():
+def test_laranja_da_casa():
     css = _css()
-    assert "--accent: #0071e3" in css
-    # Hover do botão pílula clareia (#0077ed), como em apple.com.
-    assert "--accent-hover: #0077ed" in css
+    # Laranja escuro da casa nos botões e pílulas ativas, com texto
+    # branco (5.2:1); links em #9a3412 e hover escurecendo (#7c2d0b).
+    # O vivo #f97316 fica nos marcadores da marca (--marca).
+    assert "--accent: #c2410c" in css
+    assert "--accent-bright: #9a3412" in css
+    assert "--accent-hover: #7c2d0b" in css
     assert "background: var(--accent-hover);" in css
+    # Foco de teclado e item ativo das barras escuras também saem do
+    # azul: foco em #c2410c e ativo do chrome em #fb923c.
+    assert "--focus: #c2410c" in css
+    assert "--chrome-foco: #fb923c" in css
+    # Anel de foco dos formulários e selo "novo" acompanham o laranja.
+    assert "rgba(194, 65, 12, 0.28)" in css
+    assert "rgba(194, 65, 12, 0.1)" in css
 
 
 def test_raios_da_apple():
@@ -155,6 +165,39 @@ def test_ficha_do_item_tile_branca():
     assert "background: var(--surface);" in ficha
     selo = _bloco(css, ".resumo-cards-item .card-nota-destaque")
     assert "background: var(--surface-strong);" in selo
+
+
+def test_polimento_da_maquete_v4():
+    """Rodada 2026-11-12: laranja como identidade + polimento aprovado
+    na maquete v4 (pílulas, abas, faixa de informação, CTA do item e
+    rodapé alinhado)."""
+    css = _css()
+    # Pílulas ativas em laranja (antes brancas com sombra).
+    visao = _bloco(css, '.seletor-visao a[aria-current="page"]')
+    assert "background: var(--accent);" in visao
+    assert "box-shadow" not in visao
+    # Abas de categoria: fantasma (transparente + fio) quando inativas,
+    # laranja na ativa.
+    aba = _bloco(css, ".aba-categoria")
+    assert "background: transparent;" in aba
+    assert "border: 1px solid var(--border);" in aba
+    aba_ativa = _bloco(css, '.aba-categoria[aria-current="page"]')
+    assert "background: var(--accent);" in aba_ativa
+    # Faixa de informação da home: coleta + comparação do dia numa
+    # única tile, cada linha com o fio laranja.
+    painel = _bloco(css, ".painel-info")
+    assert "background: var(--surface);" in painel
+    linhas = _bloco(css, ".painel-info .resumo-do-dia")
+    assert "border-left: 2px solid var(--accent);" in linhas
+    # CTA laranja da página do item, em pílula com texto branco.
+    acao = _bloco(css, ".botao-acao")
+    assert "background: var(--accent);" in acao
+    assert "border-radius: var(--radius-pill);" in acao
+    # Linha de coleta fechando a ficha do item (régua de baixo).
+    coleta = _bloco(css, ".resumo-cards-item .card-coleta")
+    assert "border-top: 1px solid var(--border);" in coleta
+    # Aviso do rodapé alinhado com a grade das colunas (margens auto).
+    assert "footer.rodape p { margin: 0 auto var(--sp-2); }" in css
 
 
 def test_respeita_reduced_motion():
