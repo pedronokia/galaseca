@@ -1523,7 +1523,11 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 /* ── Tabela principal ────────────────────────────────── */
 
-.tabela-wrap { overflow-x: auto; }
+.tabela-wrap {
+  overflow-x: auto;
+  /* Evita que o scroll horizontal empurre o conteúdo vertical. */
+  scrollbar-gutter: stable;
+}
 
 table.tabela-candidatos {
   width: 100%;
@@ -1541,9 +1545,9 @@ table.tabela-itens { min-width: 1040px; }
 
 table.tabela-candidatos th,
 table.tabela-candidatos td {
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   text-align: left;
 }
 
@@ -1557,13 +1561,28 @@ table.tabela-candidatos th {
   white-space: nowrap;
 }
 
+/* Zebra striping sutil: linha par levemente mais clara. */
+table.tabela-candidatos tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.015);
+}
+
 table.tabela-candidatos tbody tr:last-child td { border-bottom: 0; }
 
 table.tabela-candidatos tbody tr {
   transition: background-color var(--dur-base) var(--ease-standard);
 }
 
-table.tabela-candidatos tbody tr:hover { background: var(--surface-hover); }
+/* Hover: destaque da linha inteira + elevação sutil. */
+table.tabela-candidatos tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+/* Focus visível para navegação por teclado nas linhas (tabindex=0 no wrap). */
+.tabela-wrap:focus-within table.tabela-candidatos tbody tr:focus-within {
+  background: var(--surface-hover);
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
 
 @media (min-width: 1024px) {
   .pagina-inicial .tabela-wrap,
@@ -1611,6 +1630,24 @@ table.tabela-itens { table-layout: fixed; }
 table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
 table.tabela-itens th.cabecalho-preco { text-align: right; }
 table.tabela-itens th.celula-sparkline { white-space: nowrap; }
+
+/* Ordenação visual: seta no header indica direção. */
+.link-ordenar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text);
+  font-size: inherit;
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+
+.link-ordenar:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.link-ordenar .icone-ui { width: 14px; height: 14px; }
 
 .celula-item-principal {
   display: flex;
