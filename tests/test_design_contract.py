@@ -34,17 +34,17 @@ def _bloco(css: str, seletor: str) -> str:
 
 def test_tokens_de_superficie_opencode():
     css = _css()
-    # Tema escuro profundo: fundo quase preto #050505, texto #e5e5e5,
-    # texto secundário #9ca3af, bordas #333333.
-    assert "--bg: #050505" in css
-    assert "--bg-elevated: #111111" in css
-    assert "--surface: #111111" in css
-    assert "--surface-strong: #050505" in css
-    assert "--surface-sunken: #171717" in css
-    assert "--surface-escura: #050505" in css
-    assert "--text: #e5e5e5" in css
-    assert "--text-muted: #9ca3af" in css
-    assert "--border: #333333" in css
+    # Tema escuro ACONCHEGANTE: fundo carvão #16181d, tiles #1f2229,
+    # texto #e7e9ee, texto secundário #9ba3b0, bordas #2e333d.
+    assert "--bg: #16181d" in css
+    assert "--bg-elevated: #1f2229" in css
+    assert "--surface: #1f2229" in css
+    assert "--surface-strong: #0f1115" in css
+    assert "--surface-sunken: #1b1e24" in css
+    assert "--surface-escura: #16181d" in css
+    assert "--text: #e7e9ee" in css
+    assert "--text-muted: #9ba3b0" in css
+    assert "--border: #2e333d" in css
 
 
 def test_laranja_da_casa():

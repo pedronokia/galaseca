@@ -34,29 +34,32 @@
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Superfícies -- tema escuro profundo: fundo quase preto #050505 com
-     tiles elevadas em #111111 e caixas de destaque no preto puro. */
-  --bg: #050505;
-  --bg-elevated: #111111;
-  --surface: #111111;
-  --surface-hover: #1a1a1a;
-  --surface-strong: #050505;
-  --surface-sunken: #171717;
-  --surface-escura: #050505;
-  --surface-escura-2: #111111;
+  /* Superfícies -- tema escuro ACONCHEGANTE: o preto puro (#050505)
+     ficou destoando das tiles e do laranja, então o fundo sobe para um
+     carvão neutro #16181d e as tiles ficam um degrau acima (#1f2229).
+     A diferença entre os dois níveis é pequena de propósito -- o
+     contraste vem do fio da borda, não de um salto brusco. */
+  --bg: #16181d;
+  --bg-elevated: #1f2229;
+  --surface: #1f2229;
+  --surface-hover: #2a2f38;
+  --surface-strong: #0f1115;
+  --surface-sunken: #1b1e24;
+  --surface-escura: #16181d;
+  --surface-escura-2: #1f2229;
 
-  /* Traços -- fio cinza escuro #333333 sobre fundo escuro. */
-  --border: #333333;
-  --border-strong: #4a4a4a;
-  --border-solido: #333333;
+  /* Traços -- fio cinza-ardósia #2e333d sobre o carvão. */
+  --border: #2e333d;
+  --border-strong: #3f4652;
+  --border-solido: #2e333d;
 
-  /* Texto -- #e5e5e5 corpo, #9ca3af secundário. */
-  --text: #e5e5e5;
+  /* Texto -- #e7e9ee corpo, #9ba3b0 secundário. */
+  --text: #e7e9ee;
   --text-bright: #ffffff;
-  --text-muted: #9ca3af;
-  --text-fraco: rgba(229, 229, 229, 0.56);
+  --text-muted: #9ba3b0;
+  --text-fraco: rgba(231, 233, 238, 0.56);
 
   /* Marca e estados -- o laranja da casa: botões em #c2410c com texto
      branco (contraste 5.2:1), links em #9a3412 e hover #7c2d0b (7:1 no
@@ -74,12 +77,13 @@
   --focus: #c2410c;
   --marca: #f97316;
 
-  /* Barra de navegação -- chrome escuro, como a barra do site da Apple
-     no modo escuro: a barra fica preta e o conteúdo claro ganha o
-     palco. Tokens próprios para o cabeçalho e a barra do celular não
-     dependerem das cores de texto do conteúdo. */
-  --chrome-fundo: rgba(29, 29, 31, 0.92);
-  --chrome-fundo-forte: rgba(29, 29, 31, 0.94);
+  /* Barra de navegação -- chrome um degrau mais escuro que o fundo,
+     como a barra do site da Apple no modo escuro: uma faixa
+     translúcida sobre o carvão, sem virar preto chapado. Tokens
+     próprios para o cabeçalho e a barra do celular não dependerem das
+     cores de texto do conteúdo. */
+  --chrome-fundo: rgba(14, 16, 20, 0.85);
+  --chrome-fundo-forte: rgba(14, 16, 20, 0.92);
   --chrome-texto: rgba(255, 255, 255, 0.82);
   --chrome-texto-forte: #ffffff;
   --chrome-linha: rgba(255, 255, 255, 0.14);
