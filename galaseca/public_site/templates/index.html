@@ -243,7 +243,7 @@
       </span>
       <div class="hero-destaque-corpo">
         <p class="hero-destaque-rotulo">Nota mais alta hoje</p>
-        <a class="hero-destaque-nome" href="{{ url_for('item_detail', name=destaque_hero.name) }}">{{ destaque_hero.name_fmt }}</a>
+        <a class="hero-destaque-nome" href="{{ url_for('item_detail', name=destaque_hero.name) }}">{{ destaque_hero.name_fmt|titulo_sem_pipe_orfao }}</a>
         <p class="hero-destaque-motivo">{{ destaque_hero.reasons[0]|motivo_fmt if destaque_hero.reasons else "Nota neutra: nenhum fator se destacou" }}</p>
       </div>
       <span class="hero-destaque-nota nota-{{ destaque_hero.score|nota_classe }}" aria-label="Nota {{ destaque_hero.score }} de 100"><span class="hero-destaque-nota-num">{{ destaque_hero.score }}</span><span class="hero-destaque-nota-de">/100</span></span>

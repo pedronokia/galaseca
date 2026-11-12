@@ -73,7 +73,7 @@
           {% if item.raridade_titulo %}
           <p class="hero-item-tag">{{ item.raridade_titulo }}</p>
           {% endif %}
-          <h1 class="titulo-item">{{ item.name_fmt }}</h1>
+          <h1 class="titulo-item">{{ item.name_fmt|titulo_sem_pipe_orfao }}</h1>
           <p class="hero-item-acoes">
             <a class="botao-acao" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
             <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>

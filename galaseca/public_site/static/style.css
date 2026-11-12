@@ -1172,6 +1172,13 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   text-decoration: none;
 }
 
+/* Cola o "|" (separador arma/skin) na palavra seguinte nos títulos
+   grandes -- achado ao vivo: nem espaço duro (\00a0) impede a quebra
+   bem ali, com `overflow-wrap: anywhere`/`text-wrap: balance` ativos
+   na regra (ver _titulo_sem_pipe_orfao em server.py). Só
+   `white-space: nowrap` no trecho "| Palavra" resolve de verdade. */
+.pipe-colado { white-space: nowrap; }
+
 .hero-destaque-motivo {
   margin: var(--sp-2) 0 0;
   color: rgba(255, 255, 255, 0.65);

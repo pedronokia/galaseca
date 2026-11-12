@@ -33,6 +33,7 @@ from flask import (
     Flask, Response, g, jsonify, make_response, redirect, render_template,
     request, send_from_directory, session, url_for,
 )
+from markupsafe import Markup
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash
 
@@ -305,6 +306,7 @@ def create_app() -> Flask:
     app.jinja_env.filters["rotulo_caixa"] = _rotulo_caixa
     app.jinja_env.filters["motivo_fmt"] = _motivo_fmt
     app.jinja_env.filters["liquidez_label"] = _liquidez_label
+    app.jinja_env.filters["titulo_sem_pipe_orfao"] = _titulo_sem_pipe_orfao
 
     @app.before_request
     def _marcar_inicio_latencia():
@@ -1270,6 +1272,41 @@ def _rotulo_caixa(case_label: "str | None",
         texto = status[:1].upper() + status[1:]
         return f"{texto} · {ano}" if ano else texto
     return localize_name(nome) + sep + resto
+
+
+# Maior palavra real conhecida logo após o "|" num nome de item (ex.
+# "Asiimov", "Redline", "Doppler") fica bem abaixo disto -- serve só de
+# limite de segurança (ver docstring de `_titulo_sem_pipe_orfao`).
+_PIPE_COLADO_MAX = 20
+
+
+def _titulo_sem_pipe_orfao(nome_fmt: "str | None") -> Markup:
+    """Cola o "|" na palavra seguinte -- só pros títulos grandes (hero
+    da home, h1 da página do item). Sem isso, o nome quebra de linha
+    logo depois do separador "|" (ex. "Five-SeveN |" numa linha,
+    "Monkey Business" na outra): a barra sozinha no fim da linha lê
+    mal. Espaço duro (\xa0) sozinho NÃO resolve -- testado ao vivo: o
+    motor de layout ainda abre uma quebra bem ali, com ou sem
+    text-wrap:balance/overflow-wrap:anywhere na regra. Só um <span>
+    com white-space:nowrap (.pipe-colado no CSS) prende os dois de
+    verdade -- mas `white-space:nowrap` NÃO tem fallback de overflow
+    (testado: nem `overflow-wrap:break-word` o destrava), então um
+    nome fora do padrão (sem espaço nenhum ali) vazaria da caixa.
+    `_PIPE_COLADO_MAX` existe só por isso: fora do comum, cai pro texto
+    normal (ainda quebra mal, mas não estoura layout). Escopado nesta
+    função, não em `localize_name`, de propósito -- name_fmt alimenta a
+    API JSON e o texto que "Copiar nome" cola na área de transferência;
+    HTML ali mudaria o contrato dos dois sem necessidade."""
+    if not nome_fmt:
+        return Markup("")
+    antes, sep, depois = nome_fmt.partition("| ")
+    if not sep:
+        return Markup.escape(nome_fmt)
+    palavra, _, resto = depois.partition(" ")
+    if len(palavra) > _PIPE_COLADO_MAX:
+        return Markup.escape(nome_fmt)
+    pedaco = Markup('<span class="pipe-colado">|\xa0{}</span>').format(palavra)
+    return Markup("{}{}{}{}").format(antes, pedaco, " " if resto else "", resto)
 
 
 def _nota_classe(score: "int | float | None") -> str:
