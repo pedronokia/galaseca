@@ -117,6 +117,8 @@
     {% endif %}
 
     {% if tem_historico %}
+      <div class="faixa faixa-grafico">
+        <div class="faixa-dentro">
       <h2 class="secao-titulo">Histórico de preço</h2>
       <div class="seletor-periodo" role="group" aria-label="Período do gráfico">
         <a href="{{ url_for('item_detail', name=item.name) }}"{% if not periodo_sel %} aria-current="true"{% endif %}>Tudo</a>
@@ -130,6 +132,8 @@
       {% else %}
       <p class="texto-sem-dado">Sem preços registrados nesse período.</p>
       {% endif %}
+        </div>
+      </div>
     {% endif %}
 
     <h2 class="secao-titulo">Por quê</h2>

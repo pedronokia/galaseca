@@ -100,6 +100,8 @@
         </div>
       </nav>
       {% if ver_sel == 'lista' %}
+      <div class="faixa faixa-lista">
+        <div class="faixa-dentro">
       <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
       <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de ranking, com rolagem lateral">
       <table class="tabela-candidatos">
@@ -131,10 +133,14 @@
         </tbody>
       </table>
       </div>
+        </div>
+      </div>
       {% else %}
+      <div class="faixa faixa-vitrine">
       <ul class="grade-cards" aria-label="Vitrine do Top 20">
         {% for it in itens %}{{ cartao_candidato_ranking(it, loop.index0) }}{% endfor %}
       </ul>
+      </div>
       {% endif %}
     {% else %}
       <p class="status status-vazio">Ainda não há ranking salvo. Volte em breve.</p>

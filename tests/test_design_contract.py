@@ -34,7 +34,12 @@ def _bloco(css: str, seletor: str) -> str:
 
 def test_tokens_de_superficie_apple():
     css = _css()
-    assert "--bg-elevated: #f5f5f7" in css
+    # Página inteira no cinza #e8e8ed com tiles brancas em cima -- o
+    # jeito da loja da apple.com (sem "branco sobre branco").
+    assert "--bg: #e8e8ed" in css
+    assert "--bg-elevated: #ffffff" in css
+    assert "--surface: #ffffff" in css
+    assert "--surface-strong: #e8e8ed" in css
     assert "--surface-sunken: #f5f5f7" in css
     assert "--surface-escura: #1d1d1f" in css
     assert "--text: #1d1d1f" in css
@@ -111,18 +116,45 @@ def test_titulos_600_e_escala_32_48_64():
 def test_rodape_cinza_claro_12px():
     css = _css()
     rodape = _bloco(css, "footer.rodape")
-    assert "background: var(--bg-elevated);" in rodape  # #f5f5f7
+    # Rodapé no tom do rodapé da Apple (#f5f5f7 via --surface-sunken):
+    # na página cinza ele não pode virar mais um bloco branco.
+    assert "background: var(--surface-sunken);" in rodape
     assert "font-size: var(--fs-2xs);" in rodape        # 12px
     assert "--fs-2xs: 0.75rem" in css
 
 
-def test_cards_sem_sombra_com_fio_de_1px():
+def test_cards_sem_fio_sem_sombra():
     css = _css()
     card = _bloco(css, ".cartao-item")
-    assert "border: 1px solid var(--border);" in card
+    # Card-tile: sem fio -- o contraste vem da página cinza em volta --
+    # e sem sombra (a Apple não faz o card "levantar").
+    assert "border: 0;" in card
     assert "border-radius: var(--radius-md);" in card
-    # A Apple quase não usa sombra: o card não "levanta".
     assert "box-shadow" not in card
+
+
+def test_pagina_cinza_com_faixa_borda_a_borda():
+    """A página inteira é o cinza #e8e8ed e as seções grandes atravessam
+    a tela de borda a borda (truque 100vw), com o conteúdo de volta na
+    coluna dentro da faixa."""
+    css = _css()
+    assert "background: var(--bg);" in css  # body na página cinza
+    faixa = _bloco(css, ".faixa")
+    assert "width: 100vw;" in faixa
+    assert "margin-left: calc(50% - 50vw);" in faixa
+    # O html corta o excedente do 100vw (barra de rolagem).
+    html_bloco = _bloco(css, "html")
+    assert "overflow-x: clip;" in html_bloco
+
+
+def test_ficha_do_item_tile_branca():
+    css = _css()
+    ficha = _bloco(css, ".resumo-cards-item")
+    # Painel de métricas vira tile branca na página cinza, com o selo
+    # de Nota em caixinha cinza dentro (inverso do layout antigo).
+    assert "background: var(--surface);" in ficha
+    selo = _bloco(css, ".resumo-cards-item .card-nota-destaque")
+    assert "background: var(--surface-strong);" in selo
 
 
 def test_respeita_reduced_motion():

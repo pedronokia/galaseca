@@ -36,10 +36,11 @@
 :root {
   color-scheme: light;
 
-  /* Superfícies -- os tons da Apple: branco, o cinza #f5f5f7 e o quase
-     preto #1d1d1f das caixas de destaque. */
-  --bg: #ffffff;
-  --bg-elevated: #f5f5f7;
+  /* Superfícies -- os tons da Apple: página no cinza #e8e8ed com tiles
+     brancas em cima (o jeito da loja da Apple) e o quase preto #1d1d1f
+     das caixas de destaque. */
+  --bg: #e8e8ed;
+  --bg-elevated: #ffffff;
   --surface: #ffffff;
   --surface-hover: #f5f5f7;
   --surface-strong: #e8e8ed;
@@ -149,6 +150,12 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+  /* A faixa da vitrine usa 100vw, que no desktop inclui a barra de
+     rolagem; corta o excedente. `clip` não cria recipiente de rolagem
+     (o cabeçalho sticky continua funcionando); `hidden` fica como
+     fallback para navegadores sem clip. */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -677,7 +684,9 @@ footer.rodape {
   margin: 56px 0 0;
   padding: 36px 22px 28px;
   border-top: 0;
-  background: var(--bg-elevated);
+  /* Rodapé no tom do rodapé da Apple (#f5f5f7): faixa própria, sem
+     virar mais um bloco branco na página cinza. */
+  background: var(--surface-sunken);
   color: var(--text-muted);
   font-size: var(--fs-2xs);
   line-height: 1.4;
@@ -1077,7 +1086,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   padding: var(--sp-3);
   border: 0;
   border-radius: var(--radius-md);
-  background: var(--surface-sunken);
+  background: var(--surface);
 }
 
 .form-filtros label {
@@ -2142,6 +2151,51 @@ table.tabela-candidatos td.celula-preco {
   transform: translateX(-50%);
 }
 
+/* ── Faixa de tom (o ritmo da Apple) ─────────────────── */
+
+/* A página inteira agora é o #e8e8ed (o "surface-strong" da Apple): o
+   cinza é o palco e as tiles brancas (cards, tabela, gráfico, painéis)
+   flutuam nele, como na loja da apple.com. A faixa mora dentro da
+   coluna do main e se estica até as bordas com o truque 100vw (o
+   excedente da barra de rolagem é cortado pelo overflow-x do html). */
+.faixa {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  /* Na página cinza a faixa não contrasta mais -- fica com o papel de
+     estrutura (seção de borda a borda + respiro). O fundo fica
+     explícito pra uma seção que um dia precisar se destacar poder
+     trocar o tom. */
+  background: var(--surface-strong);
+}
+
+.faixa-vitrine,
+.faixa-grafico,
+.faixa-lista {
+  padding: 28px 0 36px;
+  /* margin-bottom em forma longa: o atalho `margin:` zeraria o
+     margin-left do .faixa (o calc do truque 100vw). */
+  margin-bottom: var(--sp-5);
+}
+
+/* Devolve a coluna de conteúdo dentro da faixa. */
+.faixa-dentro {
+  max-width: var(--largura-conteudo);
+  margin: 0 auto;
+  padding: 0 22px;
+}
+
+/* Página do item: a coluna do main ali é 940px (.pagina-item), não a
+   de 980px. O wrapper da faixa usa a MESMA caixa (940px + gutter de
+   22px) pra o conteúdo da faixa alinhar em cima do conteúdo da página. */
+.pagina-item .faixa-dentro { max-width: 940px; }
+
+/* A grade volta pra coluna de 980px dentro da faixa. */
+.faixa-vitrine .grade-cards {
+  max-width: var(--largura-conteudo);
+  margin: 0 auto;
+  padding: 0 22px;
+}
+
 /* ── Vitrine (grade de cards) ────────────────────────── */
 
 .grade-cards {
@@ -2153,23 +2207,18 @@ table.tabela-candidatos td.celula-preco {
   list-style: none;
 }
 
-/* Card no formato da Apple: 18px de raio, fio de 1px e nenhuma
-   sombra -- o card não "levanta" no hover, só escurece o fio. */
+/* Card dentro da faixa: raio 18px e SEM fio -- o contraste vem da
+   faixa cinza em volta, como nas tiles da apple.com. Sem sombra e sem
+   hover de borda (a tile da Apple não reage ao passar o mouse). */
 .cartao-item {
   position: relative;
   display: flex;
   min-width: 0;
   flex-direction: column;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-md);
   background: var(--surface);
   overflow: hidden;
-  transition: border-color 0.15s ease;
-}
-
-.cartao-item:hover,
-.cartao-item:focus-within {
-  border-color: var(--border-strong);
 }
 
 .cartao-item-brilho { display: none; }
@@ -2691,15 +2740,16 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   line-height: 1.4;
 }
 
-/* Ficha técnica da página do item: colunas separadas por fio, sem caixa
-   própria em volta de cada dado. Escopado de propósito -- .card também
-   aparece em conta/admin. */
+/* Ficha técnica da página do item: tile branca da Apple sobre a página
+   cinza, colunas separadas por fio fino, sem caixa própria em volta de
+   cada dado. Escopado de propósito -- .card também aparece em
+   conta/admin. */
 .resumo-cards-item {
   align-items: stretch;
   gap: 0;
   margin-bottom: var(--sp-5);
   padding: 4px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-md);
   background: var(--surface);
 }
@@ -2732,9 +2782,9 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .resumo-cards-item .card-nota-destaque {
   flex: 0 0 auto;
   padding: 10px 24px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-strong);
 }
 
 /* ── Formulários (conta, watchlist, trades) ──────────── */
@@ -2861,7 +2911,8 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .linha-regras td {
   padding: 0 14px 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-elevated);
+  /* Sub-linha dentro da tabela branca: usa o tom afundado. */
+  background: var(--surface-sunken);
 }
 
 .linha-regras summary {
@@ -3290,6 +3341,12 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   }
 
   main { padding: 24px 16px 40px; }
+
+  .faixa-vitrine,
+  .faixa-grafico,
+  .faixa-lista { padding: 20px 0 24px; }
+  .faixa-vitrine .grade-cards { padding: 0 16px; }
+  .faixa-dentro { padding: 0 16px; }
 
   /* Logo e ação na mesma linha (a nav vai pra barra inferior): cabeçalho
      baixo, como o do site da Apple no celular. */

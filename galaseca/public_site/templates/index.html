@@ -421,6 +421,8 @@
 
     {% if candidatos %}
     {% if ver_sel == 'lista' %}
+    <div class="faixa faixa-lista">
+    <div class="faixa-dentro">
     <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de itens recomendados, com rolagem lateral">
     <table class="tabela-candidatos tabela-itens">{{ colgroup_itens() }}
       <thead class="cabecalho-fixo">{{ cabecalho_tabela() }}</thead>
@@ -429,10 +431,14 @@
       </tbody>
     </table>
     </div>
+    </div>
+    </div>
     {% else %}
+    <div class="faixa faixa-vitrine">
     <ul class="grade-cards" aria-label="Vitrine de itens">
       {% for c in candidatos %}{{ cartao_candidato(c, loop.index0) }}{% endfor %}
     </ul>
+    </div>
     {% endif %}
     {% endif %}
     {% if candidatos %}
