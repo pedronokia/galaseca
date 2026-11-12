@@ -34,17 +34,18 @@ def _bloco(css: str, seletor: str) -> str:
 
 def test_tokens_de_superficie_opencode():
     css = _css()
-    # Tema escuro ACONCHEGANTE: fundo carvão #16181d, tiles #1f2229,
-    # texto #e7e9ee, texto secundário #9ba3b0, bordas #2e333d.
-    assert "--bg: #16181d" in css
-    assert "--bg-elevated: #1f2229" in css
-    assert "--surface: #1f2229" in css
-    assert "--surface-strong: #0f1115" in css
-    assert "--surface-sunken: #1b1e24" in css
-    assert "--surface-escura: #16181d" in css
-    assert "--text: #e7e9ee" in css
-    assert "--text-muted: #9ba3b0" in css
-    assert "--border: #2e333d" in css
+    # CINZA MÉDIO (site) + PRETO (cabeçalho): fundo #2d2d2d, tiles #363636,
+    # texto #e8e8e8, texto secundário #bababa (contraste 4.5:1 no hover),
+    # bordas #444444.
+    assert "--bg: #2d2d2d" in css
+    assert "--bg-elevated: #363636" in css
+    assert "--surface: #363636" in css
+    assert "--surface-strong: #1a1a1a" in css
+    assert "--surface-sunken: #252525" in css
+    assert "--surface-escura: #2d2d2d" in css
+    assert "--text: #e8e8e8" in css
+    assert "--text-muted: #bababa" in css
+    assert "--border: #444444" in css
 
 
 def test_laranja_da_casa():
