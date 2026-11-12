@@ -368,7 +368,7 @@ summary:focus-visible,
 .link-pular-conteudo {
   position: absolute;
   left: -9999px;
-  top: 0;
+  top: env(safe-area-inset-top, 0);
   z-index: 100;
   padding: 12px 20px;
   border-radius: 0 0 var(--radius-sm) 0;
@@ -399,6 +399,8 @@ header.topo {
   background: var(--chrome-fundo);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
+  /* Safe area top para notch iOS. */
+  padding-top: env(safe-area-inset-top, 0);
 }
 
 /* Linha fina de fechamento, como a borda que separa a barra da
@@ -421,6 +423,18 @@ header.topo > * {
 /* A home acompanha a largura da tabela/vitrine. */
 @media (min-width: 641px) {
   header.topo.topo-larga > * { max-width: var(--largura-conteudo); }
+}
+
+@media (max-width: 640px) {
+  header.topo {
+    position: static;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  header.topo > * {
+    padding-left: var(--sp-4);
+    padding-right: var(--sp-4);
+  }
 }
 
 .titulo-logo {
@@ -1269,6 +1283,21 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   border-color: var(--accent);
   outline: none;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
+}
+
+/* Active state para feedback tátil imediato. */
+.form-filtros select:active,
+.form-filtros input:active,
+.form-filtros button:active,
+.form-filtros button#botao-favoritos:active {
+  transform: scale(0.99);
+  transition: transform 0.05s ease;
+}
+
+/* Previne zoom no iOS ao focar inputs (font-size >= 16px). */
+.form-filtros input,
+.form-filtros select {
+  font-size: var(--fs-base); /* 17px >= 16px */
 }
 
 .form-filtros input[type="number"] { width: 128px; }
