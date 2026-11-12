@@ -36,7 +36,7 @@
          outros 3 cards desta fileira, que ficam no .card padrão. #}
       <div class="card card-nota-destaque">
         <span class="card-label">Lucro (sem taxa)</span>
-        <span class="card-valor {{ 'valor-positivo' if avaliacao.totals.pnl and avaliacao.totals.pnl > 0 else ('valor-negativo' if avaliacao.totals.pnl and avaliacao.totals.pnl < 0 else '') }}">
+        <span class="card-valor {{ 'valor-positivo' if avaliacao.totals.pnl and avaliacao.totals.pnl > 0 else ('valor-negativo' if avaliacao.totals.pnl and avaliacao.totals.pnl < 0 else ('card-valor-texto' if avaliacao.totals.pnl is none else '')) }}">
           {{ avaliacao.totals.pnl_fmt if avaliacao.totals.pnl is not none else "— (sem custo pra comparar)" }}
         </span>
       </div>

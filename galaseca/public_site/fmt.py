@@ -16,6 +16,13 @@ def brl(v: "float | None") -> str:
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def pct(v: "float | None") -> str:
+    """1 casa decimal, vírgula -- sem o '%' (quem chama decide o rótulo)."""
+    if v is None:
+        return "—"
+    return f"{v:.1f}".replace(".", ",")
+
+
 def data_hora_br(ts: float) -> str:
     """'DD/MM/AAAA HH:MM' no horário de Brasília, a partir de um epoch UTC."""
     return datetime.datetime.fromtimestamp(ts, tz=FUSO_BR).strftime(

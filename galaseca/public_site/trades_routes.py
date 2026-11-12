@@ -61,6 +61,7 @@ def listar():
     stats = trades_mod.trade_stats(trades=registros)
     stats["pnl_total_fmt"] = fmt.brl(stats.get("pnl_total"))
     stats["pnl_medio_fmt"] = fmt.brl(stats.get("pnl_medio"))
+    stats["win_rate_fmt"] = fmt.pct(stats.get("win_rate"))
     linhas = _formatar(registros)
     linhas.reverse()  # mais recente primeiro; `index` já é o original
     return render_template(

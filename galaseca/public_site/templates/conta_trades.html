@@ -34,7 +34,7 @@
         <span class="card-label">Lucro total (líquido)</span>
         <span class="card-valor {{ 'valor-positivo' if stats.pnl_total > 0 else ('valor-negativo' if stats.pnl_total < 0 else '') }}">{{ stats.pnl_total_fmt }}</span>
       </div>
-      <div class="card"><span class="card-label">Taxa de acerto</span><span class="card-valor">{{ stats.win_rate }}%</span></div>
+      <div class="card"><span class="card-label">Taxa de acerto</span><span class="card-valor">{{ stats.win_rate_fmt }}%</span></div>
       <div class="card"><span class="card-label">Lucro médio por trade</span><span class="card-valor">{{ stats.pnl_medio_fmt }}</span></div>
     </section>
 
