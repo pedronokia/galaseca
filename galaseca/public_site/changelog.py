@@ -8,6 +8,65 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
+        "data": "2026-11-12",
+        "titulo": "Tema escuro",
+        "itens": [
+            "Site inteiro no tema escuro: fundo quase preto #0a0a0a, texto #e5e5e5, texto secundário #9ca3af e bordas #3f3f46.",
+            "Tiles elevadas em #171717 e caixas de destaque no preto #0a0a0a, mantendo o laranja da casa nos botões e foco.",
+        ],
+    },
+    {
+        "data": "2026-11-12",
+        "titulo": "Cores do site alinhadas ao OpenCode",
+        "itens": [
+            "Cores do site alinhadas com a identidade do OpenCode (opencode.ai/brand):",
+            "Fundo branco puro #ffffff, texto #1F1F1F (Ink), texto secundário #626262 (Ink 70%), bordas #D2D2D2 (Ink 20%).",
+            "Rodapé, cartas e caixas de destaque no mesmo esquema monocromático.",
+        ],
+    },
+    {
+        "data": "2026-11-12",
+        "titulo": "Polimentos de consistência visual nas páginas de erro, admin e conta",
+        "itens": [
+            "Páginas 404, 429 e 500 ganharam cabeçalho de página (título + descrição), card com CTA e o rodapé padrão com grupos de links.",
+            "Painel admin e login de admin ganharam descrição no cabeçalho, card ao redor do formulário e rodapé padrão.",
+            "Botões de ação nessas páginas usam o mesmo estilo pílula laranja do resto do site (classe .botao-acao).",
+            "Minha watchlist envolve os formulários 'Adicionar item' e 'Alerta no Discord' em cards, igual às demais páginas de conta.",
+            "Minha histórico envolve gráfico e tabela em card dentro de .resumo-cards, igual ao resto das páginas de conta.",
+            "Excluir conta ganha descrição no cabeçalho e envolve o aviso em .resumo-cards.",
+            "Sobre ganha descrição mais completa no cabeçalho da página.",
+            "Formulários 'Adicionar item' (Minha conta) e 'Registrar trade' (Meus trades) envolvidos em .resumo-cards > .card, igual aos demais formulários de conta (watchlist, admin login).",
+        ],
+    },
+    {
+        "data": "2026-11-12",
+        "titulo": "Correções de acessibilidade (teclado e leitor de tela)",
+        "itens": [
+            "Removido tabindex='-1' dos termos do glossário: todos agora são alcançáveis com a tecla Tab (violação de WCAG 2.1.1 corrigida).",
+            "Páginas 404, 429 e 500 passam a ter um único <h1> (o título da página); o logo deixa de ser h1 nessas páginas.",
+            "Nav de conta (Trades/Watchlist/Histórico) ganha aria-label='Minhas páginas'.",
+            "Erros de validação do login de admin e do webhook da watchlist ganham role='alert' e aria-invalid='true' no campo.",
+        ],
+    },
+    {
+        "data": "2026-11-12",
+        "titulo": "Otimização de desempenho / LCP",
+        "itens": [
+            "Preload da fonte Inter (woff2) no <head>: começa a baixar em paralelo com o HTML, em vez de só depois que o CSS é parseado (o @font-face dispara o fetch da fonte).",
+            "Preconnect para community.steamstatic.com: abre conexão TCP/TLS antecipadamente pra ícones de item que caem no CDN da Steam quando o cache local não tem o hash.",
+        ],
+    },
+    {
+        "data": "2026-11-11",
+        "titulo": "O site inteiro no estilo da Apple",
+        "itens": [
+            "Páginas 404, 429 e 500 ganharam cabeçalho de página (título + descrição), card com CTA e o rodapé padrão com grupos de links.",
+            "Painel admin e login de admin ganharam descrição no cabeçalho, card ao redor do formulário e rodapé padrão.",
+            "Botões de ação nessas páginas usam o mesmo estilo pílula laranja do resto do site (classe .botao-acao).",
+            "Minha watchlist envolve os formulários 'Adicionar item' e 'Alerta no Discord' em cards, igual às demais páginas de conta.",
+        ],
+    },
+    {
         "data": "2026-11-11",
         "titulo": "O site inteiro no estilo da Apple",
         "itens": [

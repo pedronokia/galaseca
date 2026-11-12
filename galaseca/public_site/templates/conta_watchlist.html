@@ -25,24 +25,30 @@
       <p class="descricao-pagina">Itens que você acompanha — avaliado com o preço e os dados já guardados, sem chamada nova à Steam.</p>
     </header>
 
-    <h2 class="secao-titulo">Adicionar item</h2>
-    <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" aria-label="Nome exato do item" maxlength="200" required>
-      <input type="number" name="target" step="0.01" min="0" placeholder="Alvo de preço (R$, opcional)" aria-label="Alvo de preço em reais, opcional">
-      <button type="submit">+ Acompanhar</button>
-    </form>
+    <div class="resumo-cards">
+      <div class="card">
+        <h2 class="secao-titulo">Adicionar item</h2>
+        <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" aria-label="Nome exato do item" maxlength="200" required>
+          <input type="number" name="target" step="0.01" min="0" placeholder="Alvo de preço (R$, opcional)" aria-label="Alvo de preço em reais, opcional">
+          <button type="submit" class="botao-acao">+ Acompanhar</button>
+        </form>
+      </div>
 
-    <h2 class="secao-titulo">Alerta no Discord (opcional)</h2>
-    <p class="status">Cole a URL de um webhook de um canal seu. Quando um item disparar um alerta, mandamos uma mensagem lá — no máximo uma por item a cada hora, pra não encher o canal.</p>
-    {% if erro_webhook %}
-    <p class="status status-erro">Essa URL não parece um webhook da Discord (precisa começar com <code>https://discord.com/api/webhooks/</code>) — não foi salva.</p>
-    {% endif %}
-    <form class="form-adicionar" method="post" action="{{ url_for('watchlist.salvar_webhook') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord" aria-label="URL do webhook do Discord">
-      <button type="submit">Salvar</button>
-    </form>
+      <div class="card">
+        <h2 class="secao-titulo">Alerta no Discord (opcional)</h2>
+        <p class="status">Cole a URL de um webhook de um canal seu. Quando um item disparar um alerta, mandamos uma mensagem lá — no máximo uma por item a cada hora, pra não encher o canal.</p>
+        {% if erro_webhook %}
+        <p class="status status-erro" role="alert">Essa URL não parece um webhook da Discord (precisa começar com <code>https://discord.com/api/webhooks/</code>) — não foi salva.</p>
+        {% endif %}
+        <form class="form-adicionar" method="post" action="{{ url_for('watchlist.salvar_webhook') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord" aria-label="URL do webhook do Discord"{% if erro_webhook %} aria-invalid="true"{% endif %}>
+          <button type="submit" class="botao-acao">Salvar</button>
+        </form>
+      </div>
+    </div>
 
     <h2 class="secao-titulo">Itens acompanhados</h2>
     {% if items %}

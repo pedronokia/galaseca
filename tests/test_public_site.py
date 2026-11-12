@@ -3562,7 +3562,16 @@ def test_sem_preload_de_fonte_custom(client, monkeypatch):
     monkeypatch.setattr(scan_store, "load_last_scan", lambda: None)
     body = client.get("/").data.decode("utf-8")
     assert "Poppins" not in body
-    assert 'rel="preload"' not in body
+    # O preload da fonte Inter (referenciada pelo @font-face do CSS) é
+    # intencional: acelera o LCP. O que não pode mais existir é preload
+    # de fonte custom não usada (Poppins).
+    assert 'Poppins' not in body
+    assert 'inter-latin-opsz-normal.woff2' in body
+    # Não deve haver preload de arquivo de fonte Poppins.
+    assert not any(
+        'rel="preload"' in linha and 'Poppins' in linha
+        for linha in body.splitlines()
+    )
 
 
 def test_sw_js_na_raiz_com_scope_amplo(client):
@@ -3704,12 +3713,15 @@ def test_glossario_page(client):
     assert body.count('"@type": "DefinedTerm"') == body.count("<dt ")
     assert "Steam Community Market" in body
     assert "Procura × Oferta" in body
-    assert 'id="termo-liquidez" tabindex="-1"><strong>Liquidez</strong></dt>' in body
+    assert '<dt id="termo-liquidez"><strong>Liquidez</strong></dt>' in body
     assert 'aria-label="Índice do glossário"' in body
     assert 'href="#termo-procura-oferta"' in body
-    assert 'id="termo-procura-oferta" tabindex="-1"' in body
+    assert '<dt id="termo-procura-oferta"' in body
     assert 'href="#termo-raridade"' in body
-    assert 'id="termo-raridade" tabindex="-1"><strong>Raridade</strong></dt>' in body
+    assert '<dt id="termo-raridade"><strong>Raridade</strong></dt>' in body
+    # Termos do glossário não devem ter tabindex="-1": precisam ser
+    # alcançáveis com a tecla Tab (WCAG 2.1.1 Keyboard).
+    assert 'tabindex="-1"' not in body
 
 
 def test_sitemap_inclui_faq(client):

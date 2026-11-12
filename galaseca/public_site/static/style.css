@@ -36,28 +36,27 @@
 :root {
   color-scheme: light;
 
-  /* Superfícies -- os tons da Apple: página no cinza #e8e8ed com tiles
-     brancas em cima (o jeito da loja da Apple) e o quase preto #1d1d1f
-     das caixas de destaque. */
-  --bg: #e8e8ed;
-  --bg-elevated: #ffffff;
-  --surface: #ffffff;
-  --surface-hover: #f5f5f7;
-  --surface-strong: #e8e8ed;
-  --surface-sunken: #f5f5f7;
-  --surface-escura: #1d1d1f;
-  --surface-escura-2: #333336;
+  /* Superfícies -- tema escuro: fundo quase preto #0a0a0a com tiles
+     elevadas em #171717 e caixas de destaque no preto #0a0a0a. */
+  --bg: #0a0a0a;
+  --bg-elevated: #171717;
+  --surface: #171717;
+  --surface-hover: #2a2a2a;
+  --surface-strong: #0a0a0a;
+  --surface-sunken: #1f1f1f;
+  --surface-escura: #0a0a0a;
+  --surface-escura-2: #171717;
 
-  /* Traços -- fio de 1px como o da Apple: preto a 12% de opacidade. */
-  --border: rgba(0, 0, 0, 0.12);
-  --border-strong: rgba(0, 0, 0, 0.28);
-  --border-solido: #d2d2d7;
+  /* Traços -- fio cinza #3f3f46 sobre fundo escuro. */
+  --border: #3f3f46;
+  --border-strong: #52525b;
+  --border-solido: #3f3f46;
 
-  /* Texto -- #1d1d1f no corpo, #6e6e73 no secundário, igual à Apple. */
-  --text: #1d1d1f;
-  --text-bright: #1d1d1f;
-  --text-muted: #6e6e73;
-  --text-fraco: rgba(0, 0, 0, 0.56);
+  /* Texto -- #e5e5e5 corpo, #9ca3af secundário. */
+  --text: #e5e5e5;
+  --text-bright: #ffffff;
+  --text-muted: #9ca3af;
+  --text-fraco: rgba(229, 229, 229, 0.56);
 
   /* Marca e estados -- o laranja da casa: botões em #c2410c com texto
      branco (contraste 5.2:1), links em #9a3412 e hover #7c2d0b (7:1 no

@@ -1,11 +1,11 @@
 """Contrato de design do site público -- trava os tokens da identidade
-Apple lendo `style.css` do disco (sem navegador, roda na suíte normal).
+OpenCode lendo `style.css` do disco (sem navegador, roda na suíte normal).
 
 A regressão visual (`tests/visual/visual_regression.py`) pega MUDANÇAS
 de renderização; este teste pega mudanças de FONTE -- alguém trocar
 `--accent`, o corpo de 17px, o raio dos cards etc. e não perceber. Se
 um token mudar de propósito, o teste muda junto: é o documento vivo da
-identidade visual (valores conferidos com apple.com em 2026-11-12).
+identidade visual (valores conferidos com opencode.ai/brand em 2026-11-12).
 """
 from __future__ import annotations
 
@@ -32,19 +32,19 @@ def _bloco(css: str, seletor: str) -> str:
     return css[início:fim]
 
 
-def test_tokens_de_superficie_apple():
+def test_tokens_de_superficie_opencode():
     css = _css()
-    # Página inteira no cinza #e8e8ed com tiles brancas em cima -- o
-    # jeito da loja da apple.com (sem "branco sobre branco").
-    assert "--bg: #e8e8ed" in css
-    assert "--bg-elevated: #ffffff" in css
-    assert "--surface: #ffffff" in css
-    assert "--surface-strong: #e8e8ed" in css
-    assert "--surface-sunken: #f5f5f7" in css
-    assert "--surface-escura: #1d1d1f" in css
-    assert "--text: #1d1d1f" in css
-    assert "--text-muted: #6e6e73" in css
-    assert "--border: rgba(0, 0, 0, 0.12)" in css
+    # Tema escuro: fundo quase preto #0a0a0a, texto #e5e5e5, texto
+    # secundário #9ca3af, bordas #3f3f46.
+    assert "--bg: #0a0a0a" in css
+    assert "--bg-elevated: #171717" in css
+    assert "--surface: #171717" in css
+    assert "--surface-strong: #0a0a0a" in css
+    assert "--surface-sunken: #1f1f1f" in css
+    assert "--surface-escura: #0a0a0a" in css
+    assert "--text: #e5e5e5" in css
+    assert "--text-muted: #9ca3af" in css
+    assert "--border: #3f3f46" in css
 
 
 def test_laranja_da_casa():
@@ -126,8 +126,8 @@ def test_titulos_600_e_escala_32_48_64():
 def test_rodape_cinza_claro_12px():
     css = _css()
     rodape = _bloco(css, "footer.rodape")
-    # Rodapé no tom do rodapé da Apple (#f5f5f7 via --surface-sunken):
-    # na página cinza ele não pode virar mais um bloco branco.
+    # Rodapé no tom #f5f5f7 (--surface-sunken): na página branca ainda
+    # se destaca como faixa própria.
     assert "background: var(--surface-sunken);" in rodape
     assert "font-size: var(--fs-2xs);" in rodape        # 12px
     assert "--fs-2xs: 0.75rem" in css
@@ -143,12 +143,12 @@ def test_cards_sem_fio_sem_sombra():
     assert "box-shadow" not in card
 
 
-def test_pagina_cinza_com_faixa_borda_a_borda():
-    """A página inteira é o cinza #e8e8ed e as seções grandes atravessam
+def test_pagina_branca_com_faixa_borda_a_borda():
+    """A página inteira é o branco #ffffff e as seções grandes atravessam
     a tela de borda a borda (truque 100vw), com o conteúdo de volta na
     coluna dentro da faixa."""
     css = _css()
-    assert "background: var(--bg);" in css  # body na página cinza
+    assert "background: var(--bg);" in css  # body na página branca
     faixa = _bloco(css, ".faixa")
     assert "width: 100vw;" in faixa
     assert "margin-left: calc(50% - 50vw);" in faixa

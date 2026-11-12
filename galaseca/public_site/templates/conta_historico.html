@@ -23,12 +23,16 @@
       <p class="descricao-pagina">Valor de mercado da sua carteira a cada visita a "Minha conta" — um ponto por mudança, não por segundo.</p>
     </header>
 
-    {% if grafico %}
-      <div class="card grafico-card{{ ' grafico-tendencia-' ~ grafico_tendencia if grafico_tendencia else '' }}">{{ grafico|safe }}</div>
-      {% if grafico_legenda %}<p class="status-muted">{{ grafico_legenda }}</p>{% endif %}
-    {% else %}
-      <p class="status status-vazio">Ainda não há pontos suficientes pra um gráfico — visite "Minha conta" de novo depois que o valor mudar.</p>
-    {% endif %}
+    <div class="resumo-cards">
+      <div class="card">
+        {% if grafico %}
+          <div class="card grafico-card{{ ' grafico-tendencia-' ~ grafico_tendencia if grafico_tendencia else '' }}">{{ grafico|safe }}</div>
+          {% if grafico_legenda %}<p class="status-muted">{{ grafico_legenda }}</p>{% endif %}
+        {% else %}
+          <p class="status status-vazio">Ainda não há pontos suficientes pra um gráfico — visite "Minha conta" de novo depois que o valor mudar.</p>
+        {% endif %}
+      </div>
+    </div>
 
     <h2 class="secao-titulo">Pontos registrados</h2>
     {% if pontos %}

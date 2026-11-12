@@ -1,4 +1,13 @@
   <link rel="icon" href="{{ static_v('favicon.svg') }}">
+  {# Fonte crítica: preload pra começar a baixar em paralelo com o HTML,
+     em vez de só depois que o CSS é baixado e parseado (o @font-face
+     dispara o fetch da fonte). Sem isso, o texto fica em fallback até a
+     fonte chegar, e o LCP do título da página/home atrasa. #}
+  <link rel="preload" as="font" type="font/woff2" href="{{ static_v('fonts/inter-latin-opsz-normal.woff2') }}" crossorigin>
+  {# Ícones de item caem no CDN da Steam quando o cache local não tem o
+     hash -- preconnect abre a conexão TCP/TLS antecipadamente, sem
+     bloquear nada (só uma dica de conexão). #}
+  <link rel="preconnect" href="https://community.steamstatic.com" crossorigin>
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   {# iOS Safari historicamente não aceita SVG em apple-touch-icon --
      cai pra tirar um print da página como ícone, ou mostra um ícone

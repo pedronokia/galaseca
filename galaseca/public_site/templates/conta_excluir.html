@@ -20,10 +20,12 @@
   <main id="conteudo">
     <header class="cabecalho-pagina">
       <h1 class="titulo-pagina">Excluir minha conta</h1>
+      <p class="descricao-pagina">Isso apaga pra sempre sua conta, portfólio, trades, watchlist e histórico. Não dá pra desfazer.</p>
     </header>
 
-    <div class="card card-aviso">
-      <p><strong>Isto é irreversível.</strong> Ao confirmar, apagamos pra sempre:</p>
+    <div class="resumo-cards">
+      <div class="card card-aviso">
+        <p><strong>Isto é irreversível.</strong> Ao confirmar, apagamos pra sempre:</p>
       <ul>
         <li>Sua conta (SteamID, nome e avatar guardados)</li>
         <li>Todas as posições do seu portfólio</li>
@@ -37,6 +39,7 @@
         <button type="submit" class="botao-perigo">Sim, excluir minha conta e todos os meus dados</button>
       </form>
       <p><a href="{{ url_for('account.conta') }}">Cancelar e voltar</a></p>
+      </div>
     </div>
   </main>
 
