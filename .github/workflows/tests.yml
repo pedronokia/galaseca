@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      atualizar_baselines:
+        description: "Regerar as imagens-base da regressão visual (baixar o artefato visual-baselines e commitar os PNGs)"
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -36,6 +42,63 @@ jobs:
             echo "::error title=pytest::${linha}"
           done
           exit "$status"
+
+  # Regressão visual (2026-11-12): captura as telas principais com
+  # Playwright num dataset fixo e compara com as imagens-base em
+  # tests/visual/baseline/. Base é gerada SÓ aqui (Linux) -- no Windows
+  # a pilha de fontes é outra. Qualquer mudança de layout além da
+  # tolerância por pixel falha o job; regerar a base é um commit
+  # explícito (workflow_dispatch com atualizar_baselines).
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-public-site.txt
+      - run: python -m pip install -r requirements-public-site.txt -r tests/visual/requirements.txt
+      - name: Instala o Chromium do Playwright
+        run: python -m playwright install --with-deps chromium
+      - name: Captura e compara as telas
+        shell: bash
+        run: |
+          flags=""
+          if [ "${{ inputs.atualizar_baselines }}" = "true" ]; then
+            flags="--atualizar"
+          fi
+          python tests/visual/visual_regression.py $flags
+      - name: Falha se as imagens-base mudaram sem commit novo
+        if: ${{ inputs.atualizar_baselines != true }}
+        shell: bash
+        run: |
+          status=$(git status --porcelain tests/visual/baseline)
+          modificados=$(printf '%s\n' "$status" | grep -E '^(M| M|AM|MM)' || true)
+          if [ -n "$modificados" ]; then
+            echo "::error::As imagens-base mudaram neste run -- a captura divergiu da base comitada. Se a mudança é de propósito, regere a base (workflow_dispatch com atualizar_baselines) e commite os PNGs do artefato visual-baselines."
+            printf '%s\n' "$modificados"
+            exit 1
+          fi
+          novos=$(printf '%s\n' "$status" | grep -E '^\?\?' || true)
+          if [ -n "$novos" ]; then
+            echo "::warning::Imagens-base novas (nunca commitadas):"
+            printf '%s\n' "$novos"
+          fi
+      - name: Sobe as imagens-base (regerar / baixar)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines
+          path: tests/visual/baseline/
+      - name: Sobe as capturas e os diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diff
+          path: |
+            tests/visual/current/
+            tests/visual/diff/
 
   pip-audit:
     runs-on: ubuntu-latest

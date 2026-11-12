@@ -18,7 +18,10 @@ on:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # `event == 'push'`: o workflow de tests também roda a pedido
+    # (workflow_dispatch, pra regerar as imagens-base da regressão
+    # visual) -- um run manual bem-sucedido NÃO é deploy.
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH na VM

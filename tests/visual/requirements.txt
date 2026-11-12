@@ -1,0 +1,7 @@
+# Dependências extras da regressão visual (tests/visual/visual_regression.py).
+# O Flask/Pillow/httpx vêm de requirements-public-site.txt -- não duplicar
+# pins aqui pra não dessincronizar. Playwright é fixo: o binário do
+# Chromium que o CI instala (`playwright install --with-deps chromium`)
+# precisa bater com a biblioteca, e uma subida de versão do Chromium
+# mudaria a renderização (antialiasing) sem um commit de base novo.
+playwright==1.60.0

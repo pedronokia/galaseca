@@ -18,3 +18,8 @@ data/*
 *.tmp
 _diag*.py
 COMMIT_MSG.tmp
+# Regressão visual: capturas e diffs são artefatos de execução; a base
+# (baseline/) é comitada -- gerada só no CI Linux (ver
+# tests/visual/visual_regression.py).
+tests/visual/current/
+tests/visual/diff/
