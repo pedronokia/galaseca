@@ -36,21 +36,21 @@
 :root {
   color-scheme: light;
 
-  /* Superfícies -- tema escuro: fundo quase preto #0a0a0a com tiles
-     elevadas em #171717 e caixas de destaque no preto #0a0a0a. */
-  --bg: #0a0a0a;
-  --bg-elevated: #171717;
-  --surface: #171717;
-  --surface-hover: #2a2a2a;
-  --surface-strong: #0a0a0a;
-  --surface-sunken: #1f1f1f;
-  --surface-escura: #0a0a0a;
-  --surface-escura-2: #171717;
+  /* Superfícies -- tema escuro profundo: fundo quase preto #050505 com
+     tiles elevadas em #111111 e caixas de destaque no preto puro. */
+  --bg: #050505;
+  --bg-elevated: #111111;
+  --surface: #111111;
+  --surface-hover: #1a1a1a;
+  --surface-strong: #050505;
+  --surface-sunken: #171717;
+  --surface-escura: #050505;
+  --surface-escura-2: #111111;
 
-  /* Traços -- fio cinza #3f3f46 sobre fundo escuro. */
-  --border: #3f3f46;
-  --border-strong: #52525b;
-  --border-solido: #3f3f46;
+  /* Traços -- fio cinza escuro #333333 sobre fundo escuro. */
+  --border: #333333;
+  --border-strong: #4a4a4a;
+  --border-solido: #333333;
 
   /* Texto -- #e5e5e5 corpo, #9ca3af secundário. */
   --text: #e5e5e5;
