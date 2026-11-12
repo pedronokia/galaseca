@@ -118,20 +118,21 @@
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas,
     monospace;
 
-  /* Escala tipográfica -- os tamanhos da Apple: 12, 13, 14, 17, 21,
+  /* Escala tipográfica -- os tamanhos da Apple: 12, 13, 14, 17, 18, 21,
      24, 32, 48 e 64px. */
   --fs-2xs: 0.75rem;
   --fs-xs: 0.8125rem;
   --fs-sm: 0.875rem;
   --fs-base: 1.0625rem;
+  --fs-lead: 1.125rem;
   --fs-copy: 1.3125rem;
-  --fs-md: 1.0625rem;
   --fs-lg: 1.1875rem;
   --fs-xl: 2rem;
   --fs-2xl: 3rem;
   --fs-display: 4rem;
 
-  /* Escala de espaçamento */
+  /* Escala de espaçamento -- base 4px; adiciona degraus maiores
+     (40/48/56/64) pra layouts que precisam respirar mais. */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -139,6 +140,10 @@
   --sp-5: 20px;
   --sp-6: 24px;
   --sp-7: 32px;
+  --sp-8: 40px;
+  --sp-9: 48px;
+  --sp-10: 56px;
+  --sp-11: 64px;
 }
 
 /* ── Base ─────────────────────────────────────────────── */
@@ -176,6 +181,26 @@ h1, h2, h3 {
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.15;
+}
+
+/* Refinamento por tamanho -- Apple usa tracking mais fechado nos
+   tamanhos maiores. */
+h1, .titulo-pagina {
+  font-size: clamp(2rem, 5.4vw, var(--fs-display));
+  letter-spacing: -0.006em;
+  line-height: 1.05;
+}
+
+h2, .secao-titulo {
+  font-size: var(--fs-xl);
+  letter-spacing: -0.008em;
+  line-height: 1.1;
+}
+
+h3, .card-valor {
+  font-size: var(--fs-2xl);
+  letter-spacing: -0.008em;
+  line-height: 1.1;
 }
 
 p { margin: 0 0 1em; }
@@ -380,7 +405,7 @@ header.topo > * {
 
 header.topo h1 {
   margin: 0;
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   font-weight: 600;
   color: var(--chrome-texto-forte);
   line-height: 1;
@@ -641,11 +666,6 @@ main {
    Apple), 32px no celular. */
 .titulo-pagina {
   margin: 0 0 var(--sp-3);
-  color: var(--text-bright);
-  font-size: clamp(2rem, 5.4vw, var(--fs-display));
-  font-weight: 600;
-  letter-spacing: -0.009em;
-  line-height: 1.06;
   text-wrap: balance;
 }
 
@@ -659,10 +679,6 @@ main {
 
 .secao-titulo {
   margin: 56px 0 var(--sp-4);
-  color: var(--text-bright);
-  font-size: var(--fs-xl);
-  font-weight: 600;
-  letter-spacing: -0.01em;
 }
 
 .cabecalho-sub {
@@ -1070,7 +1086,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 .hero-destaque-nota-de {
   color: rgba(255, 255, 255, 0.56);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   font-weight: 400;
 }
 
@@ -1235,7 +1251,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 .chip-filtro span {
   color: var(--text-muted);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   line-height: 1;
 }
 
@@ -1395,7 +1411,7 @@ table.tabela-candidatos th,
 table.tabela-candidatos td {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   text-align: left;
 }
 
@@ -1475,7 +1491,7 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   display: block;
   min-width: 0;
   color: var(--text-bright);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   font-weight: 500;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -2403,7 +2419,7 @@ table.tabela-candidatos td.celula-preco {
   align-items: center;
   gap: 2px 6px;
   color: var(--text-bright);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -2678,7 +2694,7 @@ table.tabela-candidatos td.celula-preco {
 
 table.tabela-candidatos th.celula-comparar-cabecalho {
   color: var(--text-bright);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   letter-spacing: normal;
   text-transform: none;
   white-space: normal;
@@ -2743,10 +2759,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .card-valor {
   color: var(--text-bright);
-  font-size: var(--fs-2xl);
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
 }
 
 /* O selo de Nota dentro do card mantém o tamanho do selo (não herda o
@@ -2755,7 +2768,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 /* Nome de caixa é texto, não número. */
 .card-valor.card-valor-texto {
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   font-weight: 600;
   line-height: 1.4;
 }
@@ -3076,7 +3089,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .pagina-texto dt {
   margin-top: 18px;
   color: var(--text-bright);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
 }
 
 .pagina-texto dd {
@@ -3539,7 +3552,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
     align-items: flex-start;
     padding: 10px 8px;
     border: 0;
-    font-size: var(--fs-md);
+    font-size: var(--fs-base);
   }
 
   .pagina-inicial table.tabela-itens tbody td::before {
