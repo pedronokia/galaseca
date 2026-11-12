@@ -139,7 +139,7 @@ def test_cards_sem_fio_com_elevacao_hover():
     # laranja 35% no hover/focus. Transição suave, respeita reduced-motion.
     assert "border: 0;" in card
     assert "border-radius: var(--radius-md);" in card
-    assert "transition: box-shadow 0.2s ease, border-color 0.2s ease;" in card
+    assert "transition: box-shadow var(--dur-emphasis) var(--ease-standard), border-color var(--dur-emphasis) var(--ease-standard);" in card
     assert "box-shadow: var(--shadow-lg);" in css
     assert "border: 1px solid rgba(249, 115, 22, 0.35);" in css
     # Brilho diagonal animado no hover/focus (reduced-motion o esconde).
