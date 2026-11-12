@@ -423,6 +423,10 @@ def _comparar_um(atual: Path, base: Path, tolerancia: int, fracao_max: float,
     mudados = sum(histograma[tolerancia + 1:])
     fracao = mudados / total
     ampliado = maximo_canal.point(lambda v: min(255, v * 12))
+    # `diff/` é gitignored: num checkout limpo (CI) ele não existe ainda.
+    # Sem isto, a Primeira tela divergente quebra com FileNotFoundError e
+    # mascara o relatório em vez de dizer QUAL tela mudou.
+    saida_diff.parent.mkdir(parents=True, exist_ok=True)
     ampliado.save(saida_diff)
     return {
         "status": "ok" if fracao <= fracao_max else "diferente",
