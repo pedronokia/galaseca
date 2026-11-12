@@ -14,6 +14,25 @@
    - todo token usado com var() precisa estar definido em :root.
    ============================================================ */
 
+/* Fonte -- Inter Variable (eixos opsz + wght, subset latin), a fonte
+   open source que mais se aproxima da SF Pro da Apple. Auto-hospedada
+   de propósito: o endpoint de webfont da Apple só responde com
+   Referer do próprio apple.com (testado 2026-11-12 -- 404 fora dele)
+   e a licença da SF Pro não permite hospedar os arquivos fora de
+   produto Apple; a Inter sai com SIL OFL 1.1 (fonts/OFL.txt) e deixa
+   o site IGUAL em qualquer computador, sem pedido externo.
+   Build @fontsource-variable/inter 5.3.0 (rsms/inter 4.x). O "v=1"
+   no src é manual: permite trocar o arquivo de fonte no futuro sem
+   depender do cache de 1 ano do /static. */
+@font-face {
+  font-family: "Inter Variable";
+  src: url("fonts/inter-latin-opsz-normal.woff2?v=1")
+    format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
 
@@ -87,10 +106,14 @@
   --largura-conteudo: 980px;
   --largura-texto: 692px;
 
-  /* Tipografia -- SF Pro quando o sistema tem (Mac), Helvetica Neue
-     como segundo degrau, como na pilha da Apple. */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
-    "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* Tipografia -- Inter Variable auto-hospedada em primeiro lugar: a
+     webfont carrega em qualquer sistema e o site fica igual no
+     Windows, Mac e celular. O resto é só degrau de fallback (fonte
+     offline/indisponível): primeiro a pilha do sistema da Apple
+     (-apple-system resolve SF Pro no Mac), depois a do Windows. */
+  --font-sans: "Inter Variable", "Inter", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas,
     monospace;
 

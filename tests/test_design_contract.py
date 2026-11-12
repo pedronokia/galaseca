@@ -72,6 +72,33 @@ def test_corpo_tipografico_17px():
     assert "letter-spacing: -0.022em;" in corpo
 
 
+def test_fonte_inter_autohospedada():
+    """A pilha começa pela Inter Variable auto-hospedada (webfont) --
+    o site fica IGUAL em qualquer sistema. Contexto (2026-11-12): o
+    endpoint de webfont da Apple só atende com Referer do próprio
+    apple.com (hotlink testado: 404 fora dele) e a licença da SF Pro
+    não permite self-host; Inter é a open source mais próxima."""
+    css = _css()
+    assert 'font-family: "Inter Variable";' in css
+    assert "fonts/inter-latin-opsz-normal.woff2?v=1" in css
+    assert 'format("woff2-variations");' in css
+    assert "font-weight: 100 900;" in css
+    assert "font-display: swap;" in css
+    assert '--font-sans: "Inter Variable", "Inter", -apple-system,' in css
+
+
+def test_arquivos_da_fonte_comitados():
+    """Fonte e licença (SIL OFL 1.1) existem no repositório -- sem eles
+    o site cai no fallback do sistema e volta a divergir entre
+    computadores."""
+    pasta = STYLE.parent / "fonts"
+    fonte = pasta / "inter-latin-opsz-normal.woff2"
+    assert fonte.is_file() and fonte.stat().st_size > 20_000
+    assert fonte.read_bytes()[:4] == b"wOF2"
+    licenca = (pasta / "OFL.txt").read_text(encoding="utf-8")
+    assert "SIL OPEN FONT LICENSE" in licenca
+
+
 def test_titulos_600_e_escala_32_48_64():
     css = _css()
     titulos = _bloco(css, "h1, h2, h3")
