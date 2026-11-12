@@ -1631,24 +1631,6 @@ table.tabela-itens th.cabecalho-nota { white-space: nowrap; }
 table.tabela-itens th.cabecalho-preco { text-align: right; }
 table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
-/* Ordenação visual: seta no header indica direção. */
-.link-ordenar {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text);
-  font-size: inherit;
-  text-decoration: none;
-  transition: color var(--dur-fast) var(--ease-standard);
-}
-
-.link-ordenar:hover {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.link-ordenar .icone-ui { width: 14px; height: 14px; }
-
 .celula-item-principal {
   display: flex;
   align-items: flex-start;
@@ -2225,7 +2207,9 @@ table.tabela-candidatos td.celula-preco {
 /* Cabeçalho ordenável: herda a caixa do <th> e alarga o alvo de
    toque sem mexer no layout. */
 .link-ordenar {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 7px 2px;
   margin: -7px -2px;
   color: var(--text-muted);
@@ -2234,9 +2218,15 @@ table.tabela-candidatos td.celula-preco {
   letter-spacing: inherit;
   text-decoration: none;
   text-transform: inherit;
+  transition: color var(--dur-fast) var(--ease-standard);
 }
 
-.link-ordenar:hover { color: var(--accent-bright); }
+.link-ordenar:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.link-ordenar .icone-ui { width: 14px; height: 14px; }
 
 .linha-destaque {
   background: var(--accent-soft);
