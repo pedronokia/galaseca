@@ -63,9 +63,11 @@ Alternativa pela UI: Actions → tests → Run workflow → marcar
 ## Teste de contrato (sem navegador, rápido)
 
 `python -m pytest tests/test_design_contract.py` trava os tokens Apple
-no `style.css` (corpo 17px/1.47/-0.022em, títulos 32/48/64 peso 600,
-pílula 980px, cards raio 18px sem sombra, rodapé #f5f5f7 12px, grade
-980px). Se um token mudar de propósito, ajuste o teste no mesmo commit.
+no `style.css` (fonte Inter Variable auto-hospedada com @font-face,
+corpo 17px/1.47/-0.022em, títulos 32/48/64 peso 600, pílula 980px,
+cards raio 18px sem sombra, rodapé #f5f5f7 12px, grade 980px) e a
+existência dos arquivos de fonte/licença OFL em `static/fonts/`. Se um
+token mudar de propósito, ajuste o teste no mesmo commit.
 
 ## Se a base divergir sem motivo aparente
 
