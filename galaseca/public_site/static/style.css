@@ -370,15 +370,19 @@ summary:focus-visible,
   left: -9999px;
   top: 0;
   z-index: 100;
-  padding: 10px 18px;
+  padding: 12px 20px;
   border-radius: 0 0 var(--radius-sm) 0;
   background: var(--accent);
   color: #ffffff;
   font-weight: 600;
+  font-size: var(--fs-sm);
   text-decoration: none;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
-.link-pular-conteudo:focus { left: 0; }
+.link-pular-conteudo:focus-visible { left: 0; }
 
 /* ── Cabeçalho ───────────────────────────────────────── */
 
@@ -1250,9 +1254,18 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 .form-filtros select:hover,
 .form-filtros input:hover { border-color: var(--border-strong); }
 
-/* Foco com o anel da casa: borda laranja + halo suave. */
-.form-filtros select:focus,
-.form-filtros input:focus {
+/* Foco com o anel da casa: borda laranja + halo suave.
+   Usa :focus-visible para não mostrar o anel em clicks de mouse. */
+.form-filtros select:focus-visible,
+.form-filtros input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
+}
+
+/* :focus fallback para navegadores sem :focus-visible. */
+.form-filtros select:focus:not(:focus-visible),
+.form-filtros input:focus:not(:focus-visible) {
   border-color: var(--accent);
   outline: none;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
@@ -1269,9 +1282,10 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 /* O placeholder completo é longo -- o campo precisa de largura. */
 .form-filtros input[type="text"]#campo-busca { min-width: 230px; }
 
-/* Botão principal: pílula azul da Apple, 17px/400, sem borda. */
+/* Botão principal: pílula laranja da casa, 17px/400, sem borda.
+   Altura mínima 44px para touch targets (WCAG). */
 .form-filtros button {
-  height: 40px;
+  height: 44px;
   padding: 8px 22px;
   border: 0;
   border-radius: var(--radius-pill);
@@ -1285,18 +1299,26 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 .form-filtros button:hover { background: rgba(208, 88, 12, 0.7); }
 
+.form-filtros button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 /* Só deve existir um botão de destaque por tela -- "Só favoritos" é
    uma alternância, não a ação principal. */
 .form-filtros button#botao-favoritos {
   display: inline-flex;
   height: auto;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   gap: 6px;
-  border-color: var(--border);
+  border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
   font-weight: 500;
+  transition: background-color var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard),
+    color var(--dur-base) var(--ease-standard);
 }
 
 .form-filtros button#botao-favoritos:hover {
@@ -1308,6 +1330,11 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 .form-filtros button#botao-favoritos.ativo {
   border-color: rgba(178, 80, 0, 0.4);
   color: var(--warn);
+}
+
+.form-filtros button#botao-favoritos:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 #botao-favoritos .icone-ui { width: 17px; height: 17px; }
@@ -1329,22 +1356,29 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 .chip-filtro {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 44px;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--text);
   font-size: var(--fs-sm);
   text-decoration: none;
+  transition: background-color var(--dur-base) var(--ease-standard),
+    border-color var(--dur-base) var(--ease-standard);
 }
 
 .chip-filtro:hover {
   border-color: var(--border-strong);
   background: var(--surface-hover);
   text-decoration: none;
+}
+
+.chip-filtro:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .chip-filtro span {
@@ -3052,14 +3086,14 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .form-adicionar button:hover { background: rgba(208, 88, 12, 0.7); }
 
-/* Botão de texto no estilo Apple: azul, sem caixa, sublinhado só no
-   hover. */
+/* Botão de texto no estilo Apple: laranja, sem caixa, sublinhado só no
+   hover. min-height 44px para touch targets (WCAG). */
 .botao-link {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  padding: 8px 4px;
+  padding: 8px 8px;
   border: 0;
   border-radius: var(--radius-xs);
   background: transparent;
@@ -3076,6 +3110,12 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   text-underline-offset: 3px;
 }
 
+.botao-link:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
 .botao-remover { color: var(--danger); }
 
 .botao-remover:hover {
@@ -3083,6 +3123,12 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   background: transparent;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.botao-remover:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .form-inline {
@@ -3483,8 +3529,8 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .botao-acao {
   display: inline-flex;
   align-items: center;
-  min-height: 38px;
-  padding: 7px 18px;
+  min-height: 44px;
+  padding: 8px 20px;
   border: 0;
   border-radius: var(--radius-pill);
   background: rgba(249, 115, 22, 0.7);
@@ -3499,6 +3545,11 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   background: rgba(208, 88, 12, 0.7);
   color: #ffffff;
   text-decoration: none;
+}
+
+.botao-acao:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .contagem-favoritos {
