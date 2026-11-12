@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import logging.handlers
 import math
+import mimetypes
 import os
 import re
 import secrets
@@ -22,6 +23,11 @@ from datetime import date
 from functools import wraps
 from pathlib import Path
 from xml.sax.saxutils import escape as _xml_escape
+
+# A stdlib não conhece woff2 e a fonte sairia como
+# "application/octet-stream" (alguns navegadores reclamam disso no
+# console). Registra o tipo certo uma vez, global.
+mimetypes.add_type("font/woff2", ".woff2")
 
 from flask import (
     Flask, Response, g, jsonify, make_response, redirect, render_template,

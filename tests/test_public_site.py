@@ -3488,6 +3488,16 @@ def test_csp_report_tem_rate_limit(monkeypatch):
 
 # ── PWA: manifest + service worker ──────────────────────────
 
+def test_fonte_inter_serve_com_mime_de_fonte(client):
+    """A webfont sai como font/woff2 (a stdlib não conhece .woff2 e o
+    server.py registra o tipo) -- application/octet-stream acende
+    aviso no console de alguns navegadores."""
+    resp = client.get("/static/fonts/inter-latin-opsz-normal.woff2?v=1")
+    assert resp.status_code == 200
+    assert resp.mimetype == "font/woff2"
+    assert resp.data[:4] == b"wOF2"
+
+
 def test_manifest_json_acessivel(client):
     resp = client.get("/static/manifest.json")
     assert resp.status_code == 200
