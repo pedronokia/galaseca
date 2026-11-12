@@ -45,17 +45,18 @@ def test_tokens_de_superficie_opencode():
     assert "--surface-escura: #161616" in css
     assert "--text: #e8e8e8" in css
     assert "--text-muted: #b3b3b3" in css
-    assert "--border: #333333" in css
+    assert "--border: #4a4a4a" in css
 
 
 def test_laranja_da_casa():
     css = _css()
     # Laranja da casa (Claude Code): #f97316 nos botões/pílulas ativas (70%
-    # opacidade = rgba(249, 115, 22, 0.7)), links em #e8650e e hover #d0580c.
+    # opacidade = rgba(249, 115, 22, 0.7)), links em #d0580c e hover #b8480a
+    # (4.5:1 no branco).
     assert "--accent: #f97316" in css
-    assert "--accent-bright: #e8650e" in css
-    assert "--accent-hover: #d0580c" in css
-    assert "background: rgba(208, 88, 12, 0.7);" in css
+    assert "--accent-bright: #d0580c" in css
+    assert "--accent-hover: #b8480a" in css
+    assert "background: rgba(184, 72, 10, 0.7);" in css
     # Foco de teclado e item ativo das barras escuras acompanham o laranja.
     assert "--focus: #f97316" in css
     assert "--chrome-foco: #fb923c" in css

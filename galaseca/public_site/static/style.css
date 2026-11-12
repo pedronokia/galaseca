@@ -48,10 +48,10 @@
   --surface-escura: #161616;
   --surface-escura-2: #1e1e1e;
 
-  /* Traços -- fio cinza #333 sobre o cinza escuro. */
-  --border: #333333;
-  --border-strong: #444444;
-  --border-solido: #333333;
+  /* Traços -- fio cinza #4a4a4a sobre o cinza escuro (3:1 mínimo UI). */
+  --border: #4a4a4a;
+  --border-strong: #5a5a5a;
+  --border-solido: #4a4a4a;
 
   /* Texto -- branco suave no cinza escuro, cinza médio secundário.
      --text-muted em #b3b3b3 garante 4.5:1 contra --surface-hover #252525. */
@@ -61,11 +61,12 @@
   --text-fraco: rgba(232, 232, 232, 0.56);
 
   /* Marca e estados -- o laranja da casa (Claude Code): botões em #f97316 com texto
-     branco (contraste 4.5:1 no cinza escuro), links em #e8650e e hover #d0580c.
-     O #f97316 é o laranja vivo da marca; o #c2410c era o tom anterior. */
+     branco (contraste 4.5:1 no cinza escuro), links em #d0580c e hover #b8480a
+     (4.5:1 no branco). O #f97316 fica para os marcadores da marca; o #66c0f4 é o
+     azul da Steam, guardado para pontos que identificam a Steam. */
   --accent: #f97316;
-  --accent-bright: #e8650e;
-  --accent-hover: #d0580c;
+  --accent-bright: #d0580c;
+  --accent-hover: #b8480a;
   --accent-soft: rgba(249, 115, 22, 0.1);
   --accent-steel: #66c0f4;
   --positive: #1a7f37;
@@ -1326,7 +1327,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   transition: background-color var(--dur-base) var(--ease-standard);
 }
 
-.form-filtros button:hover { background: rgba(208, 88, 12, 0.7); }
+.form-filtros button:hover { background: rgba(184, 72, 10, 0.7); }
 
 .form-filtros button:focus-visible {
   outline: 2px solid var(--focus);
@@ -3140,7 +3141,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   transition: background-color var(--dur-base) var(--ease-standard);
 }
 
-.form-adicionar button:hover { background: rgba(208, 88, 12, 0.7); }
+.form-adicionar button:hover { background: rgba(184, 72, 10, 0.7); }
 
 /* Botão de texto no estilo Apple: laranja, sem caixa, sublinhado só no
    hover. min-height 44px para touch targets (WCAG). */
@@ -3598,7 +3599,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 }
 
 .botao-acao:hover {
-  background: rgba(208, 88, 12, 0.7);
+  background: rgba(184, 72, 10, 0.7);
   color: #ffffff;
   text-decoration: none;
 }
