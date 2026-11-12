@@ -132,14 +132,25 @@ def test_rodape_cinza_claro_12px():
     assert "--fs-2xs: 0.75rem" in css
 
 
-def test_cards_sem_fio_sem_sombra():
+def test_cards_sem_fio_com_elevacao_hover():
     css = _css()
     card = _bloco(css, ".cartao-item")
-    # Card-tile: sem fio -- o contraste vem da página cinza em volta --
-    # e sem sombra (a Apple não faz o card "levantar").
+    # Card-tile: sem fio em repouso; elevação sutil (shadow-lg) + fio
+    # laranja 35% no hover/focus. Transição suave, respeita reduced-motion.
     assert "border: 0;" in card
     assert "border-radius: var(--radius-md);" in card
-    assert "box-shadow" not in card
+    assert "transition: box-shadow 0.2s ease, border-color 0.2s ease;" in card
+    assert "box-shadow: var(--shadow-lg);" in css
+    assert "border: 1px solid rgba(249, 115, 22, 0.35);" in css
+    # Brilho diagonal animado no hover/focus (reduced-motion o esconde).
+    assert ".cartao-item-brilho {" in css
+    assert "rgba(249, 115, 22, 0.12)" in css
+    # Focus visível no card.
+    assert ".cartao-item:focus-visible {" in css
+    assert "outline: 2px solid var(--focus);" in css
+    # Estado pressed.
+    assert ".cartao-item:active {" in css
+    assert "transform: scale(0.995);" in css
 
 
 def test_pagina_branca_com_faixa_borda_a_borda():

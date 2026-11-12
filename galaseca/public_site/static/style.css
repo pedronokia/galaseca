@@ -2244,9 +2244,9 @@ table.tabela-candidatos td.celula-preco {
   list-style: none;
 }
 
-/* Card dentro da faixa: raio 18px e SEM fio -- o contraste vem da
-   faixa cinza em volta, como nas tiles da apple.com. Sem sombra e sem
-   hover de borda (a tile da Apple não reage ao passar o mouse). */
+/* Card: raio 18px, sem fio, superfície #1e1e1e sobre o fundo #161616.
+   Hover/foque: elevação sutil + brilho diagonal animado (70% opacidade
+   do laranja). Respeita prefers-reduced-motion. */
 .cartao-item {
   position: relative;
   display: flex;
@@ -2256,9 +2256,60 @@ table.tabela-candidatos td.celula-preco {
   border-radius: var(--radius-md);
   background: var(--surface);
   overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.cartao-item-brilho { display: none; }
+/* Brilho diagonal (Apple-style specular highlight): varre da
+   esquerda pra direita no hover/focus. */
+.cartao-item-brilho {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 40%,
+    rgba(249, 115, 22, 0.12) 50%,
+    transparent 60%
+  );
+  transform: translateX(-100%);
+  transition: opacity 0.15s ease, transform 0.5s ease;
+  border-radius: var(--radius-md);
+}
+
+.cartao-item:hover .cartao-item-brilho,
+.cartao-item:focus-within .cartao-item-brilho {
+  opacity: 1;
+  transform: translateX(200%);
+  transition: opacity 0.15s ease, transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cartao-item-brilho {
+    display: none;
+  }
+}
+
+/* Hover/focus do card: elevação + fio laranja sutil. */
+.cartao-item:hover,
+.cartao-item:focus-within {
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  z-index: 1;
+}
+
+.cartao-item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Estado pressed (touch/click) — resposta imediata. */
+.cartao-item:active {
+  box-shadow: var(--shadow-sm);
+  transform: scale(0.995);
+  transition: box-shadow 0.05s ease, transform 0.05s ease;
+}
 
 .cartao-item-imagem {
   position: relative;
@@ -2282,10 +2333,13 @@ table.tabela-candidatos td.celula-preco {
   height: 100%;
   object-fit: contain;
   filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.14));
-  transition: transform 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.cartao-item:hover .cartao-item-icon { transform: scale(1.04); }
+.cartao-item:hover .cartao-item-icon,
+.cartao-item:focus-within .cartao-item-icon {
+  transform: scale(1.05);
+}
 
 .cartao-item-imagem .icone-item-placeholder {
   position: relative;
@@ -2322,6 +2376,14 @@ table.tabela-candidatos td.celula-preco {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.cartao-item:hover .cartao-item-nota,
+.cartao-item:focus-within .cartao-item-nota {
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent);
+  transform: scale(1.02);
 }
 
 .cartao-item-margem {
@@ -2332,6 +2394,7 @@ table.tabela-candidatos td.celula-preco {
   color: var(--text-muted);
   font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .cartao-item-comparar-alvo {
@@ -2342,12 +2405,16 @@ table.tabela-candidatos td.celula-preco {
   border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.88);
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transform: scale(0.9);
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .cartao-item:hover .cartao-item-comparar-alvo,
 .cartao-item:focus-within .cartao-item-comparar-alvo,
-.cartao-item-comparar-alvo:focus-within { opacity: 1; }
+.cartao-item-comparar-alvo:focus-within {
+  opacity: 1;
+  transform: scale(1);
+}
 
 @media (hover: none) {
   .cartao-item-comparar-alvo { opacity: 1; }
