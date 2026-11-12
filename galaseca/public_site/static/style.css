@@ -636,9 +636,9 @@ header.topo > .subtitulo {
 main {
   max-width: var(--largura-conteudo);
   margin: 0 auto;
-  /* respiro da Apple: 22px de gutter na grade, 48px em cima e 80px
-     embaixo. */
-  padding: 48px 22px 80px;
+  /* Respiro Apple: 22px gutter, 48px topo, 80px base.
+     Tokens --sp-* mantêm consistência. */
+  padding: var(--sp-6) var(--sp-5) var(--sp-10);
 }
 
 .pagina-texto {
@@ -678,7 +678,7 @@ main {
 }
 
 .secao-titulo {
-  margin: 56px 0 var(--sp-4);
+  margin: var(--sp-9) 0 var(--sp-4);
 }
 
 .cabecalho-sub {
@@ -916,16 +916,17 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 /* Faixa de informação da home: dados da coleta e a comparação com o
    dia anterior numa única tile -- cada linha com o acento da casa à
-   esquerda. */
+   esquerda. Fundo surface-sunken (#131313) para separar visualmente
+   do hero (surface-strong #0a0a0a) e dos cards (#1e1e1e). */
 .painel-info {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
-  margin: 0 0 var(--sp-4);
-  padding: 14px 18px;
-  border: 0;
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-7);
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--surface);
+  background: var(--surface-sunken);
 }
 
 .painel-info .status-scan,
@@ -933,13 +934,37 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   margin: 0;
   padding: 0 0 0 var(--sp-3);
   border-left: 2px solid var(--accent);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.painel-info .status-scan strong,
+.painel-info .resumo-do-dia strong {
+  color: var(--text);
+}
+
+.painel-info .badge-cooldown {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+}
+
+.painel-info .status-scan-alerta {
+  color: var(--warn);
+  font-weight: 600;
 }
 
 .movimentos-do-dia {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-2);
-  margin: calc(var(--sp-2) * -1) 0 var(--sp-5);
+  gap: var(--sp-3);
+  margin: 0 0 var(--sp-7);
   padding: 0;
   list-style: none;
 }
@@ -948,11 +973,18 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-4);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.movimento-do-dia:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(249, 115, 22, 0.35);
+  transform: translateY(-2px);
 }
 
 .movimento-nome {
@@ -978,7 +1010,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   align-items: center;
   gap: 4px;
   font-size: var(--fs-xs);
-  font-weight: 600;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1001,33 +1033,71 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 /* ── Destaque da home ────────────────────────────────── */
 
-/* Caixa de destaque no formato da Apple: painel quase preto, texto
-   branco e o número da nota em destaque -- o bloco mais forte da
-   home, sem textura e sem brilho. */
+/* Bloco principal da home: o item de nota mais alta. Fundo #0a0a0a
+   (surface-strong), fio laranja sutil, brilho diagonal no hover.
+   A nota em 3.5rem + /100 vira o "hero" visual. */
 .hero-destaque {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-6);
-  margin: 0 0 var(--sp-6);
-  padding: 40px;
-  border: 0;
+  margin: 0 0 var(--sp-7);
+  padding: var(--sp-6) var(--sp-7);
+  border: 1px solid rgba(249, 115, 22, 0.2);
   border-radius: var(--radius-lg);
-  background: var(--surface-escura);
+  background: var(--surface-strong);
   overflow: hidden;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+/* Brilho diagonal sutil (mesma linguagem dos cards vitrine). */
+.hero-destaque::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 40%,
+    rgba(249, 115, 22, 0.08) 50%,
+    transparent 60%
+  );
+  transform: translateX(-100%);
+  transition: opacity 0.15s ease, transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.hero-destaque:hover::before,
+.hero-destaque:focus-within::before {
+  opacity: 1;
+  transform: translateX(200%);
+}
+
+.hero-destaque:hover,
+.hero-destaque:focus-within {
+  box-shadow: var(--shadow-lg);
+  border-color: rgba(249, 115, 22, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-destaque::before { display: none; }
 }
 
 .hero-destaque-halo { display: none; }
 
+.hero-destaque > * { position: relative; z-index: 1; }
+
 .hero-destaque .icone-item-quadro {
-  flex: 0 0 104px;
-  width: 104px;
-  height: 104px;
+  flex: 0 0 112px;
+  width: 112px;
+  height: 112px;
   border-radius: var(--radius-md);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
 }
 
 .hero-destaque .icone-item-quadro-com-imagem {
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.16));
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.2));
 }
 
 .hero-destaque-corpo {
@@ -1037,7 +1107,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 
 .hero-destaque-rotulo {
   margin: 0 0 var(--sp-2);
-  color: rgba(255, 255, 255, 0.56);
+  color: rgba(255, 255, 255, 0.5);
   font-size: var(--fs-2xs);
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -1047,47 +1117,50 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 .hero-destaque-nome {
   display: block;
   color: #ffffff;
-  font-size: clamp(1.5rem, 3.4vw, var(--fs-2xl));
+  font-size: clamp(1.75rem, 3.8vw, var(--fs-2xl));
   font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 1.08;
+  line-height: 1.05;
   text-decoration: none;
   overflow-wrap: anywhere;
   text-wrap: balance;
+  transition: color 0.15s ease;
 }
 
 .hero-destaque-nome:hover {
-  color: #ffffff;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: var(--accent);
+  text-decoration: none;
 }
 
 .hero-destaque-motivo {
   margin: var(--sp-2) 0 0;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.65);
   font-size: var(--fs-sm);
+  line-height: 1.5;
 }
 
 .hero-destaque-nota {
   display: flex;
   flex: 0 0 auto;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 2px;
   font-variant-numeric: tabular-nums;
   line-height: 0.9;
 }
 
 .hero-destaque-nota-num {
-  color: #ffffff;
-  font-size: clamp(2.75rem, 6vw, 3.5rem);
-  font-weight: 600;
+  color: var(--accent);
+  font-size: clamp(3rem, 7vw, 4.5rem);
+  font-weight: 700;
   letter-spacing: -0.02em;
+  text-shadow: 0 0 24px rgba(249, 115, 22, 0.35);
 }
 
 .hero-destaque-nota-de {
-  color: rgba(255, 255, 255, 0.56);
-  font-size: var(--fs-base);
-  font-weight: 400;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: var(--fs-sm);
+  font-weight: 500;
 }
 
 @media (max-width: 640px) {
@@ -1099,9 +1172,9 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   }
 
   .hero-destaque .icone-item-quadro {
-    flex: 0 0 72px;
-    width: 72px;
-    height: 72px;
+    flex: 0 0 80px;
+    width: 80px;
+    height: 80px;
   }
 
   .hero-destaque-nota { margin-left: auto; }
@@ -1109,6 +1182,10 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   .hero-destaque-corpo {
     flex-basis: 100%;
     order: 3;
+  }
+
+  .hero-destaque-nota-num {
+    font-size: clamp(2.5rem, 8vw, 3.5rem);
   }
 }
 

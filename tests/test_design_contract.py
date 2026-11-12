@@ -194,9 +194,13 @@ def test_polimento_da_maquete_v4():
     aba_ativa = _bloco(css, '.aba-categoria[aria-current="page"]')
     assert "background: rgba(249, 115, 22, 0.7);" in aba_ativa
     # Faixa de informação da home: coleta + comparação do dia numa
-    # única tile, cada linha com o fio laranja.
+    # única tile, cada linha com o fio laranja. Fundo surface-sunken
+    # (#131313) separa do hero (surface-strong #0a0a0a) e dos cards
+    # (surface #1e1e1e).
     painel = _bloco(css, ".painel-info")
-    assert "background: var(--surface);" in painel
+    assert "background: var(--surface-sunken);" in painel
+    assert "border: 1px solid var(--border);" in painel
+    assert "margin: 0 0 var(--sp-7);" in painel
     linhas = _bloco(css, ".painel-info .resumo-do-dia")
     assert "border-left: 2px solid var(--accent);" in linhas
     # CTA laranja da página do item, em pílula com texto branco (70% opacidade).
