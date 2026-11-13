@@ -5244,3 +5244,53 @@ def test_item_sem_variantes_nao_mostra_secao(client, monkeypatch, tmp_path):
     ])
     body = client.get("/item/A").data.decode("utf-8")
     assert "Outras versões desta skin" not in body
+
+
+# ── alerta de qualidade do scan ─────────────────────────────
+
+def _alerta_qualidade(monkeypatch):
+    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    msgs = []
+    monkeypatch.setattr(worker_alert.discord_notify, "enviar",
+                        lambda url, msg: msgs.append(msg) or True)
+    return msgs
+
+
+def test_alerta_qualidade_cobertura_baixa(monkeypatch, tmp_path):
+    msgs = _alerta_qualidade(monkeypatch)
+    ciclos = [{"ts": 1.0, "itens": 120, "alvos": 185}]
+    assert worker_alert.verificar_qualidade_e_alertar(
+        ciclos, now=1_000_000.0, path=tmp_path / "q.json") is True
+    assert "só 120 de 185 itens (65%)" in msgs[0]
+    # Dedup de 24 h.
+    assert worker_alert.verificar_qualidade_e_alertar(
+        ciclos, now=1_000_100.0, path=tmp_path / "q.json") is False
+
+
+def test_alerta_qualidade_throttle_silencioso(monkeypatch, tmp_path):
+    msgs = _alerta_qualidade(monkeypatch)
+    ciclos = [{"ts": 1.0, "itens": 184, "alvos": 185,
+               "throttle_silencioso": 2}]
+    assert worker_alert.verificar_qualidade_e_alertar(
+        ciclos, path=tmp_path / "q.json") is True
+    assert "throttle silencioso detectado 2x" in msgs[0]
+
+
+def test_alerta_qualidade_ciclo_bom_ou_antigo_nao_alerta(monkeypatch, tmp_path):
+    msgs = _alerta_qualidade(monkeypatch)
+    p = tmp_path / "q.json"
+    assert worker_alert.verificar_qualidade_e_alertar(
+        [{"ts": 1.0, "itens": 180, "alvos": 185}], path=p) is False
+    assert worker_alert.verificar_qualidade_e_alertar(
+        [{"ts": 1.0, "itens": 50}], path=p) is False
+    # Zero item é do alerta de atraso, não deste.
+    assert worker_alert.verificar_qualidade_e_alertar(
+        [{"ts": 1.0, "itens": 0, "alvos": 185}], path=p) is False
+    assert msgs == []
+
+
+def test_alerta_qualidade_sem_webhook_nao_faz_nada(monkeypatch, tmp_path):
+    monkeypatch.delenv("GALASECA_ADMIN_DISCORD_WEBHOOK", raising=False)
+    assert worker_alert.verificar_qualidade_e_alertar(
+        [{"ts": 1.0, "itens": 1, "alvos": 185}],
+        path=tmp_path / "q.json") is False

@@ -481,6 +481,13 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         worker_alert.verificar_e_alertar(scan_store.load_historico_ciclos())
     except Exception:
         _logger.warning("alerta de atraso falhou", exc_info=True)
+    # Alerta Discord do dono se o ciclo voltou com cobertura baixa ou
+    # viu throttle silencioso -- mesmo webhook, dedup próprio de 24 h.
+    try:
+        worker_alert.verificar_qualidade_e_alertar(
+            scan_store.load_historico_ciclos())
+    except Exception:
+        _logger.warning("alerta de qualidade do scan falhou", exc_info=True)
     # Alerta Discord do dono se o disco da VM estiver ficando cheio --
     # mesmo webhook/env var do alerta acima, checagem independente.
     try:

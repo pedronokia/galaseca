@@ -25,6 +25,11 @@ _HORAS_LIMITE_DEFAULT = 3.0
 _DEDUP_HORAS = 6.0
 
 _ESTADO_DISCO_PATH = DATA_DIR / "disk_alert_state.json"
+_ESTADO_QUALIDADE_PATH = DATA_DIR / "scan_quality_alert_state.json"
+# Cobertura (itens com preço novo / alvos) abaixo disto num ciclo que
+# "deu certo" é scan degradado -- o alerta de atraso acima não vê isso.
+_COBERTURA_MIN_PCT = 85.0
+_DEDUP_QUALIDADE_HORAS = 24.0
 _DISCO_LIVRE_PCT_LIMITE = 10.0
 _DEDUP_DISCO_HORAS = 24.0
 
@@ -100,6 +105,52 @@ def verificar_disco_e_alertar(now: "float | None" = None,
         webhook,
         f"⚠️ GalaSeca: disco com só {livre_pct:.1f}% livre na VM. "
         "Ver /admin pro tamanho do banco/backups.")
+    if enviado:
+        try:
+            atomic_write_text(p, json.dumps({"ultimo_alerta_ts": agora}))
+        except OSError:
+            pass
+    return enviado
+
+
+def verificar_qualidade_e_alertar(historico_ciclos: list[dict],
+                                  now: "float | None" = None,
+                                  path: "Path | str | None" = None) -> bool:
+    """Alerta se o ÚLTIMO ciclo trouxe preço novo pra menos de
+    `_COBERTURA_MIN_PCT`% dos alvos, ou se detectou throttle silencioso.
+    O alerta de atraso só dispara com zero item por horas; um scan que
+    volta pela metade todo ciclo passava em silêncio. Dedup de 24 h."""
+    webhook = ambiente("ADMIN_DISCORD_WEBHOOK", "")
+    if not webhook or not historico_ciclos:
+        return False
+    ultimo = historico_ciclos[-1]
+    alvos = ultimo.get("alvos")
+    if not isinstance(alvos, int) or alvos <= 0:
+        return False  # ciclo de antes do registro de cobertura
+    itens = int(ultimo.get("itens") or 0)
+    cobertura = 100.0 * itens / alvos
+    throttle = int(ultimo.get("throttle_silencioso") or 0)
+    if itens == 0 or (cobertura >= _COBERTURA_MIN_PCT and not throttle):
+        return False  # zero item já é do alerta de atraso
+
+    agora = time.time() if now is None else now
+    p = Path(path) if path is not None else _ESTADO_QUALIDADE_PATH
+    estado = load_json_record(p, {})
+    if not isinstance(estado, dict):
+        estado = {}
+    if agora - estado.get("ultimo_alerta_ts", 0) < _DEDUP_QUALIDADE_HORAS * 3600:
+        return False
+
+    partes = []
+    if cobertura < _COBERTURA_MIN_PCT:
+        partes.append(f"só {itens} de {alvos} itens ({cobertura:.0f}%) "
+                      "vieram com preço novo")
+    if throttle:
+        partes.append(f"throttle silencioso detectado {throttle}x")
+    enviado = discord_notify.enviar(
+        webhook,
+        "⚠️ GalaSeca: último ciclo do scan degradado -- "
+        + "; ".join(partes) + ". Ver /status (itens sem preço) e /api/health.")
     if enviado:
         try:
             atomic_write_text(p, json.dumps({"ultimo_alerta_ts": agora}))
