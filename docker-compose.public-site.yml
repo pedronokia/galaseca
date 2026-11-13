@@ -17,6 +17,10 @@ services:
       # CSP do Caddy inteiros. Continua acessível em localhost pra rodar
       # local sem Caddy (`http://127.0.0.1:8000`), só não mais de fora.
       - "127.0.0.1:8000:8000"
+    environment:
+      # Só pro /admin mostrar se os alertas do dono estão ligados (ver o
+      # mesmo item no worker abaixo).
+      - GALASECA_ADMIN_DISCORD_WEBHOOK=${GALASECA_ADMIN_DISCORD_WEBHOOK:-}
     volumes:
       - skinvault_data:/data
     restart: unless-stopped
@@ -43,6 +47,10 @@ services:
     stop_grace_period: 40s
     environment:
       - GALASECA_WORKER_INTERVAL_HORAS=6
+      # Alertas do dono (worker_alert.py). Vem do secret
+      # ADMIN_DISCORD_WEBHOOK do GitHub via deploy.yml -- nunca escrito
+      # aqui. Vazio = sem alerta.
+      - GALASECA_ADMIN_DISCORD_WEBHOOK=${GALASECA_ADMIN_DISCORD_WEBHOOK:-}
     volumes:
       - skinvault_data:/data
     restart: unless-stopped

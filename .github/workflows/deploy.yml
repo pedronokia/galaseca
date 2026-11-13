@@ -10,6 +10,10 @@ name: deploy
 #   ORACLE_HOST       -- IP ou domínio da VM (ex. pedronokia.duckdns.org)
 #   ORACLE_SSH_KEY     -- conteúdo do arquivo .key baixado na criação da VM
 #   SITE_DOMAIN        -- mesmo valor usado hoje no deploy manual
+# Opcional:
+#   ADMIN_DISCORD_WEBHOOK -- URL do webhook do Discord do DONO pros
+#                            alertas do worker (atraso, scan degradado,
+#                            disco). Sem ele, os alertas ficam desligados.
 on:
   workflow_run:
     workflows: ["tests"]
@@ -47,7 +51,9 @@ jobs:
             # scan não custa requisição; desde 2026-11-13 reiniciar NO
             # MEIO de um scan retoma do checkpoint (data/scan_parcial.json)
             # em vez de perder a coleta, mas segue opt-in.
-            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
+            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} \
+              GALASECA_ADMIN_DISCORD_WEBHOOK='${{ secrets.ADMIN_DISCORD_WEBHOOK }}' \
+              sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d web
 
@@ -63,7 +69,9 @@ jobs:
             cd ~/skinvault
             # `caddy reload` já reportou sucesso sem aplicar mudança de
             # cabeçalho; recriar o container relê o Caddyfile com certeza.
-            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
+            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} \
+              GALASECA_ADMIN_DISCORD_WEBHOOK='${{ secrets.ADMIN_DISCORD_WEBHOOK }}' \
+              sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up -d --force-recreate caddy
 
@@ -90,6 +98,8 @@ jobs:
             cd ~/skinvault
             # Ao subir, o worker espera o próximo ciclo (conta do último
             # registrado); só escaneia na hora se o ciclo já estiver atrasado.
-            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
+            SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} \
+              GALASECA_ADMIN_DISCORD_WEBHOOK='${{ secrets.ADMIN_DISCORD_WEBHOOK }}' \
+              sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d worker
