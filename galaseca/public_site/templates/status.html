@@ -57,6 +57,15 @@
     {% endif %}
 
     <h2 class="secao-titulo">Últimos ciclos do scan</h2>
+    {% if estado_scan.rodando %}
+    <div class="card estado-scan">
+      <p class="estado-scan-titulo"><span class="estado-scan-ponto" aria-hidden="true"></span><span>Scan em andamento: item <strong>{{ estado_scan.indice }} de {{ estado_scan.total }}</strong>{% if estado_scan.faltam_txt %}, termina em {{ estado_scan.faltam_txt }}{% endif %}.</span></p>
+      <progress class="estado-scan-barra" value="{{ estado_scan.indice }}" max="{{ estado_scan.total }}" aria-label="Progresso do scan: {{ estado_scan.indice }} de {{ estado_scan.total }} itens"></progress>
+      <p class="status-muted">Agora: {{ estado_scan.item_fmt }}. Os preços do site mudam quando o ciclo termina.</p>
+    </div>
+    {% elif estado_scan.proximo_txt %}
+    <p class="estado-scan-proximo">Próximo ciclo {{ estado_scan.proximo_txt }}.</p>
+    {% endif %}
     <p>O worker tenta escanear todas as categorias periodicamente. Quando a
     Steam pede uma pausa (rate limit), ele espera e continua de onde parou;
     se o bloqueio passar de 45 minutos, o ciclo termina antes e os itens que

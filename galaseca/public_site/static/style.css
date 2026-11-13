@@ -4402,3 +4402,55 @@ table.tabela-candidatos.tabela-variantes { min-width: 0; }
   table.tabela-variantes th,
   table.tabela-variantes td { padding: 10px; }
 }
+
+/* /status: scan em andamento. */
+.estado-scan { margin: 0 0 var(--sp-4); }
+.pagina-texto .estado-scan p { margin: 0; text-align: left; }
+.pagina-texto .estado-scan .status-muted { margin-top: var(--sp-2); }
+
+.estado-scan-titulo {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text);
+}
+
+.estado-scan { hyphens: none; }
+
+.estado-scan-ponto {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 0.6em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: estado-scan-pulso 1.6s var(--ease-standard) infinite;
+}
+
+@keyframes estado-scan-pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .estado-scan-ponto { animation: none; }
+}
+
+.estado-scan-barra {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin-top: var(--sp-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  overflow: hidden;
+  appearance: none;
+}
+
+.estado-scan-barra::-webkit-progress-bar { background: var(--surface-sunken); }
+.estado-scan-barra::-webkit-progress-value { background: var(--accent); }
+.estado-scan-barra::-moz-progress-bar { background: var(--accent); }
+
+.pagina-texto .estado-scan-proximo { margin: 0 0 var(--sp-3); color: var(--text); }

@@ -5342,3 +5342,47 @@ def test_status_mostra_ciclo_encerrado_cedo(client, monkeypatch):
                   "falhas": []}])
     body = client.get("/status").data.decode("utf-8")
     assert "Steam sem resposta (encerrado cedo)" in body
+
+
+def test_estado_do_scan_em_andamento_com_previsao():
+    agora = 1_000_000.0
+    ciclos = [{"ts": agora - 3600, "itens": 180, "alvos": 180,
+               "duracao_min": 30.0, "sucesso": True}]
+    e = server._estado_do_scan(
+        {"indice": 60, "total": 180, "item": "Kilowatt Case",
+         "ts": agora - 10}, ciclos, 6, now=agora)
+    # 30 min / 180 itens = 10 s/item; faltam 120 -> 20 min.
+    assert e == {"rodando": True, "indice": 60, "total": 180,
+                 "item_fmt": "Caixa Kilowatt", "faltam_txt": "~20 min"}
+
+
+def test_estado_do_scan_parado_mostra_proximo():
+    agora = 1_000_000.0
+    ciclos = [{"ts": agora - 2 * 3600, "itens": 180, "sucesso": True}]
+    # Progresso velho (ciclo já acabou) não conta como "rodando".
+    e = server._estado_do_scan(
+        {"indice": 180, "total": 180, "item": "X", "ts": agora - 2 * 3600},
+        ciclos, 6, now=agora)
+    assert e == {"rodando": False, "proximo_txt": "em ~4 h"}
+    assert server._estado_do_scan(None, [], 6, now=agora) == {
+        "rodando": False, "proximo_txt": None}
+    e = server._estado_do_scan(
+        {"indice": 3, "total": 180, "item": "X", "ts": agora - 600},
+        ciclos, 6, now=agora)
+    assert e["rodando"] is False
+
+
+def test_status_mostra_scan_em_andamento(client, monkeypatch):
+    monkeypatch.setattr(
+        server.scan_progress, "carregar",
+        lambda: {"indice": 42, "total": 185, "item": "<b>x</b>",
+                 "ts": time.time()})
+    monkeypatch.setattr(
+        scan_store, "load_historico_ciclos",
+        lambda: [{"ts": time.time() - 6 * 3600, "itens": 185, "alvos": 185,
+                  "duracao_min": 30.0, "sucesso": True}])
+    body = client.get("/status").data.decode("utf-8")
+    assert "item <strong>42 de 185</strong>" in body
+    assert 'value="42" max="185"' in body
+    assert "&lt;b&gt;x&lt;/b&gt;" in body
+    assert "termina em ~" in body

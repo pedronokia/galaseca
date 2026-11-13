@@ -1096,6 +1096,10 @@ def create_app() -> Flask:
         ciclos_ok = sum(1 for c in ciclos if c.get("sucesso"))
         return render_template(
             "status.html",
+            estado_scan=_estado_do_scan(
+                scan_progress.carregar(), ciclos,
+                float(ambiente("WORKER_INTERVAL_HORAS",
+                               _INTERVALO_HORAS_DEFAULT))),
             no_ar_desde_txt=scan_store.idade_txt(desde),
             visitas=visits.total(),
             ciclos=ciclos,
@@ -1652,6 +1656,39 @@ def _variantes_para_tela(item: dict,
                 name=urllib.parse.quote(nome, safe="")),
         })
     return out
+
+
+# Progresso gravado há mais que isto não é "agora": o worker grava a cada
+# item (~9 s), então 3 min sem atualizar = ciclo parado ou já terminou.
+_PROGRESSO_VIVO_S = 180
+
+
+def _estado_do_scan(progresso: "dict | None", ciclos: "list[dict]",
+                    intervalo_horas: float,
+                    now: "float | None" = None) -> dict:
+    """O que o /status diz do scan agora: em andamento (item N de M, com
+    previsão pelo ritmo do último ciclo) ou a próxima rodada prevista.
+    `ciclos` vem do mais novo pro mais antigo (como em /status)."""
+    agora = time.time() if now is None else now
+    if (progresso and agora - float(progresso.get("ts") or 0) <= _PROGRESSO_VIVO_S
+            and int(progresso.get("indice") or 0) < int(progresso.get("total") or 0)):
+        indice, total = int(progresso["indice"]), int(progresso["total"])
+        faltam_txt = None
+        ultimo = next((c for c in ciclos if c.get("sucesso")
+                       and c.get("itens")), None)
+        if ultimo and ultimo.get("duracao_min"):
+            por_item_s = float(ultimo["duracao_min"]) * 60 / max(
+                1, int(ultimo.get("alvos") or ultimo["itens"]))
+            faltam_min = max(1, round((total - indice) * por_item_s / 60))
+            faltam_txt = f"~{faltam_min} min"
+        return {"rodando": True, "indice": indice, "total": total,
+                "item_fmt": localize_name(str(progresso.get("item") or "")),
+                "faltam_txt": faltam_txt}
+    if not ciclos:
+        return {"rodando": False, "proximo_txt": None}
+    return {"rodando": False,
+            "proximo_txt": scan_store.proxima_txt(
+                ciclos[0]["ts"], intervalo_horas, now=agora)}
 
 
 def _nomes_com_pagina(scan: "dict | None") -> "set[str]":

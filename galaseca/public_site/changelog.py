@@ -29,6 +29,7 @@ ENTRADAS = [
             "Alerta pro dono do site quando um ciclo traz preço novo pra menos de 85% dos itens ou detecta bloqueio silencioso.",
             "Scan: se a Steam não responde a nenhum dos 10 primeiros itens, o ciclo encerra cedo em vez de gastar requisição com os 185; nova tentativa em 1 h (depois 2 h e 4 h) em vez de 6 h.",
             "Scan: ordem por prioridade no ciclo inteiro (dado atrasado primeiro, depois maior nota), não mais categoria por categoria.",
+            "Status: barra de progresso do scan em andamento (item atual e previsão de término) ou a hora prevista do próximo ciclo.",
         ],
     },
     {
