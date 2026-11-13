@@ -270,6 +270,10 @@ def comparar_fontes(sombras: "list[dict]") -> "dict | None":
 # anterior tinham, pra tratar como throttle silencioso da Steam.
 _SEM_HIST_SEGUIDOS = 3
 
+# Primeiros itens do ciclo sem NENHUM resultado (e sem 429) pra concluir
+# que a Steam (ou a rede) está fora e encerrar o ciclo.
+_ABORTA_SEM_NADA = 10
+
 
 # Famílias do disjuntor de `steam_api` que `scan_item` usa.
 _FAMILIAS_SCAN = ("priceoverview", "market_listings")
@@ -297,6 +301,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
                   tinham_historico: "set[str] | None" = None,
                   pular: "set[str] | None" = None,
                   on_resultado: "Callable[[dict], None] | None" = None,
+                  prioridade: "dict[str, float] | None" = None,
                   ) -> list[dict]:
     """Escaneia as categorias (default: todas de `scan_targets`), sem Qt.
 
@@ -335,6 +340,16 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
     antes de um reinício (checkpoint do worker) -- não são buscados de
     novo. `on_resultado` é chamado com cada resultado aceito, na hora,
     pra quem chama gravar o checkpoint.
+
+    `prioridade` (nome -> chave, menor primeiro) ordena a lista INTEIRA,
+    não categoria por categoria: se o ciclo for cortado, quem fica sem
+    preço é o menos relevante, não sempre a última categoria. Nome sem
+    chave vale 0.
+
+    Steam fora do ar (2026-11-13): se os `_ABORTA_SEM_NADA` primeiros
+    itens falham sem nenhum resultado e sem 429 (manutenção, rede da VM
+    caída), o ciclo encerra ali -- antes ele seguia a lista inteira com
+    2 requisições por item, todas perdidas. `relatorio["abortado"]`.
     """
     ritmo = max(1.0, float(ritmo or 1.0))
     if categories is None:
@@ -379,6 +394,9 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
 
     if pular:
         items = [(n, c) for n, c in items if n not in pular]
+    if prioridade:
+        # sort é estável: empate mantém a ordem das categorias.
+        items.sort(key=lambda it: prioridade.get(it[0], 0.0))
 
     results: list[dict] = []
     sem_resultado: list[str] = []
@@ -419,6 +437,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
             on_resultado(result)
     adiados: list[tuple[str, str]] = []
     interrompido = False
+    abortado = False
     for i, (name, cat) in enumerate(items):
         if cancelled and cancelled():
             interrompido = True
@@ -437,6 +456,13 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         else:
             sem_resultado.append(name)
             sem_preco.append(name)
+            if (len(sem_preco) >= _ABORTA_SEM_NADA and not results
+                    and not suspeitos and not adiados):
+                _avisa(f"{len(sem_preco)} primeiros itens sem nenhuma "
+                       "resposta: Steam fora do ar? Ciclo encerrado")
+                interrompido = abortado = True
+                sem_resultado.extend(n for n, _c in items[i + 1:])
+                break
         time.sleep(steam_api.RATE_LIMIT_DELAY_S * ritmo)
 
     _libera_suspeitos()
@@ -462,4 +488,5 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         relatorio["sem_preco"] = sem_preco
         relatorio["comparacao_fontes"] = comparar_fontes(sombras)
         relatorio["throttle_silencioso"] = throttle
+        relatorio["abortado"] = abortado
     return results

@@ -226,7 +226,7 @@ def test_run_full_scan_default_usa_scan_targets(monkeypatch):
     monkeypatch.setattr(
         scan_engine, "scan_item",
         lambda name, category=None, price_cache=None:
-            chamados.append(name))
+            chamados.append(name) or {"name": name, "score": 1})
     scan_engine.run_full_scan()
     esperados = {n for items in scan_targets.SCAN_BY_CATEGORY.values()
                 for n in items}
@@ -556,3 +556,48 @@ def test_run_full_scan_pula_ja_coletados_e_avisa_resultado(monkeypatch):
     assert [r["name"] for r in recebidos] == ["B", "C"]
     assert all("_sombra" not in r for r in recebidos)
     assert progresso == ["[1/2] B", "[2/2] C"]
+
+
+def test_run_full_scan_aborta_quando_steam_fora(monkeypatch):
+    chamados = []
+    monkeypatch.setattr(
+        scan_engine, "scan_item",
+        lambda name, category=None, price_cache=None:
+            chamados.append(name) or None)
+    nomes = [f"I{i}" for i in range(30)]
+    rel, falhas, progresso = {}, [], []
+    res = scan_engine.run_full_scan({"C": nomes}, relatorio=rel,
+                                    falhas=falhas,
+                                    on_progress=progresso.append)
+    assert res == []
+    assert chamados == nomes[:scan_engine._ABORTA_SEM_NADA]
+    assert rel["abortado"] is True
+    assert falhas == nomes
+    assert any("Steam fora do ar" in m for m in progresso)
+
+
+def test_run_full_scan_falhas_depois_de_um_sucesso_nao_abortam(monkeypatch):
+    chamados = []
+
+    def _fake(name, category=None, price_cache=None):
+        chamados.append(name)
+        return {"name": name, "score": 1} if name == "I0" else None
+
+    monkeypatch.setattr(scan_engine, "scan_item", _fake)
+    nomes = [f"I{i}" for i in range(15)]
+    rel = {}
+    scan_engine.run_full_scan({"C": nomes}, relatorio=rel)
+    assert chamados == nomes
+    assert rel["abortado"] is False
+
+
+def test_run_full_scan_prioridade_ordena_entre_categorias(monkeypatch):
+    chamados = []
+    monkeypatch.setattr(
+        scan_engine, "scan_item",
+        lambda name, category=None, price_cache=None:
+            chamados.append(name) or {"name": name, "score": 1})
+    scan_engine.run_full_scan(
+        {"A": ["a1", "a2"], "B": ["b1", "b2"]},
+        prioridade={"b2": -90, "a2": -80, "b1": -10})
+    assert chamados == ["b2", "a2", "b1", "a1"]

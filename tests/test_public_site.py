@@ -2832,7 +2832,7 @@ def test_main_com_checkpoint_recente_retoma_sem_esperar(monkeypatch, tmp_path):
     monkeypatch.setattr(worker.scan_store, "load_historico_ciclos",
                         lambda: [{"ts": time.time() - 60}])
     rodou = []
-    monkeypatch.setattr(worker, "run_once", lambda: rodou.append(1) or [])
+    monkeypatch.setattr(worker, "run_once", lambda: rodou.append(1) or [{"name": "x"}])
     chamadas = []
 
     def _fake_sleep(segundos):
@@ -2851,7 +2851,7 @@ def _worker_main_uma_volta(monkeypatch):
     """Roda `main()` e para na 1a chamada de `time.sleep` (`while True`
     de verdade pararia a suite). Devolve os segundos passados pra sleep."""
     monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
-    monkeypatch.setattr(worker, "run_once", lambda: [])
+    monkeypatch.setattr(worker, "run_once", lambda: [{"name": "x"}])
     chamadas = []
 
     def _fake_sleep(segundos):
@@ -2881,7 +2881,7 @@ def test_main_sem_env_usa_default(monkeypatch):
 def test_main_parametro_explicito_ignora_env(monkeypatch):
     monkeypatch.setenv("GALASECA_WORKER_INTERVAL_HORAS", "99")
     monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
-    monkeypatch.setattr(worker, "run_once", lambda: [])
+    monkeypatch.setattr(worker, "run_once", lambda: [{"name": "x"}])
     chamadas = []
 
     def _fake_sleep(segundos):
@@ -5294,3 +5294,51 @@ def test_alerta_qualidade_sem_webhook_nao_faz_nada(monkeypatch, tmp_path):
     assert worker_alert.verificar_qualidade_e_alertar(
         [{"ts": 1.0, "itens": 1, "alvos": 185}],
         path=tmp_path / "q.json") is False
+
+
+def test_espera_apos_ciclo_vazio_tenta_antes_com_backoff():
+    assert worker._espera_apos_ciclo(6, 0) == 6 * 3600
+    assert worker._espera_apos_ciclo(6, 1) == 1 * 3600
+    assert worker._espera_apos_ciclo(6, 2) == 2 * 3600
+    assert worker._espera_apos_ciclo(6, 3) == 4 * 3600
+    assert worker._espera_apos_ciclo(6, 9) == 4 * 3600
+    # Nunca depois do intervalo normal.
+    assert worker._espera_apos_ciclo(1.5, 3) == 1.5 * 3600
+
+
+def test_main_ciclo_vazio_dorme_so_1h(monkeypatch):
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
+    monkeypatch.setattr(worker, "run_once", lambda: [])
+    chamadas = []
+
+    def _fake_sleep(segundos):
+        chamadas.append(segundos)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(worker.time, "sleep", _fake_sleep)
+    with pytest.raises(KeyboardInterrupt):
+        worker.main(intervalo_horas=6)
+    assert chamadas == [3600]
+
+
+def test_prioridade_do_scan_anterior(monkeypatch):
+    monkeypatch.setattr(worker.scan_store, "load_last_scan", lambda: {
+        "ts": 1, "results": [
+            {"name": "Alta", "score": 90},
+            {"name": "Baixa", "score": 10},
+            {"name": "Atrasado", "score": 5,
+             "mantido_do_ciclo_anterior": True}]})
+    p = worker._prioridade_do_scan_anterior()
+    assert sorted(p, key=p.get) == ["Atrasado", "Alta", "Baixa"]
+    monkeypatch.setattr(worker.scan_store, "load_last_scan", lambda: None)
+    assert worker._prioridade_do_scan_anterior() == {}
+
+
+def test_status_mostra_ciclo_encerrado_cedo(client, monkeypatch):
+    monkeypatch.setattr(
+        scan_store, "load_historico_ciclos",
+        lambda: [{"ts": time.time() - 60, "itens": 0, "duracao_min": 1.5,
+                  "sucesso": False, "alvos": 185, "abortado": True,
+                  "falhas": []}])
+    body = client.get("/status").data.decode("utf-8")
+    assert "Steam sem resposta (encerrado cedo)" in body

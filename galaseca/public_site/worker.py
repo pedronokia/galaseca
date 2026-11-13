@@ -381,6 +381,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
             tinham_historico=tinham_historico,
             pular={r["name"] for r in ja_coletados},
             on_resultado=_on_resultado,
+            prioridade=_prioridade_do_scan_anterior() or None,
             cancelled=lambda: _parar)
     finally:
         _escaneando = False
@@ -449,6 +450,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
             "ritmo": ritmo,
             "pausas_429": relatorio.get("pausas_429", 0),
             "throttle_silencioso": relatorio.get("throttle_silencioso", 0),
+            "abortado": bool(relatorio.get("abortado")),
             "em_espera": em_espera,
             "comparacao_fontes": relatorio.get("comparacao_fontes"),
         })
@@ -515,6 +517,40 @@ def espera_ate_proximo_ciclo(intervalo_horas: float,
     return max(0.0, ultimo + intervalo_horas * 3600 - agora)
 
 
+# Ciclo que não trouxe NENHUM item (Steam em manutenção, rede da VM fora,
+# bloqueio longo): em vez de deixar o site 6 h a mais com dado velho, tenta
+# de novo em 1 h, depois 2 h, 4 h... nunca mais rápido que isso e nunca
+# depois do intervalo normal. Cada tentativa custa poucas requisições
+# (o ciclo aborta cedo se a Steam segue fora -- ver scan_engine).
+_RETENTATIVA_VAZIO_H = (1.0, 2.0, 4.0)
+
+
+def _espera_apos_ciclo(intervalo_horas: float, vazios_seguidos: int) -> float:
+    """Segundos até o próximo ciclo depois de um ciclo terminar."""
+    if vazios_seguidos <= 0:
+        return intervalo_horas * 3600
+    idx = min(vazios_seguidos, len(_RETENTATIVA_VAZIO_H)) - 1
+    horas = min(intervalo_horas, _RETENTATIVA_VAZIO_H[idx])
+    _logger.info("Ciclo sem nenhum item (%d seguido(s)): nova tentativa "
+                 "em %.1f h", vazios_seguidos, horas)
+    return horas * 3600
+
+
+def _prioridade_do_scan_anterior() -> "dict[str, float]":
+    """Chave de ordem global do próximo ciclo (menor primeiro): quem está
+    no site com dado do ciclo anterior vem antes de tudo; depois, maior
+    nota primeiro. Nome nunca visto fica no meio (nota 50)."""
+    scan = scan_store.load_last_scan()
+    if not scan:
+        return {}
+    out = {}
+    for r in scan["results"]:
+        nota = float(r.get("score") or 0)
+        out[r["name"]] = (-1000.0 if r.get("mantido_do_ciclo_anterior")
+                          else 0.0) - nota
+    return out
+
+
 def main(intervalo_horas: "float | None" = None) -> None:
     """`intervalo_horas=None` lê `GALASECA_WORKER_INTERVAL_HORAS` (env),
     com fallback pro default -- pra ajustar a cadência em produção sem
@@ -532,14 +568,17 @@ def main(intervalo_horas: "float | None" = None) -> None:
         _logger.info("Último ciclo terminou há pouco; próximo em %.1f min",
                      espera / 60)
         time.sleep(espera)
+    vazios_seguidos = 0
     while True:
         try:
-            run_once()
+            trouxe = bool(run_once())
         except Exception:
             _logger.error("ciclo do worker falhou", exc_info=True)
+            trouxe = False
         if _parar:
             return
-        time.sleep(intervalo_horas * 3600)
+        vazios_seguidos = 0 if trouxe else vazios_seguidos + 1
+        time.sleep(_espera_apos_ciclo(intervalo_horas, vazios_seguidos))
 
 
 if __name__ == "__main__":
