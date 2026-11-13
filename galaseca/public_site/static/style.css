@@ -1006,6 +1006,13 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   font-weight: 600;
 }
 
+.movimentos-do-dia-titulo {
+  margin: 0 0 var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
 .movimentos-do-dia {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

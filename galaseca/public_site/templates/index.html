@@ -374,7 +374,12 @@
     {% if resumo_do_dia.movimentos %}
     {# Item #19 da lista de melhorias: os 3 maiores vaivens de nota, pra
        alta E pra baixa. Só descreve o que já foi medido -- nada de
-       "melhor item" nem seta de "vai subir" (ver AGENTS.md). #}
+       "melhor item" nem seta de "vai subir" (ver AGENTS.md).
+       Legenda visível (polimento 2026-11-13): a frase do painel-info
+       logo acima não cita mais "maior alta"/"maior queda" (cortado por
+       redundância com estes cards), então os cards perderam o único
+       texto que dizia o que eles são. #}
+    <p class="movimentos-do-dia-titulo">Maiores mudanças de nota hoje</p>
     <ul class="movimentos-do-dia" aria-label="Maiores mudanças de nota desde o scan de {{ resumo_do_dia.quando }}">
       {% for m in resumo_do_dia.movimentos %}
       <li class="movimento-do-dia">
