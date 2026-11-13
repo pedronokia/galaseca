@@ -208,10 +208,13 @@ def test_index_mostra_resumo_do_dia_com_alta_e_queda(client, monkeypatch, tmp_pa
     body = client.get("/").data.decode("utf-8")
     assert 'class="resumo-do-dia"' in body
     resumo = body.split('class="resumo-do-dia"', 1)[1].split("</p>", 1)[0]
-    assert "maior alta de nota foi" in resumo
-    assert "X" in resumo
-    assert "maior queda foi" in resumo
-    assert "Y" in resumo
+    # Polimento 2026-11-13: a home não repete mais "maior alta"/"maior
+    # queda" na frase -- essa informação já vem (com mais detalhe) nos
+    # cards de movimentos-do-dia logo abaixo. ranking.html continua
+    # citando maior_alta na própria frase (não tem os cards).
+    assert "maior alta de nota foi" not in resumo
+    assert "maior queda foi" not in resumo
+    assert "0 itens novos" in resumo
     # item #19: mini-cards com os vaivens de nota, pra alta E pra baixa
     assert 'class="movimentos-do-dia"' in body
     cards = body.split('class="movimentos-do-dia"', 1)[1].split("</ul>", 1)[0]
@@ -221,7 +224,6 @@ def test_index_mostra_resumo_do_dia_com_alta_e_queda(client, monkeypatch, tmp_pa
     assert "movimento-baixa" in cards
     assert "+30 na nota" in cards
     assert "-30 na nota" in cards
-    assert "0 itens novos" in resumo
 
 
 def test_index_resumo_do_dia_mostra_mesmo_sem_mudanca_de_nota(client, monkeypatch, tmp_path):

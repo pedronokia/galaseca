@@ -71,6 +71,12 @@
   --accent-steel: #66c0f4;
   --positive: #1a7f37;
   --warn: #b25000;
+  /* Selo de risco médio usa este âmbar, não --warn/--accent: os dois já
+     são tons de laranja parecidos com o laranja da marca (botões,
+     links, abas ativas) -- um selo de ALERTA com a cor de AÇÃO podia
+     ler como convite pra clicar, não como aviso. 4.5:1 testado contra
+     --surface (#1e1e1e) e --surface-hover (#252525). */
+  --risco-medio: #eab308;
   --danger: #d70015;
   --danger-bright: #b00012;
   --focus: #f97316;
@@ -1316,6 +1322,47 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
   gap: var(--sp-3);
 }
 
+/* Disclosure "Mais filtros" -- nota mínima/preço máximo/liquidez ficam
+   escondidos até quem visita pedir (ou já chegam abertos quando um
+   dos três já está ativo via URL). */
+.filtros-mais {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.filtros-mais-toggle {
+  display: inline-flex;
+  height: 40px;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.filtros-mais-toggle::-webkit-details-marker { display: none; }
+.filtros-mais-toggle:hover { color: var(--accent-bright); }
+
+.filtros-mais-toggle .icone-ui {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--dur-base) var(--ease-standard);
+}
+
+.filtros-mais[open] .filtros-mais-toggle .icone-ui { transform: rotate(180deg); }
+
+.filtros-mais-corpo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+
 /* O placeholder completo é longo -- o campo precisa de largura. */
 .form-filtros input[type="text"]#campo-busca { min-width: 230px; }
 
@@ -2200,11 +2247,11 @@ table.tabela-candidatos td.celula-preco {
 }
 
 .risco-low { color: var(--text-muted); }
-.risco-medium { color: var(--warn); }
+.risco-medium { color: var(--risco-medio); }
 .risco-high { color: var(--danger); font-weight: 600; }
 
 .card-valor.risco-low { color: var(--text-muted); }
-.card-valor.risco-medium { color: var(--warn); }
+.card-valor.risco-medium { color: var(--risco-medio); }
 .card-valor.risco-high { color: var(--danger); }
 
 .card-valor.liquidez-fino { color: var(--warn); }

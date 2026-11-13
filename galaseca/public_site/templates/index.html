@@ -262,14 +262,16 @@
       </p>
       {% endif %}
       {% if resumo_do_dia %}
+      {# Pedido de polimento (2026-11-13): esta frase citava os mesmos
+         "maior alta"/"maior queda" que os cards de movimentos-do-dia
+         logo abaixo já mostram com mais detalhe visual -- a mesma
+         informação duas vezes em sequência. Aqui fica só a contagem;
+         quem quer o "quem subiu/caiu" olha os cards. ranking.html tem
+         sua própria frase (sem os cards abaixo) e continua citando
+         maior_alta normalmente. #}
       <p class="resumo-do-dia">
         Comparado com o Top 20 de {{ resumo_do_dia.quando }}:
-        {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }}{% if resumo_do_dia.maior_alta or resumo_do_dia.maior_queda %}; {% endif %}
-        {% if resumo_do_dia.maior_alta %}maior alta de nota foi
-        <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
-        ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% if resumo_do_dia.maior_queda %}; {% endif %}{% endif %}{% if resumo_do_dia.maior_queda %}maior queda foi
-        <strong>{{ resumo_do_dia.maior_queda.name_fmt }}</strong>
-        ({{ resumo_do_dia.maior_queda.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_queda.para }}){% endif %}.
+        {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }}.
       </p>
       {% endif %}
     </div>
@@ -302,22 +304,33 @@
           {% endfor %}
         </select>
       </label>
-      <div class="filtros-numericos">
-        <label>Nota mínima
-          <input type="number" name="nota_min" min="0" max="100" step="1" value="{{ nota_min_sel if nota_min_sel is not none else '' }}">
-        </label>
-        <label>Preço máximo (R$)
-          <input type="number" name="preco_max" min="0" step="0.01" value="{{ preco_max_sel if preco_max_sel is not none else '' }}">
-        </label>
-      </div>
-      <label>Liquidez mínima
-        <select name="liquidez_min" data-enviar-ao-mudar title="Baseado em dias de listagens no ritmo atual de negociação -- itens sem dado suficiente ficam de fora quando esse filtro está ativo">
-          <option value="">Qualquer</option>
-          {% for banda in liquidez_opcoes %}
-          <option value="{{ banda }}" {{ "selected" if banda == liquidez_min_sel else "" }}>{{ banda|liquidez_label }} ou melhor</option>
-          {% endfor %}
-        </select>
-      </label>
+      {# Polimento (2026-11-13): nota mínima/preço máximo/liquidez ficam
+         atrás de "Mais filtros" -- a maioria das visitas não mexe
+         nesses três, e deixá-los sempre abertos empurra o conteúdo de
+         verdade pra baixo. Abre sozinho quando um deles já está ativo,
+         pra quem chegou com link de filtro não perder de vista o que
+         está aplicado. #}
+      <details class="filtros-mais"{% if nota_min_sel is not none or preco_max_sel is not none or liquidez_min_sel %} open{% endif %}>
+        <summary class="filtros-mais-toggle">Mais filtros {{ icone("chevron-baixo") }}</summary>
+        <div class="filtros-mais-corpo">
+          <div class="filtros-numericos">
+            <label>Nota mínima
+              <input type="number" name="nota_min" min="0" max="100" step="1" value="{{ nota_min_sel if nota_min_sel is not none else '' }}">
+            </label>
+            <label>Preço máximo (R$)
+              <input type="number" name="preco_max" min="0" step="0.01" value="{{ preco_max_sel if preco_max_sel is not none else '' }}">
+            </label>
+          </div>
+          <label>Liquidez mínima
+            <select name="liquidez_min" data-enviar-ao-mudar title="Baseado em dias de listagens no ritmo atual de negociação -- itens sem dado suficiente ficam de fora quando esse filtro está ativo">
+              <option value="">Qualquer</option>
+              {% for banda in liquidez_opcoes %}
+              <option value="{{ banda }}" {{ "selected" if banda == liquidez_min_sel else "" }}>{{ banda|liquidez_label }} ou melhor</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+      </details>
       <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
       <input type="hidden" name="ver" value="{{ ver_sel }}">
       <button type="submit" class="botao-filtrar-sem-js">Filtrar</button>
