@@ -36,15 +36,8 @@
 	reverse_proxy web:8000
 }
 
-# Troca de domínio galaseca.com -> lodout.com (2026-11-13), em 2 etapas
-# pra o site nunca sair do ar:
-#   1) (esta) os DOIS domínios servem o site. O certificado do lodout.com
-#      só sai quando o DNS dele apontar pra esta VM -- até lá o Caddy só
-#      tenta de novo em segundo plano, sem afetar o galaseca.com.
-#   2) com o lodout.com respondendo, o galaseca.com vira redirect 301 pro
-#      lodout.com (troca o bloco abaixo por
-#      `galaseca.com, www.galaseca.com { redir https://lodout.com{uri} permanent }`).
-lodout.com, galaseca.com {
+# Domínio principal desde 2026-11-13 (antes: galaseca.com, 2026-10-29).
+lodout.com {
 	import site
 }
 
@@ -52,6 +45,8 @@ www.lodout.com {
 	redir https://lodout.com{uri} permanent
 }
 
-www.galaseca.com {
-	redir https://galaseca.com{uri} permanent
+# Endereço antigo: 301 pro novo, mantendo o caminho -- links salvos e
+# resultados de busca antigos continuam chegando na página certa.
+galaseca.com, www.galaseca.com {
+	redir https://lodout.com{uri} permanent
 }

@@ -81,9 +81,7 @@ jobs:
           # emitindo o certificado quando esta checagem começa.
           for i in $(seq 1 12); do
             sleep 5
-            # Etapa 1 da troca de domínio (ver deploy/Caddyfile): o galaseca.com
-            # segue servindo o site; vira lodout.com na etapa 2.
-            if curl -sf "https://galaseca.com/healthz" | grep -q '"ok": *true'; then
+            if curl -sf "https://lodout.com/healthz" | grep -q '"ok": *true'; then
               echo "OK: /healthz respondeu"; exit 0
             fi
           done
