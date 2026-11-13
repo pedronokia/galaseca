@@ -4501,3 +4501,71 @@ a, button, summary, select, label, input[type="checkbox"], [role="button"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* ── Acabamento (skill make-interfaces-feel-better, 2026-11-13) ───── */
+
+/* Títulos sem palavra sozinha na última linha; parágrafos sem órfã. */
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+/* Números que mudam na tela sem empurrar o texto ao lado. */
+.contagem-comparar,
+.variacao-nota,
+.barra-comparar { font-variant-numeric: tabular-nums; }
+
+/* Retorno tátil ao apertar: leve encolhida, sem transição (resposta
+   imediata; o estado normal volta pela transição que cada um já tem). */
+.botao-acao:active,
+.botao-link:active,
+.botao-copiar:active,
+.botao-favorito:active,
+.aba-categoria:active,
+.seletor-visao a:active,
+.seletor-periodo a:active,
+.paginacao-numero:active {
+  transform: scale(0.97);
+}
+
+/* Área de toque mínima (~40px) só em tela de toque: um ::after
+   invisível estende o alvo sem mudar o desenho. Nenhum desses elementos
+   usa ::after nem é posicionado; as extensões ficam dentro dos vãos
+   pra dois alvos nunca se sobreporem (as abas ganham vão de 8px entre
+   linhas pra caber). No desktop, com mouse, nada muda. */
+@media (pointer: coarse) {
+  .aba-categoria,
+  .seletor-visao a,
+  .seletor-periodo a,
+  .paginacao-numero,
+  .botao-recolher-motivo,
+  .hero-item-acoes .botao-favorito,
+  .cartao-item-steam,
+  .link-secundario,
+  .logo { position: relative; }
+
+  .aba-categoria::after,
+  .seletor-visao a::after,
+  .seletor-periodo a::after,
+  .paginacao-numero::after,
+  .botao-recolher-motivo::after,
+  .hero-item-acoes .botao-favorito::after,
+  .cartao-item-steam::after,
+  .link-secundario::after,
+  .logo::after {
+    content: "";
+    position: absolute;
+  }
+
+  .abas-categoria { row-gap: 8px; }
+  .aba-categoria::after { inset: -4px 0; }
+  .seletor-visao a::after,
+  .seletor-periodo a::after { inset: -3px 0; }
+  .paginacao-numero::after { inset: -2px; }
+  .botao-recolher-motivo::after { inset: -4px 0; }
+  /* Só a estrela do topo do item (28px); a do card já tem 44x44. */
+  .hero-item-acoes .botao-favorito::after { inset: -6px 0; }
+  /* A estrela do card fica ~6px acima: cresce pouco pra cima e mais
+     pra baixo, onde só há o fim do card. */
+  .cartao-item-steam::after { inset: -3px 0 -15px; }
+  .link-secundario::after { inset: -10px 0; }
+  .logo::after { inset: 0 -6px; }
+}

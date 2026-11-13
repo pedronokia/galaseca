@@ -17,6 +17,8 @@ ENTRADAS = [
             "Campos de formulário que só mudavam a borda ganharam o mesmo destaque laranja dos demais ao receber foco.",
             "Nomes de itens não são mais “traduzidos” pelo tradutor automático do navegador.",
             "Toque mais limpo no celular, sem o flash cinza nos botões.",
+            "No celular, abas, seletores, paginação e links pequenos ganharam área de toque de ~40px sem mudar o desenho.",
+            "Botões dão uma leve encolhida ao serem apertados; títulos e parágrafos não terminam mais com uma palavra sozinha na última linha.",
         ],
     },
     {
