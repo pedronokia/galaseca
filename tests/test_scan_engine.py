@@ -448,7 +448,7 @@ def test_fonte_pagina_soma_compras_das_ultimas_24h():
         {"time": 103600, "price_median": 1, "purchases": 4},
     ]}
     f = scan_engine._fonte_pagina(page, {"best_ask": 123}, False)
-    assert f == {"best_ask": 123, "compras_24h": 7}
+    assert f == {"best_ask": 123, "compras_24h": 7, "mediana_24h": 1}
     assert scan_engine._fonte_pagina(page, {"best_ask": 1}, True) is None
 
 
@@ -664,3 +664,20 @@ def test_run_full_scan_repassa_fonte_so_quando_pagina(monkeypatch):
     scan_engine.run_full_scan({"C": ["A"]})
     scan_engine.run_full_scan({"C": ["B"]}, fonte="pagina", fator_preco=0.01)
     assert recebidos == [{}, {"fonte": "pagina", "fator_preco": 0.01}]
+
+
+def test_comparar_fontes_mede_mediana():
+    sombras = [
+        {"median_overview": 100.0, "mediana_24h": 101.0},
+        {"median_overview": 50.0, "mediana_24h": 50.0},
+        {"median_overview": 10.0, "mediana_24h": 20.0},  # fora
+    ]
+    r = scan_engine.comparar_fontes(sombras)
+    assert r["itens_mediana"] == 3
+    assert r["razao_mediana"] == 1.01
+    assert r["mediana_concorda_pct"] == 66.7
+
+
+def test_fonte_pagina_inclui_mediana_24h():
+    f = scan_engine._fonte_pagina(_pagina(), {"best_ask": 1}, False)
+    assert f["mediana_24h"] == 100.0

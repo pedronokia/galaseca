@@ -549,6 +549,8 @@ def _espera_apos_ciclo(intervalo_horas: float, vazios_seguidos: int) -> float:
 # o fator de conversão do preço do book.
 _FONTE_PAGINA_MIN_ITENS = 50
 _FONTE_PAGINA_MIN_CONCORDA = 95.0
+_FONTE_PAGINA_MIN_MEDIANA = 90.0
+_FONTE_PAGINA_MIN_VOLUME = 85.0
 
 
 def _fonte_do_ciclo(historico: "list[dict]") -> "tuple[str, float | None]":
@@ -569,8 +571,13 @@ def _fonte_do_ciclo(historico: "list[dict]") -> "tuple[str, float | None]":
             continue
         razao = comp.get("razao_preco")
         concorda = comp.get("preco_concorda_pct") or 0
+        # Mediana e volume entram na nota: precisam ter sido medidos e
+        # concordar também (medição antiga, sem mediana, não libera).
+        mediana_ok = (comp.get("mediana_concorda_pct") or 0) >= _FONTE_PAGINA_MIN_MEDIANA
+        volume_ok = (comp.get("volume_concorda_pct") or 0) >= _FONTE_PAGINA_MIN_VOLUME
         if isinstance(razao, (int, float)) and razao > 0 \
-                and concorda >= _FONTE_PAGINA_MIN_CONCORDA:
+                and concorda >= _FONTE_PAGINA_MIN_CONCORDA \
+                and mediana_ok and volume_ok:
             return "pagina", float(razao)
         return "ambas", None  # medição mais recente reprovou
     return "ambas", None

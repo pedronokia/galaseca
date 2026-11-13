@@ -5414,7 +5414,14 @@ def test_fonte_do_ciclo_desligada_por_padrao(monkeypatch):
 def test_fonte_do_ciclo_ligada_exige_medicao_boa(monkeypatch):
     monkeypatch.setenv("GALASECA_SCAN_FONTE", "pagina")
     boa = {"comparacao_fontes": {"itens_preco": 170, "razao_preco": 0.01,
-                                 "preco_concorda_pct": 99.0}}
+                                 "preco_concorda_pct": 99.0,
+                                 "mediana_concorda_pct": 95.0,
+                                 "volume_concorda_pct": 93.8}}
+    sem_mediana = {"comparacao_fontes": {"itens_preco": 170,
+                                         "razao_preco": 0.01,
+                                         "preco_concorda_pct": 100.0,
+                                         "volume_concorda_pct": 93.8}}
+    assert worker._fonte_do_ciclo([sem_mediana]) == ("ambas", None)
     ruim = {"comparacao_fontes": {"itens_preco": 170, "razao_preco": 0.01,
                                   "preco_concorda_pct": 80.0}}
     pouca = {"comparacao_fontes": {"itens_preco": 5, "razao_preco": 0.01,

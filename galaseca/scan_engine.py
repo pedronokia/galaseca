@@ -28,24 +28,30 @@ def _overview_da_pagina(page: "dict | None",
     ask = (page.get("order_book") or {}).get("best_ask")
     if not isinstance(ask, (int, float)) or ask <= 0:
         return None
-    hist = [p for p in page.get("price_history") or []
-            if isinstance(p, dict) and isinstance(p.get("time"), (int, float))
-            and isinstance(p.get("price_median"), (int, float))]
-    median = volume = None
-    if hist:
-        corte = max(p["time"] for p in hist) - 86400
-        janela = [p for p in hist if p["time"] > corte]
-        volume = sum(int(p.get("purchases") or 0) for p in janela)
-        pesos = sorted((p["price_median"], max(1, int(p.get("purchases") or 0)))
-                       for p in janela)
-        metade, acum = sum(w for _v, w in pesos) / 2, 0
-        for v, w in pesos:
-            acum += w
-            if acum >= metade:
-                median = v
-                break
+    median, volume = _mediana_volume_24h(page.get("price_history"))
     return {"lowest": round(ask * fator_preco, 2), "median": median,
             "volume": volume or None}
+
+
+def _mediana_volume_24h(price_history: "list | None") -> "tuple[float | None, int | None]":
+    """(mediana ponderada por compras, compras) das 24 h anteriores ao
+    ponto mais recente do histórico da listing page."""
+    hist = [p for p in price_history or []
+            if isinstance(p, dict) and isinstance(p.get("time"), (int, float))
+            and isinstance(p.get("price_median"), (int, float))]
+    if not hist:
+        return None, None
+    corte = max(p["time"] for p in hist) - 86400
+    janela = [p for p in hist if p["time"] > corte]
+    volume = sum(int(p.get("purchases") or 0) for p in janela)
+    pesos = sorted((p["price_median"], max(1, int(p.get("purchases") or 0)))
+                   for p in janela)
+    metade, acum = sum(w for _v, w in pesos) / 2, 0
+    for v, w in pesos:
+        acum += w
+        if acum >= metade:
+            return v, volume
+    return None, volume
 
 
 def scan_item(name: str, category: str | None = None,
@@ -212,6 +218,7 @@ def scan_item(name: str, category: str | None = None,
             **(sombra or {}),
             "lowest_overview": (overview or {}).get("lowest"),
             "volume_overview": volume,
+            "median_overview": (overview or {}).get("median"),
         },
     }
 
@@ -235,8 +242,10 @@ def _fonte_pagina(page: "dict | None", ob: "dict | None",
                       and p["time"] > corte)
     if not isinstance(ask, (int, float)) and compras is None:
         return None
+    mediana, _vol = _mediana_volume_24h(hist)
     return {"best_ask": ask if isinstance(ask, (int, float)) else None,
-            "compras_24h": compras}
+            "compras_24h": compras,
+            "mediana_24h": mediana}
 
 
 # Ordem de exibição das variantes: desgaste (melhor -> pior) e, dentro
@@ -288,9 +297,11 @@ def comparar_fontes(sombras: "list[dict]") -> "dict | None":
     `razao_preco` = mediana de lowest_overview / best_ask (1.0 = mesma
     unidade; 0.01 = book em centavos). `preco_concorda_pct` = % dos itens
     cujo preço convertido pela razão mediana fica a até 2% do overview.
-    Mesma ideia pro volume. Serve pra decidir, com dado de produção, se
+    Mesma ideia pro volume (tolerância 25%) e pra mediana de 24 h
+    (`razao_mediana`, tolerância 5%; a página já em reais, então a razão
+    esperada é 1). Serve pra decidir, com dado de produção, se
     dá pra dispensar o priceoverview (metade das requisições por item)."""
-    pares_p, pares_v = [], []
+    pares_p, pares_v, pares_m = [], [], []
     for f in sombras:
         lo, ask = f.get("lowest_overview"), f.get("best_ask")
         if isinstance(lo, (int, float)) and isinstance(ask, (int, float)) \
@@ -300,6 +311,10 @@ def comparar_fontes(sombras: "list[dict]") -> "dict | None":
         if isinstance(vo, (int, float)) and isinstance(vc, (int, float)) \
                 and vo > 0 and vc > 0:
             pares_v.append(vc / vo)
+        mo, mp = f.get("median_overview"), f.get("mediana_24h")
+        if isinstance(mo, (int, float)) and isinstance(mp, (int, float)) \
+                and mo > 0 and mp > 0:
+            pares_m.append(mp / mo)
 
     def _resumo(razoes: "list[float]", tol: float) -> "tuple[float | None, float | None]":
         if not razoes:
@@ -309,13 +324,16 @@ def comparar_fontes(sombras: "list[dict]") -> "dict | None":
         ok = sum(1 for x in razoes if abs(x / med - 1) <= tol)
         return round(med, 6), round(100 * ok / len(razoes), 1)
 
-    if not pares_p and not pares_v:
+    if not pares_p and not pares_v and not pares_m:
         return None
     rp, cp = _resumo(pares_p, 0.02)
     rv, cv = _resumo(pares_v, 0.25)
+    rm, cm = _resumo(pares_m, 0.05)
     return {"itens_preco": len(pares_p), "razao_preco": rp,
             "preco_concorda_pct": cp, "itens_volume": len(pares_v),
-            "razao_volume": rv, "volume_concorda_pct": cv}
+            "razao_volume": rv, "volume_concorda_pct": cv,
+            "itens_mediana": len(pares_m), "razao_mediana": rm,
+            "mediana_concorda_pct": cm}
 
 
 # Itens SEGUIDOS cuja página veio sem histórico, sendo que no ciclo
