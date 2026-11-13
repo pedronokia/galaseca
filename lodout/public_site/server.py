@@ -1446,7 +1446,7 @@ _MOVIMENTOS_DESTAQUE = 3
 # `None` = scan imediatamente anterior. Com o worker de 6 em 6h, 30 dias
 # são ~120 snapshots -- cabe no `ranking._SNAPSHOT_CAP`.
 _PERIODOS_RANKING = {
-    "scan": (None, "Último scan"),
+    "scan": (None, "Anterior"),
     "24h": (24, "24 horas"),
     "7d": (7 * 24, "7 dias"),
     "30d": (30 * 24, "30 dias"),

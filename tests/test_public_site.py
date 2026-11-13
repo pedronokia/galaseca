@@ -1764,7 +1764,7 @@ def test_ranking_periodo_scan_compara_com_o_scan_anterior(
         client, monkeypatch):
     _ranking_com_historico(monkeypatch)
     body = client.get("/ranking?periodo=scan&ver=lista").data.decode("utf-8")
-    assert 'aria-current="true">Último scan<' in body
+    assert 'aria-current="true">Anterior<' in body
     # Sem mudança entre os dois últimos scans.
     assert "tendencia-alta" not in body
     assert "nota igual" in body
