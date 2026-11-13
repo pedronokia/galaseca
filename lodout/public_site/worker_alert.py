@@ -149,7 +149,7 @@ def verificar_qualidade_e_alertar(historico_ciclos: list[dict],
         partes.append(f"throttle silencioso detectado {throttle}x")
     enviado = discord_notify.enviar(
         webhook,
-        "⚠️ Lodout: último ciclo do scan degradado -- "
+        "⚠️ Lodout: última coleta de preços degradada — "
         + "; ".join(partes) + ". Ver /status (itens sem preço) e /api/health.")
     if enviado:
         try:

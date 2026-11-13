@@ -60,7 +60,7 @@ _RARIDADE_LABELS = {
     "restricted": "Restricted (roxo)",
     "classified": "Classified (rosa)",
     "covert": "Covert (vermelho)",
-    "dourado": "Item especial -- faca, luva ou contrabando (dourado)",
+    "dourado": "Item especial — faca, luva ou contrabando (dourado)",
 }
 
 

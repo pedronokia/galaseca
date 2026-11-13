@@ -1391,7 +1391,7 @@ def test_index_tendencia_mostra_variacao_percentual(client, monkeypatch, tmp_pat
     body = client.get("/").data.decode("utf-8")
     assert "tendencia-baixa" in body
     assert "> 3,2%</span>" in body
-    assert 'title="Preço caiu 3,2% desde o scan anterior"' in body
+    assert 'title="Preço caiu 3,2% desde a coleta anterior"' in body
 
 
 def test_index_sem_historico_nao_mostra_tendencia(client, monkeypatch, tmp_path):
@@ -1784,7 +1784,7 @@ def test_ranking_periodo_sem_historico_avisa_em_vez_de_comparar(
     body = client.get("/ranking?periodo=30d").data.decode("utf-8")
     assert "Ainda não há ranking salvo de 30 dias atrás" in body
     assert "na nota" not in body
-    assert "Comparado com o ranking de" not in body
+    assert "Comparado com o ranking salvo" not in body
 
 
 def test_ranking_periodo_invalido_cai_no_padrao(client, monkeypatch):
@@ -2228,7 +2228,7 @@ def test_status_mostra_ciclos_com_falha(client, monkeypatch, tmp_path):
     faixa = body.split('class="saude-ciclos"', 1)[1].split("</div>", 1)[0]
     assert faixa.count("saude-ciclo-ok") == 1
     assert faixa.count("saude-ciclo-falha") == 1
-    assert "1 de 2 ciclos com sucesso" in body
+    assert "1 de 2 coletas com sucesso" in body
 
 
 # ── server: /feed.xml ────────────────────────────────────────
@@ -2574,7 +2574,7 @@ def test_status_mostra_cobertura_e_falhas_do_ultimo_ciclo(client, monkeypatch):
                   "falhas": ["Kilowatt Case", "<b>x</b>"]}])
     body = client.get("/status").data.decode("utf-8")
     assert "<strong>180 de 185</strong> itens vieram com preço novo" in body
-    assert "5 continuam no site com o dado do ciclo anterior" in body
+    assert "5 continuam no site com o preço da coleta anterior" in body
     assert "Itens que ficaram sem preço novo (2)" in body
     assert "&lt;b&gt;x&lt;/b&gt;" in body
     assert "(+5 mantidos)" in body
@@ -3266,7 +3266,7 @@ def test_index_banner_scan_desatualizado(client, monkeypatch, tmp_path):
         scan_store, "load_last_scan", lambda: original_load(path=p))
     resp = client.get("/")
     body = resp.data.decode("utf-8")
-    assert "scan está mais velho" in body
+    assert "Os preços estão mais antigos que o normal" in body
     assert "status-scan-desatualizado" in body
     assert "Dados coletados:" in body
 
@@ -3276,7 +3276,7 @@ def test_index_sem_banner_quando_scan_recente(client, monkeypatch, tmp_path):
                   "pump_risk": {"level": "low"}, "breakdown": []}]
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/").data.decode("utf-8")
-    assert "scan está mais velho" not in body
+    assert "Os preços estão mais antigos que o normal" not in body
     assert "status-scan-recente" in body
 
 
@@ -5341,7 +5341,7 @@ def test_status_mostra_ciclo_encerrado_cedo(client, monkeypatch):
                   "sucesso": False, "alvos": 185, "abortado": True,
                   "falhas": []}])
     body = client.get("/status").data.decode("utf-8")
-    assert "Steam sem resposta (encerrado cedo)" in body
+    assert "Steam sem resposta (encerrada cedo)" in body
 
 
 def test_estado_do_scan_em_andamento_com_previsao():
@@ -5492,3 +5492,23 @@ def test_css_acabamento_toque_e_tipografia():
     # Área de toque extra só em tela de toque, sem mexer no desktop.
     bloco = css[css.index("@media (pointer: coarse) {\n  .aba-categoria,"):]
     assert ".cartao-item-steam::after { inset: -3px 0 -15px; }" in bloco
+
+
+# ── textos em linguagem simples (2026-11-13) ────────────────────
+
+def test_textos_sem_jargao_e_sem_promessa(client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    ranking = client.get("/ranking").data.decode("utf-8")
+    assert "Comparado com o ranking salvo há " in ranking
+    assert "Snapshot" not in ranking
+    status = client.get("/status").data.decode("utf-8")
+    assert "worker" not in status.lower()
+    assert "rate limit" not in status
+    from pathlib import Path as _P
+    raiz = _P(server.__file__).parent / "templates"
+    metodo = (raiz / "metodo.html").read_text(encoding="utf-8")
+    assert "tende a valorizar" not in metodo
+    assert "não uma garantia de lucro" in metodo
+    glossario = (raiz / "glossario.html").read_text(encoding="utf-8")
+    assert "tendem a\n      valorizar" not in glossario
+    assert "Não é garantia" in glossario

@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ranking — Lodout</title>
-  <meta name="description" content="Top 20 do último scan, com a mudança de posição e de nota em 24 horas, 7 dias ou 30 dias.">
+  <meta name="description" content="Top 20 da última coleta de preços, com a mudança de posição e de nota em 24 horas, 7 dias ou 30 dias.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   {% include "partials/_head_pwa.html" %}
@@ -88,7 +88,7 @@
   <main id="conteudo">
     <header class="cabecalho-pagina">
       <h1 class="titulo-pagina">Ranking</h1>
-      <p class="descricao-pagina">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
+      <p class="descricao-pagina">Top 20 da última coleta de preços, com a posição de quem subiu, caiu ou é novidade.</p>
     </header>
     {% if itens %}
       <p class="status">Atualizado {{ quando }}.</p>
@@ -101,11 +101,11 @@
         </div>
       </nav>
       {% if not tem_anterior %}
-      <p class="aviso-periodo-ranking status-muted">{% if periodo_sel == 'scan' %}Ainda não há um scan anterior pra comparar posição.{% else %}Ainda não há ranking salvo de {{ periodos[periodo_sel][1] }} atrás pra comparar. O histórico cresce a cada scan.{% endif %}</p>
+      <p class="aviso-periodo-ranking status-muted">{% if periodo_sel == 'scan' %}Ainda não há uma coleta anterior pra comparar posição.{% else %}Ainda não há ranking salvo de {{ periodos[periodo_sel][1] }} atrás pra comparar. O histórico cresce a cada scan.{% endif %}</p>
       {% endif %}
       {% if resumo_do_dia %}
       <p class="resumo-do-dia">
-        Comparado com o ranking de {{ resumo_do_dia.quando }}:
+        Comparado com o ranking salvo {{ resumo_do_dia.quando }}:
         {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }} no Top 20{% if resumo_do_dia.maior_alta %}; maior alta de nota foi
         <strong translate="no">{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
         ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% endif %}.
@@ -167,7 +167,7 @@
       {% if saidas %}
       <section class="saidas-do-top" aria-labelledby="titulo-saidas">
         <h2 class="secao-titulo" id="titulo-saidas">Saíram do Top 20</h2>
-        <p class="status-muted">Estavam no ranking de {{ resumo_do_dia.quando if resumo_do_dia else 'antes' }} e não estão no atual.</p>
+        <p class="status-muted">{% if resumo_do_dia %}Estavam no ranking salvo {{ resumo_do_dia.quando }} e não estão no atual.{% else %}Estavam no ranking anterior e não estão no atual.{% endif %}</p>
         <ul class="lista-saidas">
           {% for s in saidas %}
           <li>
@@ -184,7 +184,7 @@
   </main>
 
   <footer class="rodape">
-    <p>Snapshot do Top 20 a cada scan bem-sucedido. Não é recomendação de investimento.</p>
+    <p>O Top 20 é salvo a cada coleta de preços que dá certo. Não é recomendação de investimento.</p>
     {% include "partials/_rodape_links.html" %}
   </footer>
 </body>

@@ -71,14 +71,14 @@
       {% if c.tendencia in ("alta", "baixa") %}
       {% set pct_txt = ("%.1f"|format(c.variacao_pct|abs))|replace(".", ",") ~ "%" if c.variacao_pct is number else "" %}
       {% set verbo = "subiu" if c.tendencia == "alta" else "caiu" %}
-      <span class="icone-tendencia tendencia-{{ c.tendencia }}" title="Preço {{ verbo }} {{ pct_txt }} desde o scan anterior" aria-label="Preço {{ verbo }} {{ pct_txt }} desde o scan anterior">{{ icone("seta-cima" if c.tendencia == "alta" else "seta-baixo") }} {{ pct_txt or verbo|capitalize }}</span>
+      <span class="icone-tendencia tendencia-{{ c.tendencia }}" title="Preço {{ verbo }} {{ pct_txt }} desde a coleta anterior" aria-label="Preço {{ verbo }} {{ pct_txt }} desde a coleta anterior">{{ icone("seta-cima" if c.tendencia == "alta" else "seta-baixo") }} {{ pct_txt or verbo|capitalize }}</span>
       {% endif %}
     </td>
     <td class="celula-sparkline" data-label="Histórico">
       {% if c.sparkline %}
       <a class="link-historico{{ ' sparkline-' ~ c.tendencia if c.tendencia else '' }}" href="{{ url_for('item_detail', name=c.name) }}" aria-label="Ver histórico completo de {{ c.name_fmt }}" title="Abrir datas e preços do histórico completo">{{ c.sparkline|safe }}</a>
       {% if c.historico_curto %}
-      <span class="selo-historico-curto" title="Só {{ c.historico_pontos }} {{ 'scan' if c.historico_pontos == 1 else 'scans' }} registrados até agora -- a linha pode não refletir bem a tendência ainda">histórico curto</span>
+      <span class="selo-historico-curto" title="Só {{ c.historico_pontos }} {{ 'coleta registrada' if c.historico_pontos == 1 else 'coletas registradas' }} até agora — a linha pode não refletir bem a tendência ainda">histórico curto</span>
       {% endif %}
       {% else %}
       <span class="texto-sem-dado">sem histórico</span>
@@ -96,7 +96,7 @@
     </td>
     <td data-label="Caixa/Cápsula">
       {% if c.descontinuada %}
-        <span class="selo-descontinuada" title="{{ c.case_label|rotulo_caixa(c.name) }} -- caixa fora do drop pool, historicamente valoriza mais">{{ c.case_label|rotulo_caixa(c.name) }}</span>
+        <span class="selo-descontinuada" title="{{ c.case_label|rotulo_caixa(c.name) }} — caixa que não cai mais nos drops do jogo. No histórico medido, caixas assim valorizaram mais que as ainda ativas, mas isso não garante o que vai acontecer.">{{ c.case_label|rotulo_caixa(c.name) }}</span>
       {% else %}
         {% if c.case_label %}<span class="texto-caixa" title="{{ c.case_label|rotulo_caixa(c.name) }}">{{ c.case_label|rotulo_caixa(c.name) }}</span>{% else %}<span class="texto-sem-dado" aria-label="Sem caixa ou cápsula registrada">—</span>{% endif %}
       {% endif %}
@@ -185,7 +185,7 @@
           {% if c.tendencia in ("alta", "baixa") %}
           {% set pct_txt = ("%.1f"|format(c.variacao_pct|abs))|replace(".", ",") ~ "%" if c.variacao_pct is number else "" %}
           {% set verbo = "subiu" if c.tendencia == "alta" else "caiu" %}
-          <span class="icone-tendencia tendencia-{{ c.tendencia }}" title="Preço {{ verbo }} {{ pct_txt }} desde o scan anterior" aria-label="Preço {{ verbo }} {{ pct_txt }} desde o scan anterior">{{ icone("seta-cima" if c.tendencia == "alta" else "seta-baixo") }} {{ pct_txt or verbo|capitalize }}</span>
+          <span class="icone-tendencia tendencia-{{ c.tendencia }}" title="Preço {{ verbo }} {{ pct_txt }} desde a coleta anterior" aria-label="Preço {{ verbo }} {{ pct_txt }} desde a coleta anterior">{{ icone("seta-cima" if c.tendencia == "alta" else "seta-baixo") }} {{ pct_txt or verbo|capitalize }}</span>
           {% endif %}
         </span>
         <button type="button" class="botao-favorito" data-favorito="{{ c.name }}" data-favorito-label="{{ c.name_fmt }}" aria-pressed="false" title="Salvar como favorito (só neste navegador)" aria-label="Favoritar {{ c.name_fmt }}">{{ icone("favorito") }}</button>
@@ -219,7 +219,7 @@
   <tr>
     <th title="Nome do item, com link pra página dele no Steam Market">Item</th>
     <th class="cabecalho-preco" title="Menor preço anunciado agora no Steam Market" aria-sort="{{ 'ascending' if ordenar_sel == 'preco' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='preco', ver='lista') }}">Preço{% if ordenar_sel == "preco" %} {{ icone("seta-cima") }}{% endif %}</a></th>
-    <th class="celula-sparkline" title="Preço nos últimos 20 scans registrados -- mesmo histórico da página de detalhe">Histórico <span class="cabecalho-sub">(20)</span></th>
+    <th class="celula-sparkline" title="Preço nas últimas 20 coletas — o mesmo histórico da página do item">Histórico <span class="cabecalho-sub">(20)</span></th>
     <th class="cabecalho-nota" title="De 0 a 100: quanto mais alta, mais fatores positivos o item reúne agora (preço, oferta, caixa descontinuada, etc.). Um selo de risco aparece quando a alta recente pode ser artificial." aria-sort="{{ 'descending' if ordenar_sel == 'nota' else 'none' }}"><a class="link-ordenar" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar='nota', ver='lista') }}">Nota (0–100){% if ordenar_sel == "nota" %} {{ icone("seta-baixo") }}{% endif %}</a></th>
     <th title="Caixa ou cápsula de onde o item vem, e se ela ainda é sorteada no jogo">Caixa/Cápsula</th>
     <th title="Os fatores factuais que mais somaram pontos na nota deste item">Por quê</th>
@@ -260,7 +260,7 @@
       <p class="status-scan {{ 'status-scan-desatualizado' if scan_desatualizado else 'status-scan-recente' }}">
         <strong>Dados coletados:</strong> {{ scan.category or "categoria" }}, {{ idade }} ({{ scan.results|length }} itens avaliados).
         {% if scan_desatualizado %}<strong class="status-scan-alerta">Atualização atrasada</strong>{% endif %}
-        {% if proximo_scan %}<span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante -- só esse ciclo automático, pra não sobrecarregar a Steam">Próxima atualização: {{ proximo_scan }}.</span>{% endif %}
+        {% if proximo_scan %}<span class="badge-cooldown" title="O site nunca escaneia por causa de um visitante — só esse ciclo automático, pra não sobrecarregar a Steam">Próxima atualização: {{ proximo_scan }}.</span>{% endif %}
       </p>
       {% endif %}
       {% if resumo_do_dia %}
@@ -272,14 +272,14 @@
          sua própria frase (sem os cards abaixo) e continua citando
          maior_alta normalmente. #}
       <p class="resumo-do-dia">
-        Comparado com o Top 20 de {{ resumo_do_dia.quando }}:
+        Comparado com o Top 20 salvo {{ resumo_do_dia.quando }}:
         {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }}.
       </p>
       {% endif %}
     </div>
     {% endif %}
     {% if scan and scan_desatualizado %}
-    <p class="banner-aviso">{{ icone("aviso") }} O scan está mais velho que o normal -- provavelmente a Steam bloqueou
+    <p class="banner-aviso">{{ icone("aviso") }} Os preços estão mais antigos que o normal — provavelmente a Steam bloqueou
     o acesso temporariamente (ver <a href="{{ url_for('status') }}">status</a>). Os dados abaixo são
     os últimos que conseguimos coletar, não refletem o preço de agora.</p>
     {% endif %}
@@ -324,7 +324,7 @@
             </label>
           </div>
           <label>Liquidez mínima
-            <select name="liquidez_min" data-enviar-ao-mudar title="Baseado em dias de listagens no ritmo atual de negociação -- itens sem dado suficiente ficam de fora quando esse filtro está ativo">
+            <select name="liquidez_min" data-enviar-ao-mudar title="Baseado em dias de listagens no ritmo atual de negociação — itens sem dado suficiente ficam de fora quando esse filtro está ativo">
               <option value="">Qualquer</option>
               {% for banda in liquidez_opcoes %}
               <option value="{{ banda }}" {{ "selected" if banda == liquidez_min_sel else "" }}>{{ banda|liquidez_label }} ou melhor</option>
@@ -336,7 +336,7 @@
       <input type="hidden" name="ordenar" value="{{ ordenar_sel }}">
       <input type="hidden" name="ver" value="{{ ver_sel }}">
       <button type="submit" class="botao-filtrar-sem-js">Filtrar</button>
-      <button type="button" id="botao-favoritos" class="botao-link" aria-pressed="false" title="Mostrar só os itens que você favoritou (só neste navegador) -- atalho: f">
+      <button type="button" id="botao-favoritos" class="botao-link" aria-pressed="false" title="Mostrar só os itens que você favoritou (só neste navegador) — atalho: f">
         {{ icone("favorito") }}<span id="texto-botao-favoritos">Só favoritos</span> <span id="contagem-favoritos" class="contagem-favoritos" hidden>0</span>
       </button>
     </form>
@@ -382,11 +382,11 @@
        redundância com estes cards), então os cards perderam o único
        texto que dizia o que eles são. #}
     <p class="movimentos-do-dia-titulo">Maiores mudanças de nota hoje</p>
-    <ul class="movimentos-do-dia" aria-label="Maiores mudanças de nota desde o scan de {{ resumo_do_dia.quando }}">
+    <ul class="movimentos-do-dia" aria-label="Maiores mudanças de nota desde a coleta {{ resumo_do_dia.quando }}">
       {% for m in resumo_do_dia.movimentos %}
       <li class="movimento-do-dia">
         <a class="movimento-nome" href="{{ url_for('item_detail', name=m.name) }}" translate="no">{{ m.name_fmt }}</a>
-        <span class="movimento-variacao" title="Nota no scan anterior e nota agora">{{ m.de }} {{ icone("seta-direita") }} <strong>{{ m.para }}</strong></span>
+        <span class="movimento-variacao" title="Nota na coleta anterior e nota agora">{{ m.de }} {{ icone("seta-direita") }} <strong>{{ m.para }}</strong></span>
         <span class="movimento-delta {{ 'movimento-alta' if m.diff > 0 else 'movimento-baixa' }}">
           {{ icone("seta-cima" if m.diff > 0 else "seta-baixo") }}{{ "%+d"|format(m.diff) }} na nota
         </span>
