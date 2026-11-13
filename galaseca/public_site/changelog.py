@@ -25,6 +25,7 @@ ENTRADAS = [
             "Scan: itens que ficaram com dado antigo são os primeiros do ciclo seguinte.",
             "Scan: várias páginas seguidas sem histórico são tratadas como bloqueio silencioso da Steam (pausa e nova tentativa no fim do ciclo), em vez de entrar com nota calculada sem histórico.",
             "Página do item: outras versões da mesma skin (desgaste, StatTrak™, Souvenir) com preço mediano e vendas em 24 h, aproveitando a mesma consulta.",
+            "Scan retomável: o worker guarda o progresso a cada 5 itens; uma atualização do site no meio do scan retoma de onde parou em vez de perder o ciclo.",
         ],
     },
     {

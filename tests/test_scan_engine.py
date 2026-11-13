@@ -538,3 +538,21 @@ def test_resumo_variantes_ordena_e_resume():
     assert v[1] == {"name": "StatTrak™ AK-47 | Redline (Minimal Wear)",
                     "mediana": 80.0, "ts": 100000, "compras_24h": 7}
     assert scan_engine._resumo_variantes("X", None) == []
+
+
+def test_run_full_scan_pula_ja_coletados_e_avisa_resultado(monkeypatch):
+    chamados = []
+    monkeypatch.setattr(
+        scan_engine, "scan_item",
+        lambda name, category=None, price_cache=None:
+            chamados.append(name) or {"name": name, "score": 1,
+                                      "_sombra": {"x": 1}})
+    recebidos = []
+    progresso = []
+    scan_engine.run_full_scan({"C": ["A", "B", "C"]}, pular={"A"},
+                              on_resultado=recebidos.append,
+                              on_progress=progresso.append)
+    assert chamados == ["B", "C"]
+    assert [r["name"] for r in recebidos] == ["B", "C"]
+    assert all("_sombra" not in r for r in recebidos)
+    assert progresso == ["[1/2] B", "[2/2] C"]

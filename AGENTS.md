@@ -125,4 +125,6 @@ celular, console e fluxo de teclado. O deploy automático atualiza `web` depois
 que o workflow de testes passa. O `worker` não recarrega código sozinho: só
 recebe o build novo com `[restart-worker]` na mensagem do commit. Ao subir ele
 espera o próximo ciclo contado do último registrado, então reiniciar fora de um
-scan não gera requisição à Steam; reiniciar no meio de um scan interrompe a coleta.
+scan não gera requisição à Steam. Reiniciar no meio de um scan não perde mais a
+coleta: o worker grava um checkpoint (`data/scan_parcial.json`) a cada 5 itens e
+no SIGTERM, e ao subir retoma do ponto se o checkpoint tiver menos de 3 h.

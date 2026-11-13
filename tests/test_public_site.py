@@ -2710,6 +2710,143 @@ def test_ordenar_poe_atrasados_na_frente(monkeypatch):
     assert out == {"C": ["Atrasado", "Alta", "Novo"]}
 
 
+@pytest.fixture(autouse=True)
+def _sem_handler_de_sinal_real(monkeypatch):
+    """`worker.main()` instala um handler de SIGTERM -- nos testes ele
+    não pode vazar pro processo do pytest."""
+    monkeypatch.setattr(worker.signal, "signal", lambda *a, **kw: None)
+    monkeypatch.setattr(worker, "_parar", False)
+    monkeypatch.setattr(worker, "_escaneando", False)
+
+
+def _worker_isolado(monkeypatch, tmp_path):
+    monkeypatch.setattr(worker.gamedata, "check_for_updates",
+                        lambda: {"changed": False, "error": None})
+    monkeypatch.setattr(worker.gamedata, "load_events_log", lambda: [])
+    monkeypatch.setattr(worker.steam_news, "atualizar_noticias", lambda: "ok")
+    monkeypatch.setattr(worker, "_caminho_sem_anuncio",
+                        lambda: tmp_path / "sem.json")
+    monkeypatch.setattr(worker, "_caminho_checkpoint",
+                        lambda: tmp_path / "parcial.json")
+    monkeypatch.setattr(worker.scan_store, "load_last_scan", lambda: None)
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos",
+                        lambda: [])
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda *a, **kw: None)
+    salvos = {}
+    monkeypatch.setattr(worker.scan_store, "save_last_scan",
+                        lambda cat, res: salvos.update(scan=res))
+    monkeypatch.setattr(worker.ranking, "save_snapshot",
+                        lambda res: salvos.update(ranking=res))
+    return salvos
+
+
+def test_run_once_grava_checkpoint_e_apaga_no_fim(monkeypatch, tmp_path):
+    salvos = _worker_isolado(monkeypatch, tmp_path)
+    vistos_no_meio = []
+
+    def _fake(categories, on_resultado=None, **kw):
+        out = []
+        for i in range(6):
+            r = {"name": f"I{i}", "score": i}
+            out.append(r)
+            on_resultado(r)
+            if i == 4:
+                vistos_no_meio.append(json.loads(
+                    (tmp_path / "parcial.json").read_text()))
+        return out
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    worker.run_once({"C": [f"I{i}" for i in range(6)]})
+    assert len(vistos_no_meio[0]["results"]) == 5
+    assert len(salvos["scan"]) == 6
+    assert not (tmp_path / "parcial.json").exists()
+
+
+def test_run_once_retoma_do_checkpoint(monkeypatch, tmp_path):
+    salvos = _worker_isolado(monkeypatch, tmp_path)
+    (tmp_path / "parcial.json").write_text(json.dumps({
+        "inicio": time.time() - 600,
+        "results": [{"name": "A", "score": 90}, {"name": "B", "score": 80}]}))
+    recebido = {}
+
+    def _fake(categories, pular=None, **kw):
+        recebido["pular"] = pular
+        return [{"name": "C", "score": 70}]
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    out = worker.run_once({"X": ["A", "B", "C"]})
+    assert recebido["pular"] == {"A", "B"}
+    assert [r["name"] for r in out] == ["A", "B", "C"]
+    assert {r["name"] for r in salvos["scan"]} == {"A", "B", "C"}
+    assert not (tmp_path / "parcial.json").exists()
+
+
+def test_checkpoint_velho_ou_ruim_e_ignorado(monkeypatch, tmp_path):
+    monkeypatch.setattr(worker, "_caminho_checkpoint",
+                        lambda: tmp_path / "parcial.json")
+    agora = time.time()
+    assert worker._carregar_checkpoint(agora) is None
+    (tmp_path / "parcial.json").write_text("{quebrado")
+    assert worker._carregar_checkpoint(agora) is None
+    (tmp_path / "parcial.json").write_text(json.dumps(
+        {"inicio": agora - 4 * 3600, "results": [{"name": "A", "score": 1}]}))
+    assert worker._carregar_checkpoint(agora) is None
+    (tmp_path / "parcial.json").write_text(json.dumps(
+        {"inicio": agora - 60, "results": [{"name": "A", "score": 1}, "lixo"]}))
+    assert worker._carregar_checkpoint(agora)["results"] == [
+        {"name": "A", "score": 1}]
+
+
+def test_run_once_parada_no_meio_guarda_checkpoint_sem_gravar_scan(
+        monkeypatch, tmp_path):
+    salvos = _worker_isolado(monkeypatch, tmp_path)
+
+    def _fake(categories, on_resultado=None, cancelled=None, **kw):
+        on_resultado({"name": "A", "score": 1})
+        worker._parar = True
+        assert cancelled() is True
+        return [{"name": "A", "score": 1}]
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    assert worker.run_once({"C": ["A", "B"]}) == []
+    assert salvos == {}
+    dados = json.loads((tmp_path / "parcial.json").read_text())
+    assert [r["name"] for r in dados["results"]] == ["A"]
+
+
+def test_sigterm_fora_do_scan_sai_e_dentro_so_marca(monkeypatch):
+    monkeypatch.setattr(worker, "_escaneando", True)
+    worker._ao_receber_sigterm(15, None)
+    assert worker._parar is True
+    monkeypatch.setattr(worker, "_escaneando", False)
+    with pytest.raises(SystemExit):
+        worker._ao_receber_sigterm(15, None)
+
+
+def test_main_com_checkpoint_recente_retoma_sem_esperar(monkeypatch, tmp_path):
+    monkeypatch.setattr(worker, "_caminho_checkpoint",
+                        lambda: tmp_path / "parcial.json")
+    (tmp_path / "parcial.json").write_text(json.dumps(
+        {"inicio": time.time() - 60, "results": []}))
+    monkeypatch.setattr(worker.scan_store, "load_historico_ciclos",
+                        lambda: [{"ts": time.time() - 60}])
+    rodou = []
+    monkeypatch.setattr(worker, "run_once", lambda: rodou.append(1) or [])
+    chamadas = []
+
+    def _fake_sleep(segundos):
+        chamadas.append(segundos)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(worker.time, "sleep", _fake_sleep)
+    with pytest.raises(KeyboardInterrupt):
+        worker.main(intervalo_horas=6)
+    # Sem a espera inicial: rodou o ciclo e só então dormiu o intervalo.
+    assert rodou == [1]
+    assert chamadas == [6 * 3600]
+
+
 def _worker_main_uma_volta(monkeypatch):
     """Roda `main()` e para na 1a chamada de `time.sleep` (`while True`
     de verdade pararia a suite). Devolve os segundos passados pra sleep."""

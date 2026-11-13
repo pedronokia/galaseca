@@ -44,8 +44,9 @@ jobs:
             # imagem que só é reconstruída com [restart-worker] no commit.
             # Desde 2026-10-29 o worker espera o próximo ciclo ao subir
             # (`espera_ate_proximo_ciclo`), então reiniciá-lo fora de um
-            # scan não custa requisição; reiniciar NO MEIO de um scan
-            # ainda interrompe a coleta, por isso continua opt-in.
+            # scan não custa requisição; desde 2026-11-13 reiniciar NO
+            # MEIO de um scan retoma do checkpoint (data/scan_parcial.json)
+            # em vez de perder a coleta, mas segue opt-in.
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d web

@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import signal
 import sys
 import time
 from pathlib import Path
@@ -235,6 +236,69 @@ def _com_containers_novos(
             for cat, nomes in categories.items()}
 
 
+# Checkpoint do ciclo em andamento (2026-11-13): antes, um reinício no
+# meio do scan perdia o ciclo inteiro (o resultado só era gravado no
+# fim) -- por isso o deploy do worker exigia escolher a hora. Agora o
+# worker grava o que já coletou a cada `_CHECKPOINT_A_CADA` itens e, ao
+# subir, retoma de onde parou se o checkpoint for recente.
+_CHECKPOINT_A_CADA = 5
+_CHECKPOINT_MAX_H = 3.0
+
+# Pedido de parada (SIGTERM do `docker stop`/deploy): o laço do scan
+# termina entre dois itens, com o checkpoint gravado.
+_parar = False
+_escaneando = False
+
+
+def _ao_receber_sigterm(signum, frame) -> None:
+    global _parar
+    _parar = True
+    _logger.info("Pedido de parada recebido; encerrando entre dois itens")
+    if not _escaneando:
+        raise SystemExit(0)
+
+
+def _caminho_checkpoint() -> Path:
+    return Path(_paths.DATA_DIR) / "scan_parcial.json"
+
+
+def _carregar_checkpoint(agora: float) -> "dict | None":
+    """{"inicio", "results"} do ciclo interrompido, ou None se não há,
+    está ilegível ou é velho demais pra ainda ser "este" ciclo."""
+    try:
+        dados = json.loads(_caminho_checkpoint().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(dados, dict):
+        return None
+    inicio = dados.get("inicio")
+    results = dados.get("results")
+    if (not isinstance(inicio, (int, float)) or not isinstance(results, list)
+            or agora - inicio > _CHECKPOINT_MAX_H * 3600):
+        return None
+    results = [r for r in results
+               if isinstance(r, dict) and "name" in r and "score" in r]
+    return {"inicio": float(inicio), "results": results}
+
+
+def _gravar_checkpoint(inicio: float, results: "list[dict]") -> None:
+    try:
+        atomic_write_text(_caminho_checkpoint(), json.dumps(
+            {"inicio": inicio, "results": results}, ensure_ascii=False,
+            default=str))
+    except OSError:
+        _logger.warning("não gravou o checkpoint do scan", exc_info=True)
+
+
+def _apagar_checkpoint() -> None:
+    try:
+        _caminho_checkpoint().unlink()
+    except FileNotFoundError:
+        pass
+    except OSError:
+        _logger.warning("não apagou o checkpoint do scan", exc_info=True)
+
+
 def _on_progress(msg: str) -> None:
     _logger.info(msg)
     m = _PROGRESSO_RE.match(msg)
@@ -271,6 +335,7 @@ def _verificar_arquivos_do_jogo() -> None:
 def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     """Um ciclo: checa os arquivos do jogo, escaneia, grava scan_store +
     ranking. Devolve os resultados."""
+    global _escaneando
     if categories is None:
         categories = categorias_padrao()
     _verificar_arquivos_do_jogo()
@@ -288,6 +353,19 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     if ritmo > 1.0:
         _logger.info("Ciclo anterior levou 429: ritmo %.2fx", ritmo)
     inicio = time.time()
+    checkpoint = _carregar_checkpoint(inicio)
+    ja_coletados: "list[dict]" = list(checkpoint["results"]) if checkpoint else []
+    inicio_ciclo = checkpoint["inicio"] if checkpoint else inicio
+    if ja_coletados:
+        _logger.info("Retomando ciclo interrompido: %d itens já coletados",
+                     len(ja_coletados))
+    acumulados = list(ja_coletados)
+
+    def _on_resultado(r: dict) -> None:
+        acumulados.append(r)
+        if len(acumulados) % _CHECKPOINT_A_CADA == 0:
+            _gravar_checkpoint(inicio_ciclo, acumulados)
+
     falhas: "list[str]" = []
     relatorio: dict = {}
     # Quem tinha histórico no ciclo anterior: página sem histórico agora,
@@ -295,10 +373,25 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     tinham_historico = {
         r["name"] for r in (anterior or {}).get("results") or []
         if ((r.get("data_quality") or {}).get("n") or 0) > 0}
-    novos = scan_engine.run_full_scan(
-        _ordenar_por_nota_anterior(categories), on_progress=_on_progress,
-        falhas=falhas, ritmo=ritmo, relatorio=relatorio,
-        tinham_historico=tinham_historico)
+    _escaneando = True
+    try:
+        novos = scan_engine.run_full_scan(
+            _ordenar_por_nota_anterior(categories), on_progress=_on_progress,
+            falhas=falhas, ritmo=ritmo, relatorio=relatorio,
+            tinham_historico=tinham_historico,
+            pular={r["name"] for r in ja_coletados},
+            on_resultado=_on_resultado,
+            cancelled=lambda: _parar)
+    finally:
+        _escaneando = False
+    if _parar:
+        # Parada pedida no meio: guarda o que veio e deixa o ciclo pra
+        # ser retomado no próximo start, sem gravar scan/ranking parcial.
+        _gravar_checkpoint(inicio_ciclo, acumulados)
+        _logger.info("Scan interrompido com %d itens no checkpoint",
+                     len(acumulados))
+        return []
+    novos = ja_coletados + novos
     if relatorio.get("throttle_silencioso"):
         _logger.warning("Throttle silencioso detectado %d vez(es)",
                         relatorio["throttle_silencioso"])
@@ -342,6 +435,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
             resultados, key=lambda r: (
                 -r.get("score", 0), -signals.raw_score(r.get("breakdown"))),
         )[:_TOP_RANKING])
+    _apagar_checkpoint()
     # Termômetro da extração de miniatura (sem requisição extra): se o
     # número ficar igual ao total, o HTML da Steam mudou de formato.
     _logger.info("Itens sem miniatura: %d de %d",
@@ -422,7 +516,11 @@ def main(intervalo_horas: "float | None" = None) -> None:
         intervalo_horas = float(
             ambiente("WORKER_INTERVAL_HORAS",
                            _INTERVALO_HORAS_DEFAULT))
+    signal.signal(signal.SIGTERM, _ao_receber_sigterm)
     espera = espera_ate_proximo_ciclo(intervalo_horas)
+    if espera > 0 and _carregar_checkpoint(time.time()):
+        _logger.info("Há um ciclo interrompido recente: retomando agora")
+        espera = 0
     if espera > 0:
         _logger.info("Último ciclo terminou há pouco; próximo em %.1f min",
                      espera / 60)
@@ -432,6 +530,8 @@ def main(intervalo_horas: "float | None" = None) -> None:
             run_once()
         except Exception:
             _logger.error("ciclo do worker falhou", exc_info=True)
+        if _parar:
+            return
         time.sleep(intervalo_horas * 3600)
 
 

@@ -295,6 +295,8 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
                   ritmo: float = 1.0,
                   relatorio: "dict | None" = None,
                   tinham_historico: "set[str] | None" = None,
+                  pular: "set[str] | None" = None,
+                  on_resultado: "Callable[[dict], None] | None" = None,
                   ) -> list[dict]:
     """Escaneia as categorias (default: todas de `scan_targets`), sem Qt.
 
@@ -328,6 +330,11 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
     mesma pausa escalonada de um 429) e voltam pro fim do ciclo. Se um
     item normal aparece antes disso, os anteriores eram genuínos e
     entram como vieram.
+
+    Retomada (2026-11-13): `pular` são nomes já coletados neste ciclo
+    antes de um reinício (checkpoint do worker) -- não são buscados de
+    novo. `on_resultado` é chamado com cada resultado aceito, na hora,
+    pra quem chama gravar o checkpoint.
     """
     ritmo = max(1.0, float(ritmo or 1.0))
     if categories is None:
@@ -370,6 +377,9 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         esperado += espera
         return True
 
+    if pular:
+        items = [(n, c) for n, c in items if n not in pular]
+
     results: list[dict] = []
     sem_resultado: list[str] = []
     sem_preco: list[str] = []
@@ -405,6 +415,8 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         if sombra:
             sombras.append(sombra)
         results.append(result)
+        if on_resultado:
+            on_resultado(result)
     adiados: list[tuple[str, str]] = []
     interrompido = False
     for i, (name, cat) in enumerate(items):

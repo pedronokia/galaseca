@@ -37,6 +37,10 @@ services:
       context: .
       dockerfile: Dockerfile.public-site
     command: python -m galaseca.public_site.worker
+    # SIGTERM do deploy: o worker termina o item em curso e grava o
+    # checkpoint (data/scan_parcial.json) antes de sair; um item pode
+    # levar ~15 s de requisição + pausas, então 10 s (padrão) é curto.
+    stop_grace_period: 40s
     environment:
       - GALASECA_WORKER_INTERVAL_HORAS=6
     volumes:
