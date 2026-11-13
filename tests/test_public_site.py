@@ -5512,3 +5512,38 @@ def test_textos_sem_jargao_e_sem_promessa(client, monkeypatch):
     glossario = (raiz / "glossario.html").read_text(encoding="utf-8")
     assert "tendem a\n      valorizar" not in glossario
     assert "Não é garantia" in glossario
+
+
+def test_admin_alerta_de_teste_mostra_resultado_na_secao(client, monkeypatch):
+    monkeypatch.setattr(
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK",
+                       "https://discord.com/api/webhooks/1/abc")
+    enviados = []
+    monkeypatch.setattr(
+        "lodout.public_site.server.discord_notify.enviar",
+        lambda url, msg: enviados.append(msg) or True)
+    client.post("/admin/login", data={"senha": "segredo"})
+    painel = client.get("/admin").data.decode("utf-8")
+    assert "Enviar alerta de teste" in painel
+    with client.session_transaction() as sess:
+        token = sess["csrf_token"]
+    resp = client.post("/admin/testar-webhook", data={"csrf_token": token})
+    assert resp.status_code == 302 and resp.location.endswith("#alertas")
+    assert "alerta de teste" in enviados[0]
+    depois = client.get(resp.location).data.decode("utf-8")
+    assert "Alerta de teste enviado — confira o canal no Discord." in depois
+
+
+def test_admin_sem_webhook_explica_como_ligar(client, monkeypatch):
+    monkeypatch.setattr(
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
+        generate_password_hash("segredo"))
+    for v in ("LODOUT_ADMIN_DISCORD_WEBHOOK", "GALASECA_ADMIN_DISCORD_WEBHOOK",
+              "SKINVAULT_ADMIN_DISCORD_WEBHOOK"):
+        monkeypatch.delenv(v, raising=False)
+    client.post("/admin/login", data={"senha": "segredo"})
+    painel = client.get("/admin").data.decode("utf-8")
+    assert "Enviar alerta de teste" not in painel
+    assert "crie o secret <code>ADMIN_DISCORD_WEBHOOK</code>" in painel

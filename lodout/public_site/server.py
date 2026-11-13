@@ -1031,10 +1031,15 @@ def create_app() -> Flask:
             return "", 403
         webhook = ambiente("ADMIN_DISCORD_WEBHOOK", "")
         enviado = discord_notify.enviar(
-            webhook, "🔧 Lodout: mensagem de teste do painel admin.")
-        flash_msg = "Enviado -- confira o canal." if enviado else \
-            "Falhou (webhook ausente ou Discord recusou)."
-        return redirect(url_for("admin", teste_webhook=flash_msg))
+            webhook, "🔧 Lodout: alerta de teste do painel admin. Se você "
+            "está lendo isto, os alertas do site chegam neste canal.")
+        flash_msg = ("Alerta de teste enviado — confira o canal no Discord."
+                     if enviado else
+                     "Não chegou: o Discord recusou ou o webhook está "
+                     "incompleto. Confira se o secret ADMIN_DISCORD_WEBHOOK "
+                     "tem a URL inteira do webhook e faça um novo deploy.")
+        return redirect(url_for("admin", teste_webhook=flash_msg,
+                                _anchor="alertas"))
 
     @app.route("/admin/backup/<nome>")
     @_admin_required

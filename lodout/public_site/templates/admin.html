@@ -33,10 +33,6 @@
       <div class="card"><span class="card-label">Disco livre</span><span class="card-valor {{ 'valor-negativo' if disco.livre_pct is not none and disco.livre_pct < 15 else '' }}">{{ disco.livre_fmt }} ({{ disco.livre_pct }}%)</span></div>
     </section>
 
-    {% if teste_webhook_msg %}
-      <p class="status">{{ teste_webhook_msg }}</p>
-    {% endif %}
-
     <h2 class="secao-titulo">Armazenamento</h2>
     <ul>
       <li>Disco: {{ disco.livre_fmt }} livres de {{ disco.total_fmt }}</li>
@@ -44,14 +40,18 @@
       <li>Backups acumulados: {{ disco.backups_fmt }}</li>
     </ul>
 
-    <h2 class="secao-titulo">Webhook do Discord (alerta de worker atrasado)</h2>
+    <h2 class="secao-titulo" id="alertas">Alertas no Discord</h2>
+    <p>Mensagens pro seu canal quando a coleta de preços fica horas sem trazer nada, quando uma coleta volta com menos de 85% dos itens ou com bloqueio disfarçado da Steam, e quando o disco do servidor está enchendo.</p>
+    {% if teste_webhook_msg %}
+      <p class="status" role="status">{{ teste_webhook_msg }}</p>
+    {% endif %}
     {% if webhook_configurado %}
       <form method="post" action="{{ url_for('admin_testar_webhook') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="botao-link">Enviar mensagem de teste</button>
+        <button type="submit" class="botao-acao">Enviar alerta de teste</button>
       </form>
     {% else %}
-      <p class="status status-vazio">LODOUT_ADMIN_DISCORD_WEBHOOK não configurado.</p>
+      <p class="status status-vazio">Alertas desligados: crie o secret <code>ADMIN_DISCORD_WEBHOOK</code> no GitHub (Settings → Secrets and variables → Actions) com a URL do webhook e faça um novo deploy.</p>
     {% endif %}
 
     <h2 class="secao-titulo">Termos mais buscados</h2>
