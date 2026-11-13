@@ -19,8 +19,8 @@ PASTA = Path(__file__).resolve().parent
 
 # (hash, cor inicial do degradê, cor final, cor das formas)
 PALETAS = [
-    ("fixa-galaseca", (0, 113, 227), (0, 40, 90), (255, 255, 255)),
-    ("fixb-galaseca", (249, 115, 22), (120, 40, 0), (255, 245, 230)),
+    ("fixa-lodout", (0, 113, 227), (0, 40, 90), (255, 255, 255)),
+    ("fixb-lodout", (249, 115, 22), (120, 40, 0), (255, 245, 230)),
 ]
 
 

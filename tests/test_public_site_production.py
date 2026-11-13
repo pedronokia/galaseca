@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from flask import Flask
 
-from galaseca.public_site import server
-from galaseca.public_site.wsgi import app as wsgi_app
+from lodout.public_site import server
+from lodout.public_site.wsgi import app as wsgi_app
 
 
 def test_wsgi_app_e_flask_app():
@@ -12,13 +12,13 @@ def test_wsgi_app_e_flask_app():
 
 
 def test_secure_cookie_desligado_por_padrao(monkeypatch):
-    monkeypatch.delenv("GALASECA_PUBLIC_SITE_SECURE_COOKIES", raising=False)
+    monkeypatch.delenv("LODOUT_PUBLIC_SITE_SECURE_COOKIES", raising=False)
     app = server.create_app()
     assert app.config["SESSION_COOKIE_SECURE"] is False
 
 
 def test_secure_cookie_ligado_via_env(monkeypatch):
-    monkeypatch.setenv("GALASECA_PUBLIC_SITE_SECURE_COOKIES", "1")
+    monkeypatch.setenv("LODOUT_PUBLIC_SITE_SECURE_COOKIES", "1")
     app = server.create_app()
     assert app.config["SESSION_COOKIE_SECURE"] is True
 

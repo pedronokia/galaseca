@@ -6,7 +6,7 @@ O problema que este script resolve: o site renderiza "tempo relativo"
 que mudam a cada ciclo do worker. Uma comparação pixel a pixel só é
 estável se TODOS os insumos forem fixos. Então o script:
 
-1. Semeia um `GALASECA_DATA_DIR` temporário com um dataset escrito à mão
+1. Semeia um `LODOUT_DATA_DIR` temporário com um dataset escrito à mão
    (scanner_last.json, rankings.json com 3 snapshots, item_history.json,
    visitas.json) e ícones de fixture copiados de `tests/visual/fixtures/`
    (nenhum byte vem da rede);
@@ -54,7 +54,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[2]
 # Rodar como "python tests/visual/visual_regression.py" não coloca a raiz
-# do repo no sys.path -- e o script só é útil com o pacote galaseca
+# do repo no sys.path -- e o script só é útil com o pacote lodout
 # importável de lá.
 sys.path.insert(0, str(RAIZ))
 _PASTA = Path(__file__).resolve().parent
@@ -78,8 +78,8 @@ _ITEM_HERO = "★ Karambit | Fade (Factory New)"
 
 # Hashes de ícone de fixture (passam no _sanitizar de icon_cache.py:
 # só letras, dígitos, "-" e "_").
-ICONE_A = "fixa-galaseca"
-ICONE_B = "fixb-galaseca"
+ICONE_A = "fixa-lodout"
+ICONE_B = "fixb-lodout"
 
 
 # --------------------------------------------------------------- semente
@@ -305,9 +305,9 @@ def _semear(data_dir: Path) -> None:
 
 def _congelar_relogio():
     """Patches de módulo pro site renderizar sempre a mesma coisa."""
-    import galaseca.public_site.server as server
-    import galaseca.scan_store as scan_store
-    import galaseca.public_site.visits as visits
+    import lodout.public_site.server as server
+    import lodout.scan_store as scan_store
+    import lodout.public_site.visits as visits
 
     class _TempoFixo:
         """Substituto do módulo `time` dentro de server.py -- cobre o
@@ -335,7 +335,7 @@ def _subir_servidor():
     """Flask em thread (porta aleatória); devolve (servidor, porta)."""
     from werkzeug.serving import make_server
 
-    import galaseca.public_site.server as server
+    import lodout.public_site.server as server
 
     app = server.create_app()
     servidor = make_server("127.0.0.1", 0, app, threaded=True)
@@ -523,12 +523,12 @@ def main() -> int:
               "são comitados junto com o script.")
         return 2
 
-    # O dataset precisa existir ANTES do primeiro import de galaseca
+    # O dataset precisa existir ANTES do primeiro import de lodout
     # (os módulos resolvem DATA_DIR a partir da env var no import).
-    temp = Path(tempfile.mkdtemp(prefix="galaseca-visual-"))
+    temp = Path(tempfile.mkdtemp(prefix="lodout-visual-"))
     try:
         _semear(temp)
-        os.environ["GALASECA_DATA_DIR"] = str(temp)
+        os.environ["LODOUT_DATA_DIR"] = str(temp)
         os.environ.pop("SKINVAULT_DATA_DIR", None)  # fallback nunca vaza
 
         _congelar_relogio()

@@ -1,7 +1,7 @@
 """Testes de db.py/user_store.py (conta + dado pessoal por usuário)."""
 from __future__ import annotations
 
-from galaseca.public_site import db, user_store
+from lodout.public_site import db, user_store
 
 
 def test_connect_cria_schema(tmp_path):

@@ -4,7 +4,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from galaseca.public_site import steam_openid
+from lodout.public_site import steam_openid
 
 
 def test_login_redirect_url_contem_params_esperados():

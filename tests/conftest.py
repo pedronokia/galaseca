@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 
-_TEST_ROOT = Path(tempfile.mkdtemp(prefix="galaseca-tests-"))
+_TEST_ROOT = Path(tempfile.mkdtemp(prefix="lodout-tests-"))
 DATA_DIR_TESTE = _TEST_ROOT / "data"
 DATA_DIR_TESTE.mkdir()
-os.environ["GALASECA_DATA_DIR"] = str(DATA_DIR_TESTE)
+os.environ["LODOUT_DATA_DIR"] = str(DATA_DIR_TESTE)
 # Nome antigo (ainda aceito como fallback) não pode vazar do ambiente.
 os.environ.pop("SKINVAULT_DATA_DIR", None)
 atexit.register(shutil.rmtree, _TEST_ROOT, True)
@@ -24,10 +24,10 @@ def _data_dir_isolado():
     yield
     import importlib
 
-    import galaseca._paths as paths
+    import lodout._paths as paths
 
     if paths.DATA_DIR != DATA_DIR_TESTE:
-        os.environ["GALASECA_DATA_DIR"] = str(DATA_DIR_TESTE)
+        os.environ["LODOUT_DATA_DIR"] = str(DATA_DIR_TESTE)
         importlib.reload(paths)
 
 
@@ -60,15 +60,15 @@ def _sem_rede(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _sem_espera_de_rate_limit(monkeypatch):
-    from galaseca import steam_api
+    from lodout import steam_api
 
     monkeypatch.setattr(steam_api, "RATE_LIMIT_DELAY_S", 0.0)
 
 
 @pytest.fixture(autouse=True)
 def _sem_disjuntores_de_rate_limit():
-    from galaseca import steam_api
-    from galaseca.public_site import rate_limit
+    from lodout import steam_api
+    from lodout.public_site import rate_limit
 
     steam_api._rate_limit_state.clear()
     rate_limit.reset()

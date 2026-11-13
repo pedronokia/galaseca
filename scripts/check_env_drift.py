@@ -19,12 +19,12 @@ import sys
 # (variável, descrição, obrigatória?)
 _ESPERADAS: list[tuple[str, str, bool]] = [
     ("SITE_DOMAIN", "domínio público servido pelo Caddy", True),
-    ("GALASECA_DATA_DIR", "pasta de dados persistida (volume)", True),
-    ("GALASECA_ADMIN_PASSWORD_HASH", "hash da senha do /admin/login", False),
-    ("GALASECA_PUBLIC_SITE_SECURE_COOKIES", "cookies Secure (HTTPS)", False),
-    ("GALASECA_WORKER_INTERVAL_HORAS", "intervalo do worker (default 6h)", False),
-    ("GALASECA_ADMIN_DISCORD_WEBHOOK", "alerta Discord de worker atrasado", False),
-    ("GALASECA_WORKER_ALERT_HORAS", "limite de horas pro alerta acima", False),
+    ("LODOUT_DATA_DIR", "pasta de dados persistida (volume)", True),
+    ("LODOUT_ADMIN_PASSWORD_HASH", "hash da senha do /admin/login", False),
+    ("LODOUT_PUBLIC_SITE_SECURE_COOKIES", "cookies Secure (HTTPS)", False),
+    ("LODOUT_WORKER_INTERVAL_HORAS", "intervalo do worker (default 6h)", False),
+    ("LODOUT_ADMIN_DISCORD_WEBHOOK", "alerta Discord de worker atrasado", False),
+    ("LODOUT_WORKER_ALERT_HORAS", "limite de horas pro alerta acima", False),
 ]
 
 

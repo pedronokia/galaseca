@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from galaseca import steam_api, steam_news
+from lodout import steam_api, steam_news
 
 
 @pytest.fixture(autouse=True)

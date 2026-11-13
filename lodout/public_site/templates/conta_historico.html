@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meu histórico — Lodout</title>
+  <meta name="robots" content="noindex">
+  {% include "partials/_head_pwa.html" %}
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+</head>
+<body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
+  <header class="topo">
+    <div class="topo-linha">
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
+      {% include "partials/_conta_link.html" %}
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Meu histórico</h1>
+      <p class="descricao-pagina">Valor de mercado da sua carteira a cada visita a "Minha conta" — um ponto por mudança, não por segundo.</p>
+    </header>
+
+    <div class="resumo-cards">
+      <div class="card">
+        {% if grafico %}
+          <div class="card grafico-card{{ ' grafico-tendencia-' ~ grafico_tendencia if grafico_tendencia else '' }}">{{ grafico|safe }}</div>
+          {% if grafico_legenda %}<p class="status-muted">{{ grafico_legenda }}</p>{% endif %}
+        {% else %}
+          <p class="status status-vazio">Ainda não há pontos suficientes pra um gráfico — visite "Minha conta" de novo depois que o valor mudar.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <h2 class="secao-titulo">Pontos registrados</h2>
+    {% if pontos %}
+    <p class="dica-rolagem-tabela dica-rolagem-tabela-conta">Deslize a tabela para o lado para ver as demais colunas.</p>
+    <div class="tabela-wrap tabela-wrap-cards" role="region" tabindex="0" aria-label="Tabela de pontos registrados do histórico, com rolagem lateral">
+    <table class="tabela-candidatos tabela-cards-mobile">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Valor de mercado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pontos %}
+        <tr>
+          <td data-label="Data">{{ p.data }}</td>
+          <td data-label="Valor de mercado">{{ p.total_fmt }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="status status-vazio">Nenhum ponto registrado ainda.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Cada ponto é o valor de mercado no momento da visita — não é projeção nem recomendação de investimento.</p>
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

@@ -1,4 +1,4 @@
-"""Roda galaseca.score_backtest sobre um dataset já coletado e imprime
+"""Roda lodout.score_backtest sobre um dataset já coletado e imprime
 um relatório Sp/Pe por horizonte -- mesmo formato dos comentários de
 validação já existentes em signals.py.
 
@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from galaseca import score_backtest
+from lodout import score_backtest
 
 
 def main() -> None:

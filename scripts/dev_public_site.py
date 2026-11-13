@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from galaseca._paths import ensure_data_dir
-from galaseca.public_site import server
+from lodout._paths import ensure_data_dir
+from lodout.public_site import server
 
 if __name__ == "__main__":
     ensure_data_dir()

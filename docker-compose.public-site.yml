@@ -1,5 +1,5 @@
 # Roda o site público localmente (ou num VPS) com Docker: web + worker
-# compartilhando o mesmo volume de dados. Ver galaseca/public_site/README.md.
+# compartilhando o mesmo volume de dados. Ver lodout/public_site/README.md.
 #
 # Uso: docker compose -f docker-compose.public-site.yml up --build
 services:
@@ -20,7 +20,7 @@ services:
     environment:
       # Só pro /admin mostrar se os alertas do dono estão ligados (ver o
       # mesmo item no worker abaixo).
-      - GALASECA_ADMIN_DISCORD_WEBHOOK=${GALASECA_ADMIN_DISCORD_WEBHOOK:-}
+      - LODOUT_ADMIN_DISCORD_WEBHOOK=${LODOUT_ADMIN_DISCORD_WEBHOOK:-}
     volumes:
       - skinvault_data:/data
     restart: unless-stopped
@@ -40,26 +40,27 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.public-site
-    command: python -m galaseca.public_site.worker
+    command: python -m lodout.public_site.worker
     # SIGTERM do deploy: o worker termina o item em curso e grava o
     # checkpoint (data/scan_parcial.json) antes de sair; um item pode
     # levar ~15 s de requisição + pausas, então 10 s (padrão) é curto.
     stop_grace_period: 40s
     environment:
-      - GALASECA_WORKER_INTERVAL_HORAS=6
+      - LODOUT_WORKER_INTERVAL_HORAS=6
       # Alertas do dono (worker_alert.py). Vem do secret
       # ADMIN_DISCORD_WEBHOOK do GitHub via deploy.yml -- nunca escrito
       # aqui. Vazio = sem alerta.
-      - GALASECA_ADMIN_DISCORD_WEBHOOK=${GALASECA_ADMIN_DISCORD_WEBHOOK:-}
+      - LODOUT_ADMIN_DISCORD_WEBHOOK=${LODOUT_ADMIN_DISCORD_WEBHOOK:-}
     volumes:
       - skinvault_data:/data
     restart: unless-stopped
     logging: *log-rotativo
 
-# NÃO renomear para galaseca_data: o nome do volume é a chave dos dados
+# NÃO renomear para lodout_data: o nome do volume é a chave dos dados
 # de produção (banco de contas, scans, chave de sessão). Um nome novo cria
 # um volume vazio e o site perde tudo. Ficou com o nome antigo de propósito
-# na troca SkinVault -> GalaSeca (2026-10-29), assim como a pasta ~/skinvault
+# nas trocas SkinVault -> GalaSeca (2026-10-29) e GalaSeca -> Lodout
+# (2026-11-13), assim como a pasta ~/skinvault
 # na VM, que define o nome do projeto Docker e, portanto, o dos volumes.
 volumes:
   skinvault_data:

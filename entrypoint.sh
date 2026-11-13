@@ -2,7 +2,7 @@
 # Entrypoint do site público -- roda como root só o tempo necessário
 # pra corrigir a posse de /data, depois cede o processo principal
 # (gunicorn do "web" ou "python -m ...worker" do "worker") pro usuário
-# sem privilégio `galaseca` (achado de auditoria, skill docker-
+# sem privilégio `lodout` (achado de auditoria, skill docker-
 # security-guide, 2026-11-05: a imagem rodava como root inteira,
 # nenhum USER no Dockerfile).
 #
@@ -18,8 +18,8 @@
 # preserva os argumentos como array, não como string recolada -- sem
 # isso, o CMD padrão do "web" (`/bin/sh -c "gunicorn --bind ... ${PORT:-8000} ..."`,
 # que vem embrulhado pelo Docker quando o CMD é shell-form) ou o
-# `command:` do "worker" (`python -m galaseca.public_site.worker`)
+# `command:` do "worker" (`python -m lodout.public_site.worker`)
 # podiam quebrar com argumento que tenha espaço.
 set -e
-chown -R galaseca:galaseca /data
-exec su -s /bin/sh galaseca -c 'exec "$0" "$@"' -- "$@"
+chown -R lodout:lodout /data
+exec su -s /bin/sh lodout -c 'exec "$0" "$@"' -- "$@"

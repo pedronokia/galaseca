@@ -1,7 +1,7 @@
 """Testes do case database."""
 from __future__ import annotations
 
-from galaseca import cases
+from lodout import cases
 
 
 def test_normalize_strips_wear():
@@ -483,7 +483,7 @@ def test_list_all_stickers_has_autograph_category():
 
 
 def test_sticker_data_importable():
-    from galaseca.sticker_data import get_all
+    from lodout.sticker_data import get_all
     assert len(get_all()) >= 9700
 
 

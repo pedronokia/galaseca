@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from galaseca import signals
+from lodout import signals
 
 DIA = 86400
 

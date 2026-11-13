@@ -1,7 +1,7 @@
-"""Testes do contador de termos buscados (galaseca/public_site/buscas.py)."""
+"""Testes do contador de termos buscados (lodout/public_site/buscas.py)."""
 from __future__ import annotations
 
-from galaseca.public_site import buscas
+from lodout.public_site import buscas
 
 
 def test_registrar_e_contar(tmp_path):

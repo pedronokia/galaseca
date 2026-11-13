@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from galaseca import prices, steam_api
+from lodout import prices, steam_api
 
 
 def test_cache_hit_within_ttl(tmp_path):

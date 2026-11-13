@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from galaseca import steam_api
-from galaseca.steam_api import (
+from lodout import steam_api
+from lodout.steam_api import (
     _extract_render_context,
     _find_query,
     _js_unescape,
@@ -298,7 +298,7 @@ class TestGetMarketPageData:
         def mock_get(url: str, timeout: float = 15.0):
             return 200, MOCK_HTML
 
-        monkeypatch.setattr("galaseca.steam_api._http_get", mock_get)
+        monkeypatch.setattr("lodout.steam_api._http_get", mock_get)
         result = get_market_page_data("AK-47 | Redline (Field-Tested)")
         assert result is not None
         assert "price_history" in result
@@ -318,7 +318,7 @@ class TestGetMarketPageData:
             'economy/image/skin-icon-hash/192fx192f"></body>',
         )
         monkeypatch.setattr(
-            "galaseca.steam_api._http_get", lambda url: (200, html))
+            "lodout.steam_api._http_get", lambda url: (200, html))
 
         result = get_market_page_data("AK-47 | Redline (Field-Tested)")
 
@@ -328,14 +328,14 @@ class TestGetMarketPageData:
         def mock_get(url: str, timeout: float = 15.0):
             return 404, None
 
-        monkeypatch.setattr("galaseca.steam_api._http_get", mock_get)
+        monkeypatch.setattr("lodout.steam_api._http_get", mock_get)
         assert get_market_page_data("AK-47 | Redline") is None
 
     def test_returns_none_on_no_data(self, monkeypatch):
         def mock_get(url: str, timeout: float = 15.0):
             return 200, "<html></html>"
 
-        monkeypatch.setattr("galaseca.steam_api._http_get", mock_get)
+        monkeypatch.setattr("lodout.steam_api._http_get", mock_get)
         assert get_market_page_data("AK-47 | Redline") is None
 
 
@@ -374,7 +374,7 @@ class MockResponse:
 
 def test_http_get_success(monkeypatch):
     monkeypatch.setattr(
-        "galaseca.steam_api.httpx.get",
+        "lodout.steam_api.httpx.get",
         lambda url, **kw: MockResponse())
     code, body = steam_api._http_get("http://x")
     assert code == 200
@@ -385,7 +385,7 @@ def test_http_get_httperror_returns_code(monkeypatch):
     """Status de erro (429) vem direto na resposta -- httpx nao levanta
     excecao por status, diferente do urllib antigo."""
     monkeypatch.setattr(
-        "galaseca.steam_api.httpx.get",
+        "lodout.steam_api.httpx.get",
         lambda url, **kw: MockResponse(status_code=429, text=""))
     code, body = steam_api._http_get("http://x")
     assert code == 429
@@ -398,7 +398,7 @@ def test_http_get_network_error_returns_zero(monkeypatch):
     def _raise(url, **kw):
         raise httpx.ConnectError("connection refused")
 
-    monkeypatch.setattr("galaseca.steam_api.httpx.get", _raise)
+    monkeypatch.setattr("lodout.steam_api.httpx.get", _raise)
     code, body = steam_api._http_get("http://x")
     assert code == 0
     assert body is None
@@ -413,7 +413,7 @@ def test_http_get_segue_redirecionamento(monkeypatch):
         recebido.update(kw)
         return MockResponse()
 
-    monkeypatch.setattr("galaseca.steam_api.httpx.get", _get)
+    monkeypatch.setattr("lodout.steam_api.httpx.get", _get)
     steam_api._http_get("http://x")
     assert recebido.get("follow_redirects") is True
 
@@ -432,7 +432,7 @@ def test_http_get_timeout_de_verdade_nao_trava_pra_sempre(monkeypatch):
         liberar.wait()  # só libera se o teste mandar -- simula o hang
         return MockResponse()
 
-    monkeypatch.setattr("galaseca.steam_api.httpx.get", _pendurado)
+    monkeypatch.setattr("lodout.steam_api.httpx.get", _pendurado)
     inicio = time_mod.time()
     code, body = steam_api._http_get("http://x", timeout=0.3)
     duracao = time_mod.time() - inicio
@@ -446,12 +446,12 @@ def test_http_get_timeout_de_verdade_nao_trava_pra_sempre(monkeypatch):
 
 
 def test_get_json_non_200_returns_none(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (404, b"{}"))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (404, b"{}"))
     assert steam_api._get_json("http://x") is None
 
 
 def test_get_json_invalid_json_returns_none(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, "not json"))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, "not json"))
     assert steam_api._get_json("http://x") is None
 
 
@@ -485,12 +485,12 @@ def _fake_http(code, body):
 
 
 def test_get_market_price_no_data(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", _fake_http(500, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", _fake_http(500, None))
     assert steam_api.get_market_price("AK") is None
 
 
 def test_get_market_price_not_successful(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         _fake_http(200, '{"success": false}'))
     assert steam_api.get_market_price("AK") is None
 
@@ -498,7 +498,7 @@ def test_get_market_price_not_successful(monkeypatch):
 def test_get_market_price_falls_back_to_median(monkeypatch):
     """Sem lowest_price, usa median_price."""
     monkeypatch.setattr(
-        "galaseca.steam_api._http_get",
+        "lodout.steam_api._http_get",
         _fake_http(200, '{"success": true, "median_price": "R$ 200,00"}'))
     assert steam_api.get_market_price("AK") == 200.0
 
@@ -507,7 +507,7 @@ def test_get_market_price_falls_back_to_median(monkeypatch):
 
 def test_price_status_ok(monkeypatch):
     monkeypatch.setattr(
-        "galaseca.steam_api._http_get",
+        "lodout.steam_api._http_get",
         _fake_http(200, '{"success": true, "lowest_price": "R$ 150,00"}'))
     assert steam_api.get_market_price_status("AK") == (
         steam_api.PRICE_OK, 150.0)
@@ -515,34 +515,34 @@ def test_price_status_ok(monkeypatch):
 
 def test_price_status_429_e_rate_limited(monkeypatch):
     """O caso que antes virava 'sem preco' e envenenava o cache por 1h."""
-    monkeypatch.setattr("galaseca.steam_api._http_get", _fake_http(429, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", _fake_http(429, None))
     assert steam_api.get_market_price_status("AK") == (
         steam_api.PRICE_RATE_LIMITED, None)
 
 
 def test_price_status_sem_mercado(monkeypatch):
     """Steam respondeu: o item nao tem preco. Isso e' fato sobre o item."""
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         _fake_http(200, '{"success": false}'))
     assert steam_api.get_market_price_status("AK") == (
         steam_api.PRICE_NO_PRICE, None)
 
 
 def test_price_status_erro_de_rede(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", _fake_http(0, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", _fake_http(0, None))
     assert steam_api.get_market_price_status("AK") == (
         steam_api.PRICE_ERROR, None)
 
 
 def test_price_status_json_quebrado(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         _fake_http(200, "{nao e json"))
     assert steam_api.get_market_price_status("AK") == (
         steam_api.PRICE_ERROR, None)
 
 
 def test_price_status_sucesso_sem_preco_parseavel(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         _fake_http(200, '{"success": true}'))
     assert steam_api.get_market_price_status("AK") == (
         steam_api.PRICE_NO_PRICE, None)
@@ -557,18 +557,18 @@ def test_apenas_ok_e_no_price_sao_cacheaveis():
 
 
 def test_get_market_overview_no_data(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._get_json", lambda url: None)
+    monkeypatch.setattr("lodout.steam_api._get_json", lambda url: None)
     assert steam_api.get_market_overview("AK") is None
 
 
 def test_get_market_overview_not_successful(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._get_json", lambda url: {"success": False})
+    monkeypatch.setattr("lodout.steam_api._get_json", lambda url: {"success": False})
     assert steam_api.get_market_overview("AK") is None
 
 
 def test_get_market_overview_parse(monkeypatch):
     monkeypatch.setattr(
-        "galaseca.steam_api._http_get",
+        "lodout.steam_api._http_get",
         _fake_http(200, '{"success": true, "lowest_price": "R$ 100,00", '
                         '"median_price": "R$ 110,00", "volume": "1,234"}'))
     r = steam_api.get_market_overview("AK")
@@ -580,7 +580,7 @@ def test_get_market_overview_parse(monkeypatch):
 def test_get_market_overview_429_registra_disjuntor(monkeypatch):
     """Achado real de 2026-10-24: esta funcao nunca registrava 429, entao
     um scan inteiro martelava o endpoint ja bloqueado do inicio ao fim."""
-    monkeypatch.setattr("galaseca.steam_api._http_get", _fake_http(429, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", _fake_http(429, None))
     assert steam_api.get_market_overview("AK") is None
     assert steam_api.em_cooldown("priceoverview")
 
@@ -592,7 +592,7 @@ def test_get_market_overview_respeita_disjuntor_ja_armado(monkeypatch):
         calls.append(url)
         return 200, '{"success": true, "lowest_price": "R$ 1,00"}'
 
-    monkeypatch.setattr("galaseca.steam_api._http_get", fake)
+    monkeypatch.setattr("lodout.steam_api._http_get", fake)
     steam_api._registrar_rate_limit("priceoverview")
     assert steam_api.get_market_overview("AK") is None
     assert calls == []
@@ -602,7 +602,7 @@ def test_get_market_overview_sucesso_limpa_disjuntor(monkeypatch):
     steam_api._registrar_rate_limit("priceoverview")
     steam_api._limpar_rate_limit("priceoverview")  # simula liberacao externa
     monkeypatch.setattr(
-        "galaseca.steam_api._http_get",
+        "lodout.steam_api._http_get",
         _fake_http(200, '{"success": true, "lowest_price": "R$ 1,00"}'))
     steam_api.get_market_overview("AK")
     assert steam_api.em_cooldown("priceoverview") is False
@@ -689,7 +689,7 @@ def test_familias_de_cooldown_sao_independentes():
 
 def test_fetch_inventory_respeita_cooldown_sem_bater_na_rede(monkeypatch):
     chamadas = []
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (chamadas.append(1), (200, "{}"))[1])
     steam_api._registrar_rate_limit("inventory")
     status, items = steam_api.fetch_inventory("123")
@@ -699,7 +699,7 @@ def test_fetch_inventory_respeita_cooldown_sem_bater_na_rede(monkeypatch):
 
 def test_resolve_steam_id_respeita_cooldown_sem_bater_na_rede(monkeypatch):
     chamadas = []
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (chamadas.append(1), (200, ""))[1])
     steam_api._registrar_rate_limit("resolve")
     status, sid = steam_api.resolve_steam_id("https://steamcommunity.com/id/teste")
@@ -708,7 +708,7 @@ def test_resolve_steam_id_respeita_cooldown_sem_bater_na_rede(monkeypatch):
 
 
 def test_fetch_inventory_429_registra_cooldown_pra_proxima_chamada(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (429, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (429, None))
     status, items = steam_api.fetch_inventory("123")
     assert status == "rate_limited"
     assert steam_api.em_cooldown("inventory") is True
@@ -724,7 +724,7 @@ def test_fetch_inventory_sucesso_limpa_cooldown_anterior(monkeypatch):
             "market_hash_name": "Item A", "tradable": 1,
         }],
     })
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, body))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, body))
     status, items = steam_api.fetch_inventory("123")
     assert status == "ok"
     assert steam_api.em_cooldown("inventory") is False
@@ -734,32 +734,32 @@ def test_fetch_inventory_sucesso_limpa_cooldown_anterior(monkeypatch):
 
 
 def test_fetch_inventory_private(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (400, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (400, None))
     status, items = steam_api.fetch_inventory("123")
     assert status == "private"
     assert items == []
 
 
 def test_fetch_inventory_rate_limited(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (429, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (429, None))
     status, items = steam_api.fetch_inventory("123")
     assert status == "rate_limited"
 
 
 def test_fetch_inventory_error_on_non_200(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (500, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (500, None))
     status, items = steam_api.fetch_inventory("123")
     assert status == "error"
 
 
 def test_fetch_inventory_invalid_json(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, "not json"))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, "not json"))
     status, items = steam_api.fetch_inventory("123")
     assert status == "error"
 
 
 def test_fetch_inventory_empty_no_assets(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, "{}"))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, "{}"))
     status, items = steam_api.fetch_inventory("123")
     assert status == "empty"
 
@@ -771,7 +771,7 @@ def test_fetch_inventory_empty_no_marketable(monkeypatch):
             "classid": "1", "instanceid": "1", "marketable": False,
         }],
     })
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, body))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, body))
     status, items = steam_api.fetch_inventory("123")
     assert status == "empty"
 
@@ -805,8 +805,8 @@ def test_fetch_inventory_paginacao_dorme_entre_paginas_nao_antes_da_1a(monkeypat
         return 200, paginas[len(chamadas) - 1]
 
     sonos = []
-    monkeypatch.setattr("galaseca.steam_api._http_get", fake_http_get)
-    monkeypatch.setattr("galaseca.steam_api.time.sleep", sonos.append)
+    monkeypatch.setattr("lodout.steam_api._http_get", fake_http_get)
+    monkeypatch.setattr("lodout.steam_api.time.sleep", sonos.append)
     status, items = steam_api.fetch_inventory("123")
     assert status == "ok"
     assert len(chamadas) == 2
@@ -818,7 +818,7 @@ def test_fetch_inventory_paginacao_dorme_entre_paginas_nao_antes_da_1a(monkeypat
 
 def test_fetch_public_inventory_returns_items_list(monkeypatch):
     monkeypatch.setattr(
-        "galaseca.steam_api.fetch_inventory",
+        "lodout.steam_api.fetch_inventory",
         lambda sid: ("ok", [{"name": "AK", "quantity": 1}]),
     )
     assert steam_api.fetch_public_inventory("123") == [{"name": "AK", "quantity": 1}]
@@ -878,28 +878,28 @@ def test_find_query_not_enough_key_length():
 
 
 def test_get_market_page_data_no_render_context(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, "<html>"))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, "<html>"))
     assert steam_api.get_market_page_data("AK") is None
 
 
 def test_get_market_page_data_no_queries(monkeypatch):
     rc = json.dumps({"queryData": json.dumps({"queries": []})})
     html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, html))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, html))
     assert steam_api.get_market_page_data("AK") is None
 
 
 def test_get_market_page_data_429_registra_disjuntor(monkeypatch):
     """Mesmo achado do get_market_overview: a listing page tambem nunca
     registrava 429 (familia compartilhada com icon_backfill.py)."""
-    monkeypatch.setattr("galaseca.steam_api._http_get", _fake_http(429, None))
+    monkeypatch.setattr("lodout.steam_api._http_get", _fake_http(429, None))
     assert steam_api.get_market_page_data("AK") is None
     assert steam_api.em_cooldown("market_listings")
 
 
 def test_get_market_page_data_respeita_disjuntor_ja_armado(monkeypatch):
     calls = []
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (calls.append(url), (200, "<html>"))[1])
     steam_api._registrar_rate_limit("market_listings")
     assert steam_api.get_market_page_data("AK") is None
@@ -925,7 +925,7 @@ def test_get_market_page_data_loose_match_orderbook(monkeypatch):
         }),
     })
     html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, html))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, html))
     result = steam_api.get_market_page_data("AK-47 | Redline (Field-Tested)")
     assert result is not None
     assert result["order_book_approx"] is True
@@ -936,7 +936,7 @@ def test_get_market_page_data_invalid_query_data_json(monkeypatch):
     """queryData com JSON invalido retorna None."""
     rc = json.dumps({"queryData": "not-a-json-string"})
     html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, html))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, html))
     assert steam_api.get_market_page_data("AK") is None
 
 
@@ -944,7 +944,7 @@ def test_get_market_page_data_query_data_not_string(monkeypatch):
     """queryData que nao e' string retorna None."""
     rc = json.dumps({"queryData": 123})
     html = '<script>window.SSR.renderContext = JSON.parse("' + rc.replace('"', '\\"') + '")</script>'
-    monkeypatch.setattr("galaseca.steam_api._http_get", lambda url: (200, html))
+    monkeypatch.setattr("lodout.steam_api._http_get", lambda url: (200, html))
     assert steam_api.get_market_page_data("AK") is None
 
 
@@ -1018,7 +1018,7 @@ def test_search_market_ok(monkeypatch):
     body = _search_body(
         [{"hash_name": "Kilowatt Case", "sell_price": 122,
           "sell_listings": 1000}], total=611)
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (200, body))
     status, items, total = steam_api.search_market()
     assert status == steam_api.SEARCH_OK
@@ -1027,7 +1027,7 @@ def test_search_market_ok(monkeypatch):
 
 
 def test_search_market_rate_limited(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (429, None))
     status, items, total = steam_api.search_market()
     assert status == steam_api.SEARCH_RATE_LIMITED
@@ -1035,14 +1035,14 @@ def test_search_market_rate_limited(monkeypatch):
 
 
 def test_search_market_success_false_vira_erro(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (200, _search_body([], success=False)))
     status, _, _ = steam_api.search_market()
     assert status == steam_api.SEARCH_ERROR
 
 
 def test_search_market_json_invalido(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (200, "nao json"))
     status, _, _ = steam_api.search_market()
     assert status == steam_api.SEARCH_ERROR
@@ -1058,7 +1058,7 @@ def test_search_market_all_pagina_ate_o_total(monkeypatch):
                  "sell_listings": 1} for i in range(10)]
         return 200, _search_body(rows, total=20)
 
-    monkeypatch.setattr("galaseca.steam_api._http_get", fake)
+    monkeypatch.setattr("lodout.steam_api._http_get", fake)
     status, items, total = steam_api.search_market_all()
     assert status == steam_api.SEARCH_OK
     assert total == 20
@@ -1070,7 +1070,7 @@ def test_search_market_all_pagina_ate_o_total(monkeypatch):
 def test_search_market_all_respeita_max_items(monkeypatch):
     rows = [{"hash_name": f"i{i}", "sell_price": 100, "sell_listings": 1}
             for i in range(10)]
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (200, _search_body(rows, total=9999)))
     status, items, _ = steam_api.search_market_all(max_items=25)
     assert status == steam_api.SEARCH_OK
@@ -1078,7 +1078,7 @@ def test_search_market_all_respeita_max_items(monkeypatch):
 
 
 def test_search_market_all_para_em_pagina_vazia(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (200, _search_body([], total=500)))
     status, items, _ = steam_api.search_market_all()
     assert status == steam_api.SEARCH_OK
@@ -1096,8 +1096,8 @@ def test_search_market_all_paginacao_dorme_entre_paginas(monkeypatch):
         return 200, _search_body(rows, total=20)
 
     sonos = []
-    monkeypatch.setattr("galaseca.steam_api._http_get", fake)
-    monkeypatch.setattr("galaseca.steam_api.time.sleep", sonos.append)
+    monkeypatch.setattr("lodout.steam_api._http_get", fake)
+    monkeypatch.setattr("lodout.steam_api.time.sleep", sonos.append)
     status, items, total = steam_api.search_market_all()
     assert status == steam_api.SEARCH_OK
     assert total == 20
@@ -1267,18 +1267,18 @@ def test_collect_facets_ausente_devolve_vazio():
 
 def test_fetch_market_facets_ok(monkeypatch):
     body = json.dumps({"success": True, "facets": _FACETS_RAW})
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (200, body))
     f = steam_api.fetch_market_facets()
     assert f["Rarity"]["tags"]["Rarity_Ancient_Weapon"] == "Covert"
 
 
 def test_fetch_market_facets_falha_devolve_vazio(monkeypatch):
-    monkeypatch.setattr("galaseca.steam_api._http_get",
+    monkeypatch.setattr("lodout.steam_api._http_get",
                         lambda url: (500, None))
     assert steam_api.fetch_market_facets() == {}
     monkeypatch.setattr(
-        "galaseca.steam_api._http_get",
+        "lodout.steam_api._http_get",
         lambda url: (200, json.dumps({"success": False})))
     assert steam_api.fetch_market_facets() == {}
 
@@ -1316,5 +1316,5 @@ def test_rate_limit_delay_e_conservador(monkeypatch):
 def test_extract_market_icon_hash_aceita_barra_escapada_do_json(trecho):
     # No JSON do SSR a URL vem com "\/" ou "/"; só "/" deixava os 173
     # itens do scan de 2026-10-29 sem miniatura.
-    from galaseca.steam_api import extract_market_icon_hash
+    from lodout.steam_api import extract_market_icon_hash
     assert extract_market_icon_hash(trecho) == "abc-_9"

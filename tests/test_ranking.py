@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from galaseca import ranking
+from lodout import ranking
 
 
 def test_save_snapshot_basic(tmp_path):

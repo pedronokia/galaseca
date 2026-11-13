@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minha watchlist — Lodout</title>
+  <meta name="robots" content="noindex">
+  {% include "partials/_head_pwa.html" %}
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+</head>
+<body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
+  <header class="topo">
+    <div class="topo-linha">
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
+      {% include "partials/_conta_link.html" %}
+    </div>
+  </header>
+
+  <main id="conteudo">
+    {% include "partials/_mensagens.html" %}
+
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Minha watchlist</h1>
+      <p class="descricao-pagina">Itens que você acompanha — avaliado com o preço e os dados já guardados, sem chamada nova à Steam.</p>
+    </header>
+
+    <div class="resumo-cards">
+      <div class="card">
+        <h2 class="secao-titulo">Adicionar item</h2>
+        <form class="form-adicionar" method="post" action="{{ url_for('watchlist.adicionar') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="text" name="name" placeholder="Nome exato do item" title="Precisa ser o nome exato como aparece no Steam Market, incluindo o desgaste entre parênteses" aria-label="Nome exato do item" maxlength="200" required>
+          <input type="number" name="target" step="0.01" min="0" placeholder="Alvo de preço (R$, opcional)" aria-label="Alvo de preço em reais, opcional">
+          <button type="submit" class="botao-acao">+ Acompanhar</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2 class="secao-titulo">Alerta no Discord (opcional)</h2>
+        <p class="status">Cole a URL de um webhook de um canal seu. Quando um item disparar um alerta, mandamos uma mensagem lá — no máximo uma por item a cada hora, pra não encher o canal.</p>
+        {% if erro_webhook %}
+        <p class="status status-erro" role="alert">Essa URL não parece um webhook da Discord (precisa começar com <code>https://discord.com/api/webhooks/</code>) — não foi salva.</p>
+        {% endif %}
+        <form class="form-adicionar" method="post" action="{{ url_for('watchlist.salvar_webhook') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord" aria-label="URL do webhook do Discord"{% if erro_webhook %} aria-invalid="true"{% endif %}>
+          <button type="submit" class="botao-acao">Salvar</button>
+        </form>
+      </div>
+    </div>
+
+    <h2 class="secao-titulo">Itens acompanhados</h2>
+    {% if items %}
+    <p class="dica-rolagem-tabela dica-rolagem-tabela-conta">Deslize a tabela para o lado para ver as demais colunas.</p>
+    <div class="tabela-wrap tabela-wrap-cards" role="region" tabindex="0" aria-label="Tabela de itens acompanhados, com rolagem lateral">
+    <table class="tabela-candidatos tabela-cards-mobile">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Preço</th>
+          <th>Regras</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        <tr class="linha-watchlist">
+          <td data-label="Item">
+            <div class="celula-item-ranking">
+            <span class="icone-item-quadro icone-item-quadro-compacto{{ ' icone-item-quadro-com-imagem' if it.icon_url else '' }}{{ ' ' ~ it.raridade_classe if it.raridade_classe else '' }}" aria-hidden="true"{% if it.raridade_titulo %} title="{{ it.raridade_titulo }}"{% endif %}>
+              <span class="icone-item-placeholder"></span>
+            {% if it.icon_url %}
+              <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
+            {% endif %}
+            </span>
+            <a class="link-item" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+          {% if it.score is not none %}
+            <span class="nota nota-{{ it.score|nota_classe }}">{{ it.score|nota_anel|safe }}<span class="nota-numero">{{ it.score }}</span></span>
+          {% endif %}
+            </div>
+          </td>
+          <td data-label="Preço">{{ it.price_fmt }}</td>
+          <td data-label="Regras">{{ it.rules_resumo }}</td>
+          <td data-label="Status">
+            {% if it.disparado %}
+              <span class="badge-disparado" title="{{ it.alertas|map(attribute='label')|join('; ') }}">dispararia agora</span>
+            {% else %}
+              <span class="status-muted">sem gatilho agora</span>
+            {% endif %}
+          </td>
+          <td data-label="Ações">
+            <form method="post" action="{{ url_for('watchlist.remover', name=it.name) }}" class="form-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="submit" class="botao-link botao-remover">remover</button>
+            </form>
+          </td>
+        </tr>
+        <tr class="linha-regras">
+          <td colspan="5">
+            <details>
+              <summary>Editar regras de {{ it.name_fmt }}</summary>
+              <form method="post" action="{{ url_for('watchlist.editar_regras', name=it.name) }}" class="form-regras">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label>Alerta abaixo de (R$)
+                  <input type="number" name="price_below" step="0.01" min="0.01" value="{{ it.rules.price_below if it.rules else '' }}">
+                </label>
+                <label>Queda % desde que começou (defina o preço base abaixo)
+                  <input type="number" name="price_drop_pct" step="0.1" min="0.1" max="100" value="{{ it.rules.price_drop_pct if it.rules else '' }}">
+                </label>
+                <label>Preço base pra queda % (R$, opcional — usa o atual se vazio)
+                  <input type="number" name="baseline_price" step="0.01" min="0.01" value="{{ it.baseline_price or '' }}">
+                </label>
+                <label>Volume acima de (x da média)
+                  <input type="number" name="volume_spike" step="0.1" min="0.1" value="{{ it.rules.volume_spike if it.rules else '' }}">
+                </label>
+                <label>Oferta abaixo de (x da média)
+                  <input type="number" name="supply_drop" step="0.1" min="0.1" value="{{ it.rules.supply_drop if it.rules else '' }}">
+                </label>
+                <label>Nota a partir de
+                  <input type="number" name="score_above" step="1" min="1" max="100" value="{{ it.rules.score_above if it.rules else '' }}">
+                </label>
+                <button type="submit">Salvar regras</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="status status-vazio">Nenhum item acompanhado ainda.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Avaliado com o preço/volume/nota já guardados — pode estar desatualizado se o item não foi escaneado recentemente.
+    Não é recomendação de investimento.</p>
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

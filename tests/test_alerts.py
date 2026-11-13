@@ -1,7 +1,7 @@
 """Testes do engine de alertas."""
 from __future__ import annotations
 
-from galaseca import alerts
+from lodout import alerts
 
 
 def test_evaluate_price_below_target():

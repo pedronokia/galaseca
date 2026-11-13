@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Status — Lodout</title>
+  <meta name="description" content="Transparência: últimos ciclos de scan, no ar desde quando, visitas.">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="{{ request.url }}">
+  {% include "partials/_head_pwa.html" %}
+  <link rel="alternate" type="application/rss+xml" title="Lodout — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "lodout", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 2, "name": "Status", "item": "{{ request.url }}"}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
+  <header class="topo">
+    <div class="topo-linha">
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
+      {% include "partials/_conta_link.html" %}
+    </div>
+  </header>
+
+  <main id="conteudo" class="pagina-texto">
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Status</h1>
+      <p class="descricao-pagina">Status do site, com transparência — inclusive quando o scan falha.</p>
+    </header>
+    <section class="resumo-cards">
+      <div class="card"><span class="card-label">No ar</span><span class="card-valor">{{ no_ar_desde_txt }}</span></div>
+      <div class="card"><span class="card-label">Visitas ao dashboard</span><span class="card-valor">{{ visitas }}</span></div>
+    </section>
+
+    {% if grafico_visitas %}
+      <h2 class="secao-titulo">Visitas por dia</h2>
+      <div class="card grafico-card">{{ grafico_visitas|safe }}</div>
+      {% if grafico_visitas_legenda %}<p class="status-muted">{{ grafico_visitas_legenda }}</p>{% endif %}
+    {% endif %}
+
+    {% if mais_buscados %}
+      <h2 class="secao-titulo">O que mais se busca aqui</h2>
+      <p>Termos agregados, sem ligação com quem buscou (ver <a href="{{ url_for('privacidade') }}">privacidade</a>).</p>
+      <ul>
+        {% for termo, qtd in mais_buscados %}
+        <li>{{ termo }} — {{ qtd }}x</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <h2 class="secao-titulo">Últimos ciclos do scan</h2>
+    {% if estado_scan.rodando %}
+    <div class="card estado-scan">
+      <p class="estado-scan-titulo"><span class="estado-scan-ponto" aria-hidden="true"></span><span>Scan em andamento: item <strong>{{ estado_scan.indice }} de {{ estado_scan.total }}</strong>{% if estado_scan.faltam_txt %}, termina em {{ estado_scan.faltam_txt }}{% endif %}.</span></p>
+      <progress class="estado-scan-barra" value="{{ estado_scan.indice }}" max="{{ estado_scan.total }}" aria-label="Progresso do scan: {{ estado_scan.indice }} de {{ estado_scan.total }} itens"></progress>
+      <p class="status-muted">Agora: {{ estado_scan.item_fmt }}. Os preços do site mudam quando o ciclo termina.</p>
+    </div>
+    {% elif estado_scan.proximo_txt %}
+    <p class="estado-scan-proximo">Próximo ciclo {{ estado_scan.proximo_txt }}.</p>
+    {% endif %}
+    <p>O worker tenta escanear todas as categorias periodicamente. Quando a
+    Steam pede uma pausa (rate limit), ele espera e continua de onde parou;
+    se o bloqueio passar de 45 minutos, o ciclo termina antes e os itens que
+    faltaram ficam com o dado do ciclo anterior. Se a Steam não responde a
+    nenhum dos primeiros itens (manutenção, por exemplo), o ciclo encerra
+    cedo e uma nova tentativa acontece em 1 hora, em vez de 6. Ciclo sem
+    nenhum preço novo aparece aqui como "sem sucesso", não como erro
+    escondido.</p>
+
+    {% if ciclos %}
+    <div class="saude-ciclos" aria-hidden="true">
+      {% for c in ciclos|reverse %}
+      <span class="saude-ciclo saude-ciclo-{{ 'ok' if c.sucesso else 'falha' }}"></span>
+      {% endfor %}
+    </div>
+    <p class="status-muted">{{ ciclos_sucesso_txt }} (mais antigo à esquerda, mais recente à direita)</p>
+    {% set ultimo = ciclos[0] %}
+    {% if ultimo.alvos %}
+    <p class="cobertura-ciclo">No último ciclo, <strong>{{ ultimo.itens }} de {{ ultimo.alvos }}</strong> itens vieram com preço novo{% if ultimo.mantidos %}; {{ ultimo.mantidos }} {{ "continua" if ultimo.mantidos == 1 else "continuam" }} no site com o dado do ciclo anterior, marcado como tal{% endif %}.</p>
+    {% if ultimo.ritmo and ultimo.ritmo > 1 %}
+    <p class="status-muted">Este ciclo andou mais devagar ({{ "%.2f"|format(ultimo.ritmo)|replace(".", ",") }}× o intervalo normal entre itens) porque o anterior levou bloqueio da Steam. O ritmo volta ao normal sozinho depois de ciclos sem bloqueio.</p>
+    {% endif %}
+    {% if ultimo.em_espera %}
+    <details class="falhas-ciclo">
+      <summary>Itens em espera ({{ ultimo.em_espera|length }})</summary>
+      <p class="status-muted">Ficaram 3 ciclos seguidos sem preço sem a Steam ter bloqueado nada, o que costuma indicar que não há anúncio deles no Market. Para não gastar requisição à toa, são tentados uma vez por dia e voltam ao normal assim que aparecer preço.</p>
+      <ul>
+        {% for nome in ultimo.em_espera %}<li>{{ nome|nome_pt }}</li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+    {% if ultimo.falhas %}
+    <details class="falhas-ciclo">
+      <summary>Itens que ficaram sem preço novo ({{ ultimo.falhas|length }})</summary>
+      <p class="status-muted">A Steam não devolveu preço para estes itens neste ciclo (bloqueio momentâneo ou item sem anúncio). Eles são tentados de novo no próximo ciclo.</p>
+      <ul>
+        {% for nome in ultimo.falhas %}<li>{{ nome|nome_pt }}</li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+    {% endif %}
+
+    <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
+    <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de últimos ciclos do scan, com rolagem lateral">
+    <table class="tabela-candidatos tabela-status">
+      <thead>
+        <tr>
+          <th>Quando</th>
+          <th>Itens avaliados</th>
+          <th>Duração</th>
+          <th>Resultado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in ciclos %}
+        <tr>
+          <td>{{ c.quando }}</td>
+          <td>{{ c.itens }}{% if c.alvos %} de {{ c.alvos }}{% endif %}{% if c.mantidos %} <span class="status-muted">(+{{ c.mantidos }} mantidos)</span>{% endif %}</td>
+          <td>{{ "%.1f"|format(c.duracao_min or 0)|replace(".", ",") }} min</td>
+          <td class="{{ 'ok' if c.sucesso else 'falha' }}">{% if c.sucesso %}Sucesso{% elif c.abortado %}Steam sem resposta (encerrado cedo){% else %}Sem sucesso (bloqueado){% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+      <p class="status status-vazio">Ainda não há histórico de ciclos registrado.</p>
+    {% endif %}
+  </main>
+
+  <footer class="rodape">
+    <p>Esta página existe pra ser honesta sobre quando os dados estão
+    desatualizados — não é um painel de monitoramento de verdade, é o
+    mesmo histórico que o próprio worker guarda.</p>
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

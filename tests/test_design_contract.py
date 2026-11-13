@@ -14,7 +14,7 @@ from pathlib import Path
 
 STYLE = (
     Path(__file__).resolve().parents[1]
-    / "galaseca" / "public_site" / "static" / "style.css"
+    / "lodout" / "public_site" / "static" / "style.css"
 )
 
 

@@ -1,7 +1,7 @@
-"""Testes de "no ar desde" (galaseca/public_site/uptime.py)."""
+"""Testes de "no ar desde" (lodout/public_site/uptime.py)."""
 from __future__ import annotations
 
-from galaseca.public_site import uptime
+from lodout.public_site import uptime
 
 
 def test_primeira_chamada_grava_e_devolve_now(tmp_path):

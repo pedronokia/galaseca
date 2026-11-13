@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from galaseca import trades
+from lodout import trades
 
 
 def test_record_trade_pnl_pct_is_0_100(tmp_path):

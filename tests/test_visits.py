@@ -1,9 +1,9 @@
-"""Testes do contador de visitas (galaseca/public_site/visits.py)."""
+"""Testes do contador de visitas (lodout/public_site/visits.py)."""
 from __future__ import annotations
 
 import datetime
 
-from galaseca.public_site import visits
+from lodout.public_site import visits
 
 
 def test_dia_local_usa_horario_de_brasilia_nao_utc():

@@ -1,7 +1,7 @@
 """Metadados oficiais da Steam: tags, commodity, bloqueio de 7 dias."""
 from __future__ import annotations
 
-from galaseca import cases, steam_api
+from lodout import cases, steam_api
 
 
 # Payload real, colhido da listing page da AK-47 | Redline (Field-Tested)

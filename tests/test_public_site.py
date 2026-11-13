@@ -15,13 +15,13 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from werkzeug.security import generate_password_hash
 
-from galaseca import ranking, scan_store, signals
-from galaseca.public_site import (
+from lodout import ranking, scan_store, signals
+from lodout.public_site import (
     changelog, charts, erro_stats, fmt, icon_cache, latencia, rate_limit,
     scan_progress, user_store, visits, worker, worker_alert,
 )
-from galaseca.public_site import server
-from galaseca.public_site.server import create_app
+from lodout.public_site import server
+from lodout.public_site.server import create_app
 
 
 @pytest.fixture
@@ -196,13 +196,13 @@ def test_index_mostra_resumo_do_dia_com_alta_e_queda(client, monkeypatch, tmp_pa
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 90, "position": 1},
             {"name": "Y", "score": 20, "position": 2},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 60, "position": 1},
             {"name": "Y", "score": 50, "position": 2},
@@ -238,13 +238,13 @@ def test_index_resumo_do_dia_mostra_mesmo_sem_mudanca_de_nota(client, monkeypatc
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 90, "position": 1},
             {"name": "Y", "score": 50, "position": 2},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 90, "position": 1},
         ]})
@@ -265,7 +265,7 @@ def test_index_movimentos_do_dia_limita_a_tres_e_ordena_por_tamanho(
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "A1", "score": 50, "position": 1},
             {"name": "A2", "score": 50, "position": 2},
@@ -274,7 +274,7 @@ def test_index_movimentos_do_dia_limita_a_tres_e_ordena_por_tamanho(
             {"name": "A5", "score": 50, "position": 5},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "A1", "score": 45, "position": 1},   # +5
             {"name": "A2", "score": 58, "position": 2},   # -8
@@ -300,12 +300,12 @@ def test_index_resumo_do_dia_some_com_filtro_ativo(client, monkeypatch, tmp_path
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 90, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 60, "position": 1},
         ]})
@@ -320,12 +320,12 @@ def test_index_resumo_do_dia_some_na_pagina_2(client, monkeypatch, tmp_path):
         for i in range(15)
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 90, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 60, "position": 1},
         ]})
@@ -606,7 +606,7 @@ def test_raridade_faca_luva_usa_quality_id_nao_cor_covert(
     luvas (quality_id="unusual", prefixo ★) chegam da Steam com
     name_color/rarity_id IDÊNTICOS aos de uma skin Covert comum --
     valores reais checados numa Karambit e numas Sport Gloves de
-    verdade (galaseca.steam_api.get_market_page_data, request único).
+    verdade (lodout.steam_api.get_market_page_data, request único).
     Sem checar quality_id ANTES do mapa de cor/raridade, toda faca/luva
     do site saía com borda vermelha."""
     _salva_scan(tmp_path, monkeypatch, [
@@ -882,7 +882,7 @@ def test_index_sem_atalhos_de_filtro(client, monkeypatch, tmp_path):
 
 def test_index_nunca_chama_rede(client, monkeypatch, tmp_path):
     """Garantia estrutural: nenhuma rota de server.py importa steam_api."""
-    import galaseca.public_site.server as srv
+    import lodout.public_site.server as srv
     assert not hasattr(srv, "steam_api")
 
 
@@ -1193,7 +1193,7 @@ def test_static_app_js_tem_atalho_e_notas_locais(client):
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
     assert "keydown" in body
-    assert "galaseca_notas" in body
+    assert "lodout_notas" in body
     assert "mouseover" in body and "prefetch" in body
 
 
@@ -1349,7 +1349,7 @@ def test_api_docs_page(client):
 
 def test_rodape_tem_link_feedback_changelog_api(client):
     body = client.get("/").data.decode("utf-8")
-    assert "github.com/pedronokia/galaseca/issues/new" in body
+    assert "github.com/pedronokia/lodout/issues/new" in body
     assert "/changelog" in body
     assert "/api" in body
 
@@ -1368,7 +1368,7 @@ def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
             candidato["tendencia"] = "alta"
 
     monkeypatch.setattr(
-        "galaseca.public_site.server._enriquecer_com_historico",
+        "lodout.public_site.server._enriquecer_com_historico",
         marca_tendencia_alta)
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 1.0, "case_label": "",
@@ -1382,7 +1382,7 @@ def test_index_mostra_tendencia_alta(client, monkeypatch, tmp_path):
 
 def test_index_tendencia_mostra_variacao_percentual(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: [{"ts": 1, "price": 10.0}, {"ts": 2, "price": 9.68}])
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "X", "score": 80, "price": 9.68, "case_label": "",
@@ -1396,7 +1396,7 @@ def test_index_tendencia_mostra_variacao_percentual(client, monkeypatch, tmp_pat
 
 def test_index_sem_historico_nao_mostra_tendencia(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: [])
     _salva_scan(tmp_path, monkeypatch, [
         {"name": "X", "score": 80, "price": 1.0, "case_label": "",
@@ -1500,20 +1500,20 @@ def test_index_logo_no_topo(client, monkeypatch, tmp_path):
     assert 'class="logo"' in body
     assert 'class="logo-icone"' in body
     assert 'class="logo-aspas"' in body
-    assert 'aria-label="sai daí, galaseca — página inicial"' in body
+    assert 'aria-label="Lodout — página inicial"' in body
     assert 'class="logo-cheia"' not in body
     # A marca agora é só o desenho das aspas: nada de disco/círculo atrás.
     logo = body.split('class="logo"', 1)[1].split("</a>", 1)[0]
     assert "<circle" not in logo
 
 
-def test_titulos_das_paginas_usam_o_nome_galaseca(client):
-    """Decisão de 2026-11-11: nos títulos de página o nome é "Galaseca"
-    (G maiúsculo). O resto do texto do site continua "galaseca"."""
-    assert "<title>Galaseca</title>" in client.get("/").data.decode("utf-8")
+def test_titulos_das_paginas_usam_o_nome_lodout(client):
+    """Decisão de 2026-11-11: nos títulos de página o nome é "Lodout"
+    (G maiúsculo). O resto do texto do site continua "lodout"."""
+    assert "<title>Lodout</title>" in client.get("/").data.decode("utf-8")
     ranking = client.get("/ranking").data.decode("utf-8")
-    assert "<title>Ranking — Galaseca</title>" in ranking
-    assert "— galaseca</title>" not in ranking
+    assert "<title>Ranking — Lodout</title>" in ranking
+    assert "— lodout</title>" not in ranking
 
 
 def test_index_tem_input_tag_local(client, monkeypatch, tmp_path):
@@ -1548,9 +1548,9 @@ def test_index_campo_nota_pessoal_nasce_escondido_atras_de_botao(
 def test_index_registra_termo_buscado(client, monkeypatch, tmp_path):
     chamados = []
     monkeypatch.setattr(
-        "galaseca.public_site.server.buscas.registrar",
+        "lodout.public_site.server.buscas.registrar",
         lambda termo: chamados.append(termo))
-    monkeypatch.setattr("galaseca.scan_store.load_last_scan", lambda: None)
+    monkeypatch.setattr("lodout.scan_store.load_last_scan", lambda: None)
     client.get("/?q=redline")
     assert chamados == ["redline"]
 
@@ -1558,9 +1558,9 @@ def test_index_registra_termo_buscado(client, monkeypatch, tmp_path):
 def test_index_sem_busca_nao_registra_termo(client, monkeypatch):
     chamados = []
     monkeypatch.setattr(
-        "galaseca.public_site.server.buscas.registrar",
+        "lodout.public_site.server.buscas.registrar",
         lambda termo: chamados.append(termo))
-    monkeypatch.setattr("galaseca.scan_store.load_last_scan", lambda: None)
+    monkeypatch.setattr("lodout.scan_store.load_last_scan", lambda: None)
     client.get("/")
     assert chamados == []
 
@@ -1585,9 +1585,9 @@ def test_metodo_page(client):
 
 def test_ranking_page_sem_snapshots(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots", lambda: [])
+        "lodout.public_site.server.ranking.load_snapshots", lambda: [])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     resp = client.get("/ranking")
     assert resp.status_code == 200
@@ -1596,17 +1596,17 @@ def test_ranking_page_sem_snapshots(client, monkeypatch):
 
 def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
         ]}])
     # Snapshot anterior EXISTE mas nao tem o item X -- e' isso que gera
     # "NOVO" (previous=None geraria label vazio, nao NOVO).
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: {"ts": 900.0, "items": [{"name": "Y", "score": 1, "position": 1}]})
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: None)
     body = client.get("/ranking?periodo=scan").data.decode("utf-8")
     assert "selo-novo" in body
@@ -1614,14 +1614,14 @@ def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
 
 def test_ranking_page_tem_popover_legenda_raridade(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+        "lodout.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert 'class="popover-legenda"' in body
     assert "Cores da borda" in body
@@ -1632,14 +1632,14 @@ def test_ranking_page_item_linka_pra_pagina_de_detalhe(client, monkeypatch):
     sem isso, quem via o Top 20 e queria o histórico/motivo completo
     tinha que voltar pra home e buscar manualmente."""
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+        "lodout.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert 'href="/item/AK-47%20%7C%20Redline%20(Field-Tested)"' in body
 
@@ -1657,14 +1657,14 @@ def test_ranking_page_mostra_icone_e_raridade_do_scan_atual(
          "name_color": "EB4B4B"},
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+        "lodout.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     body = client.get("/ranking?ver=lista").data.decode("utf-8")
     assert "icone-item-quadro-compacto" in body
     assert "icone-item-quadro-com-imagem" in body
@@ -1677,14 +1677,14 @@ def test_ranking_page_item_fora_do_scan_atual_sem_icone(client, monkeypatch):
     nenhum scan rodou ainda) cai pro placeholder sem ícone/raridade, em
     vez de quebrar a página -- sem scan salvo neste teste de propósito."""
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "Item sumido do scan", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot", lambda: None)
+        "lodout.public_site.server.ranking.previous_snapshot", lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     resp = client.get("/ranking?ver=lista")
     assert resp.status_code == 200
     body = resp.data.decode("utf-8")
@@ -1699,19 +1699,19 @@ def test_ranking_page_item_fora_do_scan_atual_sem_icone(client, monkeypatch):
 
 def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
             {"name": "Y", "score": 70, "position": 2},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: {"ts": 900.0, "items": [
             {"name": "X", "score": 75, "position": 3},
             {"name": "Y", "score": 70, "position": 1},
         ]})
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: None)
     body = client.get("/ranking?periodo=scan").data.decode("utf-8")
     assert "tendencia-alta" in body
@@ -1737,12 +1737,12 @@ def _ranking_com_historico(monkeypatch, agora=1_000_000.0):
             {"name": "Y", "score": 70, "position": 2}]},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots", lambda: snaps)
+        "lodout.public_site.server.ranking.load_snapshots", lambda: snaps)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: snaps[-2])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: next((s for s in reversed(snaps) if s["ts"] < ts), None))
     return snaps
 
@@ -1803,15 +1803,15 @@ def test_ranking_links_preservam_periodo_e_visao(client, monkeypatch):
 
 def test_ranking_page_resumo_do_dia_sem_snapshot_antigo(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert "resumo-do-dia" not in body
@@ -1819,16 +1819,16 @@ def test_ranking_page_resumo_do_dia_sem_snapshot_antigo(client, monkeypatch):
 
 def test_ranking_page_resumo_do_dia_com_snapshot_antigo(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 90, "position": 1},
             {"name": "Y", "score": 70, "position": 2},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 60, "position": 2},
         ]})
@@ -1842,15 +1842,15 @@ def test_ranking_page_resumo_do_dia_sem_alta_nenhuma(client, monkeypatch):
     # Unico item em comum caiu de nota -- "maior alta" nao deve aparecer,
     # so' a contagem de novos (0, aqui).
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 40, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: {"ts": 900.0, "items": [
             {"name": "X", "score": 90, "position": 1},
         ]})
@@ -1866,16 +1866,16 @@ def test_ranking_page_vitrine_mostra_cards_com_posicao_e_nota(
     # ranking só tem name/score/position, então o card aqui é mais
     # enxuto que o da home (sem preço/motivo).
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "AK-47 | Redline (Field-Tested)", "score": 85,
              "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     assert '<ul class="grade-cards"' in body
     assert 'class="cartao-item cartao-item-ranking' in body
@@ -1895,16 +1895,16 @@ def test_ranking_page_vitrine_so_os_6_primeiros_cards_carregam_eager(
         for i, nome in enumerate(nomes)
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": nome, "score": 100 - i, "position": i + 1}
             for i, nome in enumerate(nomes)
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     body = client.get("/ranking").data.decode("utf-8")
     partes = body.split('class="cartao-item-icon"')[1:]
     assert len(partes) == 8
@@ -1917,15 +1917,15 @@ def test_ranking_page_vitrine_so_os_6_primeiros_cards_carregam_eager(
 def test_ranking_page_cookie_pref_ver_lista_mantem_tabela(
         client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     resp = client.get("/ranking?ver=lista")
     cookie = resp.headers.get("Set-Cookie", "")
     assert "pref_ver=lista" in cookie
@@ -1938,15 +1938,15 @@ def test_ranking_page_cookie_pref_ver_lista_mantem_tabela(
 
 def test_ranking_page_ver_invalido_cai_na_vitrine(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [{"ts": 1000.0, "items": [
             {"name": "X", "score": 80, "position": 1},
         ]}])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.previous_snapshot",
+        "lodout.public_site.server.ranking.previous_snapshot",
         lambda: None)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before", lambda ts: None)
+        "lodout.public_site.server.ranking.latest_before", lambda ts: None)
     body = client.get("/ranking?ver=tabela").data.decode("utf-8")
     assert '<ul class="grade-cards"' in body
     assert '<table class="tabela-candidatos">' not in body
@@ -1965,7 +1965,7 @@ def test_usuario_logado_aparece_fora_de_conta(client, monkeypatch, tmp_path):
             "avatar_url": "https://example.com/a.jpg",
         })
     monkeypatch.setattr(
-        "galaseca.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
+        "lodout.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
     (tmp_path / "123.jpg").write_bytes(b"jpeg")
     with client.session_transaction() as sess:
         sess["steamid"] = "123"
@@ -1986,7 +1986,7 @@ def test_avatar_sem_arquivo_em_disco_nao_renderiza_img(
             "avatar_url": "https://example.com/a.jpg",
         })
     monkeypatch.setattr(
-        "galaseca.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
+        "lodout.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
     with client.session_transaction() as sess:
         sess["steamid"] = "123"
     body = client.get("/ranking").data.decode("utf-8")
@@ -1997,7 +1997,7 @@ def test_avatar_sem_arquivo_em_disco_nao_renderiza_img(
 def test_rota_avatar_serve_o_arquivo_do_usuario_logado(
         client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "galaseca.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
+        "lodout.public_site.profile_fetcher._AVATARS_DIR", tmp_path)
     (tmp_path / "123.jpg").write_bytes(b"jpeg-do-123")
     (tmp_path / "456.jpg").write_bytes(b"jpeg-do-456")
     assert client.get("/conta/avatar.jpg").status_code == 302  # sem login
@@ -2052,7 +2052,7 @@ def test_api_health(client, monkeypatch, tmp_path):
 
 
 def test_api_health_sem_scan(client, monkeypatch):
-    monkeypatch.setattr("galaseca.scan_store.load_last_scan", lambda: None)
+    monkeypatch.setattr("lodout.scan_store.load_last_scan", lambda: None)
     resp = client.get("/api/health")
     data = resp.get_json()
     assert data["scan"]["disponivel"] is False
@@ -2132,14 +2132,14 @@ def test_pagina_normal_continua_em_html_nos_erros(client):
 
 
 def test_admin_sem_hash_configurado_e_404(client, monkeypatch):
-    monkeypatch.setattr("galaseca.public_site.server._ADMIN_PASSWORD_HASH", "")
+    monkeypatch.setattr("lodout.public_site.server._ADMIN_PASSWORD_HASH", "")
     assert client.get("/admin").status_code == 404
     assert client.get("/admin/login").status_code == 404
 
 
 def test_admin_sem_sessao_redireciona_pro_login(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     resp = client.get("/admin")
     assert resp.status_code == 302
@@ -2148,7 +2148,7 @@ def test_admin_sem_sessao_redireciona_pro_login(client, monkeypatch):
 
 def test_admin_login_senha_errada_nao_autentica(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     resp = client.post("/admin/login", data={"senha": "errada"})
     assert resp.status_code == 200
@@ -2158,7 +2158,7 @@ def test_admin_login_senha_errada_nao_autentica(client, monkeypatch):
 
 def test_admin_login_senha_certa_autentica_e_funciona(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     login = client.post("/admin/login", data={"senha": "segredo"})
     assert login.status_code == 302
@@ -2167,7 +2167,7 @@ def test_admin_login_senha_certa_autentica_e_funciona(client, monkeypatch):
 
 def test_admin_logout_encerra_sessao(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     client.post("/admin/login", data={"senha": "segredo"})
     assert client.get("/admin").status_code == 200
@@ -2182,13 +2182,13 @@ def test_admin_logout_encerra_sessao(client, monkeypatch):
 
 def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.visits.serie_por_dia",
+        "lodout.public_site.server.visits.serie_por_dia",
         lambda: [("2026-10-24", 3), ("2026-10-25", 5)])
     monkeypatch.setattr(
-        "galaseca.public_site.server.buscas.mais_buscados",
+        "lodout.public_site.server.buscas.mais_buscados",
         lambda limite=10: [("ak-47", 4)])
     monkeypatch.setattr(
-        "galaseca.public_site.server.scan_store.load_historico_ciclos",
+        "lodout.public_site.server.scan_store.load_historico_ciclos",
         lambda: [])
     body = client.get("/status").data.decode("utf-8")
     assert "grafico-historico" in body
@@ -2201,7 +2201,7 @@ def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
 # ── server: /status ──────────────────────────────────────────
 
 def test_status_sem_historico(client, monkeypatch, tmp_path):
-    from galaseca.public_site import uptime, visits
+    from lodout.public_site import uptime, visits
     monkeypatch.setattr(scan_store, "load_historico_ciclos", lambda: [])
     monkeypatch.setattr(uptime, "no_ar_desde", lambda: 0.0)
     monkeypatch.setattr(visits, "total", lambda: 0)
@@ -2212,7 +2212,7 @@ def test_status_sem_historico(client, monkeypatch, tmp_path):
 
 
 def test_status_mostra_ciclos_com_falha(client, monkeypatch, tmp_path):
-    from galaseca.public_site import uptime, visits
+    from lodout.public_site import uptime, visits
     monkeypatch.setattr(scan_store, "load_historico_ciclos", lambda: [
         {"ts": 1000.0, "itens": 0, "duracao_min": 26.4, "sucesso": False},
         {"ts": 2000.0, "itens": 185, "duracao_min": 23.1, "sucesso": True},
@@ -2396,7 +2396,7 @@ def test_run_once_falha_nos_arquivos_do_jogo_nao_impede_scan(
     monkeypatch.setattr(worker.gamedata, "check_for_updates", _boom)
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
                         lambda categories, on_progress=None, **kw: [])
-    with caplog.at_level("WARNING", logger="galaseca.worker"):
+    with caplog.at_level("WARNING", logger="lodout.worker"):
         assert worker.run_once({"Facas": ["A"]}) == []
     assert "checagem dos arquivos do jogo falhou" in caplog.text
 
@@ -2409,7 +2409,7 @@ def test_run_once_registra_erro_e_mudanca_dos_arquivos_do_jogo(
         worker.gamedata, "check_for_updates",
         lambda: {"changed": False, "events": [], "commit": None,
                  "error": "network"})
-    with caplog.at_level("INFO", logger="galaseca.worker"):
+    with caplog.at_level("INFO", logger="lodout.worker"):
         worker.run_once({"Facas": ["A"]})
     assert "erro de network" in caplog.text
 
@@ -2419,7 +2419,7 @@ def test_run_once_registra_erro_e_mudanca_dos_arquivos_do_jogo(
         lambda: {"changed": True, "events": [{"type": "x"}] * 2,
                  "commit": {"sha": "abcdef1234", "date": "2026-11-12"},
                  "error": None})
-    with caplog.at_level("INFO", logger="galaseca.worker"):
+    with caplog.at_level("INFO", logger="lodout.worker"):
         worker.run_once({"Facas": ["A"]})
     assert "Arquivos do jogo mudaram (abcdef1, 2026-11-12): 2 evento(s)" \
         in caplog.text
@@ -2451,7 +2451,7 @@ def test_run_once_falha_nas_noticias_nao_derruba_ciclo(monkeypatch, caplog):
     registrou = []
     monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
                         lambda *a, **kw: registrou.append(a))
-    with caplog.at_level("WARNING", logger="galaseca.worker"):
+    with caplog.at_level("WARNING", logger="lodout.worker"):
         assert worker.run_once({"Facas": ["A"]}) == []
     assert "busca de notícias falhou" in caplog.text
     assert registrou
@@ -2867,19 +2867,19 @@ def _worker_main_uma_volta(monkeypatch):
 
 
 def test_main_le_intervalo_do_env(monkeypatch):
-    monkeypatch.setenv("GALASECA_WORKER_INTERVAL_HORAS", "2")
+    monkeypatch.setenv("LODOUT_WORKER_INTERVAL_HORAS", "2")
     chamadas = _worker_main_uma_volta(monkeypatch)
     assert chamadas == [2 * 3600]
 
 
 def test_main_sem_env_usa_default(monkeypatch):
-    monkeypatch.delenv("GALASECA_WORKER_INTERVAL_HORAS", raising=False)
+    monkeypatch.delenv("LODOUT_WORKER_INTERVAL_HORAS", raising=False)
     chamadas = _worker_main_uma_volta(monkeypatch)
     assert chamadas == [worker._INTERVALO_HORAS_DEFAULT * 3600]
 
 
 def test_main_parametro_explicito_ignora_env(monkeypatch):
-    monkeypatch.setenv("GALASECA_WORKER_INTERVAL_HORAS", "99")
+    monkeypatch.setenv("LODOUT_WORKER_INTERVAL_HORAS", "99")
     monkeypatch.setattr(worker.scan_store, "load_historico_ciclos", lambda: [])
     monkeypatch.setattr(worker, "run_once", lambda: [{"name": "x"}])
     chamadas = []
@@ -3010,7 +3010,7 @@ def test_item_detail_mostra_seletor_de_periodo(client, monkeypatch, tmp_path):
         {"ts": agora - 2 * 86400, "price": 12.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/item/Item X").data.decode("utf-8")
     assert "seletor-periodo" in body
@@ -3030,7 +3030,7 @@ def test_item_detail_periodo_filtra_o_grafico(client, monkeypatch, tmp_path):
         {"ts": agora - 2 * 86400, "price": 12.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/item/Item X?periodo=7d").data.decode("utf-8")
     assert 'aria-current="true">7d</a>' in body
@@ -3052,7 +3052,7 @@ def test_item_detail_periodo_invalido_cai_no_padrao(client, monkeypatch, tmp_pat
         {"ts": agora - 2 * 86400, "price": 12.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/item/Item X?periodo=1ano").data.decode("utf-8")
     assert 'aria-current="true">Tudo</a>' in body
@@ -3075,7 +3075,7 @@ def test_item_detail_grafico_tem_preenchimento_em_gradiente(client, monkeypatch,
         {"ts": agora - 1 * 86400, "price": 12.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/item/Item X").data.decode("utf-8")
     assert "<linearGradient" in body
@@ -3098,7 +3098,7 @@ def test_item_detail_grafico_tem_tooltip_por_ponto(client, monkeypatch, tmp_path
         {"ts": agora - 1 * 86400, "price": 12.5},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/item/Item X").data.decode("utf-8")
     # Escopo na SVG do gráfico grande, não na página inteira -- o anel
@@ -3131,7 +3131,7 @@ def test_item_detail_grafico_colorido_pela_tendencia_do_periodo(
         {"ts": agora - 1 * 86400, "price": 12.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/item/Item X").data.decode("utf-8")
     assert 'class="card grafico-card grafico-tendencia-alta"' in body
@@ -3141,7 +3141,7 @@ def test_item_detail_grafico_colorido_pela_tendencia_do_periodo(
         {"ts": agora - 1 * 86400, "price": 10.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist_baixa)
     body = client.get("/item/Item X").data.decode("utf-8")
     assert 'class="card grafico-card grafico-tendencia-baixa"' in body
@@ -3160,7 +3160,7 @@ def test_item_detail_grafico_estavel_fica_na_cor_neutra(
         {"ts": agora - 1 * 86400, "price": 10.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/item/Item X").data.decode("utf-8")
     assert 'class="card grafico-card">' in body
@@ -3179,7 +3179,7 @@ def test_index_sparkline_nao_tem_preenchimento_em_gradiente(client, monkeypatch,
         {"ts": agora - 1 * 86400, "price": 12.0},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: hist)
     body = client.get("/").data.decode("utf-8")
     assert "<linearGradient" not in body
@@ -3193,7 +3193,7 @@ def test_item_detail_sem_historico_nao_mostra_seletor(client, monkeypatch, tmp_p
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: [])
     body = client.get("/item/Item X").data.decode("utf-8")
     assert "seletor-periodo" not in body
@@ -3310,10 +3310,10 @@ def test_scan_progress_ausente_e_none(tmp_path):
 
 def test_admin_mostra_progresso(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "galaseca.public_site.server.scan_progress.carregar",
+        "lodout.public_site.server.scan_progress.carregar",
         lambda: {"indice": 10, "total": 185, "item": "Item X", "ts": time.time()})
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin")
@@ -3328,11 +3328,11 @@ def test_admin_formata_quando_dos_ciclos_em_vez_de_timestamp_cru(
     (`{{ c.ts|int }}`, tipo "1792500195") porque nunca recebeu o mesmo
     tratamento."""
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     ts_fixo = 1700000000.0  # epoch arbitrário, fixo -- não depende do "agora"
     monkeypatch.setattr(
-        "galaseca.public_site.server.scan_store.load_historico_ciclos",
+        "lodout.public_site.server.scan_store.load_historico_ciclos",
         lambda: [{"ts": ts_fixo, "itens": 152,
                  "duracao_min": 22.3, "sucesso": True}])
     client.post("/admin/login", data={"senha": "segredo"})
@@ -3345,21 +3345,21 @@ def test_admin_formata_quando_dos_ciclos_em_vez_de_timestamp_cru(
 # ── worker_alert ─────────────────────────────────────────────
 
 def test_worker_alert_sem_webhook_nao_alerta(monkeypatch, tmp_path):
-    monkeypatch.delenv("GALASECA_ADMIN_DISCORD_WEBHOOK", raising=False)
+    monkeypatch.delenv("LODOUT_ADMIN_DISCORD_WEBHOOK", raising=False)
     ciclos = [{"ts": time.time() - 10 * 3600, "itens": 0}]
     assert worker_alert.verificar_e_alertar(
         ciclos, path=tmp_path / "estado.json") is False
 
 
 def test_worker_alert_sucesso_recente_nao_alerta(monkeypatch, tmp_path):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     ciclos = [{"ts": time.time() - 100, "itens": 5}]
     assert worker_alert.verificar_e_alertar(
         ciclos, path=tmp_path / "estado.json") is False
 
 
 def test_worker_alert_manda_quando_atrasado(monkeypatch, tmp_path):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     monkeypatch.setattr(worker_alert.discord_notify, "enviar", lambda url, msg: True)
     ciclos = [{"ts": time.time() - 10 * 3600, "itens": 0}]
     assert worker_alert.verificar_e_alertar(
@@ -3367,7 +3367,7 @@ def test_worker_alert_manda_quando_atrasado(monkeypatch, tmp_path):
 
 
 def test_worker_alert_dedup_nao_manda_de_novo(monkeypatch, tmp_path):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     chamadas = []
     monkeypatch.setattr(
         worker_alert.discord_notify, "enviar",
@@ -3390,7 +3390,7 @@ def _uso_disco(total=100.0, livre=50.0):
 
 
 def test_worker_alert_disco_sem_webhook_nao_alerta(monkeypatch, tmp_path):
-    monkeypatch.delenv("GALASECA_ADMIN_DISCORD_WEBHOOK", raising=False)
+    monkeypatch.delenv("LODOUT_ADMIN_DISCORD_WEBHOOK", raising=False)
     monkeypatch.setattr(
         worker_alert.shutil, "disk_usage",
         lambda *a, **k: (_ for _ in ()).throw(AssertionError(
@@ -3400,7 +3400,7 @@ def test_worker_alert_disco_sem_webhook_nao_alerta(monkeypatch, tmp_path):
 
 
 def test_worker_alert_disco_acima_do_limite_nao_alerta(monkeypatch, tmp_path):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     monkeypatch.setattr(
         worker_alert.shutil, "disk_usage",
         lambda *a, **k: _uso_disco(total=100.0, livre=50.0))
@@ -3409,7 +3409,7 @@ def test_worker_alert_disco_acima_do_limite_nao_alerta(monkeypatch, tmp_path):
 
 
 def test_worker_alert_disco_abaixo_do_limite_manda(monkeypatch, tmp_path):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     monkeypatch.setattr(
         worker_alert.shutil, "disk_usage",
         lambda *a, **k: _uso_disco(total=100.0, livre=5.0))
@@ -3423,7 +3423,7 @@ def test_worker_alert_disco_abaixo_do_limite_manda(monkeypatch, tmp_path):
 
 
 def test_worker_alert_disco_dedup_nao_manda_de_novo(monkeypatch, tmp_path):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     monkeypatch.setattr(
         worker_alert.shutil, "disk_usage",
         lambda *a, **k: _uso_disco(total=100.0, livre=5.0))
@@ -3438,7 +3438,7 @@ def test_worker_alert_disco_dedup_nao_manda_de_novo(monkeypatch, tmp_path):
 
 
 def test_worker_alert_disco_erro_ao_checar_nao_alerta(monkeypatch, tmp_path):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
 
     def _falha(*a, **k):
         raise OSError("disco inacessível")
@@ -3451,7 +3451,7 @@ def test_worker_alert_disco_erro_ao_checar_nao_alerta(monkeypatch, tmp_path):
 def test_worker_alert_disco_total_zero_nao_alerta(monkeypatch, tmp_path):
     # Guarda contra divisão por zero (partição relatando total=0) --
     # sem o `if not uso.total` no código, isto levantaria ZeroDivisionError.
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     monkeypatch.setattr(
         worker_alert.shutil, "disk_usage",
         lambda *a, **k: _uso_disco(total=0.0, livre=0.0))
@@ -3680,7 +3680,7 @@ def test_comparar_ignora_nome_inexistente(client, monkeypatch, tmp_path):
 
 def test_readyz_sem_banco_e_ready(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "galaseca.public_site.server.db_backup._DB_PATH",
+        "lodout.public_site.server.db_backup._DB_PATH",
         tmp_path / "nao_existe.db")
     resp = client.get("/readyz")
     assert resp.status_code == 200
@@ -3693,7 +3693,7 @@ def test_readyz_com_banco_valido_e_ready(client, monkeypatch, tmp_path):
     conn = sqlite3.connect(str(db))
     conn.execute("CREATE TABLE t (x INTEGER)")
     conn.close()
-    monkeypatch.setattr("galaseca.public_site.server.db_backup._DB_PATH", db)
+    monkeypatch.setattr("lodout.public_site.server.db_backup._DB_PATH", db)
     resp = client.get("/readyz")
     assert resp.get_json()["ready"] is True
 
@@ -3701,7 +3701,7 @@ def test_readyz_com_banco_valido_e_ready(client, monkeypatch, tmp_path):
 def test_readyz_com_banco_corrompido_nao_e_ready(client, monkeypatch, tmp_path):
     db = tmp_path / "corrompido.db"
     db.write_bytes(b"isto nao e um sqlite valido nem perto")
-    monkeypatch.setattr("galaseca.public_site.server.db_backup._DB_PATH", db)
+    monkeypatch.setattr("lodout.public_site.server.db_backup._DB_PATH", db)
     resp = client.get("/readyz")
     assert resp.status_code == 503
     assert resp.get_json()["ready"] is False
@@ -3947,7 +3947,7 @@ def test_icon_cache_obter_cacheia_webp_em_disco(monkeypatch, tmp_path):
 
 def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", lambda h, t: None)
+        "lodout.public_site.server.icon_cache.obter", lambda h, t: None)
     resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 302
     assert "steamstatic.com" in resp.headers["Location"]
@@ -3955,7 +3955,7 @@ def test_rota_icone_sem_cache_redireciona_pro_cdn(client, monkeypatch):
 
 def test_rota_icone_com_cache_serve_bytes(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter",
+        "lodout.public_site.server.icon_cache.obter",
         lambda h, t: b"dados-da-imagem")
     resp = client.get("/icone/abc123.webp")
     assert resp.status_code == 200
@@ -3974,7 +3974,7 @@ def test_rota_icone_tam_384_passa_pro_icon_cache(client, monkeypatch):
         return b"dados-384"
 
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", _obter)
+        "lodout.public_site.server.icon_cache.obter", _obter)
     resp = client.get("/icone/abc123.webp?tam=384")
     assert resp.status_code == 200
     assert resp.data == b"dados-384"
@@ -3989,7 +3989,7 @@ def test_rota_icone_tam_invalido_cai_no_padrao(client, monkeypatch):
         return b"x"
 
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", _obter)
+        "lodout.public_site.server.icon_cache.obter", _obter)
     resp = client.get("/icone/abc123.webp?tam=9999")
     assert resp.status_code == 200
     assert chamadas == [icon_cache.TAMANHO_PADRAO]
@@ -4012,7 +4012,7 @@ def test_rota_icone_tem_rate_limit(monkeypatch):
     gotcha de `rate_limited` avaliado na decoração: patcha ANTES de
     `create_app()`."""
     monkeypatch.setattr(
-        "galaseca.public_site.server.icon_cache.obter", lambda h, t: b"x")
+        "lodout.public_site.server.icon_cache.obter", lambda h, t: b"x")
     monkeypatch.setattr(rate_limit, "ICON_MAX_HITS", 2)
     app = create_app()
     app.config["TESTING"] = True
@@ -4064,7 +4064,7 @@ def test_manifest_json_acessivel(client):
     resp = client.get("/static/manifest.json")
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["name"] == "Galaseca"
+    assert data["name"] == "Lodout"
     assert data["start_url"] == "/"
 
 
@@ -4242,7 +4242,7 @@ def test_icon_cache_requisicao_de_rede_usa_hash_sanitizado(monkeypatch, tmp_path
 def test_readyz_com_db_path_sendo_diretorio(client, monkeypatch, tmp_path):
     diretorio = tmp_path / "isto_e_pasta"
     diretorio.mkdir()
-    monkeypatch.setattr("galaseca.public_site.server.db_backup._DB_PATH", diretorio)
+    monkeypatch.setattr("lodout.public_site.server.db_backup._DB_PATH", diretorio)
     resp = client.get("/readyz")
     assert resp.status_code == 503
     assert resp.get_json()["ready"] is False
@@ -4318,7 +4318,7 @@ def test_sitemap_inclui_paginas_de_item_mas_nao_as_de_risco_alto(
 
 def test_admin_mostra_disco_e_usuarios(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin")
@@ -4334,7 +4334,7 @@ def test_admin_testar_webhook_sem_sessao_e_404(client):
 
 def test_admin_testar_webhook_sem_csrf_e_403(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.post("/admin/testar-webhook", data={})
@@ -4343,10 +4343,10 @@ def test_admin_testar_webhook_sem_csrf_e_403(client, monkeypatch):
 
 def test_admin_testar_webhook_com_csrf_funciona(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "galaseca.public_site.server.discord_notify.enviar",
+        "lodout.public_site.server.discord_notify.enviar",
         lambda url, msg: True)
     client.post("/admin/login", data={"senha": "segredo"})
     with client.session_transaction() as sess:
@@ -4370,9 +4370,9 @@ def test_admin_log_bruto_com_sessao_baixa_arquivo(client, monkeypatch, tmp_path)
     log = tmp_path / "errors.log"
     log.write_text("linha de erro\n", encoding="utf-8")
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
-    monkeypatch.setattr("galaseca.public_site.server._ERROR_LOG_PATH", log)
+    monkeypatch.setattr("lodout.public_site.server._ERROR_LOG_PATH", log)
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin/log-bruto")
     assert resp.status_code == 200
@@ -4389,9 +4389,9 @@ def test_admin_grafico_erros_tem_tooltip_por_ponto(client, monkeypatch, tmp_path
         "2026-11-08 11:00:00,000 ERROR outro2\n",
         encoding="utf-8")
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
-    monkeypatch.setattr("galaseca.public_site.server._ERROR_LOG_PATH", log)
+    monkeypatch.setattr("lodout.public_site.server._ERROR_LOG_PATH", log)
     client.post("/admin/login", data={"senha": "segredo"})
     body = client.get("/admin").data.decode("utf-8")
     assert "grafico-erros" in body
@@ -4408,10 +4408,10 @@ def test_admin_backup_download_com_sessao_baixa_arquivo(client, monkeypatch, tmp
     backup = tmp_path / "public_site-20261026-120000.db"
     backup.write_bytes(b"dados falsos de sqlite")
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "lodout.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin/backup/public_site-20261026-120000.db")
     assert resp.status_code == 200
@@ -4425,10 +4425,10 @@ def test_admin_backup_download_rejeita_nome_fora_do_padrao(client, monkeypatch, 
     alvo = tmp_path / "secreto.txt"
     alvo.write_text("não deveria ser servido", encoding="utf-8")
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "lodout.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     for nome in ("../secreto.txt", "secreto.txt", "public_site-123.db",
                 "public_site-20261026-120000.db.bak"):
@@ -4438,10 +4438,10 @@ def test_admin_backup_download_rejeita_nome_fora_do_padrao(client, monkeypatch, 
 
 def test_admin_backup_download_arquivo_inexistente_e_404(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "lodout.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     resp = client.get("/admin/backup/public_site-20261026-120000.db")
     assert resp.status_code == 404
@@ -4451,25 +4451,25 @@ def test_admin_lista_backups_tem_link_de_download(client, monkeypatch, tmp_path)
     backup = tmp_path / "public_site-20261026-120000.db"
     backup.write_bytes(b"x")
     monkeypatch.setattr(
-        "galaseca.public_site.server._ADMIN_PASSWORD_HASH",
+        "lodout.public_site.server._ADMIN_PASSWORD_HASH",
         generate_password_hash("segredo"))
     monkeypatch.setattr(
-        "galaseca.public_site.server.db_backup._BACKUP_DIR", tmp_path)
+        "lodout.public_site.server.db_backup._BACKUP_DIR", tmp_path)
     client.post("/admin/login", data={"senha": "segredo"})
     body = client.get("/admin").data.decode("utf-8")
     assert "/admin/backup/public_site-20261026-120000.db" in body
 
 
 def test_disco_info_nao_quebra_sem_dados():
-    from galaseca.public_site.server import _disco_info
+    from lodout.public_site.server import _disco_info
     info = _disco_info()
     assert "livre_fmt" in info
 
 
 def test_contagem_usuarios_sem_banco_e_zero(monkeypatch, tmp_path):
-    from galaseca.public_site.server import _contagem_usuarios
+    from lodout.public_site.server import _contagem_usuarios
     monkeypatch.setattr(
-        "galaseca.public_site.server.db_backup._DB_PATH",
+        "lodout.public_site.server.db_backup._DB_PATH",
         tmp_path / "nao_existe.db")
     assert _contagem_usuarios() == 0
 
@@ -4485,7 +4485,7 @@ def test_style_css_comentarios_balanceados():
     import re
     from pathlib import Path
 
-    caminho = (Path(__file__).parent.parent / "galaseca" / "public_site"
+    caminho = (Path(__file__).parent.parent / "lodout" / "public_site"
               / "static" / "style.css")
     css = caminho.read_text(encoding="utf-8")
     abre = len(re.findall(re.escape("/*"), css))
@@ -4508,7 +4508,7 @@ def test_classes_com_hidden_tem_guarda_display_none():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "galaseca" / "public_site"
+    raiz = Path(__file__).parent.parent / "lodout" / "public_site"
     css = (raiz / "static" / "style.css").read_text(encoding="utf-8")
 
     classes_com_hidden = set()
@@ -4564,7 +4564,7 @@ def test_todas_as_custom_properties_usadas_estao_definidas():
     import re
     from pathlib import Path
 
-    css = (Path(__file__).parent.parent / "galaseca" / "public_site"
+    css = (Path(__file__).parent.parent / "lodout" / "public_site"
           / "static" / "style.css").read_text(encoding="utf-8")
     m = re.search(r":root\s*\{([^}]*)\}", css)
     definidas = set(re.findall(r"--([\w-]+)\s*:", m.group(1)))
@@ -4586,7 +4586,7 @@ def test_nenhum_template_usa_style_inline():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "lodout" / "public_site" / "templates"
     com_style_inline = []
     for template in raiz.rglob("*.html"):
         html = template.read_text(encoding="utf-8")
@@ -4605,7 +4605,7 @@ def test_colunas_da_tabela_principal_somam_100_por_cento():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "galaseca" / "public_site"
+    raiz = Path(__file__).parent.parent / "lodout" / "public_site"
     css = (raiz / "static" / "style.css").read_text(encoding="utf-8")
     html = (raiz / "templates" / "index.html").read_text(encoding="utf-8")
 
@@ -4632,7 +4632,7 @@ def test_todo_template_tem_skip_link_e_main_com_id():
     nova."""
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "lodout" / "public_site" / "templates"
     sem_skip_link = []
     sem_main_id = []
     for template in raiz.glob("*.html"):  # só as páginas, não partials/
@@ -4652,7 +4652,7 @@ def test_paginas_de_conta_sao_noindex():
     crawler pode achar por outro caminho, ex. um link direto)."""
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "lodout" / "public_site" / "templates"
     paginas = ["conta.html", "conta_excluir.html", "conta_historico.html",
               "conta_trades.html", "conta_watchlist.html"]
     sem_noindex = [
@@ -4677,7 +4677,7 @@ def test_todo_campo_de_formulario_tem_nome_acessivel():
     import re
     from pathlib import Path
 
-    raiz = Path(__file__).parent.parent / "galaseca" / "public_site" / "templates"
+    raiz = Path(__file__).parent.parent / "lodout" / "public_site" / "templates"
     sem_nome_acessivel = []
     for template in raiz.rglob("*.html"):
         html = template.read_text(encoding="utf-8")
@@ -4698,7 +4698,7 @@ def test_todo_campo_de_formulario_tem_nome_acessivel():
 
 def test_nav_de_conta_marca_pagina_ativa(client, monkeypatch):
     monkeypatch.setattr(
-        "galaseca.public_site.server.user_store.get_user",
+        "lodout.public_site.server.user_store.get_user",
         lambda steamid, path=None: None)
     with client.session_transaction() as sess:
         sess["steamid"] = "123"
@@ -4710,7 +4710,7 @@ def test_nav_de_conta_marca_pagina_ativa(client, monkeypatch):
 # ── Rodada 3: performance -- historico so' pra fatia visivel ──
 
 def test_candidatos_filtrados_sem_historico_nao_calcula_sparkline():
-    from galaseca.public_site.server import _candidatos_filtrados
+    from lodout.public_site.server import _candidatos_filtrados
     scan = {"ts": time.time(), "category": "x", "results": [
         {"name": "Item A", "score": 80, "price": 10.0, "case_label": "",
          "pump_risk": {"level": "low"}, "breakdown": []},
@@ -4721,9 +4721,9 @@ def test_candidatos_filtrados_sem_historico_nao_calcula_sparkline():
 
 
 def test_enriquecer_com_historico_preenche_campos(monkeypatch):
-    from galaseca.public_site.server import _enriquecer_com_historico
+    from lodout.public_site.server import _enriquecer_com_historico
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: [{"ts": 1, "price": 10.0}, {"ts": 2, "price": 12.0}])
     candidatos = [{"name": "Item A"}]
     _enriquecer_com_historico(candidatos)
@@ -4766,9 +4766,9 @@ def test_index_nao_mostra_selo_com_historico_suficiente(
 
 def test_enriquecer_com_historico_nao_marca_curto_com_pontos_suficientes(
         monkeypatch):
-    from galaseca.public_site.server import _enriquecer_com_historico
+    from lodout.public_site.server import _enriquecer_com_historico
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history",
+        "lodout.public_site.server.signals.load_item_history",
         lambda name: [{"ts": i, "price": 10.0 + i} for i in range(5)])
     candidatos = [{"name": "Item A"}]
     _enriquecer_com_historico(candidatos)
@@ -4783,7 +4783,7 @@ def test_candidatos_filtrados_sem_icone_nao_builda_url(client):
     # 2026-11-09 mostrou url_for("icone_cache", ...) como 42% do tempo
     # de / inteiro, rodando pros ~150-180 candidatos quando só 10
     # aparecem na página.
-    from galaseca.public_site.server import _candidatos_filtrados
+    from lodout.public_site.server import _candidatos_filtrados
     scan = {"ts": time.time(), "category": "x", "results": [
         {"name": "Item A", "score": 80, "price": 10.0, "icon": "hash123",
          "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
@@ -4794,7 +4794,7 @@ def test_candidatos_filtrados_sem_icone_nao_builda_url(client):
 
 
 def test_enriquecer_com_icone_preenche_campos(client):
-    from galaseca.public_site.server import _enriquecer_com_icone
+    from lodout.public_site.server import _enriquecer_com_icone
     candidatos = [{"name": "Item A", "icon": "hash123"},
                  {"name": "Item B", "icon": None}]
     with client.application.test_request_context():
@@ -4809,7 +4809,7 @@ def test_candidatos_filtrados_com_icone_default_continua_preenchendo(
         client):
     # default (sem passar com_icone) continua True -- nenhum caller que
     # não foi atualizado explicitamente perde o ícone sem querer.
-    from galaseca.public_site.server import _candidatos_filtrados
+    from lodout.public_site.server import _candidatos_filtrados
     scan = {"ts": time.time(), "category": "x", "results": [
         {"name": "Item A", "score": 80, "price": 10.0, "icon": "hash123",
          "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
@@ -4837,7 +4837,7 @@ def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
         return []
 
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history", _contado)
+        "lodout.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/")
     assert resp.status_code == 200
     assert len(chamadas) <= 15  # página de 10 + folga, nunca os 152
@@ -4853,7 +4853,7 @@ def test_index_so_builda_icone_da_pagina_atual(client, monkeypatch, tmp_path):
         for i in range(152)
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
-    from galaseca.public_site import server as server_mod
+    from lodout.public_site import server as server_mod
     real_url_for = server_mod.url_for
     chamadas = []
 
@@ -4890,7 +4890,7 @@ def test_item_detail_nao_calcula_historico_dos_outros_candidatos(client, monkeyp
         return []
 
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history", _contado)
+        "lodout.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/item/Item 000")
     assert resp.status_code == 200
     assert len(chamadas) <= 2  # só a chamada do gráfico da própria página
@@ -4913,7 +4913,7 @@ def test_comparar_so_enriquece_os_itens_comparados(client, monkeypatch, tmp_path
         return []
 
     monkeypatch.setattr(
-        "galaseca.public_site.server.signals.load_item_history", _contado)
+        "lodout.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/comparar?nomes=Item 000,Item 001,Item 002")
     assert resp.status_code == 200
     assert len(chamadas) <= 3  # só os 3 itens comparados, nunca os 152
@@ -4956,7 +4956,7 @@ def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):
     body = client.get("/").data.decode("utf-8")
 
     assert ">Caixa CS:GO Weapon (descontinuada, 2013)</span>" in body
-    assert "<title>Galaseca</title>" in body
+    assert "<title>Lodout</title>" in body
 
 
 def test_feed_e_api_nao_leem_historico_de_todos_os_itens(
@@ -5129,9 +5129,9 @@ def test_ranking_mostra_quem_saiu_do_top(client, monkeypatch, tmp_path):
         {"ts": 1000 * h, "items": [{"name": "X", "score": 80, "position": 1}]},
     ]
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots", lambda: snaps)
+        "lodout.public_site.server.ranking.load_snapshots", lambda: snaps)
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.latest_before",
+        "lodout.public_site.server.ranking.latest_before",
         lambda ts: next((s for s in reversed(snaps) if s["ts"] < ts), None))
     body = client.get("/ranking").data.decode("utf-8")
     assert "Saíram do Top 20" in body
@@ -5157,7 +5157,7 @@ def test_item_mostra_historico_no_ranking_e_eventos(
     ], category="Caixas")
     agora = time.time()
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots",
+        "lodout.public_site.server.ranking.load_snapshots",
         lambda: [
             {"ts": agora - 86400, "items": [
                 {"name": "Kilowatt Case", "score": 70, "position": 4}]},
@@ -5183,7 +5183,7 @@ def test_item_sem_ranking_salvo_avisa(client, monkeypatch, tmp_path):
          "pump_risk": {"level": "low"}, "breakdown": []},
     ])
     monkeypatch.setattr(
-        "galaseca.public_site.server.ranking.load_snapshots", lambda: [])
+        "lodout.public_site.server.ranking.load_snapshots", lambda: [])
     monkeypatch.setattr(server.gamedata, "load_events_log", lambda: [])
     body = client.get("/item/A").data.decode("utf-8")
     assert "Ainda não há ranking salvo nos últimos 30 dias" in body
@@ -5249,7 +5249,7 @@ def test_item_sem_variantes_nao_mostra_secao(client, monkeypatch, tmp_path):
 # ── alerta de qualidade do scan ─────────────────────────────
 
 def _alerta_qualidade(monkeypatch):
-    monkeypatch.setenv("GALASECA_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
+    monkeypatch.setenv("LODOUT_ADMIN_DISCORD_WEBHOOK", "https://discord/x")
     msgs = []
     monkeypatch.setattr(worker_alert.discord_notify, "enviar",
                         lambda url, msg: msgs.append(msg) or True)
@@ -5290,7 +5290,7 @@ def test_alerta_qualidade_ciclo_bom_ou_antigo_nao_alerta(monkeypatch, tmp_path):
 
 
 def test_alerta_qualidade_sem_webhook_nao_faz_nada(monkeypatch, tmp_path):
-    monkeypatch.delenv("GALASECA_ADMIN_DISCORD_WEBHOOK", raising=False)
+    monkeypatch.delenv("LODOUT_ADMIN_DISCORD_WEBHOOK", raising=False)
     assert worker_alert.verificar_qualidade_e_alertar(
         [{"ts": 1.0, "itens": 1, "alvos": 185}],
         path=tmp_path / "q.json") is False
@@ -5405,14 +5405,14 @@ def test_home_marca_item_com_preco_do_ciclo_anterior(client, monkeypatch, tmp_pa
 
 
 def test_fonte_do_ciclo_desligada_por_padrao(monkeypatch):
-    monkeypatch.delenv("GALASECA_SCAN_FONTE", raising=False)
+    monkeypatch.delenv("LODOUT_SCAN_FONTE", raising=False)
     boa = {"comparacao_fontes": {"itens_preco": 170, "razao_preco": 0.01,
                                  "preco_concorda_pct": 99.0}}
     assert worker._fonte_do_ciclo([boa]) == ("ambas", None)
 
 
 def test_fonte_do_ciclo_ligada_exige_medicao_boa(monkeypatch):
-    monkeypatch.setenv("GALASECA_SCAN_FONTE", "pagina")
+    monkeypatch.setenv("LODOUT_SCAN_FONTE", "pagina")
     boa = {"comparacao_fontes": {"itens_preco": 170, "razao_preco": 0.01,
                                  "preco_concorda_pct": 99.0,
                                  "mediana_concorda_pct": 95.0,

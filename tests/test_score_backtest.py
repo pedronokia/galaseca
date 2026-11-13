@@ -1,4 +1,4 @@
-"""Testes de galaseca/backtest.py -- a ferramenta de medição em si, não
+"""Testes de lodout/backtest.py -- a ferramenta de medição em si, não
 nenhuma conclusão sobre o modelo. Series sintéticas, sem rede."""
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from galaseca import score_backtest as backtest
+from lodout import score_backtest as backtest
 
 _DIA = 86400.0
 

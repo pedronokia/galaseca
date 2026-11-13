@@ -12,8 +12,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from galaseca.public_site import db, watchlist_routes
-from galaseca.public_site.server import create_app
+from lodout.public_site import db, watchlist_routes
+from lodout.public_site.server import create_app
 
 
 @pytest.fixture
@@ -26,11 +26,11 @@ def client(tmp_path, monkeypatch):
 
     monkeypatch.setattr(watchlist_routes, "PriceCache", _FakeCache)
     monkeypatch.setattr(
-        "galaseca.signals.load_item_volume", lambda name: [])
+        "lodout.signals.load_item_volume", lambda name: [])
     monkeypatch.setattr(
-        "galaseca.signals.load_item_supply", lambda name: [])
+        "lodout.signals.load_item_supply", lambda name: [])
     monkeypatch.setattr(
-        "galaseca.scan_store.load_last_scan", lambda: None)
+        "lodout.scan_store.load_last_scan", lambda: None)
 
     app = create_app()
     app.config["TESTING"] = True
@@ -39,10 +39,10 @@ def client(tmp_path, monkeypatch):
 
 def _login(client, monkeypatch, steamid="76561198000000000"):
     monkeypatch.setattr(
-        "galaseca.public_site.account.steam_openid.verify_callback",
+        "lodout.public_site.account.steam_openid.verify_callback",
         lambda args: steamid)
     monkeypatch.setattr(
-        "galaseca.public_site.account.fetch_public_profile",
+        "lodout.public_site.account.fetch_public_profile",
         lambda sid: {"name": "Fulano", "avatar_url": None})
     login_resp = client.get("/login")
     openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)
@@ -96,7 +96,7 @@ def test_item_mostra_icone_raridade_e_nota_do_scan_atual(
     "pra trás" nas melhorias visuais. Cruza pelo nome com o scan atual
     (mesmo padrão de ranking_page -- ver raridade.icone_raridade)."""
     monkeypatch.setattr(
-        "galaseca.scan_store.load_last_scan", lambda: {
+        "lodout.scan_store.load_last_scan", lambda: {
             "ts": 0.0, "category": "Facas", "results": [
                 {"name": "AK-47", "score": 77, "icon": "hash-ak",
                  "name_color": "EB4B4B"},
@@ -281,7 +281,7 @@ def test_webhook_isolado_entre_contas(client, monkeypatch):
 def test_item_disparado_envia_webhook(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "galaseca.public_site.watchlist_routes.discord_notify.enviar",
+        "lodout.public_site.watchlist_routes.discord_notify.enviar",
         lambda url, texto: chamadas.append((url, texto)) or True)
     _login(client, monkeypatch)
     token = _csrf_token(client)
@@ -299,7 +299,7 @@ def test_item_disparado_envia_webhook(client, monkeypatch):
 def test_item_nao_disparado_nao_envia_webhook(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "galaseca.public_site.watchlist_routes.discord_notify.enviar",
+        "lodout.public_site.watchlist_routes.discord_notify.enviar",
         lambda url, texto: chamadas.append((url, texto)) or True)
     _login(client, monkeypatch)
     token = _csrf_token(client)
@@ -317,7 +317,7 @@ def test_item_nao_disparado_nao_envia_webhook(client, monkeypatch):
 def test_sem_webhook_configurado_nao_tenta_enviar(client, monkeypatch):
     chamadas = []
     monkeypatch.setattr(
-        "galaseca.public_site.watchlist_routes.discord_notify.enviar",
+        "lodout.public_site.watchlist_routes.discord_notify.enviar",
         lambda url, texto: chamadas.append((url, texto)) or True)
     _login(client, monkeypatch)
     token = _csrf_token(client)

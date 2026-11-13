@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sobre — Lodout</title>
+  <meta name="description" content="Por que o lodout existe e pra quem ele foi feito.">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="{{ request.url }}">
+  {% include "partials/_head_pwa.html" %}
+  <link rel="alternate" type="application/rss+xml" title="Lodout — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "lodout", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 2, "name": "Sobre", "item": "{{ request.url }}"}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
+  <header class="topo">
+    <div class="topo-linha">
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
+      {% include "partials/_conta_link.html" %}
+    </div>
+  </header>
+
+  <main id="conteudo" class="pagina-texto">
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Sobre</h1>
+      <p class="descricao-pagina">Por que o lodout existe, pra quem é e quem o mantém.</p>
+    </header>
+    <h2 class="secao-titulo">O que é</h2>
+    <p>O lodout nasceu como uma ferramenta pessoal pra organizar
+    portfólio de skins de CS2 e, com o tempo, virou um motor de análise
+    próprio -- sinais de preço, oferta, caixa descontinuada, risco de
+    alta artificial. Esse site público é a parte dessa ferramenta que
+    faz sentido compartilhar: a nota e os motivos, pra qualquer um ver,
+    sem precisar instalar nada.</p>
+
+    <h2 class="secao-titulo">Pra quem é</h2>
+    <p>Pra quem quer uma segunda opinião factual antes de decidir comprar
+    ou vender um item -- não uma dica de "vai subir", mas um resumo do
+    que já foi medido. Ver <a href="{{ url_for('metodo') }}">como a nota
+    funciona</a> pra entender os limites disso.</p>
+
+    <h2 class="secao-titulo">Como é mantido</h2>
+    <p>Um projeto de uma pessoa só, rodando numa VM gratuita (ver
+    <a href="{{ url_for('status') }}">status</a> pra transparência sobre
+    os limites disso). Código aberto -- sugestões e problemas vão pro
+    <a href="https://github.com/pedronokia/lodout" target="_blank" rel="noopener">GitHub</a>.</p>
+
+    <p>Não é afiliado à Valve nem à Steam. Não é recomendação de
+    investimento.</p>
+  </main>
+
+  <footer class="rodape">
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

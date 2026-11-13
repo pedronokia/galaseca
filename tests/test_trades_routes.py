@@ -10,8 +10,8 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from galaseca.public_site import db
-from galaseca.public_site.server import create_app
+from lodout.public_site import db
+from lodout.public_site.server import create_app
 
 
 @pytest.fixture
@@ -24,10 +24,10 @@ def client(tmp_path, monkeypatch):
 
 def _login(client, monkeypatch, steamid="76561198000000000"):
     monkeypatch.setattr(
-        "galaseca.public_site.account.steam_openid.verify_callback",
+        "lodout.public_site.account.steam_openid.verify_callback",
         lambda args: steamid)
     monkeypatch.setattr(
-        "galaseca.public_site.account.fetch_public_profile",
+        "lodout.public_site.account.fetch_public_profile",
         lambda sid: {"name": "Fulano", "avatar_url": None})
     login_resp = client.get("/login")
     openid_params = parse_qs(urlsplit(login_resp.headers["Location"]).query)
@@ -83,7 +83,7 @@ def test_item_mostra_icone_e_raridade_do_scan_atual(client, monkeypatch):
     nota aqui de propósito: trade já fechado é histórico (ver
     raridade.py e trades_routes._scan_lookup)."""
     monkeypatch.setattr(
-        "galaseca.scan_store.load_last_scan", lambda: {
+        "lodout.scan_store.load_last_scan", lambda: {
             "ts": 0.0, "category": "Facas", "results": [
                 {"name": "AK-47 | Redline (Field-Tested)", "score": 77,
                  "icon": "hash-ak", "name_color": "EB4B4B"},

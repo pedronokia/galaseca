@@ -13,7 +13,7 @@ Uso:
   python scripts/build_score_backtest_dataset.py --out data/backtest_dataset.json --limit 30
 
 Grava um JSON: [{"name", "price_history", "is_container"}, ...], pronto
-pra `galaseca.score_backtest.avaliar()` (ver `scripts/run_score_backtest.py`).
+pra `lodout.score_backtest.avaliar()` (ver `scripts/run_score_backtest.py`).
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from galaseca import cases, scan_targets, steam_api
+from lodout import cases, scan_targets, steam_api
 
 
 def _nomes_alvo(limit: "int | None") -> list[str]:

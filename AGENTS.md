@@ -1,6 +1,6 @@
-# GalaSeca — contexto para agentes
+# Lodout — contexto para agentes
 
-Este repositório mantém **um único produto: o site público GalaSeca**.
+Este repositório mantém **um único produto: o site público Lodout**.
 Não recrie o app desktop nem a UI web paralela. O preview local do próprio
 site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
 
@@ -10,9 +10,9 @@ site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
   da série 11.x, tinha 73 CVEs sem patch retroativo; o fix exige
   Python >=3.10, e 3.12 já era testado na CI), Flask, SQLite e `httpx`;
   dependências em `requirements-public-site.txt`.
-- `galaseca/public_site/`: rotas, templates, CSS, JavaScript, autenticação,
+- `lodout/public_site/`: rotas, templates, CSS, JavaScript, autenticação,
   persistência, testes operacionais e worker do site.
-- Alguns módulos de domínio em `galaseca/` são dependências diretas do site
+- Alguns módulos de domínio em `lodout/` são dependências diretas do site
   ou do worker (Steam pública, catálogo, coleta, recomendações, sinais,
   aposentadorias e trades). Antes de remover um módulo, confira imports diretos
   e dinâmicos e rode os testes.
@@ -41,7 +41,7 @@ site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
 
 - `data/` é armazenamento local e pode conter banco de contas, chave de sessão,
   caches e logs. **Nunca o apague em uma limpeza de código**.
-- Use `galaseca._paths.atomic_write_text` / `atomic_write_bytes` para arquivos
+- Use `lodout._paths.atomic_write_text` / `atomic_write_bytes` para arquivos
   persistentes, não `Path.write_text` diretamente.
 - Para registros JSON, use `load_json_record`; JSON malformado é colocado em
   quarentena em vez de ser tratado como registro vazio.

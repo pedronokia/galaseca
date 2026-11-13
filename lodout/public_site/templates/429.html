@@ -1,0 +1,39 @@
+{% from "partials/_icons.html" import icone %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Devagar aí — Lodout</title>
+  <link rel="icon" href="{{ static_v('favicon.svg') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+</head>
+<body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
+  <header class="topo">
+    <div class="topo-linha">
+      <div class="titulo-logo">{% include "partials/_logo.html" %}</div>
+    </div>
+  </header>
+
+  <main id="conteudo" class="pagina-texto">
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Devagar aí</h1>
+      <p class="descricao-pagina">Essa requisição tem um limite por minuto, pra evitar abuso.
+      Espera um minuto e tenta de novo.</p>
+    </header>
+
+    <div class="resumo-cards">
+      <div class="card">
+        <p class="status status-erro">Muitas tentativas em pouco tempo.</p>
+        <p><a class="botao-acao" href="{{ url_for('index') }}">{{ icone("seta-esquerda") }} Voltar pro dashboard</a></p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="rodape">
+    <p class="versao">lodout</p>
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

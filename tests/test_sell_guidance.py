@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from galaseca import portfolio
+from lodout import portfolio
 
 
 # ── o modelo de taxa ───────────────────────────────────────────────

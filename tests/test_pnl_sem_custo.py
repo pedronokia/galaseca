@@ -6,7 +6,7 @@ quanto voce pagou -- isso e' desconhecido, nao zero.
 """
 from __future__ import annotations
 
-from galaseca import portfolio
+from lodout import portfolio
 
 
 def _preco(_nome):
