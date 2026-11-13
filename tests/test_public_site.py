@@ -5386,3 +5386,19 @@ def test_status_mostra_scan_em_andamento(client, monkeypatch):
     assert 'value="42" max="185"' in body
     assert "&lt;b&gt;x&lt;/b&gt;" in body
     assert "termina em ~" in body
+
+
+def test_home_marca_item_com_preco_do_ciclo_anterior(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Velho", "score": 70, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "mantido_do_ciclo_anterior": True,
+         "coletado_em": time.time() - 7 * 3600},
+        {"name": "Novo", "score": 60, "price": 6.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    for ver in ("vitrine", "lista"):
+        body = client.get(f"/?ver={ver}").data.decode("utf-8")
+        rotulo = ">Preço do ciclo anterior<" if ver == "vitrine" else ">Ciclo anterior<"
+        assert body.count(rotulo) == 1
+        assert "(coletado há 7 h)" in body

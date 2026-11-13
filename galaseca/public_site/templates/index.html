@@ -67,6 +67,7 @@
     </td>
     <td class="celula-preco" data-label="Preço">
       {{ c.price_fmt }}
+      {% if c.mantido_do_ciclo_anterior %}<span class="selo-dado-anterior" title="A Steam não devolveu preço novo deste item no último ciclo; o valor é do ciclo anterior{% if c.coletado_txt %} (coletado {{ c.coletado_txt }}){% endif %}. Ele é tentado de novo no próximo.">Ciclo anterior</span>{% endif %}
       {% if c.tendencia in ("alta", "baixa") %}
       {% set pct_txt = ("%.1f"|format(c.variacao_pct|abs))|replace(".", ",") ~ "%" if c.variacao_pct is number else "" %}
       {% set verbo = "subiu" if c.tendencia == "alta" else "caiu" %}
@@ -196,6 +197,7 @@
         {% if c.confianca_baixa %}
         <span class="selo-confianca-baixa" title="{{ c.confianca_baixa_titulo }}">{{ icone("dado-limitado") }}Dado limitado</span>
         {% endif %}
+        {% if c.mantido_do_ciclo_anterior %}<span class="selo-dado-anterior" title="A Steam não devolveu preço novo deste item no último ciclo; o valor é do ciclo anterior{% if c.coletado_txt %} (coletado {{ c.coletado_txt }}){% endif %}. Ele é tentado de novo no próximo.">Preço do ciclo anterior</span>{% endif %}
         {% if c.case_label %}
         <span class="cartao-item-caixa" title="{{ c.case_label|rotulo_caixa(c.name) }}">{{ c.case_label|rotulo_caixa(c.name) }}</span>
         {% endif %}

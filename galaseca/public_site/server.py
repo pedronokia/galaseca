@@ -1920,6 +1920,9 @@ def _candidatos_filtrados(
             c["icon_url_2x"] = None
         c["market_url"] = _MARKET_LISTING_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
+        c["coletado_txt"] = (
+            scan_store.idade_txt(c["coletado_em"])
+            if isinstance(c.get("coletado_em"), (int, float)) else None)
         c["steamdb_url"] = _STEAMDB_SEARCH_URL.format(
             name=urllib.parse.quote(c.get("name") or "", safe=""))
         # achado 2026-10-30: quando tem data exata registrada em

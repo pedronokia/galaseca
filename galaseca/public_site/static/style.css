@@ -4454,3 +4454,23 @@ table.tabela-candidatos.tabela-variantes { min-width: 0; }
 .estado-scan-barra::-moz-progress-bar { background: var(--accent); }
 
 .pagina-texto .estado-scan-proximo { margin: 0 0 var(--sp-3); color: var(--text); }
+
+/* Home: item com preço do ciclo anterior (falhou no último). */
+.selo-dado-anterior {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.celula-preco .selo-dado-anterior {
+  display: flex;
+  width: fit-content;
+  margin: 4px 0 0 auto;
+}
