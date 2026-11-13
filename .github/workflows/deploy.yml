@@ -14,6 +14,10 @@ name: deploy
 #   ADMIN_DISCORD_WEBHOOK -- URL do webhook do Discord do DONO pros
 #                            alertas do worker (atraso, scan degradado,
 #                            disco). Sem ele, os alertas ficam desligados.
+#   ADMIN_PASSWORD        -- senha do /admin (12+ caracteres). Vai pela
+#                            opção `envs` da ação de SSH (sem aspas
+#                            montadas à mão: qualquer caractere serve).
+#                            Sem ela, o /admin devolve 404.
 on:
   workflow_run:
     workflows: ["tests"]
@@ -37,10 +41,13 @@ jobs:
     steps:
       - name: Deploy via SSH na VM
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: opc
           key: ${{ secrets.ORACLE_SSH_KEY }}
+          envs: ADMIN_PASSWORD
           script: |
             cd ~/skinvault
             # Repositório renomeado skinvault -> galaseca -> lodout. O GitHub
@@ -68,6 +75,7 @@ jobs:
             # em vez de perder a coleta, mas segue opt-in.
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} \
               LODOUT_ADMIN_DISCORD_WEBHOOK='${{ secrets.ADMIN_DISCORD_WEBHOOK }}' \
+              LODOUT_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
               sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d web
@@ -76,16 +84,20 @@ jobs:
       - name: Recria o Caddy quando o commit solicitar
         if: ${{ contains(github.event.workflow_run.head_commit.message, '[restart-caddy]') }}
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: opc
           key: ${{ secrets.ORACLE_SSH_KEY }}
+          envs: ADMIN_PASSWORD
           script: |
             cd ~/skinvault
             # `caddy reload` já reportou sucesso sem aplicar mudança de
             # cabeçalho; recriar o container relê o Caddyfile com certeza.
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} \
               LODOUT_ADMIN_DISCORD_WEBHOOK='${{ secrets.ADMIN_DISCORD_WEBHOOK }}' \
+              LODOUT_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
               sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up -d --force-recreate caddy
@@ -105,16 +117,20 @@ jobs:
       - name: Atualiza o worker quando o commit solicitar
         if: ${{ contains(github.event.workflow_run.head_commit.message, '[restart-worker]') }}
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: opc
           key: ${{ secrets.ORACLE_SSH_KEY }}
+          envs: ADMIN_PASSWORD
           script: |
             cd ~/skinvault
             # Ao subir, o worker espera o próximo ciclo (conta do último
             # registrado); só escaneia na hora se o ciclo já estiver atrasado.
             SITE_DOMAIN=${{ secrets.SITE_DOMAIN }} \
               LODOUT_ADMIN_DISCORD_WEBHOOK='${{ secrets.ADMIN_DISCORD_WEBHOOK }}' \
+              LODOUT_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
               sudo -E docker compose \
               -f docker-compose.public-site.yml -f docker-compose.oracle.yml \
               up --build -d worker

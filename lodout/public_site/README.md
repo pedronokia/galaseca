@@ -24,7 +24,8 @@ sempre — o `worker` é obrigatório, não opcional.
 | `PORT` | Porta que o `web` escuta — a maioria dos provedores injeta essa variável sozinha. | `8000` |
 | `LODOUT_WORKER_INTERVAL_HORAS` | Intervalo entre ciclos do `worker`. | `6` |
 | `LODOUT_PUBLIC_SITE_SECURE_COOKIES` | `1` em produção (HTTPS) pra marcar o cookie de sessão como `Secure`. Deixe **vazio/ausente** testando local em `http://`, senão o navegador descarta o cookie e o login nunca "pega". | ausente |
-| `LODOUT_ADMIN_PASSWORD_HASH` | Hash da senha do `/admin/login` (gerar com `scripts/hash_admin_password.py`). Sem ela, a rota sempre devolve 404. | ausente |
+| `LODOUT_ADMIN_PASSWORD` | Senha do `/admin/login` (12+ caracteres), convertida em hash na subida. Em produção vem do secret `ADMIN_PASSWORD` do GitHub pelo deploy. | ausente |
+| `LODOUT_ADMIN_PASSWORD_HASH` | Alternativa: o hash pronto (gerar com `scripts/hash_admin_password.py`); tem prioridade sobre a senha. Sem nenhum dos dois, a rota sempre devolve 404. | ausente |
 | `LODOUT_ADMIN_DISCORD_WEBHOOK` | Webhook do Discord do DONO (não do usuário) pra alertar quando o worker passar `LODOUT_WORKER_ALERT_HORAS` sem trazer item nenhum -- ver `worker_alert.py`. | ausente (sem alerta) |
 | `LODOUT_WORKER_ALERT_HORAS` | Horas sem sucesso antes do alerta acima disparar. | `3` |
 

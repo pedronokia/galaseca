@@ -35,7 +35,7 @@ from flask import (
 )
 from markupsafe import Markup
 from werkzeug.middleware.proxy_fix import ProxyFix
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from lodout import (
     __version__, cases, gamedata, ranking, recommendations, scan_store,
@@ -78,7 +78,29 @@ _ERROR_LOG_PATH = DATA_DIR / "errors.log"
 # isso __version__ fica preso em "1.0.0" pra sempre, sem jeito de saber
 # SE um deploy novo de fato subiu. Ausente fora de Docker (dev local).
 _BUILD_ID_PATH = Path(__file__).parent.parent.parent / "BUILD_ID"
-_ADMIN_PASSWORD_HASH = ambiente("ADMIN_PASSWORD_HASH", "")
+# Senha do /admin: o hash pronto (ADMIN_PASSWORD_HASH, gerado com
+# scripts/hash_admin_password.py) ou, mais simples pro dono, a própria
+# senha (ADMIN_PASSWORD, vinda de um secret do GitHub pelo deploy), que
+# vira hash aqui na subida. Senha curta demais é ignorada: sem senha
+# válida o /admin finge não existir (404), nunca abre "sem senha".
+_ADMIN_SENHA_MIN = 12
+
+
+def _hash_senha_admin() -> str:
+    pronto = ambiente("ADMIN_PASSWORD_HASH", "") or ""
+    if pronto:
+        return pronto
+    senha = ambiente("ADMIN_PASSWORD", "") or ""
+    if len(senha) >= _ADMIN_SENHA_MIN:
+        return generate_password_hash(senha)
+    if senha:
+        logging.getLogger("lodout.site").warning(
+            "ADMIN_PASSWORD com menos de %d caracteres: /admin desligado",
+            _ADMIN_SENHA_MIN)
+    return ""
+
+
+_ADMIN_PASSWORD_HASH = _hash_senha_admin()
 
 
 def _build_id() -> "str | None":

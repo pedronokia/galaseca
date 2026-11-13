@@ -21,6 +21,9 @@ services:
       # Só pro /admin mostrar se os alertas do dono estão ligados (ver o
       # mesmo item no worker abaixo).
       - LODOUT_ADMIN_DISCORD_WEBHOOK=${LODOUT_ADMIN_DISCORD_WEBHOOK:-}
+      # Senha do /admin (secret ADMIN_PASSWORD do GitHub, via deploy.yml);
+      # vazia = /admin desligado (404). Nunca escrita aqui.
+      - LODOUT_ADMIN_PASSWORD=${LODOUT_ADMIN_PASSWORD:-}
     volumes:
       - skinvault_data:/data
     restart: unless-stopped

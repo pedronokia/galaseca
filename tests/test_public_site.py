@@ -5547,3 +5547,29 @@ def test_admin_sem_webhook_explica_como_ligar(client, monkeypatch):
     painel = client.get("/admin").data.decode("utf-8")
     assert "Enviar alerta de teste" not in painel
     assert "crie o secret <code>ADMIN_DISCORD_WEBHOOK</code>" in painel
+
+
+def test_senha_admin_por_variavel_vira_hash(monkeypatch):
+    from werkzeug.security import check_password_hash as _ok
+    for v in ("LODOUT_ADMIN_PASSWORD_HASH", "GALASECA_ADMIN_PASSWORD_HASH",
+              "SKINVAULT_ADMIN_PASSWORD_HASH", "GALASECA_ADMIN_PASSWORD",
+              "SKINVAULT_ADMIN_PASSWORD"):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setenv("LODOUT_ADMIN_PASSWORD", "uma senha longa 'com' $aspas")
+    h = server._hash_senha_admin()
+    assert h and _ok(h, "uma senha longa 'com' $aspas")
+    # Curta demais: /admin continua desligado.
+    monkeypatch.setenv("LODOUT_ADMIN_PASSWORD", "curta")
+    assert server._hash_senha_admin() == ""
+    # Hash pronto tem prioridade sobre a senha.
+    monkeypatch.setenv("LODOUT_ADMIN_PASSWORD_HASH", "pbkdf2:sha256:1$x$y")
+    assert server._hash_senha_admin() == "pbkdf2:sha256:1$x$y"
+
+
+def test_deploy_repassa_senha_do_admin_sem_aspas_manuais():
+    from pathlib import Path as _P
+    wf = (_P(server.__file__).parents[2] / ".github" / "workflows"
+          / "deploy.yml").read_text(encoding="utf-8")
+    assert wf.count("envs: ADMIN_PASSWORD") == 3
+    assert wf.count('LODOUT_ADMIN_PASSWORD="$ADMIN_PASSWORD"') == 3
+    assert "${{ secrets.ADMIN_PASSWORD }}'" not in wf
