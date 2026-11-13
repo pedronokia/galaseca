@@ -299,13 +299,13 @@ def test_dragon_king_usa_nome_de_mercado_real():
 # ── disjuntor durante o ciclo (2026-11-13) ───────────────────
 
 def _sleep_que_fecha_disjuntor(monkeypatch, dormidas):
-    """time.sleep falso: registra e, se for uma espera de verdade (> 0),
-    "passa o tempo" fechando o disjuntor."""
+    """time.sleep falso: registra e, se for a espera do disjuntor,
+    "passa o tempo" fechando-o."""
     from galaseca import steam_api
 
     def _sleep(s):
         dormidas.append(s)
-        if s > 0:
+        if s >= 30:  # espera do disjuntor (>= 1 min), não a pausa entre itens
             steam_api._rate_limit_state.clear()
 
     monkeypatch.setattr(scan_engine.time, "sleep", _sleep)
@@ -394,3 +394,59 @@ def test_scan_item_marca_momento_da_coleta(monkeypatch):
     _mock_steam_ok(monkeypatch)
     r = scan_engine.scan_item("X")
     assert r is not None and r["coletado_em"] > 0
+
+
+def test_run_full_scan_relatorio_e_ritmo(monkeypatch):
+    from galaseca import steam_api
+    monkeypatch.setattr(steam_api, "RATE_LIMIT_DELAY_S", 2.0)
+    dormidas = []
+    _sleep_que_fecha_disjuntor(monkeypatch, dormidas)
+
+    def _fake(name, category=None, price_cache=None):
+        if name == "Sem":
+            return None
+        if name == "Bloq":
+            steam_api._registrar_rate_limit("priceoverview")
+            return None
+        return {"name": name, "score": 1,
+                "_sombra": {"best_ask": 1000, "compras_24h": 10,
+                            "lowest_overview": 10.0, "volume_overview": 10}}
+
+    monkeypatch.setattr(scan_engine, "scan_item", _fake)
+    rel = {}
+    res = scan_engine.run_full_scan({"C": ["A", "Sem", "Bloq", "B"]},
+                                    ritmo=1.5, relatorio=rel)
+    assert all("_sombra" not in r for r in res)
+    assert rel["sem_preco"] == ["Sem"]
+    assert rel["pausas_429"] >= 1
+    assert rel["comparacao_fontes"]["razao_preco"] == 0.01
+    assert rel["comparacao_fontes"]["preco_concorda_pct"] == 100.0
+    assert rel["comparacao_fontes"]["razao_volume"] == 1.0
+    # Pausa entre itens multiplicada pelo ritmo.
+    assert 3.0 in dormidas
+
+
+def test_comparar_fontes_mede_discordancia():
+    sombras = [
+        {"best_ask": 100, "lowest_overview": 1.00},
+        {"best_ask": 200, "lowest_overview": 2.00},
+        {"best_ask": 300, "lowest_overview": 6.00},  # fora
+        {"best_ask": None, "lowest_overview": 5.0},
+    ]
+    r = scan_engine.comparar_fontes(sombras)
+    assert r["itens_preco"] == 3
+    assert r["razao_preco"] == 0.01
+    assert r["preco_concorda_pct"] == 66.7
+    assert r["itens_volume"] == 0 and r["razao_volume"] is None
+    assert scan_engine.comparar_fontes([]) is None
+
+
+def test_fonte_pagina_soma_compras_das_ultimas_24h():
+    page = {"price_history": [
+        {"time": 1000, "price_median": 1, "purchases": 50},
+        {"time": 100000, "price_median": 1, "purchases": 3},
+        {"time": 103600, "price_median": 1, "purchases": 4},
+    ]}
+    f = scan_engine._fonte_pagina(page, {"best_ask": 123}, False)
+    assert f == {"best_ask": 123, "compras_24h": 7}
+    assert scan_engine._fonte_pagina(page, {"best_ask": 1}, True) is None

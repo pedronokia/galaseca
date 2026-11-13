@@ -95,6 +95,7 @@ def scan_item(name: str, category: str | None = None,
     )
 
     ob_approx = bool(page.get("order_book_approx")) if page else False
+    sombra = _fonte_pagina(page, ob, ob_approx)
     approx_suffix = " ~" if ob_approx else ""
 
     return {
@@ -147,7 +148,75 @@ def scan_item(name: str, category: str | None = None,
         "pump_risk": pr,
         "order_book_approx": ob_approx,
         "derived_price": derived_price,
+        # Modo sombra (2026-11-13): o que a listing page sozinha diria de
+        # menor preço e volume 24h, ao lado do priceoverview. Só medido --
+        # `run_full_scan` tira isto do resultado (não vai pro scan_store
+        # nem pra API) e resume em `comparar_fontes`.
+        "_sombra": {
+            **(sombra or {}),
+            "lowest_overview": (overview or {}).get("lowest"),
+            "volume_overview": volume,
+        },
     }
+
+
+def _fonte_pagina(page: "dict | None", ob: "dict | None",
+                  ob_approx: bool) -> "dict | None":
+    """Menor preço (book de venda) e compras das últimas 24h segundo a
+    listing page -- só quando o book é do próprio item (não aproximado
+    de outro wear). Valores crus, na unidade que a Steam mandou."""
+    if not page or not ob or ob_approx:
+        return None
+    ask = ob.get("best_ask")
+    hist = page.get("price_history") or []
+    tempos = [p.get("time") for p in hist
+              if isinstance(p.get("time"), (int, float))]
+    compras = None
+    if tempos:
+        corte = max(tempos) - 86400
+        compras = sum(int(p.get("purchases") or 0) for p in hist
+                      if isinstance(p.get("time"), (int, float))
+                      and p["time"] > corte)
+    if not isinstance(ask, (int, float)) and compras is None:
+        return None
+    return {"best_ask": ask if isinstance(ask, (int, float)) else None,
+            "compras_24h": compras}
+
+
+def comparar_fontes(sombras: "list[dict]") -> "dict | None":
+    """Quanto a listing page concorda com o priceoverview neste ciclo.
+
+    `razao_preco` = mediana de lowest_overview / best_ask (1.0 = mesma
+    unidade; 0.01 = book em centavos). `preco_concorda_pct` = % dos itens
+    cujo preço convertido pela razão mediana fica a até 2% do overview.
+    Mesma ideia pro volume. Serve pra decidir, com dado de produção, se
+    dá pra dispensar o priceoverview (metade das requisições por item)."""
+    pares_p, pares_v = [], []
+    for f in sombras:
+        lo, ask = f.get("lowest_overview"), f.get("best_ask")
+        if isinstance(lo, (int, float)) and isinstance(ask, (int, float)) \
+                and lo > 0 and ask > 0:
+            pares_p.append(lo / ask)
+        vo, vc = f.get("volume_overview"), f.get("compras_24h")
+        if isinstance(vo, (int, float)) and isinstance(vc, (int, float)) \
+                and vo > 0 and vc > 0:
+            pares_v.append(vc / vo)
+
+    def _resumo(razoes: "list[float]", tol: float) -> "tuple[float | None, float | None]":
+        if not razoes:
+            return None, None
+        ordenadas = sorted(razoes)
+        med = ordenadas[len(ordenadas) // 2]
+        ok = sum(1 for x in razoes if abs(x / med - 1) <= tol)
+        return round(med, 6), round(100 * ok / len(razoes), 1)
+
+    if not pares_p and not pares_v:
+        return None
+    rp, cp = _resumo(pares_p, 0.02)
+    rv, cv = _resumo(pares_v, 0.25)
+    return {"itens_preco": len(pares_p), "razao_preco": rp,
+            "preco_concorda_pct": cp, "itens_volume": len(pares_v),
+            "razao_volume": rv, "volume_concorda_pct": cv}
 
 
 # Famílias do disjuntor de `steam_api` que `scan_item` usa.
@@ -171,6 +240,8 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
                   discovery_enabled: bool = False,
                   cancelled: "Callable[[], bool] | None" = None,
                   falhas: "list[str] | None" = None,
+                  ritmo: float = 1.0,
+                  relatorio: "dict | None" = None,
                   ) -> list[dict]:
     """Escaneia as categorias (default: todas de `scan_targets`), sem Qt.
 
@@ -188,7 +259,14 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
     o 429 é repetido UMA vez no fim do ciclo, bem depois do bloqueio --
     nunca em seguida (ver AGENTS.md). Esperas somadas acima de
     `_ESPERA_DISJUNTOR_MAX_S` encerram o ciclo.
+
+    `ritmo` (>= 1) multiplica a pausa ENTRE itens -- o worker sobe quando
+    o ciclo anterior levou 429 (lido de `steam_api.RATE_LIMIT_DELAY_S` na
+    hora, nunca copiado). `relatorio`, se passado, recebe `pausas_429`
+    (quantas vezes o laço esperou o disjuntor) e `sem_preco` (itens que
+    falharam sem bloqueio nenhum -- candidatos a "sem anúncio").
     """
+    ritmo = max(1.0, float(ritmo or 1.0))
     if categories is None:
         categories = scan_targets.SCAN_BY_CATEGORY
 
@@ -212,13 +290,15 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
             on_progress(msg)
 
     esperado = 0.0
+    pausas = 0
 
     def _espera_disjuntor() -> bool:
         """Dorme até o disjuntor fechar. False = estourou o teto do ciclo."""
-        nonlocal esperado
+        nonlocal esperado, pausas
         espera = _cooldown_scan_s()
         if espera <= 0:
             return True
+        pausas += 1
         if esperado + espera > _ESPERA_DISJUNTOR_MAX_S:
             _avisa("Steam segue bloqueando; ciclo encerrado antes do fim")
             return False
@@ -229,6 +309,14 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
 
     results: list[dict] = []
     sem_resultado: list[str] = []
+    sem_preco: list[str] = []
+    sombras: list[dict] = []
+
+    def _guarda(result: dict) -> None:
+        sombra = result.pop("_sombra", None)
+        if sombra:
+            sombras.append(sombra)
+        results.append(result)
     adiados: list[tuple[str, str]] = []
     interrompido = False
     for i, (name, cat) in enumerate(items):
@@ -242,13 +330,14 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         _avisa(f"[{i + 1}/{len(items)}] {name}")
         result = scan_item(name, category=cat)
         if result:
-            results.append(result)
+            _guarda(result)
         elif _algum_cooldown():
             # Este item levou o 429: tenta de novo só no fim do ciclo.
             adiados.append((name, cat))
         else:
             sem_resultado.append(name)
-        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
+            sem_preco.append(name)
+        time.sleep(steam_api.RATE_LIMIT_DELAY_S * ritmo)
 
     for name, cat in adiados:
         if interrompido or (cancelled and cancelled()) or not _espera_disjuntor():
@@ -258,11 +347,17 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         _avisa(f"Repetindo depois da pausa: {name}")
         result = scan_item(name, category=cat)
         if result:
-            results.append(result)
+            _guarda(result)
         else:
             sem_resultado.append(name)
-        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
+            if not _algum_cooldown():
+                sem_preco.append(name)
+        time.sleep(steam_api.RATE_LIMIT_DELAY_S * ritmo)
 
     if falhas is not None:
         falhas.extend(sem_resultado)
+    if relatorio is not None:
+        relatorio["pausas_429"] = pausas
+        relatorio["sem_preco"] = sem_preco
+        relatorio["comparacao_fontes"] = comparar_fontes(sombras)
     return results

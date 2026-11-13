@@ -20,6 +20,9 @@ ENTRADAS = [
             "Scan: item que ainda assim fica sem preço continua no site com o dado do ciclo anterior (avisado na página do item), em vez de sumir por 6 horas.",
             "Scan: caixas e cápsulas novas que aparecem nos arquivos do jogo entram no scan sozinhas.",
             "Status: quantos itens vieram com preço novo no último ciclo e quais ficaram sem.",
+            "Scan: se o ciclo anterior levou bloqueio da Steam, o próximo anda mais devagar e volta ao normal sozinho.",
+            "Scan: item que fica 3 ciclos seguidos sem anúncio passa a ser tentado uma vez por dia, sem gastar requisição à toa.",
+            "Scan: itens que ficaram com dado antigo são os primeiros do ciclo seguinte.",
         ],
     },
     {

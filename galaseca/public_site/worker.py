@@ -12,16 +12,20 @@ separado do "web" no provedor de hospedagem -- Fase 3).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
 import sys
 import time
+from pathlib import Path
 
 from galaseca import (
     gamedata, ranking, scan_engine, scan_store, scan_targets, signals,
     steam_news,
 )
+from galaseca import _paths
+from galaseca._paths import atomic_write_text, load_json_record
 from galaseca.public_site import db_backup, scan_progress, worker_alert
 from galaseca._ambiente import ambiente
 
@@ -59,6 +63,86 @@ def categorias_padrao() -> "dict[str, list[str]]":
             if k not in _CATEGORIAS_PESADAS}
 
 
+# Ritmo adaptativo: multiplica a pausa entre itens quando o ciclo
+# anterior levou 429, e volta devagar pro normal em ciclos limpos.
+_RITMO_MAX = 2.0
+_RITMO_SOBE = 1.25
+_RITMO_DESCE = 0.9
+
+
+def _ritmo_do_ciclo(historico: "list[dict]") -> float:
+    """Ritmo deste ciclo a partir do último registrado. Sem dado de
+    pausas (ciclo antigo), 1.0."""
+    if not historico:
+        return 1.0
+    ultimo = historico[-1]
+    pausas = ultimo.get("pausas_429")
+    anterior = float(ultimo.get("ritmo") or 1.0)
+    if not isinstance(pausas, int):
+        return 1.0
+    if pausas > 0:
+        return round(min(_RITMO_MAX, anterior * _RITMO_SOBE), 2)
+    return round(max(1.0, anterior * _RITMO_DESCE), 2)
+
+
+# Item que fica `_SEM_ANUNCIO_CICLOS` ciclos seguidos sem preço, SEM ter
+# levado bloqueio, provavelmente não tem anúncio no Market: passa a ser
+# tentado só uma vez a cada `_SEM_ANUNCIO_ESPERA_H` horas. Volta ao
+# normal na primeira vez que trouxer preço.
+_SEM_ANUNCIO_CICLOS = 3
+_SEM_ANUNCIO_ESPERA_H = 24.0
+# Acima desta fração dos alvos sem preço no mesmo ciclo, é falha geral.
+_SEM_ANUNCIO_FRACAO_MAX = 0.2
+
+
+def _caminho_sem_anuncio() -> Path:
+    return Path(_paths.DATA_DIR) / "scan_sem_anuncio.json"
+
+
+def _carregar_sem_anuncio() -> "dict[str, dict]":
+    dados = load_json_record(_caminho_sem_anuncio(), {})
+    return dados if isinstance(dados, dict) else {}
+
+
+def _tirar_itens_em_espera(categories: "dict[str, list[str]]",
+                           registro: "dict[str, dict]",
+                           agora: float) -> "tuple[dict[str, list[str]], list[str]]":
+    """Categorias sem os itens em espera (sem anúncio, tentados há menos
+    de `_SEM_ANUNCIO_ESPERA_H`). Devolve também os nomes que ficaram de
+    fora."""
+    limite = agora - _SEM_ANUNCIO_ESPERA_H * 3600
+    fora: "list[str]" = []
+
+    def _em_espera(nome: str) -> bool:
+        r = registro.get(nome) or {}
+        return (int(r.get("seguidas") or 0) >= _SEM_ANUNCIO_CICLOS
+                and float(r.get("ultima") or 0) > limite)
+
+    novas = {}
+    for cat, nomes in categories.items():
+        ficam = []
+        for n in nomes:
+            if _em_espera(n):
+                fora.append(n)
+            else:
+                ficam.append(n)
+        novas[cat] = ficam
+    return novas, fora
+
+
+def _atualizar_sem_anuncio(registro: "dict[str, dict]",
+                           vieram: "set[str]", sem_preco: "list[str]",
+                           agora: float) -> "dict[str, dict]":
+    """Conta falhas seguidas sem bloqueio; zera quem trouxe preço. Item
+    que falhou por 429 não mexe na contagem (não diz nada do item)."""
+    novo = {k: v for k, v in registro.items() if k not in vieram}
+    for nome in sem_preco:
+        anterior = novo.get(nome) or {}
+        novo[nome] = {"seguidas": int(anterior.get("seguidas") or 0) + 1,
+                      "ultima": agora}
+    return novo
+
+
 def _ordenar_por_nota_anterior(
         categories: "dict[str, list[str]]") -> "dict[str, list[str]]":
     """Reordena os nomes de cada categoria pela nota do scan anterior
@@ -69,7 +153,12 @@ def _ordenar_por_nota_anterior(
     50 (nem primeiro, nem último), não penalizados por serem novos."""
     scan = scan_store.load_last_scan()
     notas = {r["name"]: r.get("score", 50) for r in scan["results"]} if scan else {}
-    return {cat: sorted(nomes, key=lambda n: -notas.get(n, 50))
+    # Quem ficou sem preço novo no ciclo anterior (está no site com dado
+    # velho) vai na frente -- é o dado mais atrasado do site.
+    atrasados = {r["name"] for r in scan["results"]
+                 if r.get("mantido_do_ciclo_anterior")} if scan else set()
+    return {cat: sorted(nomes, key=lambda n: (n not in atrasados,
+                                              -notas.get(n, 50)))
             for cat, nomes in categories.items()}
 
 
@@ -186,13 +275,44 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         categories = categorias_padrao()
     _verificar_arquivos_do_jogo()
     categories = _com_containers_novos(categories)
+    agora = time.time()
+    sem_anuncio = _carregar_sem_anuncio()
+    categories, em_espera = _tirar_itens_em_espera(
+        categories, sem_anuncio, agora)
+    if em_espera:
+        _logger.info("Em espera (sem anúncio, 1 tentativa/dia): %s",
+                     ", ".join(em_espera))
     alvos = {n for nomes in categories.values() for n in nomes}
     anterior = scan_store.load_last_scan()
+    ritmo = _ritmo_do_ciclo(scan_store.load_historico_ciclos())
+    if ritmo > 1.0:
+        _logger.info("Ciclo anterior levou 429: ritmo %.2fx", ritmo)
     inicio = time.time()
     falhas: "list[str]" = []
+    relatorio: dict = {}
     novos = scan_engine.run_full_scan(
         _ordenar_por_nota_anterior(categories), on_progress=_on_progress,
-        falhas=falhas)
+        falhas=falhas, ritmo=ritmo, relatorio=relatorio)
+    sem_preco = relatorio.get("sem_preco") or []
+    # Falha em massa (rede da VM fora, Steam mudou a página) não é "item
+    # sem anúncio": só conta quando o ciclo trouxe preço pra maioria.
+    # Sem esta trava, 3 ciclos sem rede punham o site inteiro em espera.
+    if sem_preco and (not novos
+                      or len(sem_preco) > _SEM_ANUNCIO_FRACAO_MAX * len(alvos)):
+        _logger.warning("%d itens sem preço sem bloqueio: falha geral, "
+                        "contagem de sem-anúncio não mexida", len(sem_preco))
+        sem_preco = []
+    try:
+        atomic_write_text(_caminho_sem_anuncio(), json.dumps(
+            _atualizar_sem_anuncio(
+                sem_anuncio, {r["name"] for r in novos}, sem_preco,
+                time.time()),
+            ensure_ascii=False))
+    except OSError:
+        _logger.warning("não gravou scan_sem_anuncio.json", exc_info=True)
+    if relatorio.get("comparacao_fontes"):
+        _logger.info("Listing page vs priceoverview: %s",
+                     relatorio["comparacao_fontes"])
     # Ciclo sem NENHUM item novo (Steam bloqueando tudo) não regrava
     # nada: o scan anterior continua valendo inteiro, como antes.
     mantidos = (_manter_do_ciclo_anterior(novos, anterior, alvos)
@@ -221,7 +341,13 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     duracao_min = (time.time() - inicio) / 60
     scan_store.registrar_ciclo(
         len(novos), duracao_min, alvos=len(alvos),
-        mantidos=len(mantidos), falhas=falhas)
+        mantidos=len(mantidos), falhas=falhas,
+        extras={
+            "ritmo": ritmo,
+            "pausas_429": relatorio.get("pausas_429", 0),
+            "em_espera": em_espera,
+            "comparacao_fontes": relatorio.get("comparacao_fontes"),
+        })
     _logger.info("Ciclo concluído: %d itens novos (+%d mantidos do ciclo "
                  "anterior) em %.1fmin", len(novos), len(mantidos),
                  duracao_min)

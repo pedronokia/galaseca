@@ -73,6 +73,18 @@
     {% set ultimo = ciclos[0] %}
     {% if ultimo.alvos %}
     <p class="cobertura-ciclo">No último ciclo, <strong>{{ ultimo.itens }} de {{ ultimo.alvos }}</strong> itens vieram com preço novo{% if ultimo.mantidos %}; {{ ultimo.mantidos }} {{ "continua" if ultimo.mantidos == 1 else "continuam" }} no site com o dado do ciclo anterior, marcado como tal{% endif %}.</p>
+    {% if ultimo.ritmo and ultimo.ritmo > 1 %}
+    <p class="status-muted">Este ciclo andou mais devagar ({{ "%.2f"|format(ultimo.ritmo)|replace(".", ",") }}× o intervalo normal entre itens) porque o anterior levou bloqueio da Steam. O ritmo volta ao normal sozinho depois de ciclos sem bloqueio.</p>
+    {% endif %}
+    {% if ultimo.em_espera %}
+    <details class="falhas-ciclo">
+      <summary>Itens em espera ({{ ultimo.em_espera|length }})</summary>
+      <p class="status-muted">Ficaram 3 ciclos seguidos sem preço sem a Steam ter bloqueado nada, o que costuma indicar que não há anúncio deles no Market. Para não gastar requisição à toa, são tentados uma vez por dia e voltam ao normal assim que aparecer preço.</p>
+      <ul>
+        {% for nome in ultimo.em_espera %}<li>{{ nome|nome_pt }}</li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
     {% if ultimo.falhas %}
     <details class="falhas-ciclo">
       <summary>Itens que ficaram sem preço novo ({{ ultimo.falhas|length }})</summary>

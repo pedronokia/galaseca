@@ -61,7 +61,8 @@ def registrar_ciclo(itens: int, duracao_min: float,
                     now: float | None = None,
                     alvos: "int | None" = None,
                     mantidos: int = 0,
-                    falhas: "list[str] | None" = None) -> None:
+                    falhas: "list[str] | None" = None,
+                    extras: "dict | None" = None) -> None:
     """Soma um ciclo ao histórico (cap em `_HISTORICO_MAX`, mais novo por
     último). Existe pra página `/status` -- achado real de 2026-10-24: sem
     isso não tinha como distinguir "scan nunca rodou" de "scan rodou e
@@ -86,6 +87,8 @@ def registrar_ciclo(itens: int, duracao_min: float,
         entrada["alvos"] = alvos
         entrada["mantidos"] = mantidos
         entrada["falhas"] = list(falhas or [])[:_FALHAS_MAX]
+    for k, v in (extras or {}).items():
+        entrada.setdefault(k, v)
     historico.append(entrada)
     historico = historico[-_HISTORICO_MAX:]
     try:

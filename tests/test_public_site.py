@@ -6,6 +6,7 @@ testes de `worker.py` mockam `scan_engine.run_full_scan`.
 from __future__ import annotations
 
 import html
+import json
 import re
 import time
 from types import SimpleNamespace
@@ -2511,8 +2512,10 @@ def test_run_once_mantem_item_que_falhou_e_registra_cobertura(
     assert "mantido_do_ciclo_anterior" not in nomes["A"]
     salvo = {r["name"] for r in original_load(path=scan_path)["results"]}
     assert salvo == {"A", "B"}
-    assert registrado == {"itens": 1, "alvos": 2, "mantidos": 1,
-                          "falhas": ["B"]}
+    assert {k: registrado[k] for k in ("itens", "alvos", "mantidos",
+                                       "falhas")} == {
+        "itens": 1, "alvos": 2, "mantidos": 1, "falhas": ["B"]}
+    assert registrado["extras"]["ritmo"] == 1.0
 
 
 def test_run_once_bloqueio_total_nao_regrava_scan(monkeypatch):
@@ -2596,6 +2599,115 @@ def test_item_avisa_quando_dado_e_do_ciclo_anterior(
     ])
     body = client.get("/item/A").data.decode("utf-8")
     assert "A Steam não devolveu preço novo no último ciclo" in body
+
+
+def test_ritmo_sobe_com_429_e_volta_devagar():
+    assert worker._ritmo_do_ciclo([]) == 1.0
+    # Ciclo antigo, sem o campo: não inventa.
+    assert worker._ritmo_do_ciclo([{"ts": 1}]) == 1.0
+    assert worker._ritmo_do_ciclo([{"ts": 1, "pausas_429": 2}]) == 1.25
+    assert worker._ritmo_do_ciclo(
+        [{"ts": 1, "pausas_429": 1, "ritmo": 1.9}]) == worker._RITMO_MAX
+    assert worker._ritmo_do_ciclo(
+        [{"ts": 1, "pausas_429": 0, "ritmo": 1.5}]) == 1.35
+    assert worker._ritmo_do_ciclo(
+        [{"ts": 1, "pausas_429": 0, "ritmo": 1.05}]) == 1.0
+
+
+def test_sem_anuncio_conta_falhas_e_poe_em_espera():
+    agora = 1_000_000.0
+    reg = {}
+    for i in range(3):
+        reg = worker._atualizar_sem_anuncio(reg, set(), ["Morto"], agora + i)
+    assert reg["Morto"]["seguidas"] == 3
+    cats, fora = worker._tirar_itens_em_espera(
+        {"Caixas": ["Morto", "Vivo"]}, reg, agora + 3600)
+    assert cats == {"Caixas": ["Vivo"]} and fora == ["Morto"]
+    # Passado um dia, volta a ser tentado.
+    cats, fora = worker._tirar_itens_em_espera(
+        {"Caixas": ["Morto"]}, reg, agora + 25 * 3600)
+    assert cats == {"Caixas": ["Morto"]} and fora == []
+    # Trouxe preço: sai do registro.
+    assert worker._atualizar_sem_anuncio(reg, {"Morto"}, [], agora) == {}
+
+
+def test_sem_anuncio_duas_falhas_ainda_e_tentado():
+    reg = {"X": {"seguidas": 2, "ultima": 999.0}}
+    cats, fora = worker._tirar_itens_em_espera({"C": ["X"]}, reg, 1000.0)
+    assert cats == {"C": ["X"]} and fora == []
+
+
+def test_run_once_usa_ritmo_e_registra_espera(monkeypatch, tmp_path):
+    monkeypatch.setattr(worker.gamedata, "check_for_updates",
+                        lambda: {"changed": False, "error": None})
+    monkeypatch.setattr(worker.gamedata, "load_events_log", lambda: [])
+    monkeypatch.setattr(worker.steam_news, "atualizar_noticias", lambda: "ok")
+    monkeypatch.setattr(worker, "_caminho_sem_anuncio",
+                        lambda: tmp_path / "sem.json")
+    (tmp_path / "sem.json").write_text(
+        '{"Morto": {"seguidas": 3, "ultima": %f}}' % time.time())
+    monkeypatch.setattr(
+        worker.scan_store, "load_historico_ciclos",
+        lambda: [{"ts": 1, "pausas_429": 1, "ritmo": 1.0}])
+    recebido = {}
+
+    def _fake(categories, on_progress=None, falhas=None, ritmo=1.0,
+              relatorio=None, **kw):
+        recebido.update(categories=categories, ritmo=ritmo)
+        relatorio.update(pausas_429=0, sem_preco=["B"],
+                         comparacao_fontes={"razao_preco": 1.0})
+        falhas.append("B")
+        return [{"name": "A", "score": 1}]
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    monkeypatch.setattr(worker.scan_store, "save_last_scan", lambda *a: None)
+    monkeypatch.setattr(worker.ranking, "save_snapshot", lambda *a: None)
+    registrado = {}
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda itens, dur, **kw: registrado.update(kw))
+    worker.run_once({"Caixas": ["A", "B", "C", "D", "E", "F", "Morto"]})
+    assert recebido["ritmo"] == 1.25
+    assert "Morto" not in recebido["categories"]["Caixas"]
+    assert registrado["extras"]["em_espera"] == ["Morto"]
+    assert registrado["extras"]["comparacao_fontes"] == {"razao_preco": 1.0}
+    salvo = json.loads((tmp_path / "sem.json").read_text())
+    assert salvo["B"]["seguidas"] == 1
+    assert salvo["Morto"]["seguidas"] == 3
+
+
+def test_run_once_falha_geral_nao_conta_como_sem_anuncio(
+        monkeypatch, tmp_path):
+    monkeypatch.setattr(worker.gamedata, "check_for_updates",
+                        lambda: {"changed": False, "error": None})
+    monkeypatch.setattr(worker.gamedata, "load_events_log", lambda: [])
+    monkeypatch.setattr(worker.steam_news, "atualizar_noticias", lambda: "ok")
+    monkeypatch.setattr(worker, "_caminho_sem_anuncio",
+                        lambda: tmp_path / "sem.json")
+    nomes = [f"I{i}" for i in range(10)]
+
+    def _fake(categories, on_progress=None, falhas=None, relatorio=None,
+              **kw):
+        relatorio.update(pausas_429=0, sem_preco=nomes[1:])
+        return [{"name": "I0", "score": 1}]
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    monkeypatch.setattr(worker.scan_store, "save_last_scan", lambda *a: None)
+    monkeypatch.setattr(worker.ranking, "save_snapshot", lambda *a: None)
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda *a, **kw: None)
+    worker.run_once({"C": nomes})
+    assert json.loads((tmp_path / "sem.json").read_text()) == {}
+
+
+def test_ordenar_poe_atrasados_na_frente(monkeypatch):
+    monkeypatch.setattr(worker.scan_store, "load_last_scan", lambda: {
+        "ts": 1, "results": [
+            {"name": "Alta", "score": 90},
+            {"name": "Atrasado", "score": 10,
+             "mantido_do_ciclo_anterior": True}]})
+    out = worker._ordenar_por_nota_anterior(
+        {"C": ["Alta", "Novo", "Atrasado"]})
+    assert out == {"C": ["Atrasado", "Alta", "Novo"]}
 
 
 def _worker_main_uma_volta(monkeypatch):
@@ -4939,3 +5051,27 @@ def test_item_sem_ranking_salvo_avisa(client, monkeypatch, tmp_path):
     body = client.get("/item/A").data.decode("utf-8")
     assert "Ainda não há ranking salvo nos últimos 30 dias" in body
     assert "Mudanças no jogo" not in body
+
+
+def test_status_mostra_ritmo_e_itens_em_espera(client, monkeypatch):
+    monkeypatch.setattr(
+        scan_store, "load_historico_ciclos",
+        lambda: [{"ts": time.time() - 60, "itens": 180, "duracao_min": 33.0,
+                  "sucesso": True, "alvos": 184, "mantidos": 0,
+                  "falhas": [], "ritmo": 1.25, "pausas_429": 0,
+                  "em_espera": ["Kilowatt Case"]}])
+    body = client.get("/status").data.decode("utf-8")
+    assert "1,25× o intervalo normal" in body
+    assert "Itens em espera (1)" in body
+    assert "Caixa Kilowatt" in body
+
+
+def test_api_health_expoe_diagnostico_do_ultimo_ciclo(client, monkeypatch):
+    monkeypatch.setattr(
+        scan_store, "load_historico_ciclos",
+        lambda: [{"ts": 1.0, "itens": 1, "duracao_min": 1.0, "sucesso": True,
+                  "pausas_429": 2,
+                  "comparacao_fontes": {"razao_preco": 0.01}}])
+    dados = client.get("/api/health").get_json()
+    assert dados["ultimo_ciclo_worker"]["pausas_429"] == 2
+    assert dados["ultimo_ciclo_worker"]["comparacao_fontes"]["razao_preco"] == 0.01
