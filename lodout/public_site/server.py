@@ -84,6 +84,8 @@ _BUILD_ID_PATH = Path(__file__).parent.parent.parent / "BUILD_ID"
 # vira hash aqui na subida. Senha curta demais é ignorada: sem senha
 # válida o /admin finge não existir (404), nunca abre "sem senha".
 _ADMIN_SENHA_MIN = 12
+# Arquivo de verificação do Google Search Console (nome não é segredo).
+_GOOGLE_VERIFICACAO = "google828fe430d38de239"
 
 
 def _hash_senha_admin() -> str:
@@ -702,6 +704,16 @@ def create_app() -> Flask:
         resp = send_from_directory(_STATIC_DIR, "sw.js")
         resp.headers["Service-Worker-Allowed"] = "/"
         return resp
+
+    # Verificação de propriedade do Google Search Console (método
+    # "Arquivo HTML", propriedade https://lodout.com/). O Google pede que
+    # o arquivo continue no ar depois de verificado. O conteúdo é o padrão
+    # fixo do Google: "google-site-verification: <nome do arquivo>".
+    @app.route(f"/{_GOOGLE_VERIFICACAO}.html")
+    def google_verificacao():
+        return Response(
+            f"google-site-verification: {_GOOGLE_VERIFICACAO}.html",
+            mimetype="text/html")
 
     @app.route("/robots.txt")
     def robots():

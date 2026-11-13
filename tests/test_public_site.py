@@ -5573,3 +5573,10 @@ def test_deploy_repassa_senha_do_admin_sem_aspas_manuais():
     assert wf.count("envs: ADMIN_PASSWORD") == 3
     assert wf.count('LODOUT_ADMIN_PASSWORD="$ADMIN_PASSWORD"') == 3
     assert "${{ secrets.ADMIN_PASSWORD }}'" not in wf
+
+
+def test_arquivo_de_verificacao_do_google(client):
+    resp = client.get("/google828fe430d38de239.html")
+    assert resp.status_code == 200
+    assert resp.data.decode() == (
+        "google-site-verification: google828fe430d38de239.html")
