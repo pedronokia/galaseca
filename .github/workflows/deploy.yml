@@ -20,6 +20,13 @@ on:
     types: [completed]
     branches: [main]
 
+# Um deploy por vez: dois pushes seguidos disparavam dois deploys
+# simultâneos e o segundo `docker compose up` falhava com "container
+# name already in use" (2026-11-13). Em fila, o último sempre vence.
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
 jobs:
   deploy:
     # `event == 'push'`: o workflow de tests também roda a pedido
