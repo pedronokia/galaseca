@@ -2836,6 +2836,13 @@ table.tabela-candidatos td.celula-preco {
   text-transform: uppercase;
 }
 
+/* O <main> do item é .pagina-texto (parágrafo justificado): num selo
+   curto em pílula, a justificação abria buracos na 1a linha. */
+.pagina-texto .hero-item-tag {
+  text-align: left;
+  text-wrap: balance;
+}
+
 .hero-item .titulo-item {
   margin: 0 0 var(--sp-2);
   font-size: clamp(1.6rem, 4.2vw, 2.4rem);
@@ -4507,6 +4514,11 @@ a, button, summary, select, label, input[type="checkbox"], [role="button"] {
 /* Títulos sem palavra sozinha na última linha; parágrafos sem órfã. */
 h1, h2, h3 { text-wrap: balance; }
 p { text-wrap: pretty; }
+/* Texto justificado (páginas de texto) não combina com `pretty`: a linha
+   encurtada pra evitar a órfã é esticada até a margem e abre buracos
+   entre as palavras. Lá vale a quebra normal, como antes. */
+.pagina-texto p,
+.pagina-texto li { text-wrap: wrap; }
 
 /* Números que mudam na tela sem empurrar o texto ao lado. */
 .contagem-comparar,
