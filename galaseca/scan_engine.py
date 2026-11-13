@@ -10,8 +10,48 @@ from galaseca.prices import PriceCache
 from galaseca import textos
 
 
+def _overview_da_pagina(page: "dict | None",
+                        fator_preco: float) -> "dict | None":
+    """{lowest, median, volume} só com a listing page, no formato do
+    priceoverview -- pro modo de 1 requisição por item. None quando o
+    book é de outro desgaste (aproximado) ou falta dado: aí quem chama
+    faz a consulta completa.
+
+    - lowest: menor anúncio do book x `fator_preco` (a razão medida pelo
+      modo sombra entre priceoverview e o book; ex. 0.01 se o book vem
+      em centavos).
+    - median: mediana das vendas das 24 h anteriores ao ponto mais
+      recente, ponderada pela quantidade de compras de cada ponto.
+    - volume: compras nessas 24 h."""
+    if not page or page.get("order_book_approx"):
+        return None
+    ask = (page.get("order_book") or {}).get("best_ask")
+    if not isinstance(ask, (int, float)) or ask <= 0:
+        return None
+    hist = [p for p in page.get("price_history") or []
+            if isinstance(p, dict) and isinstance(p.get("time"), (int, float))
+            and isinstance(p.get("price_median"), (int, float))]
+    median = volume = None
+    if hist:
+        corte = max(p["time"] for p in hist) - 86400
+        janela = [p for p in hist if p["time"] > corte]
+        volume = sum(int(p.get("purchases") or 0) for p in janela)
+        pesos = sorted((p["price_median"], max(1, int(p.get("purchases") or 0)))
+                       for p in janela)
+        metade, acum = sum(w for _v, w in pesos) / 2, 0
+        for v, w in pesos:
+            acum += w
+            if acum >= metade:
+                median = v
+                break
+    return {"lowest": round(ask * fator_preco, 2), "median": median,
+            "volume": volume or None}
+
+
 def scan_item(name: str, category: str | None = None,
-             price_cache: "PriceCache | None" = None) -> dict | None:
+             price_cache: "PriceCache | None" = None,
+             fonte: str = "ambas",
+             fator_preco: "float | None" = None) -> dict | None:
     """Avalia um item: preço, veredito, score + breakdown, riscos.
 
     `category` alimenta a exclusão de `pump_risk` por evento da Valve
@@ -21,11 +61,23 @@ def scan_item(name: str, category: str | None = None,
     Retorna None se a Steam não devolveu preço nenhum     (falha de rede, item sem listagem, ou rate limit. Várias páginas sem
     `price_history` em sequência são suspeita de bloqueio, não prova de
     que os itens não têm histórico).
+
+    `fonte="pagina"` (com `fator_preco`): 1 requisição por item -- tudo
+    sai da listing page (`_overview_da_pagina`); só item com book
+    aproximado ou sem dado faz o priceoverview também. Padrão "ambas":
+    as 2 requisições de sempre.
     """
     try:
-        overview = steam_api.get_market_overview(name)
-        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
-        page = steam_api.get_market_page_data(name)
+        if fonte == "pagina" and fator_preco:
+            page = steam_api.get_market_page_data(name)
+            overview = _overview_da_pagina(page, fator_preco)
+            if overview is None:
+                time.sleep(steam_api.RATE_LIMIT_DELAY_S)
+                overview = steam_api.get_market_overview(name)
+        else:
+            overview = steam_api.get_market_overview(name)
+            time.sleep(steam_api.RATE_LIMIT_DELAY_S)
+            page = steam_api.get_market_page_data(name)
     except Exception as e:
         print(f"WARNING: scan_item({name}) failed: {e}", file=sys.stderr)
         return None
@@ -302,6 +354,8 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
                   pular: "set[str] | None" = None,
                   on_resultado: "Callable[[dict], None] | None" = None,
                   prioridade: "dict[str, float] | None" = None,
+                  fonte: str = "ambas",
+                  fator_preco: "float | None" = None,
                   ) -> list[dict]:
     """Escaneia as categorias (default: todas de `scan_targets`), sem Qt.
 
@@ -398,6 +452,11 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         # sort é estável: empate mantém a ordem das categorias.
         items.sort(key=lambda it: prioridade.get(it[0], 0.0))
 
+    # Só repassa a fonte quando não é a padrão (os fakes de teste de
+    # scan_item não conhecem os parâmetros novos).
+    extra_item = ({"fonte": fonte, "fator_preco": fator_preco}
+                  if fonte != "ambas" else {})
+
     results: list[dict] = []
     sem_resultado: list[str] = []
     sem_preco: list[str] = []
@@ -447,7 +506,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
             sem_resultado.extend(n for n, _c in items[i:])
             break
         _avisa(f"[{i + 1}/{len(items)}] {name}")
-        result = scan_item(name, category=cat)
+        result = scan_item(name, category=cat, **extra_item)
         if result:
             _avalia(name, cat, result)
         elif _algum_cooldown():
@@ -472,7 +531,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
             sem_resultado.append(name)
             continue
         _avisa(f"Repetindo depois da pausa: {name}")
-        result = scan_item(name, category=cat)
+        result = scan_item(name, category=cat, **extra_item)
         if result:
             _guarda(result)
         else:

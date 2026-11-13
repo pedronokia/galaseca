@@ -349,7 +349,12 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
                      ", ".join(em_espera))
     alvos = {n for nomes in categories.values() for n in nomes}
     anterior = scan_store.load_last_scan()
-    ritmo = _ritmo_do_ciclo(scan_store.load_historico_ciclos())
+    historico_ciclos = scan_store.load_historico_ciclos()
+    ritmo = _ritmo_do_ciclo(historico_ciclos)
+    fonte, fator_preco = _fonte_do_ciclo(historico_ciclos)
+    if fonte == "pagina":
+        _logger.info("Modo 1 requisição por item (fator de preço %s)",
+                     fator_preco)
     if ritmo > 1.0:
         _logger.info("Ciclo anterior levou 429: ritmo %.2fx", ritmo)
     inicio = time.time()
@@ -382,6 +387,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
             pular={r["name"] for r in ja_coletados},
             on_resultado=_on_resultado,
             prioridade=_prioridade_do_scan_anterior() or None,
+            fonte=fonte, fator_preco=fator_preco,
             cancelled=lambda: _parar)
     finally:
         _escaneando = False
@@ -451,6 +457,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
             "pausas_429": relatorio.get("pausas_429", 0),
             "throttle_silencioso": relatorio.get("throttle_silencioso", 0),
             "abortado": bool(relatorio.get("abortado")),
+            "fonte": fonte,
             "em_espera": em_espera,
             "comparacao_fontes": relatorio.get("comparacao_fontes"),
         })
@@ -534,6 +541,39 @@ def _espera_apos_ciclo(intervalo_horas: float, vazios_seguidos: int) -> float:
     _logger.info("Ciclo sem nenhum item (%d seguido(s)): nova tentativa "
                  "em %.1f h", vazios_seguidos, horas)
     return horas * 3600
+
+
+# Modo de 1 requisição por item (scan_engine `fonte="pagina"`): só com
+# GALASECA_SCAN_FONTE=pagina E uma medição recente do modo sombra que
+# mostre a listing page batendo com o priceoverview. A razão medida vira
+# o fator de conversão do preço do book.
+_FONTE_PAGINA_MIN_ITENS = 50
+_FONTE_PAGINA_MIN_CONCORDA = 95.0
+
+
+def _fonte_do_ciclo(historico: "list[dict]") -> "tuple[str, float | None]":
+    """("pagina", fator) se ligado e validado; senão ("ambas", None).
+
+    Usa o ciclo mais recente que TEM comparação (no modo página quase
+    não há priceoverview pra comparar). Quando o histórico de ciclos não
+    tiver mais nenhuma comparação boa, um ciclo volta ao modo completo e
+    mede de novo -- o modo se revalida sozinho."""
+    if str(ambiente("SCAN_FONTE", "ambas")).strip().lower() != "pagina":
+        return "ambas", None
+    for c in reversed(historico):
+        comp = c.get("comparacao_fontes")
+        if not isinstance(comp, dict):
+            continue
+        n = comp.get("itens_preco") or 0
+        if n < _FONTE_PAGINA_MIN_ITENS:
+            continue
+        razao = comp.get("razao_preco")
+        concorda = comp.get("preco_concorda_pct") or 0
+        if isinstance(razao, (int, float)) and razao > 0 \
+                and concorda >= _FONTE_PAGINA_MIN_CONCORDA:
+            return "pagina", float(razao)
+        return "ambas", None  # medição mais recente reprovou
+    return "ambas", None
 
 
 def _prioridade_do_scan_anterior() -> "dict[str, float]":

@@ -601,3 +601,66 @@ def test_run_full_scan_prioridade_ordena_entre_categorias(monkeypatch):
         {"A": ["a1", "a2"], "B": ["b1", "b2"]},
         prioridade={"b2": -90, "a2": -80, "b1": -10})
     assert chamados == ["b2", "a2", "b1", "a1"]
+
+
+# ── modo 1 requisição por item (fonte="pagina") ──────────────
+
+def _pagina(approx=False, ask=12345):
+    return {
+        "order_book": {"best_ask": ask},
+        "order_book_approx": approx,
+        "price_history": [
+            {"time": 1000, "price_median": 999.0, "purchases": 50},  # >24h
+            {"time": 100000, "price_median": 120.0, "purchases": 1},
+            {"time": 100500, "price_median": 100.0, "purchases": 5},
+            {"time": 101000, "price_median": 110.0, "purchases": 2},
+        ],
+    }
+
+
+def test_overview_da_pagina_converte_e_resume_24h():
+    o = scan_engine._overview_da_pagina(_pagina(), 0.01)
+    assert o == {"lowest": 123.45, "median": 100.0, "volume": 8}
+    assert scan_engine._overview_da_pagina(_pagina(approx=True), 0.01) is None
+    assert scan_engine._overview_da_pagina(_pagina(ask=None), 0.01) is None
+    assert scan_engine._overview_da_pagina(None, 0.01) is None
+
+
+def test_scan_item_modo_pagina_faz_uma_requisicao(monkeypatch):
+    _mock_steam_ok(monkeypatch)
+    chamadas = []
+    monkeypatch.setattr("galaseca.steam_api.get_market_overview",
+                        lambda name: chamadas.append("overview") or None)
+    monkeypatch.setattr("galaseca.steam_api.get_market_page_data",
+                        lambda name: chamadas.append("pagina") or _pagina())
+    r = scan_engine.scan_item("X", fonte="pagina", fator_preco=0.01)
+    assert chamadas == ["pagina"]
+    assert r["price"] == 123.45 and r["volume"] == 8
+
+
+def test_scan_item_modo_pagina_book_aproximado_usa_overview(monkeypatch):
+    _mock_steam_ok(monkeypatch)
+    chamadas = []
+    monkeypatch.setattr(
+        "galaseca.steam_api.get_market_overview",
+        lambda name: chamadas.append("overview") or {
+            "lowest": 50.0, "median": 55.0, "volume": 3})
+    monkeypatch.setattr(
+        "galaseca.steam_api.get_market_page_data",
+        lambda name: chamadas.append("pagina") or _pagina(approx=True))
+    r = scan_engine.scan_item("X", fonte="pagina", fator_preco=0.01)
+    assert chamadas == ["pagina", "overview"]
+    assert r["price"] == 50.0
+
+
+def test_run_full_scan_repassa_fonte_so_quando_pagina(monkeypatch):
+    recebidos = []
+
+    def _fake(name, category=None, price_cache=None, **kw):
+        recebidos.append(kw)
+        return {"name": name, "score": 1}
+
+    monkeypatch.setattr(scan_engine, "scan_item", _fake)
+    scan_engine.run_full_scan({"C": ["A"]})
+    scan_engine.run_full_scan({"C": ["B"]}, fonte="pagina", fator_preco=0.01)
+    assert recebidos == [{}, {"fonte": "pagina", "fator_preco": 0.01}]

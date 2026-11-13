@@ -5402,3 +5402,27 @@ def test_home_marca_item_com_preco_do_ciclo_anterior(client, monkeypatch, tmp_pa
         rotulo = ">Preço do ciclo anterior<" if ver == "vitrine" else ">Ciclo anterior<"
         assert body.count(rotulo) == 1
         assert "(coletado há 7 h)" in body
+
+
+def test_fonte_do_ciclo_desligada_por_padrao(monkeypatch):
+    monkeypatch.delenv("GALASECA_SCAN_FONTE", raising=False)
+    boa = {"comparacao_fontes": {"itens_preco": 170, "razao_preco": 0.01,
+                                 "preco_concorda_pct": 99.0}}
+    assert worker._fonte_do_ciclo([boa]) == ("ambas", None)
+
+
+def test_fonte_do_ciclo_ligada_exige_medicao_boa(monkeypatch):
+    monkeypatch.setenv("GALASECA_SCAN_FONTE", "pagina")
+    boa = {"comparacao_fontes": {"itens_preco": 170, "razao_preco": 0.01,
+                                 "preco_concorda_pct": 99.0}}
+    ruim = {"comparacao_fontes": {"itens_preco": 170, "razao_preco": 0.01,
+                                  "preco_concorda_pct": 80.0}}
+    pouca = {"comparacao_fontes": {"itens_preco": 5, "razao_preco": 0.01,
+                                   "preco_concorda_pct": 100.0}}
+    assert worker._fonte_do_ciclo([boa]) == ("pagina", 0.01)
+    # Ciclo no modo página sem comparação nova: vale a última boa.
+    assert worker._fonte_do_ciclo([boa, {"comparacao_fontes": None},
+                                   pouca]) == ("pagina", 0.01)
+    # A medição mais recente reprovou: volta pro modo completo.
+    assert worker._fonte_do_ciclo([boa, ruim]) == ("ambas", None)
+    assert worker._fonte_do_ciclo([]) == ("ambas", None)
