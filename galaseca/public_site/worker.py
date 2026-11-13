@@ -290,9 +290,18 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     inicio = time.time()
     falhas: "list[str]" = []
     relatorio: dict = {}
+    # Quem tinha histórico no ciclo anterior: página sem histórico agora,
+    # em sequência, é suspeita de throttle silencioso (scan_engine).
+    tinham_historico = {
+        r["name"] for r in (anterior or {}).get("results") or []
+        if ((r.get("data_quality") or {}).get("n") or 0) > 0}
     novos = scan_engine.run_full_scan(
         _ordenar_por_nota_anterior(categories), on_progress=_on_progress,
-        falhas=falhas, ritmo=ritmo, relatorio=relatorio)
+        falhas=falhas, ritmo=ritmo, relatorio=relatorio,
+        tinham_historico=tinham_historico)
+    if relatorio.get("throttle_silencioso"):
+        _logger.warning("Throttle silencioso detectado %d vez(es)",
+                        relatorio["throttle_silencioso"])
     sem_preco = relatorio.get("sem_preco") or []
     # Falha em massa (rede da VM fora, Steam mudou a página) não é "item
     # sem anúncio": só conta quando o ciclo trouxe preço pra maioria.
@@ -345,6 +354,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
         extras={
             "ritmo": ritmo,
             "pausas_429": relatorio.get("pausas_429", 0),
+            "throttle_silencioso": relatorio.get("throttle_silencioso", 0),
             "em_espera": em_espera,
             "comparacao_fontes": relatorio.get("comparacao_fontes"),
         })

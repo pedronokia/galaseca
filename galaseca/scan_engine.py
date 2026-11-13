@@ -148,10 +148,14 @@ def scan_item(name: str, category: str | None = None,
         "pump_risk": pr,
         "order_book_approx": ob_approx,
         "derived_price": derived_price,
+        "variantes": _resumo_variantes(name, page),
         # Modo sombra (2026-11-13): o que a listing page sozinha diria de
         # menor preço e volume 24h, ao lado do priceoverview. Só medido --
         # `run_full_scan` tira isto do resultado (não vai pro scan_store
         # nem pra API) e resume em `comparar_fontes`.
+        # Página veio sem histórico -- pode ser throttle silencioso da
+        # Steam (AGENTS.md). `run_full_scan` decide e tira do resultado.
+        "_sem_historico": not (page and page.get("price_history")),
         "_sombra": {
             **(sombra or {}),
             "lowest_overview": (overview or {}).get("lowest"),
@@ -181,6 +185,49 @@ def _fonte_pagina(page: "dict | None", ob: "dict | None",
         return None
     return {"best_ask": ask if isinstance(ask, (int, float)) else None,
             "compras_24h": compras}
+
+
+# Ordem de exibição das variantes: desgaste (melhor -> pior) e, dentro
+# dele, normal antes de StatTrak/Souvenir.
+_ORDEM_DESGASTE = ("(Factory New)", "(Minimal Wear)", "(Field-Tested)",
+                   "(Well-Worn)", "(Battle-Scarred)")
+_VARIANTES_MAX = 12
+
+
+def _resumo_variantes(nome: str, page: "dict | None") -> "list[dict]":
+    """Outras versões da mesma skin (desgaste, StatTrak, Souvenir) que a
+    listing page JÁ trouxe -- zero requisição extra. Pra cada uma: o
+    preço mediano do ponto mais recente do histórico e as compras nas 24h
+    anteriores a ele. É mediana de venda, não menor anúncio."""
+    variantes = (page or {}).get("variants") or {}
+    out = []
+    for outro, hist in variantes.items():
+        if outro == nome or not isinstance(hist, list):
+            continue
+        pontos = [p for p in hist if isinstance(p, dict)
+                  and isinstance(p.get("time"), (int, float))
+                  and isinstance(p.get("price_median"), (int, float))]
+        if not pontos:
+            continue
+        ultimo = max(pontos, key=lambda p: p["time"])
+        corte = ultimo["time"] - 86400
+        out.append({
+            "name": outro,
+            "mediana": ultimo["price_median"],
+            "ts": ultimo["time"],
+            "compras_24h": sum(int(p.get("purchases") or 0) for p in pontos
+                               if p["time"] > corte),
+        })
+
+    def _ordem(v: dict) -> tuple:
+        n = v["name"]
+        desgaste = next((i for i, w in enumerate(_ORDEM_DESGASTE) if w in n),
+                        len(_ORDEM_DESGASTE))
+        tipo = 1 if "StatTrak" in n else (2 if "Souvenir" in n else 0)
+        return (desgaste, tipo, n)
+
+    out.sort(key=_ordem)
+    return out[:_VARIANTES_MAX]
 
 
 def comparar_fontes(sombras: "list[dict]") -> "dict | None":
@@ -219,6 +266,11 @@ def comparar_fontes(sombras: "list[dict]") -> "dict | None":
             "razao_volume": rv, "volume_concorda_pct": cv}
 
 
+# Itens SEGUIDOS cuja página veio sem histórico, sendo que no ciclo
+# anterior tinham, pra tratar como throttle silencioso da Steam.
+_SEM_HIST_SEGUIDOS = 3
+
+
 # Famílias do disjuntor de `steam_api` que `scan_item` usa.
 _FAMILIAS_SCAN = ("priceoverview", "market_listings")
 # Teto de espera pelo disjuntor num ciclo. Passou disso, a Steam está
@@ -242,6 +294,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
                   falhas: "list[str] | None" = None,
                   ritmo: float = 1.0,
                   relatorio: "dict | None" = None,
+                  tinham_historico: "set[str] | None" = None,
                   ) -> list[dict]:
     """Escaneia as categorias (default: todas de `scan_targets`), sem Qt.
 
@@ -264,7 +317,17 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
     o ciclo anterior levou 429 (lido de `steam_api.RATE_LIMIT_DELAY_S` na
     hora, nunca copiado). `relatorio`, se passado, recebe `pausas_429`
     (quantas vezes o laço esperou o disjuntor) e `sem_preco` (itens que
-    falharam sem bloqueio nenhum -- candidatos a "sem anúncio").
+    falharam sem bloqueio nenhum -- candidatos a "sem anúncio") e
+    `throttle_silencioso` (quantas vezes a regra abaixo disparou).
+
+    Throttle silencioso (AGENTS.md): a Steam às vezes responde 200 com a
+    página sem histórico. Um item assim entrava com nota calculada sem
+    histórico -- nota errada, não item faltando. Com `tinham_historico`
+    (itens que tinham histórico no ciclo anterior), `_SEM_HIST_SEGUIDOS`
+    itens seguidos nessa situação abrem o disjuntor de listing page (a
+    mesma pausa escalonada de um 429) e voltam pro fim do ciclo. Se um
+    item normal aparece antes disso, os anteriores eram genuínos e
+    entram como vieram.
     """
     ritmo = max(1.0, float(ritmo or 1.0))
     if categories is None:
@@ -312,7 +375,32 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
     sem_preco: list[str] = []
     sombras: list[dict] = []
 
+    suspeitos: list[tuple[str, str, dict]] = []
+    throttle = 0
+
+    def _libera_suspeitos() -> None:
+        for _n, _c, r in suspeitos:
+            _guarda(r)
+        suspeitos.clear()
+
+    def _avalia(name: str, cat: str, result: dict) -> None:
+        nonlocal throttle
+        if (tinham_historico is not None and result.get("_sem_historico")
+                and name in tinham_historico):
+            suspeitos.append((name, cat, result))
+            if len(suspeitos) >= _SEM_HIST_SEGUIDOS:
+                throttle += 1
+                _avisa(f"{len(suspeitos)} páginas seguidas sem histórico: "
+                       "tratando como bloqueio silencioso")
+                steam_api._registrar_rate_limit("market_listings")
+                adiados.extend((n, c) for n, c, _r in suspeitos)
+                suspeitos.clear()
+            return
+        _libera_suspeitos()
+        _guarda(result)
+
     def _guarda(result: dict) -> None:
+        result.pop("_sem_historico", None)
         sombra = result.pop("_sombra", None)
         if sombra:
             sombras.append(sombra)
@@ -330,7 +418,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         _avisa(f"[{i + 1}/{len(items)}] {name}")
         result = scan_item(name, category=cat)
         if result:
-            _guarda(result)
+            _avalia(name, cat, result)
         elif _algum_cooldown():
             # Este item levou o 429: tenta de novo só no fim do ciclo.
             adiados.append((name, cat))
@@ -339,6 +427,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
             sem_preco.append(name)
         time.sleep(steam_api.RATE_LIMIT_DELAY_S * ritmo)
 
+    _libera_suspeitos()
     for name, cat in adiados:
         if interrompido or (cancelled and cancelled()) or not _espera_disjuntor():
             interrompido = True
@@ -360,4 +449,5 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         relatorio["pausas_429"] = pausas
         relatorio["sem_preco"] = sem_preco
         relatorio["comparacao_fontes"] = comparar_fontes(sombras)
+        relatorio["throttle_silencioso"] = throttle
     return results

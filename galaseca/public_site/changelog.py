@@ -23,6 +23,8 @@ ENTRADAS = [
             "Scan: se o ciclo anterior levou bloqueio da Steam, o próximo anda mais devagar e volta ao normal sozinho.",
             "Scan: item que fica 3 ciclos seguidos sem anúncio passa a ser tentado uma vez por dia, sem gastar requisição à toa.",
             "Scan: itens que ficaram com dado antigo são os primeiros do ciclo seguinte.",
+            "Scan: várias páginas seguidas sem histórico são tratadas como bloqueio silencioso da Steam (pausa e nova tentativa no fim do ciclo), em vez de entrar com nota calculada sem histórico.",
+            "Página do item: outras versões da mesma skin (desgaste, StatTrak™, Souvenir) com preço mediano e vendas em 24 h, aproveitando a mesma consulta.",
         ],
     },
     {

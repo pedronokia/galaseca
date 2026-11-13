@@ -5075,3 +5075,35 @@ def test_api_health_expoe_diagnostico_do_ultimo_ciclo(client, monkeypatch):
     dados = client.get("/api/health").get_json()
     assert dados["ultimo_ciclo_worker"]["pausas_429"] == 2
     assert dados["ultimo_ciclo_worker"]["comparacao_fontes"]["razao_preco"] == 0.01
+
+
+def test_item_mostra_outras_versoes(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 70, "price": 50.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": [],
+         "variantes": [
+             {"name": "AK-47 | Redline (Minimal Wear)", "mediana": 120.5,
+              "ts": time.time() - 3600, "compras_24h": 12},
+             {"name": "StatTrak™ AK-47 | Redline (Field-Tested)",
+              "mediana": 99.0, "ts": time.time(), "compras_24h": 3},
+         ]},
+        {"name": "AK-47 | Redline (Minimal Wear)", "score": 60, "price": 120.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/item/AK-47 | Redline (Field-Tested)").data.decode("utf-8")
+    assert "Outras versões desta skin" in body
+    assert "R$ 120,50" in body
+    # Versão acompanhada pelo site: link interno.
+    assert 'href="/item/AK-47%20%7C%20Redline%20(Minimal%20Wear)"' in body
+    # Versão fora do site: link pro Market.
+    assert ("https://steamcommunity.com/market/listings/730/"
+            "StatTrak%E2%84%A2%20AK-47%20%7C%20Redline%20%28Field-Tested%29") in body
+
+
+def test_item_sem_variantes_nao_mostra_secao(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "A", "score": 70, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    body = client.get("/item/A").data.decode("utf-8")
+    assert "Outras versões desta skin" not in body

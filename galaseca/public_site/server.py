@@ -527,6 +527,8 @@ def create_app() -> Flask:
             historico_ranking=ranking.historico_do_item(
                 name, dias=_DIAS_HISTORICO_RANKING, tz=fmt.FUSO_BR),
             eventos_jogo=_eventos_do_jogo(set(), so_do_item=name),
+            variantes=_variantes_para_tela(
+                item, {c["name"] for c in candidatos}),
             itens_da_caixa=cases.skins_in_case(item.get("case")),
             # Preço mais recente DESTE item específico -- cada item do
             # scan é coletado em instantes diferentes dentro do ciclo de
@@ -1621,6 +1623,33 @@ def _noticias_oficiais() -> "list[dict]":
             "url": n.get("url"),
             "data": (datetime.fromtimestamp(ts, tz=fmt.FUSO_BR).strftime("%d/%m/%Y")
                      if isinstance(ts, (int, float)) else None),
+        })
+    return out
+
+
+def _variantes_para_tela(item: dict,
+                         com_pagina: "set[str]") -> "list[dict]":
+    """Outras versões da skin (ver `scan_engine._resumo_variantes`) com
+    nome em português, preço formatado e link: pra página do galaseca
+    quando o site acompanha aquela versão, senão pro Market."""
+    out = []
+    for v in item.get("variantes") or []:
+        if not isinstance(v, dict) or not v.get("name"):
+            continue
+        nome = v["name"]
+        ts = v.get("ts")
+        out.append({
+            "name": nome,
+            "name_fmt": localize_name(nome),
+            "mediana_fmt": (fmt.brl(v["mediana"])
+                            if isinstance(v.get("mediana"), (int, float))
+                            else "—"),
+            "compras_24h": v.get("compras_24h"),
+            "quando": (scan_store.idade_txt(ts)
+                       if isinstance(ts, (int, float)) else None),
+            "tem_pagina": nome in com_pagina,
+            "market_url": _MARKET_LISTING_URL.format(
+                name=urllib.parse.quote(nome, safe="")),
         })
     return out
 

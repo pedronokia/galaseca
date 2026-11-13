@@ -150,6 +150,27 @@
     </ul>
     {% endif %}
 
+    {% if variantes %}
+    <h2 class="secao-titulo">Outras versões desta skin</h2>
+    <p class="status-muted">Desgaste, StatTrak™ e Souvenir da mesma skin, com o preço mediano da venda mais recente registrada pela Steam (não é o menor anúncio). Vêm na mesma consulta deste item, sem custo extra.</p>
+    <div class="tabela-wrap" role="region" tabindex="0" aria-label="Outras versões desta skin, com rolagem lateral">
+    <table class="tabela-candidatos tabela-variantes">
+      <thead>
+        <tr><th>Versão</th><th>Mediana</th><th title="Vendas nas 24 horas antes da venda mais recente">Vendas 24 h</th></tr>
+      </thead>
+      <tbody>
+        {% for v in variantes %}
+        <tr>
+          <td>{% if v.tem_pagina %}<a class="link-item" href="{{ url_for('item_detail', name=v.name) }}">{{ v.name_fmt }}</a>{% else %}<a class="link-item" href="{{ v.market_url }}" target="_blank" rel="noopener">{{ v.name_fmt }}<span class="visualmente-oculto"> (abre no Steam Market, em nova aba)</span></a>{% endif %}</td>
+          <td{% if v.quando %} title="Venda registrada {{ v.quando }}"{% endif %}>{{ v.mediana_fmt }}</td>
+          <td>{{ v.compras_24h if v.compras_24h is not none else "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% endif %}
+
     {% set hr = historico_ranking %}
     <h2 class="secao-titulo">No ranking</h2>
     {% if hr.dias_com_ranking %}

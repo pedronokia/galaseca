@@ -450,3 +450,91 @@ def test_fonte_pagina_soma_compras_das_ultimas_24h():
     f = scan_engine._fonte_pagina(page, {"best_ask": 123}, False)
     assert f == {"best_ask": 123, "compras_24h": 7}
     assert scan_engine._fonte_pagina(page, {"best_ask": 1}, True) is None
+
+
+# ── throttle silencioso e variantes ──────────────────────────
+
+def _res(name, sem_hist=False):
+    return {"name": name, "score": 1, "_sem_historico": sem_hist}
+
+
+def test_tres_paginas_seguidas_sem_historico_viram_pausa(monkeypatch):
+    from galaseca import steam_api
+    dormidas = []
+    _sleep_que_fecha_disjuntor(monkeypatch, dormidas)
+    tentativas = {}
+
+    def _fake(name, category=None, price_cache=None):
+        tentativas[name] = tentativas.get(name, 0) + 1
+        # Primeira passada de B, C, D: throttle silencioso.
+        return _res(name, sem_hist=name in "BCD" and tentativas[name] == 1)
+
+    monkeypatch.setattr(scan_engine, "scan_item", _fake)
+    rel = {}
+    progresso = []
+    res = scan_engine.run_full_scan(
+        {"C": ["A", "B", "C", "D", "E"]}, relatorio=rel,
+        on_progress=progresso.append,
+        tinham_historico={"A", "B", "C", "D", "E"})
+    assert rel["throttle_silencioso"] == 1
+    assert tentativas == {"A": 1, "B": 2, "C": 2, "D": 2, "E": 1}
+    assert sorted(r["name"] for r in res) == ["A", "B", "C", "D", "E"]
+    assert all("_sem_historico" not in r for r in res)
+    assert any("bloqueio silencioso" in m for m in progresso)
+    assert any(s >= 30 for s in dormidas)
+
+
+def test_sem_historico_isolado_e_genuino(monkeypatch):
+    chamados = []
+
+    def _fake(name, category=None, price_cache=None):
+        chamados.append(name)
+        return _res(name, sem_hist=name in ("B", "C"))
+
+    monkeypatch.setattr(scan_engine, "scan_item", _fake)
+    rel = {}
+    res = scan_engine.run_full_scan({"C": ["A", "B", "C", "D"]},
+                                    relatorio=rel,
+                                    tinham_historico={"A", "B", "C", "D"})
+    assert rel["throttle_silencioso"] == 0
+    assert chamados == ["A", "B", "C", "D"]
+    assert [r["name"] for r in res] == ["A", "B", "C", "D"]
+
+
+def test_item_novo_sem_historico_nao_conta(monkeypatch):
+    monkeypatch.setattr(scan_engine, "scan_item",
+                        lambda name, category=None, price_cache=None:
+                            _res(name, sem_hist=True))
+    rel = {}
+    res = scan_engine.run_full_scan({"C": ["N1", "N2", "N3", "N4"]},
+                                    relatorio=rel, tinham_historico=set())
+    assert rel["throttle_silencioso"] == 0 and len(res) == 4
+
+
+def test_suspeitos_no_fim_da_lista_entram(monkeypatch):
+    monkeypatch.setattr(scan_engine, "scan_item",
+                        lambda name, category=None, price_cache=None:
+                            _res(name, sem_hist=name != "A"))
+    res = scan_engine.run_full_scan({"C": ["A", "B", "C"]},
+                                    tinham_historico={"A", "B", "C"})
+    assert [r["name"] for r in res] == ["A", "B", "C"]
+
+
+def test_resumo_variantes_ordena_e_resume():
+    page = {"variants": {
+        "AK-47 | Redline (Field-Tested)": [{"time": 1, "price_median": 9}],
+        "StatTrak™ AK-47 | Redline (Minimal Wear)": [
+            {"time": 100000, "price_median": 80.0, "purchases": 2},
+            {"time": 90000, "price_median": 70.0, "purchases": 5},
+            {"time": 1000, "price_median": 50.0, "purchases": 99}],
+        "AK-47 | Redline (Minimal Wear)": [
+            {"time": 50, "price_median": 40.5, "purchases": 1}],
+        "AK-47 | Redline (Battle-Scarred)": [{"time": 5, "price_median": None}],
+    }}
+    v = scan_engine._resumo_variantes("AK-47 | Redline (Field-Tested)", page)
+    assert [x["name"] for x in v] == [
+        "AK-47 | Redline (Minimal Wear)",
+        "StatTrak™ AK-47 | Redline (Minimal Wear)"]
+    assert v[1] == {"name": "StatTrak™ AK-47 | Redline (Minimal Wear)",
+                    "mediana": 80.0, "ts": 100000, "compras_24h": 7}
+    assert scan_engine._resumo_variantes("X", None) == []
