@@ -20,6 +20,7 @@ import time
 
 from galaseca import (
     gamedata, ranking, scan_engine, scan_store, scan_targets, signals,
+    steam_news,
 )
 from galaseca.public_site import db_backup, scan_progress, worker_alert
 from galaseca._ambiente import ambiente
@@ -135,6 +136,13 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     scan_store.registrar_ciclo(len(resultados), duracao_min)
     _logger.info("Ciclo concluído: %d itens em %.1fmin",
                 len(resultados), duracao_min)
+    # Anúncios oficiais do CS2 -- DEPOIS do scan pra nunca atrasar a
+    # coleta de preço; 1 requisição a cada ~6h no máximo e família própria
+    # no disjuntor (ver steam_news.py).
+    try:
+        _logger.info("Notícias oficiais: %s", steam_news.atualizar_noticias())
+    except Exception:
+        _logger.warning("busca de notícias falhou", exc_info=True)
     # Backup do banco de contas/portfolio pessoal -- auto-limitado a 1x/
     # ~20h por `fazer_backup_se_necessario`, então chamar a cada ciclo
     # (mesmo de 6 em 6h) não produz backup demais.

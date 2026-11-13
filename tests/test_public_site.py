@@ -19,6 +19,7 @@ from galaseca.public_site import (
     changelog, charts, erro_stats, fmt, icon_cache, latencia, rate_limit,
     scan_progress, user_store, visits, worker, worker_alert,
 )
+from galaseca.public_site import server
 from galaseca.public_site.server import create_app
 
 
@@ -2423,6 +2424,38 @@ def test_run_once_registra_erro_e_mudanca_dos_arquivos_do_jogo(
         in caplog.text
 
 
+def test_run_once_busca_noticias_depois_do_scan(monkeypatch):
+    ordem = []
+    monkeypatch.setattr(worker.gamedata, "check_for_updates",
+                        lambda: {"changed": False, "error": None})
+    monkeypatch.setattr(
+        worker.scan_engine, "run_full_scan",
+        lambda categories, on_progress=None: ordem.append("scan") or [])
+    monkeypatch.setattr(worker.steam_news, "atualizar_noticias",
+                        lambda: ordem.append("noticias") or "ok")
+    worker.run_once({"Facas": ["A"]})
+    assert ordem == ["scan", "noticias"]
+
+
+def test_run_once_falha_nas_noticias_nao_derruba_ciclo(monkeypatch, caplog):
+    monkeypatch.setattr(worker.gamedata, "check_for_updates",
+                        lambda: {"changed": False, "error": None})
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan",
+                        lambda categories, on_progress=None: [])
+
+    def _boom():
+        raise RuntimeError("fora do ar")
+
+    monkeypatch.setattr(worker.steam_news, "atualizar_noticias", _boom)
+    registrou = []
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda *a, **kw: registrou.append(a))
+    with caplog.at_level("WARNING", logger="galaseca.worker"):
+        assert worker.run_once({"Facas": ["A"]}) == []
+    assert "busca de notícias falhou" in caplog.text
+    assert registrou
+
+
 def _worker_main_uma_volta(monkeypatch):
     """Roda `main()` e para na 1a chamada de `time.sleep` (`while True`
     de verdade pararia a suite). Devolve os segundos passados pra sleep."""
@@ -4640,3 +4673,127 @@ def test_main_reiniciado_logo_apos_ciclo_espera_antes_de_escanear(
         pass
     assert escaneou == []
     assert 5 * 3600 - 5 < esperas[0] <= 5 * 3600
+
+
+# ── /novidades, saídas do Top 20, histórico no item ─────────────
+
+_EVENTO_ARMORY = {
+    "type": "xpshop_removed", "internal": "crate_community_33",
+    "name": "Kilowatt Case", "summary": "...", "ts": 1794500000.0,
+    "commit_sha": "abc", "commit_date": "2026-11-10T15:00:00Z",
+}
+
+
+def test_novidades_vazia_explica_o_que_vai_aparecer(client, monkeypatch):
+    monkeypatch.setattr(server.gamedata, "load_events_log", lambda: [])
+    monkeypatch.setattr(server.gamedata, "load_state", lambda: None)
+    monkeypatch.setattr(server.steam_news, "carregar_noticias", lambda: [])
+    resp = client.get("/novidades")
+    assert resp.status_code == 200
+    body = resp.data.decode("utf-8")
+    assert "Nenhuma mudança detectada até agora" in body
+    assert "depois do próximo ciclo de coleta" in body
+
+
+def test_novidades_mostra_evento_e_noticia(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Kilowatt Case", "score": 70, "price": 5.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": []},
+    ], category="Caixas")
+    monkeypatch.setattr(server.gamedata, "load_events_log",
+                        lambda: [_EVENTO_ARMORY, {"type": "desconhecido"}])
+    monkeypatch.setattr(server.gamedata, "load_state",
+                        lambda: {"fetched_at": time.time() - 60})
+    monkeypatch.setattr(
+        server.steam_news, "carregar_noticias",
+        lambda: [{"titulo": "<script>x</script> Notas", "resumo": "Mapa",
+                  "url": "https://steamcommunity.com/games/CSGO/1",
+                  "ts": 1794500000.0}])
+    body = client.get("/novidades").data.decode("utf-8")
+    assert "saiu do Armory" in body
+    assert "10/11/2026" in body
+    assert 'href="/item/Kilowatt%20Case"' in body
+    assert "&lt;script&gt;x&lt;/script&gt; Notas" in body
+    assert "<script>x</script>" not in body
+    assert 'href="https://steamcommunity.com/games/CSGO/1"' in body
+    assert "desconhecido" not in body
+
+
+def test_rodape_linka_novidades(client):
+    body = client.get("/sobre").data.decode("utf-8")
+    assert 'href="/novidades"' in body
+
+
+def test_ranking_mostra_quem_saiu_do_top(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Z", "score": 41, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    h = 3600.0
+    snaps = [
+        {"ts": 1000 * h - 24 * h, "items": [
+            {"name": "X", "score": 70, "position": 1},
+            {"name": "Z", "score": 60, "position": 2},
+            {"name": "Sumiu", "score": 55, "position": 3}]},
+        {"ts": 1000 * h, "items": [{"name": "X", "score": 80, "position": 1}]},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots", lambda: snaps)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before",
+        lambda ts: next((s for s in reversed(snaps) if s["ts"] < ts), None))
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "Saíram do Top 20" in body
+    assert "era #2 com nota 60; agora nota 41" in body
+    assert 'href="/item/Z"' in body
+    # Fora do scan atual: sem link (a página do item daria 404).
+    assert 'href="/item/Sumiu"' not in body
+    assert "era #3 com nota 55" in body
+
+
+def test_ranking_sem_saidas_nao_mostra_secao(client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    body = client.get("/ranking").data.decode("utf-8")
+    assert "Saíram do Top 20" not in body
+
+
+def test_item_mostra_historico_no_ranking_e_eventos(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "Kilowatt Case", "score": 70, "price": 5.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": [],
+         "category": "Caixas"},
+    ], category="Caixas")
+    agora = time.time()
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots",
+        lambda: [
+            {"ts": agora - 86400, "items": [
+                {"name": "Kilowatt Case", "score": 70, "position": 4}]},
+            {"ts": agora, "items": [
+                {"name": "Kilowatt Case", "score": 70, "position": 2}]},
+        ])
+    monkeypatch.setattr(server.gamedata, "load_events_log",
+                        lambda: [_EVENTO_ARMORY,
+                                 dict(_EVENTO_ARMORY, name="Outra Caixa")])
+    body = client.get("/item/Kilowatt Case").data.decode("utf-8")
+    assert "Hoje está em <strong>#2</strong> do Top 20." in body
+    assert "<strong>2 de 2</strong> dias" in body
+    assert "melhor posição: <strong>#2</strong>" in body
+    assert body.count('class="faixa-dia faixa-dia-') == 30 + 3
+    assert "Mudanças no jogo" in body
+    assert "saiu do Armory" in body
+    assert "Outra Caixa" not in body
+
+
+def test_item_sem_ranking_salvo_avisa(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "A", "score": 70, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots", lambda: [])
+    monkeypatch.setattr(server.gamedata, "load_events_log", lambda: [])
+    body = client.get("/item/A").data.decode("utf-8")
+    assert "Ainda não há ranking salvo nos últimos 30 dias" in body
+    assert "Mudanças no jogo" not in body

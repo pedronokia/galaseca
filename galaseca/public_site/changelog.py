@@ -8,6 +8,17 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
+        "data": "2026-11-13",
+        "titulo": "Ranking por período e novidades do jogo",
+        "itens": [
+            "Ranking: escolha comparar com o último scan, 24 horas, 7 dias ou 30 dias. Setas, variação de nota e o resumo usam a mesma comparação.",
+            "Ranking: lista de quem saiu do Top 20 no período escolhido.",
+            "Página do item: presença no Top 20 dia a dia nos últimos 30 dias, com a melhor posição.",
+            "Nova página Novidades: mudanças detectadas nos arquivos do CS2 (drop semanal, Armory, caixas novas) e os anúncios oficiais da Valve.",
+            "Caixa que sai do Armory passa a ser registrada como aposentada automaticamente, com a data da mudança nos arquivos do jogo.",
+        ],
+    },
+    {
         "data": "2026-11-12",
         "titulo": "Tema escuro",
         "itens": [

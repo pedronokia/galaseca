@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Novidades do CS2 — Galaseca</title>
+  <meta name="description" content="Mudanças detectadas nos arquivos do CS2 (drops, Armory, caixas novas) e os anúncios oficiais da Valve.">
+  <meta property="og:locale" content="pt_BR">
+  <link rel="canonical" href="{{ request.url }}">
+  {% include "partials/_head_pwa.html" %}
+  <link rel="alternate" type="application/rss+xml" title="Galaseca — Preços e notas" href="{{ url_for('feed') }}">
+  <link rel="stylesheet" href="{{ static_v('style.css') }}">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {"@type": "ListItem", "position": 1, "name": "galaseca", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 2, "name": "Novidades", "item": "{{ request.url }}"}
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="link-pular-conteudo" href="#conteudo">Pular pro conteúdo</a>
+  <header class="topo">
+    <div class="topo-linha">
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
+      {% include "partials/_conta_link.html" %}
+    </div>
+  </header>
+
+  <main id="conteudo" class="pagina-texto">
+    <header class="cabecalho-pagina">
+      <h1 class="titulo-pagina">Novidades do CS2</h1>
+      <p class="descricao-pagina">O que mudou no jogo e o que a Valve anunciou. Mudanças de oferta mexem no mercado, então vale saber quando acontecem.</p>
+    </header>
+
+    <section aria-labelledby="titulo-arquivos">
+      <h2 class="secao-titulo" id="titulo-arquivos">Mudanças nos arquivos do jogo</h2>
+      <p class="status-muted">A cada ciclo de coleta, o galaseca compara os arquivos do CS2 com a versão anterior e anota quando uma coleção entra ou sai do drop semanal, quando algo entra ou sai do Armory e quando aparece uma caixa nova.{% if arquivos_conferidos_txt %} Arquivos conferidos {{ arquivos_conferidos_txt }}.{% endif %}</p>
+      {% if eventos %}
+      <ol class="lista-novidades">
+        {% for ev in eventos %}
+        <li class="novidade">
+          {% if ev.data %}<span class="novidade-data">{{ ev.data }}</span>{% endif %}
+          <p class="novidade-titulo">
+            {% if ev.no_site %}<a href="{{ url_for('item_detail', name=ev.nome) }}">{{ ev.nome_fmt }}</a>{% else %}<strong>{{ ev.nome_fmt }}</strong>{% endif %}
+            {{ ev.verbo }}
+          </p>
+          <p class="novidade-texto">{{ ev.explicacao }}</p>
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="texto-sem-dado">Nenhuma mudança detectada até agora. Assim que uma atualização do jogo mexer em drops, Armory ou caixas, ela aparece aqui.</p>
+      {% endif %}
+    </section>
+
+    <section aria-labelledby="titulo-anuncios">
+      <h2 class="secao-titulo" id="titulo-anuncios">Anúncios oficiais</h2>
+      <p class="status-muted">Os últimos anúncios do CS2 publicados pela Valve na Steam. Servem de contexto: não entram na nota.</p>
+      {% if noticias %}
+      <ol class="lista-novidades">
+        {% for n in noticias %}
+        <li class="novidade">
+          {% if n.data %}<span class="novidade-data">{{ n.data }}</span>{% endif %}
+          <p class="novidade-titulo">
+            {% if n.url %}<a href="{{ n.url }}" target="_blank" rel="noopener">{{ n.titulo }}<span class="visualmente-oculto"> (abre na Steam, em nova aba)</span></a>{% else %}<strong>{{ n.titulo }}</strong>{% endif %}
+          </p>
+          {% if n.resumo %}<p class="novidade-texto">{{ n.resumo }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="texto-sem-dado">Os anúncios aparecem aqui depois do próximo ciclo de coleta.</p>
+      {% endif %}
+    </section>
+
+    <p class="status-muted">Não é afiliado à Valve nem à Steam. Não é recomendação de investimento.</p>
+  </main>
+
+  <footer class="rodape">
+    {% include "partials/_rodape_links.html" %}
+  </footer>
+</body>
+</html>

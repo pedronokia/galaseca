@@ -148,6 +148,37 @@
     </ul>
     {% endif %}
 
+    {% set hr = historico_ranking %}
+    <h2 class="secao-titulo">No ranking</h2>
+    {% if hr.dias_com_ranking %}
+    <p class="historico-ranking-resumo">
+      {% if hr.posicao_atual %}Hoje está em <strong>#{{ hr.posicao_atual }}</strong> do Top 20.{% else %}Não está no Top 20 do último scan.{% endif %}
+      {% if hr.dias_no_top %}Apareceu no Top 20 em <strong>{{ hr.dias_no_top }} de {{ hr.dias_com_ranking }}</strong> {{ "dia" if hr.dias_com_ranking == 1 else "dias" }} com ranking salvo nos últimos {{ hr.dias|length }} dias; melhor posição: <strong>#{{ hr.melhor_posicao }}</strong>.{% else %}Não apareceu no Top 20 nos {{ hr.dias_com_ranking }} {{ "dia" if hr.dias_com_ranking == 1 else "dias" }} com ranking salvo dos últimos {{ hr.dias|length }} dias.{% endif %}
+    </p>
+    <ol class="faixa-dias" aria-hidden="true">
+      {% for d in hr.dias %}
+      <li class="faixa-dia faixa-dia-{{ d.estado }}" title="{{ d.data.strftime('%d/%m') }}: {% if d.estado == 'top' %}#{{ d.melhor }} no Top 20{% elif d.estado == 'fora' %}fora do Top 20{% else %}sem ranking salvo{% endif %}"></li>
+      {% endfor %}
+    </ol>
+    <p class="faixa-dias-legenda status-muted" aria-hidden="true"><span class="faixa-dias-legenda-item"><span class="faixa-dia faixa-dia-top"></span> no Top 20</span><span class="faixa-dias-legenda-item"><span class="faixa-dia faixa-dia-fora"></span> fora</span><span class="faixa-dias-legenda-item"><span class="faixa-dia faixa-dia-sem_dado"></span> sem ranking salvo</span><span class="faixa-dias-legenda-item">do mais antigo (esquerda) pro de hoje</span></p>
+    {% else %}
+    <p class="texto-sem-dado">Ainda não há ranking salvo nos últimos {{ hr.dias|length }} dias.</p>
+    {% endif %}
+
+    {% if eventos_jogo %}
+    <h2 class="secao-titulo">Mudanças no jogo</h2>
+    <ol class="lista-novidades">
+      {% for ev in eventos_jogo %}
+      <li class="novidade">
+        {% if ev.data %}<span class="novidade-data">{{ ev.data }}</span>{% endif %}
+        <p class="novidade-titulo"><strong>{{ ev.nome_fmt }}</strong> {{ ev.verbo }}</p>
+        <p class="novidade-texto">{{ ev.explicacao }}</p>
+      </li>
+      {% endfor %}
+    </ol>
+    <p class="status"><a class="link-com-seta" href="{{ url_for('novidades') }}">Todas as novidades do jogo {{ icone("seta-direita") }}</a></p>
+    {% endif %}
+
     {% if parecidos %}
     <h2 class="secao-titulo">Itens parecidos</h2>
     <ul class="lista-parecidos">

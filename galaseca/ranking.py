@@ -6,6 +6,7 @@ Cap em 50 snapshots (volume historico controlado).
 """
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import time
 from pathlib import Path
@@ -113,3 +114,54 @@ def clear_rankings(path: Path | str = _RANKINGS_PATH) -> None:
     except OSError as e:
         print(f"WARNING: failed to clear rankings: {e}",
               file=__import__('sys').stderr)
+
+
+def historico_do_item(name: str, dias: int = 30,
+                      now: "float | None" = None,
+                      snapshots: "list[dict] | None" = None,
+                      tz: "_dt.tzinfo | None" = None) -> dict:
+    """Presença de `name` nos snapshots do Top 20 dos últimos `dias`
+    dias, por dia de calendário (no fuso `tz`; None = fuso do servidor).
+
+    Devolve {"dias": [{"data", "estado", "melhor"}...] do mais antigo
+    pro mais novo, "dias_no_top", "dias_com_ranking", "melhor_posicao",
+    "posicao_atual"}. `estado` é "top" (apareceu em algum snapshot do
+    dia), "fora" (teve ranking e o item não estava) ou "sem_dado"."""
+    agora = time.time() if now is None else now
+    snaps = load_snapshots() if snapshots is None else snapshots
+    def _dia(ts: float) -> _dt.date:
+        return _dt.datetime.fromtimestamp(ts, tz).date()
+
+    hoje = _dia(agora)
+    datas = [hoje - _dt.timedelta(days=i) for i in range(dias - 1, -1, -1)]
+    por_dia: "dict[_dt.date, list[int | None]]" = {}
+    for s in snaps:
+        d = _dia(float(s.get("ts", 0)))
+        if d < datas[0] or d > hoje:
+            continue
+        pos = next((it.get("position") for it in s.get("items", [])
+                    if it.get("name") == name), None)
+        por_dia.setdefault(d, []).append(pos)
+    out_dias = []
+    melhor_geral = None
+    for d in datas:
+        posicoes = por_dia.get(d)
+        if posicoes is None:
+            out_dias.append({"data": d, "estado": "sem_dado", "melhor": None})
+            continue
+        presentes = [p for p in posicoes if p is not None]
+        melhor = min(presentes) if presentes else None
+        if melhor is not None and (melhor_geral is None or melhor < melhor_geral):
+            melhor_geral = melhor
+        out_dias.append({"data": d, "estado": "top" if presentes else "fora",
+                         "melhor": melhor})
+    atual = snaps[-1] if snaps else None
+    posicao_atual = next((it.get("position") for it in (atual or {}).get("items", [])
+                          if it.get("name") == name), None)
+    return {
+        "dias": out_dias,
+        "dias_no_top": sum(1 for d in out_dias if d["estado"] == "top"),
+        "dias_com_ranking": sum(1 for d in out_dias if d["estado"] != "sem_dado"),
+        "melhor_posicao": melhor_geral,
+        "posicao_atual": posicao_atual,
+    }

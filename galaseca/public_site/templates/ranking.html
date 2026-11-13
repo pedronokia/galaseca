@@ -164,6 +164,20 @@
       </ul>
       </div>
       {% endif %}
+      {% if saidas %}
+      <section class="saidas-do-top" aria-labelledby="titulo-saidas">
+        <h2 class="secao-titulo" id="titulo-saidas">Saíram do Top 20</h2>
+        <p class="status-muted">Estavam no ranking de {{ resumo_do_dia.quando if resumo_do_dia else 'antes' }} e não estão no atual.</p>
+        <ul class="lista-saidas">
+          {% for s in saidas %}
+          <li>
+            {% if s.tem_pagina %}<a class="link-item" href="{{ url_for('item_detail', name=s.name) }}">{{ s.name_fmt }}</a>{% else %}<span class="link-item">{{ s.name_fmt }}</span>{% endif %}
+            <span class="status-muted">era #{{ s.prev_pos }} com nota {{ s.prev_score }}{% if s.score is not none %}; agora nota {{ s.score }}{% endif %}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
     {% else %}
       <p class="status status-vazio">Ainda não há ranking salvo. Volte em breve.</p>
     {% endif %}

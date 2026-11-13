@@ -19,7 +19,7 @@ import shutil
 import sqlite3
 import time
 import urllib.parse
-from datetime import date
+from datetime import date, datetime
 from functools import wraps
 from pathlib import Path
 from xml.sax.saxutils import escape as _xml_escape
@@ -38,8 +38,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import check_password_hash
 
 from galaseca import (
-    __version__, cases, ranking, recommendations, scan_store, scan_targets,
-    signals,
+    __version__, cases, gamedata, ranking, recommendations, scan_store,
+    scan_targets, signals, steam_news,
 )
 from galaseca._paths import DATA_DIR, atomic_write_bytes
 from galaseca.localization import localize_name
@@ -523,6 +523,9 @@ def create_app() -> Flask:
             periodo_opcoes=list(_PERIODOS_GRAFICO),
             parecidos=parecidos,
             tempo_aposentadoria=_tempo_desde_aposentadoria(item.get("case_retired_at")),
+            historico_ranking=ranking.historico_do_item(
+                name, dias=_DIAS_HISTORICO_RANKING, tz=fmt.FUSO_BR),
+            eventos_jogo=_eventos_do_jogo(set(), so_do_item=name),
             itens_da_caixa=cases.skins_in_case(item.get("case")),
             # Preço mais recente DESTE item específico -- cada item do
             # scan é coletado em instantes diferentes dentro do ciclo de
@@ -707,7 +710,8 @@ def create_app() -> Flask:
     def sitemap():
         base = request.url_root.rstrip("/")
         paginas = ["/", "/privacidade", "/status", "/changelog", "/api",
-                  "/ranking", "/metodo", "/sobre", "/faq", "/glossario"]
+                  "/ranking", "/novidades", "/metodo", "/sobre", "/faq",
+                  "/glossario"]
         urls_xml = "\n".join(
             f"  <url><loc>{_xml_escape(base + p)}</loc></url>" for p in paginas)
         # Páginas de item -- cada uma já tem título/descrição/JSON-LD
@@ -831,6 +835,28 @@ def create_app() -> Flask:
     def sobre():
         return render_template("sobre.html")
 
+    @app.route("/novidades")
+    def novidades():
+        """Mudanças detectadas nos arquivos do jogo + anúncios oficiais
+        do CS2. Só lê o que o worker já gravou -- abrir esta página não
+        faz nenhuma requisição externa."""
+        # Só vira link o nome que `item_detail` aceita (mesma lista dele);
+        # um nome fora dela daria 404.
+        nomes = _nomes_com_pagina(scan_store.load_last_scan())
+        try:
+            estado = gamedata.load_state() or {}
+        except Exception:
+            estado = {}
+        conferido_ts = estado.get("fetched_at")
+        return render_template(
+            "novidades.html",
+            eventos=_eventos_do_jogo(nomes),
+            noticias=_noticias_oficiais(),
+            arquivos_conferidos_txt=(
+                scan_store.idade_txt(conferido_ts)
+                if isinstance(conferido_ts, (int, float)) else None),
+        )
+
     @app.route("/ranking")
     def ranking_page():
         snaps = ranking.load_snapshots()
@@ -885,6 +911,8 @@ def create_app() -> Flask:
             ver_sel=ver,
             periodo_sel=periodo,
             periodos=_PERIODOS_RANKING,
+            saidas=_saidas_do_top(atual, anterior, por_nome_scan,
+                                  _nomes_com_pagina(scan) if anterior else set()),
         ))
         if "ver" in request.args:
             resp.set_cookie("pref_ver", ver, max_age=365 * 24 * 3600,
@@ -1417,6 +1445,8 @@ _PERIODOS_RANKING = {
     "30d": (30 * 24, "30 dias"),
 }
 _PERIODO_RANKING_PADRAO = "24h"
+# Janela do "histórico no ranking" da página do item.
+_DIAS_HISTORICO_RANKING = 30
 # Folga pra um ciclo que terminou um pouco mais cedo ainda contar como
 # "de 24h atrás" (é a mesma régua de 20h que `_resumo_do_dia` já usava).
 _FOLGA_PERIODO_H = 4
@@ -1496,6 +1526,136 @@ def _resumo_entre(atual: "dict | None",
         "movimentos": movimentos[:_MOVIMENTOS_DESTAQUE],
         "quando": scan_store.idade_txt(antigo["ts"]),
     }
+
+
+_logger = logging.getLogger("galaseca.site")
+
+# Eventos detectados nos arquivos do jogo (gamedata.py, gravados pelo
+# worker) em português de quem está começando: o que mudou + o que isso
+# quer dizer na prática. Descreve o fato, não prevê preço.
+_EVENTOS_JOGO = {
+    "drop_pool_added": (
+        "entrou no drop semanal",
+        "Jogadores voltam a receber itens desta coleção nos drops "
+        "semanais, então novas unidades entram no jogo por esse caminho."),
+    "drop_pool_removed": (
+        "saiu do drop semanal",
+        "A coleção deixou de cair nos drops semanais: novas unidades "
+        "param de entrar no jogo por esse caminho."),
+    "xpshop_added": (
+        "entrou no Armory",
+        "Passou a poder ser resgatado no Armory, a loja de recompensas "
+        "do passe."),
+    "xpshop_removed": (
+        "saiu do Armory",
+        "Deixou de poder ser resgatado no Armory. Quando é uma caixa, "
+        "o galaseca passa a tratá-la como aposentada nesta data."),
+    "new_container": (
+        "apareceu nos arquivos do jogo",
+        "Caixa nova nos arquivos do jogo. Pode ainda não estar à venda "
+        "no Market."),
+}
+_EVENTOS_JOGO_MAX = 30
+
+
+def _data_do_evento(ev: dict) -> "float | None":
+    """Data do commit dos arquivos (quando a Valve mudou), com a data da
+    detecção como reserva."""
+    bruto = ev.get("commit_date")
+    if isinstance(bruto, str) and bruto:
+        try:
+            return datetime.fromisoformat(bruto.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            pass
+    ts = ev.get("ts")
+    return float(ts) if isinstance(ts, (int, float)) else None
+
+
+def _eventos_do_jogo(nomes_no_site: "set[str]",
+                     so_do_item: "str | None" = None) -> "list[dict]":
+    """Eventos de `gamedata.load_events_log()` prontos pro template, do
+    mais novo pro mais antigo. Só vira link o nome que o site acompanha."""
+    try:
+        brutos = gamedata.load_events_log()
+    except Exception:
+        _logger.warning("log de eventos do jogo ilegível", exc_info=True)
+        return []
+    out = []
+    for ev in brutos:
+        if not isinstance(ev, dict) or ev.get("type") not in _EVENTOS_JOGO:
+            continue
+        nome = str(ev.get("name") or "")
+        if not nome or (so_do_item is not None and nome != so_do_item):
+            continue
+        ts = _data_do_evento(ev)
+        verbo, explicacao = _EVENTOS_JOGO[ev["type"]]
+        out.append({
+            "nome": nome,
+            "nome_fmt": localize_name(nome),
+            "verbo": verbo,
+            "explicacao": explicacao,
+            "ts": ts or 0.0,
+            "data": (datetime.fromtimestamp(ts, tz=fmt.FUSO_BR).strftime("%d/%m/%Y")
+                     if ts else None),
+            "no_site": nome in nomes_no_site,
+        })
+    out.sort(key=lambda e: -e["ts"])
+    return out[:_EVENTOS_JOGO_MAX]
+
+
+def _noticias_oficiais() -> "list[dict]":
+    try:
+        itens = steam_news.carregar_noticias()
+    except Exception:
+        _logger.warning("cache de notícias ilegível", exc_info=True)
+        return []
+    out = []
+    for n in itens:
+        if not isinstance(n, dict) or not n.get("titulo"):
+            continue
+        ts = n.get("ts")
+        out.append({
+            "titulo": n["titulo"],
+            "resumo": n.get("resumo") or "",
+            "url": n.get("url"),
+            "data": (datetime.fromtimestamp(ts, tz=fmt.FUSO_BR).strftime("%d/%m/%Y")
+                     if isinstance(ts, (int, float)) else None),
+        })
+    return out
+
+
+def _nomes_com_pagina(scan: "dict | None") -> "set[str]":
+    """Nomes que têm página em /item/<nome> -- a mesma lista filtrada
+    que `item_detail` usa."""
+    if not scan:
+        return set()
+    return {c["name"] for c in _candidatos_filtrados(
+        scan, com_historico=False, com_icone=False)}
+
+
+def _saidas_do_top(atual: "dict | None", anterior: "dict | None",
+                   por_nome_scan: dict,
+                   com_pagina: "set[str]") -> "list[dict]":
+    """Quem estava no Top 20 de `anterior` e não está no `atual`, na
+    ordem da posição antiga -- a outra metade do selo NOVO."""
+    if not atual or not anterior:
+        return []
+    nomes_atuais = {it["name"] for it in atual.get("items", [])}
+    out = []
+    for it in sorted(anterior.get("items", []),
+                     key=lambda i: i.get("position") or 0):
+        if it["name"] in nomes_atuais:
+            continue
+        agora = por_nome_scan.get(it["name"])
+        out.append({
+            "name": it["name"],
+            "name_fmt": localize_name(it["name"]),
+            "prev_pos": it.get("position"),
+            "prev_score": it.get("score"),
+            "score": agora.get("score") if agora else None,
+            "tem_pagina": it["name"] in com_pagina,
+        })
+    return out
 
 
 _HISTORICO_CURTO_LIMIAR = 5
