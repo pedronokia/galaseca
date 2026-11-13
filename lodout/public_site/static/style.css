@@ -2289,10 +2289,11 @@ table.tabela-candidatos td.celula-preco {
   font-size: var(--fs-xs);
 }
 
-.input-tag-local:focus {
+.input-tag-local:focus-visible {
   border-color: var(--accent);
   color: var(--text);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
 }
 
 /* Cabeçalho ordenável: herda a caixa do <th> e alarga o alvo de
@@ -3171,7 +3172,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .form-adicionar input:hover { border-color: var(--border-strong); }
 
-.form-adicionar input:focus {
+.form-adicionar input:focus-visible {
   border-color: var(--accent);
   outline: none;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
@@ -3266,9 +3267,10 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   font-size: var(--fs-base);
 }
 
-.input-compacto:focus {
+.input-compacto:focus-visible {
   border-color: var(--accent);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
 }
 
 .badge-disparado {
@@ -3324,9 +3326,10 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   font-size: var(--fs-base);
 }
 
-.form-regras input:focus {
+.form-regras input:focus-visible {
   border-color: var(--accent);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.28);
 }
 
 .form-regras button {
@@ -4473,4 +4476,28 @@ table.tabela-candidatos.tabela-variantes { min-width: 0; }
   display: flex;
   width: fit-content;
   margin: 4px 0 0 auto;
+}
+
+
+/* ── Barras fixas x foco do teclado (auditoria Web Interface Guidelines,
+   2026-11-13) ──────────────────────────────────────────────────────────
+   O cabeçalho é sticky e, no celular, a navegação de baixo é fixa: sem
+   isto, o elemento que recebe foco pelo Tab podia parar escondido atrás
+   delas. scroll-padding reserva esse espaço quando o navegador rola até
+   o foco (e em âncoras). A barra de comparar só conta quando aparece. */
+html { scroll-padding-top: calc(var(--altura-topo) + 16px); }
+html:has(.barra-comparar:not([hidden])) { scroll-padding-bottom: 88px; }
+
+@media (max-width: 640px) {
+  html { scroll-padding-bottom: calc(64px + env(safe-area-inset-bottom) + 16px); }
+  html:has(.barra-comparar:not([hidden])) {
+    scroll-padding-bottom: calc(64px + env(safe-area-inset-bottom) + 88px);
+  }
+}
+
+/* Toque: sem o atraso de toque duplo e sem o flash cinza padrão do
+   WebKit -- o retorno visual fica com os estados :active/:hover da casa. */
+a, button, summary, select, label, input[type="checkbox"], [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }

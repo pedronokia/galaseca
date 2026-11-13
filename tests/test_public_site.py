@@ -5433,3 +5433,50 @@ def test_fonte_do_ciclo_ligada_exige_medicao_boa(monkeypatch):
     # A medição mais recente reprovou: volta pro modo completo.
     assert worker._fonte_do_ciclo([boa, ruim]) == ("ambas", None)
     assert worker._fonte_do_ciclo([]) == ("ambas", None)
+
+
+# ── auditoria Web Interface Guidelines (2026-11-13) ─────────────
+
+def test_theme_color_e_do_tema_escuro(client):
+    body = client.get("/sobre").data.decode("utf-8")
+    assert '<meta name="theme-color" content="#080808">' in body
+    import json as _json
+    from pathlib import Path as _P
+    manifest = _json.loads((_P(server.__file__).parent / "static"
+                            / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["theme_color"] == "#080808"
+    assert manifest["background_color"] == "#161616"
+
+
+def test_nome_do_item_nao_e_traduzido_pelo_navegador(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 70, "price": 5.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "breakdown": [],
+         "category": "Rifles"},
+    ])
+    body = client.get("/item/AK-47 | Redline (Field-Tested)").data.decode("utf-8")
+    assert '<h1 class="titulo-item" translate="no">' in body
+    assert "Ver todos os itens de “Rifles”" in body
+    home = client.get("/?ver=vitrine").data.decode("utf-8")
+    assert 'class="cartao-item-nome"' in home and 'translate="no">' in home
+
+
+def test_css_reserva_espaco_das_barras_fixas_pro_foco():
+    from pathlib import Path as _P
+    css = (_P(server.__file__).parent / "static" / "style.css").read_text(
+        encoding="utf-8")
+    assert "scroll-padding-top: calc(var(--altura-topo) + 16px)" in css
+    assert "touch-action: manipulation" in css
+    # Os campos que só mudavam a borda no foco agora usam focus-visible.
+    for sel in (".input-tag-local:focus {", ".input-compacto:focus {",
+                ".form-regras input:focus {", ".form-adicionar input:focus {"):
+        assert sel not in css
+
+
+def test_app_js_anuncia_mudancas_pro_leitor_de_tela():
+    from pathlib import Path as _P
+    js = (_P(server.__file__).parent / "static" / "app.js").read_text(
+        encoding="utf-8")
+    assert 'setAttribute("aria-live", "polite")' in js
+    assert 'anunciar("Copiado")' in js
+    assert "selecionados pra comparar" in js

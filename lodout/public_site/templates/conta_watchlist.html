@@ -44,7 +44,7 @@
         {% endif %}
         <form class="form-adicionar" method="post" action="{{ url_for('watchlist.salvar_webhook') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord" aria-label="URL do webhook do Discord"{% if erro_webhook %} aria-invalid="true"{% endif %}>
+          <input type="url" name="webhook_url" class="input-webhook" placeholder="https://discord.com/api/webhooks/…" value="{{ webhook_url }}" pattern="https://(discord|discordapp)\.com/api/webhooks/.+" title="Precisa ser uma URL de webhook da Discord" aria-label="URL do webhook do Discord"{% if erro_webhook %} aria-invalid="true"{% endif %}>
           <button type="submit" class="botao-acao">Salvar</button>
         </form>
       </div>
@@ -75,7 +75,7 @@
               <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
             {% endif %}
             </span>
-            <a class="link-item" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+            <a class="link-item" href="{{ url_for('item_detail', name=it.name) }}" translate="no">{{ it.name_fmt }}</a>
           {% if it.score is not none %}
             <span class="nota nota-{{ it.score|nota_classe }}">{{ it.score|nota_anel|safe }}<span class="nota-numero">{{ it.score }}</span></span>
           {% endif %}

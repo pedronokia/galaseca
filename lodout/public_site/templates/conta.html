@@ -85,7 +85,7 @@
               <img class="icone-item" src="{{ row.icon_url }}" srcset="{{ row.icon_url }} 1x, {{ row.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
             {% endif %}
             </span>
-            <a class="link-item" href="{{ url_for('item_detail', name=row.name) }}">{{ row.name_fmt }}</a>
+            <a class="link-item" href="{{ url_for('item_detail', name=row.name) }}" translate="no">{{ row.name_fmt }}</a>
           {% if row.score is not none %}
             <span class="nota nota-{{ row.score|nota_classe }}">{{ row.score|nota_anel|safe }}<span class="nota-numero">{{ row.score }}</span></span>
           {% endif %}

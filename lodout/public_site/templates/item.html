@@ -73,7 +73,7 @@
           {% if item.raridade_titulo %}
           <p class="hero-item-tag">{{ item.raridade_titulo }}</p>
           {% endif %}
-          <h1 class="titulo-item">{{ item.name_fmt|titulo_sem_pipe_orfao }}</h1>
+          <h1 class="titulo-item" translate="no">{{ item.name_fmt|titulo_sem_pipe_orfao }}</h1>
           <p class="hero-item-acoes">
             <a class="botao-acao" href="{{ item.market_url }}" target="_blank" rel="noopener">Ver no Steam Market</a>
             <a class="link-secundario" href="{{ item.steamdb_url }}" target="_blank" rel="noopener">SteamDB</a>
@@ -161,7 +161,7 @@
       <tbody>
         {% for v in variantes %}
         <tr>
-          <td>{% if v.tem_pagina %}<a class="link-item" href="{{ url_for('item_detail', name=v.name) }}">{{ v.name_fmt }}</a>{% else %}<a class="link-item" href="{{ v.market_url }}" target="_blank" rel="noopener">{{ v.name_fmt }}<span class="visualmente-oculto"> (abre no Steam Market, em nova aba)</span></a>{% endif %}</td>
+          <td>{% if v.tem_pagina %}<a class="link-item" href="{{ url_for('item_detail', name=v.name) }}" translate="no">{{ v.name_fmt }}</a>{% else %}<a class="link-item" href="{{ v.market_url }}" target="_blank" rel="noopener" translate="no">{{ v.name_fmt }}<span class="visualmente-oculto"> (abre no Steam Market, em nova aba)</span></a>{% endif %}</td>
           <td{% if v.quando %} title="Venda registrada {{ v.quando }}"{% endif %}>{{ v.mediana_fmt }}</td>
           <td>{{ v.compras_24h if v.compras_24h is not none else "—" }}</td>
         </tr>
@@ -194,7 +194,7 @@
       {% for ev in eventos_jogo %}
       <li class="novidade">
         {% if ev.data %}<span class="novidade-data">{{ ev.data }}</span>{% endif %}
-        <p class="novidade-titulo"><strong>{{ ev.nome_fmt }}</strong> {{ ev.verbo }}</p>
+        <p class="novidade-titulo"><strong translate="no">{{ ev.nome_fmt }}</strong> {{ ev.verbo }}</p>
         <p class="novidade-texto">{{ ev.explicacao }}</p>
       </li>
       {% endfor %}
@@ -213,7 +213,7 @@
           <img class="icone-item" src="{{ p.icon_url }}" srcset="{{ p.icon_url }} 1x, {{ p.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
         {% endif %}
         </span>
-        <a class="item-parecido-link" href="{{ url_for('item_detail', name=p.name) }}">{{ p.name_fmt }}</a>
+        <a class="item-parecido-link" href="{{ url_for('item_detail', name=p.name) }}" translate="no">{{ p.name_fmt }}</a>
         <span class="nota nota-{{ p.score|nota_classe }}">{{ p.score|nota_anel|safe }}<span class="nota-numero">{{ p.score }}</span></span>
         <span class="item-parecido-preco">{{ p.price_fmt }}</span>
       </li>
@@ -221,7 +221,7 @@
     </ul>
     {% endif %}
     {% if item.category %}
-    <p class="status"><a class="link-com-seta" href="{{ url_for('index', categoria=item.category) }}">Ver todos os itens de "{{ item.category }}" {{ icone("seta-direita") }}</a></p>
+    <p class="status"><a class="link-com-seta" href="{{ url_for('index', categoria=item.category) }}">Ver todos os itens de “{{ item.category }}” {{ icone("seta-direita") }}</a></p>
     {% endif %}
   </main>
 

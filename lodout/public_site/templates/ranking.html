@@ -79,7 +79,7 @@
       </div>
     </div>
     <div class="cartao-item-corpo">
-      <a class="cartao-item-nome" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+      <a class="cartao-item-nome" href="{{ url_for('item_detail', name=it.name) }}" translate="no">{{ it.name_fmt }}</a>
       <div class="cartao-item-rodape">{{ posicao_candidato(it) }}{{ variacao_nota(it) }}</div>
     </div>
   </li>
@@ -107,7 +107,7 @@
       <p class="resumo-do-dia">
         Comparado com o ranking de {{ resumo_do_dia.quando }}:
         {{ resumo_do_dia.novos_no_top }} {{ "itens novos" if resumo_do_dia.novos_no_top != 1 else "item novo" }} no Top 20{% if resumo_do_dia.maior_alta %}; maior alta de nota foi
-        <strong>{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
+        <strong translate="no">{{ resumo_do_dia.maior_alta.name_fmt }}</strong>
         ({{ resumo_do_dia.maior_alta.de }} {{ icone("seta-direita") }} {{ resumo_do_dia.maior_alta.para }}){% endif %}.
       </p>
       {% endif %}
@@ -145,7 +145,7 @@
                 <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="40" height="40">
               {% endif %}
               </span>
-              <a class="link-item" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+              <a class="link-item" href="{{ url_for('item_detail', name=it.name) }}" translate="no">{{ it.name_fmt }}</a>
             </td>
             <td><span class="nota nota-{{ it.score|nota_classe }}">{{ it.score|nota_anel|safe }}<span class="nota-numero">{{ it.score }}</span></span></td>
             <td>{{ posicao_candidato(it) }}</td>
@@ -171,7 +171,7 @@
         <ul class="lista-saidas">
           {% for s in saidas %}
           <li>
-            {% if s.tem_pagina %}<a class="link-item" href="{{ url_for('item_detail', name=s.name) }}">{{ s.name_fmt }}</a>{% else %}<span class="link-item">{{ s.name_fmt }}</span>{% endif %}
+            {% if s.tem_pagina %}<a class="link-item" href="{{ url_for('item_detail', name=s.name) }}" translate="no">{{ s.name_fmt }}</a>{% else %}<span class="link-item" translate="no">{{ s.name_fmt }}</span>{% endif %}
             <span class="status-muted">era #{{ s.prev_pos }} com nota {{ s.prev_score }}{% if s.score is not none %}; agora nota {{ s.score }}{% endif %}</span>
           </li>
           {% endfor %}

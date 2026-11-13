@@ -9,6 +9,18 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-11-13",
+        "titulo": "Acessibilidade e acabamento (auditoria de interface)",
+        "itens": [
+            "Navegando com Tab, o item em foco não fica mais escondido atrás do cabeçalho ou da barra de baixo do celular.",
+            "Leitores de tela passam a ouvir “Copiado” e quantos itens estão selecionados pra comparar.",
+            "Barra do navegador no celular e tela de abertura do app instalado agora são escuras, como o site.",
+            "Campos de formulário que só mudavam a borda ganharam o mesmo destaque laranja dos demais ao receber foco.",
+            "Nomes de itens não são mais “traduzidos” pelo tradutor automático do navegador.",
+            "Toque mais limpo no celular, sem o flash cinza nos botões.",
+        ],
+    },
+    {
+        "data": "2026-11-13",
         "titulo": "Novo nome e endereço: Lodout",
         "itens": [
             "O site agora se chama Lodout e passa a ficar em lodout.com.",

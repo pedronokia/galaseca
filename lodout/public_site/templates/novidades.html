@@ -45,7 +45,7 @@
         <li class="novidade">
           {% if ev.data %}<span class="novidade-data">{{ ev.data }}</span>{% endif %}
           <p class="novidade-titulo">
-            {% if ev.no_site %}<a href="{{ url_for('item_detail', name=ev.nome) }}">{{ ev.nome_fmt }}</a>{% else %}<strong>{{ ev.nome_fmt }}</strong>{% endif %}
+            {% if ev.no_site %}<a href="{{ url_for('item_detail', name=ev.nome) }}" translate="no">{{ ev.nome_fmt }}</a>{% else %}<strong translate="no">{{ ev.nome_fmt }}</strong>{% endif %}
             {{ ev.verbo }}
           </p>
           <p class="novidade-texto">{{ ev.explicacao }}</p>

@@ -23,6 +23,27 @@
   });
 })();
 
+// Avisos pro leitor de tela (auditoria Web Interface Guidelines,
+// 2026-11-13): "Copiado", contagem de itens pra comparar etc. mudavam na
+// tela em silêncio. Uma região aria-live única, criada sob demanda e
+// invisível (.visualmente-oculto); limpa antes de escrever pra repetir a
+// mesma frase também ser lida.
+function anunciar(msg) {
+  try {
+    var regiao = document.getElementById("anuncio-ao-vivo");
+    if (!regiao) {
+      regiao = document.createElement("div");
+      regiao.id = "anuncio-ao-vivo";
+      regiao.className = "visualmente-oculto";
+      regiao.setAttribute("role", "status");
+      regiao.setAttribute("aria-live", "polite");
+      document.body.appendChild(regiao);
+    }
+    regiao.textContent = "";
+    setTimeout(function () { regiao.textContent = msg; }, 50);
+  } catch (e) {}
+}
+
 // Filtros aplicam sozinhos: o <select> de categoria envia o form ao mudar
 // e os campos de texto/número já enviam com Enter. Com JS ativo o botão
 // "Filtrar" vira redundante e some (classe js-ativo); sem JS ele continua.
@@ -48,6 +69,7 @@ document.addEventListener("click", function (e) {
     var original = label.textContent;
     var originalAria = btn.getAttribute("aria-label");
     label.textContent = "Copiado";
+    anunciar("Copiado");
     btn.classList.add("copiado");
     btn.setAttribute("aria-label", "Copiado");
     setTimeout(function () {
@@ -350,13 +372,18 @@ document.addEventListener("keydown", function (e) {
     var lista = ler();
     var nome = e.target.getAttribute("data-comparar");
     if (e.target.checked) {
-      if (lista.length >= MAX) { e.target.checked = false; return; }
+      if (lista.length >= MAX) {
+        e.target.checked = false;
+        anunciar("Limite de " + MAX + " itens pra comparar. Desmarque um pra trocar.");
+        return;
+      }
       lista.push(nome);
     } else {
       lista = lista.filter(function (n) { return n !== nome; });
     }
     salvar(lista);
     atualizarBarra();
+    anunciar(lista.length + " de " + MAX + " selecionados pra comparar");
   });
 
   document.addEventListener("click", function (e) {
@@ -364,6 +391,7 @@ document.addEventListener("keydown", function (e) {
     salvar([]);
     document.querySelectorAll(".checkbox-comparar").forEach(function (cb) { cb.checked = false; });
     atualizarBarra();
+    anunciar("Seleção pra comparar limpa");
   });
 })();
 

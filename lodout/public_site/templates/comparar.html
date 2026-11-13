@@ -49,7 +49,7 @@
               <img class="icone-item" src="{{ it.icon_url }}" srcset="{{ it.icon_url }} 1x, {{ it.icon_url_2x }} 2x" alt="" aria-hidden="true" loading="lazy" width="88" height="88">
             {% endif %}
             </span>
-            <a href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
+            <a href="{{ url_for('item_detail', name=it.name) }}" translate="no">{{ it.name_fmt }}</a>
           </th>
           {% endfor %}
         </tr>
