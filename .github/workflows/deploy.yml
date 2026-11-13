@@ -36,12 +36,13 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             cd ~/skinvault
-            # Repositório renomeado galaseca -> lodout (2026-11-13). O GitHub
-            # redireciona o nome antigo, mas o remote da VM passa a apontar
-            # direto pro novo. Troca SÓ o nome no endereço que já existe
-            # (mantém protocolo/credencial); idempotente. Não imprime a URL
-            # (podia conter credencial), só se ficou certa.
-            git remote set-url origin "$(git remote get-url origin | sed 's#pedronokia/galaseca#pedronokia/lodout#')"
+            # Repositório renomeado skinvault -> galaseca -> lodout. O GitHub
+            # redireciona os nomes antigos (a VM ainda usava "skinvault"), mas
+            # o remote passa a apontar direto pro atual. Troca SÓ o nome no
+            # endereço que já existe (mantém protocolo/credencial);
+            # idempotente. Não imprime a URL (podia conter credencial), só se
+            # ficou certa.
+            git remote set-url origin "$(git remote get-url origin | sed -E 's#pedronokia/(skinvault|galaseca)#pedronokia/lodout#')"
             git remote get-url origin | grep -q 'pedronokia/lodout' && echo "remote da VM: pedronokia/lodout"
             # fetch + reset --hard (nunca "pull"): um merge imprevisível
             # se o checkout da VM tiver divergido (já aconteceu com scp
