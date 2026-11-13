@@ -4376,3 +4376,17 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   gap: 5px;
   white-space: nowrap;
 }
+
+/* /status: cobertura do último ciclo. */
+.cobertura-ciclo { margin: var(--sp-2) 0; }
+
+.falhas-ciclo {
+  margin: 0 0 var(--sp-4);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.falhas-ciclo summary { cursor: pointer; color: var(--text); }
+.falhas-ciclo ul { margin: var(--sp-2) 0 0; padding-left: 20px; }
+.pagina-texto .falhas-ciclo li { margin: 0 0 2px; text-align: left; }
+.pagina-texto .falhas-ciclo p { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); text-align: left; }

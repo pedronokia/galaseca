@@ -294,3 +294,103 @@ def test_dragon_king_usa_nome_de_mercado_real():
     nome = "M4A4 | 龍王 (Dragon King) (Minimal Wear)"
     assert nome in scan_targets.SCAN_BY_CATEGORY["Rifles"]
     assert cases.case_status(nome)["case"] == "Chroma Case"
+
+
+# ── disjuntor durante o ciclo (2026-11-13) ───────────────────
+
+def _sleep_que_fecha_disjuntor(monkeypatch, dormidas):
+    """time.sleep falso: registra e, se for uma espera de verdade (> 0),
+    "passa o tempo" fechando o disjuntor."""
+    from galaseca import steam_api
+
+    def _sleep(s):
+        dormidas.append(s)
+        if s > 0:
+            steam_api._rate_limit_state.clear()
+
+    monkeypatch.setattr(scan_engine.time, "sleep", _sleep)
+
+
+def test_run_full_scan_espera_disjuntor_em_vez_de_pular(monkeypatch):
+    from galaseca import steam_api
+    dormidas = []
+    _sleep_que_fecha_disjuntor(monkeypatch, dormidas)
+    chamados = []
+    tentativas = {"B": 0}
+
+    def _fake(name, category=None, price_cache=None):
+        chamados.append(name)
+        if name == "B" and tentativas["B"] == 0:
+            tentativas["B"] += 1
+            steam_api._registrar_rate_limit("market_listings")
+            return None
+        return {"name": name, "score": 50}
+
+    monkeypatch.setattr(scan_engine, "scan_item", _fake)
+    falhas = []
+    progresso = []
+    res = scan_engine.run_full_scan({"Facas": ["A", "B", "C"]},
+                                    on_progress=progresso.append,
+                                    falhas=falhas)
+    # C não foi pulado; B voltou no fim, depois da pausa.
+    assert chamados == ["A", "B", "C", "B"]
+    assert sorted(r["name"] for r in res) == ["A", "B", "C"]
+    assert falhas == []
+    assert any(s >= 50 for s in dormidas)
+    assert any("Steam pediu pausa" in m for m in progresso)
+    assert "Repetindo depois da pausa: B" in progresso
+
+
+def test_run_full_scan_item_que_falha_de_novo_vira_falha(monkeypatch):
+    from galaseca import steam_api
+    _sleep_que_fecha_disjuntor(monkeypatch, [])
+
+    def _fake(name, category=None, price_cache=None):
+        if name == "B":
+            steam_api._registrar_rate_limit("priceoverview")
+            return None
+        return {"name": name, "score": 50}
+
+    monkeypatch.setattr(scan_engine, "scan_item", _fake)
+    falhas = []
+    scan_engine.run_full_scan({"Facas": ["A", "B"]}, falhas=falhas)
+    assert falhas == ["B"]
+
+
+def test_run_full_scan_sem_resultado_sem_429_nao_repete(monkeypatch):
+    chamados = []
+    monkeypatch.setattr(
+        scan_engine, "scan_item",
+        lambda name, category=None, price_cache=None:
+            chamados.append(name) or None)
+    falhas = []
+    scan_engine.run_full_scan({"Facas": ["A", "B"]}, falhas=falhas)
+    assert chamados == ["A", "B"]
+    assert falhas == ["A", "B"]
+
+
+def test_run_full_scan_bloqueio_longo_encerra_ciclo(monkeypatch):
+    monkeypatch.setattr(scan_engine, "_cooldown_scan_s",
+                        lambda: scan_engine._ESPERA_DISJUNTOR_MAX_S + 1)
+    chamados = []
+    monkeypatch.setattr(
+        scan_engine, "scan_item",
+        lambda name, category=None, price_cache=None:
+            chamados.append(name) or {"name": name, "score": 1})
+    monkeypatch.setattr(scan_engine.time, "sleep",
+                        lambda s: (_ for _ in ()).throw(
+                            AssertionError("não devia dormir o bloqueio")))
+    falhas = []
+    progresso = []
+    res = scan_engine.run_full_scan({"Facas": ["A", "B"]},
+                                    on_progress=progresso.append,
+                                    falhas=falhas)
+    assert res == [] and chamados == []
+    assert falhas == ["A", "B"]
+    assert any("ciclo encerrado" in m for m in progresso)
+
+
+def test_scan_item_marca_momento_da_coleta(monkeypatch):
+    _mock_steam_ok(monkeypatch)
+    r = scan_engine.scan_item("X")
+    assert r is not None and r["coletado_em"] > 0

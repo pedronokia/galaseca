@@ -307,6 +307,7 @@ def create_app() -> Flask:
     app.jinja_env.filters["motivo_fmt"] = _motivo_fmt
     app.jinja_env.filters["liquidez_label"] = _liquidez_label
     app.jinja_env.filters["titulo_sem_pipe_orfao"] = _titulo_sem_pipe_orfao
+    app.jinja_env.filters["nome_pt"] = localize_name
 
     @app.before_request
     def _marcar_inicio_latencia():

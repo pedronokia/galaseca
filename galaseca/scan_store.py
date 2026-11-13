@@ -16,6 +16,9 @@ from galaseca._paths import DATA_DIR, atomic_write_text
 _DEFAULT_PATH = DATA_DIR / "scanner_last.json"
 _HISTORICO_PATH = DATA_DIR / "scan_historico.json"
 _HISTORICO_MAX = 20
+# Nomes de itens sem resultado guardados por ciclo (o resto vira só a
+# contagem em `alvos - itens`).
+_FALHAS_MAX = 40
 
 
 def save_last_scan(category: str, results: list,
@@ -55,7 +58,10 @@ def load_last_scan(path: Path | str = _DEFAULT_PATH) -> "dict | None":
 
 def registrar_ciclo(itens: int, duracao_min: float,
                     path: "Path | str | None" = None,
-                    now: float | None = None) -> None:
+                    now: float | None = None,
+                    alvos: "int | None" = None,
+                    mantidos: int = 0,
+                    falhas: "list[str] | None" = None) -> None:
     """Soma um ciclo ao histórico (cap em `_HISTORICO_MAX`, mais novo por
     último). Existe pra página `/status` -- achado real de 2026-10-24: sem
     isso não tinha como distinguir "scan nunca rodou" de "scan rodou e
@@ -63,15 +69,24 @@ def registrar_ciclo(itens: int, duracao_min: float,
     (que só guarda o ÚLTIMO SUCESSO, nunca as falhas).
 
     `path=None` resolvido aqui dentro, não como default de parâmetro, para
-    que o chamador possa redirecionar o arquivo em tempo de chamada."""
+    que o chamador possa redirecionar o arquivo em tempo de chamada.
+
+    `alvos`/`mantidos`/`falhas` (2026-11-13): quantos itens o ciclo
+    tentou, quantos ficaram com o dado do ciclo anterior e quais não
+    voltaram -- pra /status mostrar cobertura, não só "deu certo"."""
     p = Path(path) if path is not None else _HISTORICO_PATH
     historico = load_historico_ciclos(p)
-    historico.append({
+    entrada = {
         "ts": time.time() if now is None else now,
         "itens": itens,
         "duracao_min": round(duracao_min, 1),
         "sucesso": itens > 0,
-    })
+    }
+    if alvos is not None:
+        entrada["alvos"] = alvos
+        entrada["mantidos"] = mantidos
+        entrada["falhas"] = list(falhas or [])[:_FALHAS_MAX]
+    historico.append(entrada)
     historico = historico[-_HISTORICO_MAX:]
     try:
         atomic_write_text(p, json.dumps(historico, ensure_ascii=False))

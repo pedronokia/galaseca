@@ -58,9 +58,10 @@
 
     <h2 class="secao-titulo">Últimos ciclos do scan</h2>
     <p>O worker tenta escanear todas as categorias periodicamente. Quando a
-    Steam bloqueia o acesso (rate limit), o ciclo roda até o fim sem trazer
-    nenhum preço novo — aparece aqui como "sem sucesso", não como erro
-    escondido.</p>
+    Steam pede uma pausa (rate limit), ele espera e continua de onde parou;
+    se o bloqueio passar de 45 minutos, o ciclo termina antes e os itens que
+    faltaram ficam com o dado do ciclo anterior. Ciclo sem nenhum preço novo
+    aparece aqui como "sem sucesso", não como erro escondido.</p>
 
     {% if ciclos %}
     <div class="saude-ciclos" aria-hidden="true">
@@ -69,6 +70,19 @@
       {% endfor %}
     </div>
     <p class="status-muted">{{ ciclos_sucesso_txt }} (mais antigo à esquerda, mais recente à direita)</p>
+    {% set ultimo = ciclos[0] %}
+    {% if ultimo.alvos %}
+    <p class="cobertura-ciclo">No último ciclo, <strong>{{ ultimo.itens }} de {{ ultimo.alvos }}</strong> itens vieram com preço novo{% if ultimo.mantidos %}; {{ ultimo.mantidos }} {{ "continua" if ultimo.mantidos == 1 else "continuam" }} no site com o dado do ciclo anterior, marcado como tal{% endif %}.</p>
+    {% if ultimo.falhas %}
+    <details class="falhas-ciclo">
+      <summary>Itens que ficaram sem preço novo ({{ ultimo.falhas|length }})</summary>
+      <p class="status-muted">A Steam não devolveu preço para estes itens neste ciclo (bloqueio momentâneo ou item sem anúncio). Eles são tentados de novo no próximo ciclo.</p>
+      <ul>
+        {% for nome in ultimo.falhas %}<li>{{ nome|nome_pt }}</li>{% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+    {% endif %}
 
     <p class="dica-rolagem-tabela">Deslize a tabela para o lado para ver as demais colunas.</p>
     <div class="tabela-wrap" role="region" tabindex="0" aria-label="Tabela de últimos ciclos do scan, com rolagem lateral">
@@ -85,7 +99,7 @@
         {% for c in ciclos %}
         <tr>
           <td>{{ c.quando }}</td>
-          <td>{{ c.itens }}</td>
+          <td>{{ c.itens }}{% if c.alvos %} de {{ c.alvos }}{% endif %}{% if c.mantidos %} <span class="status-muted">(+{{ c.mantidos }} mantidos)</span>{% endif %}</td>
           <td>{{ "%.1f"|format(c.duracao_min or 0)|replace(".", ",") }} min</td>
           <td class="{{ 'ok' if c.sucesso else 'falha' }}">{{ "Sucesso" if c.sucesso else "Sem sucesso (bloqueado)" }}</td>
         </tr>

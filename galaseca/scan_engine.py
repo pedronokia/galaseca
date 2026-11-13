@@ -99,6 +99,9 @@ def scan_item(name: str, category: str | None = None,
 
     return {
         "name": name,
+        # Momento da coleta deste item -- o worker usa pra manter o dado
+        # do ciclo anterior (marcado) quando o item falha no ciclo atual.
+        "coletado_em": time.time(),
         "price": lowest,
         "median": median,
         "score": score,
@@ -147,17 +150,44 @@ def scan_item(name: str, category: str | None = None,
     }
 
 
+# Famílias do disjuntor de `steam_api` que `scan_item` usa.
+_FAMILIAS_SCAN = ("priceoverview", "market_listings")
+# Teto de espera pelo disjuntor num ciclo. Passou disso, a Steam está
+# bloqueando de verdade: o ciclo para e o worker mantém o dado anterior
+# dos itens que faltaram, em vez de seguir batendo.
+_ESPERA_DISJUNTOR_MAX_S = 45 * 60
+
+
+def _cooldown_scan_s() -> float:
+    return max(steam_api.cooldown_restante_s(f) for f in _FAMILIAS_SCAN)
+
+
+def _algum_cooldown() -> bool:
+    return any(steam_api.em_cooldown(f) for f in _FAMILIAS_SCAN)
+
+
 def run_full_scan(categories: "dict[str, list[str]] | None" = None,
                   on_progress: "Callable[[str], None] | None" = None,
                   discovery_enabled: bool = False,
                   cancelled: "Callable[[], bool] | None" = None,
+                  falhas: "list[str] | None" = None,
                   ) -> list[dict]:
     """Escaneia as categorias (default: todas de `scan_targets`), sem Qt.
 
     Pensado pro worker do site público: roda num processo próprio, sem
     threading/sinais, respeitando o mesmo `RATE_LIMIT_DELAY_S` de sempre.
     `on_progress`/`cancelled` são ganchos opcionais pra quem chama logar
-    ou pedir parada graciosa entre itens.
+    ou pedir parada graciosa entre itens. `falhas`, se passada, recebe o
+    nome de cada item que terminou o ciclo sem resultado.
+
+    Disjuntor (2026-11-13): com uma família em cooldown depois de um 429,
+    `steam_api` recusa a chamada sem requisição -- o laço antigo seguia
+    pela lista e perdia ~8 itens por 429 (o ciclo voltava com 177-181 de
+    185). Agora o laço ESPERA o cooldown acabar antes do próximo item
+    (mesmo total de requisições, nenhum item pulado) e o item que levou
+    o 429 é repetido UMA vez no fim do ciclo, bem depois do bloqueio --
+    nunca em seguida (ver AGENTS.md). Esperas somadas acima de
+    `_ESPERA_DISJUNTOR_MAX_S` encerram o ciclo.
     """
     if categories is None:
         categories = scan_targets.SCAN_BY_CATEGORY
@@ -177,14 +207,62 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         if origem == discovery.SOURCE_DISCOVERY:
             time.sleep(steam_api.RATE_LIMIT_DELAY_S)
 
+    def _avisa(msg: str) -> None:
+        if on_progress:
+            on_progress(msg)
+
+    esperado = 0.0
+
+    def _espera_disjuntor() -> bool:
+        """Dorme até o disjuntor fechar. False = estourou o teto do ciclo."""
+        nonlocal esperado
+        espera = _cooldown_scan_s()
+        if espera <= 0:
+            return True
+        if esperado + espera > _ESPERA_DISJUNTOR_MAX_S:
+            _avisa("Steam segue bloqueando; ciclo encerrado antes do fim")
+            return False
+        _avisa(f"Steam pediu pausa (429): esperando {espera / 60:.1f} min")
+        time.sleep(espera)
+        esperado += espera
+        return True
+
     results: list[dict] = []
+    sem_resultado: list[str] = []
+    adiados: list[tuple[str, str]] = []
+    interrompido = False
     for i, (name, cat) in enumerate(items):
         if cancelled and cancelled():
+            interrompido = True
             break
-        if on_progress:
-            on_progress(f"[{i + 1}/{len(items)}] {name}")
+        if not _espera_disjuntor():
+            interrompido = True
+            sem_resultado.extend(n for n, _c in items[i:])
+            break
+        _avisa(f"[{i + 1}/{len(items)}] {name}")
         result = scan_item(name, category=cat)
         if result:
             results.append(result)
+        elif _algum_cooldown():
+            # Este item levou o 429: tenta de novo só no fim do ciclo.
+            adiados.append((name, cat))
+        else:
+            sem_resultado.append(name)
         time.sleep(steam_api.RATE_LIMIT_DELAY_S)
+
+    for name, cat in adiados:
+        if interrompido or (cancelled and cancelled()) or not _espera_disjuntor():
+            interrompido = True
+            sem_resultado.append(name)
+            continue
+        _avisa(f"Repetindo depois da pausa: {name}")
+        result = scan_item(name, category=cat)
+        if result:
+            results.append(result)
+        else:
+            sem_resultado.append(name)
+        time.sleep(steam_api.RATE_LIMIT_DELAY_S)
+
+    if falhas is not None:
+        falhas.extend(sem_resultado)
     return results

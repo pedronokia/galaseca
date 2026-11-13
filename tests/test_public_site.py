@@ -2299,7 +2299,7 @@ def test_run_once_grava_scan_store_e_ranking(monkeypatch, tmp_path):
     original_save_scan = scan_store.save_last_scan
     original_save_snapshot = ranking.save_snapshot
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
-                        lambda categories, on_progress=None: resultados)
+                        lambda categories, on_progress=None, **kw: resultados)
     scan_path = tmp_path / "scanner_last.json"
     rank_path = tmp_path / "rankings.json"
     monkeypatch.setattr(
@@ -2328,7 +2328,7 @@ def test_run_once_ranking_usa_maiores_notas_de_todo_o_scan(
     original_save_snapshot = ranking.save_snapshot
     rank_path = tmp_path / "rankings.json"
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
-                        lambda categories, on_progress=None: resultados)
+                        lambda categories, on_progress=None, **kw: resultados)
     monkeypatch.setattr(worker.scan_store, "save_last_scan",
                         lambda cat, res: None)
     monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
@@ -2345,7 +2345,7 @@ def test_run_once_ranking_usa_maiores_notas_de_todo_o_scan(
 
 def test_run_once_sem_resultado_nao_grava_nada(monkeypatch, tmp_path):
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
-                        lambda categories, on_progress=None: [])
+                        lambda categories, on_progress=None, **kw: [])
     chamado = {"save": False}
 
     def _boom(*a, **kw):
@@ -2361,7 +2361,7 @@ def test_run_once_sem_resultado_nao_grava_nada(monkeypatch, tmp_path):
 def test_run_once_default_usa_categorias_padrao(monkeypatch):
     recebido = {}
 
-    def _fake(categories, on_progress=None):
+    def _fake(categories, on_progress=None, **kw):
         recebido["categories"] = categories
         return []
 
@@ -2378,7 +2378,7 @@ def test_run_once_checa_arquivos_do_jogo_antes_do_scan(monkeypatch):
         lambda: ordem.append("gamedata") or {
             "changed": False, "events": [], "commit": None, "error": None})
 
-    def _fake(categories, on_progress=None):
+    def _fake(categories, on_progress=None, **kw):
         ordem.append("scan")
         return []
 
@@ -2394,7 +2394,7 @@ def test_run_once_falha_nos_arquivos_do_jogo_nao_impede_scan(
 
     monkeypatch.setattr(worker.gamedata, "check_for_updates", _boom)
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
-                        lambda categories, on_progress=None: [])
+                        lambda categories, on_progress=None, **kw: [])
     with caplog.at_level("WARNING", logger="galaseca.worker"):
         assert worker.run_once({"Facas": ["A"]}) == []
     assert "checagem dos arquivos do jogo falhou" in caplog.text
@@ -2403,7 +2403,7 @@ def test_run_once_falha_nos_arquivos_do_jogo_nao_impede_scan(
 def test_run_once_registra_erro_e_mudanca_dos_arquivos_do_jogo(
         monkeypatch, caplog):
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
-                        lambda categories, on_progress=None: [])
+                        lambda categories, on_progress=None, **kw: [])
     monkeypatch.setattr(
         worker.gamedata, "check_for_updates",
         lambda: {"changed": False, "events": [], "commit": None,
@@ -2430,7 +2430,7 @@ def test_run_once_busca_noticias_depois_do_scan(monkeypatch):
                         lambda: {"changed": False, "error": None})
     monkeypatch.setattr(
         worker.scan_engine, "run_full_scan",
-        lambda categories, on_progress=None: ordem.append("scan") or [])
+        lambda categories, on_progress=None, **kw: ordem.append("scan") or [])
     monkeypatch.setattr(worker.steam_news, "atualizar_noticias",
                         lambda: ordem.append("noticias") or "ok")
     worker.run_once({"Facas": ["A"]})
@@ -2441,7 +2441,7 @@ def test_run_once_falha_nas_noticias_nao_derruba_ciclo(monkeypatch, caplog):
     monkeypatch.setattr(worker.gamedata, "check_for_updates",
                         lambda: {"changed": False, "error": None})
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
-                        lambda categories, on_progress=None: [])
+                        lambda categories, on_progress=None, **kw: [])
 
     def _boom():
         raise RuntimeError("fora do ar")
@@ -2454,6 +2454,148 @@ def test_run_once_falha_nas_noticias_nao_derruba_ciclo(monkeypatch, caplog):
         assert worker.run_once({"Facas": ["A"]}) == []
     assert "busca de notícias falhou" in caplog.text
     assert registrou
+
+
+def test_manter_do_ciclo_anterior_so_alvos_recentes_que_falharam():
+    agora = 1_000_000.0
+    anterior = {"ts": agora - 6 * 3600, "results": [
+        {"name": "Veio", "score": 10, "coletado_em": agora - 6 * 3600},
+        {"name": "Falhou", "score": 20, "coletado_em": agora - 6 * 3600},
+        {"name": "SemData", "score": 25},
+        {"name": "Velho", "score": 30, "coletado_em": agora - 49 * 3600},
+        {"name": "ForaDaLista", "score": 40, "coletado_em": agora - 3600},
+    ]}
+    mantidos = worker._manter_do_ciclo_anterior(
+        [{"name": "Veio", "score": 11}], anterior,
+        alvos={"Veio", "Falhou", "SemData", "Velho"}, agora=agora)
+    assert [m["name"] for m in mantidos] == ["Falhou", "SemData"]
+    assert all(m["mantido_do_ciclo_anterior"] for m in mantidos)
+    # Sem data própria, vale a data do scan anterior.
+    assert mantidos[1]["coletado_em"] == agora - 6 * 3600
+    assert worker._manter_do_ciclo_anterior([], None, {"X"}) == []
+
+
+def test_run_once_mantem_item_que_falhou_e_registra_cobertura(
+        monkeypatch, tmp_path):
+    original_save = scan_store.save_last_scan
+    original_load = scan_store.load_last_scan
+    scan_path = tmp_path / "scanner_last.json"
+    original_save("Todas", [
+        {"name": "A", "score": 80, "coletado_em": time.time() - 3600},
+        {"name": "B", "score": 70, "coletado_em": time.time() - 3600},
+    ], path=scan_path)
+    monkeypatch.setattr(worker.scan_store, "load_last_scan",
+                        lambda: original_load(path=scan_path))
+    monkeypatch.setattr(
+        worker.scan_store, "save_last_scan",
+        lambda cat, res: original_save(cat, res, path=scan_path))
+    monkeypatch.setattr(worker.ranking, "save_snapshot", lambda res: None)
+    monkeypatch.setattr(worker.gamedata, "check_for_updates",
+                        lambda: {"changed": False, "error": None})
+    monkeypatch.setattr(worker.gamedata, "load_events_log", lambda: [])
+    monkeypatch.setattr(worker.steam_news, "atualizar_noticias", lambda: "ok")
+
+    def _fake(categories, on_progress=None, falhas=None, **kw):
+        falhas.append("B")
+        return [{"name": "A", "score": 81, "coletado_em": time.time()}]
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    registrado = {}
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda itens, dur, **kw: registrado.update(
+                            itens=itens, **kw))
+    out = worker.run_once({"Facas": ["A", "B"]})
+    nomes = {r["name"]: r for r in out}
+    assert set(nomes) == {"A", "B"}
+    assert nomes["B"].get("mantido_do_ciclo_anterior") is True
+    assert "mantido_do_ciclo_anterior" not in nomes["A"]
+    salvo = {r["name"] for r in original_load(path=scan_path)["results"]}
+    assert salvo == {"A", "B"}
+    assert registrado == {"itens": 1, "alvos": 2, "mantidos": 1,
+                          "falhas": ["B"]}
+
+
+def test_run_once_bloqueio_total_nao_regrava_scan(monkeypatch):
+    monkeypatch.setattr(worker.gamedata, "check_for_updates",
+                        lambda: {"changed": False, "error": None})
+    monkeypatch.setattr(worker.gamedata, "load_events_log", lambda: [])
+    monkeypatch.setattr(worker.steam_news, "atualizar_noticias", lambda: "ok")
+    monkeypatch.setattr(
+        worker.scan_store, "load_last_scan",
+        lambda: {"ts": time.time(), "results": [
+            {"name": "A", "score": 1, "coletado_em": time.time()}]})
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan",
+                        lambda categories, on_progress=None, **kw: [])
+    gravou = []
+    monkeypatch.setattr(worker.scan_store, "save_last_scan",
+                        lambda *a: gravou.append(a))
+    monkeypatch.setattr(worker.ranking, "save_snapshot",
+                        lambda *a: gravou.append(a))
+    assert worker.run_once({"Facas": ["A"]}) == []
+    assert gravou == []
+
+
+def test_com_containers_novos_inclui_caixa_e_capsula(monkeypatch):
+    monkeypatch.setattr(worker.gamedata, "load_events_log", lambda: [
+        {"type": "new_container", "internal": "crate_community_40",
+         "name": "Nova Case"},
+        {"type": "xpshop_added", "internal": "crate_sticker_pack_x",
+         "name": "Nova Sticker Capsule"},
+        # Sem tradução: nome interno não existe no Market.
+        {"type": "new_container", "internal": "crate_y", "name": "crate_y"},
+        # Já está na lista.
+        {"type": "new_container", "internal": "crate_z", "name": "Kilowatt Case"},
+        # Pacote de souvenir: sufixo não reconhecido, fica de fora.
+        {"type": "new_container", "internal": "crate_w",
+         "name": "Austin 2025 Inferno Souvenir Package"},
+        # Coleção do drop semanal não é container.
+        {"type": "drop_pool_added", "internal": "set_x", "name": "X Case"},
+    ])
+    cats = worker._com_containers_novos(
+        {"Caixas": ["Kilowatt Case"], "Cápsulas": [], "Facas": ["F"]})
+    assert cats == {"Caixas": ["Kilowatt Case", "Nova Case"],
+                    "Cápsulas": ["Nova Sticker Capsule"], "Facas": ["F"]}
+
+
+def test_com_containers_novos_sem_eventos_devolve_igual(monkeypatch):
+    monkeypatch.setattr(worker.gamedata, "load_events_log", lambda: [])
+    cats = {"Caixas": ["A"]}
+    assert worker._com_containers_novos(cats) is cats
+
+
+def test_status_mostra_cobertura_e_falhas_do_ultimo_ciclo(client, monkeypatch):
+    monkeypatch.setattr(
+        scan_store, "load_historico_ciclos",
+        lambda: [{"ts": time.time() - 60, "itens": 180, "duracao_min": 29.0,
+                  "sucesso": True, "alvos": 185, "mantidos": 5,
+                  "falhas": ["Kilowatt Case", "<b>x</b>"]}])
+    body = client.get("/status").data.decode("utf-8")
+    assert "<strong>180 de 185</strong> itens vieram com preço novo" in body
+    assert "5 continuam no site com o dado do ciclo anterior" in body
+    assert "Itens que ficaram sem preço novo (2)" in body
+    assert "&lt;b&gt;x&lt;/b&gt;" in body
+    assert "(+5 mantidos)" in body
+
+
+def test_status_ciclo_antigo_sem_cobertura_nao_quebra(client, monkeypatch):
+    monkeypatch.setattr(
+        scan_store, "load_historico_ciclos",
+        lambda: [{"ts": time.time() - 60, "itens": 178, "duracao_min": 28.5,
+                  "sucesso": True}])
+    body = client.get("/status").data.decode("utf-8")
+    assert "vieram com preço novo" not in body
+    assert "<td>178</td>" in body
+
+
+def test_item_avisa_quando_dado_e_do_ciclo_anterior(
+        client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "A", "score": 70, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": [],
+         "mantido_do_ciclo_anterior": True},
+    ])
+    body = client.get("/item/A").data.decode("utf-8")
+    assert "A Steam não devolveu preço novo no último ciclo" in body
 
 
 def _worker_main_uma_volta(monkeypatch):
@@ -4627,7 +4769,7 @@ def test_run_once_registra_itens_sem_miniatura(monkeypatch, caplog):
     resultados = [{"name": "A", "score": 60, "icon": "h"},
                   {"name": "B", "score": 50}]
     monkeypatch.setattr(worker.scan_engine, "run_full_scan",
-                        lambda categories, on_progress=None: resultados)
+                        lambda categories, on_progress=None, **kw: resultados)
     monkeypatch.setattr(worker.scan_store, "save_last_scan", lambda *a: None)
     monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
                         lambda *a, **kw: None)

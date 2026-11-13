@@ -73,6 +73,79 @@ def _ordenar_por_nota_anterior(
             for cat, nomes in categories.items()}
 
 
+# Até quanto tempo um item que falhou no ciclo atual continua no site
+# com o dado do ciclo anterior (marcado como tal). Depois disso some --
+# preço de dois dias atrás já não é "o preço" de nada.
+_MANTER_ANTERIOR_MAX_H = 48.0
+
+
+def _manter_do_ciclo_anterior(novos: "list[dict]", anterior: "dict | None",
+                              alvos: "set[str]",
+                              agora: "float | None" = None) -> "list[dict]":
+    """Resultados do scan anterior pros itens-alvo que NÃO voltaram neste
+    ciclo, marcados com `mantido_do_ciclo_anterior`. Sem isto, um item
+    que falhou uma vez sumia do site por 6h e aparecia como "saiu do Top
+    20" no ranking sem ter mudado nada."""
+    if not anterior:
+        return []
+    agora = time.time() if agora is None else agora
+    vieram = {r["name"] for r in novos}
+    limite = agora - _MANTER_ANTERIOR_MAX_H * 3600
+    mantidos = []
+    for r in anterior.get("results") or []:
+        nome = r.get("name")
+        if nome in vieram or nome not in alvos:
+            continue
+        coletado = r.get("coletado_em") or anterior.get("ts") or 0
+        if coletado < limite:
+            continue
+        mantidos.append({**r, "coletado_em": coletado,
+                         "mantido_do_ciclo_anterior": True})
+    return mantidos
+
+
+# Eventos do gamedata que trazem um container novo pro jogo.
+_EVENTOS_CONTAINER_NOVO = ("new_container", "xpshop_added")
+
+
+def _com_containers_novos(
+        categories: "dict[str, list[str]]") -> "dict[str, list[str]]":
+    """Inclui no scan as caixas/cápsulas que `gamedata` viu aparecer nos
+    arquivos do jogo, sem esperar alguém editar `scan_targets.py`. Só
+    entra nome traduzido (o de mercado) e com sufixo reconhecível --
+    nome interno cru (`crate_...`) não existe no Market."""
+    try:
+        eventos = gamedata.load_events_log()
+    except Exception:
+        _logger.warning("log de eventos do jogo ilegível", exc_info=True)
+        return categories
+    ja = {n for nomes in categories.values() for n in nomes}
+    extra: "dict[str, list[str]]" = {}
+    for ev in eventos:
+        if not isinstance(ev, dict) or ev.get("type") not in _EVENTOS_CONTAINER_NOVO:
+            continue
+        interno = str(ev.get("internal") or "")
+        nome = str(ev.get("name") or "")
+        if not interno.startswith("crate_") or not nome or nome == interno:
+            continue
+        if nome.endswith(" Case"):
+            cat = "Caixas"
+        elif nome.endswith(" Capsule"):
+            cat = "Cápsulas"
+        else:
+            continue
+        if cat not in categories or nome in ja:
+            continue
+        ja.add(nome)
+        extra.setdefault(cat, []).append(nome)
+    if not extra:
+        return categories
+    _logger.info("Containers novos incluídos no scan: %s",
+                 ", ".join(n for ns in extra.values() for n in ns))
+    return {cat: list(nomes) + extra.get(cat, [])
+            for cat, nomes in categories.items()}
+
+
 def _on_progress(msg: str) -> None:
     _logger.info(msg)
     m = _PROGRESSO_RE.match(msg)
@@ -112,10 +185,23 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     if categories is None:
         categories = categorias_padrao()
     _verificar_arquivos_do_jogo()
+    categories = _com_containers_novos(categories)
+    alvos = {n for nomes in categories.values() for n in nomes}
+    anterior = scan_store.load_last_scan()
     inicio = time.time()
-    resultados = scan_engine.run_full_scan(
-        _ordenar_por_nota_anterior(categories), on_progress=_on_progress)
-    if resultados:
+    falhas: "list[str]" = []
+    novos = scan_engine.run_full_scan(
+        _ordenar_por_nota_anterior(categories), on_progress=_on_progress,
+        falhas=falhas)
+    # Ciclo sem NENHUM item novo (Steam bloqueando tudo) não regrava
+    # nada: o scan anterior continua valendo inteiro, como antes.
+    mantidos = (_manter_do_ciclo_anterior(novos, anterior, alvos)
+                if novos else [])
+    if falhas:
+        _logger.info("Sem resultado neste ciclo (%d): %s", len(falhas),
+                     ", ".join(falhas[:30]))
+    resultados = novos + mantidos
+    if novos:
         scan_store.save_last_scan("Todas as categorias", resultados)
         # Ordena ANTES de cortar: `resultados` vem na ordem do scan
         # (categoria por categoria), então `[:20]` direto pegava os 20
@@ -130,12 +216,15 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
     # Termômetro da extração de miniatura (sem requisição extra): se o
     # número ficar igual ao total, o HTML da Steam mudou de formato.
     _logger.info("Itens sem miniatura: %d de %d",
-                 sum(1 for r in resultados if not r.get("icon")),
-                 len(resultados))
+                 sum(1 for r in novos if not r.get("icon")),
+                 len(novos))
     duracao_min = (time.time() - inicio) / 60
-    scan_store.registrar_ciclo(len(resultados), duracao_min)
-    _logger.info("Ciclo concluído: %d itens em %.1fmin",
-                len(resultados), duracao_min)
+    scan_store.registrar_ciclo(
+        len(novos), duracao_min, alvos=len(alvos),
+        mantidos=len(mantidos), falhas=falhas)
+    _logger.info("Ciclo concluído: %d itens novos (+%d mantidos do ciclo "
+                 "anterior) em %.1fmin", len(novos), len(mantidos),
+                 duracao_min)
     # Anúncios oficiais do CS2 -- DEPOIS do scan pra nunca atrasar a
     # coleta de preço; 1 requisição a cada ~6h no máximo e família própria
     # no disjuntor (ver steam_news.py).

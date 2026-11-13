@@ -16,6 +16,10 @@ ENTRADAS = [
             "Página do item: presença no Top 20 dia a dia nos últimos 30 dias, com a melhor posição.",
             "Nova página Novidades: mudanças detectadas nos arquivos do CS2 (drop semanal, Armory, caixas novas) e os anúncios oficiais da Valve.",
             "Caixa que sai do Armory passa a ser registrada como aposentada automaticamente, com a data da mudança nos arquivos do jogo.",
+            "Scan: quando a Steam pede pausa, o worker espera e continua em vez de pular itens; o item que levou o bloqueio é tentado de novo no fim do ciclo.",
+            "Scan: item que ainda assim fica sem preço continua no site com o dado do ciclo anterior (avisado na página do item), em vez de sumir por 6 horas.",
+            "Scan: caixas e cápsulas novas que aparecem nos arquivos do jogo entram no scan sozinhas.",
+            "Status: quantos itens vieram com preço novo no último ciclo e quais ficaram sem.",
         ],
     },
     {

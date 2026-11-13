@@ -112,7 +112,9 @@
       </div>
       {% endif %}
       {% if preco_coletado_txt %}
-      <p class="card-coleta">Preço deste item coletado {{ preco_coletado_txt }}.</p>
+      <p class="card-coleta">Preço deste item coletado {{ preco_coletado_txt }}.{% if item.mantido_do_ciclo_anterior %} A Steam não devolveu preço novo no último ciclo, então os números são do ciclo anterior; o item é tentado de novo no próximo.{% endif %}</p>
+      {% elif item.mantido_do_ciclo_anterior %}
+      <p class="card-coleta">A Steam não devolveu preço novo no último ciclo, então os números são do ciclo anterior; o item é tentado de novo no próximo.</p>
       {% endif %}
     </section>
 
