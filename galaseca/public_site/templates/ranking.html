@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ranking — Galaseca</title>
-  <meta name="description" content="Top 20 do último scan, com a mudança de posição desde o scan anterior.">
+  <meta name="description" content="Top 20 do último scan, com a mudança de posição e de nota em 24 horas, 7 dias ou 30 dias.">
   <meta property="og:locale" content="pt_BR">
   <link rel="canonical" href="{{ request.url }}">
   {% include "partials/_head_pwa.html" %}
@@ -45,6 +45,15 @@
     {% endif %}
   {% endmacro %}
 
+  {# Variação da nota contra a mesma base das setas de posição. #}
+  {% macro variacao_nota(it) %}
+    {% if it.nota_diff is not none and it.nota_diff != 0 %}
+      <span class="variacao-nota {{ 'tendencia-alta' if it.nota_diff > 0 else 'tendencia-baixa' }}" title="Nota era {{ it.score - it.nota_diff }}">{{ '+' if it.nota_diff > 0 else '−' }}{{ it.nota_diff|abs }} na nota</span>
+    {% elif it.nota_diff == 0 %}
+      <span class="variacao-nota status-muted">nota igual</span>
+    {% endif %}
+  {% endmacro %}
+
   {# Card do Top 20 (revisão de direção visual 2026-11-08, rodada 3) --
      mesma linguagem visual da vitrine da home (.cartao-item, brilho,
      corte de canto), mas mais enxuto: o snapshot do ranking só guarda
@@ -71,7 +80,7 @@
     </div>
     <div class="cartao-item-corpo">
       <a class="cartao-item-nome" href="{{ url_for('item_detail', name=it.name) }}">{{ it.name_fmt }}</a>
-      <div class="cartao-item-rodape">{{ posicao_candidato(it) }}</div>
+      <div class="cartao-item-rodape">{{ posicao_candidato(it) }}{{ variacao_nota(it) }}</div>
     </div>
   </li>
   {% endmacro %}
@@ -82,7 +91,18 @@
       <p class="descricao-pagina">Top 20 do último scan, com a posição de quem subiu, caiu ou é novidade.</p>
     </header>
     {% if itens %}
-      <p class="status">Atualizado {{ quando }}.{% if not tem_anterior %} Ainda não há um scan anterior pra comparar posição.{% endif %}</p>
+      <p class="status">Atualizado {{ quando }}.</p>
+      <nav class="barra-periodo-ranking" aria-label="Período da comparação">
+        <span class="barra-periodo-ranking-rotulo" id="rotulo-periodo-ranking">Comparar com:</span>
+        <div class="seletor-periodo" role="group" aria-labelledby="rotulo-periodo-ranking">
+          {% for chave, (_horas, rotulo) in periodos.items() %}
+          <a href="{{ url_for('ranking_page', periodo=chave, ver=ver_sel) }}"{% if periodo_sel == chave %} aria-current="true"{% endif %}>{{ rotulo }}</a>
+          {% endfor %}
+        </div>
+      </nav>
+      {% if not tem_anterior %}
+      <p class="aviso-periodo-ranking status-muted">{% if periodo_sel == 'scan' %}Ainda não há um scan anterior pra comparar posição.{% else %}Ainda não há ranking salvo de {{ periodos[periodo_sel][1] }} atrás pra comparar. O histórico cresce a cada scan.{% endif %}</p>
+      {% endif %}
       {% if resumo_do_dia %}
       <p class="resumo-do-dia">
         Comparado com o ranking de {{ resumo_do_dia.quando }}:
@@ -95,8 +115,8 @@
       {# Mesmo seletor Vitrine/Lista da home, mesmo cookie pref_ver. #}
       <nav class="barra-visao" aria-label="Como mostrar os itens">
         <div class="seletor-visao" role="group" aria-label="Modo de exibição">
-          <a href="{{ url_for('ranking_page', ver='vitrine') }}"{% if ver_sel == 'vitrine' %} aria-current="page"{% endif %}>{{ icone("vitrine") }} Vitrine</a>
-          <a href="{{ url_for('ranking_page', ver='lista') }}"{% if ver_sel == 'lista' %} aria-current="page"{% endif %}>{{ icone("lista") }} Lista</a>
+          <a href="{{ url_for('ranking_page', ver='vitrine', periodo=periodo_sel) }}"{% if ver_sel == 'vitrine' %} aria-current="page"{% endif %}>{{ icone("vitrine") }} Vitrine</a>
+          <a href="{{ url_for('ranking_page', ver='lista', periodo=periodo_sel) }}"{% if ver_sel == 'lista' %} aria-current="page"{% endif %}>{{ icone("lista") }} Lista</a>
         </div>
       </nav>
       {% if ver_sel == 'lista' %}
@@ -110,7 +130,8 @@
             <th>#</th>
             <th>Item</th>
             <th>Nota</th>
-            <th title="Mudança de posição desde o scan anterior">Posição</th>
+            <th title="Mudança de posição no período escolhido">Posição</th>
+            <th title="Mudança de nota no período escolhido">Variação</th>
           </tr>
         </thead>
         <tbody>
@@ -128,6 +149,7 @@
             </td>
             <td><span class="nota nota-{{ it.score|nota_classe }}">{{ it.score|nota_anel|safe }}<span class="nota-numero">{{ it.score }}</span></span></td>
             <td>{{ posicao_candidato(it) }}</td>
+            <td>{% if it.nota_diff is none %}<span class="status-muted">—</span>{% else %}{{ variacao_nota(it) }}{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>

@@ -835,7 +835,15 @@ def create_app() -> Flask:
     def ranking_page():
         snaps = ranking.load_snapshots()
         atual = snaps[-1] if snaps else None
-        anterior = ranking.previous_snapshot()
+        periodo = request.args.get("periodo") or _PERIODO_RANKING_PADRAO
+        if periodo not in _PERIODOS_RANKING:
+            periodo = _PERIODO_RANKING_PADRAO
+        # Setas, variação de nota e a frase-resumo usam a MESMA base de
+        # comparação (antes as setas iam contra o scan anterior, ~6h, e a
+        # frase contra ~1 dia -- dois "desde quando" na mesma tela).
+        anterior = _snapshot_de_comparacao(atual, periodo)
+        itens_antigos = {it["name"]: it
+                         for it in (anterior or {}).get("items") or []}
         # Ícone + raridade não vêm do snapshot (ranking.py grava só
         # name/score/position, ver _icone_raridade) -- cruza pelo nome
         # com o scan atual, que já tem icon/name_color/rarity_id.
@@ -846,11 +854,15 @@ def create_app() -> Flask:
             for it in atual["items"]:
                 delta = ranking.position_delta(
                     it["name"], it["position"], anterior)
+                velho = itens_antigos.get(it["name"])
+                nota_diff = (it.get("score", 0) - velho.get("score", 0)
+                             if velho else None)
                 itens.append({
                     "name": it["name"],
                     "name_fmt": localize_name(it["name"]),
                     "position": it["position"],
                     "score": it["score"],
+                    "nota_diff": nota_diff,
                     **delta,
                     **_icone_raridade(por_nome_scan.get(it["name"])),
                 })
@@ -869,8 +881,10 @@ def create_app() -> Flask:
             itens=itens,
             quando=scan_store.idade_txt(atual["ts"]) if atual else None,
             tem_anterior=anterior is not None,
-            resumo_do_dia=_resumo_do_dia(atual),
+            resumo_do_dia=_resumo_entre(atual, anterior),
             ver_sel=ver,
+            periodo_sel=periodo,
+            periodos=_PERIODOS_RANKING,
         ))
         if "ver" in request.args:
             resp.set_cookie("pref_ver", ver, max_age=365 * 24 * 3600,
@@ -1393,14 +1407,48 @@ def _itens_parecidos(item: dict, candidatos: list[dict], limite: int = 5) -> lis
 _MOVIMENTOS_DESTAQUE = 3
 
 
+# Períodos de comparação do /ranking: chave da URL -> (horas, rótulo).
+# `None` = scan imediatamente anterior. Com o worker de 6 em 6h, 30 dias
+# são ~120 snapshots -- cabe no `ranking._SNAPSHOT_CAP`.
+_PERIODOS_RANKING = {
+    "scan": (None, "Último scan"),
+    "24h": (24, "24 horas"),
+    "7d": (7 * 24, "7 dias"),
+    "30d": (30 * 24, "30 dias"),
+}
+_PERIODO_RANKING_PADRAO = "24h"
+# Folga pra um ciclo que terminou um pouco mais cedo ainda contar como
+# "de 24h atrás" (é a mesma régua de 20h que `_resumo_do_dia` já usava).
+_FOLGA_PERIODO_H = 4
+
+
+def _snapshot_de_comparacao(atual: "dict | None",
+                            periodo: str) -> "dict | None":
+    """Snapshot contra o qual o /ranking compara. None quando ainda não
+    existe um velho o suficiente pro período -- a tela diz isso em vez de
+    comparar com um mais recente e chamar de "7 dias"."""
+    if not atual:
+        return None
+    horas = _PERIODOS_RANKING[periodo][0]
+    if horas is None:
+        return ranking.previous_snapshot()
+    return ranking.latest_before(
+        atual["ts"] - (horas - _FOLGA_PERIODO_H) * 3600)
+
+
 def _resumo_do_dia(atual: "dict | None") -> "dict | None":
     """Resumo factual do Top 20 comparado com o snapshot de ~1 dia atrás
     (nunca previsão). None sem
     snapshot velho o suficiente (site novo ou só 1 scan até agora)."""
     if not atual:
         return None
-    antigo = ranking.latest_before(atual["ts"] - 20 * 3600)
-    if not antigo:
+    return _resumo_entre(atual, _snapshot_de_comparacao(atual, "24h"))
+
+
+def _resumo_entre(atual: "dict | None",
+                  antigo: "dict | None") -> "dict | None":
+    """Resumo factual (nunca previsão) do Top 20 `atual` contra `antigo`."""
+    if not atual or not antigo:
         return None
     itens_antigos = {it["name"]: it for it in antigo.get("items", [])}
     novos = [it for it in atual["items"] if it["name"] not in itens_antigos]

@@ -1606,7 +1606,7 @@ def test_ranking_page_com_snapshots_marca_novo(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.ranking.latest_before",
         lambda ts: None)
-    body = client.get("/ranking").data.decode("utf-8")
+    body = client.get("/ranking?periodo=scan").data.decode("utf-8")
     assert "selo-novo" in body
 
 
@@ -1711,9 +1711,92 @@ def test_ranking_page_mostra_subiu_e_desceu(client, monkeypatch):
     monkeypatch.setattr(
         "galaseca.public_site.server.ranking.latest_before",
         lambda ts: None)
-    body = client.get("/ranking").data.decode("utf-8")
+    body = client.get("/ranking?periodo=scan").data.decode("utf-8")
     assert "tendencia-alta" in body
     assert "tendencia-baixa" in body
+
+
+def _ranking_com_historico(monkeypatch, agora=1_000_000.0):
+    """Atual + snapshots de ~6h, ~1 dia e ~7 dias atrás, com
+    `latest_before` de verdade (mais recente com ts < limite)."""
+    h = 3600.0
+    snaps = [
+        {"ts": agora - 7 * 24 * h, "items": [
+            {"name": "X", "score": 50, "position": 5},
+            {"name": "Y", "score": 90, "position": 1}]},
+        {"ts": agora - 24 * h, "items": [
+            {"name": "X", "score": 70, "position": 3},
+            {"name": "Y", "score": 72, "position": 1}]},
+        {"ts": agora - 6 * h, "items": [
+            {"name": "X", "score": 80, "position": 1},
+            {"name": "Y", "score": 70, "position": 2}]},
+        {"ts": agora, "items": [
+            {"name": "X", "score": 80, "position": 1},
+            {"name": "Y", "score": 70, "position": 2}]},
+    ]
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.load_snapshots", lambda: snaps)
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.previous_snapshot",
+        lambda: snaps[-2])
+    monkeypatch.setattr(
+        "galaseca.public_site.server.ranking.latest_before",
+        lambda ts: next((s for s in reversed(snaps) if s["ts"] < ts), None))
+    return snaps
+
+
+def test_ranking_padrao_compara_com_24h_nas_setas_e_no_resumo(
+        client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    body = client.get("/ranking?ver=lista").data.decode("utf-8")
+    # Contra 24h: X subiu de 3 pra 1 (+2) e ganhou 10 de nota; Y caiu 2.
+    assert 'aria-current="true">24 horas<' in body
+    assert "+2" in body
+    assert "+10 na nota" in body
+    assert "−2 na nota" in body
+    # A frase usa a mesma base: maior alta é X (70 -> 80).
+    assert "maior alta de nota foi" in body
+
+
+def test_ranking_periodo_scan_compara_com_o_scan_anterior(
+        client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    body = client.get("/ranking?periodo=scan&ver=lista").data.decode("utf-8")
+    assert 'aria-current="true">Último scan<' in body
+    # Sem mudança entre os dois últimos scans.
+    assert "tendencia-alta" not in body
+    assert "nota igual" in body
+    assert "maior alta de nota foi" not in body
+
+
+def test_ranking_periodo_7d_usa_snapshot_de_uma_semana(client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    body = client.get("/ranking?periodo=7d&ver=lista").data.decode("utf-8")
+    assert "+30 na nota" in body
+    assert "−20 na nota" in body
+
+
+def test_ranking_periodo_sem_historico_avisa_em_vez_de_comparar(
+        client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    body = client.get("/ranking?periodo=30d").data.decode("utf-8")
+    assert "Ainda não há ranking salvo de 30 dias atrás" in body
+    assert "na nota" not in body
+    assert "Comparado com o ranking de" not in body
+
+
+def test_ranking_periodo_invalido_cai_no_padrao(client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    body = client.get("/ranking?periodo=<x>").data.decode("utf-8")
+    assert 'aria-current="true">24 horas<' in body
+    assert "<x>" not in body
+
+
+def test_ranking_links_preservam_periodo_e_visao(client, monkeypatch):
+    _ranking_com_historico(monkeypatch)
+    body = client.get("/ranking?periodo=7d&ver=lista").data.decode("utf-8")
+    assert 'href="/ranking?periodo=30d&amp;ver=lista"' in body
+    assert 'href="/ranking?ver=vitrine&amp;periodo=7d"' in body
 
 
 def test_ranking_page_resumo_do_dia_sem_snapshot_antigo(client, monkeypatch):
@@ -2285,6 +2368,59 @@ def test_run_once_default_usa_categorias_padrao(monkeypatch):
     worker.run_once()
     for pesada in worker._CATEGORIAS_PESADAS:
         assert pesada not in recebido["categories"]
+
+
+def test_run_once_checa_arquivos_do_jogo_antes_do_scan(monkeypatch):
+    ordem = []
+    monkeypatch.setattr(
+        worker.gamedata, "check_for_updates",
+        lambda: ordem.append("gamedata") or {
+            "changed": False, "events": [], "commit": None, "error": None})
+
+    def _fake(categories, on_progress=None):
+        ordem.append("scan")
+        return []
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    worker.run_once({"Facas": ["A"]})
+    assert ordem == ["gamedata", "scan"]
+
+
+def test_run_once_falha_nos_arquivos_do_jogo_nao_impede_scan(
+        monkeypatch, caplog):
+    def _boom():
+        raise RuntimeError("github fora")
+
+    monkeypatch.setattr(worker.gamedata, "check_for_updates", _boom)
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan",
+                        lambda categories, on_progress=None: [])
+    with caplog.at_level("WARNING", logger="galaseca.worker"):
+        assert worker.run_once({"Facas": ["A"]}) == []
+    assert "checagem dos arquivos do jogo falhou" in caplog.text
+
+
+def test_run_once_registra_erro_e_mudanca_dos_arquivos_do_jogo(
+        monkeypatch, caplog):
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan",
+                        lambda categories, on_progress=None: [])
+    monkeypatch.setattr(
+        worker.gamedata, "check_for_updates",
+        lambda: {"changed": False, "events": [], "commit": None,
+                 "error": "network"})
+    with caplog.at_level("INFO", logger="galaseca.worker"):
+        worker.run_once({"Facas": ["A"]})
+    assert "erro de network" in caplog.text
+
+    caplog.clear()
+    monkeypatch.setattr(
+        worker.gamedata, "check_for_updates",
+        lambda: {"changed": True, "events": [{"type": "x"}] * 2,
+                 "commit": {"sha": "abcdef1234", "date": "2026-11-12"},
+                 "error": None})
+    with caplog.at_level("INFO", logger="galaseca.worker"):
+        worker.run_once({"Facas": ["A"]})
+    assert "Arquivos do jogo mudaram (abcdef1, 2026-11-12): 2 evento(s)" \
+        in caplog.text
 
 
 def _worker_main_uma_volta(monkeypatch):

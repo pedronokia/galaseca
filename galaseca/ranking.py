@@ -16,7 +16,9 @@ from galaseca._paths import (
 from galaseca import signals
 
 _RANKINGS_PATH = DATA_DIR / "rankings.json"
-_SNAPSHOT_CAP = 50
+# 150 = ~37 dias com o worker de 6 em 6h -- o /ranking compara com até
+# 30 dias atrás (ver `_PERIODOS_RANKING` em public_site/server.py).
+_SNAPSHOT_CAP = 150
 
 
 def save_snapshot(results: list[dict],

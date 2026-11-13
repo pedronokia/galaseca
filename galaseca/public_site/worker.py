@@ -18,7 +18,9 @@ import re
 import sys
 import time
 
-from galaseca import ranking, scan_engine, scan_store, scan_targets, signals
+from galaseca import (
+    gamedata, ranking, scan_engine, scan_store, scan_targets, signals,
+)
 from galaseca.public_site import db_backup, scan_progress, worker_alert
 from galaseca._ambiente import ambiente
 
@@ -81,10 +83,34 @@ def _on_progress(msg: str) -> None:
         pass
 
 
+def _verificar_arquivos_do_jogo() -> None:
+    """Uma consulta por ciclo ao espelho dos arquivos do CS2 no GitHub
+    (`gamedata.check_for_updates`) -- não fala com a Steam, então não
+    entra na conta do rate limit. Se o items_game.txt mudou, grava os
+    eventos e a data de saída do Armory em `retirements`, que a nota lê.
+    Roda ANTES do scan pra caixa recém-aposentada já sair com o status
+    novo neste mesmo ciclo. Falha aqui só vira aviso no log."""
+    try:
+        resultado = gamedata.check_for_updates()
+    except Exception:
+        _logger.warning("checagem dos arquivos do jogo falhou", exc_info=True)
+        return
+    if resultado.get("error"):
+        _logger.warning("checagem dos arquivos do jogo: erro de %s",
+                        resultado["error"])
+    elif resultado.get("changed"):
+        commit = resultado.get("commit") or {}
+        _logger.info("Arquivos do jogo mudaram (%s, %s): %d evento(s)",
+                     (commit.get("sha") or "")[:7], commit.get("date"),
+                     len(resultado.get("events") or []))
+
+
 def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
-    """Um ciclo: escaneia, grava scan_store + ranking. Devolve os resultados."""
+    """Um ciclo: checa os arquivos do jogo, escaneia, grava scan_store +
+    ranking. Devolve os resultados."""
     if categories is None:
         categories = categorias_padrao()
+    _verificar_arquivos_do_jogo()
     inicio = time.time()
     resultados = scan_engine.run_full_scan(
         _ordenar_por_nota_anterior(categories), on_progress=_on_progress)

@@ -4229,3 +4229,27 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .botao-topo[hidden],
 .paginacao-reticencias[hidden],
 .nome[hidden] { display: none; }
+
+/* /ranking: "Comparar com" + seletor de período (mesma base pras setas,
+   a variação de nota e a frase-resumo). */
+.barra-periodo-ranking {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0 0 var(--sp-3);
+}
+
+.barra-periodo-ranking-rotulo {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.barra-periodo-ranking .seletor-periodo { margin: 0; }
+
+.aviso-periodo-ranking { margin: 0 0 var(--sp-3); }
+
+.variacao-nota {
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
