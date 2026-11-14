@@ -460,6 +460,7 @@ def run_once(categories: "dict[str, list[str]] | None" = None) -> list[dict]:
             "fonte": fonte,
             "em_espera": em_espera,
             "comparacao_fontes": relatorio.get("comparacao_fontes"),
+            "comparacao_tendencia": relatorio.get("comparacao_tendencia"),
         })
     _logger.info("Ciclo concluído: %d itens novos (+%d mantidos do ciclo "
                  "anterior) em %.1fmin", len(novos), len(mantidos),

@@ -701,3 +701,18 @@ def test_comparar_fontes_separa_mediana_por_liquidez():
     assert faixas["baixa"] == {"itens": 2, "concorda_pct": 50.0}
     assert r["mediana_divergentes"] == [
         {"name": "Parado", "vendas_24h": 2, "razao": 1.386}]
+
+
+def test_comparar_tendencia_conta_mudancas_e_efeito_na_nota():
+    sombras = [
+        {"name": "A", "trend_antigo": "rising", "trend_7d": "falling"},
+        {"name": "B", "trend_antigo": "rising", "trend_7d": "rising"},
+        {"name": "C", "trend_antigo": "stable", "trend_7d": "rising"},
+        {"name": "D", "trend_antigo": "falling", "trend_7d": None},
+    ]
+    r = scan_engine.comparar_tendencia(sombras)
+    assert r["itens"] == 3 and r["mudariam"] == 2
+    assert r["transicoes"] == {"rising->falling": 1, "stable->rising": 1}
+    assert r["maiores"][0] == {"name": "A", "de": "rising", "para": "falling",
+                               "nota_delta": -25}
+    assert scan_engine.comparar_tendencia([]) is None

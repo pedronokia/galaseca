@@ -593,6 +593,35 @@ def recent_prices(price_history: list[dict], days: int = 15,
             if e.get("price_median") is not None]
 
 
+# Mesmo limiar do veredito de tendência antigo (steam_api.fair_value_verdict).
+_TENDENCIA_LIMIAR_PCT = 3.0
+
+
+def tendencia_7d(price_history: "list[dict] | None") -> "dict | None":
+    """Tendência dos últimos 7 DIAS de verdade: preço do dia de hoje
+    contra o de 7 dias antes, cada um como média das vendas do dia
+    (`daily_series`).
+
+    Existe porque o veredito antigo (`fair_value_verdict`) compara os 7
+    últimos PONTOS do histórico, e desde 28/06/2026 a Steam manda pontos
+    HORÁRIOS na parte recente -- "7 pontos" virou ~7 horas, com ~3 vendas
+    por ponto. O fator foi calibrado quando 7 pontos eram 7 dias; isto
+    devolve esse significado. None sem dado diário suficiente (5 dias)."""
+    diario = daily_series(price_history or [], days=8)
+    if len(diario) < 5:
+        return None
+    primeiro, ultimo = diario[0]["price_median"], diario[-1]["price_median"]
+    if not primeiro:
+        return None
+    pct = (ultimo - primeiro) / primeiro * 100
+    return {
+        "pct": round(pct, 2),
+        "verdict": ("rising" if pct > _TENDENCIA_LIMIAR_PCT else
+                    "falling" if pct < -_TENDENCIA_LIMIAR_PCT else "stable"),
+        "dias": len(diario),
+    }
+
+
 def sma(values: list[float], period: int = 7) -> list[float | None]:
     """Simple Moving Average. Retorna lista do mesmo tamanho com None nos primeiros period-1."""
     if len(values) < period:

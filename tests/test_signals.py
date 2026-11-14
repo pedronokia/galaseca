@@ -1464,3 +1464,32 @@ def test_enhanced_score_rotulos_legiveis_para_iniciante():
     assert "Não sai mais no jogo (+5)" in rotulos
     assert "Vem de caixa que não sai mais no jogo (+5)" in [
         b["label"] for b in bd_skin]
+
+
+# ── tendência de 7 dias reais (2026-11-14) ───────────────────────
+
+def test_tendencia_7d_usa_dias_e_nao_os_ultimos_pontos_horarios():
+    from lodout import signals, steam_api
+    # Pontos HORÁRIOS (como a Steam manda nos últimos ~28 dias): o preço
+    # cai de 100 pra 80 ao longo de 8 dias, mas sobe nas últimas 7 horas.
+    t0 = 1_800_000_000 - (1_800_000_000 % 86400)
+    hist = []
+    for h in range(8 * 24):
+        preco = 100 - 20 * h / (8 * 24)
+        hist.append({"time": t0 + h * 3600, "price_median": preco,
+                     "purchases": 3})
+    for i, h in enumerate(range(8 * 24, 8 * 24 + 7)):
+        hist.append({"time": t0 + h * 3600, "price_median": 80 + 2 * i,
+                     "purchases": 3})
+    antigo = steam_api.fair_value_verdict(80.0, 80.0, price_history=hist)
+    assert antigo["trend_verdict"] == "rising"  # o bug: 7 pontos = 7 horas
+    t7 = signals.tendencia_7d(hist)
+    assert t7["verdict"] == "falling" and t7["pct"] < -3
+
+
+def test_tendencia_7d_sem_dias_suficientes_e_none():
+    from lodout import signals
+    hist = [{"time": 1_800_000_000 + h * 3600, "price_median": 10.0,
+             "purchases": 1} for h in range(30)]  # pouco mais de 1 dia
+    assert signals.tendencia_7d(hist) is None
+    assert signals.tendencia_7d(None) is None

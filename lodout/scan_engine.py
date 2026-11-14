@@ -119,6 +119,11 @@ def scan_item(name: str, category: str | None = None,
         price_history=page.get("price_history") if page else None,
         tradable_restriction=meta.get("tradable_restriction"),
     ) if page else steam_api.fair_value_verdict(lowest, median)
+    # Modo sombra da tendência (2026-11-14): o veredito acima compara os 7
+    # últimos PONTOS (hoje ~7 horas, por causa dos pontos horários da
+    # Steam). `tendencia_7d` mede 7 dias de verdade; por ora só medido --
+    # `comparar_tendencia` diz quantos itens mudariam antes de valer.
+    t7 = signals.tendencia_7d(page.get("price_history") if page else None)
     signals.record_item_price(name, lowest)
     if volume:
         signals.record_item_volume(name, volume)
@@ -220,6 +225,8 @@ def scan_item(name: str, category: str | None = None,
             "volume_overview": volume,
             "median_overview": (overview or {}).get("median"),
             "name": name,
+            "trend_antigo": verdict.get("trend_verdict") if verdict else None,
+            "trend_7d": t7["verdict"] if t7 else None,
         },
     }
 
@@ -290,6 +297,37 @@ def _resumo_variantes(nome: str, page: "dict | None") -> "list[dict]":
 
     out.sort(key=_ordem)
     return out[:_VARIANTES_MAX]
+
+
+# Pontos que o fator de tendência soma na nota (signals.enhanced_score).
+_PONTOS_TENDENCIA = {"rising": 15, "falling": -10, "stable": 0, None: 0}
+
+
+def comparar_tendencia(sombras: "list[dict]") -> "dict | None":
+    """Quantos itens mudariam de veredito de tendência (7 pontos -> 7
+    dias) e quanto a nota de cada um mudaria por isso. Só medida."""
+    pares = [(f.get("name"), f.get("trend_antigo"), f.get("trend_7d"))
+             for f in sombras if f.get("trend_7d") is not None]
+    if not pares:
+        return None
+    transicoes: "dict[str, int]" = {}
+    mudancas = []
+    for nome, antigo, novo in pares:
+        if antigo == novo:
+            continue
+        chave = f"{antigo or 'sem'}->{novo}"
+        transicoes[chave] = transicoes.get(chave, 0) + 1
+        delta = _PONTOS_TENDENCIA.get(novo, 0) - _PONTOS_TENDENCIA.get(antigo, 0)
+        mudancas.append({"name": nome, "de": antigo, "para": novo,
+                         "nota_delta": delta})
+    mudancas.sort(key=lambda m: -abs(m["nota_delta"]))
+    return {
+        "itens": len(pares),
+        "mudariam": len(mudancas),
+        "mudariam_pct": round(100 * len(mudancas) / len(pares), 1),
+        "transicoes": transicoes,
+        "maiores": mudancas[:15],
+    }
 
 
 def comparar_fontes(sombras: "list[dict]") -> "dict | None":
@@ -607,6 +645,7 @@ def run_full_scan(categories: "dict[str, list[str]] | None" = None,
         relatorio["pausas_429"] = pausas
         relatorio["sem_preco"] = sem_preco
         relatorio["comparacao_fontes"] = comparar_fontes(sombras)
+        relatorio["comparacao_tendencia"] = comparar_tendencia(sombras)
         relatorio["throttle_silencioso"] = throttle
         relatorio["abortado"] = abortado
     return results
