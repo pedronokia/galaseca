@@ -43,7 +43,7 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "lodout", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "Lodout", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "{{ item.name_fmt }}", "item": "{{ request.url }}"}
     ]
   }
@@ -98,7 +98,7 @@
     <section class="resumo-cards resumo-cards-item" aria-label="Resumo do item">
       <div class="card"><span class="card-label">Preço</span><span class="card-valor">{{ item.price_fmt }}</span></div>
       <div class="card card-nota-destaque"><span class="card-label">Nota</span><span class="card-valor nota nota-grande nota-{{ item.score|nota_classe }}">{{ item.score|nota_anel|safe }}<span class="nota-numero">{{ item.score }}</span></span>{% if item.nota_margem %}<span class="nota-margem" title="A soma dos fatores passou do limite da escala (0 a 100): sem o corte, a nota seria {{ item.score + item.nota_margem }}.">{{ "%+d"|format(item.nota_margem) }}</span>{% endif %}{% if item.confianca_baixa %}<span class="selo-confianca-baixa" title="{{ item.confianca_baixa_titulo }}">{{ icone("dado-limitado") }}Dado limitado</span>{% endif %}</div>
-      <div class="card card-caixa"><span class="card-label">Caixa/Cápsula</span><span class="card-valor card-valor-texto">{{ item.case_label|rotulo_caixa(item.name) or "—" }}{% if itens_da_caixa %}<span class="card-sub" title="Quantas skins desta caixa já estão mapeadas no lodout — não é a contagem oficial do jogo">{{ itens_da_caixa }} {{ "item" if itens_da_caixa == 1 else "itens" }} desta caixa no lodout</span>{% endif %}</span></div>
+      <div class="card card-caixa"><span class="card-label">Caixa/Cápsula</span><span class="card-valor card-valor-texto">{{ item.case_label|rotulo_caixa(item.name) or "—" }}{% if itens_da_caixa %}<span class="card-sub" title="Quantas skins desta caixa já estão mapeadas no Lodout — não é a contagem oficial do jogo">{{ itens_da_caixa }} {{ "item" if itens_da_caixa == 1 else "itens" }} desta caixa no Lodout</span>{% endif %}</span></div>
       <div class="card"><span class="card-label">Risco</span><span class="card-valor risco risco-{{ item.pump_risk|risco_nivel }}">{{ item.pump_risk|risco_label }}</span></div>
       {% if item.liquidity_depth and item.liquidity_depth.band %}
       <div class="card" title="{{ item.liquidity_depth.label }}">
@@ -148,6 +148,7 @@
       {% endfor %}
     </ul>
     {% endif %}
+    <p><a class="link-com-seta" href="{{ url_for('metodo') }}">Como cada fator da nota é calculado {{ icone("seta-direita") }}</a></p>
 
     {% if variantes %}
     <h2 class="secao-titulo">Outras versões desta skin</h2>
@@ -225,7 +226,7 @@
   </main>
 
   <footer class="rodape">
-    <p>Dados públicos da Steam Community Market. lodout não é afiliado à Valve.
+    <p>Dados públicos da Steam Community Market. Lodout não é afiliado à Valve.
     Não é recomendação de investimento.</p>
     {% include "partials/_rodape_links.html" %}
   </footer>

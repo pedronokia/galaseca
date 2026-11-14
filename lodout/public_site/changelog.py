@@ -9,6 +9,18 @@ from __future__ import annotations
 ENTRADAS = [
     {
         "data": "2026-11-14",
+        "titulo": "Mais fácil de ler, de achar e de usar",
+        "itens": [
+            "Verde, vermelho e laranja do site ficaram mais claros: no fundo escuro, os tons antigos eram difíceis de ler em letra pequena.",
+            "Na página do item, o painel de preço, nota e caixa cabe numa linha (o nome da caixa aparecia enorme e o preço quebrava em duas linhas) e o “Por quê” mostra os pontos de cada fator numa etiqueta ao lado do texto.",
+            "Busca sem resultado diz o que foi buscado e como acertar; as abas de categoria passam a contar só o que a busca encontra.",
+            "Ao tentar comparar mais de 3 itens, a barra de comparação avisa o limite (antes a caixinha só não marcava).",
+            "A página inicial ganhou atalhos pra “Como a nota é calculada” e pro Glossário, e a home mostra 12 itens por página, fechando a grade.",
+            "Ícones das skins preenchem o quadro em vez de aparecer em miniatura, e o cartão de “Maiores mudanças” inteiro leva ao item.",
+        ],
+    },
+    {
+        "data": "2026-11-14",
         "titulo": "Top 20 com preço mais fresco",
         "itens": [
             "Os 20 primeiros do ranking passam a ter o preço atualizado a cada 2 horas, entre as coletas completas de 6 em 6 horas. A página Status mostra quando foi a última atualização.",
@@ -108,7 +120,7 @@ ENTRADAS = [
     },
     {
         "data": "2026-11-11",
-        "titulo": "O site inteiro no estilo da Apple",
+        "titulo": "Páginas de erro e de conta no mesmo padrão do site",
         "itens": [
             "Páginas 404, 429 e 500 ganharam cabeçalho de página (título + descrição), card com CTA e o rodapé padrão com grupos de links.",
             "Painel admin e login de admin ganharam descrição no cabeçalho, card ao redor do formulário e rodapé padrão.",

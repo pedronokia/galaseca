@@ -3750,7 +3750,7 @@ def test_item_detail_mostra_itens_da_caixa(client, monkeypatch, tmp_path):
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/item/Chroma 2 Case").data.decode("utf-8")
-    assert "desta caixa no lodout" in body
+    assert "desta caixa no Lodout" in body
 
 
 def test_item_detail_sem_caixa_nao_mostra_card_de_itens(client, monkeypatch, tmp_path):
@@ -3760,7 +3760,7 @@ def test_item_detail_sem_caixa_nao_mostra_card_de_itens(client, monkeypatch, tmp
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/item/Item X").data.decode("utf-8")
-    assert "desta caixa no lodout" not in body
+    assert "desta caixa no Lodout" not in body
 
 
 # ── erro_stats ────────────────────────────────────────────────

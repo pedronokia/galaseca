@@ -19,13 +19,13 @@
   <link rel="canonical" href="{{ request.url_root }}">
   {% include "partials/_head_pwa.html" %}
   <link rel="alternate" type="application/rss+xml" title="Lodout — Preços e notas" href="{{ url_for('feed') }}">
-  <link rel="search" type="application/opensearchdescription+xml" title="lodout" href="{{ url_for('opensearch') }}">
+  <link rel="search" type="application/opensearchdescription+xml" title="Lodout" href="{{ url_for('opensearch') }}">
   <link rel="stylesheet" href="{{ static_v('style.css') }}">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "lodout",
+    "name": "Lodout",
     "url": "{{ request.url_root }}",
     "description": "Nota de 0 a 100 pra skins do CS2, com o motivo escrito, a partir de dados públicos da Steam Community Market."
   }
@@ -249,7 +249,7 @@
         {% endif %}
       </span>
       <div class="hero-destaque-corpo">
-        <p class="hero-destaque-rotulo">Nota mais alta hoje</p>
+        <h2 class="hero-destaque-rotulo">Nota mais alta hoje</h2>
         <a class="hero-destaque-nome" href="{{ url_for('item_detail', name=destaque_hero.name) }}" translate="no">{{ destaque_hero.name_fmt|titulo_sem_pipe_orfao }}</a>
         <p class="hero-destaque-motivo">{{ destaque_hero.reasons[0]|motivo_fmt if destaque_hero.reasons else "Nota neutra: nenhum fator se destacou" }}</p>
       </div>
@@ -386,7 +386,7 @@
        logo acima não cita mais "maior alta"/"maior queda" (cortado por
        redundância com estes cards), então os cards perderam o único
        texto que dizia o que eles são. #}
-    <p class="movimentos-do-dia-titulo">Maiores mudanças de nota hoje</p>
+    <h2 class="movimentos-do-dia-titulo">Maiores mudanças de nota hoje</h2>
     <ul class="movimentos-do-dia" aria-label="Maiores mudanças de nota desde a coleta {{ resumo_do_dia.quando }}">
       {% for m in resumo_do_dia.movimentos %}
       <li class="movimento-do-dia">
@@ -401,7 +401,8 @@
     {% endif %}
 
     {% if candidatos %}
-    <p class="ajuda-nota">A nota resume fatores observados, não é promessa nem previsão de lucro. O selo de risco, quando aparece, indica a possibilidade de uma alta rápida e artificial no preço.</p>
+    <h2 class="visualmente-oculto">Todos os itens</h2>
+    <p class="ajuda-nota">A nota resume fatores observados, não é promessa nem previsão de lucro. O selo de risco, quando aparece, indica a possibilidade de uma alta rápida e artificial no preço. <a class="link-com-seta" href="{{ url_for('metodo') }}">Como a nota é calculada {{ icone("seta-direita") }}</a> · <a class="link-com-seta" href="{{ url_for('glossario') }}">Glossário</a></p>
     {% endif %}
 
     {% if candidatos %}
@@ -512,7 +513,7 @@
   </main>
 
   <footer class="rodape">
-    <p>Dados públicos da Steam Community Market. lodout não é afiliado à Valve.
+    <p>Dados públicos da Steam Community Market. Lodout não é afiliado à Valve.
     Mostra o que já foi medido — não é recomendação de investimento, e desempenho
     passado não garante nada no futuro. A decisão é sempre sua.</p>
     {% include "partials/_rodape_links.html" %}

@@ -15,7 +15,7 @@
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {"@type": "ListItem", "position": 1, "name": "lodout", "item": "{{ request.url_root }}"},
+      {"@type": "ListItem", "position": 1, "name": "Lodout", "item": "{{ request.url_root }}"},
       {"@type": "ListItem", "position": 2, "name": "Novidades", "item": "{{ request.url }}"}
     ]
   }
@@ -38,7 +38,7 @@
 
     <section aria-labelledby="titulo-arquivos">
       <h2 class="secao-titulo" id="titulo-arquivos">Mudanças nos arquivos do jogo</h2>
-      <p class="status-muted">A cada ciclo de coleta, o lodout compara os arquivos do CS2 com a versão anterior e anota quando uma coleção entra ou sai do drop semanal, quando algo entra ou sai do Armory e quando aparece uma caixa nova.{% if arquivos_conferidos_txt %} Arquivos conferidos {{ arquivos_conferidos_txt }}.{% endif %}</p>
+      <p class="status-muted">A cada ciclo de coleta, o Lodout compara os arquivos do CS2 com a versão anterior e anota quando uma coleção entra ou sai do drop semanal, quando algo entra ou sai do Armory e quando aparece uma caixa nova.{% if arquivos_conferidos_txt %} Arquivos conferidos {{ arquivos_conferidos_txt }}.{% endif %}</p>
       {% if eventos %}
       <ol class="lista-novidades">
         {% for ev in eventos %}

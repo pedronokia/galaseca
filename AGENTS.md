@@ -110,6 +110,22 @@ site (`scripts/dev_public_site.py`) e o worker de coleta continuam necessários.
   por tela.
 - Ações destrutivas pedem confirmação antes de enviar a requisição.
 
+### Arquitetura da informação (revisão 2026-11-14)
+
+- Tese do site, numa frase: o Lodout dá uma nota de 0 a 100 a cada skin
+  com dados públicos da Steam e mostra o porquê, sem prometer lucro.
+  Público: iniciantes em skins de CS2 (tom baixo-médio, termos explicados).
+- Função de cada página: Home = ver as notas de hoje e achar um item;
+  Item = entender a nota daquele item; Ranking = quem subiu/caiu no Top
+  20; Método = a explicação completa da nota (única fonte; as outras
+  páginas resumem e linkam); Glossário = termos pra iniciante; Status =
+  transparência da coleta; Mudanças = o que mudou no site, na linguagem
+  de quem usa (sem jargão técnico interno).
+- A home tem `<h1>` descritivo (oculto) e `<h2>` por seção; a frase-guia
+  da nota leva a "Como a nota é calculada" (Método) e ao Glossário. O
+  "Por quê" do item também leva ao Método.
+- Marca no texto visível é "Lodout"; minúsculo só em URLs e domínios.
+
 ## Testes e comandos
 
 O pytest isola `DATA_DIR` e bloqueia chamadas de rede. Testes que simulam rede

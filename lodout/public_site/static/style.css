@@ -360,6 +360,13 @@ summary:focus-visible,
   text-underline-offset: 3px;
 }
 
+/* Dentro de uma frase (guia da nota na home), o link segue a altura da
+   linha: os 44px mínimos de link isolado abriam um vão na última linha. */
+.ajuda-nota .link-com-seta {
+  display: inline;
+  min-height: 0;
+}
+
 .link-com-seta {
   display: inline-flex;
   min-height: 44px;
@@ -1080,6 +1087,7 @@ footer.rodape .rodape-base a:hover {
 
 .movimentos-do-dia-titulo {
   margin: 0 0 var(--sp-2);
+  line-height: 1.4;
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -1270,6 +1278,7 @@ footer.rodape .rodape-base a:hover {
 
 .hero-destaque-rotulo {
   margin: 0 0 var(--sp-2);
+  line-height: 1.4;
   color: rgba(255, 255, 255, 0.5);
   font-size: var(--fs-2xs);
   font-weight: 600;
