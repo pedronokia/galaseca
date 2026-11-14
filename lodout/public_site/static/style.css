@@ -65,7 +65,10 @@
      (4.5:1 no branco). O #f97316 fica para os marcadores da marca; o #66c0f4 é o
      azul da Steam, guardado para pontos que identificam a Steam. */
   --accent: #f97316;
-  --accent-bright: #d0580c;
+  /* Cor de TEXTO dos links. Era #d0580c (tom de tema claro): 4,0:1
+     sobre --surface, abaixo dos 4,5:1. O laranja da marca dá 5,9:1
+     (5,1:1 sobre o card em hover). */
+  --accent-bright: #f97316;
   --accent-hover: #b8480a;
   --accent-soft: rgba(249, 115, 22, 0.1);
   --accent-steel: #66c0f4;
@@ -83,6 +86,11 @@
      --surface (#1e1e1e) e --surface-hover (#252525). */
   --risco-medio: #eab308;
   --danger: #f85149;
+  /* Texto de selo sobre fundo tingido (verde/vermelho a 6-14%): o
+     tingido clareia o fundo e --positive/--danger caíam pra ~3,9:1.
+     Estes dão >= 4,7:1 inclusive com a linha da tabela em hover. */
+  --positive-selo: #3fb950;
+  --danger-selo: #ff7b72;
   /* Fundos com texto branco (botão de perigo, contador): os tons acima
      são pra TEXTO sobre o escuro e dariam ~3,3:1 com branco por cima. */
   --danger-fundo: #da3633;
@@ -341,6 +349,15 @@ summary:focus-visible,
 .link-com-seta .icone-ui {
   width: 0.95em;
   height: 0.95em;
+}
+
+/* Link dentro de parágrafo (ex.: "privacidade" no Status): sublinhado,
+   pra não depender só da cor -- laranja e cinza do texto em volta têm
+   ~2:1 entre si (WCAG 1.4.1). */
+.pagina-texto p a:not([class]),
+.pagina-texto li a:not([class]) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .link-com-seta {
@@ -959,7 +976,11 @@ footer.rodape .rodape-base a:hover {
   font-size: var(--fs-base);
 }
 
-.banner-aviso a { color: var(--accent-bright); }
+.banner-aviso a {
+  color: var(--accent-bright);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 
 /* Estados vazios: um bloco central, sem ícone gigante. */
 .status-vazio {
@@ -1626,7 +1647,9 @@ footer.rodape .rodape-base a:hover {
   font-variant-numeric: tabular-nums;
 }
 
-.aba-categoria[aria-current="page"] .aba-contagem { color: rgba(255, 255, 255, 0.64); }
+/* 0.64 dava 2,9:1 sobre o laranja da aba ativa; 0.95 passa de 4,5:1 e
+   ainda fica um tom abaixo do nome (que é branco cheio). */
+.aba-categoria[aria-current="page"] .aba-contagem { color: rgba(255, 255, 255, 0.95); }
 
 /* ── Seletor Vitrine/Lista e ordenação ───────────────── */
 
@@ -2222,12 +2245,12 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 
 .lista-motivos .delta-positivo .breakdown-pontos {
   background: rgba(34, 160, 74, 0.14);
-  color: var(--positive);
+  color: var(--positive-selo);
 }
 
 .lista-motivos .delta-negativo .breakdown-pontos {
   background: rgba(248, 81, 73, 0.14);
-  color: var(--danger);
+  color: var(--danger-selo);
 }
 
 /* ── Tendência e selos ───────────────────────────────── */
@@ -2273,10 +2296,14 @@ table.tabela-candidatos td.celula-preco {
   border-radius: var(--radius-xs);
 }
 
-.celula-preco .icone-tendencia.tendencia-alta { background: rgba(34, 160, 74, 0.1); }
+.celula-preco .icone-tendencia.tendencia-alta {
+  background: rgba(34, 160, 74, 0.1);
+  color: var(--positive-selo);
+}
+
 .celula-preco .icone-tendencia.tendencia-baixa {
   background: rgba(248, 81, 73, 0.08);
-  color: var(--danger);
+  color: var(--danger-selo);
 }
 
 .selo-risco {
@@ -2314,7 +2341,7 @@ table.tabela-candidatos td.celula-preco {
   border: 1px solid rgba(34, 160, 74, 0.28);
   border-radius: var(--radius-pill);
   background: rgba(34, 160, 74, 0.06);
-  color: var(--positive);
+  color: var(--positive-selo);
   font-size: var(--fs-xs);
   cursor: help;
   -webkit-box-orient: vertical;
@@ -3849,12 +3876,12 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .selo-resultado.ok {
   background: rgba(34, 160, 74, 0.14);
-  color: var(--positive);
+  color: var(--positive-selo);
 }
 
 .selo-resultado.falha {
   background: rgba(248, 81, 73, 0.14);
-  color: var(--danger);
+  color: var(--danger-selo);
 }
 
 .saude-ciclos {

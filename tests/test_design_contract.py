@@ -51,10 +51,12 @@ def test_tokens_de_superficie_opencode():
 def test_laranja_da_casa():
     css = _css()
     # Laranja da casa (Claude Code): #f97316 nos botões/pílulas ativas (70%
-    # opacidade = rgba(249, 115, 22, 0.7)), links em #d0580c e hover #b8480a
-    # (4.5:1 no branco).
+    # opacidade = rgba(249, 115, 22, 0.7)) e hover #b8480a. Links: eram
+    # #d0580c (4.5:1 no branco, do tema claro); no fundo escuro davam
+    # 4,0:1 -- agora o próprio #f97316 (5,9:1 em --surface; auditoria de
+    # acessibilidade com axe-core, 2026-11-14).
     assert "--accent: #f97316" in css
-    assert "--accent-bright: #d0580c" in css
+    assert "--accent-bright: #f97316" in css
     assert "--accent-hover: #b8480a" in css
     assert "background: rgba(184, 72, 10, 0.7);" in css
     # Foco de teclado e item ativo das barras escuras acompanham o laranja.

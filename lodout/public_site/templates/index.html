@@ -229,12 +229,16 @@
 
   <header class="topo topo-larga">
     <div class="topo-linha">
-      <h1 class="titulo-logo">{% include "partials/_logo.html" %}</h1>
+      <p class="titulo-logo">{% include "partials/_logo.html" %}</p>
       {% include "partials/_conta_link.html" %}
     </div>
   </header>
 
   <main id="conteudo" class="pagina-inicial">
+    {# Título da página pro leitor de tela. O <h1> era o logo, que só
+       anunciava "link, Lodout — página inicial"; nas outras páginas o
+       logo já é <p> e o <h1> diz do que é a página. #}
+    <h1 class="visualmente-oculto">Lodout: notas e preços de skins de CS2</h1>
     {% if destaque_hero %}
     <section class="hero-destaque" aria-label="Item com a nota mais alta hoje">
       <span class="hero-destaque-halo{{ ' ' ~ destaque_hero.raridade_classe if destaque_hero.raridade_classe else '' }}" aria-hidden="true"></span>
@@ -469,7 +473,7 @@
     {% endif %}
     {% endif %}
     {% if candidatos %}
-    <nav class="paginacao">
+    <nav class="paginacao" aria-label="Paginação">
       <div class="paginacao-principal">
       {% if tem_pagina_anterior %}
         <a id="link-pagina-anterior" class="botao-link link-com-seta" href="{{ url_for('index', categoria=categoria_sel, nota_min=nota_min_sel, preco_max=preco_max_sel, liquidez_min=liquidez_min_sel, q=busca_sel, ordenar=ordenar_sel, ver=ver_sel, pagina=pagina-1) }}" title="Atalho: seta esquerda">{{ icone("seta-esquerda") }} Página anterior</a>
