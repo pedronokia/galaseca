@@ -1069,6 +1069,7 @@ footer.rodape .rodape-base a:hover {
 }
 
 .movimento-do-dia {
+  position: relative;
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -1086,6 +1087,15 @@ footer.rodape .rodape-base a:hover {
   transform: translateY(-2px);
 }
 
+/* O cartão já reage ao hover como clicável; o link do nome cobre o
+   cartão todo (antes só os 21px do nome levavam ao item). */
+.movimento-nome::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
 .movimento-nome {
   overflow: hidden;
   color: var(--text-bright);
@@ -1097,6 +1107,7 @@ footer.rodape .rodape-base a:hover {
 }
 
 .movimento-variacao {
+  font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1885,6 +1896,17 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
   background: transparent;
   flex-shrink: 0;
   object-fit: contain;
+}
+
+/* Imagem dentro de qualquer moldura: sem borda nem canto próprios -- a
+   moldura (overflow: hidden) já tem o fio da raridade e corta o canto.
+   Antes, fora das tabelas, a imagem mantinha a borda cinza com canto de
+   12px dentro da moldura de 8px: um quadrado dentro do quadrado. */
+.icone-item-quadro .icone-item {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
 }
 
 .celula-item .icone-item,
@@ -3890,6 +3912,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 }
 
 .contagem-favoritos {
+  font-variant-numeric: tabular-nums;
   display: inline-block;
   margin-left: 2px;
   padding: 0 6px;
@@ -4797,4 +4820,31 @@ p { text-wrap: pretty; }
   .cartao-item-steam::after { inset: -3px 0 -15px; }
   .link-secundario::after { inset: -10px 0; }
   .logo::after { inset: 0 -6px; }
+
+  /* "Comparar" (23px): cresce pra dentro do card, longe da nota. */
+  .cartao-item-comparar-alvo::after {
+    content: "";
+    position: absolute;
+    inset: -8px -8px -10px;
+  }
+
+  /* Nome no Ranking em lista (25px): a linha da tabela tem ~56px. */
+  .tabela-ranking .link-item,
+  .celula-item-ranking .link-item { position: relative; }
+
+  .tabela-ranking .link-item::after,
+  .celula-item-ranking .link-item::after {
+    content: "";
+    position: absolute;
+    inset: -8px 0;
+  }
 }
+
+/* "Itens que ficaram sem preço novo" (Status): 21px de altura. */
+.falhas-ciclo > summary { padding-block: 10px; }
+
+/* Datas, contagens e durações da tabela de coletas alinhadas. */
+.tabela-status td { font-variant-numeric: tabular-nums; }
+
+/* Mesmo retorno ao toque dos outros cartões clicáveis. */
+.movimento-do-dia:active { transform: scale(0.98); }
