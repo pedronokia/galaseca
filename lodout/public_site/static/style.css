@@ -744,7 +744,7 @@ main {
 footer.rodape {
   max-width: none;
   margin: 56px 0 0;
-  padding: 36px 22px 28px;
+  padding: var(--sp-9) 22px var(--sp-8);
   border-top: 0;
   /* Rodapé no tom do rodapé da Apple (#f5f5f7): faixa própria, sem
      virar mais um bloco branco na página cinza. */
@@ -762,6 +762,13 @@ footer.rodape > * {
 
 footer.rodape p { margin: 0 auto var(--sp-2); }
 
+/* Aviso do rodapé (o parágrafo antes da grade de links): respiro antes
+   dos títulos "Explorar/Entenda/Mais", que antes colavam nele. */
+footer.rodape > p {
+  margin-bottom: var(--sp-7);
+  line-height: 1.6;
+}
+
 footer.rodape a { color: var(--text-muted); }
 
 /* Rodapé é cromo neutro (ref. apple.com): o link escurece e sublinha
@@ -776,8 +783,8 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 .rodape-nav {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--sp-4);
-  margin: 0 0 var(--sp-5);
+  gap: var(--sp-6);
+  margin: 0 0 var(--sp-7);
 }
 
 .rodape-nav-grupo {
@@ -787,7 +794,7 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 }
 
 .rodape-nav-grupo h2 {
-  margin: 0 0 var(--sp-2);
+  margin: 0 0 var(--sp-3);
   color: var(--text);
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -818,14 +825,27 @@ footer.rodape a:hover { color: var(--text); text-decoration: underline; }
 /* Barra fina de versão, visitas e autor, separada da grade por um fio
    -- só texto aqui, os links já estão na grade acima. */
 .rodape-base {
-  padding-top: var(--sp-4);
+  padding-top: var(--sp-6);
   border-top: 1px solid var(--border);
   font-size: var(--fs-xs);
 }
 
 .rodape-base .versao {
-  margin: 0 0 4px;
+  margin: 0 0 var(--sp-2);
   text-align: center;
+}
+
+/* Assinatura do autor na cor da casa. */
+footer.rodape .rodape-base a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+footer.rodape .rodape-base a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .rodape-base .versao:last-child { margin-bottom: 0; }
