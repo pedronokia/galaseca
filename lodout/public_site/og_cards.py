@@ -167,7 +167,12 @@ def cartao_item(nome_fmt: str, nota: "int | None", preco_fmt: str,
         d.text((x + _fonte(120, 800).getlength(f"{int(nota)}") + 14, y + 104),
                "/100", font=_fonte(34, 500), fill=_TEXTO_FRACO)
     if preco_fmt:
-        px = x + 300
+        # Depois do "87 /100" de verdade: nota 100 tem 3 dígitos.
+        fim_nota = x
+        if nota is not None:
+            fim_nota = (x + _fonte(120, 800).getlength(f"{int(nota)}") + 14
+                        + _fonte(34, 500).getlength("/100"))
+        px = max(x + 300, int(fim_nota) + 50)
         tam = 56
         while tam > 34 and _fonte(tam, 700).getlength(preco_fmt) > LARGURA - 60 - px:
             tam -= 2
@@ -195,7 +200,7 @@ def cartao_item_em_cache(nome_fmt: str, nota, preco_fmt: str,
     chave = hashlib.sha1("|".join([
         nome_fmt, str(nota), preco_fmt, raridade or "",
         hashlib.sha1(icone).hexdigest() if icone else "-",
-        "v1"]).encode("utf-8")).hexdigest()
+        "v2"]).encode("utf-8")).hexdigest()
     pasta = _dir_cache()
     caminho = pasta / f"{chave}.png"
     try:
