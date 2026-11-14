@@ -1087,11 +1087,12 @@ def test_index_pagina_2(client, monkeypatch, tmp_path):
     pagina3 = client.get("/?pagina=3").data.decode("utf-8")
     assert "Item 0" in pagina1
     assert "Item 0" not in pagina2
-    assert "Item 10" in pagina2
-    assert "Mostrando 1–10 de 25 itens" in pagina1
-    assert "Mostrando 11–20 de 25 itens" in pagina2
-    assert "Mostrando 21–25 de 25 itens" in pagina3
-    # 25 itens / 10 por página = 3 páginas -- cabem todas na janela, sem
+    assert "Item 12" in pagina2
+    assert "Item 12" not in pagina1
+    assert "Mostrando 1–12 de 25 itens" in pagina1
+    assert "Mostrando 13–24 de 25 itens" in pagina2
+    assert "Mostrando 25–25 de 25 itens" in pagina3
+    # 25 itens / 12 por página = 3 páginas -- cabem todas na janela, sem
     # reticências.
     for pagina_corpo in (pagina1, pagina2, pagina3):
         numeros = pagina_corpo.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
@@ -1112,15 +1113,15 @@ def test_index_paginacao_numerada_com_muitas_paginas_usa_reticencias(
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/?pagina=9").data.decode("utf-8")
     numeros = body.split('class="paginacao-numeros"', 1)[1].split("</div>", 1)[0]
-    # 173 itens / 10 por página = 18 páginas. Na página 9, janela de 2:
-    # 1 … 7 8 9 10 11 … 18 -- primeira e última sempre visíveis, sem
-    # listar as 18 todas.
+    # 173 itens / 12 por página = 15 páginas. Na página 9, janela de 2:
+    # 1 … 7 8 9 10 11 … 15 -- primeira e última sempre visíveis, sem
+    # listar as 15 todas.
     assert "paginacao-reticencias" in numeros
     assert 'aria-current="page">9</a>' in numeros
-    for n in (1, 7, 8, 9, 10, 11, 18):
+    for n in (1, 7, 8, 9, 10, 11, 15):
         assert f">{n}</a>" in numeros
     assert ">3</a>" not in numeros
-    assert ">15</a>" not in numeros
+    assert ">13</a>" not in numeros
 
 
 def test_index_paginacao_numerada_some_com_1_pagina_so(
@@ -2186,13 +2187,21 @@ def test_status_mostra_grafico_e_buscas_populares(client, monkeypatch):
         lambda: [("2026-10-24", 3), ("2026-10-25", 5)])
     monkeypatch.setattr(
         "lodout.public_site.server.buscas.mais_buscados",
-        lambda limite=10: [("ak-47", 4)])
+        lambda limite=10: [("ak-47", 4), ("<script>alert(1)</script>", 2),
+                           ("zzzzznomatchxyz", 2)])
     monkeypatch.setattr(
         "lodout.public_site.server.scan_store.load_historico_ciclos",
         lambda: [])
+    monkeypatch.setattr(
+        "lodout.public_site.server.scan_store.load_last_scan",
+        lambda: {"results": [{"name": "AK-47 | Redline (Field-Tested)"}]})
     body = client.get("/status").data.decode("utf-8")
     assert "grafico-historico" in body
-    assert "ak-47" in body
+    assert "ak-47 — 4x" in body
+    # Só termos que acham item: testes de sondagem não viram vitrine
+    # pública (o admin continua vendo a lista crua).
+    assert "zzzzznomatchxyz" not in body
+    assert "alert(1)" not in body
     # mesmo padrão de tooltip por ponto do gráfico de /item e /conta/historico
     assert "<title>24/10/2026 — 3 visitas</title>" in body
     assert "<title>25/10/2026 — 5 visitas</title>" in body
@@ -3741,7 +3750,7 @@ def test_item_detail_mostra_itens_da_caixa(client, monkeypatch, tmp_path):
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/item/Chroma 2 Case").data.decode("utf-8")
-    assert "Itens desta caixa" in body
+    assert "desta caixa no lodout" in body
 
 
 def test_item_detail_sem_caixa_nao_mostra_card_de_itens(client, monkeypatch, tmp_path):
@@ -3751,7 +3760,7 @@ def test_item_detail_sem_caixa_nao_mostra_card_de_itens(client, monkeypatch, tmp
     ]
     _salva_scan(tmp_path, monkeypatch, resultados)
     body = client.get("/item/Item X").data.decode("utf-8")
-    assert "Itens desta caixa" not in body
+    assert "desta caixa no lodout" not in body
 
 
 # ── erro_stats ────────────────────────────────────────────────
@@ -4843,7 +4852,7 @@ def test_index_so_enriquece_a_pagina_atual(client, monkeypatch, tmp_path):
         "lodout.public_site.server.signals.load_item_history", _contado)
     resp = client.get("/")
     assert resp.status_code == 200
-    assert len(chamadas) <= 15  # página de 10 + folga, nunca os 152
+    assert len(chamadas) <= 17  # página de 12 + folga, nunca os 152
 
 
 def test_index_so_builda_icone_da_pagina_atual(client, monkeypatch, tmp_path):
@@ -4946,7 +4955,11 @@ def test_item_detail_nao_repete_motivos(client, monkeypatch, tmp_path):
         "utf-8")
     main = body[body.index("<main"):]
 
-    assert main.count("Preço 18% abaixo do típico (+20)") == 1
+    # Texto e pontos separados: a etiqueta "+20" leva a cor (com sinal,
+    # não só cor) e a frase fica neutra.
+    assert main.count("Preço 18% abaixo do típico") == 1
+    assert '<span class="breakdown-pontos" aria-label="+20 pontos">+20</span>' in main
+    assert '<span class="breakdown-texto">Preço 18% abaixo do típico</span>' in main
 
 
 def test_index_traduz_caixa_igual_coluna_item(client, monkeypatch, tmp_path):

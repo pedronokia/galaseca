@@ -98,7 +98,7 @@
     <section class="resumo-cards resumo-cards-item" aria-label="Resumo do item">
       <div class="card"><span class="card-label">Preço</span><span class="card-valor">{{ item.price_fmt }}</span></div>
       <div class="card card-nota-destaque"><span class="card-label">Nota</span><span class="card-valor nota nota-grande nota-{{ item.score|nota_classe }}">{{ item.score|nota_anel|safe }}<span class="nota-numero">{{ item.score }}</span></span>{% if item.nota_margem %}<span class="nota-margem" title="A soma dos fatores passou do limite da escala (0 a 100): sem o corte, a nota seria {{ item.score + item.nota_margem }}.">{{ "%+d"|format(item.nota_margem) }}</span>{% endif %}{% if item.confianca_baixa %}<span class="selo-confianca-baixa" title="{{ item.confianca_baixa_titulo }}">{{ icone("dado-limitado") }}Dado limitado</span>{% endif %}</div>
-      <div class="card"><span class="card-label">Caixa/Cápsula</span><span class="card-valor card-valor-texto">{{ item.case_label|rotulo_caixa(item.name) or "—" }}</span></div>
+      <div class="card card-caixa"><span class="card-label">Caixa/Cápsula</span><span class="card-valor card-valor-texto">{{ item.case_label|rotulo_caixa(item.name) or "—" }}{% if itens_da_caixa %}<span class="card-sub" title="Quantas skins desta caixa já estão mapeadas no lodout — não é a contagem oficial do jogo">{{ itens_da_caixa }} {{ "item" if itens_da_caixa == 1 else "itens" }} desta caixa no lodout</span>{% endif %}</span></div>
       <div class="card"><span class="card-label">Risco</span><span class="card-valor risco risco-{{ item.pump_risk|risco_nivel }}">{{ item.pump_risk|risco_label }}</span></div>
       {% if item.liquidity_depth and item.liquidity_depth.band %}
       <div class="card" title="{{ item.liquidity_depth.label }}">
@@ -108,11 +108,6 @@
       {% endif %}
       {% if tempo_aposentadoria %}
       <div class="card"><span class="card-label">Aposentada há</span><span class="card-valor">{{ tempo_aposentadoria }}</span></div>
-      {% endif %}
-      {% if itens_da_caixa %}
-      <div class="card" title="Quantas skins desta caixa já estão mapeadas no lodout — não é a contagem oficial do jogo">
-        <span class="card-label">Itens desta caixa</span><span class="card-valor">{{ itens_da_caixa }}</span>
-      </div>
       {% endif %}
       {% if preco_coletado_txt %}
       <p class="card-coleta">Preço deste item coletado {{ preco_coletado_txt }}.{% if item.mantido_do_ciclo_anterior %} A Steam não devolveu preço novo no último ciclo, então os números são do ciclo anterior; o item é tentado de novo no próximo.{% endif %}</p>
@@ -146,9 +141,10 @@
     <p>{{ item.reasons|join("; ") if item.reasons else "Nota neutra: nenhum fator se destacou" }}</p>
     {% endif %}
     {% if item.breakdown %}
-    <ul class="lista-breakdown">
+    <ul class="lista-breakdown lista-motivos">
       {% for b in item.breakdown %}
-      <li class="{{ 'delta-positivo' if b.delta and b.delta > 0 else ('delta-negativo' if b.delta and b.delta < 0 else '') }}">{{ b.label }}</li>
+      {% set pts = b.delta|pontos_fmt %}
+      <li class="{{ 'delta-positivo' if pts.startswith('+') else ('delta-neutro' if pts == '0' else 'delta-negativo') }}"><span class="breakdown-pontos" aria-label="{{ pts|replace('−', 'menos ') }} pontos">{{ pts }}</span><span class="breakdown-texto">{{ b.label|motivo_sem_pontos }}</span></li>
       {% endfor %}
     </ul>
     {% endif %}

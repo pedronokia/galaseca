@@ -128,7 +128,7 @@
           <td>{{ c.quando }}</td>
           <td>{{ c.itens }}{% if c.alvos %} de {{ c.alvos }}{% endif %}{% if c.mantidos %} <span class="status-muted">(+{{ c.mantidos }} mantidos)</span>{% endif %}</td>
           <td>{{ "%.1f"|format(c.duracao_min or 0)|replace(".", ",") }} min</td>
-          <td class="{{ 'ok' if c.sucesso else 'falha' }}">{% if c.sucesso %}Sucesso{% elif c.abortado %}Steam sem resposta (encerrada cedo){% else %}Sem sucesso (bloqueado){% endif %}</td>
+          <td><span class="selo-resultado {{ 'ok' if c.sucesso else 'falha' }}">{% if c.sucesso %}Sucesso{% elif c.abortado %}Steam sem resposta (encerrada cedo){% else %}Sem sucesso (bloqueado){% endif %}</span></td>
         </tr>
         {% endfor %}
       </tbody>

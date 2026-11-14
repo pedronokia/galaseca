@@ -70,7 +70,9 @@ _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 _LIMIT_CANDIDATOS = 20
-_PAGINA_TAMANHO = 10
+# 12: fecha a grade da vitrine em 4, 3 e 2 colunas (com 10, a última
+# fileira de 4 colunas ficava com 2 cartões e 2 buracos).
+_PAGINA_TAMANHO = 12
 _INTERVALO_HORAS_DEFAULT = 6.0
 _SECRET_KEY_PATH = DATA_DIR / "public_site_secret.key"
 _ERROR_LOG_PATH = DATA_DIR / "errors.log"
@@ -328,6 +330,8 @@ def create_app() -> Flask:
     app.jinja_env.filters["risco_nivel"] = _risco_nivel
     app.jinja_env.filters["risco_label"] = _risco_label
     app.jinja_env.filters["rotulo_caixa"] = _rotulo_caixa
+    app.jinja_env.filters["motivo_sem_pontos"] = _motivo_sem_pontos
+    app.jinja_env.filters["pontos_fmt"] = _pontos_fmt
     app.jinja_env.filters["motivo_fmt"] = _motivo_fmt
     app.jinja_env.filters["liquidez_label"] = _liquidez_label
     app.jinja_env.filters["titulo_sem_pipe_orfao"] = _titulo_sem_pipe_orfao
@@ -1184,7 +1188,8 @@ def create_app() -> Flask:
                 if ciclos else None),
             grafico_visitas=grafico_visitas,
             grafico_visitas_legenda=grafico_visitas_legenda,
-            mais_buscados=buscas.mais_buscados(limite=10),
+            mais_buscados=_buscas_com_resultado(
+                buscas.mais_buscados(limite=60), limite=10),
         )
 
     @app.route("/feed.xml")
@@ -1251,6 +1256,21 @@ def _contagem_por_categoria(scan: "dict | None") -> dict:
         if cat:
             contagem[cat] = contagem.get(cat, 0) + 1
     return contagem
+
+
+def _buscas_com_resultado(termos: "list[tuple[str, int]]",
+                          limite: int = 10) -> "list[tuple[str, int]]":
+    """Só os termos que acham algum item da última coleta (mesmo critério
+    da busca da home). A lista pública do /status mostrava testes como
+    "<script>alert(1)</script>" e "zzzzznomatchxyz" -- o admin continua
+    vendo tudo, inclusive o que se procura e o site ainda não acompanha."""
+    scan = scan_store.load_last_scan()
+    if not scan:
+        return []
+    nomes = [localize_name(r.get("name") or "")
+             for r in scan.get("results") or []]
+    return [(t, n) for t, n in termos
+            if any(_busca_bate(nome, t) for nome in nomes)][:limite]
 
 
 def _busca_bate(name_fmt: str, busca: "str | None") -> bool:
@@ -1378,6 +1398,25 @@ _LIQUIDEZ_LABELS = {
 
 def _liquidez_label(band: "str | None") -> str:
     return _LIQUIDEZ_LABELS.get(band or "", "")
+
+
+_PONTOS_NO_FIM = re.compile(r"\s*\([+\-\u2212]?\d+(?:[.,]\d+)?\)\s*$")
+
+
+def _pontos_fmt(delta) -> str:
+    """Etiqueta de pontos do "Por quê": "+20", "−15" (sinal de menos de
+    verdade) ou "0" -- fatores fracionários (-0.3) arredondam."""
+    try:
+        n = round(float(delta or 0))
+    except (TypeError, ValueError):
+        n = 0
+    return f"+{n}" if n > 0 else (f"\u2212{-n}" if n < 0 else "0")
+
+
+def _motivo_sem_pontos(label: "str | None") -> str:
+    """"Mais gente querendo comprar (+20)" -> "Mais gente querendo
+    comprar": no "Por quê" os pontos vão numa etiqueta própria."""
+    return _PONTOS_NO_FIM.sub("", label or "")
 
 
 def _rotulo_caixa(case_label: "str | None",

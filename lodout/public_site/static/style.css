@@ -69,16 +69,25 @@
   --accent-hover: #b8480a;
   --accent-soft: rgba(249, 115, 22, 0.1);
   --accent-steel: #66c0f4;
-  --positive: #1a7f37;
-  --warn: #b25000;
+  /* Estados em tons pra fundo ESCURO (os anteriores, #1a7f37 / #b25000 /
+     #d70015, eram de tema claro e davam ~3,2:1 sobre --surface: abaixo
+     dos 4,5:1 de texto pequeno). Testados >= 4,5:1 contra --surface
+     (#1e1e1e) e --surface-hover (#252525). Verde e âmbar iguais aos do
+     cartão de prévia (og_cards.py). */
+  --positive: #22a04a;
+  --warn: #d97706;
   /* Selo de risco médio usa este âmbar, não --warn/--accent: os dois já
      são tons de laranja parecidos com o laranja da marca (botões,
      links, abas ativas) -- um selo de ALERTA com a cor de AÇÃO podia
      ler como convite pra clicar, não como aviso. 4.5:1 testado contra
      --surface (#1e1e1e) e --surface-hover (#252525). */
   --risco-medio: #eab308;
-  --danger: #d70015;
-  --danger-bright: #b00012;
+  --danger: #f85149;
+  /* Fundos com texto branco (botão de perigo, contador): os tons acima
+     são pra TEXTO sobre o escuro e dariam ~3,3:1 com branco por cima. */
+  --danger-fundo: #da3633;
+  --danger-bright: #b62324;
+  --warn-fundo: #b45309;
   --focus: #f97316;
   --marca: #f97316;
 
@@ -698,6 +707,14 @@ main {
   margin: 0 0 40px;
 }
 
+/* "Atualizado há 6 h": dado do próprio cabeçalho, logo abaixo do
+   subtítulo -- solto depois dos 40px do cabeçalho, parecia outra seção. */
+.cabecalho-meta {
+  margin: var(--sp-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
 /* Sobretítulo: o "eyebrow" da Apple -- azul, 12px, tracking aberto. */
 .rotulo-pagina {
   margin: 0 0 var(--sp-2);
@@ -721,6 +738,15 @@ main {
   color: var(--text-muted);
   font-size: var(--fs-copy);
   line-height: 1.43;
+}
+
+/* Em .pagina-texto os parágrafos são justificados; o subtítulo do
+   cabeçalho é uma frase só, em letra grande -- justificado, abria
+   buracos entre as palavras ("Status do site, com   transparência"). */
+.pagina-texto .descricao-pagina {
+  text-align: left;
+  hyphens: manual;
+  text-wrap: pretty;
 }
 
 .secao-titulo {
@@ -894,9 +920,9 @@ footer.rodape .rodape-base a:hover {
 
 .status-erro {
   padding: 10px 14px;
-  border: 1px solid rgba(215, 0, 21, 0.28);
+  border: 1px solid rgba(248, 81, 73, 0.28);
   border-radius: var(--radius-sm);
-  background: rgba(215, 0, 21, 0.06);
+  background: rgba(248, 81, 73, 0.06);
   color: var(--danger);
 }
 
@@ -921,9 +947,9 @@ footer.rodape .rodape-base a:hover {
 .banner-aviso {
   margin: var(--sp-2) 0 var(--sp-4);
   padding: 12px 14px;
-  border: 1px solid rgba(178, 80, 0, 0.28);
+  border: 1px solid rgba(217, 119, 6, 0.28);
   border-radius: var(--radius-sm);
-  background: rgba(178, 80, 0, 0.06);
+  background: rgba(217, 119, 6, 0.06);
   color: var(--warn);
   font-size: var(--fs-base);
 }
@@ -1449,7 +1475,7 @@ footer.rodape .rodape-base a:hover {
 }
 
 .form-filtros button#botao-favoritos.ativo {
-  border-color: rgba(178, 80, 0, 0.4);
+  border-color: rgba(217, 119, 6, 0.4);
   color: var(--warn);
 }
 
@@ -2107,6 +2133,52 @@ table.tabela-itens th.celula-sparkline { white-space: nowrap; }
 .lista-breakdown .delta-positivo { color: var(--positive); }
 .lista-breakdown .delta-negativo { color: var(--danger); }
 
+/* "Por quê" da página do item: texto neutro e legível; a cor fica só na
+   etiqueta de pontos (com o sinal +/−, então não depende só da cor).
+   Antes a frase inteira era verde ou vermelha -- uma lista longa em
+   verde cansava. Os cartões da home seguem com a lista compacta acima. */
+.lista-motivos {
+  display: grid;
+  gap: var(--sp-2);
+  padding: 0;
+  color: var(--text);
+  list-style: none;
+}
+
+.lista-motivos li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  line-height: 1.5;
+}
+
+.lista-motivos .delta-positivo,
+.lista-motivos .delta-negativo { color: inherit; }
+
+.breakdown-texto { text-align: left; }
+
+.breakdown-pontos {
+  flex: 0 0 3.2em;
+  padding: 1px 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.lista-motivos .delta-positivo .breakdown-pontos {
+  background: rgba(34, 160, 74, 0.14);
+  color: var(--positive);
+}
+
+.lista-motivos .delta-negativo .breakdown-pontos {
+  background: rgba(248, 81, 73, 0.14);
+  color: var(--danger);
+}
+
 /* ── Tendência e selos ───────────────────────────────── */
 
 .tendencia-alta { color: var(--positive); font-weight: 600; }
@@ -2150,9 +2222,9 @@ table.tabela-candidatos td.celula-preco {
   border-radius: var(--radius-xs);
 }
 
-.celula-preco .icone-tendencia.tendencia-alta { background: rgba(26, 127, 55, 0.1); }
+.celula-preco .icone-tendencia.tendencia-alta { background: rgba(34, 160, 74, 0.1); }
 .celula-preco .icone-tendencia.tendencia-baixa {
-  background: rgba(215, 0, 21, 0.08);
+  background: rgba(248, 81, 73, 0.08);
   color: var(--danger);
 }
 
@@ -2188,9 +2260,9 @@ table.tabela-candidatos td.celula-preco {
   display: -webkit-box;
   overflow: hidden;
   padding: 2px 8px;
-  border: 1px solid rgba(26, 127, 55, 0.28);
+  border: 1px solid rgba(34, 160, 74, 0.28);
   border-radius: var(--radius-pill);
-  background: rgba(26, 127, 55, 0.06);
+  background: rgba(34, 160, 74, 0.06);
   color: var(--positive);
   font-size: var(--fs-xs);
   cursor: help;
@@ -2679,13 +2751,26 @@ table.tabela-candidatos td.celula-preco {
   transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard);
 }
 
+/* Etiqueta "☐ Comparar": mesmo visual da posição (#1) do Ranking, que
+   ocupa este canto lá. Antes era uma caixinha num fundo branco sem
+   rótulo -- no celular (sempre visível) parecia uma pílula branca solta. */
 .cartao-item-comparar-alvo {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 8px;
+  left: 8px;
   z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding: 3px 8px 3px 5px;
   border-radius: var(--radius-xs);
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
   opacity: 0;
   transform: scale(0.9);
   transition: opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard);
@@ -2701,6 +2786,8 @@ table.tabela-candidatos td.celula-preco {
 @media (hover: none) {
   .cartao-item-comparar-alvo { opacity: 1; }
 }
+
+.cartao-item-comparar-alvo:has(:checked) { color: var(--text-bright); }
 
 /* Posição no card do Ranking (#1, #2...): canto que na Vitrine da home
    pertence ao alvo de comparação -- o Ranking não tem comparar, então
@@ -2997,8 +3084,39 @@ table.tabela-candidatos td.celula-preco {
 }
 
 .item-parecido-preco {
+  min-width: 6.5em;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* `.pagina-texto ul` (recuo de 20px pra listas de texto) vencia estas
+   listas por especificidade: elas ficavam fora do alinhamento do título. */
+.pagina-texto .lista-parecidos,
+.pagina-texto .lista-motivos { padding-left: 0; }
+
+/* Celular: preço embaixo do nome, nota à direita -- com tudo na mesma
+   linha o nome quebrava em 3 linhas com hífen. */
+@media (max-width: 560px) {
+  .lista-parecidos .item-parecido {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: "icone link nota" "icone preco nota";
+    column-gap: var(--sp-3);
+    row-gap: 2px;
+  }
+
+  .item-parecido > .icone-item-quadro { grid-area: icone; }
+  .item-parecido-link { grid-area: link; hyphens: manual; }
+  .item-parecido > .nota { grid-area: nota; }
+
+  .item-parecido-preco {
+    grid-area: preco;
+    min-width: 0;
+    font-size: var(--fs-sm);
+    text-align: left;
+  }
 }
 
 /* ── Comparador ──────────────────────────────────────── */
@@ -3028,6 +3146,13 @@ table.tabela-candidatos td.celula-preco {
 }
 
 .checkbox-comparar:hover { border-color: var(--text-muted); }
+
+/* Menor dentro da etiqueta "Comparar" dos cartões. */
+.cartao-item-comparar-alvo .checkbox-comparar {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+}
 
 .checkbox-comparar:checked {
   border-color: var(--accent);
@@ -3175,7 +3300,33 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   text-transform: uppercase;
 }
 
-.resumo-cards-item .card-valor { font-size: var(--fs-xl); }
+.resumo-cards-item .card-valor {
+  font-size: var(--fs-xl);
+  white-space: nowrap;
+}
+
+/* Nome da caixa: texto, não número. Precisa vencer a regra acima (mesma
+   especificidade, vinha depois e deixava o nome em letra de preço, 4
+   linhas). Ganha mais largura que os números e pode quebrar. */
+.resumo-cards-item .card-valor.card-valor-texto {
+  font-size: var(--fs-base);
+  white-space: normal;
+}
+
+.resumo-cards-item .card-caixa { flex: 2.5 1 240px; }
+
+/* "3 itens desta caixa no lodout": dado da própria caixa, numa linha
+   menor embaixo do nome em vez de uma coluna a mais. */
+.resumo-cards-item .card-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  cursor: help;
+}
+
+.resumo-cards-item .card-label { white-space: nowrap; }
 
 .resumo-cards-item .card-nota-destaque {
   flex: 0 0 auto;
@@ -3322,7 +3473,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 .badge-disparado {
   display: inline-block;
   padding: 2px 9px;
-  border: 1px solid rgba(178, 80, 0, 0.4);
+  border: 1px solid rgba(217, 119, 6, 0.4);
   border-radius: var(--radius-pill);
   color: var(--warn);
   font-size: var(--fs-xs);
@@ -3426,7 +3577,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 .card-aviso {
   max-width: 560px;
-  border-color: rgba(215, 0, 21, 0.35);
+  border-color: rgba(248, 81, 73, 0.35);
 }
 
 .card-aviso ul {
@@ -3442,7 +3593,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   padding: 10px 22px;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--danger);
+  background: var(--danger-fundo);
   color: #ffffff;
   font-size: var(--fs-base);
   font-weight: 400;
@@ -3608,8 +3759,26 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
 
 /* ── Status ──────────────────────────────────────────── */
 
-.tabela-status td.ok { color: var(--positive); }
-.tabela-status td.falha { color: var(--danger); }
+/* Resultado da coleta como selo suave (cor + texto), no padrão dos
+   selos do resto do site. */
+.selo-resultado {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.selo-resultado.ok {
+  background: rgba(34, 160, 74, 0.14);
+  color: var(--positive);
+}
+
+.selo-resultado.falha {
+  background: rgba(248, 81, 73, 0.14);
+  color: var(--danger);
+}
 
 .saude-ciclos {
   display: flex;
@@ -3725,7 +3894,7 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   margin-left: 2px;
   padding: 0 6px;
   border-radius: var(--radius-pill);
-  background: var(--warn);
+  background: var(--warn-fundo);
   color: #ffffff;
   font-size: var(--fs-2xs);
   font-weight: 700;
@@ -3883,6 +4052,15 @@ table.tabela-candidatos th.celula-comparar-cabecalho {
   }
 
   .resumo-cards-item .card:last-of-type { border-bottom: 0; }
+
+  /* Valor à direita do rótulo: pode encolher e quebrar em vez de
+     empurrar a página pra fora da tela. */
+  .resumo-cards-item .card-caixa { flex: 1 1 auto; }
+
+  .resumo-cards-item .card-valor-texto {
+    min-width: 0;
+    text-align: right;
+  }
 
   .resumo-cards-item .card-coleta {
     border-top: 0;

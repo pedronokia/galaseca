@@ -89,9 +89,9 @@
     <header class="cabecalho-pagina">
       <h1 class="titulo-pagina">Ranking</h1>
       <p class="descricao-pagina">As 20 maiores notas da última coleta: quem subiu, caiu ou é novidade.</p>
+      {% if itens %}<p class="cabecalho-meta">Atualizado {{ quando }}.</p>{% endif %}
     </header>
     {% if itens %}
-      <p class="status">Atualizado {{ quando }}.</p>
       <nav class="barra-periodo-ranking" aria-label="Período da comparação">
         <span class="barra-periodo-ranking-rotulo" id="rotulo-periodo-ranking">Comparar com:</span>
         <div class="seletor-periodo" role="group" aria-labelledby="rotulo-periodo-ranking">
