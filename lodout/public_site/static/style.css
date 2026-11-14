@@ -4847,6 +4847,12 @@ p { text-wrap: pretty; }
 .variacao-nota,
 .barra-comparar { font-variant-numeric: tabular-nums; }
 
+.barra-comparar-limite { border-color: var(--warn); }
+.aviso-comparar { color: var(--warn); font-weight: 600; }
+.aviso-comparar[hidden],
+.texto-comparar[hidden],
+.paginacao[hidden] { display: none; }
+
 /* Retorno tátil ao apertar: leve encolhida, sem transição (resposta
    imediata; o estado normal volta pela transição que cada um já tem). */
 .botao-acao:active,

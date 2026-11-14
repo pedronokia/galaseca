@@ -5724,3 +5724,55 @@ def test_paginas_declaram_imagem_de_previa(client, monkeypatch, tmp_path):
         assert body.count('property="og:image"') == 1, pagina
     home = client.get("/").data.decode("utf-8")
     assert home.count('property="og:image"') == 1
+
+
+def test_abas_contam_o_que_a_busca_acha(client, monkeypatch, tmp_path):
+    """Com busca ativa, a aba diz quantos itens daquela categoria batem com
+    a busca -- antes contava o scan inteiro ("Facas 2" com zero resultados
+    na tela)."""
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 100.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "category": "Rifles",
+         "breakdown": []},
+        {"name": "★ Karambit | Fade (Factory New)", "score": 70, "price": 9000.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "category": "Facas",
+         "breakdown": []},
+        {"name": "★ Bayonet | Fade (Factory New)", "score": 60, "price": 800.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "category": "Facas",
+         "breakdown": []},
+    ])
+    sem_busca = client.get("/").data.decode("utf-8")
+    assert 'Facas <span class="aba-contagem">2</span>' in sem_busca
+    assert 'Rifles <span class="aba-contagem">1</span>' in sem_busca
+
+    com_busca = client.get("/?q=ak-47").data.decode("utf-8")
+    assert 'Todas <span class="aba-contagem">1</span>' in com_busca
+    assert 'Rifles <span class="aba-contagem">1</span>' in com_busca
+    assert ">Facas <span" not in com_busca  # 0 resultados: a aba some
+
+    # Categoria escolhida continua visível mesmo com 0 na busca.
+    cat_vazia = client.get("/?q=ak-47&categoria=Facas").data.decode("utf-8")
+    assert 'Facas <span class="aba-contagem">0</span>' in cat_vazia
+
+
+def test_busca_sem_resultado_explica_e_sugere(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "AK-47 | Redline (Field-Tested)", "score": 80, "price": 100.0,
+         "case_label": "", "pump_risk": {"level": "low"}, "category": "Rifles",
+         "breakdown": []},
+    ])
+    body = client.get("/?q=xyzabc").data.decode("utf-8")
+    assert "Nenhum item com “xyzabc”" in body
+    assert "O Lodout acompanha 1 item —" in body
+    assert "Limpar busca</a>" in body
+    assert "candidato" not in body.split("<main", 1)[1].lower()
+
+
+def test_pagina_alem_do_fim_mostra_a_ultima(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": f"Item {i}", "score": 100 - i, "price": 1.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []} for i in range(25)])
+    body = client.get("/?pagina=999").data.decode("utf-8")
+    assert "Mostrando 25–25 de 25 itens · página 3" in body
+    assert "Item 24" in body
+    assert "Mostrando 1–12" in client.get("/?pagina=0").data.decode("utf-8")

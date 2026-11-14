@@ -388,13 +388,25 @@ def create_app() -> Flask:
         # número (ex. 183) e a lista abaixo mostrava outro (176) sem
         # explicação. Sem filtro nenhum ativo, `todos` já é esse total;
         # só recalcula quando algum filtro do visitante reduziu `todos`.
-        total_geral = (len(todos)
-                       if not (categoria or nota_min or preco_max or busca or liquidez_min)
-                       else len(_candidatos_filtrados(
-                           scan, com_historico=False, com_icone=False)))
+        # Abas de categoria contam o que a pessoa VAI VER ao clicar: a
+        # mesma lista filtrada (busca, nota, preço, liquidez), só sem a
+        # categoria. Antes contavam o scan inteiro -- com uma busca sem
+        # resultado, a tela dizia "Nenhum item" e as abas "Facas 7".
+        sem_categoria = (todos if not categoria else _candidatos_filtrados(
+            scan, None, nota_min, preco_max, busca, ordenar, liquidez_min,
+            com_historico=False, com_icone=False))
+        total_geral = len(sem_categoria)
+        contagem_abas: dict = {}
+        for c in sem_categoria:
+            if c.get("category"):
+                contagem_abas[c["category"]] = contagem_abas.get(c["category"], 0) + 1
+        total_paginas = max(1, -(-len(todos) // _PAGINA_TAMANHO))
+        # Link antigo (?pagina=15 depois que a lista encolheu) ou digitado
+        # à mão: mostra a última página que existe em vez de uma lista
+        # vazia sem explicação.
+        pagina = min(max(1, pagina), total_paginas)
         inicio = (pagina - 1) * _PAGINA_TAMANHO
         candidatos_pagina = todos[inicio:inicio + _PAGINA_TAMANHO]
-        total_paginas = max(1, -(-len(todos) // _PAGINA_TAMANHO))
         _enriquecer_com_historico(candidatos_pagina)
         _enriquecer_com_icone(candidatos_pagina)
         intervalo_horas = float(ambiente("WORKER_INTERVAL_HORAS", _INTERVALO_HORAS_DEFAULT))
@@ -440,6 +452,10 @@ def create_app() -> Flask:
             scan_desatualizado=scan_desatualizado,
             categorias=sorted(scan_targets.SCAN_BY_CATEGORY.keys()),
             contagem_categorias=_contagem_por_categoria(scan),
+            contagem_abas=contagem_abas,
+            filtro_alem_da_categoria=bool(
+                nota_min or preco_max or busca or liquidez_min),
+            total_acompanhados=len(scan["results"]) if scan else 0,
             total_geral=total_geral,
             categoria_sel=categoria,
             nota_min_sel=nota_min,

@@ -327,6 +327,11 @@ document.addEventListener("keydown", function (e) {
       document.querySelectorAll("table.tabela-candidatos, .grade-cards").forEach(function (t) {
         t.style.display = semNenhum ? "none" : "";
       });
+      // A paginação ("Mostrando 1–12 de 38 itens", "Ver mais") fala da
+      // lista completa; no modo só favoritos ela contradizia a tela.
+      document.querySelectorAll(".paginacao").forEach(function (nav) {
+        nav.hidden = ativo;
+      });
       var msgVazio = document.getElementById("msg-sem-favoritos");
       if (msgVazio) {
         msgVazio.hidden = !semNenhum;
@@ -348,6 +353,26 @@ document.addEventListener("keydown", function (e) {
   function salvar(lista) {
     try { sessionStorage.setItem(CHAVE, JSON.stringify(lista)); } catch (e) {}
   }
+  // Retorno VISÍVEL ao tentar marcar além do limite (o anunciar() só
+  // chega ao leitor de tela): a barra troca o texto por alguns segundos.
+  var timerLimite = null;
+  function avisarLimite() {
+    var barra = document.getElementById("barra-comparar");
+    if (!barra) return;
+    var texto = barra.querySelector(".texto-comparar");
+    var aviso = barra.querySelector(".aviso-comparar");
+    if (!texto || !aviso) return;
+    texto.hidden = true;
+    aviso.hidden = false;
+    barra.classList.add("barra-comparar-limite");
+    clearTimeout(timerLimite);
+    timerLimite = setTimeout(function () {
+      texto.hidden = false;
+      aviso.hidden = true;
+      barra.classList.remove("barra-comparar-limite");
+    }, 3000);
+  }
+
   function atualizarBarra() {
     var lista = ler();
     var barra = document.getElementById("barra-comparar");
@@ -375,6 +400,7 @@ document.addEventListener("keydown", function (e) {
       if (lista.length >= MAX) {
         e.target.checked = false;
         anunciar("Limite de " + MAX + " itens pra comparar. Desmarque um pra trocar.");
+        avisarLimite();
         return;
       }
       lista.push(nome);

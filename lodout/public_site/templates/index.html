@@ -420,8 +420,8 @@
        limpa e o nome da categoria já basta para reconhecer o grupo. #}
     <nav class="abas-categoria" aria-label="Categorias">
       <a class="aba-categoria" href="{{ url_categoria(None) }}"{% if not categoria_sel %} aria-current="page"{% endif %}>Todas <span class="aba-contagem">{{ total_geral }}</span></a>
-      {% for cat in categorias if contagem_categorias.get(cat) %}
-      <a class="aba-categoria" href="{{ url_categoria(cat) }}"{% if cat == categoria_sel %} aria-current="page"{% endif %}>{{ cat }} <span class="aba-contagem">{{ contagem_categorias.get(cat) }}</span></a>
+      {% for cat in categorias if contagem_abas.get(cat) or cat == categoria_sel %}
+      <a class="aba-categoria" href="{{ url_categoria(cat) }}"{% if cat == categoria_sel %} aria-current="page"{% endif %}>{{ cat }} <span class="aba-contagem">{{ contagem_abas.get(cat, 0) }}</span></a>
       {% endfor %}
     </nav>
     {% endif %}
@@ -498,7 +498,10 @@
     {% elif scan and categoria_sel and not contagem_categorias.get(categoria_sel) %}
       <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>A categoria {{ categoria_sel }} ainda não tem itens coletados. A coleta atual cobre só as categorias com número ao lado do nome no filtro. <a href="{{ url_for('index') }}">Ver todas as categorias</a></p>
     {% elif scan %}
-      <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>Nenhum candidato com esses filtros. <a href="{{ url_for('index', ordenar=ordenar_sel, ver=ver_sel) }}">Limpar filtros</a></p>
+      {# Diz o que foi buscado, quantos itens o site acompanha e como acertar
+         a busca -- "Nenhum candidato com esses filtros" era jargão e não
+         ajudava a sair do vazio. #}
+      <p class="status status-vazio"><span class="status-vazio-icone" aria-hidden="true">{{ icone("lupa") }}</span>{% if busca_sel %}Nenhum item com “{{ busca_sel }}”{% if categoria_sel %} em {{ categoria_sel }}{% endif %}{% if nota_min_sel or preco_max_sel or liquidez_min_sel %} com esses filtros{% endif %}. O Lodout acompanha {{ total_acompanhados }} {{ "item" if total_acompanhados == 1 else "itens" }} — tente só parte do nome, como “AK-47” ou “Caixa”.{% else %}Nenhum item com esses filtros.{% endif %} <a href="{{ url_for('index', ordenar=ordenar_sel, ver=ver_sel) }}">Limpar {{ "busca e filtros" if busca_sel and (categoria_sel or nota_min_sel or preco_max_sel or liquidez_min_sel) else ("busca" if busca_sel else "filtros") }}</a></p>
     {% else %}
       <section class="status status-vazio">
         <span class="status-vazio-icone" aria-hidden="true">{{ icone("grafico") }}</span>
@@ -516,7 +519,10 @@
   </footer>
 
   <div id="barra-comparar" class="barra-comparar" hidden>
-    <span><span class="contagem-comparar">0</span>/3 selecionados pra comparar</span>
+    <span class="texto-comparar"><span class="contagem-comparar">0</span>/3 selecionados pra comparar</span>
+    {# Aparece por alguns segundos ao tentar marcar o 4º: antes a caixinha
+       simplesmente não marcava, e o aviso só chegava ao leitor de tela. #}
+    <span class="aviso-comparar" hidden>Máximo de 3 — desmarque um pra trocar</span>
     <a class="botao-link link-comparar" href="{{ url_for('comparar') }}">Comparar</a>
     <button type="button" id="botao-limpar-comparar" class="botao-link botao-remover">Limpar</button>
   </div>
