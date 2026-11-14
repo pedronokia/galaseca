@@ -45,7 +45,7 @@ from lodout._paths import DATA_DIR, atomic_write_bytes
 from lodout.localization import localize_name
 from lodout.public_site import (
     buscas, changelog, charts, db_backup, discord_notify, erro_stats, fmt,
-    icon_cache, latencia, profile_fetcher, raridade, rate_limit,
+    icon_cache, latencia, og_cards, profile_fetcher, raridade, rate_limit,
     scan_progress, user_store, uptime, visits,
 )
 from lodout.public_site.auth import csrf_token, csrf_valid
@@ -561,6 +561,37 @@ def create_app() -> Flask:
             preco_coletado_txt=(
                 scan_store.idade_txt(hist[-1]["ts"]) if hist else None),
         )
+
+    @app.route("/og/item.png")
+    @rate_limit.rate_limited(rate_limit.API_MAX_HITS, rate_limit.API_WINDOW_S)
+    def og_item():
+        """Imagem de prévia (1200x630) do item, pra quando o link dele é
+        compartilhado. Só dado já guardado: o ícone sai do cache local
+        (nunca busca no CDN da Steam aqui) e a imagem fica em cache em
+        disco até nota/preço mudarem. Nome fora da lista do site: 404."""
+        nome = request.args.get("nome") or ""
+        scan = scan_store.load_last_scan()
+        candidatos = _candidatos_filtrados(
+            scan, com_historico=False, com_icone=False)
+        item = next((c for c in candidatos if c["name"] == nome), None)
+        if item is None:
+            return "", 404
+        icone = None
+        hash_icone = item.get("icon")
+        if hash_icone:
+            for tamanho in (384, icon_cache.TAMANHO_PADRAO):
+                try:
+                    icone = icon_cache._caminho(hash_icone, tamanho).read_bytes()
+                    break
+                except (OSError, ValueError):
+                    continue
+        dados = og_cards.cartao_item_em_cache(
+            item.get("name_fmt") or nome, item.get("score"),
+            item.get("price_fmt") or "",
+            raridade.raridade_suffix(item) or None, icone)
+        resp = Response(dados, mimetype="image/png")
+        resp.headers["Cache-Control"] = "public, max-age=3600"
+        return resp
 
     @app.route("/comparar")
     def comparar():

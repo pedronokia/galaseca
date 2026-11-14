@@ -5672,3 +5672,42 @@ def test_status_mostra_rodada_top(client, monkeypatch):
                                  "alvos": 20, "duracao_min": 3.1})
     body = client.get("/status").data.decode("utf-8")
     assert "20 primeiros do ranking" in body and "há 10 min" in body
+
+
+# ── imagens de prévia ao compartilhar ───────────────────────────
+
+def test_og_item_gera_png_1200x630_e_cacheia(client, monkeypatch, tmp_path):
+    import io as _io
+    from PIL import Image as _Image
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "★ Karambit | Fade (Factory New)", "score": 88,
+         "price": 4000.0, "case_label": "", "pump_risk": {"level": "low"},
+         "breakdown": [], "name_color": "8650AC", "quality_id": "unusual"},
+    ])
+    monkeypatch.setattr(server.og_cards, "_dir_cache",
+                        lambda: tmp_path / "og")
+    resp = client.get("/og/item.png?nome=★ Karambit | Fade (Factory New)")
+    assert resp.status_code == 200 and resp.mimetype == "image/png"
+    assert _Image.open(_io.BytesIO(resp.data)).size == (1200, 630)
+    assert len(list((tmp_path / "og").glob("*.png"))) == 1
+    # Segunda vez vem do cache (mesmo arquivo, nada novo).
+    client.get("/og/item.png?nome=★ Karambit | Fade (Factory New)")
+    assert len(list((tmp_path / "og").glob("*.png"))) == 1
+    assert client.get("/og/item.png?nome=Inexistente").status_code == 404
+
+
+def test_paginas_declaram_imagem_de_previa(client, monkeypatch, tmp_path):
+    _salva_scan(tmp_path, monkeypatch, [
+        {"name": "A", "score": 70, "price": 5.0, "case_label": "",
+         "pump_risk": {"level": "low"}, "breakdown": []},
+    ])
+    item = client.get("/item/A").data.decode("utf-8")
+    assert '/og/item.png?nome=A"' in item
+    assert '<meta name="twitter:card" content="summary_large_image">' in item
+    assert item.count('property="og:image"') == 1
+    for pagina in ("/ranking", "/novidades", "/metodo", "/status"):
+        body = client.get(pagina).data.decode("utf-8")
+        assert "/static/og-image.png" in body, pagina
+        assert body.count('property="og:image"') == 1, pagina
+    home = client.get("/").data.decode("utf-8")
+    assert home.count('property="og:image"') == 1

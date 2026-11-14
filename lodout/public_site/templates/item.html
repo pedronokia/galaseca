@@ -9,13 +9,16 @@
   <meta property="og:title" content="{{ item.name_fmt }} — Lodout">
   <meta property="og:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}{% if item.reasons %} · {{ item.reasons|join('; ') }}{% endif %}">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.png')) }}">
+  <meta property="og:image" content="{{ request.url_root.rstrip('/') ~ url_for('og_item', nome=item.name) }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="{{ item.name_fmt }}: nota {{ item.score }}/100, {{ item.price_fmt }}">
   <meta property="og:url" content="{{ request.url }}">
   <meta property="og:locale" content="pt_BR">
-  <meta name="twitter:card" content="summary">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{ item.name_fmt }} — Lodout">
   <meta name="twitter:description" content="Nota {{ item.score }}/100 · {{ item.price_fmt }}">
-  <meta name="twitter:image" content="{{ request.url_root.rstrip('/') ~ (item.icon_url_2x if item.icon_url_2x else url_for('static', filename='og-image.png')) }}">
+  <meta name="twitter:image" content="{{ request.url_root.rstrip('/') ~ url_for('og_item', nome=item.name) }}">
   <link rel="canonical" href="{{ request.url }}">
   <script type="application/ld+json">
   {

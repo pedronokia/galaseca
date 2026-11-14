@@ -1,4 +1,13 @@
   <link rel="icon" href="{{ static_v('favicon.svg') }}">
+  {# Prévia ao compartilhar: início e item declaram a própria imagem; as
+     demais páginas usam a padrão (logo + frase), que antes não tinham. #}
+  {% if request.endpoint not in ('index', 'item_detail') %}
+  <meta property="og:site_name" content="Lodout">
+  <meta property="og:image" content="{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='og-image.png') }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  {% endif %}
   {# Fonte crítica: preload pra começar a baixar em paralelo com o HTML,
      em vez de só depois que o CSS é baixado e parseado (o @font-face
      dispara o fetch da fonte). Sem isso, o texto fica em fallback até a

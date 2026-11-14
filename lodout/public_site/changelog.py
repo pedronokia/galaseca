@@ -12,6 +12,7 @@ ENTRADAS = [
         "titulo": "Top 20 com preço mais fresco",
         "itens": [
             "Os 20 primeiros do ranking passam a ter o preço atualizado a cada 2 horas, entre as coletas completas de 6 em 6 horas. A página Status mostra quando foi a última atualização.",
+            "Ao compartilhar o link de um item (Discord, WhatsApp, X…), aparece um cartão com o ícone, a nota, o preço e a cor da raridade. As demais páginas ganharam a imagem padrão do Lodout.",
         ],
     },
     {
