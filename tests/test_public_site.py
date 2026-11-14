@@ -2715,6 +2715,9 @@ def _sem_handler_de_sinal_real(monkeypatch):
     """`worker.main()` instala um handler de SIGTERM -- nos testes ele
     não pode vazar pro processo do pytest."""
     monkeypatch.setattr(worker.signal, "signal", lambda *a, **kw: None)
+    # Rodadas rápidas do Top 20 desligadas por padrão nos testes (os de
+    # main() conferem a espera exata); os testes delas ligam de volta.
+    monkeypatch.setenv("LODOUT_TOP_RAPIDO_HORAS", "0")
     monkeypatch.setattr(worker, "_parar", False)
     monkeypatch.setattr(worker, "_escaneando", False)
 
@@ -5580,3 +5583,92 @@ def test_arquivo_de_verificacao_do_google(client):
     assert resp.status_code == 200
     assert resp.data.decode() == (
         "google-site-verification: google828fe430d38de239.html")
+
+
+
+# ── rodada rápida do Top 20 ─────────────────────────────────────
+
+def test_dormir_com_rodadas_faz_duas_rodadas_em_6h(monkeypatch):
+    monkeypatch.setenv("LODOUT_TOP_RAPIDO_HORAS", "2")
+    relogio = {"t": 0.0}
+    dormidas, rodadas = [], []
+    monkeypatch.setattr(worker.time, "time", lambda: relogio["t"])
+
+    def _sleep(s):
+        dormidas.append(s)
+        relogio["t"] += s
+
+    monkeypatch.setattr(worker.time, "sleep", _sleep)
+    monkeypatch.setattr(worker, "rodada_top",
+                        lambda: rodadas.append(relogio["t"]) or [])
+    worker._dormir_com_rodadas_top(6 * 3600)
+    assert rodadas == [2 * 3600, 4 * 3600]
+    assert sum(dormidas) == 6 * 3600
+
+
+def test_dormir_sem_rodada_quando_desligado_ou_apos_falha(monkeypatch):
+    monkeypatch.setattr(worker.time, "sleep", lambda s: None)
+    chamou = []
+    monkeypatch.setattr(worker, "rodada_top", lambda: chamou.append(1))
+    monkeypatch.setenv("LODOUT_TOP_RAPIDO_HORAS", "0")
+    worker._dormir_com_rodadas_top(6 * 3600)
+    monkeypatch.setenv("LODOUT_TOP_RAPIDO_HORAS", "2")
+    worker._dormir_com_rodadas_top(6 * 3600, permitido=False)
+    # Coleta completa perto demais: só dorme.
+    worker._dormir_com_rodadas_top(2 * 3600)
+    assert chamou == []
+
+
+def test_rodada_top_atualiza_so_o_top_20_sem_mexer_no_ranking(
+        monkeypatch, tmp_path):
+    original_save = scan_store.save_last_scan
+    original_load = scan_store.load_last_scan
+    scan_path = tmp_path / "scan.json"
+    original_save("Todas", [
+        {"name": "Top", "score": 90, "price": 10.0, "category": "Facas",
+         "data_quality": {"n": 30}},
+        {"name": "Fora", "score": 10, "price": 1.0, "category": "Caixas"},
+    ], path=scan_path, now=1000.0)
+    monkeypatch.setattr(worker.scan_store, "load_last_scan",
+                        lambda: original_load(path=scan_path))
+    monkeypatch.setattr(
+        worker.scan_store, "save_last_scan",
+        lambda cat, res, now=None: original_save(cat, res, path=scan_path,
+                                                 now=now))
+    monkeypatch.setattr(worker.ranking, "load_snapshots", lambda: [
+        {"ts": 1, "items": [{"name": "Top", "score": 90, "position": 1},
+                            {"name": "Sumiu", "score": 50, "position": 2}]}])
+    monkeypatch.setattr(worker.ranking, "save_snapshot",
+                        lambda *a: (_ for _ in ()).throw(
+                            AssertionError("não devia salvar ranking")))
+    monkeypatch.setattr(worker.scan_store, "registrar_ciclo",
+                        lambda *a, **kw: (_ for _ in ()).throw(
+                            AssertionError("não é uma coleta completa")))
+    registro = {}
+    monkeypatch.setattr(worker.scan_store, "registrar_rodada_top",
+                        lambda itens, alvos, dur: registro.update(
+                            itens=itens, alvos=alvos))
+    recebido = {}
+
+    def _fake(categories, tinham_historico=None, **kw):
+        recebido.update(categories=categories, hist=tinham_historico)
+        return [{"name": "Top", "score": 95, "price": 12.0}]
+
+    monkeypatch.setattr(worker.scan_engine, "run_full_scan", _fake)
+    novos = worker.rodada_top()
+    assert [r["name"] for r in novos] == ["Top"]
+    assert recebido["categories"] == {"Facas": ["Top"]}
+    assert recebido["hist"] == {"Top"}
+    salvo = original_load(path=scan_path)
+    assert salvo["ts"] == 1000.0  # idade da coleta completa preservada
+    assert {r["name"]: r["price"] for r in salvo["results"]} == {
+        "Top": 12.0, "Fora": 1.0}
+    assert registro == {"itens": 1, "alvos": 1}
+
+
+def test_status_mostra_rodada_top(client, monkeypatch):
+    monkeypatch.setattr(scan_store, "load_rodada_top",
+                        lambda: {"ts": time.time() - 600, "itens": 20,
+                                 "alvos": 20, "duracao_min": 3.1})
+    body = client.get("/status").data.decode("utf-8")
+    assert "20 primeiros do ranking" in body and "há 10 min" in body

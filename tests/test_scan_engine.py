@@ -681,3 +681,23 @@ def test_comparar_fontes_mede_mediana():
 def test_fonte_pagina_inclui_mediana_24h():
     f = scan_engine._fonte_pagina(_pagina(), {"best_ask": 1}, False)
     assert f["mediana_24h"] == 100.0
+
+
+def test_comparar_fontes_separa_mediana_por_liquidez():
+    sombras = [
+        {"name": "Liquido", "median_overview": 10.0, "mediana_24h": 10.1,
+         "volume_overview": 500},
+        {"name": "Medio", "median_overview": 10.0, "mediana_24h": 10.0,
+         "volume_overview": 40},
+        {"name": "Parado", "median_overview": 10.0, "mediana_24h": 14.0,
+         "volume_overview": 2},
+        {"name": "Parado2", "median_overview": 10.0, "mediana_24h": 10.0,
+         "volume_overview": 3},
+    ]
+    r = scan_engine.comparar_fontes(sombras)
+    faixas = r["mediana_por_liquidez"]
+    assert faixas["alta"] == {"itens": 1, "concorda_pct": 100.0}
+    assert faixas["media"] == {"itens": 1, "concorda_pct": 100.0}
+    assert faixas["baixa"] == {"itens": 2, "concorda_pct": 50.0}
+    assert r["mediana_divergentes"] == [
+        {"name": "Parado", "vendas_24h": 2, "razao": 1.386}]

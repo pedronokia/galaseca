@@ -143,3 +143,32 @@ def proxima_txt(ts: float, intervalo_horas: float,
     if falta < 3600:
         return f"em ~{int(falta // 60)} min"
     return f"em ~{int(falta // 3600)} h"
+
+
+# ── Rodada rápida do Top 20 (2026-11-13) ─────────────────────────────
+
+_RODADA_TOP_PATH = DATA_DIR / "rodada_top.json"
+
+
+def registrar_rodada_top(itens: int, alvos: int, duracao_min: float,
+                         path: "Path | str | None" = None,
+                         now: "float | None" = None) -> None:
+    """Grava a última rodada rápida do Top 20 (só a mais recente: é
+    estado pro /status, não histórico)."""
+    p = Path(path) if path is not None else _RODADA_TOP_PATH
+    try:
+        atomic_write_text(p, json.dumps({
+            "ts": time.time() if now is None else now,
+            "itens": itens, "alvos": alvos,
+            "duracao_min": round(duracao_min, 1)}))
+    except OSError:
+        pass
+
+
+def load_rodada_top(path: "Path | str | None" = None) -> "dict | None":
+    p = Path(path) if path is not None else _RODADA_TOP_PATH
+    try:
+        dados = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return dados if isinstance(dados, dict) and "ts" in dados else None

@@ -660,6 +660,7 @@ def create_app() -> Flask:
                 "itens": len(scan["results"]) if scan else 0,
             },
             "ultimo_ciclo_worker": ultimo_ciclo,
+            "ultima_rodada_top": scan_store.load_rodada_top(),
             "intervalo_horas_configurado": intervalo_horas,
             "no_ar_desde": uptime.no_ar_desde(),
             "visitas_total": visits.total(),
@@ -1133,8 +1134,13 @@ def create_app() -> Flask:
             f"{min(valores_visitas)} – {max(valores_visitas)} visitas por dia no período"
             if len(valores_visitas) >= 2 else None)
         ciclos_ok = sum(1 for c in ciclos if c.get("sucesso"))
+        rodada_top = scan_store.load_rodada_top()
+        if rodada_top:
+            rodada_top = dict(rodada_top,
+                              quando=scan_store.idade_txt(rodada_top["ts"]))
         return render_template(
             "status.html",
+            rodada_top=rodada_top,
             estado_scan=_estado_do_scan(
                 scan_progress.carregar(), ciclos,
                 float(ambiente("WORKER_INTERVAL_HORAS",

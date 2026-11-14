@@ -598,6 +598,96 @@ def _prioridade_do_scan_anterior() -> "dict[str, float]":
     return out
 
 
+# ── Rodada rápida do Top 20 (2026-11-13) ─────────────────────────────
+# Entre duas coletas completas, a cada `LODOUT_TOP_RAPIDO_HORAS` (padrão
+# 2 h; 0 desliga) o worker atualiza só os 20 itens do ranking atual: são
+# os mais vistos do site, e assim o preço deles nunca passa de ~2 h.
+# ~40 requisições por rodada (+~22% no total com ciclo de 6 h), no mesmo
+# ritmo/disjuntor da coleta completa. O ranking em si só é recalculado na
+# coleta completa -- 20 itens frescos contra 165 de horas atrás não
+# formam um Top 20 justo.
+_TOP_RAPIDO_HORAS_DEFAULT = 2.0
+# Não começa rodada rápida se a coleta completa estiver a menos disto.
+_TOP_RAPIDO_MARGEM_S = 30 * 60
+
+
+def rodada_top() -> "list[dict]":
+    """Atualiza os itens do Top 20 atual no scan_store, sem mexer no
+    ranking, no histórico de coletas nem no checkpoint. Devolve os
+    resultados novos ([] se não havia o que fazer ou foi interrompida)."""
+    global _escaneando
+    snaps = ranking.load_snapshots()
+    scan = scan_store.load_last_scan()
+    if not snaps or not scan:
+        return []
+    nomes = [it["name"] for it in snaps[-1].get("items", [])]
+    por_nome = {r["name"]: r for r in scan["results"]}
+    nomes = [n for n in nomes if n in por_nome]
+    if not nomes:
+        return []
+    categorias: "dict[str, list[str]]" = {}
+    for n in nomes:
+        categorias.setdefault(por_nome[n].get("category") or "Top 20",
+                              []).append(n)
+    tinham_historico = {
+        n for n in nomes
+        if ((por_nome[n].get("data_quality") or {}).get("n") or 0) > 0}
+    inicio = time.time()
+    _logger.info("Rodada rápida do Top 20: %d itens", len(nomes))
+    _escaneando = True
+    try:
+        novos = scan_engine.run_full_scan(
+            categorias, on_progress=_logger.info,
+            ritmo=_ritmo_do_ciclo(scan_store.load_historico_ciclos()),
+            relatorio={}, tinham_historico=tinham_historico,
+            cancelled=lambda: _parar)
+    finally:
+        _escaneando = False
+    if _parar or not novos:
+        return []
+    # Relê: entre o início e agora nada mais escreve o scan_store (o
+    # worker é um processo só), mas reler deixa claro que é merge.
+    scan = scan_store.load_last_scan() or scan
+    frescos = {r["name"]: r for r in novos}
+    resultados = [frescos.get(r["name"], r) for r in scan["results"]]
+    scan_store.save_last_scan(scan["category"], resultados, now=scan["ts"])
+    duracao = (time.time() - inicio) / 60
+    scan_store.registrar_rodada_top(len(novos), len(nomes), duracao)
+    _logger.info("Rodada rápida concluída: %d de %d em %.1fmin",
+                 len(novos), len(nomes), duracao)
+    return novos
+
+
+def _dormir_com_rodadas_top(espera_s: float, permitido: bool = True) -> None:
+    """Dorme `espera_s` até a próxima coleta completa, fazendo rodadas
+    rápidas do Top 20 no caminho. Sem rodada quando desligado, quando a
+    última coleta não trouxe nada (Steam fora) ou quando a completa está
+    perto demais."""
+    try:
+        horas = float(ambiente("TOP_RAPIDO_HORAS", _TOP_RAPIDO_HORAS_DEFAULT))
+    except (TypeError, ValueError):
+        horas = _TOP_RAPIDO_HORAS_DEFAULT
+    if not permitido or horas <= 0:
+        time.sleep(espera_s)
+        return
+    passo = horas * 3600
+    fim = time.time() + espera_s
+    while True:
+        falta = fim - time.time()
+        if falta <= passo + _TOP_RAPIDO_MARGEM_S:
+            time.sleep(max(0.0, falta))
+            return
+        time.sleep(passo)
+        if _parar:
+            return
+        try:
+            rodada_top()
+        except Exception:
+            _logger.error("rodada rápida do Top 20 falhou", exc_info=True)
+        if _parar:
+            return
+
+
 def main(intervalo_horas: "float | None" = None) -> None:
     """`intervalo_horas=None` lê `LODOUT_WORKER_INTERVAL_HORAS` (env),
     com fallback pro default -- pra ajustar a cadência em produção sem
@@ -614,7 +704,7 @@ def main(intervalo_horas: "float | None" = None) -> None:
     if espera > 0:
         _logger.info("Último ciclo terminou há pouco; próximo em %.1f min",
                      espera / 60)
-        time.sleep(espera)
+        _dormir_com_rodadas_top(espera)
     vazios_seguidos = 0
     while True:
         try:
@@ -625,7 +715,9 @@ def main(intervalo_horas: "float | None" = None) -> None:
         if _parar:
             return
         vazios_seguidos = 0 if trouxe else vazios_seguidos + 1
-        time.sleep(_espera_apos_ciclo(intervalo_horas, vazios_seguidos))
+        _dormir_com_rodadas_top(
+            _espera_apos_ciclo(intervalo_horas, vazios_seguidos),
+            permitido=trouxe)
 
 
 if __name__ == "__main__":

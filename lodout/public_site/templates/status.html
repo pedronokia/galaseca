@@ -66,6 +66,9 @@
     {% elif estado_scan.proximo_txt %}
     <p class="estado-scan-proximo">Próxima coleta {{ estado_scan.proximo_txt }}.</p>
     {% endif %}
+    {% if rodada_top %}
+    <p class="status-muted">Entre as coletas completas, os 20 primeiros do ranking têm o preço atualizado a cada 2 horas. Última atualização {{ rodada_top.quando }}: {{ rodada_top.itens }} de {{ rodada_top.alvos }} itens.</p>
+    {% endif %}
     <p>A cada 6 horas, o Lodout busca de novo na Steam o preço de cada item
     que acompanha. Se a Steam pede uma pausa, a coleta espera e continua de
     onde parou. Se a pausa passar de 45 minutos, a coleta termina antes, e

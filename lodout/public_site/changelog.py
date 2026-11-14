@@ -8,6 +8,13 @@ from __future__ import annotations
 
 ENTRADAS = [
     {
+        "data": "2026-11-14",
+        "titulo": "Top 20 com preço mais fresco",
+        "itens": [
+            "Os 20 primeiros do ranking passam a ter o preço atualizado a cada 2 horas, entre as coletas completas de 6 em 6 horas. A página Status mostra quando foi a última atualização.",
+        ],
+    },
+    {
         "data": "2026-11-13",
         "titulo": "Acessibilidade e acabamento (auditoria de interface)",
         "itens": [

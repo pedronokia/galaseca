@@ -219,6 +219,7 @@ def scan_item(name: str, category: str | None = None,
             "lowest_overview": (overview or {}).get("lowest"),
             "volume_overview": volume,
             "median_overview": (overview or {}).get("median"),
+            "name": name,
         },
     }
 
@@ -329,11 +330,53 @@ def comparar_fontes(sombras: "list[dict]") -> "dict | None":
     rp, cp = _resumo(pares_p, 0.02)
     rv, cv = _resumo(pares_v, 0.25)
     rm, cm = _resumo(pares_m, 0.05)
-    return {"itens_preco": len(pares_p), "razao_preco": rp,
-            "preco_concorda_pct": cp, "itens_volume": len(pares_v),
-            "razao_volume": rv, "volume_concorda_pct": cv,
-            "itens_mediana": len(pares_m), "razao_mediana": rm,
-            "mediana_concorda_pct": cm}
+    out = {"itens_preco": len(pares_p), "razao_preco": rp,
+           "preco_concorda_pct": cp, "itens_volume": len(pares_v),
+           "razao_volume": rv, "volume_concorda_pct": cv,
+           "itens_mediana": len(pares_m), "razao_mediana": rm,
+           "mediana_concorda_pct": cm}
+    if rm:
+        out.update(_mediana_por_liquidez(sombras, rm))
+    return out
+
+
+# Faixas de liquidez (vendas nas últimas 24 h, pelo priceoverview) pra
+# ver onde a mediana da listing page diverge (2026-11-13: 87,2% no geral;
+# a hipótese é que a divergência se concentra nos itens pouco negociados).
+_FAIXAS_LIQUIDEZ = (("baixa", 0, 10), ("media", 10, 100), ("alta", 100, None))
+_DIVERGENTES_MAX = 12
+
+
+def _mediana_por_liquidez(sombras: "list[dict]", razao: float) -> dict:
+    """Concordância da mediana por faixa de vendas/dia + os itens que
+    mais divergem (nome, vendas, razão), pra decidir se dá pra usar a
+    listing page sozinha só nos itens líquidos."""
+    faixas = {nome: [0, 0] for nome, _a, _b in _FAIXAS_LIQUIDEZ}
+    divergentes = []
+    for f in sombras:
+        mo, mp, vol = (f.get("median_overview"), f.get("mediana_24h"),
+                       f.get("volume_overview"))
+        if not (isinstance(mo, (int, float)) and isinstance(mp, (int, float))
+                and mo > 0 and mp > 0 and isinstance(vol, (int, float))):
+            continue
+        r = (mp / mo) / razao
+        ok = abs(r - 1) <= 0.05
+        for nome, ini, fim in _FAIXAS_LIQUIDEZ:
+            if vol >= ini and (fim is None or vol < fim):
+                faixas[nome][0] += 1
+                faixas[nome][1] += ok
+                break
+        if not ok:
+            divergentes.append({"name": f.get("name"), "vendas_24h": vol,
+                                "razao": round(r, 3)})
+    divergentes.sort(key=lambda d: -abs(d["razao"] - 1))
+    return {
+        "mediana_por_liquidez": {
+            nome: {"itens": n, "concorda_pct": (round(100 * ok / n, 1)
+                                                if n else None)}
+            for nome, (n, ok) in faixas.items()},
+        "mediana_divergentes": divergentes[:_DIVERGENTES_MAX],
+    }
 
 
 # Itens SEGUIDOS cuja página veio sem histórico, sendo que no ciclo
